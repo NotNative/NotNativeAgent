@@ -450,6 +450,22 @@ waits — the server row ships first so a closed tab can never strand a queue.
   Escape + project switch). NOT in: the task editor dialog itself (the
   Edit button arrives with P9-4c), the editor's autocompletes,
   session-switcher placement polish (P9-4c).
+- **P9-4c-i (the schedule preview machinery — delivered this slice)** —
+  the editor's time inputs need to show what they produce before a task
+  exists, so the slice ships the server primitive as a route:
+  `POST /api/openchamber/scheduled-tasks/preview` takes a DRAFT schedule
+  (+ optional `count` 1..4, `from` epoch) and answers `{slots}` by
+  iterating `computeNextRunAt` — the exact function the armer uses — so
+  previewed = armed (E-09-26). Wire: invalid drafts answer 200 with the
+  collected (possibly empty) prefix — "preview unavailable", never an
+  error panel; only shape 400s. Client: `previewNextRuns` in
+  `scheduled-tasks-api.ts` with the wire pins (bare `{schedule}` body
+  when options are omitted, 200-empty-prefix stays ok, 400 fold). Tests:
+  `p9-4c-cron-preview.test.ts` 10/10 (true epoch bytes, DST-family
+  spacing, weekly filter, consumed once, hostile shapes, epoch window,
+  count clamp, shape 400s) + 4 client pins. NOT in: the editor dialog
+  itself, kinds/time literals/weekday selectors (P9-4d), the debounced
+  preview wiring in a React surface.
 
 ## B. Adaptation deltas (registered)
 
@@ -1021,3 +1037,36 @@ waits — the server row ships first so a closed tab can never strand a queue.
   gate measures RAW block length (no nesting collapse) — the dialog is
   split into hook/fanout/panel/header/rows/name-block/actions so every
   span stays ≤ 60; expect that shape to be kept, not re-merged.
+
+- **E-09-26 (the schedule preview route, NND interpretation of §C.2/§C.3
+  "next-4-runs preview")**: the §H editor shows the next runs BEFORE a
+  task exists; there is no openchamber route for that, so NND ships the
+  arming primitive as `POST /api/openchamber/scheduled-tasks/preview`
+  (registered here and in the §A P9-4c-i row): (a) wire — draft schedule
+  + optional `count` (integer 1..4, else default 4; 0/out-of-range → 4)
+  + optional `from` (epoch ms); the bounded reader folds malformed/
+  oversize/non-object bodies into the one 400 `preview body must be an
+  object`, and a missing/non-object/array `schedule` into `schedule
+  object is required`. (b) leadership — the loop iterates
+  `computeNextRunAt(draft, true, cursor)` with `cursor = last + 1`, the
+  same claim-cursor shape the runtime uses (`Math.max(now, scheduledFor
+  + 1)`), the same 5 s due-slack, so previewed = armed; the only
+  divergence is the runtime's overdue policy inside a long running task
+  (§C.2 previews the schedule, not the runtime's timing). (c) invalid-
+  draft posture — an invalid draft answers 200 with the collected
+  (possibly empty) prefix; the UI renders "unavailable", it is never an
+  error panel; `from` is honored only inside `[0, 253402300799999]`
+  (year-9999Z edge; beyond it Intl candidates throw RangeError) and
+  folds to `Date.now()` like a non-number. (d) hostile shapes — the
+  daily/weekly branches of `computeNextRunAt` now guard non-array
+  `times`/`weekdays` to empty (audit-reproduced TypeErrors escaped the
+  handler): compute stays the validator, the route never wraps the loop
+  in try/catch. (e) the client `previewNextRuns` passes `count`/`from`
+  through UNCLAMPED (JSON.stringify renders NaN/±Infinity as null, the
+  router folds null to now) — one validation authority, the server, so
+  a client clamp cannot grow a second drifting count window. (f) cost
+  note — scans are bounded (15 candidate days, cron max, fold walk);
+  worst case ≈ 1 s CPU at a 64 KiB all-valid-times body, localhost
+  behind the gates, acceptable for a debounced editor call; the same
+  cost class exists for the pre-existing armer with 256 KiB stored
+  bodies — carried here as a flagged follow-up, not fixed in-slice.

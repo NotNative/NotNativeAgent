@@ -9,8 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runtimeFetch } from '../runtime-fetch.ts';
 import {
   deleteLoopFile, deleteScheduledTask, listScheduledTasks, parseTaskRunEvent,
-  runScheduledTask, schedulerStatus, setLoopFileEnabled, SCHEDULED_TASK_RAN,
-  upsertScheduledTask, type ScheduledTaskInput, type ScheduledTaskView,
+  previewNextRuns, runScheduledTask, schedulerStatus, setLoopFileEnabled,
+  SCHEDULED_TASK_RAN, upsertScheduledTask, type ScheduledTaskInput, type ScheduledTaskView,
+  type TaskSchedule,
 } from '../scheduled-tasks-api.ts';
 import type { HarnessEvent } from '../nnd/events.ts';
 
@@ -178,5 +179,62 @@ describe('parseTaskRunEvent (C.10 fanout)', () => {
     expect(parseTaskRunEvent(ranEvent({ taskId: 't1', ranAt: 1, status: 'success' }))).toBeNull();
     expect(parseTaskRunEvent(ranEvent({ projectId: 'a', taskId: 't1', ranAt: 'x', status: 'success' }))).toBeNull();
     expect(parseTaskRunEvent(ranEvent({ projectId: 'a', taskId: 't1', ranAt: 1, status: 'idle' }))).toBeNull();
+  });
+});
+
+describe('previewNextRuns (E-09-26 draft preview)', () => {
+  it('POSTs {schedule, count, from} to the preview route and folds {slots}', async () => {
+    const schedule: TaskSchedule = { kind: 'daily', times: ['08:30'], timezone: 'Europe/Berlin' };
+    call.mockResolvedValueOnce(json(200, { slots: [1770000000000, 1770086400000] }));
+    const outcome = await previewNextRuns(schedule, { count: 2, from: 1769990000000 });
+    const [url, init] = call.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/openchamber/scheduled-tasks/preview');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ schedule, count: 2, from: 1769990000000 });
+    expect(outcome).toEqual({ ok: true, slots: [1770000000000, 1770086400000] });
+  });
+
+  it('omitted options stringify as the bare {schedule} body', async () => {
+    call.mockResolvedValueOnce(json(200, { slots: [] }));
+    await previewNextRuns({ kind: 'cron', cron: '0 9 * * 1-5', timezone: 'UTC' });
+    const [, init] = call.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ schedule: { kind: 'cron', cron: '0 9 * * 1-5', timezone: 'UTC' } });
+  });
+
+  it('a 200 with an empty prefix stays ok (invalid draft is not an error)', async () => {
+    call.mockResolvedValueOnce(json(200, { slots: [] }));
+    expect(await previewNextRuns({ kind: 'once', date: '2020-01-01', time: '09:00', timezone: 'UTC' }))
+      .toEqual({ ok: true, slots: [] });
+  });
+
+  it('folds the registered shape-error 400', async () => {
+    call.mockResolvedValueOnce(json(400, { error: 'schedule object is required' }));
+    // A cast models a caller building the body from loose form state.
+    expect(await previewNextRuns(null as unknown as TaskSchedule))
+      .toEqual({ ok: false, status: 400, error: 'schedule object is required' });
+  });
+
+  it('weird options pass through: the server owns validation (no client clamp)', async () => {
+    // Decision (E-09-26): the client does NOT clamp count/from. JSON.stringify
+    // already makes NaN/Infinity `null`, and the route folds every unusable
+    // count to the default 4 and every unusable `from` to now - one
+    // validation authority instead of two windows that can drift apart.
+    call.mockResolvedValueOnce(json(200, { slots: [1] }));
+    const outcome = await previewNextRuns(
+      { kind: 'daily', times: ['09:00'], timezone: 'UTC' } as TaskSchedule,
+      { count: Number.NaN, from: Number.POSITIVE_INFINITY },
+    );
+    const [, init] = call.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      schedule: { kind: 'daily', times: ['09:00'], timezone: 'UTC' },
+      count: null, from: null,
+    });
+    expect(outcome).toEqual({ ok: true, slots: [1] });
+    call.mockResolvedValueOnce(json(200, { slots: [] }));
+    await previewNextRuns({ kind: 'once', date: '2020-01-01', time: '09:00', timezone: 'UTC' }, { count: 0 });
+    const [, zeroInit] = call.mock.calls[1] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(zeroInit.body))).toEqual({
+      schedule: { kind: 'once', date: '2020-01-01', time: '09:00', timezone: 'UTC' }, count: 0,
+    });
   });
 });

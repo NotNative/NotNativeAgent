@@ -123,7 +123,9 @@ export function parseOnceSlot(date: string, time: string): { y: number; mo: numb
 
 /**
  * Epoch ms of the next occurrence, or null (disabled task, invalid zone,
- * invalid cron, empty times, or a consumed `once`). §C.3.
+ * invalid cron, empty times, or a consumed `once`). §C.3. Field shapes are
+ * guarded, not trusted (times/weekdays must be arrays): stored tasks, the
+ * editor's JSON draft (preview) and hostile bodies ride the same path.
  */
 export function computeNextRunAt(schedule: Schedule | undefined, enabled: boolean, now: number): number | null {
   if (!schedule || !enabled || !isValidZone(schedule.timezone)) return null;
@@ -131,13 +133,13 @@ export function computeNextRunAt(schedule: Schedule | undefined, enabled: boolea
   try { parts(now, zone); } catch { return null; }
   switch (schedule.kind) {
     case 'daily': {
-      const times = minuteSet(schedule.times ?? []);
+      const times = minuteSet(Array.isArray(schedule.times) ? schedule.times : []);
       if (times.length === 0) return null;
       return nextCandidate(times, null, zone, now);
     }
     case 'weekly': {
-      const times = minuteSet(schedule.times ?? []);
-      const weekdays = [...new Set(schedule.weekdays ?? [])]
+      const times = minuteSet(Array.isArray(schedule.times) ? schedule.times : []);
+      const weekdays = [...new Set(Array.isArray(schedule.weekdays) ? schedule.weekdays : [])]
         .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6).sort();
       if (times.length === 0 || weekdays.length === 0) return null;
       return nextCandidate(times, weekdays, zone, now);

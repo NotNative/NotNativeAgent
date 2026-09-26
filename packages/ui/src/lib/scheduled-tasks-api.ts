@@ -150,6 +150,19 @@ export function runScheduledTask(
   return apiJson(urlOf(projectId, `/${encodeURIComponent(taskId)}/run`), { method: 'POST' });
 }
 
+/** Editor preview (E-09-26): POSTs the DRAFT schedule; the server runs it
+ * through the same computeNextRunAt the armer uses, so shown = armed. A
+ * 200 with an invalid draft carries an empty (prefix) `slots`, not an error. */
+export function previewNextRuns(
+  schedule: TaskSchedule, options: { count?: number; from?: number } = {},
+): Promise<{ ok: true; slots: number[] } | ApiFailure> {
+  return apiJson<{ slots: number[] }>('/api/openchamber/scheduled-tasks/preview', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ schedule, count: options.count, from: options.from }),
+  });
+}
+
 export async function schedulerStatus(): Promise<{ ok: true; status: SchedulerStatus } | ApiFailure> {
   // The body IS the status snapshot; apiJson attaches the `ok` flag beside it.
   const outcome = await apiJson<SchedulerStatus>('/api/openchamber/scheduled-tasks/status');

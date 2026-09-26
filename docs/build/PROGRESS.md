@@ -22,6 +22,27 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4c-i the schedule preview machinery.** The editor
+  surface needs "what will this schedule arm" before the task exists:
+  `POST /api/openchamber/scheduled-tasks/preview` iterates the armer's
+  own `computeNextRunAt` over a draft schedule (cursor = last + 1, the
+  same claim-cursor shape the runtime uses, same 5 s due-slack), so
+  previewed = armed by construction. Invalid drafts answer 200 with the
+  collected prefix (the UI will render "unavailable"); only body/schedule
+  shape errors are 400s; `count` clamps to 1..4 (default 4); `from` is
+  honored only inside the year-9999 epoch window and folds to now beyond
+  it. The audit reproduced two 500 classes on the pristine slice (hostile
+  non-array `times`/`weekdays` escaping the compute branches; extreme
+  finite `from` hitting Intl RangeError at the JS Date-range edge) and
+  fixed both at the sanctioned layers (next-run branch guards; the
+  route's `PREVIEW_EPOCH_MAX` fold), added the true-bytes daily pin the
+  invariants-only test could not provide, and decided the client
+  passes options through unclamped (server = sole validation authority).
+  `previewNextRuns` in the typed client rides the E-09-24 envelope rule.
+  Web 65 files / 894 tests (preview suite 10/10), UI 96 files / 870
+  (client 20/20), typechecks, gates (416 files), graph (416 modules).
+  E-09-26 registers the posture. Next: P9-4d the editor dialog.
+
 - 2026-09-26 · **P9-4b the scheduled-tasks dialog.** The §H surface came
   alive in `components/scheduled`: the dialog (project selector riding
   the active directory's project, schedule summaries

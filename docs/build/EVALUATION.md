@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - schedule preview route at P9-4c-i
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Preview route | `POST /api/openchamber/scheduled-tasks/preview` 10/10: true epoch bytes (daily 09:00 UTC from a fixed 08:00Z start = `[09:00Z, +1d, +2d, +3d]`), weekly weekday filter (`[1,3]` from a Monday start → Mon/Wed/Mon), consumed once → empty prefix, invalid zone/cron → 200 `{slots:[]}`, hostile field shapes → 200 empty prefix (non-array times/weekdays, string weekdays, non-string cron, junk zone), `from` outside `[0, year-9999]` folds to now, count clamps 1..4 (default 4), shape 400s (non-object body, missing schedule, string/array schedule) |
+| Arming consistency | the loop's cursor `last + 1` equals the runtime claim cursor `Math.max(now, scheduledFor + 1)` and both ride `computeNextRunAt` with the same 5 s slack - previewed = armed by construction, divergence only from the runtime's overdue policy inside a long run (planned §C.2 semantics: previews the schedule, not the runtime timing) |
+| Typed client | `previewNextRuns` 4 pins: wire body `{schedule, count, from}` with omitted options stringifying as the bare `{schedule}` object, 200 empty-prefix stays `ok:true` (invalid draft is not an error), registered 400 fold, and options pass through unclamped (JSON.stringify renders NaN/±Infinity as null before the router folds them to now) |
+| Adversarial review | 2 defect classes reproduced red on the pristine slice and fixed (hostile non-array `times`/`weekdays` → TypeErrors escaping the compute branches, guarded in next-run.ts; extreme finite `from` → Intl RangeError at the Date-range edge, folded via `PREVIEW_EPOCH_MAX` in the route); 1 test-honesty gap closed (invariants-only daily test would have passed a wrong-shape handler - true bytes now pinned); probed-and-clean: route mount posture (same app, before the harness proxy, after browserWriteGate/apiAuthGate like its siblings), `__proto__` JSON keys, bounded scan costs (~1 s worst case), abort-signal absence for the debounced editor |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Editor dialog (P9-4d) | kind tabs, time pills (24h/12h locale-aware), weekday chips (locale week start), date calendar, cron input + example chips wired to this preview, IANA zone select (`Intl.supportedValuesOf('timeZone')`), model/agent selectors, prompt autocompletes (`@file` / slash / `#snippet`), goal + budget, auto-accept, and the enabled toggle |
+| Edit-button integration | the tasks row Edit button + selection handoff land with P9-4d |
+
 ## 2026-09-26 - scheduled-tasks dialog at P9-4b
 
 **Verified working**

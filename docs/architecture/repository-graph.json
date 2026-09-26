@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:8a56be8b463e085f644137ea2a74227bb27fc8666e7872eb325fbc6198793e48",
+  "source_digest": "sha256:e7cf4dba9ae30c35d8b8256eb02dba779d4c4a3b45b621b78257ba2c1f872c9f",
   "counts": {
     "modules": 416,
     "component_edges": 13
@@ -3740,6 +3740,7 @@
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/scheduled/loops.ts",
+        "packages/web/src/server/scheduled/next-run.ts",
         "packages/web/src/server/scheduled/scheduled-constants.ts",
         "packages/web/src/server/scheduled/scheduled-service.ts",
         "packages/web/src/server/scheduled/task-config.ts",

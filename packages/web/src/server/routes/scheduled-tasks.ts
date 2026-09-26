@@ -26,8 +26,17 @@ import {
 } from '../scheduled/scheduled-service.ts';
 import { PROJECT_ID_PATTERN } from '../scheduled/scheduled-constants.ts';
 import { writeLoopEnabled, loopTaskId, type DiscoveredLoop } from '../scheduled/loops.ts';
+import { computeNextRunAt } from '../scheduled/next-run.ts';
+import type { Schedule } from '../scheduled/task-schema.ts';
 
 const BODY_MAX = 256 * 1024;
+/** The preview `from` window: [1970-01-01, 9999-12-31T23:59:59.999Z]. `from`
+ * inside it is honored; anything else folds to now — the same fold a
+ * non-number takes. computeNextRunAt builds zone WALL-CLOCK candidates
+ * internally, so instants near the ±10^8-day Date range overflow into
+ * invalid intermediate dates (an Intl RangeError) that the real armer can
+ * never see, because the armer always computes from the wall clock of now. */
+const PREVIEW_EPOCH_MAX = 253402300799999;
 
 type LoopResolver = (projectId: string) => Promise<readonly DiscoveredLoop[] | null>;
 
@@ -219,6 +228,33 @@ async function runTaskHandler(
   return c.json(result);
 }
 
+/** Editor preview (doc 12 §C.2 "next-4-runs preview", E-09-26): the draft
+ *  schedule runs through the SAME `computeNextRunAt` the armer uses, so
+ *  what the preview shows is what will arm. Invalid drafts answer the
+ *  collected prefix (possibly empty), never an error - the UI renders
+ *  "unavailable" instead. The bounded reader folds malformed, oversize and
+ *  non-object bodies into one 400 (the reader's registered null fold). */
+async function previewScheduleHandler(c: Context): Promise<Response> {
+  const body = await readJsonBodyBounded(c.req.raw, 64 * 1024);
+  if (body === null) return fail(c, 400, 'preview body must be an object');
+  const { schedule, count, from } = body;
+  if (typeof schedule !== 'object' || schedule === null || Array.isArray(schedule)) {
+    return fail(c, 400, 'schedule object is required');
+  }
+  const want = typeof count === 'number' && Number.isInteger(count) && count >= 1 && count <= 4 ? count : 4;
+  const start = typeof from === 'number' && Number.isFinite(from) && from >= 0
+    && from <= PREVIEW_EPOCH_MAX ? from : Date.now();
+  const slots: number[] = [];
+  let cursor = start;
+  for (let index = 0; index < want; index += 1) {
+    const next = computeNextRunAt(schedule as Schedule, true, cursor);
+    if (next === null) break;
+    slots.push(next);
+    cursor = next + 1;
+  }
+  return c.json({ slots });
+}
+
 export function createScheduledTaskRoutes(
   provider: () => ScheduledTasksRuntime | null = getScheduledTasksRuntime,
   options: ScheduledRouteOptions = {},
@@ -231,6 +267,7 @@ export function createScheduledTaskRoutes(
   app.patch('/api/projects/:projectId/scheduled-tasks/:taskId/loop-file', (c) => patchLoopFileHandler(c, provider));
   app.delete('/api/projects/:projectId/scheduled-tasks/:taskId/loop-file', (c) => deleteLoopFileHandler(c, provider));
   app.post('/api/projects/:projectId/scheduled-tasks/:taskId/run', (c) => runTaskHandler(c, provider));
+  app.post('/api/openchamber/scheduled-tasks/preview', (c) => previewScheduleHandler(c));
   app.get('/api/openchamber/scheduled-tasks/status', (c) => c.json(schedulerStatusOf(provider())));
   return app;
 }
