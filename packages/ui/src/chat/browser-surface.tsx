@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Manual, sandboxed preview. Agent inspection and capture are not exposed here. */
+/** Manual, isolated preview with user-triggered read-only DOM inspection. */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
+import { pageSnapshotScript, parsePageSnapshot, type PageSnapshot } from '../lib/browser/page-snapshot.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
@@ -111,6 +112,10 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const guestRef = useRef<HTMLElement | null>(null);
   const [guestStart, setGuestStart] = useState<string | null>(null);
   const [guestStatus, setGuestStatus] = useState<GuestStatus | null>(null);
+  const [snapshot, setSnapshot] = useState<PageSnapshot | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const inspectionRevision = useRef(0);
   const [reload, setReload] = useState(0);
   const [invalid, setInvalid] = useState(false);
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'loading', servers: [] });
@@ -126,6 +131,19 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const waitForLocal = localRuntime && isLoopbackPreview(readinessTarget);
   const probeState = readiness?.key === probeKey ? readiness.state : 'checking';
 
+  function invalidateInspection(): void {
+    inspectionRevision.current += 1;
+    setSnapshot(null);
+    setSnapshotError(null);
+    setSnapshotBusy(false);
+  }
+
+  useEffect(() => {
+    if (!visible) invalidateInspection();
+  }, [visible]);
+
+  useEffect(() => () => { inspectionRevision.current += 1; }, []);
+
   useEffect(() => {
     // Hiding destroys the guest. Preserve its latest top-level URL so a later
     // reveal restores the page actually shown, not the original launch URL.
@@ -140,6 +158,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       if (typeof url !== 'string' || !canEmbedDesktopPreview(url)) return;
       const target = normalizePreviewUrl(url, window.location.origin);
       if (!target) return;
+      invalidateInspection();
       setGuestStatus({ kind: 'ready', message: target });
       if (target === historyRef.current[indexRef.current]) return;
       const next = [...historyRef.current.slice(0, indexRef.current + 1), target];
@@ -149,13 +168,19 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       setIndex(next.length - 1);
       setAddress(target);
     };
-    const loading = (): void => setGuestStatus({ kind: 'loading', message: 'Loading page…' });
+    const loading = (): void => {
+      invalidateInspection();
+      setGuestStatus({ kind: 'loading', message: 'Loading page…' });
+    };
     const failure = (event: Event): void => {
       if (guestEventValue(event, 'isMainFrame') === false || guestEventValue(event, 'errorCode') === -3) return;
       const description = guestEventValue(event, 'errorDescription');
       setGuestStatus({ kind: 'failed', message: typeof description === 'string' ? description : 'Page failed to load.' });
     };
-    const crashed = (): void => setGuestStatus({ kind: 'failed', message: 'Preview renderer stopped. Reload to retry.' });
+    const crashed = (): void => {
+      invalidateInspection();
+      setGuestStatus({ kind: 'failed', message: 'Preview renderer stopped. Reload to retry.' });
+    };
     guest.addEventListener('did-navigate', navigation);
     guest.addEventListener('did-navigate-in-page', navigation);
     guest.addEventListener('did-start-loading', loading);
@@ -196,6 +221,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     setAddress(target);
     setGuestStart(target);
     setGuestStatus(null);
+    invalidateInspection();
     if (target === active) { setReload((value) => value + 1); return; }
     const next = [...historyRef.current.slice(0, indexRef.current + 1), target];
     historyRef.current = next;
@@ -219,7 +245,37 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     setAddress(history[next]!);
     setGuestStart(history[next]!);
     setGuestStatus(null);
+    invalidateInspection();
     setInvalid(false);
+  }
+
+  async function inspectPage(): Promise<void> {
+    const guest = guestRef.current as (HTMLElement & {
+      executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
+    }) | null;
+    if (!desktop || !guest?.executeJavaScript || snapshotBusy) return;
+    const revision = ++inspectionRevision.current;
+    setSnapshotBusy(true);
+    setSnapshotError(null);
+    setSnapshot(null);
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    try {
+      const value = await Promise.race([guest.executeJavaScript(pageSnapshotScript(), false),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Page inspection timed out.')), 15_000);
+        })]);
+      const result = parsePageSnapshot(value);
+      if (revision !== inspectionRevision.current) return;
+      if (!result || guestRef.current !== guest || result.url !== historyRef.current[indexRef.current])
+        throw new Error('The page changed before inspection finished.');
+      setSnapshot(result);
+    } catch (error) {
+      if (revision === inspectionRevision.current)
+        setSnapshotError(error instanceof Error ? error.message : 'Page inspection failed.');
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      if (revision === inspectionRevision.current) setSnapshotBusy(false);
+    }
   }
 
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-browser">
@@ -234,11 +290,21 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       <div className="mt-2 flex items-center gap-1 text-[11px] text-neutral-300">
         <button type="button" aria-label="Preview back" disabled={index <= 0} onClick={() => move(-1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">←</button>
         <button type="button" aria-label="Preview forward" disabled={index < 0 || index >= history.length - 1} onClick={() => move(1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">→</button>
-        <button type="button" aria-label="Reload preview" disabled={!active} onClick={() => { setGuestStart(active); setGuestStatus(null); setReload((value) => value + 1); }} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">Reload</button>
+        <button type="button" aria-label="Reload preview" disabled={!active} onClick={() => { setGuestStart(active); setGuestStatus(null); invalidateInspection(); setReload((value) => value + 1); }} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">Reload</button>
+        {desktop ? <button type="button" disabled={!active || snapshotBusy} onClick={() => { void inspectPage(); }}
+          className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">{snapshotBusy ? 'Inspecting…' : 'Inspect page'}</button> : null}
         {active ? <a href={active} target="_blank" rel="noopener noreferrer" className="ml-auto rounded border border-white/15 px-2 py-0.5">Open externally</a> : null}
       </div>
       {desktop && guestStatus ? <p role="status" className={`mt-1 text-[11px] ${guestStatus.kind === 'failed' ? 'text-amber-300' : 'text-neutral-400'}`}>{guestStatus.message}</p> : null}
+      {snapshotError ? <p role="alert" className="mt-1 text-[11px] text-amber-300">{snapshotError}</p> : null}
     </header>
+    {snapshot ? <div className="max-h-56 overflow-auto border-b border-white/10 p-2 text-[11px] text-neutral-300" data-testid="browser-page-snapshot">
+      <div className="flex justify-between"><strong>{snapshot.title || snapshot.url}</strong><button type="button" className="underline" onClick={() => setSnapshot(null)}>Close inspection</button></div>
+      <p className="mt-1 break-all text-neutral-500">{snapshot.url}</p>
+      <p className="mt-1">{snapshot.text}{snapshot.textTruncated ? '…' : ''}</p>
+      <p className="mt-2 text-neutral-500">{snapshot.interactiveElementsOnPage} interactive elements{snapshot.elementsTruncated ? ' (first 120 shown)' : ''}</p>
+      <ul>{snapshot.elements.map((element, idx) => <li key={`${element.selector}-${idx}`} className="truncate">{element.tag} · {element.label || '(unlabeled)'} · {element.selector}</li>)}</ul>
+    </div> : null}
     {active && waitForLocal && probeState !== 'ready' ? <div className="p-3 text-xs text-neutral-400" role="status">
       {probeState === 'checking' ? 'Waiting for local server to start…' : probeState === 'timed-out'
         ? 'Local server did not answer within 30 seconds.' : 'Readiness check unavailable.'}

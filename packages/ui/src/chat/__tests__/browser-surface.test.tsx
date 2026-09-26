@@ -105,6 +105,56 @@ describe('BrowserSurface', () => {
     })));
     expect(view.textContent).toContain('NAME_NOT_RESOLVED');
   });
+  it('shows a bounded user-requested page snapshot only in the desktop guest', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('https://example.org/'); await flush();
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    guest.executeJavaScript = vi.fn().mockResolvedValue({ url: 'https://example.org/', title: 'Example', text: 'Ready',
+      textTotalChars: 5, textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
+    await act(async () => { [...view.querySelectorAll('button')].find((button) => button.textContent === 'Inspect page')!.click(); await Promise.resolve(); });
+    expect(guest.executeJavaScript).toHaveBeenCalledOnce();
+    expect(view.querySelector('[data-testid="browser-page-snapshot"]')?.textContent).toContain('Example');
+    expect(view.querySelector('[data-testid="browser-page-snapshot"]')?.textContent).toContain('Ready');
+  });
+  it('discards a stale inspection after navigation away and back to the same URL', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('https://example.org/'); await flush();
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    let resolveFirst!: (value: unknown) => void;
+    guest.executeJavaScript = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValue({ url: 'https://example.org/', title: 'Fresh', text: 'New content',
+        textTotalChars: 11, textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
+    act(() => [...view.querySelectorAll('button')].find((button) => button.textContent === 'Inspect page')!.click());
+    expect(view.textContent).toContain('Inspecting…');
+    act(() => guest.dispatchEvent(Object.assign(new Event('did-navigate'), { url: 'https://example.net/' })));
+    act(() => guest.dispatchEvent(Object.assign(new Event('did-navigate'), { url: 'https://example.org/' })));
+    expect(view.textContent).not.toContain('Inspecting…');
+    await act(async () => resolveFirst({ url: 'https://example.org/', title: 'Stale', text: 'Old content',
+      textTotalChars: 11, textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false }));
+    expect(view.querySelector('[data-testid="browser-page-snapshot"]')).toBeNull();
+    await act(async () => { [...view.querySelectorAll('button')].find((button) => button.textContent === 'Inspect page')!.click(); await Promise.resolve(); });
+    expect(view.querySelector('[data-testid="browser-page-snapshot"]')?.textContent).toContain('New content');
+  });
+  it('recovers the inspection control when the guest script never settles', async () => {
+    vi.useFakeTimers();
+    try {
+      window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+      readyFetch();
+      const view = render();
+      enter('https://example.org/'); await flush();
+      const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+      guest.executeJavaScript = vi.fn().mockImplementation(() => new Promise(() => undefined));
+      act(() => [...view.querySelectorAll('button')].find((button) => button.textContent === 'Inspect page')!.click());
+      expect(view.textContent).toContain('Inspecting…');
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(view.textContent).toContain('Page inspection timed out.');
+      expect([...view.querySelectorAll('button')].find((button) => button.textContent === 'Inspect page')?.disabled).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
   it('offers host-local listener URLs only on a loopback app origin', () => {
     expect(canPreviewDiscoveredServers('http://localhost:3902')).toBe(true);
     expect(canPreviewDiscoveredServers('http://[::1]:3902')).toBe(true);

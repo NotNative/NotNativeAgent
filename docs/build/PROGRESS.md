@@ -15,12 +15,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
 | P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, opt-in legacy note/todo copy, and bounded legacy plan-link migration in progress 2026-09-26; shared plans, memory/skills/MCP pending |
-| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, browser wait UI, isolated Electron guest preview, and guest navigation lifecycle delivered 2026-09-26; inspection, annotation, tunnels, walkthrough pending |
+| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, browser wait UI, isolated Electron guest, navigation lifecycle, and manual bounded DOM snapshot delivered 2026-09-26; agent control, capture, annotation, tunnels, walkthrough pending |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-26 · **P11-6 manual DOM snapshot.** The isolated desktop guest now
+  has a user-triggered, read-only page summary with bounded visible text,
+  interactive elements, and truncation counts. Input values stay out of the
+  result; malformed guest results and stale navigation results are rejected.
+  Adversarial review fixed stale same-URL inspections, unresolved-script busy
+  state, and unbounded URL/title fields. This does not grant NNA browser control.
 
 - 2026-09-26 · **P11-5 guest navigation lifecycle.** The desktop browser now
   follows in-page and top-level guest navigation in its address/history UI

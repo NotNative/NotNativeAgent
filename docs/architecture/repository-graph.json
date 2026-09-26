@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9d9fee7b66ef5f9d812caa9071de97bb2e883e8638a486e7c004461785d5f817",
+  "source_digest": "sha256:e52cdd1e5ac08b9de09f2c86f9aa2d33f33e81b1f32e8a5e1787e6ea45688895",
   "counts": {
-    "modules": 440,
+    "modules": 441,
     "component_edges": 13
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 124
+      "module_count": 125
     },
     {
       "id": "ui-shell",
@@ -100,7 +100,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 148,
+      "import_count": 149,
       "module_count": 63
     },
     {
@@ -216,6 +216,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/browser/page-snapshot.ts",
         "packages/ui/src/lib/browser/preview-url.ts",
         "packages/ui/src/lib/platform.ts"
       ]
@@ -1352,6 +1353,12 @@
     },
     {
       "path": "packages/ui/src/lib/api/types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/browser/page-snapshot.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []

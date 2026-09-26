@@ -192,6 +192,10 @@
     {
       "version": "20260926-37",
       "content_sha256": "aa9cb8b26265278df289bc08637e00347c5f2d16fbc10fa01bab2018e2efcafb"
+    },
+    {
+      "version": "20260926-38",
+      "content_sha256": "9bc43ee1ec7fb7f2350492008959403b05f711feac4f3930264114ea410c5b9c"
     }
   ]
 }

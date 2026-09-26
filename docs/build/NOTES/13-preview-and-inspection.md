@@ -84,3 +84,19 @@ suite, graph, source smoke, and release gates.
   review caught that restoration requirement.
 - This does not yet implement Chromium crash auto-retry, page-title/favicons,
   DevTools, capture/annotation, remote tunnels, or NNA agent control.
+
+## P11-6: user-requested page snapshot (2026-09-26)
+
+- The desktop guest now offers an explicit Inspect page control. A self-contained
+  read-only script runs inside the guest and returns a capped visible-text and
+  interactive-element summary: 6000 text characters, 120 elements, 80-character
+  labels, bounds, and explicit total/truncation counts. It does not read form
+  input values or host application state. Non-desktop iframe preview does not
+  expose this control.
+- Guest results are validated after crossing the process boundary. Navigation,
+  hide, reload, and guest crash invalidate pending inspections; an unresolved
+  script times out at 15 seconds. Adversarial review fixed stale same-URL
+  results, a stuck busy control, and unbounded guest URL/title fields.
+- This is a local user-facing DOM summary, not NNA agent control. The NNA tool
+  callback, capability-scoped broker, screenshot capture, and annotation still
+  require separate slices.
