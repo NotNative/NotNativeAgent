@@ -529,6 +529,27 @@ waits — the server row ships first so a closed tab can never strand a queue.
   fold verbatim). Suites: routes 19/19 (11 slice + 8 audit), client
   4/4; web 66 files/913, UI 99 files/913. NOT in: the composer picker
   source + the settings management page (P9-4e-ii).
+- **P9-4e-ii (the snippet UI half — delivered this slice)** —
+  `snippets-source.ts` 59: the shared browser roster (map replaced
+  wholesale per successful load, snapshot-at-open readers, refresh never
+  rejects, current-roster keep on refusals AND on hostile 200 bodies).
+  Composer: the `#` picker rides the roster (one refresh per mount —
+  the shell mounts exactly one), and the insert path operates on the
+  latest text via the ref; the file-cap split moved the attachment/
+  send-failure helpers to `composer-attachments.ts` 33. The audit
+  carried the E-09-28 (i) flag home: the composer's `@` merge guard was
+  a per-render no-op (the mention token counter re-initialized every
+  render, so late responses compared 1 against themselves) — now a
+  cross-render ref + the span+kind guard + a pickerRef clear on insert,
+  with three red-then-green pins. Settings: `pages/snippets.tsx` 181 —
+  roster management over the family (create with the byte-equal name
+  guard, inline text edit, delete, refresh), every change republishing
+  the shared roster; registered in the window's page components (the
+  old placeholder path is gone for this slug). Editor parity pin: the
+  scheduled task's `#` source rides the same roster. Suites: composer
+  pins 5/5, page 9/9, source 4/4, editor 19/19, window 26/26; UI 102
+  files/932, web 66/913 re-verified untouched. NOT in: `#` keyboard
+  navigation (a composer §B.6 concern), snippet import/export.
 
 ## B. Adaptation deltas (registered)
 
@@ -1236,3 +1257,50 @@ waits — the server row ships first so a closed tab can never strand a queue.
   registered before the `:name` POST (Hono first-match), so the
   expansion route can never shadow creation and `GET :name expand`
   stays addressable.
+
+- **E-09-30 (the composer mention-merge governance, fixed at P9-4e-ii)**:
+  the composer's fsSearch merge guard required equal tokenStart only and
+  the mention token counter was a component-body `let` — each discrete
+  input commits a fresh render, so every pending response compared
+  against its own frame's frozen counter (1 vs 1) and the staleness
+  check was a no-op in the normal browser flow; late responses
+  repopulated the current picker and bound inserts to the outgrown
+  span. Fixed: the counter now lives in a ref (crosses renders),
+  merges admit only the SAME tokenStart AND kind (the editor's
+  `mergedPickerItems` parity, E-09-28 (d)), and `applyPick` clears
+  `pickerRef` alongside the picker state so a late response never
+  serves a dead entry. This closes the E-09-28 (i) carry-flag.
+- **E-09-31 (the composer textRef render-currency posture)**:
+  `textRef.current = text` assigns at render and `updateText` does not
+  sync it — sound because React flushes discrete input/click events
+  before returning to the browser and a pick is a click in a later
+  task; within a task the thread cannot interleave setText and commit.
+  The reachable staleness was the picker insert surviving a render
+  (P9-4e-ii's carry-fix: inserts read `textRef.current`). Keep insert
+  paths on the ref, never the render snapshot.
+- **E-09-32 (the roster refresh count)**: the `#` roster refresh fires
+  once per Composer mount; the shell mounts exactly one (MainLayout →
+  one ChatView → Composer in the non-child arm), so one list call per
+  app mount; failures keep the roster and never reject. Revisit only
+  if a second Composer instance ships.
+- **E-09-33 (picker snapshot-at-open, both surfaces)**: the composer's
+  open picker computes items at trigger time and does not re-filter
+  when a response or a roster load lands mid-open — the next keystroke
+  recomputes; the scheduled-execution editor calls `snippetNames()` at
+  each trigger build. Snapshot-at-open is the designed semantics.
+- **E-09-34 (the snippets settings-page row lifecycle)**: (a) the page
+  name guard is byte-equal `/^[\w-]{1,64}$/u` to the store authority;
+  (b) a record folded away under an open edit answers 404 verbatim,
+  keeps the row drafting, and does not reload — recovery is the
+  explicit Refresh; (c) delete is unreachable while a row edits (the
+  edit branch renders only text/Save/Cancel); (d) scope is never
+  offered client-side, the server defaults `'global'`.
+- **E-09-35 (config-entity 200s are unshape-checked at the family
+  boundary)**: `apiJson` stamps `ok: true` onto ANY 200 body and
+  validates no shape (the registered envelope contract); consumers
+  must guard. A fulfilment-handler throw does not route into the
+  sibling rejection handler — an unguarded consumer turns a hostile
+  200 into an unhandled rejection. Rule for every future config-entity
+  consumer: treat ok-but-malformed as a refusal (source store: keep
+  the roster, no republish; management page: refuse to the alert line
+  with `snippet response was malformed`).

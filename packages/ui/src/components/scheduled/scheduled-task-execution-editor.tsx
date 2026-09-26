@@ -3,9 +3,10 @@
  * The execution half of the scheduled-task editor (doc 12 §H "Editor
  * dialog"): model/agent selectors fed by the chat directory stores, the
  * prompt textarea with the composer's autocompletes (`@file` rides
- * /api/fs/search, `/` rides the command registry, `#snippet` reuses the
- * composer's registry-driven machinery - currently an empty source, E-09-28
- * parity), the goal toggle + token budget, and the auto-accept/enabled
+ * /api/fs/search, `/` rides the command registry, `#snippet` rides the
+ * snippet source roster (E-09-28 (d) parity with the composer's `#`
+ * picker, P9-4e-ii), the goal toggle + token budget, and the
+ * auto-accept/enabled
  * chips. Click-to-pick only - keyboard picker navigation stays a composer
  * concern (E-09-28 (d)).
  */
@@ -13,12 +14,13 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboard
 import { activeTrigger, replaceTriggerToken, type AutocompleteTrigger } from '../../chat/prompt-language.ts';
 import { PickerPopup } from '../../chat/composer-bits.tsx';
 import { fsSearch, type FsEntry } from '../../lib/server-api.ts';
+import { snippetNames } from '../../lib/snippets-source.ts';
 import type { Provider } from '../../lib/nnd/types.ts';
 import type { TaskExecution } from '../../lib/scheduled-tasks-api.ts';
 
 type PickerState = { trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void };
 const MODEL_SEP = '::';
-const SNIPPET_SOURCES: string[] = [];
+const SNIPPET_SOURCES = snippetNames; // P9-4e-ii: snapshot-at-open, refreshed next trigger
 
 export function ExecutionEditor({ execution, onChange, providers, commands, agents, directory }: {
   execution: TaskExecution;
@@ -180,7 +182,7 @@ function PromptField({ execution, onChange, commands, agents, directory }: {
     onChange({ ...execution, prompt: next });
     const trigger = activeTrigger(next, caret);
     if (trigger === null) { setPicker(null); return; }
-    const source = trigger.kind === 'snippet' ? SNIPPET_SOURCES
+    const source = trigger.kind === 'snippet' ? SNIPPET_SOURCES()
       : trigger.kind === 'mention' ? agents : commands;
     const items = source.filter((name) => name.toLowerCase().includes(trigger.query.toLowerCase())).sort();
     setPicker({ trigger, items, insert: (item) => applyPick(trigger, item) });

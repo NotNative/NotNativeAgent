@@ -17,14 +17,16 @@ import { activeTrigger, commandRegistry, replaceTriggerToken, tokenizePrompt, ty
 import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
 import { readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
-import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
+import { planSend, type PlannedSend } from './send-planner.ts';
 import { useAuthSessionStore, authSessionBlocksSend } from '../lib/runtime-auth-expiry.ts';
 import { ComposerFooter, AttachmentChips, PickerPopup, QueueChipsRow } from './composer-bits.tsx';
+import { describeSendFailure, dedupeNames, fileToDataUrl } from './composer-attachments.ts';
 import { handleQueuedTarget } from './composer-queue.ts';
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import { starterInsertText, type Starter } from './starters.ts';
 import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
+import { refreshSnippets, snippetMap, snippetSubscribe } from '../lib/snippets-source.ts';
 import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
@@ -74,6 +76,10 @@ export function Composer(props: ComposerProps): ReactNode {
   const textRef = useRef(text);
   textRef.current = text;
   const pickerRef = useRef<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
+  // P9-4e-ii: the mention search counter crosses renders - a per-render `let`
+  // froze one frame per keystroke, so every pending response compared against
+  // its OWN frame (always equal) and the staleness guard was a no-op.
+  const mentionTokenRef = useRef(0);
 
   const store = services.store(directory);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
@@ -81,7 +87,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const { configUnavailable, nnaConfigured, nnaModel, sendAgent, modelLabel, model } = useComposerModel(snapshot, props.modelSelection, agent, sessionID);
   const commandSet = useMemo(() => commandRegistry(snapshot.command, BUILTIN_COMMANDS), [snapshot.command]);
   const agentNames = useMemo(() => snapshot.agent.map((entry) => entry.name), [snapshot.agent]);
-  const snippets = useMemo(() => new Map<string, string>(), []);
+  const snippets = useSyncExternalStore(snippetSubscribe, snippetMap); // P9-4e-ii: the config-entity roster
   const skillSet = useMemo(() => new Set<string>(), []);
   const rows = props.expanded ? 24 : Math.max(2, Math.min(MAX_LINES, text.split('\n').length));
 
@@ -102,6 +108,10 @@ export function Composer(props: ComposerProps): ReactNode {
   useEffect(() => {
     void useMessageQueueStore.getState().hydrate().catch(() => undefined);
   }, [sessionID]);
+
+  // P9-4e-ii: the `#` picker rides the config-entity roster; a failed
+  // refresh keeps the current roster and the picker stays whatever it was.
+  useEffect(() => { void refreshSnippets(); }, []);
 
   // §B.9/§C.10: one fill channel for revert/undo and the §E.4 suggestion chip
   // (detail without `append` replaces). §10.5 add-to-chat rides the same
@@ -152,8 +162,12 @@ export function Composer(props: ComposerProps): ReactNode {
 
   function applyPick(trigger: AutocompleteTrigger, item: string): void {
     const replacement = trigger.kind === 'mention' ? `@${item}` : trigger.kind === 'snippet' ? `#${item}` : `/${item}`;
-    const { text: next, caret } = replaceTriggerToken(text, trigger, replacement);
+    // P9-4e-ii: operate on the LATEST text - the picker entry survives the
+    // re-render that landed the typed token, so the render snapshot it
+    // would otherwise capture goes stale (same hole the editor audit fixed).
+    const { text: next, caret } = replaceTriggerToken(textRef.current, trigger, replacement);
     setPicker(null);
+    pickerRef.current = null;
     updateText(next, caret);
     editorRef.current?.focus();
   }
@@ -180,7 +194,6 @@ export function Composer(props: ComposerProps): ReactNode {
     triggerPending(next, caret);
   };
 
-  let triggerMentionToken = 0;
   function triggerPending(value: string, caret: number): void {
     const found = activeTrigger(shell ? '' : value, caret);
     if (!found) { setPicker(null); pickerRef.current = null; return; }
@@ -191,11 +204,12 @@ export function Composer(props: ComposerProps): ReactNode {
     if (found.kind === 'mention') {
       // §B.6: mentions cover PROJECT FILES (fuzzy over the chat directory)
       // + agents; file results come from /api/fs/search (doc 03 §5.14).
-      const token = ++triggerMentionToken;
+      const token = ++mentionTokenRef.current;
       void fsSearch(directory, found.query).then((files) => {
-        if (token !== triggerMentionToken) return; // stale completion publishes nothing
+        if (token !== mentionTokenRef.current) return; // stale completion publishes nothing
         const current = getCurrentPicker();
-        if ((current?.trigger.tokenStart ?? -1) !== found.tokenStart) return;
+        // P9-4e-ii (editor parity): a merge admits only the SAME token span AND kind.
+        if ((current?.trigger.tokenStart ?? -1) !== found.tokenStart || current?.trigger.kind !== found.kind) return;
         const merged = [...new Set([...agentNames, ...files.map((file) => file.path)])]
           .filter((name) => name.toLowerCase().includes(found.query.toLowerCase()))
           .sort();
@@ -345,13 +359,6 @@ export function Composer(props: ComposerProps): ReactNode {
     return `The user explicitly mentioned these skills in their message: ${names.map((n) => `/${n}`).join(', ')}. Use the corresponding skill tool when it is relevant to accomplishing the user's request.`;
   }
 
-  function describeSendFailure(error: unknown, hadAttachments: boolean): void {
-    const kind = sendErrorKind(error);
-    if (kind === 'runtime-changed') toast.error('Message failed to send. Attachments restored.');
-    else if (kind === 'payload-too-large') toast.error('Attachments are too large to send. Trim the batch and try again.');
-    else toast.error(hadAttachments ? 'Message failed to send. Attachments restored.' : 'Message failed to send. Your text was restored.');
-  }
-
   function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
     if (picker) {
       if (event.key === 'Enter' || event.key === 'Tab') event.preventDefault();
@@ -481,20 +488,6 @@ export function Composer(props: ComposerProps): ReactNode {
       />
     </form>
   );
-}
-
-async function fileToDataUrl(file: File): Promise<string> {
-  const reader = new FileReader();
-  return new Promise((resolvePromise, rejectPromise) => {
-    reader.onload = () => resolvePromise(String(reader.result));
-    reader.onerror = () => rejectPromise(reader.error ?? new Error('file read failed'));
-    reader.readAsDataURL(file);
-  });
-}
-
-function dedupeNames(list: DraftAttachment[]): DraftAttachment[] {
-  const seen = new Set<string>();
-  return list.filter((a) => (seen.has(a.name) ? false : (seen.add(a.name), true)));
 }
 
 export type { QueuedMessage };

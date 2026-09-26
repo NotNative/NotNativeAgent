@@ -22,6 +22,34 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4e-ii the snippet UI half.** The composer's `#`
+  picker rides the shared roster now: `snippets-source.ts` replaces the
+  empty map (wholesale-visible loads, never-rejecting refresh that
+  keeps the roster on refusals and hostile 200 bodies), the composer
+  refreshes once per mount and inserts over the latest text, and the
+  scheduled editor's `#` source rides the same roster (E-09-28 (d)
+  parity held). The settings window gained a real Snippets page (the
+  placeholder path is gone for the slug): roster management over the
+  P9-4e-i family with the byte-equal name guard, inline text edits,
+  deletes, and a refresh button, every change republishing the shared
+  roster so composer stays in sync without a reload. The audit carried
+  the E-09-28 (i) flag home and reproduced the composer's mention-merge
+  guard as a per-render no-op (the token counter re-initialized every
+  render — late responses compared 1 against themselves and the
+  checker never fired); fixed with a cross-render ref, the span+kind
+  guard at editor parity, and a pickerRef clear on insert, plus three
+  red-then-green composer pins (late-token stall, kind swap, dead-entry
+  resurrection). A hostile 200 without the roster array folded into an
+  unhandled rejection (fulfilment-handler throws bypass the sibling
+  catch) — guarded at the source and folded to the alert line on the
+  page. Registered: the textRef render-currency posture, the one-Composer
+  refresh count, snapshot-at-open on both picker surfaces, the row
+  lifecycle constraints, and the unscape-checked-200 consumer rule.
+  Composer pins 5/5, page 9/9, source 4/4, editor 19/19, window 26/26;
+  UI 102 files/932, web 66/913 re-verified, typechecks clean, gates
+  426 files, graph 426 modules. E-09-30..35. Next: the B.6.3 distill,
+  then the P9 wrap.
+
 - 2026-09-26 · **P9-4e-i the snippet config-entity family.** The server
   half of the snippet macro resolver landed: the `snippet-store.ts`
   (`<data-dir>/config/snippets/<name>.json`, names `[\w-]{1,64}`,

@@ -23,6 +23,8 @@ import {
   type ScheduledTaskView, type TaskSchedule,
 } from '../../../lib/scheduled-tasks-api.ts';
 import { fsSearch } from '../../../lib/server-api.ts';
+import { listSnippets } from '../../../lib/snippets-api.ts';
+import { __resetSnippetsSourceForTests, refreshSnippets } from '../../../lib/snippets-source.ts';
 import type { ComposerServices } from '../../../chat/composer.tsx';
 import { useGlobalSyncStore } from '../../../sync/global-stores.ts';
 
@@ -47,11 +49,13 @@ vi.mock('../../../lib/nnd/events.ts', () => ({
   subscribeControlEvents: vi.fn(() => new Promise(() => undefined)),
 }));
 vi.mock('../../../lib/server-api.ts', () => ({ fsSearch: vi.fn() }));
+vi.mock('../../../lib/snippets-api.ts', () => ({ listSnippets: vi.fn() }));
 
 const upsert = upsertScheduledTask as unknown as Mock;
 const list = listScheduledTasks as unknown as Mock;
 const preview = previewNextRuns as unknown as Mock;
 const files = fsSearch as unknown as Mock;
+const snippetList = listSnippets as unknown as Mock;
 
 const PROVIDERS_STUB: unknown = [
   { id: 'prov1', name: 'Prov One', models: { m1: { id: 'm1' }, m2: { id: 'm2' } } },
@@ -169,6 +173,9 @@ beforeEach(() => {
   preview.mockResolvedValue({ ok: true, slots: [] });
   files.mockReset();
   files.mockResolvedValue([]);
+  snippetList.mockReset();
+  snippetList.mockResolvedValue({ ok: true, snippets: [] });
+  __resetSnippetsSourceForTests();
 });
 
 afterEach(() => { unmount(); });
@@ -293,6 +300,20 @@ describe('ScheduledTaskEditorDialog (doc 12 §H, E-09-28)', () => {
         .dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect((document.querySelector('[data-testid="task-prompt-input"]') as HTMLTextAreaElement).value).toBe('check @maintenance.rs ');
+  });
+
+  it('# rides the shared snippet roster at composer parity (P9-4e-ii)', async () => {
+    snippetList.mockResolvedValue({ ok: true, snippets: [{ name: 'sig', text: 'r', scope: 'global' }] });
+    await act(async () => { await refreshSnippets(); });
+    renderEditor(taskView());
+    await setNativeValue(document.querySelector('[data-testid="task-prompt-input"]') as HTMLTextAreaElement, 'log #si');
+    expect(textOf('composer-picker')).toContain('sig');
+    await act(async () => {
+      [...document.querySelectorAll('[data-testid="composer-picker"] button')]
+        .find((button) => button.textContent === 'sig')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect((document.querySelector('[data-testid="task-prompt-input"]') as HTMLTextAreaElement).value).toBe('log #sig ');
   });
 
   it('a failed save folds to the toast and keeps the editor open', async () => {

@@ -3,6 +3,27 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - the snippet UI half at P9-4e-ii
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Shared roster | source 4/4: successful loads publish and notify; refusals AND rejected requests keep the current roster (same instance); each load replaces the map wholesale |
+| Composer `#` | pins 5/5 over the real transport: the mount refresh publishes the server roster; `#si` lists server snippets and picking inserts `#sig ` (trailing space); a failed load keeps 'No matches' silently; a late response from a PRIOR token publishes nothing (counter crossing renders); a `#ma` retyped over a pending `@ma` merges no file results (span+kind guard); an insert clears the picker entry so no late response resurrects it |
+| Composer inserts over the latest text | picking after typing replaces in the TYPED document (`send #si` + pick → `send #sig `), the pin that reproduced the stale-render-snapshot hole before the ref read |
+| Settings page | page 9/9: roster render; refused list folds to the alert line and Refresh recovers; create rides the client and republishes the shared roster (list call count 3); an invalid name answers the byte-equal pattern string without a request; 409 keeps the form with the verbatim toast; edit PATCHes by stored name; a record folded away under an edit answers 404 verbatim and keeps the row drafting; delete leaves the row after the reload; a malformed 200 folds to the alert line |
+| Editor parity | `# rides the shared snippet roster at composer parity` (editor 19/19): the same insert semantics and trailing space |
+| Adversarial review | 3 defect classes reproduced red and fixed (the per-render token-counter no-op carried from E-09-28 (i), the hostile-200 unhandled rejection, the page's silent blank on malformed 200); probed-and-clean: textRef render-currency trace, one-Composer topology, byte-equal name patterns, settings-window 26/26 loop renders the real page, delete-mid-edit unreachability |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Snippet import/export | not in scope; the family remains single-name files |
+| B.6.3 distill | the autonomy-chapter distill ride is the next slice |
+| `#` keyboard navigation | clickable picker only on all surfaces (registered composer concern) |
+
 ## 2026-09-26 - the snippet config-entity family at P9-4e-i
 
 **Verified working**
