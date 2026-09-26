@@ -22,6 +22,32 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 goal evaluator exchange (audit, no dispatch).** The
+  safety runner's `ready` candidates are now consumed by an independent
+  auditor exchange through NNA's authenticated, receipt-affinity-bound
+  `goal-audit` route: NNA binds the call to the audited turn's final
+  provider route (profile + model) and answers raw text; NND parses the
+  bounded verdict, records the evaluation-route attribution, and settles or
+  streaks through the id- and revision-guarded goal CAS. Verdicts follow
+  doc 12 T3-T5: `complete` settles verified by audit, three consecutive
+  `blocked` settle with the audit note, and the second consecutive audit
+  failure/unavailability settles `progress audit unavailable` with the
+  unadvanced cursor so the same turn is re-presented. Races (goal changed,
+  stale evidence, busy seat) drop without streak writes; a pre-audit
+  coherence guard refuses a tick whose candidate no longer matches the
+  durable goal, so a user Pause/reactivate/budget edit inside the window
+  can only refuse the loop, never be overwritten. `turnsUsed` stays
+  untouched: sent continuations must consume the 20-cap slot at dispatch
+  time (queued, E-09-18). Unattended prompts remain off; the
+  auto-continuation-disabled label stays accurate. Adversarial review
+  caught a mid-window goal edit surviving every runtime guard into the
+  verdict write (a user's budget raise/reactivate would have been silently
+  reverted); fixed with the pre-audit drop and regression coverage.
+  Verification: 751 web tests, 824 UI tests, typecheck, quality gates,
+  395-module graph, and the cross-repo source smoke now also proves the
+  live audit wire (attributed receipt, raw audit answer on the same
+  provider route, stale-revision conflict). Version: NND 20260925-73.
+
 - 2026-09-25 · **P9 goal evaluator affinity.** NNA terminal records and
   owner-scoped goal evidence now retain bounded, non-secret provider profile
   and model IDs for the final route actually used by a turn, including

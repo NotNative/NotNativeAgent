@@ -28,7 +28,7 @@ export class NnaGoalSafetyRuntime {
     private readonly feed: QueueFeed,
     private readonly ports: GoalSafetyPorts,
     private readonly enabled: () => boolean,
-    private readonly onReady: (result: Extract<GoalSafetyTickResult, { kind: 'ready' }>, sessionId: string, directory: string) => void = () => {},
+    private readonly onReady: (result: Extract<GoalSafetyTickResult, { kind: 'ready' }>, sessionId: string, directory: string) => unknown = () => {},
     private readonly timing: GoalTiming = DEFAULT_TIMING,
   ) {}
 
@@ -132,7 +132,14 @@ export class NnaGoalSafetyRuntime {
       if (!stillCurrent()) {
         return { kind: 'wait', reason: 'session changed during tick' };
       }
-      if (result.kind === 'ready') this.onReady(result, id, directory);
+      if (result.kind === 'ready') {
+        // A ready consumer owns its failures: the safety loop must survive a
+        // rejected exchange the same way it survives an unreachable harness.
+        try {
+          const consumed = this.onReady(result, id, directory);
+          if (consumed instanceof Promise) await consumed;
+        } catch { /* owned */ }
+      }
       if (result.kind === 'wait' && ['status unavailable', 'goal tick dependency unavailable'].includes(result.reason)) {
         this.arm(id, this.timing.idleMs);
       }

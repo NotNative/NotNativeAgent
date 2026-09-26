@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Production adapter for the NNA pre-audit goal safety tick. */
 import { callHarness, callHarnessJson, harnessRequest } from '../queue/queue-adapter-calls.ts';
-import { FETCH_TIMEOUT_MS, MESSAGE_FETCH_LIMIT } from './goal-constants.ts';
+import { AUDIT_CALL_TIMEOUT_MS, FETCH_TIMEOUT_MS, MESSAGE_FETCH_LIMIT } from './goal-constants.ts';
+import type { GoalAuditBody, GoalAuditPorts, GoalAuditWire } from './nna-goal-auditor.ts';
 import type { GoalPayload } from './goal-payload.ts';
 import type { GoalSafetyPorts } from './nna-goal-safety-tick.ts';
 import { ObjectiveStore } from './objective-store.ts';
@@ -41,6 +42,27 @@ export function createNnaGoalSafetyPorts(store = new ObjectiveStore()): GoalSafe
       return value?.goal !== null && typeof value?.goal === 'object'
         && (value.goal as { id?: unknown }).id === body.goal.id
         && value.revision === body.expected_revision + 1;
+    },
+  };
+}
+
+/**
+ * Safety ports plus the authenticated audit call. The route is bound inside
+ * NNA to the audited turn's final provider route; this side only forwards the
+ * bounded body and hands back the raw status/body pair for interpretation.
+ */
+export function createNnaGoalAuditPorts(store = new ObjectiveStore()): GoalAuditPorts {
+  const base = createNnaGoalSafetyPorts(store);
+  return {
+    ...base,
+    runAudit: async (sessionId: string, directory: string, body: GoalAuditBody): Promise<GoalAuditWire> => {
+      const response = await callHarness(harnessRequest(`/v1/nnd/sessions/${path(sessionId)}/goal-audit`, directory, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body), signal: AbortSignal.timeout(AUDIT_CALL_TIMEOUT_MS),
+      }));
+      let payload: unknown = null;
+      try { payload = await response.json(); } catch { payload = null; }
+      return { status: response.status, body: payload };
     },
   };
 }

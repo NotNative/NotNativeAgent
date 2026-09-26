@@ -17,7 +17,8 @@ import { getRelayHostService } from './lib/relay/host-service.ts';
 import { wireTunnelPlane } from './lib/tunnels/tunnel-startup.ts';
 import { getMessageQueueRuntime } from './queue/queue-runtime.ts';
 import { NnaGoalSafetyRuntime } from './goals/nna-goal-runtime.ts';
-import { createNnaGoalSafetyPorts } from './goals/nna-goal-safety-ports.ts';
+import { runGoalAuditExchange } from './goals/nna-goal-auditor.ts';
+import { createNnaGoalAuditPorts } from './goals/nna-goal-safety-ports.ts';
 import { readMergedSettings } from './lib/settings-store.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
@@ -147,12 +148,15 @@ function bootAutomation(): NnaGoalSafetyRuntime | null {
   return bootGoalSafety();
 }
 
-/** Shared feed, safety-only: no evaluator or automatic prompt dispatch yet. */
+/** Real-harness clients; the exchange deliberately sends no prompts. */
 function bootGoalSafety(): NnaGoalSafetyRuntime | null {
   if (ENV.harness !== 'nna') return null;
   try {
-    const runtime = new NnaGoalSafetyRuntime(getMessageQueueRuntime().feed,
-      createNnaGoalSafetyPorts(), () => readMergedSettings('web').sessionGoalEnabled === true);
+    const ports = createNnaGoalAuditPorts();
+    const runtime = new NnaGoalSafetyRuntime(getMessageQueueRuntime().feed, ports,
+      () => readMergedSettings('web').sessionGoalEnabled === true,
+      (ready, sessionId, directory) =>
+        runGoalAuditExchange(ports, ready, sessionId, directory).then(() => undefined));
     runtime.start();
     return runtime;
   } catch (error) {

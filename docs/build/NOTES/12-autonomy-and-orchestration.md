@@ -172,6 +172,31 @@ waits — the server row ships first so a closed tab can never strand a queue.
   knowledge module itself (E-09-2) and agent-registry mention validation
   (E-09-7) stay future seams.
 
+- **P9-2c (goal evaluator exchange, delivered this slice)** — checklist
+  B.5.5/B.6: the tick's `ready` candidates are consumed by an independent
+  auditor exchange; modules 3 (`nna-goal-auditor.ts` 245, the
+  `runAudit` production adapter inside `nna-goal-safety-ports.ts` 64,
+  runtime +12): pure apply functions (verdict streaks, T5 failure streaks,
+  note/attribution bookkeeping, whole-payload equality + loop-field drift +
+  revision readers), the wire interpreter (code-keyed race vs unavailable
+  classification — NNA answers 4xx-contract errors non-status-keyed), the
+  CAS exchange (fresh re-reads, a pre-audit loop-field coherence guard vs
+  the tick candidate, revision-equality across the audit window, single
+  combined verdict write, streak-only failure writes, skip-audit candidates
+  persisted without an audit call and never re-audited), and the awaited
+  consumer hook (index.ts passes the audited ports + exchange; the runtime
+  parks later arms behind it). `turnsUsed` stays untouched while dispatch
+  stays off (E-09-18c). Tests: `p9-2c-goal-auditor.test.ts` (409, 26: apply
+  matrix, interpreter matrix, helper matrix, 13 exchange orchestration
+  cases incl. the adversarial pre-audit edit-drop, the production-port
+  wire shape, and the runtime-inline-consumer serialization) + the live
+  `probeGoalAudit` seam in the cross-repo source smoke (`smoke-goal.mjs`
+  116): an armed goal under one REAL provider turn, the attributed receipt
+  (primary/test), NNA's raw audit answer (same provider profile + model),
+  and the stale-revision `nnd_goal_audit_conflict` refusal. NOT in: send
+  arming, continuation dispatch, scheduled tasks, the audit-note auth
+  against the live small model (already covered parse-side), multi-run.
+
 ## B. Adaptation deltas (registered)
 
 - **E-09-1 (NND branding of doc 12's openchamber wire names)**: the
@@ -329,3 +354,44 @@ waits — the server row ships first so a closed tab can never strand a queue.
   latest receipt and rejects truncated evidence with no usable cursor. The
   future tick must fail closed on lost cursors and unknown usage, not guess a
   budget from the visible window.
+
+- **E-09-18 (the evaluator exchange keeps the dispatch out; ordering is
+  audit-first for the sends-off phase)**: the tick's `ready` candidate is now
+  consumed by an independent auditor exchange (`nna-goal-auditor.ts`, 245)
+  through NNA's authenticated `POST /v1/nnd/sessions/:id/goal-audit` — a
+  model-only route NNA binds to the audited turn's FINAL provider route
+  (receipt affinity: profile id + model travel the request, and NNA refuses
+  conflicting id/revision/objective/request-id/turn-window requests with
+  typed contract errors). NNA answers raw text `{text, providerID, modelID}`;
+  parsing, note safeguards and goal mutation stay on the NND side. The
+  exchange deliberately sends NO prompts — verdicts ride the CAS-only path
+  and the loop waits for future turns (or the later dispatch slice), so the
+  UI's auto-continuation-disabled label stays accurate. Doc-order deltas for
+  the sends-off phase: (a) the upstream persist-accounting-then-send order
+  collapses into ONE CAS write AFTER the audit call — the audit is pure on
+  NNA and the send race the upstream ordering guards against does not exist
+  yet; (b) an UNAVAILABLE/unparsable audit persists ONLY the failure streak
+  from the durable goal (tokens and cursor stay unadvanced), so the same
+  turn is re-presented next tick and the second consecutive failure settles
+  `blocked` ('progress audit unavailable') exactly per T5 — persisting the
+  cursor first would strand a counted streak on evidence no tick would ever
+  revisit; (c) `continue` verdicts persist note/accounting/eval-route
+  attribution WITHOUT bumping `turnsUsed` — the 20-continuation cap counts
+  sent continuations, so its slot must be consumed by the dispatch slice at
+  send time (queued as its own P9 work); (d) route races are not audit
+  failures: `nnd_goal_audit_conflict` (goal changed / stale objective /
+  trimmed evidence window) and `nnd_goal_audit_busy` drop the tick with no
+  streak write, while transport faults, unknown codes and unparseable text
+  ride the T5 streak; (e) every write re-reads the session and refuses on
+  revision drift or a loop-field change — against the TICK candidate at the
+  exchange's first read (a user Pause/reactivate/budget edit between the
+  tick and the audit can only refuse the tick, never be overwritten, even
+  when NNA's own trim-match CAS would accept the stale vote) and across the
+  audit window itself (revision equality on the second re-read); the
+  route's own 25 s deadline rides NNA, NND waits beyond
+  the 30 s listener cap (`AUDIT_CALL_TIMEOUT_MS`). Runtime: the ready
+  consumer is awaited inline (the exchange inherits the tick's per-session
+  in-flight serialization and pending-arm parking) and owns its failures
+  (a rejected consumer cannot strand or crash the loop). Not in: send
+  arming, schedules, the audit-note language guard tests for live routes,
+  and the broad remote orphan-file quota (E-09-15).

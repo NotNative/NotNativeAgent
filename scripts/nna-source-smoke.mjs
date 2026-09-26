@@ -7,7 +7,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal } from './smoke-goal.mjs';
+import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit } from './smoke-goal.mjs';
 
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
@@ -78,7 +78,8 @@ function providerReply(body) {
   const userText = messages.filter((message) => message.role === 'user').map((message) => message.content).join('\n');
   let delta = { role: 'assistant', content: EXPECTED_REPLY };
   let finishReason = 'stop';
-  if (messages[0]?.content?.includes('isolated tool-permission decision')) {
+  if (messages[0]?.content?.includes('independently audit progress')) delta = { role: 'assistant', content: JSON.stringify({ verdict: 'continue', note: 'audit smoke note' }) };
+  else if (messages[0]?.content?.includes('isolated tool-permission decision')) {
     const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
     const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');
     const approved = review.request?.toolName === 'agent_run' && review.request.args?.task === CHILD_TASK && intent;
@@ -160,7 +161,7 @@ async function probe(app, workspace, provider) {
   const discovered = await json(call, '/api/v1/provider-profiles/primary/discover', { method: 'POST' }, 200);
   assert.deepEqual(discovered, { profile_id: 'primary', models: ['test'] });
   const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200); assert.equal(tested.status, 'ready');
-  await probeProviderRoute(call, json); await probeGoal(call, json);
+  await probeProviderRoute(call, json); await probeGoal(call, json); await probeGoalAudit(call, json);
   const skills = await json(call, '/api/v1/nnd/skills', 200);
   assert.ok(skills.skills.some((skill) => skill.id === 'smoke-review'));
   assert.equal(JSON.stringify(skills).includes('SECRET_SKILL_BODY'), false, 'skill inventory must omit instruction bodies');
@@ -495,5 +496,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, goal bridge with an attributed-turn audit route, and origin gate.\n');
 }

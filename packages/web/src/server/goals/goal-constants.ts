@@ -35,6 +35,10 @@ export const TOKEN_BUDGET_MAX = 100_000_000;
 /** Distilled objective budget when the raw text is too long (§B.6.3). */
 export const DISTILLED_OBJECTIVE_CHAR_LIMIT = 4_000;
 
+/** Per-audit route timeout: NNA holds a 25 s audit deadline and its own
+ *  listener caps forwarded calls at 30 s, so the loop must wait beyond both. */
+export const AUDIT_CALL_TIMEOUT_MS = 40_000;
+
 /** Settle reasons written verbatim into `statusReason` (§B.3). */
 export const GOAL_REASONS = {
   verifiedByAudit: 'verified by audit',

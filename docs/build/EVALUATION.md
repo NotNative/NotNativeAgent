@@ -3,6 +3,26 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-25 - goal evaluator exchange at seal 20260925-73 (NNA source harness)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Cross-repo source smoke (real NNA child + fixture provider) | `node scripts/nna-source-smoke.mjs <NNA source>` exit 0; the added `probeGoalAudit` proves an armed goal under a REAL attributed provider turn, NNA's evidence-bound audit route through NND's authenticated proxy (`{text, providerID: primary, modelID: test}` with a verdict payload), and the stale-revision refusal (`400 nnd_goal_audit_conflict`) |
+| Web server/contract suite | vitest 751/751 (57 files) - includes `p9-2c-goal-auditor.test.ts` 26/26 (apply/interpret matrices, 13 exchange orchestration cases, production-port wire shape, inline-consumer serialization) |
+| UI suite | vitest 824/824 (93 files) |
+| Typecheck | tsc over all tsconfigs (ui, web ui/server/cross) - 0 errors |
+| Quality gates + graph | POWER10 caps, controlled-language registry, 395-module repository graph - green |
+| Adversarial review | sub-agent audit found 1 confirmed defect (pre-audit window verdict write could revert a user goal edit that NNA's CAS accepted as unchanged) and applied the fix + regression test; speculative concerns documented as rejected |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live unattended continuation dispatch | still absent by design (the P9 dispatch slice); the audit path settles/notes but never sends |
+| Real small-model auditor quality | the smoke's auditor answer is fixture-provided; a genuine provider's verdict quality against doc 12's prompt is untested on this host |
+
 ## 2026-09-25 · production GUI browser acceptance (source server, mock harness)
 
 The production web build initially loaded without shared-UI Tailwind utilities:

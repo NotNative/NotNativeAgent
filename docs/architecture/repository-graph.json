@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:21d3689440ca6c274aefe95badb3bd0f3fffb4e40ce1d13bfdfe40aa56525eb8",
+  "source_digest": "sha256:55714b261e9ecbef423c90f252405dc9b92be2989a2ef9cef809c83dea73d8ef",
   "counts": {
-    "modules": 394,
+    "modules": 395,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 107
+      "module_count": 108
     },
     {
       "id": "web-entry",
@@ -2871,6 +2871,19 @@
       ]
     },
     {
+      "path": "packages/web/src/server/goals/nna-goal-auditor.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-audit.ts",
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-metadata.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/goal-state.ts",
+        "packages/web/src/server/goals/nna-goal-safety-tick.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/goals/nna-goal-evidence.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -2898,6 +2911,7 @@
       "imports": [
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/nna-goal-auditor.ts",
         "packages/web/src/server/goals/nna-goal-safety-tick.ts",
         "packages/web/src/server/goals/objective-store.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts"
@@ -3014,6 +3028,7 @@
       "imports": [
         "packages/web/src/server/app.ts",
         "packages/web/src/server/env.ts",
+        "packages/web/src/server/goals/nna-goal-auditor.ts",
         "packages/web/src/server/goals/nna-goal-runtime.ts",
         "packages/web/src/server/goals/nna-goal-safety-ports.ts",
         "packages/web/src/server/harness/adapter.ts",
