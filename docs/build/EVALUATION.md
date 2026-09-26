@@ -405,3 +405,13 @@ chips; rail windowing; timeline-dialog dedicated test file; the SLICE-B
 deferral list above; install.sh never executed; preview :58080 serves
 pre-SLICE-C dist until the next redeploy (the desktop instance gets C at the
 same redeploy).
+
+## 2026-09-26 · Current shell artifact check (20260926-26)
+
+`node scripts/electron-package.mjs --no-nsis` passed on Windows x64 with the
+current UI and server sources. It produced the server bundle, verified the
+staged native terminal runtime in Node and Electron-run-as-Node, and reported
+the expected web-dist digest. This was an artifacts-only check: it did not
+install, launch, or visually verify the current GUI build. An isolated mock
+web preview loaded, but the in-app browser target failed during rail
+interaction and could not be recovered; no NND render defect was confirmed.

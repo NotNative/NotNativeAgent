@@ -67,8 +67,8 @@ function welcomeSeed(): void {
           type: 'text',
           text:
             'Welcome! This session opens automatically on boot. The workspace currently ' +
-            'runs against the **mock harness** — the NotNativeAgent (NNA) adapter takes ' +
-            'its place behind the same seam until the real one lands. Send a message to ' +
+            'runs against the **mock harness** for UI testing. Normal NND launches ' +
+            'use the managed NotNativeAgent (NNA) integration. Send a message to ' +
             'watch a streamed turn on the event stream; include the words "tool" (add ' +
             '"bash" for live command output, "fail" for a settled tool error), ' +
             '"permission", "question", or "todo" to see those flows fire.',
@@ -332,7 +332,7 @@ async function route(request: Request): Promise<Response> {
         if (body.model) entry.info.model = { providerID: body.model.providerID, modelID: body.model.modelID };
       }
       const userText = userTextOf(entry) || '(non-text message)';
-      const reply = `(mock harness) You said: “${userText}”. Real answers arrive with NNA integration.`;
+      const reply = `(mock harness) You said: “${userText}”. This is a test reply; normal NND launches use NNA.`;
       const done = await runTurn(session, entry, reply);
       return json({ info: done.info, parts: done.parts }); // sync v1 prompt form
     }
@@ -350,7 +350,7 @@ async function route(request: Request): Promise<Response> {
       if (body.model) entry.info.model = { providerID: body.model.providerID, modelID: body.model.modelID };
     }
     const userText = userTextOf(entry) || '(non-text message)';
-    const reply = `(mock harness) You said: “${userText}”. Real answers arrive with NNA integration.`;
+    const reply = `(mock harness) You said: “${userText}”. This is a test reply; normal NND launches use NNA.`;
     void runTurn(session, entry, reply).catch(() => undefined);
     return noContent();
   }
@@ -373,7 +373,7 @@ async function route(request: Request): Promise<Response> {
     const entry = buildUserEntry(session, [{ type: 'text', text }], typeof body.messageID === 'string' ? body.messageID : undefined);
     const reply = kind === 'shell'
       ? `(mock shell) “${String(body.command ?? '')}” ran to completion. Terminal emulation arrives with the server-side PTY (doc 03).`
-      : `(mock command “${String(body.command ?? '')}”) Command templates are harness-side; this echo stands in until NNA integration.`;
+      : `(mock command “${String(body.command ?? '')}”) This is a test echo; normal NND launches use NNA.`;
     const done = await runTurn(session, entry, reply);
     return json({ info: done.info, parts: done.parts });
   }

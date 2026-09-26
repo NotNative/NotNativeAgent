@@ -16,7 +16,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
 | P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, and bounded legacy plan-link migration in progress 2026-09-26; shared plans, unified UI ownership, memory/skills/MCP pending |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, and browser wait UI delivered 2026-09-26; inspection, annotation, tunnels, walkthrough pending |
-| P12 Electron | 09 | pending |
+| P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 

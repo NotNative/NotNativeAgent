@@ -47,6 +47,29 @@ async function messages(sessionId: string): Promise<Array<{ info: { id: string; 
 }
 
 describe('mock harness contract', () => {
+  it('labels its welcome as a test mode without claiming NNA integration is pending', async () => {
+    const list = await (await api('/session')).json() as Array<{ id: string; title: string }>;
+    const welcome = list.find((item) => item.title === 'Welcome to NotNativeDesktop');
+    expect(welcome).toBeDefined();
+    const entries = await (await api(`/session/${welcome!.id}/message`)).json() as Array<{ parts: Array<{ text?: string }> }>;
+    expect(entries[0]?.parts[0]?.text).toContain('Normal NND launches use the managed NotNativeAgent');
+    expect(entries[0]?.parts[0]?.text).not.toContain('until the real one lands');
+  });
+  it('keeps prompt and command replies labeled as mock-only behavior', async () => {
+    const session = await createSession('mock wording test');
+    const promptResponse = await api(`/session/${session.id}/message`, jsonInit('POST', {
+      parts: [{ type: 'text', text: 'hello' }],
+    }));
+    expect(promptResponse.status).toBe(200);
+    const promptReply = await promptResponse.json() as { parts: Array<{ text?: string }> };
+    expect(promptReply.parts[0]?.text).toContain('This is a test reply; normal NND launches use NNA.');
+    const commandResponse = await api(`/session/${session.id}/command`, jsonInit('POST', {
+      command: 'example', arguments: '',
+    }));
+    expect(commandResponse.status).toBe(200);
+    const commandReply = await commandResponse.json() as { parts: Array<{ text?: string }> };
+    expect(commandReply.parts[0]?.text).toContain('This is a test echo; normal NND launches use NNA.');
+  });
   it('answers global health with the harness shape', async () => {
     const response = await api('/global/health');
     const body = await response.json();
