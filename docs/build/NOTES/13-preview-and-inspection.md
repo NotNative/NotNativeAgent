@@ -100,3 +100,19 @@ suite, graph, source smoke, and release gates.
 - This is a local user-facing DOM summary, not NNA agent control. The NNA tool
   callback, capability-scoped broker, screenshot capture, and annotation still
   require separate slices.
+
+## P11-7: in-process browser-control broker (2026-09-26)
+
+- A server-owned broker now models ten browser actions, per-request ids,
+  desktop-client capability registration, claim-before-action ownership,
+  exact-owner results, timeout/abort settlement, and disconnect/disposal.
+  `browser.open` can reach a panel opener; other actions require a capable
+  desktop client. Claims are limited to clients that actually received that
+  request, not clients that registered later.
+- The adversarial review fixed delivery/claim races and made failures after
+  an accepted mutating action explicitly indeterminate, preventing a caller
+  from assuming a timed-out or disconnected action changed nothing.
+- This is deliberately in-process and not yet exposed as an HTTP route. The
+  Electron IPC bridge must bind claim/result to the authenticated desktop
+  connection identity; a requester-supplied client id must never grant a
+  capability. NNA tool registration and page-action execution remain next.

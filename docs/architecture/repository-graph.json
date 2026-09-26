@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e52cdd1e5ac08b9de09f2c86f9aa2d33f33e81b1f32e8a5e1787e6ea45688895",
+  "source_digest": "sha256:5016c0ba2b95271e8e653df84f25ee95c61a8e003403463a3744a4117c40d317",
   "counts": {
-    "modules": 441,
+    "modules": 442,
     "component_edges": 13
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 135
+      "module_count": 136
     },
     {
       "id": "web-entry",
@@ -3702,6 +3702,12 @@
       "imports": [
         "packages/web/src/server/lib/tunnels/tunnel-capabilities.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/preview/browser-control-broker.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/preview/dev-servers.ts",
