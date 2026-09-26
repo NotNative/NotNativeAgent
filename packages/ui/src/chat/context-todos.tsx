@@ -48,14 +48,16 @@ export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange 
     setBusy(true); setError('');
     try {
       const committed = await replaceProjectTodos(projectId, next, context.todosRevision!);
-      if (live.current) { ++sequence.current; setContext(committed); if (clearDraft) setDraft(''); }
+      if (live.current) { ++sequence.current; setContext(committed); setError(''); if (clearDraft) setDraft(''); }
     } catch (failure) { if (live.current) {
       if (failure instanceof ProjectContextRequestError && failure.status === 409) {
         setConflicted(true);
         setError('Project todos changed in another window. Refresh before editing; your draft and last saved list remain.');
       } else setError('Todo change could not be saved. Your draft and last saved list remain.');
     } }
-    finally { if (live.current) setBusy(false); }
+    // A visibility-triggered refresh can begin while this write is in flight.
+    // The write fences that older read, so it must also clear its loading flag.
+    finally { if (live.current) { setBusy(false); setLoading(false); } }
   }
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-todos">
     <header className="flex items-center text-[10px] text-neutral-400">NND project todos — separate from session tasks

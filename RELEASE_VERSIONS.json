@@ -160,6 +160,10 @@
     {
       "version": "20260926-29",
       "content_sha256": "e991a476590e2bf3d46b9d466fc0c9b94a8324d4df403aeca277092e1b1be012"
+    },
+    {
+      "version": "20260926-30",
+      "content_sha256": "b9c5163a6ea6b9deb3ed48409bd860f71c3cbc1ea87b4374fb6979b9a20fd449"
     }
   ]
 }

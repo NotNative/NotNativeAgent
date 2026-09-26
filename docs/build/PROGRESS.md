@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P10-9 todo panel refresh recovery.** If the operator hides
+  and reopens the project-todo panel while a save is pending, the committing
+  write now clears the loading state of any refresh it supersedes. Adversarial
+  review also found and fixed a stale load-error banner after a successful
+  write. Both interleavings have regression tests; no draft or committed list
+  is dropped.
+
 - 2026-09-26 · **P10-8 project-todo conflict guard.** Context GET now includes
   a revision of the todo list. The public whole-list PUT requires that revision
   and compares it under the project write lock; a stale client gets 409 without

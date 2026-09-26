@@ -138,3 +138,12 @@ NND rail keeps its last saved list and unsent draft on conflict, disables
 editing until a successful refresh, then uses the fresh revision. Internal
 store migration helpers still have an unconditional writer; the public API
 does not. Legacy repo-local todos and session todo capture remain separate.
+
+## P10-9: todo panel refresh recovery (2026-09-26)
+
+The todo rail fences refresh responses while a write is pending. When the
+operator hides and reopens the panel during that write, the eventual write
+settlement also clears the superseded refresh's loading state. A successful
+commit clears a refresh error that arrived during the write; its committed
+response is the newer source of truth. Focused interleaving tests cover both
+cases.

@@ -102,6 +102,26 @@ describe('project context todos panel', () => {
       completed: false, createdAt: 1 }] } as typeof empty); await Promise.resolve(); });
     await act(async () => { finishRead(empty); await Promise.resolve(); });
     expect(view.textContent).toContain('Keep committed');
+    expect((view.querySelector('[aria-label="New project todo"]') as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('clears a failed refresh error when an in-flight write commits', async () => {
+    const view = await render();
+    typeTodo('Keep committed');
+    let finishWrite!: (value: typeof empty) => void;
+    vi.mocked(replaceProjectTodos).mockImplementationOnce(() => new Promise((resolve) => { finishWrite = resolve; }));
+    await click('Add todo');
+    let failRead!: (reason: Error) => void;
+    vi.mocked(getProjectContext).mockImplementationOnce(() => new Promise((_resolve, reject) => { failRead = reject; }));
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible={false} />); });
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible />); });
+    await act(async () => { failRead(new Error('offline')); await Promise.resolve(); });
+    expect(view.textContent).toContain('could not be loaded');
+    await act(async () => { finishWrite({ ...empty, todos: [{ id: 'todo-1', text: 'Keep committed',
+      completed: false, createdAt: 1 }] } as typeof empty); await Promise.resolve(); });
+    expect(view.textContent).toContain('Keep committed');
+    expect(view.textContent).not.toContain('could not be loaded');
+    expect((view.querySelector('[aria-label="New project todo"]') as HTMLInputElement).disabled).toBe(false);
   });
 
   it('disables editing when stored IDs collide', async () => {
