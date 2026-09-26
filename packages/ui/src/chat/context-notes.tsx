@@ -37,8 +37,8 @@ function useContextLoad(projectId: string, visible: boolean): {
     refresh: () => setRevision((value) => value + 1), requestSequence };
 }
 
-export function ContextNotes({ projectId, visible, retainedDraft, onDraftChange }: {
-  projectId: string; visible: boolean; retainedDraft?: ContextNotesDraft;
+export function ContextNotes({ projectId, visible, query = '', retainedDraft, onDraftChange }: {
+  projectId: string; visible: boolean; query?: string; retainedDraft?: ContextNotesDraft;
   onDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
 }): ReactNode {
   const { context, setContext, loading, error, setError, refresh, requestSequence } = useContextLoad(projectId, visible);
@@ -92,7 +92,7 @@ export function ContextNotes({ projectId, visible, retainedDraft, onDraftChange 
         maxLength={3000} disabled={busy} className="min-h-16 resize-y rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" />
       <button type="button" disabled={busy || !draft.trim()} onClick={() => { void saveNew(); }}
         className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50">Add note</button>
-      <ContextNoteList notes={context.notes} editing={editing} editBody={editBody} busy={busy}
+      <ContextNoteList notes={context.notes} query={query} editing={editing} editBody={editBody} busy={busy}
         setEditing={setEditing} setEditBody={setEditBody} saveEdit={saveEdit} remove={remove} />
     </>}
   </section>;
@@ -105,14 +105,17 @@ function ContextNotesHeader({ busy, refresh }: { busy: boolean; refresh: () => v
   </header>;
 }
 
-function ContextNoteList({ notes, editing, editBody, busy, setEditing, setEditBody, saveEdit, remove }: {
-  notes: ProjectNote[]; editing: string | null; editBody: string; busy: boolean;
+function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, setEditBody, saveEdit, remove }: {
+  notes: ProjectNote[]; query: string; editing: string | null; editBody: string; busy: boolean;
   setEditing: (value: string | null) => void; setEditBody: (value: string) => void;
   saveEdit: () => Promise<void>; remove: (id: string) => Promise<void>;
 }): ReactNode {
+  const needle = query.trim().toLocaleLowerCase();
+  const visibleNotes = notes.filter(usableNote).filter((note) => !needle || note.body.toLocaleLowerCase().includes(needle));
   return <>
     {notes.some((note) => !usableNote(note)) ? <p role="status" className="text-xs text-amber-300">Some stored notes could not be displayed. Refresh or inspect project context before editing.</p> : null}
-    <ol className="min-h-0 overflow-y-auto">{notes.filter(usableNote).map((note) => <li key={note.id}
+    {needle && !visibleNotes.length ? <p className="text-xs text-neutral-500">No matching notes.</p> : null}
+    <ol className="min-h-0 overflow-y-auto">{visibleNotes.map((note) => <li key={note.id}
       className="mb-2 rounded border border-white/10 p-2 text-xs">
       {editing === note.id ? <>
         <textarea aria-label="Edit context note" value={editBody} onChange={(event) => setEditBody(event.target.value)}

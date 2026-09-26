@@ -39,6 +39,18 @@ async function click(label: string): Promise<void> {
 }
 
 describe('project context todos panel', () => {
+  it('filters displayed todos but commits against the complete list', async () => {
+    const first = { id: 'one', text: 'Alpha task', completed: false, createdAt: 1 };
+    const second = { id: 'two', text: 'Beta task', completed: false, createdAt: 2 };
+    vi.mocked(getProjectContext).mockResolvedValue({ ...empty, todos: [first, second] });
+    const view = await render();
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible query="alpha" />); });
+    expect(view.textContent).toContain('Alpha task');
+    expect(view.textContent).not.toContain('Beta task');
+    vi.mocked(replaceProjectTodos).mockResolvedValue({ ...empty, todos: [{ ...first, completed: true }, second] });
+    await act(async () => { (view.querySelector('[aria-label="Complete Alpha task"]') as HTMLInputElement).click(); await Promise.resolve(); });
+    expect(replaceProjectTodos).toHaveBeenCalledWith('project1', [{ ...first, completed: true }, second], revision);
+  });
   it('adds and adopts committed server truth, then toggles and deletes', async () => {
     const view = await render();
     typeTodo('Ship MVP');

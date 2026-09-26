@@ -200,7 +200,9 @@ Tasks:
    the panel with an explicit project owner.
    **Primary navigation implemented (2026-09-26):** resolved projects open
    project-owned General/Todos/Plans first; repo-local files remain available
-   under Workspace files pending safe migration.
+   under Workspace files pending safe migration. A UI-local query now filters
+   note bodies, todo text, and plan titles without changing stored lists;
+   cross-tab counts and follow-to-hit navigation are still pending.
 5. A user-driven, sandboxed iframe preview may occupy Browser before the full
    preview/inspection contract. Keep it clearly labelled as a limited manual
    preview; agent navigation, capture, annotation, and take-over wait for

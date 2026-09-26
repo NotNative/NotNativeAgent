@@ -42,6 +42,20 @@ async function click(label: string): Promise<void> {
 }
 
 describe('NND-owned context notes panel', () => {
+  it('filters visible notes without changing the stored list or a draft', async () => {
+    const first = { id: 'n1', body: 'Alpha note', createdAt: 1, updatedAt: 1, source: 'manual' as const };
+    const second = { ...first, id: 'n2', body: 'Beta note' };
+    vi.mocked(getProjectContext).mockResolvedValue({ ...empty, notes: [first, second] });
+    const view = await render();
+    typeInto('New context note', 'Draft remains');
+    await act(async () => { root!.render(<ContextNotes projectId="p1" visible query="alpha" />); });
+    expect(view.textContent).toContain('Alpha note');
+    expect(view.textContent).not.toContain('Beta note');
+    expect((view.querySelector('[aria-label="New context note"]') as HTMLTextAreaElement).value).toBe('Draft remains');
+    await act(async () => { root!.render(<ContextNotes projectId="p1" visible query="" />); });
+    expect(view.textContent).toContain('Beta note');
+    expect(getProjectContext).toHaveBeenCalledTimes(1);
+  });
   it('settles a failed initial load and lets the operator retry', async () => {
     vi.mocked(getProjectContext).mockRejectedValueOnce(new Error('offline'));
     const view = await render();

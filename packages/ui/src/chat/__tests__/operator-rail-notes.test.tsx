@@ -77,6 +77,10 @@ describe('OperatorRail Notes surface', () => {
     await act(async () => { ([...container!.querySelectorAll('[data-testid="project-notes"] button')]
       .find((button) => button.textContent === 'Note file') as HTMLButtonElement).click(); });
     expect(container!.textContent).toContain('General notes');
+    expect(container!.querySelector('[aria-label="Search project notes, todos, and plan titles"]')).toBeNull();
+    await act(async () => { ([...container!.querySelectorAll('[data-testid="project-notes"] button')]
+      .find((button) => button.textContent === 'General') as HTMLButtonElement).click(); });
+    expect(container!.querySelector('[aria-label="Search project notes, todos, and plan titles"]')).not.toBeNull();
   });
   it('retains context drafts per project across directory switches', async () => {
     const store = createDirectoryStore();

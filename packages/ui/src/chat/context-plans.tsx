@@ -42,16 +42,16 @@ function useSavedPlanList(projectId: string, visible: boolean): {
     refresh: () => setRevision((value) => value + 1), sequence };
 }
 
-export function ContextPlans({ projectId, visible, retainedDraft, onDraftChange }: {
-  projectId: string; visible: boolean; retainedDraft?: ContextPlanDraft;
+export function ContextPlans({ projectId, visible, query = '', retainedDraft, onDraftChange }: {
+  projectId: string; visible: boolean; query?: string; retainedDraft?: ContextPlanDraft;
   onDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
 }): ReactNode {
-  return <ContextPlansForProject key={projectId} projectId={projectId} visible={visible}
+  return <ContextPlansForProject key={projectId} projectId={projectId} visible={visible} query={query}
     retainedDraft={retainedDraft} onDraftChange={onDraftChange} />;
 }
 
-function ContextPlansForProject({ projectId, visible, retainedDraft, onDraftChange }: {
-  projectId: string; visible: boolean; retainedDraft?: ContextPlanDraft;
+function ContextPlansForProject({ projectId, visible, query, retainedDraft, onDraftChange }: {
+  projectId: string; visible: boolean; query: string; retainedDraft?: ContextPlanDraft;
   onDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
 }): ReactNode {
   const { context, setContext, error, setError, loading, refresh, sequence } = useSavedPlanList(projectId, visible);
@@ -106,13 +106,13 @@ function ContextPlansForProject({ projectId, visible, retainedDraft, onDraftChan
     } catch { if (live.current) setError('Plan could not be deleted.'); }
     finally { if (live.current) setBusy(false); }
   }
-  return <SavedPlanPanel context={context} error={error} loading={loading} busy={busy} refresh={refresh}
+  return <SavedPlanPanel context={context} error={error} loading={loading} busy={busy} refresh={refresh} query={query}
     draft={draft} setDraft={setDraft} open={open} create={create} save={save} remove={remove}
     close={() => closePlanDraft(draft, setDraft)} />;
 }
 
-function SavedPlanPanel({ context, error, loading, busy, refresh, draft, setDraft, open, create, save, remove, close }: {
-  context: ProjectContext | null; error: string; loading: boolean; busy: boolean; refresh: () => void;
+function SavedPlanPanel({ context, error, loading, busy, refresh, query, draft, setDraft, open, create, save, remove, close }: {
+  context: ProjectContext | null; error: string; loading: boolean; busy: boolean; refresh: () => void; query: string;
   draft: ContextPlanDraft; setDraft: Dispatch<SetStateAction<ContextPlanDraft>>;
   open: (id: string) => Promise<void>; create: () => Promise<void>; save: () => Promise<void>;
   remove: () => Promise<void>; close: () => void;
@@ -122,7 +122,7 @@ function SavedPlanPanel({ context, error, loading, busy, refresh, draft, setDraf
     {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
     {!context && loading ? <p className="text-xs text-neutral-500">Loading saved plans…</p> : null}
     {context ? <>
-      <SavedPlanList plans={context.plans} busy={busy} open={open} />
+      <SavedPlanList plans={context.plans} query={query} busy={busy} open={open} />
       <PlanDraftEditor draft={draft} setDraft={setDraft} busy={busy} create={create} save={save} remove={remove} close={close} />
     </> : null}
   </section>;
@@ -134,11 +134,14 @@ function SavedPlanHeader({ busy, refresh }: { busy: boolean; refresh: () => void
   </header>;
 }
 
-function SavedPlanList({ plans, busy, open }: { plans: ProjectContext['plans']; busy: boolean;
+function SavedPlanList({ plans, query, busy, open }: { plans: ProjectContext['plans']; query: string; busy: boolean;
   open: (id: string) => Promise<void> }): ReactNode {
+  const needle = query.trim().toLocaleLowerCase();
+  const visiblePlans = plans.filter(usablePlan).filter((plan) => !needle || plan.title.toLocaleLowerCase().includes(needle));
   return <>
     {plans.some((item) => !usablePlan(item)) ? <p role="status" className="text-xs text-amber-300">Some stored plans could not be displayed.</p> : null}
-    <ol className="max-h-32 overflow-y-auto">{plans.filter(usablePlan).map((plan) => <li key={plan.id}>
+    {needle && !visiblePlans.length ? <p className="text-xs text-neutral-500">No matching plan titles.</p> : null}
+    <ol className="max-h-32 overflow-y-auto">{visiblePlans.map((plan) => <li key={plan.id}>
       <button type="button" disabled={busy} className="py-1 text-left text-xs text-sky-300" onClick={() => { void open(plan.id); }}>{plan.title}</button>
     </li>)}</ol>
   </>;

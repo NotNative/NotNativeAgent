@@ -25,6 +25,7 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
   const [tab, setTab] = useState<Tab>(() => projectId ? 'context' : 'notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set([projectId ? 'context' : 'notes']));
   const [workspaceFilesOpen, setWorkspaceFilesOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos') ? 'notes'
     : projectId && !workspaceFilesOpen && (tab === 'notes' || tab === 'todos' || tab === 'plans') ? 'context' : tab;
   const primaryTabs: { id: Tab; label: string }[] = projectId
@@ -45,6 +46,11 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
         Workspace files {workspaceFilesOpen ? '▴' : '▾'}
       </button> : null}
     </nav>
+    {projectId && (activeTab === 'context' || activeTab === 'project-todos' || activeTab === 'saved') ? <div className="border-b border-white/10 px-2 py-1">
+      <input aria-label="Search project notes, todos, and plan titles" type="search" value={query}
+        onChange={(event) => setQuery(event.target.value)} placeholder="Search notes, todos, plan titles"
+        className="w-full rounded border border-white/10 bg-neutral-900/40 px-2 py-1 text-xs" />
+    </div> : null}
     {projectId && workspaceFilesOpen ? <div id="workspace-note-files" className="border-b border-white/10 px-2 pb-2">
       <p className="pb-1 text-[10px] text-neutral-500">Existing repo-local files remain separate; nothing has been moved.</p>
       <nav className="flex flex-wrap gap-1" aria-label="Legacy workspace notes">
@@ -57,9 +63,9 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     {opened.has('notes') || activeTab === 'notes' ? <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div> : null}
     {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
-    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
-    {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
-    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
+    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
+    {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
+    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
   </section>;
 }
 

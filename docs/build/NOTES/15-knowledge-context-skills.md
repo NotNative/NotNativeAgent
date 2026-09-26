@@ -159,3 +159,16 @@ rail. Legacy content is not read until its tab is opened. Without a resolved
 project owner, the three old workspace-file tabs remain the fallback. This
 settles the navigation default, not the outstanding safe data migration or
 shared-plan contract.
+
+## P10-11: display-only context search (2026-09-26)
+
+A single search field on the canonical Notes rail filters project-owned note
+bodies, todo text, and saved-plan titles in their respective tabs. It does
+not alter the underlying lists: a filtered todo toggle still sends all
+stored todos, including hidden rows. New-note and new-plan drafts survive
+query changes. The query is UI-local and never included in a prompt. Plan
+markdown bodies and the separate Workspace files are not searched. This is
+the first query slice; cross-tab match counts, follow-to-hit navigation, and
+shared load state remain to be implemented. Adversarial review removed the
+search field while a legacy Workspace file tab is selected, where the query
+would otherwise appear to have no effect.

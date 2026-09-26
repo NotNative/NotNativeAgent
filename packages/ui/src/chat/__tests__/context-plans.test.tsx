@@ -45,6 +45,18 @@ async function click(label: string): Promise<void> {
 }
 
 describe('NND saved plans panel', () => {
+  it('filters plan titles while retaining the create draft and unopened manifests', async () => {
+    const second = { ...plan, id: 'p2', file: 'p2.md', title: 'Beta' };
+    vi.mocked(getProjectContext).mockResolvedValue({ ...empty, plans: [plan, second] });
+    const view = await render();
+    typeInto('New plan title', 'Draft title');
+    await act(async () => { root!.render(<ContextPlans projectId="project1" visible query="beta" />); });
+    expect([...view.querySelectorAll('ol button')].map((button) => button.textContent)).toEqual(['Beta']);
+    expect((view.querySelector('[aria-label="New plan title"]') as HTMLInputElement).value).toBe('Draft title');
+    await act(async () => { root!.render(<ContextPlans projectId="project1" visible query="" />); });
+    expect([...view.querySelectorAll('ol button')].map((button) => button.textContent)).toEqual(['Plan', 'Beta']);
+    expect(getProjectContext).toHaveBeenCalledTimes(1);
+  });
   it('creates, opens, saves raw markdown, and deletes through committed API responses', async () => {
     const view = await render();
     typeInto('New plan title', 'Plan'); typeInto('New plan body', 'Body');

@@ -11,8 +11,8 @@ function usableTodo(value: unknown): value is ProjectTodo {
     && typeof todo.completed === 'boolean' && Number.isSafeInteger(todo.createdAt) && todo.createdAt >= 0;
 }
 
-export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange }: {
-  projectId: string; visible: boolean; retainedDraft?: string; onDraftChange?: (projectId: string, draft: string) => void;
+export function ContextTodos({ projectId, visible, query = '', retainedDraft, onDraftChange }: {
+  projectId: string; visible: boolean; query?: string; retainedDraft?: string; onDraftChange?: (projectId: string, draft: string) => void;
 }): ReactNode {
   const [context, setContext] = useState<ProjectContext | null>(null);
   const [draft, setDraft] = useState(() => retainedDraft ?? '');
@@ -67,15 +67,17 @@ export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange 
     {malformed ? <p role="status" className="text-xs text-amber-300">Some stored todos are malformed. Editing is disabled to avoid losing them.</p> : null}
     {missingRevision ? <p role="status" className="text-xs text-amber-300">Todo revision is unavailable. Refresh or update the server before editing.</p> : null}
     {!context && loading ? <p className="text-xs text-neutral-500">Loading project todos…</p> : null}
-    {context ? <ContextTodoEditor todos={todos} draft={draft} setDraft={setDraft} busy={busy || loading || malformed || missingRevision || conflicted}
+    {context ? <ContextTodoEditor todos={todos} query={query} draft={draft} setDraft={setDraft} busy={busy || loading || malformed || missingRevision || conflicted}
       commit={commit} /> : null}
   </section>;
 }
 
-function ContextTodoEditor({ todos, draft, setDraft, busy, commit }: {
-  todos: ProjectTodo[]; draft: string; setDraft: (value: string) => void; busy: boolean;
+function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit }: {
+  todos: ProjectTodo[]; query: string; draft: string; setDraft: (value: string) => void; busy: boolean;
   commit: (next: ProjectTodo[], clearDraft?: boolean) => Promise<void>;
 }): ReactNode {
+  const needle = query.trim().toLocaleLowerCase();
+  const visibleTodos = todos.filter((todo) => !needle || todo.text.toLocaleLowerCase().includes(needle));
   const add = (): void => {
     const text = draft.trim();
     if (!text || busy) return;
@@ -85,7 +87,8 @@ function ContextTodoEditor({ todos, draft, setDraft, busy, commit }: {
     <div className="flex gap-1"><input aria-label="New project todo" value={draft} maxLength={120} disabled={busy}
       onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-neutral-900/40 px-2 text-xs" />
     <button type="button" disabled={busy || !draft.trim()} onClick={add} className="text-xs">Add todo</button></div>
-    <ol className="min-h-0 overflow-y-auto">{todos.map((todo) => <li key={todo.id} className="flex items-center gap-2 py-1 text-xs">
+    {needle && !visibleTodos.length ? <p className="text-xs text-neutral-500">No matching todos.</p> : null}
+    <ol className="min-h-0 overflow-y-auto">{visibleTodos.map((todo) => <li key={todo.id} className="flex items-center gap-2 py-1 text-xs">
       <input aria-label={`Complete ${todo.text}`} type="checkbox" disabled={busy} checked={todo.completed}
         onChange={() => { void commit(todos.map((item) => item.id === todo.id ? { ...item, completed: !item.completed } : item)); }} />
       <span className={`min-w-0 flex-1 break-words ${todo.completed ? 'text-neutral-500 line-through' : ''}`}>{todo.text}</span>
