@@ -72,6 +72,8 @@ export function terminalRecord(engine, active, outcome, text, detail, secondaryF
     ]) ?? active.tokenAccounting,
     ...(typeof active.providerResource === 'string' && typeof active.modelName === 'string'
       ? { provider_profile: active.providerResource, model: active.modelName } : {}),
+    ...(/^[a-f0-9]{64}$/u.test(active.providerProfileFingerprint ?? '')
+      ? { provider_route_fingerprint: active.providerProfileFingerprint } : {}),
     retryable: detail?.retryable ?? false, failure: detail,
     secondary_failures: Object.freeze([...secondaryFailures]),
     recovery: active.recovery?.actions ?? [],

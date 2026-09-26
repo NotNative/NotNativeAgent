@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:c13860167d3fd17b90cf20a043af699a72c1f7c32ba969f6cd9e065880495d92",
+  "source_digest": "sha256:4c699670f115a8748fc8123267fc9073d38a135c4b93302d785c2a7406d98244",
   "counts": {
-    "modules": 377,
+    "modules": 379,
     "component_edges": 78
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 103
+      "module_count": 105
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 181,
-      "module_count": 82
+      "import_count": 185,
+      "module_count": 83
     },
     {
       "from": "experience-engine",
@@ -162,7 +162,7 @@
     {
       "from": "providers",
       "to": "foundation",
-      "import_count": 25,
+      "import_count": 26,
       "module_count": 18
     },
     {
@@ -1923,6 +1923,7 @@
         "src/nnd-child-snapshot.js",
         "src/nnd-child-stream.js",
         "src/nnd-context-observation.js",
+        "src/nnd-goal-audit.js",
         "src/nnd-goal-evidence.js",
         "src/nnd-goal.js",
         "src/nnd-session-description.js",
@@ -1932,6 +1933,16 @@
         "src/nnd-turn-state.js",
         "src/opencode/wire-events.js",
         "src/persistence/atomic-json.js"
+      ]
+    },
+    {
+      "path": "src/nnd-goal-audit.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-goal-evidence.js",
+        "src/nnd-provider-affinity.js"
       ]
     },
     {
@@ -1975,6 +1986,12 @@
         "src/integration-principal.js",
         "src/secret-broker-server.js"
       ]
+    },
+    {
+      "path": "src/nnd-provider-affinity.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/nnd-session-description.js",
@@ -2528,6 +2545,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-provider-affinity.js",
         "src/provider/completion-recovery.js",
         "src/provider/event-shape.js",
         "src/provider/fair-scheduler.js"

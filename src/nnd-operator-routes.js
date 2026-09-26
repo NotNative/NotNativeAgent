@@ -7,14 +7,16 @@ const SESSION_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/capabilities$/u;
 const STEER_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/steer$/u;
 const GOAL_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal$/u;
 const GOAL_EVIDENCE_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-evidence$/u;
+const GOAL_AUDIT_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-audit$/u;
 
 export async function dispatchNndOperatorRequest(request, response, context) {
   const capability = SESSION_ROUTE.exec(context.url.pathname);
   const steer = STEER_ROUTE.exec(context.url.pathname);
   const goal = GOAL_ROUTE.exec(context.url.pathname);
   const goalEvidence = GOAL_EVIDENCE_ROUTE.exec(context.url.pathname);
-  if (!capability && !steer && !goal && !goalEvidence) return false;
-  const encoded = (capability ?? steer ?? goal ?? goalEvidence)[1];
+  const goalAudit = GOAL_AUDIT_ROUTE.exec(context.url.pathname);
+  if (!capability && !steer && !goal && !goalEvidence && !goalAudit) return false;
+  const encoded = (capability ?? steer ?? goal ?? goalEvidence ?? goalAudit)[1];
   let sessionId;
   try { sessionId = decodeURIComponent(encoded); requireExternalId(sessionId, 'session_id'); }
   catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
@@ -23,6 +25,12 @@ export async function dispatchNndOperatorRequest(request, response, context) {
     if (request.method !== 'GET') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
     requireIntegrationPermission(context.principal, 'nnd.read');
     return send(response, 200, context.nndEngineHost.goalEvidence(sessionId, context.principal));
+  }
+  if (goalAudit) {
+    if (request.method !== 'POST') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+    requireIntegrationPermission(context.principal, 'nnd.goal.manage');
+    if (!context.nndEngineHost?.auditGoal) throw new ContractError('nnd_engine_unavailable', 'NND goal auditor is unavailable');
+    return send(response, 200, await context.nndEngineHost.auditGoal(sessionId, context.principal, await readJsonBody(request)));
   }
   if (request.method === 'GET' && capability) requireIntegrationPermission(context.principal, 'nnd.read');
   else if (request.method === 'POST' && steer) requireIntegrationPermission(context.principal, 'nnd.steer');

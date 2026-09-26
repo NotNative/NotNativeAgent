@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { nndProviderProfileFingerprint } from '../nnd-provider-affinity.js';
 import { FairScheduler } from './fair-scheduler.js';
 import {
   fallbackAfterContentFreeCompletion, startProviderHealthMonitor, waitForProviderRecovery,
@@ -155,6 +156,7 @@ export class ProviderRunner {
       active.logicalRequestId = route.logicalRequestId;
       active.modelName = route.model;
       active.providerResource = route.profile.id;
+      active.providerProfileFingerprint = nndProviderProfileFingerprint(route.profile);
       if (this.runtimeResolver) active.runtimeModel = await this.runtimeResolver(route, active.controller.signal);
       try {
         const request = requestFactory(route);

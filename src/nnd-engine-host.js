@@ -14,6 +14,7 @@ import { appendActivity, drainActivityWrites, loadActivity, removeActivity, repo
 import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
 import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
+import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
@@ -121,12 +122,10 @@ export class NndEngineHost {
       this.#creating.delete(sessionId);
     }
   }
-
   async submit(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
     return context.ingress.submit(command, principal);
   }
-
   async abort(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
     return context.ingress.submit({ version: '1.0', type: 'cancel', request_id: newId('nnd_abort') }, principal);
@@ -174,6 +173,7 @@ export class NndEngineHost {
   }
 
   goal(sessionId, principal) { const context = this.#owned(sessionId, principal); return { goal: context.goal, revision: context.goalRevision }; }
+  auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
   goalEvidence(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
     return nndGoalEvidence(sessionId, context.engine.transcript, context.goalTurnReceipts,
@@ -290,6 +290,7 @@ export class NndEngineHost {
         }
       } else if (record.type === 'turn_result') {
         turn.outcome = record.outcome;
+        context.goalLastTurnRecord = record;
         recordNndGoalTurn(context, record);
       }
     } catch { /* Display output is observational, never a reason to fail an engine turn. */ }
@@ -496,5 +497,4 @@ export class NndEngineHost {
       }); } catch { /* Observational diagnostics cannot replace the engine outcome. */ }
     }
   }
-
 }

@@ -12,6 +12,7 @@ import { NndEngineHost } from '../src/nnd-engine-host.js';
 import { resolveManifest } from '../src/config.js';
 import { nndMcpInventory } from '../src/nnd-mcp-inventory.js';
 import { nndAgentInventory } from '../src/nnd-agent-inventory.js';
+import { ContractError } from '../src/ids.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
@@ -613,6 +614,37 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(removed.status, 200);
     assert.equal(removed.value, true);
     assert.equal((await request(base, `/session/${created.value.id}`, owner)).status, 404);
+  } finally { await service.close(); }
+});
+
+test('NND goal audit endpoint requires goal-management permission and forwards a scoped request', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-audit-route-'));
+  const calls = [];
+  const host = { async auditGoal(sessionId, actor, body) {
+    calls.push({ sessionId, actor, body });
+    return { text: '{"verdict":"continue","note":"More work"}', providerID: 'local', modelID: 'model-x' };
+  } };
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const path = '/v1/nnd/sessions/session_test/goal-audit';
+  const body = { expected_id: 'goal_test', expected_revision: 2, request_id: 'request-1', objective: 'Ship MVP' };
+  try {
+    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['nnd.goal.manage']))).status, 405);
+    assert.equal(calls.length, 0);
+    const result = await request(base, path, principal(['nnd.goal.manage']), { method: 'POST', body });
+    assert.equal(result.status, 200);
+    assert.equal(result.value.modelID, 'model-x');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].sessionId, 'session_test');
+    assert.equal(calls[0].actor.subjectId, 'u_test');
+    assert.deepEqual(calls[0].body, body);
+    host.auditGoal = async () => { throw new ContractError('nnd_goal_audit_conflict', 'goal changed'); };
+    assert.equal((await request(base, path, principal(['nnd.goal.manage']), { method: 'POST', body })).status, 409);
+    host.auditGoal = async () => { throw new ContractError('nnd_goal_audit_unavailable', 'route changed'); };
+    assert.equal((await request(base, path, principal(['nnd.goal.manage']), { method: 'POST', body })).status, 503);
   } finally { await service.close(); }
 });
 
