@@ -9,18 +9,23 @@ import { existsSync } from 'node:fs';
 import { mkdir, rename, writeFile, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { dirname, join as joinPath } from 'node:path';
-import type { Hono } from 'hono';
+import type { Hono, Context } from 'hono';
 import { ENV } from '../env.ts';
 import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
 import { resolveSurfaceKind } from '../lib/settings-gate.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
  * (review P2 — an admitted guest must not be able to unbond the store). */
 const SETTINGS_BODY_MAX = 512 * 1024;
 
-const PROJECTS_DIR = joinPath(ENV.dataDir, 'projects');
+/** Call-time so tests can re-point ENV.dataDir; the store also joins at
+ * call time. */
+function projectsDir(): string {
+  return joinPath(ENV.dataDir, 'projects');
+}
 const RESTART_MESSAGE = 'Configuration is saved on disk. Restart your connected OpenCode server to apply the changes.';
 
 /** §5.6 deferred-restart shape for the EXTERNAL-harness case (mock + remote
@@ -91,55 +96,95 @@ export function registerSettingsRoutes(app: Hono): void {
 
 const PROJECT_ID = /^[a-zA-Z0-9_-]+$/u;
 
+/** The locked read-modify-write behind the per-project config PUT (C.9,
+ * E-09-23 k): the settings family became a SECOND writer of the per-project
+ * config document after P9-3d, so it must take the same per-project write
+ * lock the scheduled-task store uses (a concurrent upsert or completion
+ * patch must not be reverted by a stale read). The managed `scheduledTasks`
+ * key rides through verbatim and an incoming copy is dropped. */
+async function replaceProjectConfig(projectId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const path = joinPath(projectsDir(), `${projectId}.json`);
+  let payload: Record<string, unknown> = {};
+  await withConfigLock(path, async (): Promise<void> => {
+    const existing = await readJson<Record<string, unknown>>(path, {});
+    const next = { ...body };
+    delete next.scheduledTasks;
+    if (existing.scheduledTasks !== undefined) next.scheduledTasks = existing.scheduledTasks;
+    payload = next;
+    await writeJsonAtomic(path, next);
+  });
+  return payload;
+}
+
 export function registerProjectsRoutes(app: Hono): void {
-  app.get('/api/projects/:projectId/config', async (c) => {
-    const projectID = c.req.param('projectId');
-    if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-    const path = joinPath(PROJECTS_DIR, `${projectID}.json`);
-    return c.json(await readJson(path, { worktree: [], actions: [], starters: [] }));
+  app.get('/api/projects/:projectId/config', getProjectConfig);
+  app.put('/api/projects/:projectId/config', putProjectConfig);
+  app.get('/api/project-context/:projectId', getProjectContext);
+  app.put('/api/project-context/:projectId/todos', putProjectTodos);
+}
+
+async function getProjectConfig(c: Context): Promise<Response> {
+  const projectID = c.req.param('projectId') ?? '';
+  if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  const path = joinPath(projectsDir(), `${projectID}.json`);
+  return c.json(await readJson(path, { worktree: [], actions: [], starters: [] }));
+}
+
+/** §5.15: the request is an OBJECT — null/scalars/arrays are 400. */
+async function putProjectConfig(c: Context): Promise<Response> {
+  const projectID = c.req.param('projectId') ?? '';
+  if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('shape');
+  } catch {
+    return c.json({ error: 'project config must be a JSON object' }, 400);
+  }
+  try {
+    return c.json(await replaceProjectConfig(projectID, body as Record<string, unknown>));
+  } catch (error) {
+    // A lock-wait expiry or fs failure is a route failure, not a clobber.
+    return c.json({ error: `project config write failed: ${String(error).slice(0, 200)}` }, 500);
+  }
+}
+
+async function getProjectContext(c: Context): Promise<Response> {
+  const projectID = c.req.param('projectId') ?? '';
+  if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  const path = joinPath(projectsDir(), `${projectID}.json`);
+  const config = await readJson<Record<string, unknown>>(path, {});
+  return c.json({
+    notes: (config.notes as unknown[]) ?? [],
+    todos: (config.todos as unknown[]) ?? [],
+    plans: (config.plans as unknown[]) ?? [],
   });
-  app.put('/api/projects/:projectId/config', async (c) => {
-    const projectID = c.req.param('projectId');
-    if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-    // §5.15 line 653: the request is an OBJECT — null/scalars/arrays are 400
-    let body: unknown;
-    try {
-      body = await c.req.json();
-      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('shape');
-    } catch {
-      return c.json({ error: 'project config must be a JSON object' }, 400);
-    }
-    const path = joinPath(PROJECTS_DIR, `${projectID}.json`);
-    await writeJsonAtomic(path, body);
-    return c.json(body);
-  });
-  app.get('/api/project-context/:projectId', async (c) => {
-    const projectID = c.req.param('projectId');
-    if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-    const path = joinPath(PROJECTS_DIR, `${projectID}.json`);
-    const config = await readJson<Record<string, unknown>>(path, {});
-    return c.json({
-      notes: (config.notes as unknown[]) ?? [],
-      todos: (config.todos as unknown[]) ?? [],
-      plans: (config.plans as unknown[]) ?? [],
+}
+async function putProjectTodos(c: Context): Promise<Response> {
+  const projectID = c.req.param('projectId') ?? '';
+  if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  let todos: unknown;
+  try {
+    const body = await c.req.json() as { todos?: unknown };
+    todos = body.todos;
+    if (!Array.isArray(todos)) throw new Error('shape');
+  } catch {
+    return c.json({ error: 'todos must be an array' }, 400);
+  }
+  const path = joinPath(projectsDir(), `${projectID}.json`);
+  // Same per-project write lock as the scheduled-task store (C.9): the
+  // todos family read-modify-writes this document too, and a concurrent
+  // store mutation must not be reverted by the stale read.
+  try {
+    await withConfigLock(path, async (): Promise<void> => {
+      const config = await readJson<Record<string, unknown>>(path, {});
+      await writeJsonAtomic(path, { ...config, todos });
     });
-  });
-  app.put('/api/project-context/:projectId/todos', async (c) => {
-    const projectID = c.req.param('projectId');
-    if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-    let todos: unknown;
-    try {
-      const body = await c.req.json() as { todos?: unknown };
-      todos = body.todos;
-      if (!Array.isArray(todos)) throw new Error('shape');
-    } catch {
-      return c.json({ error: 'todos must be an array' }, 400);
-    }
-    const path = joinPath(PROJECTS_DIR, `${projectID}.json`);
-    const config = await readJson<Record<string, unknown>>(path, {});
-    await writeJsonAtomic(path, { ...config, todos });
     return c.json({ saved: true });
-  });
+  } catch (error) {
+    // A lock-wait expiry or fs failure is a route failure, not a clobber.
+    return c.json({ error: `todos write failed: ${String(error).slice(0, 200)}` }, 500);
+  }
 }
 
 export interface GitBranchesPayload { current: string | null; local: string[]; remote: string[] }

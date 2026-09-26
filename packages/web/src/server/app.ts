@@ -21,6 +21,7 @@ import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
 import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
 import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
@@ -226,6 +227,8 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   app.route('/', createNotNativeRoutes());
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
+  // §5.16 scheduled-task family (doc 12 C): BEFORE the harness proxy.
+  app.route('/', createScheduledTaskRoutes());
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
   registerTunnelRoutes(app);

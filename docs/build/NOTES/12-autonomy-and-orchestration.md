@@ -369,6 +369,48 @@ waits — the server row ships first so a closed tab can never strand a queue.
   budget range). NOT in: server routes for tasks/manual runNow,
   loop files, UI listeners, snippet expansion, the B.6.3 distill call
   (P9-3d and later).
+- **P9-3d (loop files + the scheduled-task route surface — delivered this
+  slice)** — C.8 loop files and the doc 03 §5.16 route family:
+  `scheduled/loops.ts` 240 (frontmatter parse with cron-only schedules,
+  `enabled` defaulting FALSE, the model split on the FIRST slash,
+  discovery with user/project scope shadowing and nearest-ancestor
+  preference, the PATCH-enabled frontmatter rewrite),
+  `task-config.ts` 285 (gains the locked `reconcileLoopTasks` with the
+  full C.8 table — revive/adopt/rename/keep/prune — plus a store-exists
+  helper), `scheduled-tasks.ts` 210 (the seven routes: list, upsert,
+  delete, loop-file PATCH/DELETE, run-now, scheduler status), the
+  service grows to 212 lines (optional C.8 `loopsFor`/`reconcileLoops`
+  runtime ports over the harness tree, the 400/409 run-now mapping, the
+  status snapshot), `scheduled-state.ts` 157 (reconcile rides
+  syncProject before the store read; the memory task mirrors the armed
+  slot), and `routes/projects.ts` 244 (the per-project config PUT no
+  longer clobbers the managed `scheduledTasks` key). Behaviors: loop
+  files live in `~/.agents/loops/*.md` and `.agents/loops/*.md` under
+  every ancestor up to the worktree root (a `.git` entry ends the walk;
+  gitless paths reach the fs root); project scope shadows the user
+  scope and the NEAREST ancestor wins; parse failures degrade
+  (name-bearing files hold their task's last good definition, nameless
+  files warn and vanish; invalid zone -> server zone; a long optional
+  agent is omitted); adoption keeps the colliding plain task's id plus
+  unknown fields, UI-only execution extras, and state; a renamed file
+  re-keys its task to the fresh `loop:<scope>:<name>` id; orphaned
+  pointers are pruned and JSON tasks never are; the general task routes
+  refuse loop-owned identities while the file is present; the
+  loop-file routes mutate the FILE and let the sync's reconcile apply
+  it; run-now answers `{ok, status, sessionID?, task, persistError?}`
+  with the service mapping unknown -> 400 and busy/capacity -> 409; the
+  status route reports `{running: {global, byProject}, queued, tasks}`
+  sorted soonest-first. Tests: `p9-3d-scheduled-loops.test.ts` (296,
+  18: the C.8 format table, deterministic ids and file-task input
+  carry, the enabled-fence rewrite, root walk + scope precedence, and
+  the reconciliation table add/rename/adopt/prune/keep-last-good/
+  duplicate/no-op-write) and `p9-3d-scheduled-routes.test.ts` (285,
+  11: the §5.16 family over a real store + runtime, loop gates, the
+  loop-file E2E through the reconcile, run-now 200/400/409 incl. the
+  capacity and pipeline-failure axes, the status snapshot, and the
+  config-PUT non-clobber both directions). NOT in: UI listeners, the
+  API client, the scheduled dialogs, snippet macro resolution, the
+  B.6.3 distill call (P9-4 and later).
 
 ## B. Adaptation deltas (registered)
 
@@ -773,3 +815,97 @@ waits — the server row ships first so a closed tab can never strand a queue.
   intro and the goal payload can no longer disagree; (m) the
   delivery-record-failure test asserted nothing interesting (dead
   second-deps construction) — it now pins the warn.
+
+- **E-09-23 (loop files + the scheduled route family, interpreted for
+  NND)**: doc 12 §C.8 describes loop discovery/reconciliation but leaves
+  several mappings to the build; registered here: (a) §5.16's "404
+  invalid project; 400 missing projectId" becomes — a `projectId`
+  failing the store id pattern is 400 (a Hono path param can never be
+  absent) and a project with no store file on disk is the "invalid
+  project" 404. (b) The deterministic `loop:<scope>:<name>` id must obey
+  task id law, so loop names are restricted to `[A-Za-z0-9._-]`
+  (colon excluded for id sanity): a space-bearing name is a parse
+  failure ("not a legal task id segment"), never slugified. (c)
+  Leniencies the doc does NOT count as failures: an unknown or invalid
+  `timezone` falls back to the server zone (cron validity is still
+  checked by the real cron engine), an over/under-long optional `agent`
+  is simply omitted, and any `enabled` value other than `true` parses as
+  false — discovery must never auto-execute repository content. (d) A
+  file without a usable NAME warns and vanishes from discovery (it
+  cannot claim a shadowing key); a file WITH a usable name stays even
+  when other fields fail — it reports `definition: null` and
+  reconciliation keeps its task's last good definition. (e) Discovery
+  ranks user first, then project ancestors from the FARTHEST to the
+  nearest, and a later file SHADOWS the earlier one for its name (the
+  nearest ancestor and the project scope win — the walk ends at the
+  FIRST ancestor holding a `.git` entry, inclusive of itself);
+  duplicate-name files inside ONE directory are first-sorted-wins with a
+  drift warning. (f) Adoption vs rename: a loop adopting a name-
+  colliding plain task keeps the stored id verbatim (doc: "id + runtime
+  state preserved") along with unknown fields and UI-only execution
+  extras; a task whose identity is the FILE (loop-marked entries) is
+  re-keyed to the fresh `loop:<scope>:<name>` id whenever its name field
+  changes — which also means an adopted task (say id `hand-made`) re-keys
+  to the deterministic id on its first post-adoption rename; identity is
+  the file path throughout. (g) "Unscheduled (marker persisted)" is
+  implemented as REMOVAL of the loop-marked task when its file is gone
+  (the loopFile field is the marker across restarts); plain JSON tasks
+  are never removed by reconcile, duplicate pointers to one file are
+  first-wins, and a reconcile with nothing to do does not rewrite the
+  document at all (no per-sync churn). (h) Gate mapping while a loop
+  file is present: the general task routes refuse (400) an upsert whose
+  id/name/file hits a file-owned task, or whose name any discovered loop
+  claims — a mid-edit (parse-failed) file is equally authoritative — and
+  DELETE refuses with the doc's guidance text; PATCH
+  `.../loop-file` `{enabled}` rewrites the frontmatter flag (appending
+  inside the fence when absent), DELETE unlinks the file (ENOENT is
+  tolerated — the next sync's orphan prune finishes the job), both then
+  ride runtime.syncProject where the C.8 reconcile applies the file, and
+  both answer 404 for an unknown task and 400 for a task that is not
+  loop-sourced. (i) runNow (C.6 line 892) maps the refusals to HTTP:
+  `task-unknown` -> 400, `task-busy` and `capacity-exhausted` -> 409; a
+  COMPLETED run always answers 200 with the C.7 result
+  `{ok, status, sessionID?, task, persistError?}` — persistence failures
+  are body facts, not status codes. (j) The list route answers
+  `{tasks}` exactly (unreadable store entries are logged, not leaked);
+  the status route's concrete shape is
+  `{running: {global, byProject}, queued, tasks[]}` soonest-first
+  (doc: "{ ...running state, next runs }"), and syncProject splices the
+  computed nextRunAt into the memory task so the snapshot reads memory
+  without a store round-trip. (k) The scheduled-task store's own
+  `scheduledTasks` config key now has a second writer to defend against:
+  the settings-family PUT /api/projects/:id/config drops any incoming
+  copy of the key and rides the stored value through verbatim while
+  replacing every other key (the C.9 writer discipline widened to the
+  settings family). Deltas in code shape: the C.8 runtime ports are
+  OPTIONAL (`loopsFor`/`reconcileLoops`) — an unknown project path
+  (the harness cannot resolve a worktree) yields NO reconcile and a
+  plain JSON sync (the doc's "when the path is known"); reconcile
+  failures propagate, skipping the project sync per C.4's broken-project
+  rule, while discovery failures degrade to null (plain sync).
+
+  Audit addendum (round 1; five defects reproduced on red, fixed, then
+  pinned in p9-3d-audit-repro.test.ts): (l) an adopted task whose id was
+  NOT loop-derived was re-keyed to the deterministic id on EVERY later
+  reconcile (id churn on each sync plus a doc rewrite E-09-23(g) called a
+  no-op) — the re-key now fires only when the file owns the entry AND its
+  name field actually changed (or an already-derived id is stale), and a
+  no-op reconcile rewrites nothing (byte-pinned). (m) the upsert gate
+  checked the STORE's loop-owned entries but not DISCOVERY: a PUT whose
+  `loop:scope:name`-shaped id (or whose `loopFile` field) pointed at an
+  existing file under a foreign name passed, and the next sync's
+  reconcile silently re-owned the just-upserted task — the gate now also
+  asks discovery by id and by file path while the file exists. (n) the
+  settings-family config PUT performed an unlocked read-modify-write and
+  could revert a concurrent store append/patch (the classic lost update)
+  — it runs under the per-project write lock now (builder
+  `replaceProjectConfig`), the P4-2 todos PUT got the same lock in this
+  slice, and a locked reader defers instead of writing around the lock
+  (both pinned). (o) `writeLoopEnabled` rewrote the whole frontmatter as
+  LF, churning CRLF files (and, on the append path, would have grafted an
+  LF line into a CRLF fence) — the rewrite now preserves the file's
+  dominant line ending. Also hardened: the existing adoption test's
+  rewrite assertion was vacuous (a byte-identical doc comparison replaced
+  an assertion that a doc rewrite would have satisfied too); run-now
+  while the singleton runtime was never started answers ERROR 500 with
+  an empty status shape instead of crashing the handler.

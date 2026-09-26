@@ -12,10 +12,12 @@
  * past once slot; omitting the key would leave the stale value). The
  * required `updatedAt` is the exception: it falls back to now instead.
  */
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join as joinPath } from 'node:path';
 import { ENV } from '../env.ts';
 import { withConfigLock } from './config-lock.ts';
+import { LOOP_TASK_ID_PATTERN, loopTaskId, loopTaskInput, type DiscoveredLoop } from './loops.ts';
 import { normalizeTaskForStorage, record, type NormalizeOptions, type NormalizeResult, type ScheduledTask } from './task-schema.ts';
 import { PROJECT_ID_PATTERN, SCHEDULED_TASKS_KEY } from './scheduled-constants.ts';
 
@@ -193,5 +195,122 @@ export async function removeScheduledTask(projectId: string, taskId: string): Pr
     await writeDocAtomic(path, withTasks(raw.doc,
       entries.filter((entry) => record(entry)?.id !== taskId), false));
     return true;
+  });
+}
+
+export function scheduledStoreExists(projectId: string): boolean {
+  return PROJECT_ID_PATTERN.test(projectId) && existsSync(scheduledConfigPath(projectId));
+}
+
+/** Loop-marked entries grouped by their driving file (identity = file path). */
+function loopFileIndex(entries: unknown[]): Map<string, number[]> {
+  const index = new Map<string, number[]>();
+  for (let i = 0; i < entries.length; i += 1) {
+    const file = record(entries[i])?.loopFile;
+    if (typeof file !== 'string' || file.length === 0) continue;
+    const list = index.get(file) ?? [];
+    list.push(i);
+    index.set(file, list);
+  }
+  return index;
+}
+
+/** At most one task per loop file (doc 12 C.8): keep the first pointer. */
+function duplicatePointers(fileIndex: ReadonlyMap<string, number[]>): Set<number> {
+  const drop = new Set<number>();
+  for (const list of fileIndex.values()) {
+    const keep = list[0];
+    if (keep === undefined) continue;
+    for (const extra of list) if (extra !== keep) drop.add(extra);
+  }
+  return drop;
+}
+
+/** Where a loop's definition lands: the entry pointing at its file
+ * (file-owned; renames re-key the id), else a plain JSON task the loop
+ * adopts by name (or by id; the stored id SURVIVES), else create. */
+function loopTarget(entries: unknown[], loop: DiscoveredLoop, drop: ReadonlySet<number>): { at: number | null; fileOwned: boolean } {
+  for (let i = 0; i < entries.length; i += 1) {
+    if (drop.has(i)) continue;
+    if (record(entries[i])?.loopFile === loop.file) return { at: i, fileOwned: true };
+  }
+  const expectedId = loopTaskId(loop);
+  for (let i = 0; i < entries.length; i += 1) {
+    if (drop.has(i)) continue;
+    const entry = record(entries[i]);
+    if (entry === null || typeof entry.loopFile === 'string') continue;
+    if (entry.name === loop.name || entry.id === expectedId) return { at: i, fileOwned: false };
+  }
+  return { at: null, fileOwned: false };
+}
+
+/** C.8 table application: revive/ad/create/adopt for parsed loops, keep last
+ * good definitions for name-bearing parse failures, prune orphaned and
+ * duplicated pointers. Returns the ORIGINAL array when nothing changed. */
+function applyLoopEntries(
+  entries: unknown[], loops: readonly DiscoveredLoop[], options: NormalizeOptions,
+  log?: { warn: (message: string) => void },
+): unknown[] {
+  const fileIndex = loopFileIndex(entries);
+  const drop = duplicatePointers(fileIndex);
+  const next = [...entries];
+  let edited = false;
+  for (const loop of loops) {
+    if (loop.definition === null) continue;
+    const target = loopTarget(entries, loop, drop);
+    const stored = target.at === null ? undefined : record(entries[target.at]) ?? undefined;
+    const storedId = typeof stored?.id === 'string' ? stored.id : undefined;
+    // (E-09-23 f) a file-owned task re-keys to the fresh loop id only when
+    // its name field changed or its stored id is already a stale loop
+    // id; an adopted hand-made id survives every no-change reconcile.
+    const renamed = typeof stored?.name === 'string' && stored.name !== loop.name;
+    const derived = storedId !== undefined && LOOP_TASK_ID_PATTERN.test(storedId);
+    const refreshedId = storedId === undefined ? undefined
+      : target.fileOwned && storedId !== loopTaskId(loop) && (renamed || derived)
+        ? loopTaskId(loop) : storedId;
+    const input = loopTaskInput(loop, { stored, id: refreshedId });
+    const outcome = normalizeTaskForStorage(input, options);
+    if (!outcome.ok) {
+      log?.warn(`loop revive refused for ${loop.file}: ${outcome.reason}`);
+      continue;
+    }
+    if (target.at === null) next.push(outcome.task);
+    else next[target.at] = outcome.task;
+    edited = true;
+  }
+  const discovered = new Set(loops.map((loop) => loop.file));
+  for (const [file, list] of fileIndex) {
+    if (!discovered.has(file) && !drop.has(list[0] ?? -1)) drop.add(list[0] ?? -1);
+  }
+  if (!edited && drop.size === 0) return entries;
+  const kept: unknown[] = [];
+  for (let i = 0; i < next.length; i += 1) {
+    if (!drop.has(i)) kept.push(next[i]);
+  }
+  return kept;
+}
+
+/** C.8 loop reconciliation, inside the project write lock. Files own their
+ * tasks: revives refresh from the file (state + unknown fields ride along),
+ * a rename re-keys the task to a fresh `loop:<scope>:<name>` id, a named
+ * plain-task collision is adopted in place, and tasks whose file vanished
+ * are dropped (plain JSON tasks never are). */
+export async function reconcileLoopTasks(
+  projectId: string, loops: readonly DiscoveredLoop[], options: NormalizeOptions,
+  log?: { warn: (message: string) => void },
+): Promise<TaskLoad> {
+  const path = scheduledConfigPath(projectId);
+  return withConfigLock(path, async (): Promise<TaskLoad> => {
+    const raw = await readRawDoc(path);
+    const entries = raw.kind === 'ok' ? tasksIn(raw.doc) : [];
+    const next = applyLoopEntries(entries, loops, options, log);
+    if (next === entries) return parseTasks(entries, options);
+    if (raw.kind === 'malformed') {
+      await renameAsideMalformed(path);
+      await writeDocAtomic(path, withTasks({}, next, true));
+      return parseTasks(next, options);
+    }
+    await writeDocAtomic(path, withTasks(raw.kind === 'ok' ? raw.doc : {}, next, true));
+    return parseTasks(next, options);
   });
 }

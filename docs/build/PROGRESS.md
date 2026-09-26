@@ -22,6 +22,34 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 loop files + the scheduled-task route surface.** C.8
+  `.agents/loops` files now drive tasks: `scheduled/loops.ts` (cron-only
+  frontmatter, `enabled` defaulting FALSE, model split on the first
+  slash, user/project scope shadowing with nearest-ancestor preference,
+  the enabled-fence rewrite) and the locked `reconcileLoopTasks` in
+  `task-config.ts` (revive/adopt/rename/keep-last-good/prune, run before
+  every store read in `syncProject`). The doc 03 §5.16 route family
+  landed in `routes/scheduled-tasks.ts` — list, upsert, delete, loop-file
+  PATCH/DELETE (the file mutations), run-now, scheduler status — with
+  loop-ownership gates on the general task routes, the 400/409 run-now
+  mapping, and the `{running, queued, tasks}` status snapshot;
+  `scheduled-service.ts` grew the optional `loopsFor`/`reconcileLoops`
+  runtime ports over the harness tree. `routes/projects.ts`'s per-project
+  config PUT no longer clobbers the managed `scheduledTasks` key. E-09-23 registers the NND mappings (project 400/404 semantics,
+  id-legal names, zone/agent leniency, adoption-vs-rename identity,
+  remove-as-orphan-prune, run-now mapping, status shape) and the settings
+  config PUT now rides the per-project write lock with `scheduledTasks`
+  preserved (C.9 discipline widened to the settings family; the P4-2
+  todos PUT got the same lock). 29-test loops+routes suites plus a
+  20-test audit regression file green; web 884/884 (64 files), typecheck,
+  gates, graph (412 modules); adversarial review reproduced and fixed 6
+  defect classes (adopted-id re-key churn on every sync, discovery-blind
+  upsert gates on the id and file axes, unlocked config/todos
+  read-modify-writes that could revert store patches, CRLF-to-LF churn in
+  the enabled rewrite, plus the outright missing todos lock) with pins.
+  Next: UI listeners + the API client + the scheduled dialogs
+  (ScheduledTasksDialog/ScheduledTaskEditorDialog/scheduledTasksApi),
+  snippet macro resolution, the B.6.3 distill call.
 - 2026-09-26 · **P9 scheduled-task run pipeline on NNA.** The scheduled
   runtime's injected `runPipeline` port now has the real C.6 adapter behind
   it: `scheduled-pipeline.ts` (session create with the slot-zone wall-clock

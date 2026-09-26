@@ -126,9 +126,16 @@ export class ScheduledState {
   }
 }
 
-/** §C.4 syncProject: read, replace the memory map, persist each computed
- * nextRunAt, and arm future slots. Store failures propagate to the caller. */
+/** §C.4 syncProject: reconcile the project's loop files (C.8) before the
+ * store read — they own their tasks; then replace the memory map, persist
+ * each computed nextRunAt, and arm future slots. Store/reconcile failures
+ * propagate to the caller (the project is skipped with a log). */
 export async function syncScheduledProject(ports: RuntimePorts, state: ScheduledState, projectId: string): Promise<void> {
+  if (ports.loopsFor !== undefined && ports.reconcileLoops !== undefined) {
+    const loops = await ports.loopsFor(projectId);
+    // Unknown project path -> no discovery -> the plain JSON sync proceeds.
+    if (loops !== null) await ports.reconcileLoops(projectId, loops);
+  }
   const load = await ports.load(projectId);
   const map = new Map<string, ScheduledTask>();
   for (const task of load.tasks) map.set(task.id, task);
@@ -138,6 +145,9 @@ export async function syncScheduledProject(ports: RuntimePorts, state: Scheduled
     const nextAt = computeNextRunAt(task.schedule, task.enabled, ports.now());
     await ports.patch(projectId, task.id,
       { nextRunAt: optionalFinite(nextAt), updatedAt: ports.now() });
+    // The memory task mirrors the armed slot (the status snapshot and the
+    // UI read it without a store round-trip).
+    task.state.nextRunAt = optionalFinite(nextAt);
     state.scheduleFutureRun(projectId, task, finiteOr(nextAt, -Infinity));
   }
 }

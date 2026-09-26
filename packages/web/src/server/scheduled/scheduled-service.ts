@@ -23,8 +23,12 @@ import {
 import { createScheduledTasksRuntime, type RuntimePorts } from './scheduled-runtime.ts';
 import type { StorePorts, TaskRunEvent } from './scheduled-ports.ts';
 import {
-  loadScheduledTasks, updateScheduledTaskState, updateScheduledTaskStateIf, upsertScheduledTask,
+  loadScheduledTasks, reconcileLoopTasks, updateScheduledTaskState, updateScheduledTaskStateIf, upsertScheduledTask,
 } from './task-config.ts';
+import { discoverLoops, type DiscoveredLoop } from './loops.ts';
+import type { RunOutcome } from './scheduled-ports.ts';
+import type { ScheduledTask } from './task-schema.ts';
+import { messageOf } from './scheduled-util.ts';
 import type { NormalizeOptions } from './task-schema.ts';
 
 const scheduledLog = {
@@ -98,6 +102,90 @@ export function createScheduledPipelineDeps(
   };
 }
 
+/** Production C.8 loop ports: discovery resolves the project worktree from
+ * the harness tree (an unknown path means NO reconcile - the plain JSON
+ * sync proceeds), reconciliation runs under the store's project write lock
+ * and propagates its failures (the project sync is skipped with a log). */
+export function createScheduledLoopPorts(
+  harness: ScheduledHarnessPorts = createNnaScheduledHarnessPorts(),
+): {
+  loopsFor: (projectId: string) => Promise<readonly DiscoveredLoop[] | null>;
+  reconcileLoops: (projectId: string, loops: readonly DiscoveredLoop[]) => Promise<void>;
+} {
+  return {
+    loopsFor: async (projectId) => {
+      try {
+        const directory = await harness.resolveDirectory(projectId);
+        if (directory === null) return null;
+        return await discoverLoops(directory, scheduledNormalizeOptions(), undefined, scheduledLog);
+      } catch (error) {
+        scheduledLog.warn(`loop discovery refused: ${messageOf(error)}`);
+        return null;
+      }
+    },
+    reconcileLoops: async (projectId, loops) => {
+      await reconcileLoopTasks(projectId, loops, scheduledNormalizeOptions());
+    },
+  };
+}
+
+export interface ScheduledRequestFailure { status: number; error: string }
+
+export type RunNowResult = RunOutcome | ScheduledRequestFailure;
+
+/** Manual run-now (doc 12 C.6 line 892 + C.7): refusals map to the route
+ * layer - unknown task 400, busy/capacity 409 - while a COMPLETED run
+ * answers 200 regardless of status or persistError (the dispatch itself
+ * succeeded; the UI shows persistError as a warning). */
+export async function runScheduledTaskNow(
+  runtime: ScheduledTasksRuntime, projectId: string, taskId: string,
+): Promise<RunNowResult> {
+  const outcome = await runtime.runNow(projectId, taskId);
+  if (outcome.task === undefined && outcome.reason !== undefined) {
+    if (outcome.reason === 'task-unknown') return { status: 400, error: 'unknown task' };
+    if (outcome.reason === 'task-busy') return { status: 409, error: 'task is already running or queued' };
+    if (outcome.reason === 'capacity-exhausted') return { status: 409, error: 'scheduled run capacity is exhausted' };
+  }
+  return outcome;
+}
+
+export interface ScheduledStatusTask {
+  projectId: string;
+  id: string;
+  name: string;
+  enabled: boolean;
+  lastStatus: ScheduledTask['state']['lastStatus'];
+  nextRunAt?: number;
+}
+
+export interface SchedulerStatus {
+  running: { global: number; byProject: Record<string, number> };
+  queued: number;
+  tasks: ScheduledStatusTask[];
+}
+
+/** §5.16 status snapshot: running/queued state plus every in-memory task
+ * with its armed slot, soonest first. */
+export function schedulerStatusOf(runtime: ScheduledTasksRuntime | null): SchedulerStatus {
+  if (runtime === null) return { running: { global: 0, byProject: {} }, queued: 0, tasks: [] };
+  const counts = runtime.internals.counts();
+  const byProject: Record<string, number> = {};
+  for (const [projectId, slots] of counts.byProject) byProject[projectId] = slots;
+  const tasks: ScheduledStatusTask[] = [];
+  for (const [projectId, map] of runtime.internals.tasksByProject) {
+    for (const task of map.values()) {
+      tasks.push({
+        projectId, id: task.id, name: task.name, enabled: task.enabled,
+        lastStatus: task.state.lastStatus,
+        ...(task.state.nextRunAt !== undefined ? { nextRunAt: task.state.nextRunAt } : {}),
+      });
+    }
+  }
+  tasks.sort((a, b) => (a.nextRunAt ?? Number.POSITIVE_INFINITY) - (b.nextRunAt ?? Number.POSITIVE_INFINITY)
+    || a.projectId.localeCompare(b.projectId) || a.id.localeCompare(b.id));
+  return { running: { global: counts.global, byProject }, queued: runtime.internals.queued.size, tasks };
+}
+
 export type ScheduledTasksRuntime = ReturnType<typeof createScheduledTasksRuntime>;
 
 let defaultRuntime: ScheduledTasksRuntime | null = null;
@@ -115,6 +203,7 @@ export function getScheduledTasksRuntime(): ScheduledTasksRuntime {
       now: () => Date.now(),
       jitter: () => Math.floor(Math.random() * 2000),
       normalizeOptions: scheduledNormalizeOptions(),
+      ...createScheduledLoopPorts(),
     };
     const runtime = createScheduledTasksRuntime(ports);
     void runtime.start().catch((error: unknown) => {

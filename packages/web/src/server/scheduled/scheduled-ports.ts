@@ -6,6 +6,7 @@
  * is injected behind `runPipeline` so the runtime never imports the harness.
  */
 import type { NormalizeOptions, ScheduledTask } from './task-schema.ts';
+import type { DiscoveredLoop } from './loops.ts';
 
 export interface TaskRunEvent {
   projectId: string;
@@ -58,6 +59,11 @@ export interface RuntimePorts extends StorePorts {
   now: () => number;
   jitter: () => number;
   normalizeOptions: NormalizeOptions;
+  /** C.8 seam, optional: discovery of the project's .agents/loops files and
+   * the locked reconciliation they drive. `loopsFor` returns null when the
+   * project path is unknown (no reconcile runs; plain sync proceeds). */
+  loopsFor?: (projectId: string) => Promise<readonly DiscoveredLoop[] | null>;
+  reconcileLoops?: (projectId: string, loops: readonly DiscoveredLoop[]) => Promise<void>;
 }
 
 export interface RuntimeLimits {

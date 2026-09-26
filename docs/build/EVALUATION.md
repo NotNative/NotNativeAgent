@@ -3,6 +3,26 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - scheduled loop files + task routes at P9-3d
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Web server/contract suite | vitest 884/884 (64 files; the audit round added its own 19-test regression file, later extended with a 20th pin) - includes `p9-3d-scheduled-loops.test.ts` 18/18 (the C.8 format table: quotes/agent/zone, enabled-default-FALSE, model split on the first slash, all enumerated parse failures + the usable-name degradation, zone fallback with UI-only keys ignored, deterministic ids, adoption carry of unknown fields/execution extras/state, the enabled-fence rewrite append/replace/null, worktree-root walk + gitless fs-root walk, user<project and farthest<nearest shadowing, parse-failed named files vs nameless vanish, reconcile create/rename/adopt/prune/keep-last-good/duplicate/no-op-write) and `p9-3d-scheduled-routes.test.ts` 11/11 (the §5.16 family over a real store + runtime: list 200/400/404, upsert + body/protection guards + loop gates by id AND by discovered name, delete plain/orphan/live-loop-file/unknown, loop-file PATCH writing `enabled: true` into the file and the task through the sync's reconcile, loop-file DELETE pruning the task while sibling keys survive, run-now 200/400/409 with busy and capacity axes plus the pipeline-failure-is-a-200-run axis, the status snapshot sorted soonest-first, and the config-PUT non-clobber with an incoming `scheduledTasks` copy dropped) and `p9-3d-audit-repro.test.ts` 20/20 (the fixed-defect pins, below) |
+| Typecheck | tsc over all tsconfigs - clean (twice: pre-audit and after the audit's handler extraction) |
+| Quality gates + graph | controlled-language gates green (412 source files); function cap 60, file cap 500 - green; repository graph rebuilt at 412 modules |
+| Writer discipline | TWO routes now ride the per-project write lock: the settings-family config PUT (locked read-modify-write, replaces every key verbatim except the managed `scheduledTasks` key which rides through, incoming copies dropped) and the P4-2 todos PUT (locked RMW, closed in-slice after the audit flagged it); a locked reader defers instead of writing around the lock (both pinned); the store key survives the settings route both when present and absent from the PUT body |
+| Adversarial review | sub-agent audit reproduced and fixed 5 defect classes with 19 regression tests: (1) an adopted task with a non-derived id was re-keyed to the deterministic loop id on EVERY reconcile (id churn + no-op doc rewrites) - re-key now fires only when the file owns the entry AND its name changed or a derived id is stale, with a byte-level no-op pin; (2)-(3) the upsert gate was blind on the id axis and the loopFile axis relative to DISCOVERY (a loop-shaped id or a foreign-named file pointer passed, then the sync's reconcile silently re-owned the task) - the gate now asks discovery by id and by file path while the file exists; (4) the config PUT was an unlocked read-modify-write and could revert a concurrent store patch (lost update) - now locked, and the todos PUT got the same lock; (5) the loop-file enabled rewrite converted CRLF to LF (whole-file churn; the append path would have grafted an LF line into a CRLF fence) - the rewrite now preserves the file's dominant line ending. Also hardened: a vacuous adoption rewrite assertion became a byte-identical doc compare; run-now against a never-started singleton answers 500 with an empty status shape. Verified-not-defective highlights: reconcile under the C.5 lock never nests with a held lock, malformed-doc rename-aside mirrors the upsert path, orphan timers/memory are shed by the route-triggered sync after a rename, loop-file DELETE is ENOENT-tolerant (200 then 404), the `*.md`-named-directory edge is excluded without failing the scan, over-cap and binary bodies all answer one 400 |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Real .agents/loops run | discovery + reconcile verified against temp directories and the real store lock; a live repo's loop file driving a real NNA session is a smoke-probe step after the P9-4 UI |
+| UI listeners + dialogs | ScheduledTasksDialog/ScheduledTaskEditorDialog/scheduledTasksApi are P9-4; the routes + SSE control-bus fanout they consume are already live |
+| Harness-resolved loopsFor | the route-layer loop scan rides the harness worktree resolution in production; route tests inject it (the adapter call chain itself is covered by the queue-family tests) |
+
 ## 2026-09-26 - scheduled run pipeline on NNA at P9-3c (harness side)
 
 **Verified working**
