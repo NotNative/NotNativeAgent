@@ -14,13 +14,22 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
-| P10 knowledge/context | 15 | pending |
+| P10 knowledge/context | 15 | 🔶 isolated project-context storage and todo write seam in progress 2026-09-26; notes/plans routes, legacy plan-file migration, UI ownership, memory/skills/MCP pending |
 | P11 preview | 13 | 🔶 Windows dev-server discovery + browser empty-state list delivered 2026-09-26; inspection, annotation, tunnels, walkthrough pending |
 | P12 Electron | 09 | pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-26 · **P10-1 project-context ownership boundary.** The existing
+  context GET and todo PUT now read/write a separate per-project `context.json`
+  under a shared project write lock. Legacy note/todo arrays seed it without
+  overwriting project configuration; malformed or ambiguous data fails visibly
+  instead of becoming an empty panel. Legacy plan-file links fail closed until
+  their copy-in migration is built. The config-lock promise queue no longer
+  emits an unhandled rejection for an expected write failure. This is a
+  backend boundary only: notes/plans CRUD and UI adoption remain P10 work.
 
 - 2026-09-26 · **Goal ID collision hardening.** A full web run observed one
   duplicate among 200 same-timestamp goal IDs because the implementation

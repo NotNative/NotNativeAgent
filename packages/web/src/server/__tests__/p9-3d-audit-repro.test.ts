@@ -229,7 +229,7 @@ describe('fix C: the settings-family config PUT serializes with the task store (
     expect((doc.scheduledTasks as unknown[]).length).toBe(1); // the store's key rode through
   });
 
-  it('PUT todos defers under the same lock and keeps both keys (same C.9 class)', async () => {
+  it('PUT todos defers under the config lock and writes separate context', async () => {
     const PID = 'cfglock';
     seedConfig(PID, { notes: 'old', scheduledTasks: [taskDoc()] });
     const api = call(plainApp);
@@ -248,9 +248,12 @@ describe('fix C: the settings-family config PUT serializes with the task store (
     expect(outcome.fault).toBe('');
     expect(outcome.status).toBe(200);
     const doc = JSON.parse(readFileSync(scheduledConfigPath(PID), 'utf8')) as Record<string, unknown>;
-    expect(doc.todos).toEqual(['t1']);
+    expect(doc.todos).toBeUndefined();
     expect(doc.notes).toBe('old'); // the stale read would have reverted nothing
     expect((doc.scheduledTasks as unknown[]).length).toBe(1);
+    const context = JSON.parse(readFileSync(joinPath(ROOT, 'projects', PID, 'context.json'), 'utf8')) as Record<string, unknown>;
+    expect(context.todos).toEqual(['t1']);
+    expect(context.notes).toMatchObject([{ body: 'old' }]);
   });
 });
 

@@ -2,13 +2,14 @@
 /**
  * P4-2 routes (doc 03 §5.6/§5.13/§5.15 subset): canonical settings CRUD with
  * the deferred-restart response shape, git log/branches read family, and the
- * projects config + project-context read/write core. Single JSON store per
- * entity under the data dir; writes are atomic tmp+rename (§5.14 write rule).
+ * projects config + project-context read/write core. Context now has a
+ * separate JSON store; writes are atomic tmp+rename (§5.14 write rule).
  */
 import { existsSync } from 'node:fs';
 import { mkdir, rename, writeFile, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { dirname, join as joinPath } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type { Hono, Context } from 'hono';
 import { ENV } from '../env.ts';
 import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
@@ -16,6 +17,7 @@ import { resolveSurfaceKind } from '../lib/settings-gate.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
+import { readProjectContext, replaceProjectTodos } from '../project-context/context-store.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
  * (review P2 — an admitted guest must not be able to unbond the store). */
@@ -95,6 +97,9 @@ export function registerSettingsRoutes(app: Hono): void {
 }
 
 const PROJECT_ID = /^[a-zA-Z0-9_-]+$/u;
+const LEGACY_CONTEXT_KEYS = ['projectNotes', 'projectTodos', 'projectPlanFiles', 'notes', 'todos', 'plans'] as const;
+
+class ProjectConfigInputError extends Error {}
 
 /** The locked read-modify-write behind the per-project config PUT (C.9,
  * E-09-23 k): the settings family became a SECOND writer of the per-project
@@ -104,12 +109,29 @@ const PROJECT_ID = /^[a-zA-Z0-9_-]+$/u;
  * key rides through verbatim and an incoming copy is dropped. */
 async function replaceProjectConfig(projectId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const path = joinPath(projectsDir(), `${projectId}.json`);
+  const contextPath = joinPath(projectsDir(), projectId, 'context.json');
   let payload: Record<string, unknown> = {};
   await withConfigLock(path, async (): Promise<void> => {
-    const existing = await readJson<Record<string, unknown>>(path, {});
+    let existing: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(await readFile(path, 'utf8')) as unknown;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('malformed project config');
+      existing = parsed as Record<string, unknown>;
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'ENOENT') throw error;
+    }
+    const contextExists = existsSync(contextPath);
+    if (contextExists) await readProjectContext(projectId); // malformed context must not make legacy keys disposable
     const next = { ...body };
     delete next.scheduledTasks;
     if (existing.scheduledTasks !== undefined) next.scheduledTasks = existing.scheduledTasks;
+    for (const key of LEGACY_CONTEXT_KEYS) {
+      if (Object.hasOwn(body, key) && !isDeepStrictEqual(body[key], existing[key])) {
+        throw new ProjectConfigInputError(`${key} belongs to project context`);
+      }
+      delete next[key];
+      if (!contextExists && Object.hasOwn(existing, key)) next[key] = existing[key];
+    }
     payload = next;
     await writeJsonAtomic(path, next);
   });
@@ -144,6 +166,7 @@ async function putProjectConfig(c: Context): Promise<Response> {
   try {
     return c.json(await replaceProjectConfig(projectID, body as Record<string, unknown>));
   } catch (error) {
+    if (error instanceof ProjectConfigInputError) return c.json({ error: error.message }, 400);
     // A lock-wait expiry or fs failure is a route failure, not a clobber.
     return c.json({ error: `project config write failed: ${String(error).slice(0, 200)}` }, 500);
   }
@@ -152,13 +175,8 @@ async function putProjectConfig(c: Context): Promise<Response> {
 async function getProjectContext(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
   if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-  const path = joinPath(projectsDir(), `${projectID}.json`);
-  const config = await readJson<Record<string, unknown>>(path, {});
-  return c.json({
-    notes: (config.notes as unknown[]) ?? [],
-    todos: (config.todos as unknown[]) ?? [],
-    plans: (config.plans as unknown[]) ?? [],
-  });
+  try { return c.json(await readProjectContext(projectID)); }
+  catch { return c.json({ error: 'project context unavailable' }, 500); }
 }
 async function putProjectTodos(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
@@ -171,19 +189,10 @@ async function putProjectTodos(c: Context): Promise<Response> {
   } catch {
     return c.json({ error: 'todos must be an array' }, 400);
   }
-  const path = joinPath(projectsDir(), `${projectID}.json`);
-  // Same per-project write lock as the scheduled-task store (C.9): the
-  // todos family read-modify-writes this document too, and a concurrent
-  // store mutation must not be reverted by the stale read.
   try {
-    await withConfigLock(path, async (): Promise<void> => {
-      const config = await readJson<Record<string, unknown>>(path, {});
-      await writeJsonAtomic(path, { ...config, todos });
-    });
-    return c.json({ saved: true });
-  } catch (error) {
-    // A lock-wait expiry or fs failure is a route failure, not a clobber.
-    return c.json({ error: `todos write failed: ${String(error).slice(0, 200)}` }, 500);
+    return c.json({ saved: true, ...(await replaceProjectTodos(projectID, todos as unknown[])) });
+  } catch {
+    return c.json({ error: 'project context write failed' }, 500);
   }
 }
 
@@ -292,4 +301,3 @@ function gitBranches(query: { directory?: string }): Response {
   }
   return Response.json({ isGitRepository: true, current, local: [...new Set(local)].sort(), remote: [...new Set(remote)].sort() });
 }
-

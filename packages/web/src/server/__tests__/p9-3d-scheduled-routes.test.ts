@@ -289,7 +289,7 @@ describe('GET scheduler status', () => {
 });
 
 describe('per-project config PUT does NOT clobber scheduledTasks', () => {
-  it('replaces the UI keys verbatim, preserves the managed key, drops copies', async () => {
+  it('replaces UI keys while preserving scheduled tasks and unseeded legacy context', async () => {
     const api = call(seededApp());
     seedConfig('alpha', { version: 1, notes: 'old', scheduledTasks: [taskDoc()] });
     const put = await api('/api/projects/alpha/config', {
@@ -299,7 +299,7 @@ describe('per-project config PUT does NOT clobber scheduledTasks', () => {
     expect(await put.json()).toMatchObject({ actions: ['a1'] });
     const doc = readConfig('alpha');
     expect(doc.actions).toEqual(['a1']);
-    expect(doc.notes).toBeUndefined(); // non-managed keys run verbatim
+    expect(doc.notes).toBe('old'); // retained until the context file is durably seeded
     expect(doc.scheduledTasks).toEqual([taskDoc()]);
     const fresh = await api('/api/projects/ghost/config', {
       method: 'PUT', body: JSON.stringify({ actions: [] }),

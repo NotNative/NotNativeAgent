@@ -95,10 +95,10 @@ const chains = new Map<string, Promise<unknown>>();
 export function chained<T>(key: string, run: () => Promise<T>): Promise<T> {
   const previous = chains.get(key) ?? Promise.resolve();
   const outcome = previous.then(run, run);
-  // The map stores the finally-completed tail (not the raw outcome), so the
-  // cleanup comparison must name the tail: comparing against the outcome can
-  // never match and the entry would stay parked forever.
-  const tail = outcome.finally(() => {
+  // The bookkeeping tail must fulfill even when the caller's operation
+  // rejects; otherwise an expected write failure becomes an unhandled
+  // rejection while the caller is already handling `outcome`.
+  const tail = outcome.then(() => undefined, () => undefined).then(() => {
     if (chains.get(key) === tail) chains.delete(key);
   });
   chains.set(key, tail);
