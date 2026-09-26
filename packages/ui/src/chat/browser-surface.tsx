@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
 import { pageSnapshotScript, parsePageSnapshot, type PageSnapshot } from '../lib/browser/page-snapshot.ts';
+import { pageInspectionScript, parsePageInspection } from '../lib/browser/page-inspection.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
@@ -314,6 +315,26 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!snapshot || guestRef.current !== guest || revision !== inspectionRevision.current
           || snapshot.url !== historyRef.current[indexRef.current]) throw new Error('The page changed before the snapshot completed.');
         result = { ok: true, data: snapshot };
+      } else if (request.action === 'browser.inspect') {
+        const selector = request.parameters?.selector;
+        if (typeof selector !== 'string' || !selector || selector.length > 500) throw new Error('A bounded CSS selector is required.');
+        const guest = guestRef.current as (HTMLElement & {
+          executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
+        }) | null;
+        if (!guest?.executeJavaScript) throw new Error('Open a page in the desktop Browser pane first.');
+        const revision = inspectionRevision.current;
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        let value: unknown;
+        try {
+          value = await Promise.race([guest.executeJavaScript(pageInspectionScript(selector), false),
+            new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Page inspection timed out.')), 15_000); })]);
+        } finally { if (timeout) clearTimeout(timeout); }
+        if (value && typeof value === 'object' && 'error' in value && typeof value.error === 'string')
+          throw new Error(value.error.slice(0, 200));
+        const inspection = parsePageInspection(value, selector);
+        if (!inspection || guestRef.current !== guest || revision !== inspectionRevision.current
+          || inspection.url !== historyRef.current[indexRef.current]) throw new Error('The page changed before inspection completed.');
+        result = { ok: true, data: inspection };
       } else throw new Error(`${request.action} is not available in this build.`);
     } catch (error) {
       result = { ok: false, error: error instanceof Error ? error.message.slice(0, 1000) : 'Browser action failed.' };

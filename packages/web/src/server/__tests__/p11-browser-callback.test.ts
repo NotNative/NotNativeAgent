@@ -21,6 +21,8 @@ describe('private NNA browser callback', () => {
     expect((await post({ action: 'browser.snapshot', parameters: {} })).status).toBe(401);
     expect((await post({ action: 'browser.click', parameters: {} }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.snapshot', parameters: { url: 'x' } }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.inspect', parameters: {} }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.inspect', parameters: { selector: '#x', extra: true } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.open', parameters: { url: 'x', extra: true } }, secret)).status).toBe(400);
     broker.dispose();
   });
@@ -42,6 +44,19 @@ describe('private NNA browser callback', () => {
     const { broker, post } = fixture();
     const response = await post({ action: 'browser.snapshot', parameters: {} }, secret);
     expect(response.status).toBe(503);
+    broker.dispose();
+  });
+
+  it('dispatches a bounded inspect selector to a capable desktop', async () => {
+    const { broker, post } = fixture();
+    broker.registerClient('desktop', true, (request) => {
+      expect(request.action).toBe('browser.inspect');
+      expect(request.parameters).toEqual({ selector: '#send' });
+      expect(broker.claim(request.requestId, 'desktop')).toBe(true);
+      broker.resolve(request.requestId, 'desktop', { ok: true, data: { tag: 'button' } });
+    });
+    const response = await post({ action: 'browser.inspect', parameters: { selector: '#send' } }, secret);
+    expect(await response.json()).toEqual({ ok: true, data: { tag: 'button' } });
     broker.dispose();
   });
 });

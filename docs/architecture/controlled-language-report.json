@@ -5,7 +5,7 @@
   "stats": {
     "terms": 36,
     "deprecatedIdentifiers": 0,
-    "rationaleMarkers": 5,
+    "rationaleMarkers": 6,
     "modelFacingTools": 0,
     "proseFields": 0,
     "proseSentences": 0,
@@ -19,6 +19,6 @@
     "Why": 0,
     "Invariant": 3,
     "Compatibility": 0,
-    "Security": 2
+    "Security": 3
   }
 }

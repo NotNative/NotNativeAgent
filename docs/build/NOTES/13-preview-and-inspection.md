@@ -156,3 +156,17 @@ suite, graph, source smoke, and release gates.
   implements. Click/type/scroll, screenshot capture, element annotation,
   remote-browser relay, and walkthrough remain P11 follow-ups. NND's web
   shell still has no embedded guest-control capability.
+
+## P11-10: read-only computed-style inspection (2026-09-26)
+
+- `nnd_browser { action: "inspect", selector }` now reads one element from the
+  isolated desktop guest. The script accepts a bounded CSS selector as data,
+  uses `querySelector` without evaluation, and returns a small computed-style,
+  label, and bounding-box record. Input values, cookies, and arbitrary page
+  globals are not read.
+- NNA, the private callback, and the desktop pane each validate the action.
+  The renderer checks guest identity and current navigation before returning
+  a result; invalid selectors, absent elements, and disconnected panes fail
+  explicitly. Adversarial review caught editable draft text leaking through
+  `textContent` used as a label; editable controls and descendants now omit
+  text-derived labels. Click/type/scroll and visual capture remain pending.

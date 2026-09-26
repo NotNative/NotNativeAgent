@@ -208,6 +208,10 @@
     {
       "version": "20260926-41",
       "content_sha256": "4fd05f2763e8b5505798c92eb2ba19e4abf167903bf3c6c33e9493af8b05a53e"
+    },
+    {
+      "version": "20260926-42",
+      "content_sha256": "6e07f3778b8bfb865f95273adeaf2b7e2da081b5dfcb93c1a6693c9de29e997e"
     }
   ]
 }

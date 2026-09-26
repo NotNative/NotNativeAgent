@@ -75,6 +75,14 @@ describe('BrowserSurface', () => {
       await Promise.resolve(); await Promise.resolve(); });
     expect(guest.executeJavaScript).toHaveBeenCalledOnce();
     expect(face.result).toHaveBeenCalledWith(snapshotId, { ok: true, data: expect.objectContaining({ title: 'Example' }) });
+    guest.executeJavaScript.mockResolvedValueOnce({ url: 'https://example.org/', selector: '#send', tag: 'button', label: 'Send',
+      bounds: { x: 1, y: 2, width: 40, height: 20 }, style: { display: 'block', visibility: 'visible', position: 'static',
+        color: 'rgb(0, 0, 0)', backgroundColor: 'transparent', fontSize: '14px', fontFamily: 'sans-serif', zIndex: 'auto' } });
+    const inspectId = 'browser-00000000-0000-0000-0000-000000000005';
+    await act(async () => { onRequest({ requestId: inspectId, action: 'browser.inspect', parameters: { selector: '#send' } });
+      await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(inspectId, { ok: true,
+      data: expect.objectContaining({ selector: '#send', tag: 'button' }) });
     setVisible(false);
     expect(face.unregister).toHaveBeenCalledOnce();
   });
