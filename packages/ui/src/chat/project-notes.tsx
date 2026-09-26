@@ -22,17 +22,44 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
   planDraft?: ContextPlanDraft; onPlanDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
   todoDraft?: string; onTodoDraftChange?: (projectId: string, draft: string) => void;
 }): ReactNode {
-  const [tab, setTab] = useState<Tab>('notes');
-  const [opened, setOpened] = useState<Set<Tab>>(() => new Set(['notes']));
-  const activeTab = (tab === 'context' || tab === 'saved' || tab === 'project-todos') && !projectId ? 'notes' : tab;
+  const [tab, setTab] = useState<Tab>(() => projectId ? 'context' : 'notes');
+  const [opened, setOpened] = useState<Set<Tab>>(() => new Set([projectId ? 'context' : 'notes']));
+  const [workspaceFilesOpen, setWorkspaceFilesOpen] = useState(false);
+  const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos') ? 'notes'
+    : projectId && !workspaceFilesOpen && (tab === 'notes' || tab === 'todos' || tab === 'plans') ? 'context' : tab;
+  const primaryTabs: { id: Tab; label: string }[] = projectId
+    ? [{ id: 'context', label: 'General' }, { id: 'project-todos', label: 'Todos' }, { id: 'saved', label: 'Plans' }]
+    : [{ id: 'notes', label: 'General' }, { id: 'todos', label: 'Todos' }, { id: 'plans', label: 'Plans' }];
+  const selectTab = (item: Tab): void => {
+    setOpened((current) => new Set([...current, item]));
+    setTab(item);
+  };
   return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes">
-    <nav className="flex gap-1 border-b border-white/10 p-2">{([...(['notes', 'todos', 'plans'] as const), ...(projectId ? ['context' as const, 'project-todos' as const, 'saved' as const] : [])]).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${activeTab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item === 'context' ? 'Context' : item === 'project-todos' ? 'Project todos' : item === 'saved' ? 'Saved plans' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
-    <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div>
+    <nav className="flex flex-wrap gap-1 border-b border-white/10 p-2" aria-label="Project notes sections">
+      {primaryTabs.map((item) => <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined}
+        className={`rounded px-2 py-1 text-[10px] ${activeTab === item.id ? 'bg-white/10 text-white' : 'text-neutral-500'}`}
+        onClick={() => selectTab(item.id)}>{item.label}</button>)}
+      {projectId ? <button type="button" aria-expanded={workspaceFilesOpen} aria-controls="workspace-note-files"
+        className="ml-auto rounded px-2 py-1 text-[10px] text-neutral-500 hover:text-neutral-200"
+        onClick={() => { setWorkspaceFilesOpen((current) => !current); if (tab === 'notes' || tab === 'todos' || tab === 'plans') setTab('context'); }}>
+        Workspace files {workspaceFilesOpen ? '▴' : '▾'}
+      </button> : null}
+    </nav>
+    {projectId && workspaceFilesOpen ? <div id="workspace-note-files" className="border-b border-white/10 px-2 pb-2">
+      <p className="pb-1 text-[10px] text-neutral-500">Existing repo-local files remain separate; nothing has been moved.</p>
+      <nav className="flex flex-wrap gap-1" aria-label="Legacy workspace notes">
+        {([{ id: 'notes', label: 'Note file' }, { id: 'todos', label: 'Todo file' }, { id: 'plans', label: 'Session plan' }] as const).map((item) =>
+          <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined}
+            className={`rounded px-2 py-1 text-[10px] ${activeTab === item.id ? 'bg-white/10 text-white' : 'text-neutral-500'}`}
+            onClick={() => selectTab(item.id)}>{item.label}</button>)}
+      </nav>
+    </div> : null}
+    {opened.has('notes') || activeTab === 'notes' ? <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div> : null}
     {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
-    {projectId && opened.has('context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
-    {projectId && opened.has('saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
-    {projectId && opened.has('project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
+    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
+    {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
+    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
   </section>;
 }
 

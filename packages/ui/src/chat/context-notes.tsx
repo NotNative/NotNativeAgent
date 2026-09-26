@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Transitional NND-owned project context notes; legacy repo notes stay visible separately. */
+/** Project-owned notes; legacy repo notes stay accessible separately. */
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type ReactNode, type SetStateAction } from 'react';
 import { createProjectNote, deleteProjectNote, getProjectContext, updateProjectNote,
   type ProjectContext, type ProjectNote } from '../lib/project-context-api.ts';
@@ -100,7 +100,7 @@ export function ContextNotes({ projectId, visible, retainedDraft, onDraftChange 
 
 function ContextNotesHeader({ busy, refresh }: { busy: boolean; refresh: () => void }): ReactNode {
   return <header className="flex items-center gap-2 text-[10px] text-neutral-400">
-    <span>NND project context — separate from General notes</span>
+    <span>Project-owned notes — separate from the workspace note file</span>
     <button type="button" className="ml-auto underline" disabled={busy} onClick={refresh}>Refresh</button>
   </header>;
 }

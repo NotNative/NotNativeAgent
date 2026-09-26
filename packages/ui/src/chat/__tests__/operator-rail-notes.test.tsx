@@ -8,7 +8,8 @@ vi.mock('../../lib/runtime-fetch.ts', () => ({
   runtimeFetch: vi.fn(async () => ({ ok: false, status: 404, text: async () => '' })),
 }));
 vi.mock('../../lib/project-context-api.ts', () => ({
-  getProjectContext: vi.fn(async () => ({ version: 2, notes: [], todos: [], plans: [] })),
+  getProjectContext: vi.fn(async () => ({ version: 2, notes: [], todos: [], plans: [], todosRevision: 'a'.repeat(64) })),
+  ProjectContextRequestError: class extends Error { constructor(readonly status: number) { super('context failed'); } },
   createProjectNote: vi.fn(), updateProjectNote: vi.fn(), deleteProjectNote: vi.fn(),
   getProjectPlan: vi.fn(), createProjectPlan: vi.fn(), updateProjectPlan: vi.fn(), deleteProjectPlan: vi.fn(),
   replaceProjectTodos: vi.fn(),
@@ -50,26 +51,32 @@ describe('OperatorRail Notes surface', () => {
     expect(resolveContextProjectId('D:/work/../other', projects)).toBeNull();
     expect(resolveContextProjectId('D:/work', [...projects, { id: 'ambiguous', worktree: 'D:/work' }])).toBeNull();
   });
-  it('shows NND-owned context only when the directory has a harness project id', async () => {
+  it('opens canonical project General, Todos, and Plans before legacy workspace files', async () => {
     const store = createDirectoryStore();
     useGlobalSyncStore.setState({ projects: [{ id: 'p1', worktree: 'D:/work' }] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen /></I18nProvider>); });
     await act(async () => { (container!.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
-    await act(async () => { [...container!.querySelectorAll('[data-testid="project-notes"] button')]
-      .find((button) => button.textContent === 'Context')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve(); });
     expect(getProjectContext).toHaveBeenCalledWith('p1');
     expect(container!.querySelector('[data-testid="project-context-notes"]')).not.toBeNull();
-    expect(container!.textContent).toContain('separate from General notes');
+    expect(container!.textContent).toContain('Project-owned notes');
+    expect(container!.querySelector('[aria-label="Legacy workspace notes"]')).toBeNull();
+    expect(vi.mocked(runtimeFetch).mock.calls.some(([url]) => String(url).includes('general-notes.md'))).toBe(false);
     await act(async () => { [...container!.querySelectorAll('[data-testid="project-notes"] button')]
-      .find((button) => button.textContent === 'Saved plans')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      .find((button) => button.textContent === 'Plans')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await Promise.resolve(); });
     expect(container!.querySelector('[data-testid="project-context-plans"]')).not.toBeNull();
     await act(async () => { [...container!.querySelectorAll('[data-testid="project-notes"] button')]
-      .find((button) => button.textContent === 'Project todos')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      .find((button) => button.textContent === 'Todos')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await Promise.resolve(); });
     expect(container!.querySelector('[data-testid="project-context-todos"]')).not.toBeNull();
+    await act(async () => { ([...container!.querySelectorAll('[data-testid="project-notes"] button')]
+      .find((button) => button.textContent?.startsWith('Workspace files')) as HTMLButtonElement).click(); });
+    expect(container!.textContent).toContain('nothing has been moved');
+    expect(container!.querySelector('[aria-label="Legacy workspace notes"]')).not.toBeNull();
+    await act(async () => { ([...container!.querySelectorAll('[data-testid="project-notes"] button')]
+      .find((button) => button.textContent === 'Note file') as HTMLButtonElement).click(); });
+    expect(container!.textContent).toContain('General notes');
   });
   it('retains context drafts per project across directory switches', async () => {
     const store = createDirectoryStore();
@@ -80,8 +87,6 @@ describe('OperatorRail Notes surface', () => {
     const open = async (directory: string): Promise<void> => {
       await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory={directory} compactOpen /></I18nProvider>); });
       await act(async () => { (container!.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
-      await act(async () => { ([...container!.querySelectorAll('[data-testid="project-notes"] button')]
-        .find((button) => button.textContent === 'Context') as HTMLButtonElement).click(); await Promise.resolve(); });
     };
     const enter = async (value: string): Promise<void> => {
       const area = container!.querySelector('textarea[aria-label="New context note"]') as HTMLTextAreaElement;

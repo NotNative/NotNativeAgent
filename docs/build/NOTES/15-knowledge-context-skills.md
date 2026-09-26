@@ -147,3 +147,15 @@ settlement also clears the superseded refresh's loading state. A successful
 commit clears a refresh error that arrived during the write; its committed
 response is the newer source of truth. Focused interleaving tests cover both
 cases.
+
+## P10-10: canonical Notes navigation (2026-09-26)
+
+When the active directory resolves unambiguously to an NNA project, the Notes
+rail now starts on project-owned General notes. Its primary General, Todos,
+and Plans tabs use the isolated context API. The previous repo-local General
+note and todo files and session PlanView are still reachable under a labelled
+Workspace files disclosure; nothing is imported or deleted by opening the
+rail. Legacy content is not read until its tab is opened. Without a resolved
+project owner, the three old workspace-file tabs remain the fallback. This
+settles the navigation default, not the outstanding safe data migration or
+shared-plan contract.

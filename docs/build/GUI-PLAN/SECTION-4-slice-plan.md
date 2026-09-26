@@ -198,6 +198,9 @@ Tasks:
 4. Add the Notes surface as project-owned general notes, todos, and plans. Keep agent
    memory source-labelled and behind the later NNA knowledge contract. A plan opens in
    the panel with an explicit project owner.
+   **Primary navigation implemented (2026-09-26):** resolved projects open
+   project-owned General/Todos/Plans first; repo-local files remain available
+   under Workspace files pending safe migration.
 5. A user-driven, sandboxed iframe preview may occupy Browser before the full
    preview/inspection contract. Keep it clearly labelled as a limited manual
    preview; agent navigation, capture, annotation, and take-over wait for
