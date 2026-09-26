@@ -236,7 +236,7 @@ describe('fix C: the settings-family config PUT serializes with the task store (
     const lock = await acquireConfigLock(scheduledConfigPath(PID));
     const outcome = { settled: false, status: 0, fault: '' };
     const pending = api('/api/project-context/cfglock/todos', {
-      method: 'PUT', body: JSON.stringify({ todos: ['t1'] }),
+      method: 'PUT', body: JSON.stringify({ todos: [{ id: 't1', text: 'Task', completed: false, createdAt: 1 }] }),
     }).then((kept) => {
       outcome.settled = true;
       outcome.status = kept.status;
@@ -252,7 +252,7 @@ describe('fix C: the settings-family config PUT serializes with the task store (
     expect(doc.notes).toBe('old'); // the stale read would have reverted nothing
     expect((doc.scheduledTasks as unknown[]).length).toBe(1);
     const context = JSON.parse(readFileSync(joinPath(ROOT, 'projects', PID, 'context.json'), 'utf8')) as Record<string, unknown>;
-    expect(context.todos).toEqual(['t1']);
+    expect(context.todos).toEqual([{ id: 't1', text: 'Task', completed: false, createdAt: 1 }]);
     expect(context.notes).toMatchObject([{ body: 'old' }]);
   });
 });

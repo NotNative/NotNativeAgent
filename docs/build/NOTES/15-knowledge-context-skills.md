@@ -110,3 +110,19 @@ Adversarial review added discard confirmation for dirty markdown when opening
 another plan or closing the editor, and confirmation before deletion. Pending
 responses are fenced to the mounted project editor. A raw markdown save updates
 the manifest title as well as the file, so the list reflects heading edits.
+
+## P10-7: additive project-context todos panel (2026-09-26)
+
+The operator rail now offers Project todos for resolved NNA projects, alongside
+the older repo-local Todos tab and separate from NNA session tasks. It loads the
+context store and adopts the committed response after add, toggle, and delete.
+Failed writes preserve the last saved list and the new-item draft; drafts are
+retained per project across switches. Malformed stored entries disable editing
+instead of being silently omitted from a whole-list replacement. The public
+PUT route rejects malformed and duplicate IDs, blank or overlong text, invalid
+flags/timestamps, lists over 500 items, and bodies over 256 KiB before changing
+the context file. Adversarial review fenced stale refreshes after writes and
+aligned malformed-data detection with writer constraints.
+
+Unifying the older repo-local file, cross-client whole-list conflict handling,
+and session todo-to-project capture remain future work.

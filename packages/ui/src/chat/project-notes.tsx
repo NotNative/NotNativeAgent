@@ -5,8 +5,9 @@ import { FileReadError, readFileText, writeFileText } from '../lib/files/api.ts'
 import { PlanView } from '../components/plan/PlanView.tsx';
 import { ContextNotes, type ContextNotesDraft } from './context-notes.tsx';
 import { ContextPlans, type ContextPlanDraft } from './context-plans.tsx';
+import { ContextTodos } from './context-todos.tsx';
 
-type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved';
+type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos';
 interface Todo { id: string; text: string; done: boolean }
 const NOTES_PATH = '.opencode/nnd/general-notes.md';
 const TODOS_PATH = '.opencode/nnd/todos.json';
@@ -14,22 +15,24 @@ const TODOS_PATH = '.opencode/nnd/todos.json';
 export interface NotesDraftLease { directoryKey: string; text: string; revision: number }
 type SetDraftLease = Dispatch<SetStateAction<NotesDraftLease | null>>;
 
-export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange, planDraft, onPlanDraftChange }: {
+export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange, planDraft, onPlanDraftChange, todoDraft, onTodoDraftChange }: {
   directory: string; directoryKey: string; projectId: string | null; visible: boolean;
   draftLease: NotesDraftLease | null; setDraftLease: SetDraftLease;
   contextDraft?: ContextNotesDraft; onContextDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
   planDraft?: ContextPlanDraft; onPlanDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
+  todoDraft?: string; onTodoDraftChange?: (projectId: string, draft: string) => void;
 }): ReactNode {
   const [tab, setTab] = useState<Tab>('notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set(['notes']));
-  const activeTab = (tab === 'context' || tab === 'saved') && !projectId ? 'notes' : tab;
+  const activeTab = (tab === 'context' || tab === 'saved' || tab === 'project-todos') && !projectId ? 'notes' : tab;
   return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes">
-    <nav className="flex gap-1 border-b border-white/10 p-2">{([...(['notes', 'todos', 'plans'] as const), ...(projectId ? ['context' as const, 'saved' as const] : [])]).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${activeTab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item === 'context' ? 'Context' : item === 'saved' ? 'Saved plans' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
+    <nav className="flex gap-1 border-b border-white/10 p-2">{([...(['notes', 'todos', 'plans'] as const), ...(projectId ? ['context' as const, 'project-todos' as const, 'saved' as const] : [])]).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${activeTab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item === 'context' ? 'Context' : item === 'project-todos' ? 'Project todos' : item === 'saved' ? 'Saved plans' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
     <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div>
     {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
     {projectId && opened.has('context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
     {projectId && opened.has('saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
+    {projectId && opened.has('project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
   </section>;
 }
 

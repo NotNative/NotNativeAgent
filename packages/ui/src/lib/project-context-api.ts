@@ -17,6 +17,7 @@ export interface ProjectContext {
   todos: unknown[];
   plans: unknown[];
 }
+export interface ProjectTodo { id: string; text: string; completed: boolean; createdAt: number }
 export interface ProjectPlan {
   id: string; file: string; title: string; createdAt: number;
   pinned?: boolean; source?: string; body?: string; raw?: string;
@@ -75,7 +76,7 @@ export async function deleteProjectNote(projectId: string, noteId: string): Prom
   return parseContext(await request(notePath(projectId, noteId), { method: 'DELETE' }));
 }
 
-export async function replaceProjectTodos(projectId: string, todos: unknown[]): Promise<ProjectContext> {
+export async function replaceProjectTodos(projectId: string, todos: ProjectTodo[]): Promise<ProjectContext> {
   return parseContext(await request(endpoint(projectId, '/todos'), { method: 'PUT',
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos }) }));
 }

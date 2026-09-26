@@ -37,8 +37,9 @@ describe('project context HTTP boundary', () => {
     answer(empty);
     await expect(deleteProjectNote('p1', 'n1')).resolves.toEqual(empty);
     expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/p1/notes/n1', { method: 'DELETE' });
-    answer({ ...empty, todos: [{ id: 't1' }] });
-    await expect(replaceProjectTodos('p1', [{ id: 't1' }])).resolves.toMatchObject({ todos: [{ id: 't1' }] });
+    const todo = { id: 't1', text: 'Task', completed: false, createdAt: 1 };
+    answer({ ...empty, todos: [todo] });
+    await expect(replaceProjectTodos('p1', [todo])).resolves.toMatchObject({ todos: [todo] });
     expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/p1/todos', expect.objectContaining({ method: 'PUT' }));
   });
 

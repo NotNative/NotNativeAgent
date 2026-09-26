@@ -113,6 +113,10 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const retainPlanDraft = useCallback((id: string, draft: ContextPlanDraft): void => {
     setPlanDrafts((current) => ({ ...current, [id]: draft }));
   }, []);
+  const [todoDrafts, setTodoDrafts] = useState<Record<string, string>>({});
+  const retainTodoDraft = useCallback((id: string, draft: string): void => {
+    setTodoDrafts((current) => ({ ...current, [id]: draft }));
+  }, []);
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
   }, [selection.key, selectionKey, storageKey, surface]);
@@ -205,6 +209,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}
               contextDraft={projectId ? contextDrafts[projectId] : undefined} onContextDraftChange={retainContextDraft}
               planDraft={projectId ? planDrafts[projectId] : undefined} onPlanDraftChange={retainPlanDraft}
+              todoDraft={projectId ? todoDrafts[projectId] : undefined} onTodoDraftChange={retainTodoDraft}
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}

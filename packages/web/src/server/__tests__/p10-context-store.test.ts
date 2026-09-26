@@ -16,6 +16,19 @@ beforeAll(async () => {
 afterAll(() => rmSync(dataDir, { recursive: true, force: true }));
 
 describe('P10 separate project context store', () => {
+  it('rejects invalid todo arrays at the route without changing stored context', async () => {
+    const { registerProjectsRoutes } = await import('../routes/projects.ts');
+    const app = new Hono(); registerProjectsRoutes(app);
+    const request = (todos: unknown) => app.request('/api/project-context/todo-validation/todos', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos }),
+    });
+    expect((await request([{ id: 'one', text: 'Good' }])).status).toBe(200);
+    expect((await request([{ id: 'one', text: 'Overwritten?' }, { id: 'one', text: 'Duplicate' }])).status).toBe(400);
+    expect((await request([{ id: 'two', text: 'x'.repeat(121) }])).status).toBe(400);
+    expect((await request([{ id: 'two', text: 'ok', padding: 'x'.repeat(300_000) }])).status).toBe(400);
+    expect((await readProjectContext('todo-validation')).todos).toMatchObject([{ id: 'one', text: 'Good' }]);
+  });
+
   it('distinguishes an absent context from malformed stored JSON', async () => {
     await expect(readProjectContext('empty')).resolves.toEqual({ version: 2, notes: [], todos: [], plans: [] });
     const folder = join(dataDir, 'projects', 'broken');

@@ -11,6 +11,7 @@ vi.mock('../../lib/project-context-api.ts', () => ({
   getProjectContext: vi.fn(async () => ({ version: 2, notes: [], todos: [], plans: [] })),
   createProjectNote: vi.fn(), updateProjectNote: vi.fn(), deleteProjectNote: vi.fn(),
   getProjectPlan: vi.fn(), createProjectPlan: vi.fn(), updateProjectPlan: vi.fn(), deleteProjectPlan: vi.fn(),
+  replaceProjectTodos: vi.fn(),
 }));
 
 import { createDirectoryStore } from '../../sync/child-store.ts';
@@ -65,6 +66,10 @@ describe('OperatorRail Notes surface', () => {
       .find((button) => button.textContent === 'Saved plans')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await Promise.resolve(); });
     expect(container!.querySelector('[data-testid="project-context-plans"]')).not.toBeNull();
+    await act(async () => { [...container!.querySelectorAll('[data-testid="project-notes"] button')]
+      .find((button) => button.textContent === 'Project todos')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve(); });
+    expect(container!.querySelector('[data-testid="project-context-todos"]')).not.toBeNull();
   });
   it('retains context drafts per project across directory switches', async () => {
     const store = createDirectoryStore();

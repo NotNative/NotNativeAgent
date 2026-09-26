@@ -19,6 +19,7 @@ import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 import { ContextInputError, createProjectNote, deleteProjectNote, readProjectContext,
   replaceProjectTodos, updateProjectNote } from '../project-context/context-store.ts';
+import { validateProjectTodos } from '../project-context/todo-schema.ts';
 import { createProjectPlan, deleteProjectPlan, readProjectPlan, updateProjectPlan } from '../project-context/plan-store.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
@@ -190,16 +191,15 @@ async function getProjectContext(c: Context): Promise<Response> {
 async function putProjectTodos(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
   if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-  let todos: unknown;
+  let todos: ReturnType<typeof validateProjectTodos>;
   try {
-    const body = await c.req.json() as { todos?: unknown };
-    todos = body.todos;
-    if (!Array.isArray(todos)) throw new Error('shape');
+    const body = await readJsonBodyBounded(c.req.raw, 256 * 1024) as { todos?: unknown };
+    todos = validateProjectTodos(body?.todos);
   } catch {
-    return c.json({ error: 'todos must be an array' }, 400);
+    return c.json({ error: 'invalid project todos' }, 400);
   }
   try {
-    return c.json({ saved: true, ...(await replaceProjectTodos(projectID, todos as unknown[])) });
+    return c.json({ saved: true, ...(await replaceProjectTodos(projectID, todos)) });
   } catch {
     return c.json({ error: 'project context write failed' }, 500);
   }
