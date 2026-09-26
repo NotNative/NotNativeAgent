@@ -17,7 +17,8 @@ import { resolveSurfaceKind } from '../lib/settings-gate.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
-import { readProjectContext, replaceProjectTodos } from '../project-context/context-store.ts';
+import { ContextInputError, createProjectNote, deleteProjectNote, readProjectContext,
+  replaceProjectTodos, updateProjectNote } from '../project-context/context-store.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
  * (review P2 — an admitted guest must not be able to unbond the store). */
@@ -143,6 +144,9 @@ export function registerProjectsRoutes(app: Hono): void {
   app.put('/api/projects/:projectId/config', putProjectConfig);
   app.get('/api/project-context/:projectId', getProjectContext);
   app.put('/api/project-context/:projectId/todos', putProjectTodos);
+  app.post('/api/project-context/:projectId/notes', postProjectNote);
+  app.patch('/api/project-context/:projectId/notes/:noteId', patchProjectNote);
+  app.delete('/api/project-context/:projectId/notes/:noteId', deleteProjectNoteRoute);
 }
 
 async function getProjectConfig(c: Context): Promise<Response> {
@@ -194,6 +198,48 @@ async function putProjectTodos(c: Context): Promise<Response> {
   } catch {
     return c.json({ error: 'project context write failed' }, 500);
   }
+}
+
+function contextError(c: Context, error: unknown): Response {
+  if (error instanceof ContextInputError) return c.json({ error: error.message }, error.status);
+  return c.json({ error: 'project context write failed' }, 500);
+}
+
+function validProjectId(c: Context): string | null {
+  const projectId = c.req.param('projectId') ?? '';
+  return PROJECT_ID.test(projectId) ? projectId : null;
+}
+
+async function noteBody(c: Context): Promise<Record<string, unknown> | null> {
+  try {
+    const body = await readJsonBodyBounded(c.req.raw, 16 * 1024);
+    return body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : null;
+  } catch { return null; }
+}
+
+async function postProjectNote(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  const body = await noteBody(c);
+  if (!body) return c.json({ error: 'note body must be a JSON object' }, 400);
+  try { return c.json(await createProjectNote(projectId, body), 201); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function patchProjectNote(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  const body = await noteBody(c);
+  if (!body) return c.json({ error: 'note patch must be a JSON object' }, 400);
+  try { return c.json({ note: await updateProjectNote(projectId, c.req.param('noteId') ?? '', body) }); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function deleteProjectNoteRoute(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  try { return c.json(await deleteProjectNote(projectId, c.req.param('noteId') ?? '')); }
+  catch (error) { return contextError(c, error); }
 }
 
 export interface GitBranchesPayload { current: string | null; local: string[]; remote: string[] }

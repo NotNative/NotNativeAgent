@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P10-2 note lifecycle API.** Bounded note create, patch, and
+  delete routes now mutate the isolated context file under the project lock,
+  enforce body and count limits, and preserve unrelated context fields. The
+  adversarial review corrected malformed-origin responses from 500 to 400;
+  the UI and session pin/attachment flow remain separate P10 work.
+
 - 2026-09-26 · **P10-1 project-context ownership boundary.** The existing
   context GET and todo PUT now read/write a separate per-project `context.json`
   under a shared project write lock. Legacy note/todo arrays seed it without

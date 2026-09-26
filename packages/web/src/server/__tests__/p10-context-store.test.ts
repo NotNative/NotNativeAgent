@@ -127,4 +127,58 @@ describe('P10 separate project context store', () => {
     await expect(readProjectContext('../other')).rejects.toThrow('invalid project ID');
     await expect(replaceProjectTodos('..', [])).rejects.toThrow('invalid project ID');
   });
+
+  it('creates, edits, and deletes notes without touching project config', async () => {
+    const { registerProjectsRoutes } = await import('../routes/projects.ts');
+    const app = new Hono();
+    registerProjectsRoutes(app);
+    const configPath = join(dataDir, 'projects', 'note-flow.json');
+    writeFileSync(configPath, JSON.stringify({ actions: ['build'], projectNotes: 'Legacy note' }));
+    const before = readFileSync(configPath, 'utf8');
+    const create = await app.request('/api/project-context/note-flow/notes', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ body: '  New note  ', source: 'selection', origin: { sessionId: 's1', messageId: 'm1' } }),
+    });
+    expect(create.status).toBe(201);
+    const created = await create.json() as { note: { id: string; body: string; updatedAt: number }; context: { notes: unknown[] } };
+    expect(created.note.body).toBe('New note');
+    expect(created.context.notes).toHaveLength(2);
+    const id = created.note.id;
+    const pinned = await app.request(`/api/project-context/note-flow/notes/${id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pinned: true, source: 'agent' }),
+    });
+    expect(pinned.status).toBe(200);
+    expect((await pinned.json() as { note: { pinned: boolean; source: string; updatedAt: number } }).note)
+      .toMatchObject({ pinned: true, source: 'selection', updatedAt: created.note.updatedAt });
+    const edit = await app.request(`/api/project-context/note-flow/notes/${id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ body: 'Edited' }),
+    });
+    expect(edit.status).toBe(200);
+    expect((await edit.json() as { note: { body: string; pinned: boolean } }).note)
+      .toMatchObject({ body: 'Edited', pinned: true });
+    const removed = await app.request(`/api/project-context/note-flow/notes/${id}`, { method: 'DELETE' });
+    expect(removed.status).toBe(200);
+    expect((await removed.json() as { notes: unknown[] }).notes).toHaveLength(1);
+    expect(readFileSync(configPath, 'utf8')).toBe(before);
+    expect((await readProjectContext('note-flow')).notes).toHaveLength(1);
+  });
+
+  it('rejects invalid note changes and leaves the file unchanged', async () => {
+    const { registerProjectsRoutes } = await import('../routes/projects.ts');
+    const app = new Hono();
+    registerProjectsRoutes(app);
+    const post = (body: unknown) => app.request('/api/project-context/note-bad/notes', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    });
+    expect((await post({ body: '   ' })).status).toBe(400);
+    expect((await post({ body: 'Valid', source: 'unknown' })).status).toBe(400);
+    expect((await post({ body: 'Valid', origin: { sessionId: 1 } })).status).toBe(400);
+    expect((await post({ body: 'Valid', origin: null })).status).toBe(400);
+    expect((await post({ body: 'Valid', origin: [] })).status).toBe(400);
+    expect((await app.request('/api/project-context/note-bad/notes/missing', {
+      method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ body: 'Test' }),
+    })).status).toBe(404);
+    expect((await app.request('/api/project-context/note-bad/notes/missing', { method: 'DELETE' })).status).toBe(404);
+    await expect(readProjectContext('note-bad')).resolves.toMatchObject({ notes: [] });
+  });
 });

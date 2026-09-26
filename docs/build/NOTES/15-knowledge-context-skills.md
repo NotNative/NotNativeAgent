@@ -34,3 +34,13 @@ context test exposed the previous unhandled-rejection behavior.
 
 Do not label P10 complete until the planning document's contracts and
 failure paths are covered by tests and UI verification.
+
+## P10-2: note lifecycle API (2026-09-26)
+
+The isolated context store now has note create, patch, and delete operations
+under its write lock. The routes accept bounded JSON, reject blank bodies,
+limit note bodies to 3000 characters and projects to 200 notes, and return
+404 for absent note IDs. Creation records source, optional message origin,
+and timestamps; patch accepts only body and legacy pinned fields. Each
+successful mutation commits one atomic context file update. The notes UI
+and session attachment behavior are not yet connected.

@@ -14,6 +14,20 @@ export interface ProjectContext {
   [key: string]: unknown;
 }
 
+export interface ProjectNote {
+  id: string;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+  source: 'manual' | 'selection' | 'agent';
+  origin?: { sessionId: string; messageId: string };
+  pinned?: boolean;
+}
+
+export class ContextInputError extends Error {
+  constructor(message: string, readonly status: 400 | 404) { super(message); }
+}
+
 const PROJECT_ID = /^[A-Za-z0-9_-]+$/u;
 
 function paths(projectId: string): { config: string; context: string } {
@@ -88,22 +102,103 @@ export async function readProjectContext(projectId: string): Promise<ProjectCont
   return fromLegacy(await readOptional(target.config));
 }
 
-/** Serialize with project config writers while seeding the separate context file. */
-export async function replaceProjectTodos(projectId: string, todos: unknown[]): Promise<ProjectContext> {
+async function commitContext(target: ReturnType<typeof paths>, next: ProjectContext): Promise<void> {
+  await mkdir(dirname(target.context), { recursive: true });
+  const temp = `${target.context}.tmp-${process.pid}-${randomUUID()}`;
+  try {
+    await writeFile(temp, `${JSON.stringify(next, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    await rename(temp, target.context);
+  } finally {
+    await unlink(temp).catch((error: unknown) => {
+      if ((error as { code?: string }).code !== 'ENOENT') throw error;
+    });
+  }
+}
+
+/** Serialize all context mutations with project config writers. */
+async function mutateContext<T>(projectId: string, change: (current: ProjectContext) => { next: ProjectContext; result: T }): Promise<T> {
   const target = paths(projectId);
   return withConfigLock(target.config, async () => {
     const current = await readProjectContext(projectId);
-    const next: ProjectContext = { ...current, todos };
-    await mkdir(dirname(target.context), { recursive: true });
-    const temp = `${target.context}.tmp-${process.pid}-${randomUUID()}`;
-    try {
-      await writeFile(temp, `${JSON.stringify(next, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-      await rename(temp, target.context);
-    } finally {
-      await unlink(temp).catch((error: unknown) => {
-        if ((error as { code?: string }).code !== 'ENOENT') throw error;
-      });
+    const { next, result } = change(current);
+    await commitContext(target, next);
+    return result;
+  });
+}
+
+export async function replaceProjectTodos(projectId: string, todos: unknown[]): Promise<ProjectContext> {
+  return mutateContext(projectId, (current) => {
+    const next = { ...current, todos };
+    return { next, result: next };
+  });
+}
+
+function checkedNotes(context: ProjectContext): ProjectNote[] {
+  return context.notes.map((value) => {
+    const note = asObject(value);
+    if (typeof note.id !== 'string' || !note.id || typeof note.body !== 'string') {
+      throw new Error('malformed stored note');
     }
-    return next;
+    return note as unknown as ProjectNote;
+  });
+}
+
+function checkedBody(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) throw new ContextInputError('note body must not be blank', 400);
+  return value.trim().slice(0, 3000);
+}
+
+export async function createProjectNote(projectId: string, input: {
+  body?: unknown; source?: unknown; origin?: unknown;
+}): Promise<{ note: ProjectNote; context: ProjectContext }> {
+  const body = checkedBody(input.body);
+  const source = input.source === undefined ? 'manual' : input.source;
+  if (source !== 'manual' && source !== 'selection' && source !== 'agent') {
+    throw new ContextInputError('invalid note source', 400);
+  }
+  let origin: ProjectNote['origin'];
+  if (input.origin !== undefined) {
+    const value = input.origin;
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || typeof (value as Record<string, unknown>).sessionId !== 'string'
+      || typeof (value as Record<string, unknown>).messageId !== 'string') {
+      throw new ContextInputError('invalid note origin', 400);
+    }
+    const fields = value as Record<string, string>;
+    origin = { sessionId: fields.sessionId!, messageId: fields.messageId! };
+  }
+  return mutateContext(projectId, (current) => {
+    const notes = checkedNotes(current);
+    if (notes.length >= 200) throw new ContextInputError('project note limit reached', 400);
+    const now = Date.now();
+    const note: ProjectNote = { id: randomUUID(), body, createdAt: now, updatedAt: now, source, ...(origin ? { origin } : {}) };
+    const context = { ...current, notes: [...notes, note] };
+    return { next: context, result: { note, context } };
+  });
+}
+
+export async function updateProjectNote(projectId: string, noteId: string, input: { body?: unknown; pinned?: unknown }): Promise<ProjectNote> {
+  if (input.body === undefined && input.pinned === undefined) throw new ContextInputError('no note fields supplied', 400);
+  const body = input.body === undefined ? undefined : checkedBody(input.body);
+  if (input.pinned !== undefined && typeof input.pinned !== 'boolean') throw new ContextInputError('invalid pinned value', 400);
+  return mutateContext(projectId, (current) => {
+    const notes = checkedNotes(current);
+    const index = notes.findIndex((note) => note.id === noteId);
+    if (index < 0) throw new ContextInputError('note not found', 404);
+    const note: ProjectNote = { ...notes[index]!, ...(body === undefined ? {} : { body, updatedAt: Date.now() }),
+      ...(input.pinned === undefined ? {} : { pinned: input.pinned as boolean }) };
+    const next = [...notes];
+    next[index] = note;
+    return { next: { ...current, notes: next }, result: note };
+  });
+}
+
+export async function deleteProjectNote(projectId: string, noteId: string): Promise<ProjectContext> {
+  return mutateContext(projectId, (current) => {
+    const notes = checkedNotes(current);
+    const index = notes.findIndex((note) => note.id === noteId);
+    if (index < 0) throw new ContextInputError('note not found', 404);
+    const next = { ...current, notes: notes.filter((note) => note.id !== noteId) };
+    return { next, result: next };
   });
 }
