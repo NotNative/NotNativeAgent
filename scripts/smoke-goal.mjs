@@ -119,6 +119,6 @@ async function assertAuditRoundTrip(call, id, requestId, objective, revision) {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(auditQuery(99, requestId, objective)),
   });
-  assert.equal(refused.status, 400, 'stale audit revision must not answer');
+  assert.equal(refused.status, 409, 'stale audit revision must not answer');
   assert.equal((await refused.json()).error?.code, 'nnd_goal_audit_conflict');
 }

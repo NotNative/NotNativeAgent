@@ -17,7 +17,6 @@ const busMod = await import('../lib/bus.ts');
 const pipelineMod = await import('../scheduled/scheduled-pipeline.ts');
 const serviceMod = await import('../scheduled/scheduled-service.ts');
 const goalPayloadMod = await import('../goals/goal-payload.ts');
-const objectiveStoreMod = await import('../goals/objective-store.ts');
 const { NULL_KNOWLEDGE_PROVIDER } = await import('../queue/queue-hooks.ts');
 const runtimeMod = await import('../scheduled/scheduled-runtime.ts');
 const { CONTROL_EVENTS } = await import('../lib/harnessNaming.ts');
@@ -212,40 +211,47 @@ describe('scheduled pipeline (C.6)', () => {
     expect(warnings.some((m) => m.includes('goal planting refused'))).toBe(true);
   });
 
-  it('rides the objective file for a long goal, falling back inline on write failure', async () => {
+  it('fits a long goal through B.6.3: the excerpt fallback when no port is bound', async () => {
     const longPrompt = 'y'.repeat(5001);
     const goaled = makeTask({ execution: executionPatch({ goalEnabled: true, prompt: longPrompt }) });
     const file = makeHarness();
     const { deps, objectiveWrites } = makeDeps(file.harness);
     await pipelineMod.createScheduledRunPipeline(deps)(runRequest(), goaled);
-    expect(objectiveWrites).toHaveLength(1);
-    expect(file.calls.goals[0]!.body.goal.objectiveFile).toBe(true);
-    expect(file.calls.goals[0]!.body.goal.objectiveFileKey).toBe('a'.repeat(64));
-
-    const fallback = makeHarness();
-    const bad = pipelineMod.createScheduledRunPipeline(makeDeps(fallback.harness, {
-      objectiveStore: { write: async () => { throw new Error('disk full'); } },
-    }).deps)(runRequest(), goaled);
-    await expect(bad).resolves.toMatchObject({ sessionID: 'sess-1' });
-    const goal = fallback.calls.goals[0]!.body.goal;
+    const goal = file.calls.goals[0]!.body.goal;
+    expect(goal.objective).toHaveLength(4000);
+    expect(goal.objective).toContain('[. objective trimmed for the auditor - the full prompt was delivered in the chat message .]');
+    expect(goal.objective.startsWith('yyy')).toBe(true);
+    expect(goal.objective.endsWith('yyy')).toBe(true);
     expect(goal.objectiveFile).toBe(false);
-    expect(goal.objective).toHaveLength(5000);
+    expect(objectiveWrites).toHaveLength(0); // the fitted text never needs the file
   });
 
-  it('warns the objective-file degradation even when the store refuses the input', async () => {
-    const refused = makeHarness();
-    const { deps, warnings } = makeDeps(refused.harness, {
-      objectiveStore: {
-        write: async () => { throw new objectiveStoreMod.ObjectiveInputError('Invalid session id'); },
-      },
+  it('distills a long goal through the bound port, passing the execution pair', async () => {
+    const distillArgs: Array<[string, { providerID: string; modelID: string } | null]> = [];
+    const goaled = makeTask({ execution: executionPatch({ goalEnabled: true, prompt: 'x'.repeat(5001), providerID: 'acme-x', modelID: 'fast-x' }) });
+    const file = makeHarness();
+    const { deps } = makeDeps(file.harness, {
+      distill: async (raw, preference) => { distillArgs.push([raw, preference ?? null]); return 'CRITERIA: inbox summarized'; },
     });
-    const goaled = makeTask({ execution: executionPatch({ goalEnabled: true, prompt: 'y'.repeat(5001) }) });
-    const outcome = await pipelineMod.createScheduledRunPipeline(deps)(runRequest(), goaled);
-    expect(outcome.sessionID).toBe('sess-1');
-    const goal = refused.calls.goals[0]!.body.goal;
+    await pipelineMod.createScheduledRunPipeline(deps)(runRequest(), goaled);
+    const goal = file.calls.goals[0]!.body.goal;
+    expect(goal.objective).toBe('CRITERIA: inbox summarized');
+    expect(distillArgs[0]![0]).toHaveLength(5001);
+    expect(distillArgs[0]![1]).toEqual({ providerID: 'acme-x', modelID: 'fast-x' });
     expect(goal.objectiveFile).toBe(false);
-    expect(goal.objective).toHaveLength(5000);
-    expect(warnings.some((m) => m.includes('objective file write failed for session sess-1'))).toBe(true);
+  });
+
+  it('folds a throwing distill port to the excerpt without failing the run', async () => {
+    const goaled = makeTask({ execution: executionPatch({ goalEnabled: true, prompt: 'z'.repeat(5001) }) });
+    const file = makeHarness();
+    const { deps, warnings } = makeDeps(file.harness, {
+      distill: async () => { throw new Error('small model 429'); },
+    });
+    await expect(pipelineMod.createScheduledRunPipeline(deps)(runRequest(), goaled)).resolves.toMatchObject({ sessionID: 'sess-1' });
+    const goal = file.calls.goals[0]!.body.goal;
+    expect(goal.objective).toHaveLength(4000);
+    expect(goal.objective).toContain('[. objective trimmed');
+    expect(warnings.filter((m) => m.includes('objective file')).length).toBe(0);
   });
 
   it('expands a matched slash command on the command route with the model string', async () => {

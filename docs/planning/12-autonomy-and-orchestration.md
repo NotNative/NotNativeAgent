@@ -522,8 +522,11 @@ Response handling:
 NNA-native implementation note: the prompt and bounded verdict parser now live
 in NND as a pure contract. The objective and assistant text are XML-escaped
 before interpolation so a literal `</objective>` in user data cannot break
-the delimiter. NNA does not yet expose the independent small-model port, so
-this parser alone does not enable autonomous continuation or completion.
+the delimiter. NNA now exposes an authenticated, owner-scoped goal-audit route.
+It binds the latest completed turn to its durable provider-route fingerprint,
+refuses a changed destination or missing same-turn assistant reply, and returns
+raw text plus provider/model attribution. NND parses the verdict and CAS-writes
+the goal before any continuation dispatch.
 
 #### B.5.6 Length-recovery summary
 

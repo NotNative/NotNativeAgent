@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 goal audit bridge and long scheduled-objective fitting.**
+  The authenticated NND↔NNA source smoke now exercises a real completed turn,
+  its final provider affinity, the independent goal-audit route, and a stale
+  revision refusal. The smoke runner enables Node type transformation for
+  the existing TypeScript server entrypoint. Scheduled long objectives pass
+  through the B.6.3 fit contract: bounded small-model distillation when a
+  port is supplied, otherwise a 4,000-character head/tail excerpt with a
+  visible trim marker; the full prompt remains in the chat message. The
+  production distillation port is not yet bound, and a full autonomous
+  audit-to-continuation run remains to be verified. Adversarial review fixed
+  whitespace-only distillation output and found no defect in the smoke seam.
+
 - 2026-09-26 · **P9-4e-ii the snippet UI half.** The composer's `#`
   picker rides the shared roster now: `snippets-source.ts` replaces the
   empty map (wholesale-visible loads, never-rejecting refresh that

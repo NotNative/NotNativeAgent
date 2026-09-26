@@ -13,6 +13,7 @@
 import { GOAL_OBJECTIVE_CHAR_LIMIT, TOKEN_BUDGET_MAX } from '../goals/goal-constants.ts';
 import { GOAL_NAMESPACE, buildGoalPayload, getSessionGoal, type GoalPayload } from '../goals/goal-payload.ts';
 import { ObjectiveStore } from '../goals/objective-store.ts';
+import { fitObjective, type DistillPort } from '../goals/goal-distill.ts';
 import { commandEntryOf } from '../queue/queue-dispatch.ts';
 import type { ProjectKnowledgeProvider } from '../queue/queue-hooks.ts';
 import { commandArgsOf, commandNameOf, expandCommandTemplate } from '../queue/queue-expansion.ts';
@@ -43,6 +44,8 @@ export interface ScheduledPipelineDeps {
   waitForReady: () => Promise<boolean>;
   expandPrompt: (text: string, directory: string) => Promise<string>;
   objectiveStore: Pick<ObjectiveStore, 'write'>;
+  /** B.6.3 small-model seam; absent (P-11 not wired yet) → excerpt fallback. */
+  distill?: DistillPort;
   log: { warn: (message: string) => void; error: (message: string) => void };
   now: () => number;
 }
@@ -156,9 +159,17 @@ function noteAutoAccept(deps: ScheduledPipelineDeps, task: ScheduledTask, sessio
 /** B.7 goal planting: objective file first over the clamp, then the payload
  *  write with fresh-revision tolerance. Failure is warn-only (C.6 step 8). */
 async function plantGoal(
-  deps: ScheduledPipelineDeps, ctx: DispatchContext, sessionId: string, objective: string,
+  deps: ScheduledPipelineDeps, ctx: DispatchContext, sessionId: string, raw: string,
 ): Promise<boolean> {
   const execution = ctx.task.execution;
+  // B.6.3: the goal objective is the FITTED text (distilled when the port
+  // is bound; excerpt fallback over the limit); the full raw prompt still
+  // rides the chat message, so the trim marker's promise stays honest.
+  const fitted = await fitObjective(raw, {
+    generate: deps.distill,
+    preference: { providerID: execution.providerID, modelID: execution.modelID },
+  });
+  const objective = fitted.text;
   let objectiveFile = false;
   let objectiveFileKey: string | undefined;
   const long = objective.length > GOAL_OBJECTIVE_CHAR_LIMIT;

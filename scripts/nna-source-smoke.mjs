@@ -78,7 +78,7 @@ function providerReply(body) {
   const userText = messages.filter((message) => message.role === 'user').map((message) => message.content).join('\n');
   let delta = { role: 'assistant', content: EXPECTED_REPLY };
   let finishReason = 'stop';
-  if (messages[0]?.content?.includes('independently audit progress')) delta = { role: 'assistant', content: JSON.stringify({ verdict: 'continue', note: 'audit smoke note' }) };
+  if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: 'continue', note: 'audit smoke note' }) };
   else if (messages[0]?.content?.includes('isolated tool-permission decision')) {
     const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
     const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f4904e2dd11af8744d6379fa88755adfffaaf312f4979906c87af71324ab9191",
+  "source_digest": "sha256:70649a9d59e4f2abd0b0fd140abc27ada781eeb1ffafae7eea037ee53941a402",
   "counts": {
-    "modules": 426,
+    "modules": 427,
     "component_edges": 13
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 127
+      "module_count": 128
     },
     {
       "id": "web-entry",
@@ -2986,6 +2986,14 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/goals/goal-distill.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/goals/goal-metadata.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -3930,6 +3938,7 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-distill.ts",
         "packages/web/src/server/goals/goal-payload.ts",
         "packages/web/src/server/goals/objective-store.ts",
         "packages/web/src/server/queue/queue-dispatch.ts",
