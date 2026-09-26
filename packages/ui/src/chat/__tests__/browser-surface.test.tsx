@@ -21,6 +21,10 @@ function render(visible = true): HTMLElement {
   return container;
 }
 
+function setVisible(visible: boolean): void {
+  act(() => root!.render(<BrowserSurface visible={visible} />));
+}
+
 function enter(address: string): void {
   const input = container!.querySelector('input[aria-label="Preview address"]') as HTMLInputElement;
   act(() => {
@@ -28,6 +32,16 @@ function enter(address: string): void {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
   act(() => container!.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+}
+
+function readyFetch(): void {
+  globalThis.fetch = vi.fn().mockImplementation(async (url: string) => url === '/api/system/probe-url'
+    ? { ok: true, json: async () => ({ ok: true, status: 200 }) }
+    : { ok: true, json: async () => ({ servers: [] }) });
+}
+
+async function flush(): Promise<void> {
+  await act(async () => { await Promise.resolve(); });
 }
 
 describe('BrowserSurface', () => {
@@ -38,15 +52,18 @@ describe('BrowserSurface', () => {
     expect(canPreviewDiscoveredServers('http://192.168.1.5:3902')).toBe(false);
   });
   it('offers only discovered listeners and opens one on explicit click', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ servers: [
-      { port: 5173, command: '', url: 'http://localhost:5173/' },
-    ] }) });
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => url === '/api/system/probe-url'
+      ? { ok: true, json: async () => ({ ok: true, status: 200 }) }
+      : { ok: true, json: async () => ({ servers: [
+        { port: 5173, command: '', url: 'http://localhost:5173/' },
+      ] }) });
     const view = render();
     await act(async () => { await Promise.resolve(); });
     expect(view.querySelector('iframe')).toBeNull();
     expect(view.textContent).toContain('http://localhost:5173/');
     const candidate = [...view.querySelectorAll('button')].find((button) => button.textContent?.includes('localhost:5173'))!;
     act(() => candidate.click());
+    await flush();
     expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/');
   });
 
@@ -91,10 +108,12 @@ describe('BrowserSurface', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('starts empty and only loads a user-submitted URL in a sandboxed frame', () => {
+  it('starts empty and only loads a user-submitted URL in a sandboxed frame', async () => {
+    readyFetch();
     const view = render();
     expect(view.querySelector('iframe')).toBeNull();
     enter('localhost:5173');
+    await flush();
     const frame = view.querySelector('iframe')!;
     expect(frame.getAttribute('src')).toBe('http://localhost:5173/');
     expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms');
@@ -102,20 +121,133 @@ describe('BrowserSurface', () => {
     expect(view.querySelector('a')?.getAttribute('href')).toBe('http://localhost:5173/');
   });
 
-  it('supports own back/forward history and reload without navigating to invalid URLs', () => {
+  it('supports own back/forward history and reload without navigating to invalid URLs', async () => {
+    readyFetch();
     const view = render();
     enter('localhost:5173/one');
+    await flush();
     enter('localhost:5173/two');
+    await flush();
     expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
     act(() => (view.querySelector('[aria-label="Preview back"]') as HTMLButtonElement).click());
+    await flush();
     expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/one');
     act(() => (view.querySelector('[aria-label="Preview forward"]') as HTMLButtonElement).click());
+    await flush();
     expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
     const frame = view.querySelector('iframe');
     act(() => (view.querySelector('[aria-label="Reload preview"]') as HTMLButtonElement).click());
+    await flush();
     expect(view.querySelector('iframe')).not.toBe(frame);
     enter('javascript:alert(1)');
     expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
     expect(view.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it('waits for a local server before mounting the iframe, then retries explicitly after probe failure', async () => {
+    const probe = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValue({ ok: true,
+      json: async () => ({ ok: true, status: 200 }) });
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+      ? probe() : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+    const view = render();
+    enter('localhost:5173');
+    expect(view.querySelector('iframe')).toBeNull();
+    await flush();
+    expect(view.textContent).toContain('Readiness check unavailable');
+    act(() => [...view.querySelectorAll('button')].find((button) => button.textContent === 'Retry')!.click());
+    await flush();
+    expect(view.querySelector('iframe')).not.toBeNull();
+    expect(probe).toHaveBeenCalledTimes(2);
+  });
+
+  it('unmounts a hidden preview and checks readiness again when revealed', async () => {
+    let resolveSecond!: (response: object) => void;
+    const probe = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, status: 200 }) })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+      ? probe() : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+    const view = render();
+    enter('localhost:5173');
+    await flush();
+    expect(view.querySelector('iframe')).not.toBeNull();
+    setVisible(false);
+    expect(view.querySelector('iframe')).toBeNull();
+    setVisible(true);
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(view.querySelector('iframe')).toBeNull();
+    await act(async () => resolveSecond({ ok: true, json: async () => ({ ok: true, status: 200 }) }));
+    expect(view.querySelector('iframe')).not.toBeNull();
+  });
+
+  it('keeps a stale history probe from opening the previous URL', async () => {
+    let resolveFirst!: (response: object) => void;
+    const probe = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 200 }) });
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+      ? probe() : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+    const view = render();
+    enter('localhost:5173/one');
+    enter('localhost:5173/two');
+    await flush();
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+    await act(async () => resolveFirst({ ok: true, json: async () => ({ ok: true, status: 200 }) }));
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+  });
+
+  it('waits through a gateway 5xx until it answers successfully', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, status: 503 }) })
+        .mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 200 }) });
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+        ? probe() : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+      const view = render();
+      enter('localhost:5173');
+      await flush();
+      expect(view.querySelector('iframe')).toBeNull();
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      expect(view.querySelector('iframe')).not.toBeNull();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('ends the gateway startup wait after 20 seconds if 5xx persists', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 503 }) });
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+        ? probe() : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+      const view = render();
+      enter('localhost:5173');
+      await act(async () => { await vi.advanceTimersByTimeAsync(19_999); });
+      expect(view.querySelector('iframe')).toBeNull();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/');
+      expect(probe).toHaveBeenCalledTimes(11);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('reports malformed successful probe data as unavailable', async () => {
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+      ? Promise.resolve({ ok: true, json: async () => ({ ok: true }) })
+      : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+    const view = render();
+    enter('localhost:5173');
+    await flush();
+    expect(view.querySelector('iframe')).toBeNull();
+    expect(view.textContent).toContain('Readiness check unavailable');
+  });
+
+  it('times out even when a probe request never settles', async () => {
+    vi.useFakeTimers();
+    try {
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
+        ? new Promise(() => undefined) : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
+      const view = render();
+      enter('localhost:5173');
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      expect(view.querySelector('iframe')).toBeNull();
+      expect(view.textContent).toContain('Local server did not answer within 30 seconds.');
+      expect(view.textContent).toContain('Retry');
+    } finally { vi.useRealTimers(); }
   });
 });

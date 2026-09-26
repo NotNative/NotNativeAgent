@@ -6,6 +6,67 @@ import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
 interface DiscoveredServer { port: number; url: string; command: string }
 type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
   | { kind: 'ready'; servers: DiscoveredServer[] };
+type Readiness = { key: string; state: 'checking' | 'ready' | 'timed-out' | 'unavailable' };
+
+function isLoopbackPreview(value: string | null): boolean {
+  if (!value) return false;
+  try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(value).hostname.toLowerCase()); }
+  catch { return false; }
+}
+
+function usePreviewReadiness(active: string | null, reload: number, visible: boolean, localRuntime: boolean): Readiness | null {
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const key = `${active ?? ''}|${reload}`;
+  useEffect(() => {
+    if (!active || !visible || !localRuntime || !isLoopbackPreview(active)) {
+      setReadiness(null);
+      return;
+    }
+    let closed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const controller = new AbortController();
+    const started = Date.now();
+    const deadlineTimer = setTimeout(() => {
+      closed = true;
+      controller.abort();
+      if (retryTimer) clearTimeout(retryTimer);
+      setReadiness({ key, state: 'timed-out' });
+    }, 30_000);
+    setReadiness({ key, state: 'checking' });
+    const probe = async (): Promise<void> => {
+      try {
+        const response = await fetch('/api/system/probe-url', { method: 'POST',
+          headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: active }), signal: controller.signal });
+        if (!response.ok) throw new Error('probe unavailable');
+        const result = await response.json() as { ok?: unknown; status?: unknown };
+        if (closed) return;
+        if (result.ok === true) {
+          if (!Number.isInteger(result.status) || (result.status as number) < 200
+            || (result.status as number) >= 600) throw new Error('invalid probe response');
+          if ((result.status as number) < 500 || Date.now() - started >= 20_000) {
+            clearTimeout(deadlineTimer);
+            setReadiness({ key, state: 'ready' });
+            return;
+          }
+        } else if (result.ok !== false) throw new Error('invalid probe response');
+      } catch {
+        if (closed) return;
+        clearTimeout(deadlineTimer);
+        setReadiness({ key, state: 'unavailable' });
+        return;
+      }
+      retryTimer = setTimeout(() => { void probe(); }, 2000);
+    };
+    void probe();
+    return () => {
+      closed = true;
+      controller.abort();
+      clearTimeout(deadlineTimer);
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [active, key, localRuntime, visible]);
+  return readiness;
+}
 
 export function canPreviewDiscoveredServers(appOrigin: string): boolean {
   try {
@@ -35,6 +96,10 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'loading', servers: [] });
   const [scanRevision, setScanRevision] = useState(0);
   const active = index >= 0 ? history[index] ?? null : null;
+  const readiness = usePreviewReadiness(active, reload, visible, localRuntime);
+  const probeKey = `${active ?? ''}|${reload}`;
+  const waitForLocal = localRuntime && isLoopbackPreview(active);
+  const probeState = readiness?.key === probeKey ? readiness.state : 'checking';
 
   useEffect(() => {
     if (!visible || active || !localRuntime) return;
@@ -96,9 +161,14 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         {active ? <a href={active} target="_blank" rel="noopener noreferrer" className="ml-auto rounded border border-white/15 px-2 py-0.5">Open externally</a> : null}
       </div>
     </header>
-    {active ? <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active}
+    {active && waitForLocal && probeState !== 'ready' ? <div className="p-3 text-xs text-neutral-400" role="status">
+      {probeState === 'checking' ? 'Waiting for local server to start…' : probeState === 'timed-out'
+        ? 'Local server did not answer within 30 seconds.' : 'Readiness check unavailable.'}
+      {probeState !== 'checking' ? <button type="button" className="ml-2 underline" onClick={() => setReload((value) => value + 1)}>Retry</button> : null}
+    </div> : null}
+    {active && visible && (!waitForLocal || probeState === 'ready') ? <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active}
       sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer"
-      className="min-h-0 w-full flex-1 border-0 bg-white" /> :
+      className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
       <div className="p-3 text-[11px] text-neutral-500">
         <p>Enter a local dev-server or website address to preview it. This isolated web preview cannot inspect, annotate, or capture the page. Sites that prohibit embedding may not display.</p>
         <div className="mt-3 flex items-center gap-2"><span className="text-neutral-300">Listening dev servers</span>
@@ -111,6 +181,6 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           <button type="button" className="py-1 text-sky-300 underline" onClick={() => open(server.url)}>
             {server.url}{server.command ? ` · ${server.command}` : ''}</button>
         </li>)}</ul> : null}
-      </div>}
+      </div> : null}
   </section>;
 }

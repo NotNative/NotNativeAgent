@@ -30,5 +30,22 @@ suite, graph, source smoke, and release gates.
 - `0.0.0.0` is rejected: it is a wildcard bind address, not a loopback
   destination. This follows doc 13's loopback-only invariant and intentionally
   narrows doc 03's older host allowance.
-- The browser's sandboxed iframe does not yet consume this route for startup
-  wait; Chromium/webview lifecycle and tunnel work remain P11 follow-ups.
+- The browser's sandboxed iframe consumes this route in P11-3 below;
+  Chromium/webview lifecycle and tunnel work remain P11 follow-ups.
+
+## P11-3: browser startup wait (2026-09-26)
+
+- Explicit user navigation to a loopback URL under a loopback app origin
+  starts a readiness poll before the sandboxed iframe mounts. A 2xx–4xx
+  answer mounts the frame; a gateway 5xx keeps the startup overlay for up to
+  20 seconds before exposing the response. Connection refusal retries on a
+  two-second cadence for up to 30 seconds, then shows Retry.
+- An unavailable probe API is shown separately from a slow local server.
+  Changing history, reloading, hiding the panel, or unmounting aborts the
+  stale request and clears timers. Remote/LAN app origins skip the host-side
+  probe because the viewer's loopback is not the NND host's loopback. A
+  loopback-origin SSH port forward cannot be distinguished from a genuinely
+  same-machine browser by origin alone, so host-local discovery/readiness may
+  target the wrong machine in that setup until the preview tunnel exists.
+- This is startup readiness only, not Chromium inspection, screenshot,
+  annotation, or a remote preview tunnel.
