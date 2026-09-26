@@ -15,7 +15,7 @@ import {
 import { escapeXml } from './goal-audit.ts';
 import { cloneGoal, getSessionGoal, type GoalPayload } from './goal-payload.ts';
 import { settleGoal } from './goal-state.ts';
-import { accountingDrift, writeCandidate, type GoalAuditPorts, type GoalAuditWire } from './nna-goal-auditor.ts';
+import { accountingDrift, readGoalRevision, writeCandidate, type GoalAuditPorts, type GoalAuditWire } from './nna-goal-auditor.ts';
 
 /** The verbatim continuation budget block (doc 12 B.6.2). */
 function budgetBlock(goal: GoalPayload): string {
@@ -56,14 +56,17 @@ export function goalPromptBody(text: string): GoalPromptBody {
 
 export interface GoalDispatchPorts extends GoalAuditPorts {
   sendPrompt(sessionId: string, directory: string, body: GoalPromptBody): Promise<GoalAuditWire>;
+  recoverSkippedSend?(sessionId: string, directory: string, persisted: GoalPayload,
+    prior: GoalPayload, expectedRevision: number): Promise<boolean>;
 }
+
+/** A local gate refused the send before contacting NNA. */
+export class GoalRuntimeInactiveError extends Error {}
 
 export type GoalDispatchResult =
   | { kind: 'dispatched'; goal: GoalPayload; source: 'audit' | 'skipAudit' }
   | { kind: 'settled'; goal: GoalPayload; outcome: 'blocked' }
   | { kind: 'dropped'; reason: string };
-
-type SendOutcome = { kind: 'sent'; status: number } | { kind: 'refused'; reason: string };
 
 /** Last projected message: id + whether an assistant reply is still open. */
 function lastMessageTail(messages: unknown): { id: string; open: boolean } | null {
@@ -88,7 +91,10 @@ async function refuseOrSend(
   let wire: GoalAuditWire;
   try {
     wire = await ports.sendPrompt(sessionId, directory, goalPromptBody(text));
-  } catch {
+  } catch (error) {
+    if (error instanceof GoalRuntimeInactiveError) {
+      return { kind: 'dropped', reason: 'goal runtime inactive before send' };
+    }
     return { kind: 'dropped', reason: 'continuation send unavailable' };
   }
   if (wire.status >= 200 && wire.status < 300) return { kind: 'sent', status: wire.status };
@@ -126,10 +132,26 @@ export async function dispatchGoalContinuation(
   const candidate: GoalPayload = {
     ...cloneGoal(current), turnsUsed: current.turnsUsed + 1, statusReason: '', updatedAt: now,
   };
-  if (await writeCandidate(ports, sessionId, directory, record, candidate) === 'refused') {
+  const priorRevision = readGoalRevision(record);
+  let slotWrite: Awaited<ReturnType<typeof writeCandidate>>;
+  try { slotWrite = await writeCandidate(ports, sessionId, directory, record, candidate); }
+  catch (error) {
+    if (!(error instanceof GoalRuntimeInactiveError)) throw error;
+    if (priorRevision !== null && ports.recoverSkippedSend) {
+      try { await ports.recoverSkippedSend(sessionId, directory, current, current, priorRevision); }
+      catch { /* the exact-revision recovery is best effort */ }
+    }
+    return { kind: 'dropped', reason: 'goal runtime inactive before send' };
+  }
+  if (slotWrite === 'refused') {
     return { kind: 'dropped', reason: 'goal CAS write was refused' };
   }
   const sent = await refuseOrSend(ports, sessionId, directory, candidate, objective);
+  if (sent.kind === 'dropped' && sent.reason === 'goal runtime inactive before send'
+    && priorRevision !== null && ports.recoverSkippedSend) {
+    try { await ports.recoverSkippedSend(sessionId, directory, candidate, current, priorRevision + 1); }
+    catch { /* CAS rollback is best effort; never retry an uncertain send */ }
+  }
   return sent.kind === 'sent'
     ? { kind: 'dispatched', goal: candidate, source }
     : { kind: 'dropped', reason: sent.reason };

@@ -17,10 +17,10 @@ import { getRelayHostService } from './lib/relay/host-service.ts';
 import { wireTunnelPlane } from './lib/tunnels/tunnel-startup.ts';
 import { getMessageQueueRuntime } from './queue/queue-runtime.ts';
 import { bootScheduledTasks, stopScheduledTasks } from './scheduled/scheduled-service.ts';
-import { NnaGoalSafetyRuntime } from './goals/nna-goal-runtime.ts';
+import { guardGoalAuditExchangePorts, NnaGoalSafetyRuntime } from './goals/nna-goal-runtime.ts';
 import { runGoalAuditExchange } from './goals/nna-goal-auditor.ts';
 import { createNnaGoalAuditPorts } from './goals/nna-goal-safety-ports.ts';
-import { readMergedSettings } from './lib/settings-store.ts';
+import { onSettingsWrite, readMergedSettings } from './lib/settings-store.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
@@ -144,23 +144,27 @@ function bootMessageQueue(): void {
   }
 }
 
-function bootAutomation(): NnaGoalSafetyRuntime | null {
+function bootAutomation(): { dispose(): void } | null {
   bootMessageQueue();
   bootScheduledTasks();
   return bootGoalSafety();
 }
 
 /** Real-harness clients; the goal exchange may dispatch a bounded continuation prompt. */
-function bootGoalSafety(): NnaGoalSafetyRuntime | null {
+function bootGoalSafety(): { dispose(): void } | null {
   if (ENV.harness !== 'nna') return null;
   try {
     const ports = createNnaGoalAuditPorts();
     const runtime = new NnaGoalSafetyRuntime(getMessageQueueRuntime().feed, ports,
       () => readMergedSettings('web').sessionGoalEnabled === true,
-      (ready, sessionId, directory) =>
-        runGoalAuditExchange(ports, ready, sessionId, directory).then(() => undefined));
+      (ready, sessionId, directory, isCurrent) =>
+        runGoalAuditExchange(guardGoalAuditExchangePorts(ports, isCurrent),
+          ready, sessionId, directory).then(() => undefined));
     runtime.start();
-    return runtime;
+    const unsubscribe = onSettingsWrite((keys) => {
+      if (keys.includes('sessionGoalEnabled')) runtime.settingsChanged();
+    });
+    return { dispose() { unsubscribe(); runtime.dispose(); } };
   } catch (error) {
     console.warn(`goal safety boot failed: ${String(error)}`);
     return null;

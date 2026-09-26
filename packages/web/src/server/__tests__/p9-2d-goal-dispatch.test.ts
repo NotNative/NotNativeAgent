@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MAX_AUTO_TURNS, GOAL_REASONS } from '../goals/goal-constants.ts';
 import { buildGoalContinuationPrompt, dispatchGoalContinuation, goalPromptBody,
   type GoalDispatchPorts, type GoalDispatchResult, type GoalPromptBody } from '../goals/nna-goal-dispatch.ts';
 import { runGoalAuditExchange, type GoalAuditBody, type GoalAuditWire } from '../goals/nna-goal-auditor.ts';
 import { buildGoalPayload, type GoalPayload } from '../goals/goal-payload.ts';
-import type { GoalSafetyTickResult } from '../goals/nna-goal-safety-tick.ts';
+import { guardGoalAuditExchangePorts, NnaGoalSafetyRuntime } from '../goals/nna-goal-runtime.ts';
+import { runNnaGoalSafetyTick, type GoalSafetyTickResult } from '../goals/nna-goal-safety-tick.ts';
 import { createNnaGoalAuditPorts } from '../goals/nna-goal-safety-ports.ts';
 import { registerHarnessAdapter } from '../harness/adapter.ts';
+import { ManualQueueFeed } from '../queue/queue-feed.ts';
 
 const SESSION_ID = 'ses_dispatch';
 const DIRECTORY = '/project';
@@ -101,6 +103,8 @@ function makePorts(state: DispatchState) {
   };
   return { ports, sent, writes, order };
 }
+
+afterEach(() => vi.useRealTimers());
 
 describe('buildGoalContinuationPrompt', () => {
   it('builds the verbatim continuation frame with the no-budget line', () => {
@@ -218,6 +222,113 @@ describe('dispatchGoalContinuation', () => {
     const thrown = await dispatch({ throwSend: true });
     expect(thrown.result).toEqual({ kind: 'dropped', reason: 'continuation send unavailable' });
     expect(thrown.fake.sent).toHaveLength(0);
+  });
+
+  it('restores a locally skipped slot and lets a fresh tick continue after re-enable', async () => {
+    const state: DispatchState = { goal: goal({ turnsUsed: 0 }), revision: 4 };
+    const fake = makePorts(state);
+    fake.ports.readEvidence = async () => ({ session_id: SESSION_ID,
+      turns: [{ request_id: 'r9', outcome: 'completed', tokens: 40, measurement: 'provider' }],
+      latest_request_id: 'r9', window_truncated: false });
+    let enabled = true;
+    let disableOnce = true;
+    const originalWrite = fake.ports.writeGoal;
+    fake.ports.writeGoal = async (...args) => {
+      const written = await originalWrite(...args);
+      if (written && args[2].goal.turnsUsed === 1 && disableOnce) {
+        enabled = false;
+        disableOnce = false;
+      }
+      return written;
+    };
+    const stalePorts = guardGoalAuditExchangePorts(fake.ports, () => enabled);
+    const skipped = await dispatchGoalContinuation(stalePorts, SESSION_ID, DIRECTORY,
+      state.goal!, 'audit', 'Ship the change', TAIL_ID);
+    expect(skipped).toEqual({ kind: 'dropped', reason: 'goal runtime inactive before send' });
+    expect(fake.sent).toHaveLength(0);
+    expect(state.goal).toMatchObject({ turnsUsed: 0, statusReason: GOAL_REASONS.resumed });
+    expect(state.revision).toBe(6);
+
+    enabled = true;
+    const fresh = await runNnaGoalSafetyTick(fake.ports, SESSION_ID, DIRECTORY);
+    expect(fresh).toMatchObject({ kind: 'ready', skipAudit: true });
+    if (fresh.kind !== 'ready') throw new Error('expected fresh ready tick');
+    const resumed = await runGoalAuditExchange(guardGoalAuditExchangePorts(fake.ports, () => enabled),
+      fresh, SESSION_ID, DIRECTORY);
+    expect(resumed.kind).toBe('dispatched');
+    expect(fake.sent).toHaveLength(1);
+  });
+
+  it('does not roll back a slot when NNA remotely refuses the send', async () => {
+    const state: DispatchState = { goal: goal({ turnsUsed: 0 }), revision: 4, sendStatus: 409 };
+    const fake = makePorts(state);
+    const result = await dispatchGoalContinuation(guardGoalAuditExchangePorts(fake.ports, () => true),
+      SESSION_ID, DIRECTORY, state.goal!, 'audit', 'Ship the change', TAIL_ID);
+    expect(result).toEqual({ kind: 'dropped', reason: 'session busy at dispatch' });
+    expect(fake.writes).toHaveLength(1);
+    expect(state.goal?.turnsUsed).toBe(1);
+  });
+
+  it('marks a persisted audit candidate for resume when disable prevents its slot write', async () => {
+    const base = goal({ turnsUsed: 0 });
+    const state: DispatchState = { goal: base, revision: 4 };
+    const fake = makePorts(state);
+    fake.ports.readEvidence = async () => ({ session_id: SESSION_ID,
+      turns: [{ request_id: 'r9', outcome: 'completed', tokens: 40, measurement: 'provider' },
+        { request_id: 'r10', outcome: 'completed', tokens: 5, measurement: 'provider' }],
+      latest_request_id: 'r10', window_truncated: false });
+    let enabled = true;
+    let disableOnce = true;
+    const originalWrite = fake.ports.writeGoal;
+    fake.ports.writeGoal = async (...args) => {
+      const written = await originalWrite(...args);
+      if (written && disableOnce) { enabled = false; disableOnce = false; }
+      return written;
+    };
+    const skipped = await runGoalAuditExchange(guardGoalAuditExchangePorts(fake.ports, () => enabled),
+      ready(appliedFor(base)), SESSION_ID, DIRECTORY);
+    expect(skipped).toEqual({ kind: 'dropped', reason: 'goal runtime inactive before send' });
+    expect(fake.sent).toHaveLength(0);
+    expect(state.goal).toMatchObject({ turnsUsed: 0, statusReason: GOAL_REASONS.resumed,
+      lastAccountedMessageID: 'r10' });
+    enabled = true;
+    const fresh = await runNnaGoalSafetyTick(fake.ports, SESSION_ID, DIRECTORY);
+    expect(fresh).toMatchObject({ kind: 'ready', skipAudit: true });
+    if (fresh.kind !== 'ready') throw new Error('expected fresh ready tick');
+    const resumed = await runGoalAuditExchange(guardGoalAuditExchangePorts(fake.ports, () => enabled),
+      fresh, SESSION_ID, DIRECTORY);
+    expect(resumed.kind).toBe('dispatched');
+    expect(fake.sent).toHaveLength(1);
+  });
+
+  it('allows its own goal CAS session updates while the exchange remains current', async () => {
+    vi.useFakeTimers();
+    const base = goal({ turnsUsed: 0 });
+    const state: DispatchState = { goal: base, revision: 4 };
+    const fake = makePorts(state);
+    const feed = new ManualQueueFeed();
+    fake.ports.listSessions = async () => [session(state.goal, state.revision)];
+    fake.ports.readEvidence = async () => ({ session_id: SESSION_ID,
+      turns: [{ request_id: 'r9', outcome: 'completed', tokens: 40, measurement: 'provider' },
+        { request_id: 'r10', outcome: 'completed', tokens: 5, measurement: 'provider' }],
+      latest_request_id: 'r10', window_truncated: false });
+    const originalWrite = fake.ports.writeGoal;
+    fake.ports.writeGoal = async (...args) => {
+      const written = await originalWrite(...args);
+      if (written) feed.emit({ directory: DIRECTORY, payload: { id: `update-${state.revision}`,
+        type: 'session.updated', properties: { sessionID: SESSION_ID,
+          info: session(state.goal, state.revision) } } });
+      return written;
+    };
+    const runtime = new NnaGoalSafetyRuntime(feed, fake.ports, () => true,
+      (candidate, sessionId, directory, isCurrent) => runGoalAuditExchange(
+        guardGoalAuditExchangePorts(fake.ports, isCurrent), candidate, sessionId, directory),
+      { idleMs: 20, kickoffMs: 10, resumeMs: 2 });
+    runtime.start();
+    await vi.advanceTimersByTimeAsync(11);
+    expect(fake.sent).toHaveLength(1);
+    expect(state.goal?.turnsUsed).toBe(1);
+    runtime.dispose();
   });
 
   it('surfaces a transport throw to the exchange catcher', async () => {

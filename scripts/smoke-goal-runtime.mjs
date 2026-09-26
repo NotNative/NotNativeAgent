@@ -30,7 +30,7 @@ async function deleteEventGoalSession(call, json, id) {
 }
 
 export async function probeGoalEventRuntime(call, json, directory, providerRequests) {
-  const [{ AdapterQueueFeed }, { NnaGoalSafetyRuntime }, { createNnaGoalAuditPorts },
+  const [{ AdapterQueueFeed }, { NnaGoalSafetyRuntime, guardGoalAuditExchangePorts }, { createNnaGoalAuditPorts },
     { runGoalAuditExchange }, { readMergedSettings }] = await Promise.all([
     import('../packages/web/src/server/queue/queue-feed.ts'),
     import('../packages/web/src/server/goals/nna-goal-runtime.ts'),
@@ -51,7 +51,9 @@ export async function probeGoalEventRuntime(call, json, directory, providerReque
   const requestsBefore = providerRequests().length;
   const runtime = new NnaGoalSafetyRuntime(feed, ports,
     () => readMergedSettings('web').sessionGoalEnabled === true,
-    async (ready, id, dir) => { exchanges.push(await runGoalAuditExchange(ports, ready, id, dir)); },
+    async (ready, id, dir, isCurrent) => {
+      exchanges.push(await runGoalAuditExchange(guardGoalAuditExchangePorts(ports, isCurrent), ready, id, dir));
+    },
     { idleMs: 20, kickoffMs: 20, resumeMs: 20 });
   runtime.start();
   feed.start();

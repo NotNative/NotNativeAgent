@@ -134,6 +134,24 @@ describe('settings split store (§F.3)', () => {
     expect(after.sessionSuggestionEnabled).toBe(true);
   });
 
+  it('notifies settings observers for accepted writes through both routes, but not dropped keys', async () => {
+    const { onSettingsWrite } = await import('../lib/settings-store.ts');
+    const notifications: string[][] = [];
+    const unsubscribe = onSettingsWrite((keys) => notifications.push([...keys]));
+    try {
+      await putSettings({ sessionGoalEnabled: true, notInRegistry: true });
+      await call('/api/notnative/settings', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessionGoalEnabled: false }),
+      });
+      await putSettings({ notInRegistry: false });
+      expect(notifications).toEqual([['sessionGoalEnabled'], ['sessionGoalEnabled']]);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   it('surface-restricted keys write on their kinds and hide elsewhere', async () => {
     await putSettings({ pwaAppName: 'NND PWA' });
     const web = await (await call('/api/config/settings?surface=web')).json() as { pwaAppName?: string };

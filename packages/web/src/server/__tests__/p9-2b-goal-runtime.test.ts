@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildGoalPayload } from '../goals/goal-payload.ts';
-import { NnaGoalSafetyRuntime } from '../goals/nna-goal-runtime.ts';
+import { runGoalAuditExchange } from '../goals/nna-goal-auditor.ts';
+import { guardGoalAuditExchangePorts, NnaGoalSafetyRuntime } from '../goals/nna-goal-runtime.ts';
+import type { GoalDispatchPorts } from '../goals/nna-goal-dispatch.ts';
 import type { GoalSafetyPorts } from '../goals/nna-goal-safety-tick.ts';
 import { ManualQueueFeed } from '../queue/queue-feed.ts';
 
@@ -30,7 +32,8 @@ function setup() {
   };
   const runtime = new NnaGoalSafetyRuntime(feed, ports, () => enabled,
     (_result, sessionId) => ready.push(sessionId), { idleMs: 20, kickoffMs: 10, resumeMs: 2 });
-  return { feed, ports, calls, ready, runtime, enable: (value: boolean) => { enabled = value; } };
+  return { feed, ports, calls, ready, runtime, enable: (value: boolean) => { enabled = value; },
+    signalSettings: () => runtime.settingsChanged() };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -78,6 +81,68 @@ describe('NNA goal safety event runner', () => {
     state.runtime.dispose();
     await vi.advanceTimersByTimeAsync(11);
     expect(state.calls).toEqual([]);
+  });
+
+  it('reconciles an active goal when the feature gate is re-enabled without a session event', async () => {
+    vi.useFakeTimers();
+    const state = setup();
+    state.enable(false);
+    state.runtime.start();
+    await Promise.resolve();
+    state.enable(true);
+    state.signalSettings();
+    await vi.advanceTimersByTimeAsync(11);
+    expect(state.ready).toEqual([id]);
+    state.runtime.dispose();
+  });
+
+  it('invalidates an in-flight tick across a disable/re-enable cycle and queues a fresh one', async () => {
+    vi.useFakeTimers();
+    const state = setup();
+    let release!: (value: unknown) => void;
+    let reads = 0;
+    state.ports.readStatus = () => ++reads === 1
+      ? new Promise((resolve) => { release = resolve; }) : Promise.resolve({});
+    state.runtime.start();
+    await vi.advanceTimersByTimeAsync(11);
+    expect(state.calls).toEqual(['session']);
+    state.enable(false); state.signalSettings();
+    state.enable(true); state.signalSettings();
+    await Promise.resolve();
+    release({});
+    await vi.advanceTimersByTimeAsync(21);
+    expect(state.ready).toEqual([id]);
+    expect(state.calls.filter((call) => call === 'session')).toHaveLength(2);
+    state.runtime.dispose();
+  });
+
+  it('fences an old audit exchange across a disable/re-enable cycle', async () => {
+    vi.useFakeTimers();
+    const state = setup();
+    let enabled = true;
+    let releaseAudit!: (value: { status: number; body: unknown }) => void;
+    let auditStarted = false;
+    const ports: GoalDispatchPorts = {
+      ...state.ports,
+      runAudit: () => { auditStarted = true; return new Promise((resolve) => { releaseAudit = resolve; }); },
+      sendPrompt: async () => { state.calls.push('send'); return { status: 200, body: {} }; },
+    };
+    const runtime = new NnaGoalSafetyRuntime(state.feed, ports, () => enabled,
+      (ready, sessionId, directory, isCurrent) => runGoalAuditExchange(
+        guardGoalAuditExchangePorts(ports, isCurrent), ready, sessionId, directory),
+      { idleMs: 20, kickoffMs: 10, resumeMs: 2 });
+    runtime.start();
+    await vi.advanceTimersByTimeAsync(11);
+    expect(auditStarted).toBe(true);
+    enabled = false;
+    runtime.settingsChanged();
+    enabled = true;
+    runtime.settingsChanged();
+    releaseAudit({ status: 200, body: { text: '{"verdict":"continue","note":"working"}' } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(state.calls).not.toContain('write');
+    expect(state.calls).not.toContain('send');
+    runtime.dispose();
   });
 
   it('uses one in-flight guard and re-arms an unavailable status', async () => {

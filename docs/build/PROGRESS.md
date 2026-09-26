@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 live goal gate recovery.** A profile settings write now
+  wakes or stops the NNA goal runtime without requiring an unrelated session
+  event. A separate exchange generation keeps the runtime's own goal CAS
+  events from cancelling a valid audit, while disable/delete/busy transitions
+  fence further writes and continuation sends. Only a known local pre-send
+  refusal receives exact-revision CAS recovery and a resume marker; uncertain
+  remote send outcomes are never retried automatically. Adversarial review
+  traced and fixed the pre-slot and post-slot liveness races. The guarded
+  callback passes the real NND↔NNA SSE smoke; web 930/930 and typecheck ×3.
+
 - 2026-09-26 · **P9 event-driven autonomous-goal smoke.** An isolated real
   NNA child now drives the production NND event feed and goal safety timer
   through the complete audit/continuation loop. The probe verifies the live

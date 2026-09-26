@@ -144,6 +144,21 @@ export interface PatchOutcome {
   dropped: string[];
 }
 
+const writeListeners = new Set<(keys: readonly string[]) => void>();
+
+/** Notify process-local runtimes after a durable, registry-gated patch. */
+export function onSettingsWrite(listener: (keys: readonly string[]) => void): () => void {
+  writeListeners.add(listener);
+  return () => { writeListeners.delete(listener); };
+}
+
+function notifySettingsWrite(keys: readonly string[]): void {
+  if (keys.length === 0) return;
+  for (const listener of writeListeners) {
+    try { listener(keys); } catch { /* a runtime observer cannot undo a persisted write */ }
+  }
+}
+
 /** Registry-gated write: unknown/computed/local/device/owner keys dropped. */
 export function writeSettingsPatch(patch: Record<string, unknown>, kind: SurfaceKind): PatchOutcome {
   seedPreferencesFromSettings();
@@ -162,6 +177,7 @@ export function writeSettingsPatch(patch: Record<string, unknown>, kind: Surface
     }
     const legacy = (readJson(SETTINGS_FILE) as Record<string, unknown> | undefined) ?? {};
     writeAtomic(SETTINGS_FILE, { ...legacy, ...accepted });
+    notifySettingsWrite(Object.keys(accepted));
     return { settings: { ...readMergedSettings(kind), ...accepted }, kind, dropped };
   }
   const now = new Date().toISOString();
@@ -183,6 +199,7 @@ export function writeSettingsPatch(patch: Record<string, unknown>, kind: Surface
   }
   writeAtomic(PREFERENCES_FILE, prefs);
   refreshSettingsMirror(prefs.fields);
+  notifySettingsWrite(Object.keys(patch).filter((key) => !dropped.includes(key)));
   return { settings: readMergedSettings(kind), kind, dropped };
 }
 

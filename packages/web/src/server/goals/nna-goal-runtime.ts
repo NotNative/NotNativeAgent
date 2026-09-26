@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Event-driven NNA goal safety runner; deliberately sends no prompts. */
+/** Event-driven NNA goal safety runner; its ready consumer owns prompt dispatch. */
 import type { QueueEnvelope, QueueFeed } from '../queue/queue-feed.ts';
 import { getSessionGoal } from './goal-payload.ts';
-import { IDLE_QUIET_MS, KICKOFF_QUIET_MS, RESUME_KICKOFF_MS } from './goal-constants.ts';
+import { GOAL_REASONS, IDLE_QUIET_MS, KICKOFF_QUIET_MS, RESUME_KICKOFF_MS } from './goal-constants.ts';
 import { runNnaGoalSafetyTick, type GoalSafetyPorts, type GoalSafetyTickResult } from './nna-goal-safety-tick.ts';
+import { buildGoalWrite } from './goal-metadata.ts';
+import { readGoalRevision, sameGoalPayload } from './nna-goal-auditor.ts';
+import { GoalRuntimeInactiveError, type GoalDispatchPorts } from './nna-goal-dispatch.ts';
 
 interface GoalTiming { idleMs: number; kickoffMs: number; resumeMs: number }
 const DEFAULT_TIMING: GoalTiming = { idleMs: IDLE_QUIET_MS, kickoffMs: KICKOFF_QUIET_MS,
@@ -15,11 +18,33 @@ function record(value: unknown): Record<string, unknown> | null {
     ? value as Record<string, unknown> : null;
 }
 
+/** Fence an exchange after its feature gate or session is invalidated. */
+export function guardGoalAuditExchangePorts(ports: GoalDispatchPorts, isCurrent: () => boolean): GoalDispatchPorts {
+  return {
+    ...ports,
+    writeGoal: (...args) => isCurrent() ? ports.writeGoal(...args)
+      : Promise.reject(new GoalRuntimeInactiveError()),
+    runAudit: (...args) => isCurrent() ? ports.runAudit(...args)
+      : Promise.resolve({ status: 409, body: { error: { code: 'nnd_goal_audit_conflict' } } }),
+    sendPrompt: (...args) => isCurrent() ? ports.sendPrompt(...args)
+      : Promise.reject(new GoalRuntimeInactiveError()),
+    recoverSkippedSend: async (sessionId, directory, persisted, prior, expectedRevision) => {
+      const record = await ports.readSession(sessionId, directory);
+      const current = getSessionGoal(record);
+      if (readGoalRevision(record) !== expectedRevision || !current
+        || !sameGoalPayload(current, persisted)) return false;
+      const restored = { ...prior, statusReason: GOAL_REASONS.resumed, updatedAt: Date.now() };
+      return ports.writeGoal(sessionId, directory, buildGoalWrite(record, restored).body);
+    },
+  };
+}
+
 export class NnaGoalSafetyRuntime {
   private readonly timers = new Map<string, Armed>();
   private readonly directories = new Map<string, string>();
   private readonly inFlight = new Set<string>();
   private readonly generations = new Map<string, number>();
+  private readonly exchangeGenerations = new Map<string, number>();
   private readonly pending = new Map<string, number>();
   private unsubs: Array<() => void> = [];
   private stopped = false;
@@ -28,7 +53,8 @@ export class NnaGoalSafetyRuntime {
     private readonly feed: QueueFeed,
     private readonly ports: GoalSafetyPorts,
     private readonly enabled: () => boolean,
-    private readonly onReady: (result: Extract<GoalSafetyTickResult, { kind: 'ready' }>, sessionId: string, directory: string) => unknown = () => {},
+    private readonly onReady: (result: Extract<GoalSafetyTickResult, { kind: 'ready' }>, sessionId: string,
+      directory: string, isCurrent: () => boolean) => unknown = () => {},
     private readonly timing: GoalTiming = DEFAULT_TIMING,
   ) {}
 
@@ -45,7 +71,15 @@ export class NnaGoalSafetyRuntime {
     this.unsubs = [];
     this.directories.clear();
     this.generations.clear();
+    this.exchangeGenerations.clear();
     this.pending.clear();
+  }
+
+  /** Reconcile active goals when the profile gate changes without a session event. */
+  settingsChanged(): void {
+    if (this.stopped) return;
+    if (this.enabled()) { void this.reconcile(); return; }
+    for (const id of this.directories.keys()) { this.invalidate(id); this.invalidateExchange(id); }
   }
 
   private remember(id: string, directory: unknown): boolean {
@@ -59,19 +93,19 @@ export class NnaGoalSafetyRuntime {
     const id = properties?.sessionID ?? properties?.sessionId;
     if (typeof id !== 'string' || id === '') return;
     if (envelope.payload.type === 'session.deleted') {
-      this.invalidate(id); this.directories.delete(id); return;
+      this.invalidate(id); this.invalidateExchange(id); this.directories.delete(id); return;
     }
     const info = record(properties?.info);
     if (!this.remember(id, envelope.directory ?? info?.directory)) return;
-    if (!this.enabled()) { this.invalidate(id); return; }
+    if (!this.enabled()) { this.invalidate(id); this.invalidateExchange(id); return; }
     if (envelope.payload.type === 'session.status') {
       const type = record(properties?.status)?.type;
       if (type === 'idle') this.arm(id, this.timing.idleMs);
-      if (type === 'busy' || type === 'retry') this.invalidate(id);
+      if (type === 'busy' || type === 'retry') { this.invalidate(id); this.invalidateExchange(id); }
     }
     if (envelope.payload.type === 'session.updated' && info && !info.parentID) {
       const goal = getSessionGoal(info);
-      if (goal?.status !== 'active') { this.invalidate(id); return; }
+      if (goal?.status !== 'active') { this.invalidate(id); this.invalidateExchange(id); return; }
       if (this.inFlight.has(id)) {
         this.generations.set(id, (this.generations.get(id) ?? 0) + 1);
         this.arm(id, goal.statusReason === 'resumed' ? this.timing.resumeMs
@@ -109,6 +143,10 @@ export class NnaGoalSafetyRuntime {
     this.clear(id);
   }
 
+  private invalidateExchange(id: string): void {
+    this.exchangeGenerations.set(id, (this.exchangeGenerations.get(id) ?? 0) + 1);
+  }
+
   async tick(id: string): Promise<GoalSafetyTickResult> {
     if (this.stopped || !this.enabled()) return { kind: 'wait', reason: 'runtime inactive' };
     if (this.inFlight.has(id)) {
@@ -136,7 +174,11 @@ export class NnaGoalSafetyRuntime {
         // A ready consumer owns its failures: the safety loop must survive a
         // rejected exchange the same way it survives an unreachable harness.
         try {
-          const consumed = this.onReady(result, id, directory);
+          const exchangeGeneration = this.exchangeGenerations.get(id) ?? 0;
+          const exchangeCurrent = (): boolean => !this.stopped && this.enabled()
+            && exchangeGeneration === (this.exchangeGenerations.get(id) ?? 0)
+            && this.directories.get(id) === directory;
+          const consumed = this.onReady(result, id, directory, exchangeCurrent);
           if (consumed instanceof Promise) await consumed;
         } catch { /* owned */ }
       }
@@ -162,7 +204,7 @@ export class NnaGoalSafetyRuntime {
       const item = record(raw);
       if (typeof item?.id !== 'string' || item.parentID || !this.remember(item.id, item.directory)) continue;
       const goal = getSessionGoal(item);
-      if (goal?.status !== 'active' || this.timers.has(item.id) || this.inFlight.has(item.id)) continue;
+      if (goal?.status !== 'active' || this.timers.has(item.id)) continue;
       this.arm(item.id, goal.statusReason === 'resumed' ? this.timing.resumeMs
         : goal.turnsUsed === 0 ? this.timing.kickoffMs : this.timing.idleMs);
     }
