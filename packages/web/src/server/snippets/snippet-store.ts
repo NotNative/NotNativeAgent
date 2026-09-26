@@ -100,12 +100,29 @@ export async function deleteSnippet(name: string, dataDir: string = ENV.dataDir)
   if (!snippetNameOk(name)) return false;
   const target = joinPath(snippetsDirFor(dataDir), `${name}.json`);
   if (!existsSync(target)) return false;
+  const fault = (error: unknown): string | null =>
+    (error as NodeJS.ErrnoException & { code?: string })?.code ?? null;
   try {
     await unlink(target);
   } catch (error) {
+    const code = fault(error);
     // A racing DELETE already removed the file between the existence probe
     // and the unlink: that is a lost race, not a server fault - 404.
-    if ((error as NodeJS.ErrnoException & { code?: string })?.code === 'ENOENT') return false;
+    if (code === 'ENOENT') return false;
+    // Windows: the winner's in-flight unlink (or an AV probe) surfaces as a
+    // sharing violation (EPERM). Fold it ONLY when the file is gone by a
+    // fresh probe; a still-present target is a genuine permission fault.
+    if (code === 'EPERM') {
+      if (!existsSync(target)) return false;
+      try {
+        await unlink(target);
+        return true;
+      } catch (retry) {
+        const retryCode = fault(retry);
+        if (retryCode === 'ENOENT' || (retryCode === 'EPERM' && !existsSync(target))) return false;
+        throw retry;
+      }
+    }
     throw error;
   }
   return true;

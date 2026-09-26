@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 snippet delete race hardening.** On Windows, a
+  concurrent delete or file-sharing probe can raise `EPERM` between the
+  existence check and unlink. The snippet store now re-probes and retries
+  once: an already-gone target returns the not-found result, while a
+  still-present permission failure remains an error. Adversarial review
+  found no additional concrete defect. Focused route tests cover gone,
+  transient, and persistent sharing violations.
+
 - 2026-09-26 · **P9 goal audit bridge and long scheduled-objective fitting.**
   The authenticated NND↔NNA source smoke now exercises a real completed turn,
   its final provider affinity, the independent goal-audit route, and a stale

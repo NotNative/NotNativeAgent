@@ -26,8 +26,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 });
 
 const { registerSnippetRoutes } = await import('../routes/snippets.ts');
-const { snippetsDirFor } = await import('../snippets/snippet-store.ts');
-const { deleteSnippet } = await import('../snippets/snippet-store.ts');
+const { snippetsDirFor, deleteSnippet } = await import('../snippets/snippet-store.ts');
 
 const app = new Hono();
 registerSnippetRoutes(app);
@@ -245,6 +244,29 @@ describe('P9-4e-i audit pins (reserved names, traversal, races, enlargement pari
         expect(await response.json()).toEqual({ error: 'snippet not found' });
       }
     }
+  });
+
+  it('the EPERM fold: a gone-by-probe race folds to the 404 arm; an open window retries', async () => {
+    await post('/api/config/snippets/epvin', { text: 'raced body' });
+    const target = joinPath(snippetsDirFor(), 'epvin.json');
+    const violation = (): Error => Object.assign(new Error('sharing violation'), { code: 'EPERM' });
+    // (a) the winner already finished: probe sees gone -> fold false (404 class)
+    unlinkMock.mockImplementationOnce(async () => { rmSync(target); throw violation(); });
+    await expect(deleteSnippet('epvin')).resolves.toBe(false);
+    // (b) the window is still open: probe sees present -> retry ticks the real unlink
+    await post('/api/config/snippets/epvin2', { text: 'raced again' });
+    const target2 = joinPath(snippetsDirFor(), 'epvin2.json');
+    unlinkMock.mockImplementationOnce(async () => { throw violation(); });
+    await expect(deleteSnippet('epvin2')).resolves.toBe(true);
+    expect(existsSync(target2)).toBe(false);
+  });
+
+  it('a stubborn EPERM with the file still present rethrows (the 500 class)', async () => {
+    await post('/api/config/snippets/stuck', { text: 'stuck body' });
+    const violation = (): Error => Object.assign(new Error('sharing violation'), { code: 'EPERM' });
+    unlinkMock.mockImplementationOnce(async () => { throw violation(); });
+    unlinkMock.mockImplementationOnce(async () => { throw violation(); });
+    await expect(deleteSnippet('stuck')).rejects.toMatchObject({ code: 'EPERM' });
   });
 
   it('PATCH text:null folds to the registered string-must 400 (null is not absent)', async () => {
