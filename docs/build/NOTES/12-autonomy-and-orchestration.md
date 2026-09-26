@@ -512,6 +512,23 @@ waits — the server row ships first so a closed tab can never strand a queue.
   NOT in: snippet expansion sources (the composer itself has none),
   keyboard picker navigation (a composer concern), the §H calendar
   polish beyond the native date input.
+- **P9-4e-i (the snippet config-entity family — delivered this slice)** —
+  `snippet-store.ts` 120 + `routes/snippets.ts` 112 mounted in
+  `registerApiSurfaces` after the scheduled family and before the
+  harness proxy: the doc 03 §5.x family verbatim — `GET /api/config/
+  snippets` `{snippets}` sorted, `GET/POST/PATCH/DELETE :name` with the
+  registered strings (409 `snippet exists`, 404 `snippet not found`,
+  the name-pattern 400), `POST /expand {text}` → `{text: expanded}`,
+  bodies through the shared bounded reader (64 KiB), storage as
+  `<data-dir>/config/snippets/<name>.json` records `{name, text,
+  scope: 'global' default}`, expansion `#([\w-]+)` keep-unknown bytes —
+  the same rule as the composer's `expandPrompt`. The reserved `expand`
+  word is registered BEFORE the `:name` POST so it can never shadow
+  creation. Client: `lib/snippets-api.ts` 70 mirrors the envelope
+  (200 stamps `ok: true` beside the config `success: true`; failures
+  fold verbatim). Suites: routes 19/19 (11 slice + 8 audit), client
+  4/4; web 66 files/913, UI 99 files/913. NOT in: the composer picker
+  source + the settings management page (P9-4e-ii).
 
 ## B. Adaptation deltas (registered)
 
@@ -1186,3 +1203,36 @@ waits — the server row ships first so a closed tab can never strand a queue.
   (i) flagged follow-up: the composer keeps a tokenStart-only guard
   without the kind check (the same swap hole D1 fixed lives at
   chat/composer.tsx) — carry to the composer slice's audit.
+
+- **E-09-29 (the snippet config-entity family, P9-4e-i)**: (a) storage —
+  `<data-dir>/config/snippets/<name>.json` records, names `[\w-]{1,64}`
+  (the tokenizer's `#name` vocabulary), `scope` defaults `'global'` on
+  write, tmp+rename writes, the sorted readdir list skips corrupt files
+  instead of failing. (b) identity — the stored volume entry IS the
+  snippet identity: lookups resolve the URL name exact-case first, then
+  a unique case-fold, and never retitle a file to the URL's case;
+  responses carry the stored name; create refuses a case-variant 409
+  per the platform; an ambiguous fold resolves to 404; expansion keys
+  stay exact-case matched (`#SIG` keeps its bytes when the stored case
+  is `sig` — identical to the composer's `expandPrompt` map). (c)
+  reserved device names (`aux/con/nul/prn/com1-9/lpt1-9`) answer
+  `400 snippet name is reserved on this platform` before any store
+  access, on every platform, regardless of the runtime's tolerance
+  (probed: this build tolerates device-name files; enforcement volumes
+  would 500). (d) lost-race DELETE folds `unlink` ENOENT to the 404
+  arm; other fs faults rethrow (500 class); `[200,404]` in any
+  interleave. (e) PATCH `{text:null}` rejects
+  `snippet text must be a string` — JSON cannot carry `undefined`, so
+  null is not 'absent'; the record stays intact on any 400 and the
+  route name is the authority over any body `name`. (f) the client
+  percent-encodes once, Hono decodes once: traversal and `%2F`-isms
+  arrive as pattern violations and answer the plain 400; the shared
+  bounded reader is content-type agnostic and folds malformed/
+  non-object/oversize bodies to one 400 per route. (g) expansion
+  parity — server `expandSnippetText` and composer `expandPrompt` ride
+  the same `#([\w-]+)` keep-unknown rule; `tokenizePrompt`'s looser `#`
+  arm is highlighting only; `/api/config/snippets/expand` rides the
+  stored roster's exact-case map. (h) the reserved `expand` word is
+  registered before the `:name` POST (Hono first-match), so the
+  expansion route can never shadow creation and `GET :name expand`
+  stays addressable.

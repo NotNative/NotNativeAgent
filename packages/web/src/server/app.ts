@@ -22,6 +22,7 @@ import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes }
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
+import { registerSnippetRoutes } from './routes/snippets.ts';
 import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
 import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
@@ -229,6 +230,9 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.16 scheduled-task family (doc 12 C): BEFORE the harness proxy.
   app.route('/', createScheduledTaskRoutes());
+  // Snippet config-entity family (doc 03 §5.x, NND addition): BEFORE the
+  // harness proxy, riding the same auth posture as its siblings.
+  registerSnippetRoutes(app);
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
   registerTunnelRoutes(app);

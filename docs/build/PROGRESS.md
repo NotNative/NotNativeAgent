@@ -22,6 +22,31 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4e-i the snippet config-entity family.** The server
+  half of the snippet macro resolver landed: the `snippet-store.ts`
+  (`<data-dir>/config/snippets/<name>.json`, names `[\w-]{1,64}`,
+  `scope: 'global'` default, tmp+rename writes, corrupt-file skipping;
+  expansion `#([\w-]+)` keep-unknown), the route family per doc 03
+  §5.x verbatim (list/create/read/patch/delete plus the `POST /expand`
+  route registered before the `:name` POST so the reserved word never
+  shadows creation), mounted before the harness proxy, and the typed
+  client `lib/snippets-api.ts` mirroring the ok-stamp envelope. The
+  audit reproduced and fixed three Windows-grounded defects: case
+  folding made a cross-case URL retitle (destroy) a stored snippet's
+  identity (fixed: lookups resolve the stored entry's own case, never
+  retitle, responses carry the stored name), reserved device names
+  (`aux`, `com1`...) would have crashed stores on enforcement volumes
+  (fixed: a platform-independent 400 before any store access), and a
+  lost-race DELETE surfaced ENOENT (fixed: folds to the 404 arm).
+  Registered: exact-case expansion keys, PATCH null-is-not-absent,
+  single-decode traversal answers, content-type-agnostic bounded
+  reader, `#([\w-]+)` parity with the composer's expansion. Routes
+  19/19 (11 slice + 8 audit), client 4/4, web 66 files/913, UI 99
+  files/913, typechecks both clean, gates 423 files, graph current.
+  E-09-29 registers the slice. Next: P9-4e-ii — the composer picker
+  source fed from the family plus the settings management page —
+  then the B.6.3 distill.
+
 - 2026-09-26 · **P9-4d-ii the editor dialog.** The scheduled-task editor
   is complete: the dialog shell (name, the schedule half with the client
   preview and §J.1 preference, save through upsert with create seeding

@@ -3,6 +3,27 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - the snippet config-entity family at P9-4e-i
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Route family | routes 19/19: fresh list `{snippets: []}`; create answers `{success:true, snippet}` with the `global` scope default and reads/list round-trips sorted; duplicate create 409 `snippet exists`; patch merges over the stored record with the route name authoritative (a body `name: 'sneaky'` cannot retitle); unknown patch 404; delete round-trips then 404s |
+| Expansion | `POST /expand` replaces known tokens and keeps unknown bytes (`x #sig y #nope #sig` → `x sig-text y #nope sig-text`), riding the same `#([\w-]+)` rule as the composer's `expandPrompt`; the reserved `expand` word never shadows the expansion route and never creates; GET-by-name `expand` stays addressable |
+| Validation | names outside `[\w-]{1,64}` answer the registered 400 across GET/POST/PATCH/DELETE; create validates text string + non-empty + scope string; malformed/non-object/oversize bodies fold to one 400; a corrupt stored file is skipped by the list, not fatal |
+| Storage safety | a case-variant URL folds on the volume: create 409s, lookups answer the stored entry's own case and never retitle (readdir spellings asserted); reserved device names (`aux`, `com1`...) 400 before any store access; a lost-race DELETE folds ENOENT to the 404 arm; traversal/`%2F` names answer the plain pattern 400 and write nothing outside the family |
+| Client envelope | client 4/4 over the real runtimeFetch pipeline: 200 stamps `ok: true` beside the config `success: true`; the 409/pattern strings stay verbatim; a 500 without a JSON body folds to the generic `snippet request failed (500)`; `expandSnippet` POSTs `{text}` |
+| Adversarial review | 3 defect classes reproduced red and fixed (case-identity rewrite, reserved names, lost-race delete); probed-and-clean: mount order before the harness proxy, no pre-existing `/api/config` registration, THIS build tolerates device-name writes (registered against enforcement volumes), PATCH-merge intactness on 400s |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Composer picker source | the family exists server-side; the composer still seeds the empty local map — the real-roster wiring is P9-4e-ii |
+| Settings management page | snippet create/edit/delete UI rides P9-4e-ii |
+| Server-side expansion consumer | `/expand` has no UI consumer yet; the composer's local expansion at send time stays the operative path until P9-4e-ii decides |
+
 ## 2026-09-26 - the editor dialog at P9-4d-ii
 
 **Verified working**
