@@ -2,13 +2,13 @@
 /** NND proxy to NNA's durable, id-guarded goal metadata seam + auditor route. */
 import assert from 'node:assert/strict';
 
-function goalBody(next, expectedId, expectedRevision) {
+export function goalBody(next, expectedId, expectedRevision) {
   return { method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ goal: next, expected_id: expectedId, expected_revision: expectedRevision }) };
 }
 
 /** A bounded, active goal payload that NNA's goal route accepts verbatim. */
-function smokeGoal(objective) {
+export function smokeGoal(objective) {
   const now = Date.now();
   return { id: 'goal_audit_smoke', objective, objectiveFile: false, status: 'active',
     tokenBudget: null, tokensUsed: 0, tokensBaseline: 0, tokensCommitted: 0, turnsUsed: 0,
@@ -39,7 +39,7 @@ export async function probeGoal(call, json) {
   await json(call, `/api/session/${created.id}`, { method: 'DELETE' }, 200);
 }
 
-async function waitUntil(operation, predicate, message) {
+export async function waitUntil(operation, predicate, message) {
   const deadline = Date.now() + 15_000;
   for (;;) {
     const value = await operation();

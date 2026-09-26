@@ -150,7 +150,7 @@ function bootAutomation(): NnaGoalSafetyRuntime | null {
   return bootGoalSafety();
 }
 
-/** Real-harness clients; the exchange deliberately sends no prompts. */
+/** Real-harness clients; the goal exchange may dispatch a bounded continuation prompt. */
 function bootGoalSafety(): NnaGoalSafetyRuntime | null {
   if (ENV.harness !== 'nna') return null;
   try {

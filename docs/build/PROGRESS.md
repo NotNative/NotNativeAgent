@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 event-driven autonomous-goal smoke.** An isolated real
+  NNA child now drives the production NND event feed and goal safety timer
+  through the complete audit/continuation loop. The probe verifies the live
+  idle SSE event, two independent provider audits, one continuation, and the
+  persisted complete verdict. Adversarial review tightened the probe so it
+  cannot pass using requests from an earlier direct-loop test or a reconnect.
+
 - 2026-09-26 · **P9 live autonomous-goal loop smoke.** The cross-repo
   source fixture now drives the production NND goal tick and audit exchange
   over a real NNA child with an isolated provider: an initial turn is audited,
