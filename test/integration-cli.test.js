@@ -105,7 +105,9 @@ test('integration NND host builds governed engines from the trusted manifest', a
     '---', 'id: nnd-review', 'version: 1', 'description: Review a change',
     'invocation: both', '---', 'Review the requested change.',
   ].join('\n'));
-  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot });
+  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot }, {
+    nndBrowserCallback: { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) },
+  });
   assert.equal(host.workspaceRoot, root);
   assert.deepEqual(host.nndModel, { providerID: 'primary', modelID: 'test' });
   const initialSkills = await host.readNndSkillsInventory();
@@ -117,6 +119,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   assert.equal(context.engine.sessionId, 'session_a');
   assert.equal(context.engine.emitContextStatus, true);
   assert.equal(context.engine.surface, 'nnd');
+  assert.equal(context.engine.tools.definition('nnd_browser')?.scope, 'browser');
   assert.ok(context.engine.skills.catalog().some((skill) => skill.id === 'nnd-review'));
   await writeFile(join(skillRoot, 'review', 'SKILL.md'), [
     '---', 'id: nnd-review', 'version: 2', 'description: Review a newer change',

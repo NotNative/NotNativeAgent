@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:4c699670f115a8748fc8123267fc9073d38a135c4b93302d785c2a7406d98244",
+  "source_digest": "sha256:a3ddcb9064ea0ff37f05a408565ef984154d44dce62ea31f6e1ae34b5fc83f51",
   "counts": {
-    "modules": 379,
-    "component_edges": 78
+    "modules": 380,
+    "component_edges": 79
   },
   "components": [
     {
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 45
+      "module_count": 46
     },
     {
       "id": "guidance",
@@ -132,13 +132,13 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 58,
-      "module_count": 37
+      "import_count": 59,
+      "module_count": 38
     },
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 55,
+      "import_count": 56,
       "module_count": 20
     },
     {
@@ -552,6 +552,12 @@
     {
       "from": "integrations",
       "to": "persistence",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "integrations",
+      "to": "tools",
       "import_count": 1,
       "module_count": 1
     },
@@ -1767,6 +1773,7 @@
         "src/ids.js",
         "src/integration-server.js",
         "src/nnd-agent-inventory.js",
+        "src/nnd-browser-tool.js",
         "src/nnd-engine-host.js",
         "src/nnd-mcp-inventory.js",
         "src/nnd-skills-inventory.js",
@@ -1888,6 +1895,14 @@
       "entrypoint": false,
       "imports": [
         "src/subagent-runtime.js"
+      ]
+    },
+    {
+      "path": "src/nnd-browser-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {
@@ -3132,6 +3147,7 @@
         "src/guidance/tools.js",
         "src/ids.js",
         "src/mcp-control-tools.js",
+        "src/nnd-browser-tool.js",
         "src/notifications/telegram.js",
         "src/path-policy.js",
         "src/persistence/file-change-ledger.js",

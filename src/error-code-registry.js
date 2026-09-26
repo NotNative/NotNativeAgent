@@ -315,6 +315,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'lsp_diagnostics_invalid', 'lsp_not_configured', 'lsp_output_too_large',
     'lsp_protocol_invalid', 'lsp_stderr_too_large', 'lsp_transport_closed',
     'lsp_transport_failed', 'process_args_invalid', 'process_request_invalid',
+    'nnd_browser_failed', 'nnd_browser_reply_invalid', 'nnd_browser_reply_large', 'nnd_browser_unavailable',
     'process_secret_argument_forbidden', 'process_stdin_ref_invalid', 'process_timeout_invalid',
     'project_memory_evidence_invalid', 'project_memory_evidence_required', 'project_memory_item_invalid',
     'project_memory_markers_invalid', 'project_memory_region_invalid', 'project_memory_secret_forbidden',

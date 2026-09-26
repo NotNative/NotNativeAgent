@@ -39,6 +39,7 @@ import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { systemTimeDefinition } from './tools/system-time.js';
+import { nndBrowserDefinition } from './nnd-browser-tool.js';
 import { workspaceChangeDefinition } from './tools/workspace.js';
 import { turnFinishDefinition } from './tools/turn-completion.js';
 import { questionDefinition } from './tools/question.js';
@@ -80,6 +81,7 @@ export class ToolRegistry {
     this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId; this.sessionHistory = options.sessionHistory;
     this.terminalControl = options.terminalControl;
     this.questionBroker = options.questionBroker ?? null;
+    this.nndBrowserCallback = options.nndBrowserCallback ?? null;
     this.administrator = options.administrator ?? null;
   }
   async initialize() {
@@ -121,6 +123,7 @@ export class ToolRegistry {
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
+    if (this.nndBrowserCallback && !this.hosted) this.#install(nndBrowserDefinition(this.nndBrowserCallback));
     if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
   async close() { await this.definition('web_browse')?.manager?.close?.(); }

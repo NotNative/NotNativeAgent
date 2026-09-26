@@ -17,6 +17,7 @@ import { nndAgentInventory } from './nnd-agent-inventory.js';
 import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
 import { workspaceIsTrusted } from './experience/trust.js';
+import { consumeNndBrowserCallbackFromEnvironment } from './nnd-browser-tool.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -43,7 +44,9 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
-  const nndEngineHost = await createIntegrationNndEngineHost(paths, options);
+  const nndEngineHost = await createIntegrationNndEngineHost(paths, {
+    ...options, nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
+  });
   let service;
   try {
     service = await startIntegrationServer({
@@ -100,6 +103,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
       skillRoots,
       emitContextStatus: true,
       output: input.output,
+      nndBrowserCallback: options.nndBrowserCallback,
     }),
   });
   host.workspaceRoot = config.workspaceRoot;
