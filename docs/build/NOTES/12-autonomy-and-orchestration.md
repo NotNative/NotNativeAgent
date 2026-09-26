@@ -485,6 +485,33 @@ waits — the server row ships first so a closed tab can never strand a queue.
   model/agent/prompt/goal execution half, the Edit button that opens
   this component from the tasks dialog, `@file`/slash/`#snippet`
   autocompletes (P9-4d-ii).
+- **P9-4d-ii (the editor dialog — delivered this slice)** —
+  `scheduled-task-execution-editor.tsx` 208: the execution half — the
+  model select fed by the directory-store catalog (pairs encoded
+  `providerID::modelID`, split from the right; a stored pair the catalog
+  does not list prepends itself; the no-catalog placeholder is a pick
+  no-op), the agent select with the same prepend rule, the prompt
+  textarea riding the composer's autocomplete primitives (`@` merges
+  agent names with fsSearch file paths under a token counter + span+kind
+  guard, `/` the command registry, `#` the registry-driven empty source;
+  insert closures span the LATEST document via a ref), the goal chip +
+  token budget (goal off drops both fields), and the auto-accept chip.
+  `scheduled-task-editor-dialog.tsx` 140: the shell — name field, the
+  schedule half from P9-4d-i with the client preview and the §J.1
+  preference, save through `upsertScheduledTask` (create seeds the first
+  catalog pair via a late-arrival effect and PUTs with NO state key;
+  edit rides id/state/loopFile/unknowns; variant survives only a kept
+  pair), inline name blocking, toasts by outcome, and the nested-editor
+  Escape scoping. Tasks-dialog integration: `services` gates the entry
+  points ('+ new', per-row `task` edit chip distinct from the loop-file
+  edit), the editor mounts inside the tasks overlay and saves refresh
+  the list (the list hook now returns `refresh`). Tests:
+  `scheduled-task-editor-dialog.test.tsx` 18/18 (12 slice + 6 audit),
+  the tasks-dialog level covered there too (entry points, nested
+  Escape, services gating).
+  NOT in: snippet expansion sources (the composer itself has none),
+  keyboard picker navigation (a composer concern), the §H calendar
+  polish beyond the native date input.
 
 ## B. Adaptation deltas (registered)
 
@@ -1119,3 +1146,43 @@ waits — the server row ships first so a closed tab can never strand a queue.
   and duplicate-free. (g) the cron-invalid hint is a CLIENT shape
   heuristic only — the preview request still fires for failing drafts
   and the server round-trip stays the validity authority (E-09-26 (b)).
+
+- **E-09-28 (the editor dialog: shell, execution half, entry points,
+  P9-4d-ii)**: (a) governance — the user fields (name, enabled,
+  schedule, execution) seed mount-once from the opened view; the
+  ride-through fields (id, state, loopFile, unknowns) re-read the task
+  prop at save time; in every reachable path the PUT is the opened
+  snapshot + user edits, mid-edit C.10 folds rewrite only the list row
+  (the parent passes a stable opened view and open/close remounts), so
+  the save is server-normalize last-writer-wins with list refresh as
+  recovery — registered, no optimistic concurrency. (b) create PUTs
+  with NO state key (the client normalize seeds it); the execution
+  seeds the FIRST catalog pair through a late-arrival effect (empty
+  create only; a stored task never adopts); a stored pair the catalog
+  does not list stays usable via the prepended option, and the
+  no-catalog placeholder is a pick no-op. (c) goal off drops
+  goalEnabled + goalTokenBudget; variant survives only when the
+  provider/model pair is unchanged; an empty agent folds to undefined.
+  (d) the prompt autocompletes reuse the composer primitives: '@'
+  merges agent names with fsSearch paths, '/' the command registry,
+  '#' the registry-driven (currently empty) source at composer parity;
+  inserts span the LATEST document (a ref, not the render snapshot)
+  with the composer's trailing-space convention; keyboard picker
+  navigation stays a composer concern. The '@' merge publishes only
+  into a picker whose trigger span AND KIND still match (audit
+  D1: a mid-pending '# ma' swap could have been repopulated by a stale
+  mention's file list and a kind-mismatched insert). (e) entry points
+  (+ new, per-row task edit chip distinct from the loop-file edit)
+  render only with the chat services; MainLayout always passes them;
+  `services.store()` resolves the ACTIVE session store create-on-demand
+  and cannot throw for fresh directories. (f) Escape scoping: field
+  Escape with an open picker closes only the picker; the nested
+  editor's Escape closes only the editor (the tasks overlay stays);
+  an in-flight save resolving after unmount is silent (React 19 no-op)
+  and its toast still fires. (g) the run prompt PUTs raw textarea
+  bytes — never re-tokenized at save, spacey fsSearch paths stored
+  verbatim. (h) saving a file-driven loop task through the editor
+  surfaces the registered E-09-23 h loop-gate 400 text in the toast.
+  (i) flagged follow-up: the composer keeps a tokenStart-only guard
+  without the kind check (the same swap hole D1 fixed lives at
+  chat/composer.tsx) — carry to the composer slice's audit.

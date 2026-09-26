@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:76f8d14a6cf1d629477ae2dd4af8a2e1de3339442d6655ca21e41746c9ad42d4",
+  "source_digest": "sha256:3507b268f473e9c4a7841e20f107c6a63c7bddb2cdba56412cb54eb28430d560",
   "counts": {
-    "modules": 418,
+    "modules": 420,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 103
+      "module_count": 105
     },
     {
       "id": "web-server",
@@ -99,8 +99,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 134,
-      "module_count": 56
+      "import_count": 137,
+      "module_count": 58
     },
     {
       "from": "sync-engine",
@@ -117,8 +117,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 36,
-      "module_count": 33
+      "import_count": 38,
+      "module_count": 35
     },
     {
       "from": "web-entry",
@@ -909,6 +909,32 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/scheduled/scheduled-task-editor-dialog.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/composer.tsx",
+        "packages/ui/src/components/scheduled/schedule-form.ts",
+        "packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx",
+        "packages/ui/src/components/scheduled/scheduled-task-schedule-editor.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/composer-bits.tsx",
+        "packages/ui/src/chat/prompt-language.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts",
+        "packages/ui/src/lib/server-api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/scheduled/scheduled-task-list.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -933,7 +959,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/composer.tsx",
         "packages/ui/src/components/scheduled/schedule-form.ts",
+        "packages/ui/src/components/scheduled/scheduled-task-editor-dialog.tsx",
         "packages/ui/src/components/scheduled/scheduled-task-list.ts",
         "packages/ui/src/lib/format/time.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts",

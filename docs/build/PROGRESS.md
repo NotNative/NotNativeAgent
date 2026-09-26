@@ -22,6 +22,28 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4d-ii the editor dialog.** The scheduled-task editor
+  is complete: the dialog shell (name, the schedule half with the client
+  preview and §J.1 preference, save through upsert with create seeding
+  the first catalog pair and PUTting with no state key, edit riding
+  id/state/loopFile/unknowns, variant surviving only a kept pair, goal
+  off dropping both goal fields), the execution half (catalog-fed model
+  select with the unlisted-pair prepend, agent select, the prompt
+  textarea riding the composer's autocomplete primitives with the
+  latest-document insert rule, goal budget, auto-accept), and the
+  tasks-dialog entry points gated on services ('+ new', per-row task
+  edit, nested editor, list refresh after save; the list hook returns
+  refresh now). The audit reproduced the '@' swap hole (a mid-pending
+  '# ma' retyping could have repopulated the picker from a stale
+  mention search and bound a kind-mismatched insert; fixed with the
+  span+kind merge guard) and registered the snapshot governance (open
+  snapshot + user edits, last-writer-wins, no optimistic concurrency),
+  the raw-prompt storage, and the services store no-throw reality;
+  carried a flagged composer follow-up (same hole without the kind
+  check). Editor suite 18/18, dialog 20/20, UI 98 files / 909 tests,
+  typecheck, gates (420 files), graph (420 modules). E-09-28 registers
+  the slice. Next: the snippet macro resolver, then B.6.3 distill.
+
 - 2026-09-26 · **P9-4d-i the schedule editor half.** The editor's
   schedule machinery: `schedule-form.ts` pure helpers (30-minute pill
   catalogue, preference-rendered pill labels, locale-first-day weekday

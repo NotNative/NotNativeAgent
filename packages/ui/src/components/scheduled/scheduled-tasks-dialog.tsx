@@ -17,6 +17,8 @@ import {
 } from '../../lib/scheduled-tasks-api.ts';
 import { useScheduledTaskList } from './scheduled-task-list.ts';
 import { scheduleLabel } from './schedule-form.ts';
+import { ScheduledTaskEditorDialog } from './scheduled-task-editor-dialog.tsx';
+import type { ComposerServices } from '../../chat/composer.tsx';
 import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 import { formatDateTimeForPreference } from '../../lib/format/time.ts';
 
@@ -53,9 +55,12 @@ function atText(at: number | undefined, label: string): string {
 export interface ScheduledTasksDialogProps {
   directory: string;
   onClose: () => void;
+  /** The chat directory services (E-09-28): the editor entry points (+ new,
+   * per-row task edit) render only when the store services are available. */
+  services?: ComposerServices;
 }
 
-export function ScheduledTasksDialog({ directory, onClose }: ScheduledTasksDialogProps): ReactNode {
+export function ScheduledTasksDialog({ directory, onClose, services }: ScheduledTasksDialogProps): ReactNode {
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const roster = global.projects.map((project) => ({
     id: String(project['id']),
@@ -64,6 +69,7 @@ export function ScheduledTasksDialog({ directory, onClose }: ScheduledTasksDialo
 
   const [projectId, setProjectId] = useState('');
   const list = useScheduledTaskList(projectId);
+  const [editing, setEditing] = useState<ScheduledTaskView | 'new' | null>(null);
 
   // Default selection: the active directory's project, else the first.
   useEffect(() => {
@@ -74,9 +80,19 @@ export function ScheduledTasksDialog({ directory, onClose }: ScheduledTasksDialo
   }, [directory, projectId, roster]);
 
   return (
-    <TasksPanel roster={roster} projectId={projectId} onProjectChange={setProjectId}
-      tasks={list.tasks} loading={list.loading} error={list.error} busyTaskId={list.busyTaskId}
-      busy={list.busy} onClose={onClose} directory={directory} />
+    <>
+      <TasksPanel roster={roster} projectId={projectId} onProjectChange={setProjectId}
+        tasks={list.tasks} loading={list.loading} error={list.error} busyTaskId={list.busyTaskId}
+        busy={list.busy} onClose={onClose} directory={directory}
+        onHeaderNew={services === undefined ? null : () => setEditing('new')}
+        onEdit={services === undefined ? null : (task) => setEditing(task)} />
+      {services !== undefined && editing !== null ? (
+        <ScheduledTaskEditorDialog projectId={projectId} directory={directory}
+          task={editing === 'new' ? null : editing} services={services}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); list.refresh(projectId); }} />
+      ) : null}
+    </>
   );
 }
 
@@ -91,10 +107,12 @@ interface TasksPanelProps {
   busy: TaskListBusy;
   onClose: () => void;
   directory: string;
+  onHeaderNew: (() => void) | null;
+  onEdit: ((task: ScheduledTaskView) => void) | null;
 }
 
 function TasksPanel({
-  roster, projectId, onProjectChange, tasks, loading, error, busyTaskId, busy, onClose, directory,
+  roster, projectId, onProjectChange, tasks, loading, error, busyTaskId, busy, onClose, directory, onHeaderNew, onEdit,
 }: TasksPanelProps): ReactNode {
   return (
     <div role="dialog" aria-label="Scheduled tasks" tabIndex={0} data-testid="scheduled-tasks-dialog"
@@ -103,13 +121,14 @@ function TasksPanel({
         if (event.key === 'Escape') onClose();
       }}>
       <div className="flex max-h-[75vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-neutral-950 p-3">
-        <TasksHeader roster={roster} projectId={projectId} onProjectChange={onProjectChange} onClose={onClose} />
+        <TasksHeader roster={roster} projectId={projectId} onProjectChange={onProjectChange} onClose={onClose}
+          onHeaderNew={onHeaderNew} />
         {error !== null ? <div className="p-3 text-[12px] text-red-300" data-testid="scheduled-error">{error}</div> : null}
         {!loading && error === null && tasks.length === 0 ? (
           <div className="p-4 text-[12px] text-neutral-600" data-testid="scheduled-empty">No scheduled tasks for this project yet</div>
         ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <TaskRows tasks={tasks} projectId={projectId} directory={directory} busyTaskId={busyTaskId} busy={busy} />
+          <TaskRows tasks={tasks} projectId={projectId} directory={directory} busyTaskId={busyTaskId} busy={busy} onEdit={onEdit} />
         </div>
         <footer className="mt-2 border-t border-white/10 pt-2 text-[10px] text-neutral-600">
           {tasks.length} task{tasks.length === 1 ? '' : 's'} · loop tasks are driven by their .agents/loops file · the list refreshes when a run lands
@@ -119,11 +138,12 @@ function TasksPanel({
   );
 }
 
-function TasksHeader({ roster, projectId, onProjectChange, onClose }: {
+function TasksHeader({ roster, projectId, onProjectChange, onClose, onHeaderNew }: {
   roster: Array<{ id: string; worktree: string }>;
   projectId: string;
   onProjectChange: (id: string) => void;
   onClose: () => void;
+  onHeaderNew: (() => void) | null;
 }): ReactNode {
   return (
     <div className="mb-2 flex items-center gap-2">
@@ -135,6 +155,10 @@ function TasksHeader({ roster, projectId, onProjectChange, onClose }: {
           <option key={project.id} value={project.id}>{project.id}</option>
         ))}
       </select>
+      {onHeaderNew !== null ? (
+        <button type="button" data-testid="task-new" title="New scheduled task"
+          className="rounded bg-sky-800 px-2 py-1 text-[11px] text-white hover:bg-sky-700" onClick={onHeaderNew}>+ new</button>
+      ) : null}
       <button type="button" aria-label="Close scheduled tasks" className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
     </div>
   );
@@ -146,9 +170,10 @@ interface TaskRowsProps {
   directory: string;
   busyTaskId: string;
   busy: TaskListBusy;
+  onEdit: ((task: ScheduledTaskView) => void) | null;
 }
 
-function TaskRows({ tasks, projectId, directory, busyTaskId, busy }: TaskRowsProps): ReactNode {
+function TaskRows({ tasks, projectId, directory, busyTaskId, busy, onEdit }: TaskRowsProps): ReactNode {
   return (
     <>
       {tasks.map((task) => (
@@ -159,6 +184,7 @@ function TaskRows({ tasks, projectId, directory, busyTaskId, busy }: TaskRowsPro
           onDelete={() => void busy(task.id, () => deleteScheduledTask(projectId, task.id))}
           onLoopDelete={() => void busy(task.id, () => deleteLoopFile(projectId, task.id))}
           onLoopEdit={() => openLoopFile(directory, task.loopFile ?? '', task.name)}
+          onEdit={onEdit === null ? null : () => onEdit(task)}
         />
       ))}
     </>
@@ -174,10 +200,11 @@ interface TaskRowProps {
   onDelete: () => void;
   onLoopDelete: () => void;
   onLoopEdit: () => void;
+  onEdit: (() => void) | null;
 }
 
 function TaskRow({
-  task, directory, busy, onToggle, onRun, onDelete, onLoopDelete, onLoopEdit,
+  task, directory, busy, onToggle, onRun, onDelete, onLoopDelete, onLoopEdit, onEdit,
 }: TaskRowProps): ReactNode {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const loop = task.loopFile !== undefined;
@@ -193,7 +220,8 @@ function TaskRow({
       <TaskNameBlock task={task} />
       <RowActions task={task} busy={busy} loop={loop} loopWithin={Boolean(loopWithin)}
         confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete}
-        onToggle={onToggle} onRun={onRun} onDelete={onDelete} onLoopDelete={onLoopDelete} onLoopEdit={onLoopEdit} />
+        onToggle={onToggle} onRun={onRun} onDelete={onDelete} onLoopDelete={onLoopDelete} onLoopEdit={onLoopEdit}
+        onEdit={onEdit} />
     </div>
   );
 }
@@ -220,7 +248,7 @@ function TaskNameBlock({ task }: { task: ScheduledTaskView }): ReactNode {
 
 function RowActions({
   task, busy, loop, loopWithin, confirmDelete, setConfirmDelete,
-  onToggle, onRun, onDelete, onLoopDelete, onLoopEdit,
+  onToggle, onRun, onDelete, onLoopDelete, onLoopEdit, onEdit,
 }: {
   task: ScheduledTaskView;
   busy: boolean;
@@ -233,11 +261,16 @@ function RowActions({
   onDelete: () => void;
   onLoopDelete: () => void;
   onLoopEdit: () => void;
+  onEdit: (() => void) | null;
 }): ReactNode {
   return (
     <>
       <button type="button" aria-label={`Run ${task.name} now`} data-testid="task-run" disabled={busy}
         className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 hover:bg-neutral-700 disabled:opacity-40" onClick={onRun}>run</button>
+      {onEdit !== null ? (
+        <button type="button" aria-label={`Edit ${task.name}`} data-testid="task-edit" disabled={busy}
+          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" onClick={onEdit}>task</button>
+      ) : null}
       {loop ? (
         <button type="button" aria-label={`Edit loop file for ${task.name}`} data-testid="task-loop-edit" disabled={busy || !loopWithin}
           className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" title={task.loopFile} onClick={onLoopEdit}>edit</button>

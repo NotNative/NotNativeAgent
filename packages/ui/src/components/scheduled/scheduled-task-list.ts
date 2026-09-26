@@ -19,6 +19,7 @@ export interface TaskList {
   error: string | null;
   busyTaskId: string;
   busy: (id: string, work: () => Promise<unknown>) => Promise<void>;
+  refresh: (id: string) => void;
 }
 
 /** Server errors keep their message; a missing store file is just "empty". */
@@ -105,7 +106,7 @@ export function useScheduledTaskList(projectId: string): TaskList {
     });
   }, [projectId, refresh]);
 
-  return { tasks, loading, error, busyTaskId, busy };
+  return { tasks, loading, error, busyTaskId, busy, refresh };
 }
 
 /** The wire fold puts `{ok:false,error}` on every refusal; surface it once.

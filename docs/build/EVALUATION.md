@@ -3,6 +3,25 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - the editor dialog at P9-4d-ii
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Editor shell | suite 18/18: create seeds the first catalog pair and blocks an empty-name save inline; create PUT carries NO state key and the seeded pair; edit prefill pins name/pair/agent/goal budget/prompt; edit PUT preserves id, state, loopFile, unknown ride-through fields, and flips enabled; goal off drops goalEnabled + goalTokenBudget; variant survives the kept pair only and drops on a provider/model change (both directions) |
+| Prompt autocompletes | '/' lists the command registry and inserts `/timeline ` with the composer's trailing-space convention; '@' merges fsSearch file paths into the agent-name picker and inserts `@maintenance.rs `; the picker Escape closes only the picker (the editor stays); the fsSearch swap guard covers span AND kind (audit D1: a mid-pending '# ma' swap publishes nothing and binds no cross-kind insert); stale fsSearch responses after further typing publish nothing (token precision); dialog re-renders never re-arm the preview |
+| Save flow | success = toast + onSaved + list refresh from the tasks-dialog integration; failure = toast with the REAL registered loop-gate 400 text (E-09-23 h) and the editor stays open; in-flight save resolving after unmount is silent (console.error spy clean) and its toast still fires |
+| Entry points | services present: '+ new' and per-row `task` chips open the nested editor prefilled, save closes it and refetches the list; Escape in the nested editor closes only the editor and the tasks overlay stays; services absent: no entry points render |
+| Adversarial review | 1 defect class reproduced red and fixed (the '@' merge kind guard); probed-and-clean: PUT body night/rider field rules, adjacent-typing staleness (unreachable - every mention input bumps the token), insert at tokenStart 0/end, overlay layering (same containing block, no transform trap), seed-path inertness post-adoption, no-catalog placeholder pick no-op |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Snippet macro resolver | `#snippet` expansion sources stay empty at composer parity; the resolver (doc 05 §B.3/§H.3 machinery) is the next slice |
+| B.6.3 distill | the autonomy chapter distill ride lands after the resolver |
+
 ## 2026-09-26 - schedule editor machinery at P9-4d-i
 
 **Verified working**

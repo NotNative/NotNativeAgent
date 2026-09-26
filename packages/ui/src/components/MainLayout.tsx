@@ -309,7 +309,7 @@ export function MainLayout(): ReactNode {
         <WorktreesView projectRoot={activeDirectory} onClose={() => setWorktreesOpen(false)} />
       ) : null}
       {scheduledOpen ? (
-        <ScheduledTasksDialog directory={activeDirectory} onClose={closeScheduled} />
+        <ScheduledTasksDialog directory={activeDirectory} onClose={closeScheduled} services={services} />
       ) : null}
       <Toaster position="bottom-right" />
     </div>
