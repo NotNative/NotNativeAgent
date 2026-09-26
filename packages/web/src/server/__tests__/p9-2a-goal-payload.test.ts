@@ -180,7 +180,10 @@ describe('goal id generation (§B.1)', () => {
   it('is sortable-ish and unique', () => {
     const ids = new Set(Array.from({ length: 200 }, () => newGoalId(NOW)));
     expect(ids.size).toBe(200);
-    for (const id of ids) expect(id.startsWith(NOW.toString(36))).toBe(true);
+    for (const id of ids) {
+      expect(id).toMatch(new RegExp(`^${NOW.toString(36)}[0-9a-f]{16}$`));
+      expect(isGoalFileSessionId(id)).toBe(true);
+    }
   });
 });
 

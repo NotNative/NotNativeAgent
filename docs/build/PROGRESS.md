@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **Goal ID collision hardening.** A full web run observed one
+  duplicate among 200 same-timestamp goal IDs because the implementation
+  truncated eight random bytes to six hexadecimal digits (24 bits). Goal IDs
+  now retain all 16 hexadecimal digits (64 bits); NNA accepts the longer
+  opaque IDs, and persisted legacy IDs still parse. Adversarial review found
+  no compatibility defect and updated the doc-12 example.
+
 - 2026-09-26 · **P11-2 loopback preview readiness probe.** The auth-gated
   `POST /api/system/probe-url` route now accepts only credential-free loopback
   HTTP(S) URLs, bounds the GET to 1500 ms, does not follow redirects, and

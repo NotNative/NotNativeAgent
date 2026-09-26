@@ -137,7 +137,7 @@ or nulls when arming an empty session, and treats a conflict as a fresh-read req
 
 ```ts
 interface GoalPayload {
-  id: string;              // opaque per-logical-goal id, e.g. `${ts.toString(36)}${rand(6)}`; stale-write guard
+  id: string;              // opaque per-logical-goal id, e.g. `${ts.toString(36)}${randomBytes(8).toString('hex')}`; stale-write guard
   objective: string;       // inline objective text (<= 5000 chars); empty when objectiveFile is true
   objectiveFile: boolean;  // true: objective text lives in the selected NND objective file
   objectiveFileKey?: string; // 64-hex generation key for immutable objective file; '' = legacy file

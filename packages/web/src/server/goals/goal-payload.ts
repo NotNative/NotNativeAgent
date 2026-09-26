@@ -55,9 +55,9 @@ export function isGoalFileSessionId(value: string): boolean {
   return GOAL_SESSION_ID_PATTERN.test(value);
 }
 
-/** `${ts36}${rand6}` — opaque per-logical-goal id, the stale-write guard key. */
+/** `${ts36}${rand16}` — 64 random bits for the stale-write guard key. */
 export function newGoalId(now: number = Date.now()): string {
-  return `${now.toString(36)}${randomBytes(8).toString('hex').slice(0, 6)}`;
+  return `${now.toString(36)}${randomBytes(8).toString('hex')}`;
 }
 
 function clampText(value: unknown, limit: number): string {
