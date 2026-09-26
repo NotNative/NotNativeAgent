@@ -22,6 +22,22 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4a scheduled-task UI data plane.** The typed §5.16
+  client landed in `packages/ui/src/lib/scheduled-tasks-api.ts` — list/
+  upsert/delete, loop-file PATCH/DELETE, manual run, scheduler status,
+  plus `parseTaskRunEvent` for the C.10 control fanout — with the §C.1
+  wire types mirrored locally and every failure folded into
+  `{ok:false,status,error}` preserving the server's message. 20 tests
+  (15 client + 5 through the REAL runtimeFetch transport) pin URL/method/
+  body bytes incl. `%3A`/`%2F` id encodings (empirically verified
+  against the real Hono router), the bare-task PUT vs `{task}` PATCH
+  envelope asymmetry, the body-owned `ok:false` of an
+  errored-but-completed 200 run (the audit caught a stamp that would
+  have shown failed runs as successes), and the state-optional create
+  input. E-09-24 registers the seam. UI suite 845/845 (95 files),
+  typecheck, gates (413 source files), graph (413 modules). Next:
+  P9-4b the ScheduledTasksDialog + entry point + live refresh, then
+  P9-4c the editor dialog.
 - 2026-09-26 · **P9 loop files + the scheduled-task route surface.** C.8
   `.agents/loops` files now drive tasks: `scheduled/loops.ts` (cron-only
   frontmatter, `enabled` defaulting FALSE, model split on the first

@@ -411,6 +411,24 @@ waits — the server row ships first so a closed tab can never strand a queue.
   config-PUT non-clobber both directions). NOT in: UI listeners, the
   API client, the scheduled dialogs, snippet macro resolution, the
   B.6.3 distill call (P9-4 and later).
+- **P9-4a (the scheduled-task UI data plane — delivered this slice)** —
+  `packages/ui/src/lib/scheduled-tasks-api.ts` 190: the typed §5.16
+  client (list/upsert/delete, loop-file PATCH/DELETE, manual run,
+  scheduler status) with the §C.1 wire types mirrored locally, failures
+  folded into `{ok:false,status,error}` with the server's message
+  preserved verbatim, plus the C.10 `parseTaskRunEvent` over the control
+  stream's flat `{type, properties}` frame (`SCHEDULED_TASK_RAN` is the
+  build's event name). Tests: `lib/__tests__/scheduled-tasks-api.test.ts`
+  (15: every route's URL/method/body bytes incl. `%3A`/`%2F` encodings,
+  the error-message folding at 400/404/409/500 incl. JSON-on-500, the
+  bare-task PUT fold, `{task}` PATCH fold, run-now strict-equality with
+  the body-owned `ok:false` of an errored-but-completed 200 run, the
+  status snapshot recovery, and the parser's accept/reject table) and
+  `scheduled-tasks-api.transport.test.ts` (5: the same folds through the
+  REAL runtimeFetch pipeline with only the native fetch stubbed — the
+  server strings survive end-to-end). NOT in: the dialogs, the entry
+  point, the live-refresh wiring, the editor's autocompletes
+  (P9-4b/4c).
 
 ## B. Adaptation deltas (registered)
 
@@ -909,3 +927,42 @@ waits — the server row ships first so a closed tab can never strand a queue.
   an assertion that a doc rewrite would have satisfied too); run-now
   while the singleton runtime was never started answers ERROR 500 with
   an empty status shape instead of crashing the handler.
+
+- **E-09-24 (the scheduled-task client seam, interpreted for NND)**: the
+  §5.16 surface now has a typed UI client; registered so the dialogs do
+  not re-litigate: (a) the envelope rule — the client stamps `ok:true`
+  onto a 200 body ONLY when the body carries no boolean `ok` of its own;
+  the run route's C.7 result OWNS its `ok` (`finishRun`: ok =
+  status === 'success'), so an errored-but-completed manual run answers
+  200 with `ok:false` and must NOT read as success (an earlier draft
+  stamped every 200 `ok:true` — caught by audit, pinned strict-equal);
+  all other endpoints' bodies have no top-level `ok`. (b) Envelope
+  asymmetry is the server's contract and stays: PUT returns the stored
+  task BARE, PATCH loop-file wraps `{task}` — the client normalizes both
+  into `{ok:true, task}` for callers. (c) The PUT input type is
+  `ScheduledTaskInput = Omit<ScheduledTaskView,'state'> & {state?}` —
+  `normalizeTaskForStorage` seeds a missing state (`createdAt/updatedAt:
+  now, lastStatus: 'idle'`) and rejects everything else required; the
+  client loosens ONLY state. (d) Id encoding stays `encodeURIComponent`
+  (taskId `loop:project:daily` makes `%3A`): verified against the REAL
+  Hono router by a temporary probe — decoded params reach the handlers
+  (`l%6Fop` resolved and answered the registered 404, which the raw
+  string would not); `%2F` stays inside one path segment and lands the
+  registered 400; literal colons also match. (e) The runtime transport
+  does NOT pre-consume error bodies (status-only observation at the auth
+  layer, the coalescer clones + is route-allowlisted, the relay lane
+  rebuilds a Response from decrypted chunks), so the server's error
+  strings fold verbatim — pinned by a suite that drives the real
+  `runtimeFetch` over a stubbed native fetch. (f) `parseTaskRunEvent`
+  consumes the control stream's wire frame `{type, properties}` (the
+  server fans C.10 payloads out as `properties`), requires a complete
+  payload, and accepts only `running|success|error` — `idle` is not an
+  emission value (emitRunning/finishRun only). (g) An unknown field
+  literally named `ok` on a task is dropped by the upsert view
+  reconstruction (the envelope strip) — accepted non-fix: no schema
+  defines one and the strip is what removes the stamp. (h) Test
+  environment rule: `vi.mock` specifiers must JOIN to the real file from
+  the test's directory (`'../runtime-fetch.ts'` from
+  `lib/__tests__/`); a non-joining `'../..'`-form silently registers a
+  key nothing imports and the mock never binds — hit this round's probe
+  and registered here as the UI-suite mock rule.

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:0e0d342f4e41762d5cf624d90698ed7eb731bea8a677fe373fe897102c206ef3",
+  "source_digest": "sha256:47427d79fe555f2aa06c592463799dcab4178286ac37fcabd55a2b3d7e04d7e8",
   "counts": {
-    "modules": 412,
-    "component_edges": 12
+    "modules": 413,
+    "component_edges": 13
   },
   "components": [
     {
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 120
+      "module_count": 121
     },
     {
       "id": "ui-shell",
@@ -153,6 +153,12 @@
     {
       "from": "gates",
       "to": "runtime-io",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "runtime-io",
+      "to": "harness-facade",
       "import_count": 1,
       "module_count": 1
     },
@@ -1725,6 +1731,15 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/scheduled-tasks-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {

@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - scheduled-task UI client at P9-4a
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| UI suite | vitest 845/845 (95 files) - includes the new client suite 15/15 (route bytes for the §5.16 family incl. `%3A`/`%2F` encodings asserted literally, error folding at 400/404/409/500 with JSON and non-JSON bodies, the bare-task PUT fold, the `{task}` PATCH fold, run-now strict-equal with the body-owned `ok:false` of an errored-but-completed 200 run, the status snapshot recovery, parseTaskRunEvent accept/reject) and the transport suite 5/5 (the SAME claims end-to-end through the real runtimeFetch with only the native fetch stubbed - the server's loop-gate and refusal strings survive verbatim) |
+| Router reality check | a temporary probe against the real Hono app proved the encoded forms reach the route params decoded (`l%6Fop` -> 404 unknown project, the discriminating case), `%2F` stays in one segment -> registered 400, and `%3A` decodes into find-by-id (probe deleted; pins live in the client tests) |
+| Transport read | runtime-fetch carries no error-body pre-consumption (auth layer reads status only; the coalescer clones and is route-allowlisted; the relay lane rebuilds a Response from decrypted chunks) - registered in E-09-24(e) |
+| Typecheck + gates + graph | tsc over all UI tsconfigs clean; controlled-language gates green (413 source files); function cap 60, file cap 500 - green; repository graph rebuilt at 413 modules |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Dialogs | P9-4b (list dialog + entry point + live refresh) and P9-4c (editor); the client seam they call is already pinned |
+| Live refresh | subscribeControlEvents has no consumer yet; the wiring rides the P9-4b dialog with the C.10 event name from the client module |
+
 ## 2026-09-26 - scheduled loop files + task routes at P9-3d
 
 **Verified working**
