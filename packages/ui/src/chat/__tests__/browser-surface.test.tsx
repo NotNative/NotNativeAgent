@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { BrowserSurface, canPreviewDiscoveredServers } from '../browser-surface.tsx';
+import { BrowserSurface, canEmbedDesktopPreview, canPreviewDiscoveredServers } from '../browser-surface.tsx';
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -11,7 +11,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 const originalFetch = globalThis.fetch;
-afterEach(() => { act(() => root?.unmount()); container?.remove(); root = null; container = null; globalThis.fetch = originalFetch; });
+afterEach(() => { act(() => root?.unmount()); container?.remove(); root = null; container = null;
+  globalThis.fetch = originalFetch; delete window.__NOTNATIVE_ELECTRON__; });
 
 function render(visible = true): HTMLElement {
   container = document.createElement('div');
@@ -45,6 +46,21 @@ async function flush(): Promise<void> {
 }
 
 describe('BrowserSurface', () => {
+  it('uses an isolated guest only for desktop HTTPS or loopback HTTP', async () => {
+    expect(canEmbedDesktopPreview('http://localhost:5173/')).toBe(true);
+    expect(canEmbedDesktopPreview('https://example.org/')).toBe(true);
+    expect(canEmbedDesktopPreview('http://example.org/')).toBe(false);
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('localhost:5173'); await flush();
+    expect(view.querySelector('iframe')).toBeNull();
+    expect(view.querySelector('webview')?.getAttribute('src')).toBe('http://localhost:5173/');
+    expect(view.querySelector('webview')?.getAttribute('partition')).toBe('nnd-preview');
+    enter('http://example.org/');
+    expect(view.querySelector('webview')?.getAttribute('src')).toBe('http://localhost:5173/');
+    expect(view.textContent).toContain('requires HTTPS or loopback HTTP');
+  });
   it('offers host-local listener URLs only on a loopback app origin', () => {
     expect(canPreviewDiscoveredServers('http://localhost:3902')).toBe(true);
     expect(canPreviewDiscoveredServers('http://[::1]:3902')).toBe(true);

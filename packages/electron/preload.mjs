@@ -12,6 +12,12 @@
  */
 import { contextBridge, ipcRenderer } from 'electron';
 
+// Available before the web app's first script executes. The main process
+// no longer races React boot with a dom-ready identity injection.
+contextBridge.exposeInMainWorld('__NOTNATIVE_ELECTRON__', Object.freeze({
+  runtime: 'electron', arch: process.arch, trayEnabled: false,
+}));
+
 const REPLY_CHANNEL = 'nnd:desktop-reply';
 const INVOKE_TIMEOUT_MS = 10_000;
 

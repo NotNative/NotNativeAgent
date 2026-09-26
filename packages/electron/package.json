@@ -16,6 +16,7 @@
     },
     "files": [
       "main.mjs",
+      "browser-guest-policy.mjs",
       "preload.mjs",
       "ipc-face.mjs",
       "shell-prefs.mjs",

@@ -2,6 +2,7 @@
 /** Manual, sandboxed preview. Agent inspection and capture are not exposed here. */
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
+import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
 type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
@@ -12,6 +13,13 @@ function isLoopbackPreview(value: string | null): boolean {
   if (!value) return false;
   try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(value).hostname.toLowerCase()); }
   catch { return false; }
+}
+
+export function canEmbedDesktopPreview(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || (url.protocol === 'http:' && isLoopbackPreview(value));
+  } catch { return false; }
 }
 
 function usePreviewReadiness(active: string | null, reload: number, visible: boolean, localRuntime: boolean): Readiness | null {
@@ -88,6 +96,7 @@ function validServers(value: unknown): DiscoveredServer[] | null {
 
 export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): ReactNode {
   const localRuntime = canPreviewDiscoveredServers(window.location.origin);
+  const desktop = isDesktopShell();
   const [address, setAddress] = useState('');
   const [history, setHistory] = useState<string[]>([]);
   const [index, setIndex] = useState(-1);
@@ -133,7 +142,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   function navigate(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const target = normalizePreviewUrl(address, window.location.origin);
-    if (!target) { setInvalid(true); return; }
+    if (!target || (desktop && !canEmbedDesktopPreview(target))) { setInvalid(true); return; }
     open(target);
   }
 
@@ -153,7 +162,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           placeholder="localhost:5173" spellCheck={false} className="min-w-0 flex-1 rounded border border-white/15 bg-neutral-900 px-2 py-1 text-xs text-neutral-100" />
         <button type="submit" className="rounded border border-white/15 px-2 text-xs text-neutral-200">Go</button>
       </form>
-      {invalid ? <p role="alert" className="mt-1 text-[11px] text-amber-300">Enter an HTTP(S) address outside this app. Credentials in URLs are not allowed.</p> : null}
+      {invalid ? <p role="alert" className="mt-1 text-[11px] text-amber-300">Enter an HTTP(S) address outside this app. Desktop preview requires HTTPS or loopback HTTP; credentials are not allowed.</p> : null}
       <div className="mt-2 flex items-center gap-1 text-[11px] text-neutral-300">
         <button type="button" aria-label="Preview back" disabled={index <= 0} onClick={() => move(-1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">←</button>
         <button type="button" aria-label="Preview forward" disabled={index < 0 || index >= history.length - 1} onClick={() => move(1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">→</button>
@@ -166,11 +175,15 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         ? 'Local server did not answer within 30 seconds.' : 'Readiness check unavailable.'}
       {probeState !== 'checking' ? <button type="button" className="ml-2 underline" onClick={() => setReload((value) => value + 1)}>Retry</button> : null}
     </div> : null}
-    {active && visible && (!waitForLocal || probeState === 'ready') ? <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active}
-      sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer"
-      className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
+    {active && visible && (!waitForLocal || probeState === 'ready') ? desktop
+      ? <webview key={`${active}|${reload}`} title="Isolated desktop browser preview" src={active} partition="nnd-preview"
+        className="min-h-0 w-full flex-1 border-0 bg-white" />
+      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active}
+        sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer"
+        className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
       <div className="p-3 text-[11px] text-neutral-500">
-        <p>Enter a local dev-server or website address to preview it. This isolated web preview cannot inspect, annotate, or capture the page. Sites that prohibit embedding may not display.</p>
+        <p>{desktop ? 'Enter a local dev-server or HTTPS site to open in an isolated desktop browser. Agent inspection, annotation, and capture are not enabled yet.'
+          : 'Enter a local dev-server or website address to preview it. This isolated web preview cannot inspect, annotate, or capture the page. Sites that prohibit embedding may not display.'}</p>
         <div className="mt-3 flex items-center gap-2"><span className="text-neutral-300">Listening dev servers</span>
           {localRuntime ? <button type="button" onClick={() => setScanRevision((value) => value + 1)} className="underline">Refresh</button> : null}</div>
         {!localRuntime ? <p role="status">Server discovery is available only when this browser runs on the server machine. Enter a reachable address manually.</p> : null}

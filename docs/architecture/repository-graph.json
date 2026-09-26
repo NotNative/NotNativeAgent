@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:13ec321edd6d461a95c90f8cd8bdf77ffb1602dafa2ef95d9c791d24d7891c85",
+  "source_digest": "sha256:a68b7873c4684c3da1e06c4ec988f1380ee7696468dd2f8cf45d0288c38a3b40",
   "counts": {
     "modules": 440,
     "component_edges": 13
@@ -100,7 +100,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 147,
+      "import_count": 148,
       "module_count": 63
     },
     {
@@ -216,7 +216,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/browser/preview-url.ts"
+        "packages/ui/src/lib/browser/preview-url.ts",
+        "packages/ui/src/lib/platform.ts"
       ]
     },
     {

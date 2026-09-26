@@ -8,7 +8,7 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, powerMonitor, screen, shell } from 'electron';
+import { app, BrowserWindow, powerMonitor, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -17,6 +17,7 @@ import { createInvokeFace } from './ipc-face.mjs';
 import { readShellPrefs, writeShellPrefs } from './shell-prefs.mjs';
 import { createTrayController } from './tray.mjs';
 import { captureWindowState, restoreWindowState } from './window-state.mjs';
+import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAppUrl } from './browser-guest-policy.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -333,7 +334,6 @@ function buildInitScript() {
   // D-09-2: boot outcome is always {target:'local',status:'ok'} post-health.
   // Injected per document (dom-ready) so it survives every navigation.
   return [
-    `window.__NOTNATIVE_ELECTRON__=${j({ runtime: 'electron', arch: process.arch, trayEnabled: false })};`,
     `window.__NOTNATIVE_SURFACE__=${j('desktop')};`,
     `window.__NOTNATIVE_PLATFORM__=${j(process.platform)};`,
     `window.__NOTNATIVE_HOME__=${j(os.homedir())};`,
@@ -373,6 +373,30 @@ function attachWindowGuards(win) {
     event.preventDefault();
     openExternalSafely(urlString); // https links in markdown etc. leave via the browser
   });
+  contents.on('will-attach-webview', (event, preferences, params) => {
+    if (!allowedGuestPartition(params) || !allowedGuestUrl(params.src, localOrigin())) { event.preventDefault(); return; }
+    hardenGuestPreferences(preferences, params);
+  });
+  contents.on('did-attach-webview', (_event, guest) => {
+    guest.setWindowOpenHandler(() => ({ action: 'deny' }));
+    for (const eventName of ['will-navigate', 'will-redirect']) {
+      guest.on(eventName, (event, urlString) => {
+        const target = event.url ?? urlString;
+        if (!allowedGuestUrl(target, localOrigin())) event.preventDefault();
+      });
+    }
+  });
+}
+
+function configurePreviewSession() {
+  const preview = session.fromPartition('nnd-preview');
+  preview.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  preview.setPermissionCheckHandler(() => false);
+  preview.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+    const forbidden = isOwnAppUrl(details.url, localOrigin())
+      || (details.resourceType === 'mainFrame' && !allowedGuestUrl(details.url, localOrigin()));
+    callback({ cancel: forbidden });
+  });
 }
 
 function createMainWindow() {
@@ -389,6 +413,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // §1.1: preload needs the Node contextBridge (§11.2)
+      webviewTag: true, // guarded in will-attach-webview; guest is sandboxed separately
     },
   });
   if (restored?.fullscreen) win.setFullScreen(true);
@@ -483,6 +508,7 @@ async function boot() {
   console.log(`[shell] app start version=${app.getVersion()} packaged=${PACKAGED} platform=${process.platform} arch=${process.arch} argv=${JSON.stringify(process.argv)}`);
   chosenPort = await selectPort();
   applyServerEnv(chosenPort);
+  configurePreviewSession();
   invokeFace.register();
   trayController = createTrayController({
     title: APP_NAME,

@@ -180,6 +180,14 @@
     {
       "version": "20260926-34",
       "content_sha256": "e155b53b729e182c7845155e4773bd94566e336d2f186d6860c3c3cd2da5fadd"
+    },
+    {
+      "version": "20260926-35",
+      "content_sha256": "d5c3a78d5adfd3be2a6bba3666f52f15b17d0dcca9bf40f2853c89dea62de264"
+    },
+    {
+      "version": "20260926-36",
+      "content_sha256": "08885910485b50902b681d148b773c2e8ee0683b6284c71695c9ca9a0add781f"
     }
   ]
 }

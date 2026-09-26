@@ -28,8 +28,9 @@ remaining P12 slices ride after it.
      (focus existing), chdir homedir, console→`<userData>/logs/main.log`
      (append + 7-day pruning; electron-log dep DEFERRED, delta D-09-8),
      splash data: URL → wait server `/health` → navigate to
-     `http://127.0.0.1:<port>/` (D-09-1), init-script injection:
-     `__NOTNATIVE_ELECTRON__={runtime:'electron',arch,trayEnabled:false}`,
+     `http://127.0.0.1:<port>/` (D-09-1), preload identity
+     `__NOTNATIVE_ELECTRON__={runtime:'electron',arch,trayEnabled:false}`
+     (moved from dom-ready injection in P11-4), init-script injection:
      `__NOTNATIVE_SURFACE__='desktop'`, `__NOTNATIVE_PLATFORM__`,
      `__NOTNATIVE_HOME__`, boot outcome `{target:'local',status:'ok'}` (D-09-2),
      `powerMonitor resume → openchamber:system-resume`-equivalent
