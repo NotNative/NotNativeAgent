@@ -18,6 +18,8 @@ export const CONFIG_LOCK_STALE_MS = 60_000;
 export const CONFIG_LOCK_RETRY_MS = 20;
 /** Weekly next-run candidates scan today plus 14 more calendar days. */
 export const TASK_CANDIDATE_DAYS = 14;
+/** setTimeout's range cap; larger delays re-arm recursively at this cap. */
+export const MAX_TIMEOUT_MS = 2_147_483_647;
 /** Task name cap: longer names are rejected, never clamped. */
 export const TASK_NAME_MAX = 80;
 /** Task id cap (uuid or `loop:<scope>:<name>` shapes). */

@@ -3,6 +3,26 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-25 - scheduled-task runtime at P9-3b (claims + watchdog + completion)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Web server/contract suite | vitest 817/817 (60 files) - includes `p9-3b-scheduled-runtime.test.ts` 23/23: due-cron fire end-to-end (claim patch + pipeline call + completion patch with the carried sessionID + re-arm to the next slot + C.7 event), disabled/consumed arming skip, setTimeout-cap overflow re-arm, no re-enqueue while running, hold at both concurrency caps then drain after settle, sibling-claim adoption into memory with winner-slot re-arm (no dispatch), claim store failure record (conditional, never clobbers a winner) + re-arm + `claim-failed`, missing-`scheduledFor` skip, watchdog timeout without session abort, completion persist retry once then in-memory terminal + re-arm from memory (disk left at the claim state), one-time consumption (`enabled:false`, never re-fires), manual success on a paused task without claim/re-arm, manual busy + capacity refusals, start sync + vanished-project timer shed, stop clears timers/queue, post-stop settling run completes but arms nothing (inert latch), listProjects abort; review regressions: a synchronous pipeline throw lands as an error run on the scheduled AND manual paths (slots freed, slot re-armed, no `Scheduled claim failed` clobber), a throwing event emitter is warn-only, a refused claim adopts the winner's task into memory |
+| Typecheck | tsc over all tsconfigs (ui, web ui/server/cross) - 0 errors |
+| Quality gates + graph | controlled-language registry 36 terms x 407 source files, function cap 60 (forced the runtime monolith into ports/state/run/state-helpers modules), 500-line file cap - green; repository graph rebuilt at 407 modules |
+| Version-skew invariant (unit-proven) | the claim and completion patches ride the P9-3a RAW-record state swap; a task with unknown schedule/execution fields flows through claim, pipeline injection, and completion without field loss |
+| Adversarial review | sub-agent audit reproduced and fixed 5 defects (a synchronous pipeline throw misclassified an already-claimed run as `claim-failed` with a stale-snapshot re-arm clobber and no completion; an unguarded event emit poisoning a persisted run; `stop()` timer resurrection from a settling run, fixed with an inert latch cleared by `start()`; a refused claim re-arming without adopting the winner's record into memory; a fail-closed adopt normalization) with 5 regression tests; verified-not-defective: the overflow timer's stale closure (onDue re-reads memory), colon-ambiguous keys (project ids are pattern-constrained), counter release on settling runs, null-record refusal, computed-next-run poison tolerance |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Cross-process claim contention | still unit-proven only (fake store competition in-process); no two-real-process integration run exists |
+| The NNA dispatch | the runtime drives an injected `runPipeline` fake; no harness session has been created by a scheduled run yet (P9-3c) |
+| Suite-level flake (pre-existing) | the p8-5a relay client e2e occasionally fails at SUITE level in full parallel runs (child console attach, `AttachConsole failed`) while all 6 tests pass; solo runs green; two of five full runs today affected; unrelated to scheduled code |
+
 ## 2026-09-25 - scheduled-task storage core at P9-3a (NND unit, no harness)
 
 **Verified working**

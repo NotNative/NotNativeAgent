@@ -22,6 +22,32 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 scheduled-task runtime, claiming, completion.** The
+  execution machine over the P9-3a store now actually runs tasks: the
+  injected-pipeline runtime (`scheduled-ports` contracts, `scheduled-state`
+  memory/timers/queue/slots, `scheduled-run` claim+watchdog+completion as
+  standalone functions, `scheduled-claims` patch builders,
+  `scheduled-runtime` composition) syncs projects on start (one unreadable
+  project logs and skips, vanished projects shed timers), arms due timers
+  carrying their exact slot (past slots never re-armed; overflow re-arms
+  recursively at the setTimeout cap), and drives the FIFO queue under
+  global 4 / per-project 2 slots. A due task CLAIMS its occurrence in the
+  shared config (`patchIf`, 5 s slack on `lastScheduledFor`) before any
+  dispatch — a sibling claim adopts the winner's task and re-arms from its
+  slot; the claim itself advances `nextRunAt` so a mid-run crash cannot
+  double-fire. The watchdog races the pipeline at 30 min default (timeout
+  records the error, the session keeps running; a pipeline rejection is an
+  error run, never silence). Completion consumes one-time tasks, writes the
+  terminal patch with exactly one retry (double failure falls back to the
+  in-memory terminal state + re-arm), and emits the C.7 event. Manual
+  `runNow` refuses busy/capacity, never claims, runs paused tasks. 23-test
+  runtime suite green; web 817/817 (60 files), ui 825/825 (93 files),
+  typecheck, gates, graph; adversarial review reproduced and fixed 5
+  defects (sync pipeline throw misclassified as claim failure, unguarded
+  event emit, stop() timer resurrection via an inert latch, refused-claim
+  memory adoption, fail-closed adopt normalization). Next: P9-3c wires the
+  NNA harness behind `runPipeline` (C.6/C.10); P9-3d loop files +
+  routes/SSE + the settings route's `scheduledTasks` clobber fix.
 - 2026-09-25 · **P9 scheduled-task storage core.** The scheduled-tasks slice
   starts: the per-project task document (daily/weekly/once/cron schedules,
   execution with goal settings, runtime state) is stored in the existing

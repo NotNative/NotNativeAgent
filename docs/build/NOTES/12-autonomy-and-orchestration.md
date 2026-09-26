@@ -252,6 +252,68 @@ waits — the server row ships first so a closed tab can never strand a queue.
   steal/mid-hold-foreign/chain serialization, the lock fd leak regression,
   and the updatedAt explicit-undefined regression). NOT in: timers, run
   pipeline, claiming, loop files, routes/SSE (P9-3b..d), UI.
+- **P9-3b (scheduled-task runtime, claiming, completion — delivered this
+  slice)** — the C.4/C.5/C.7 execution machine over the P9-3a store:
+  `scheduled-runtime.ts` 65 composing `scheduled-ports.ts` 53 (port
+  contracts; the harness pipeline injected behind `runPipeline` — the
+  runtime never imports the harness), `scheduled-state.ts` 147 (memory
+  task maps, due timers carrying the slot they arm FOR, FIFO queue, global
+  4 / per-project 2 slot counters, overflow timers re-arming recursively at
+  the setTimeout cap `MAX_TIMEOUT_MS`), `scheduled-run.ts` 305 as
+  module-level functions over an explicit run context (claim protocol,
+  watchdog, completion), `scheduled-claims.ts` 76 (pure claim-patch
+  helpers), `scheduled-util.ts` 11. Behaviors: `start()` syncs every
+  listed project (listProjects failure aborts; one unreadable project logs
+  and skips; a vanished project sheds timers and tasks); sync persists each
+  computed `nextRunAt` and arms enabled future slots — past slots are
+  never re-armed (a missed run is skipped, not caught up); a due timer
+  enqueues the exact `(task, scheduledFor)` and the queue pump starts runs
+  while the global/per-project slots allow, head-of-line held otherwise;
+  claim = `patchIf` on the RAW record with the 5 s slack predicate
+  (`|lastScheduledFor - scheduledFor| <= 5000` refuses), claim patch
+  writes lastScheduledFor/lastRunAt/running-status/clears lastError and
+  the NEXT slot (`nextRunAt` computed from `max(now, scheduledFor+1)`), so
+  the slot is consumed exactly once and never stays stale; a losing
+  process adopts the returned task into memory and re-arms from the
+  winner's persisted slot without dispatching; a claim WRITE failure
+  records lastStatus/lastError/updatedAt only (a separate re-arm is
+  computed and armed) and reports `claim-failed`; the watchdog races the
+  pipeline at `maxRunDurationMs` — a timeout records the error WITHOUT
+  aborting the session it may have created, a pipeline REJECTION is a
+  run error never a silent success, and the pipeline invocation itself is
+  async-defused (a synchronous pipeline throw is a run error, never a
+  claim failure); completion: one-time tasks consume
+  the enabled slot before completion persistence (`enabled: false`, run
+  runs once exactly), then read-latest-or-memory fallback, a single
+  completion patch (status, `lastError` on error else `lastSessionId`,
+  lastDurationMs, the recomputed `nextRunAt` — undefined clears it when the
+  task is disabled or its once slot is consumed, and updatedAt), exactly ONE retry on persist failure, then in-memory terminal
+  state (never advertise a stuck running) + re-arm from the in-memory
+  task; completion emits the C.7 event (warn-only emission; a refused
+  event never fails the run) `{projectId, taskId, ranAt,
+  status, sessionID?}`; `runNow` manual runs refuse `task-busy` (queued
+  or running) and `capacity-exhausted` (full slots), never claim an
+  occurrence, run paused tasks, best-effort persist the manual start, and
+  never re-arm or consume an occurrence; `stop()` clears timers and
+  queued work and latches the runtime inert until the next `start()` (a
+  settling run completes but arms nothing). Tests:
+  `p9-3b-scheduled-runtime.test.ts` (433, 23: due
+  cron fire end-to-end incl. re-arm to the next slot, disabled/consumed
+  arming skip, the setTimeout-cap recursion, no re-enqueue while
+  running, hold at both caps then drain on settle, sibling-claim
+  adoption + winner-slot re-arm, claim store failure record + re-arm,
+  no finite scheduledFor skip, watchdog timeout without abort, completion
+  persist retry then terminal + re-arm with disk left at the claim state,
+  one-time consumption, manual success on a paused task without claim or
+  re-arm, manual busy/capacity refusals, start sync + vanished-project
+  shed, stop clears, listProjects abort; the review regressions: a sync
+  pipeline throw lands as an error run on the scheduled AND manual paths
+  (slots freed, slot re-armed, no claim-failed misclassification), a
+  throwing event emitter is warn-only with the run intact, a post-stop
+  settling run persists but arms nothing, and a refused claim adopts the
+  winner's task into memory). NOT in: the harness pipeline
+  adapter (P9-3c), loop files, routes/SSE, UI, and the per-project
+  settings-route `scheduledTasks` clobber fix (P9-3d).
 
 ## B. Adaptation deltas (registered)
 
@@ -522,3 +584,83 @@ waits — the server row ships first so a closed tab can never strand a queue.
   (j) the projectId regex carries no length bound here — C.1's bounded
   stem mapping belongs to the project layer, and over-long ids surface as
   plain fs failures the runtime already logs per project.
+- **E-09-21 (the scheduled runtime is ports-injected and claims by exact
+  armed slot)**: doc 12 §C.4-C.7 sketch the runtime as one harness-side
+  module (`runtime.js:248-1132`); NND splits it into six small modules
+  (`scheduled-ports/types`, `scheduled-state` memory+timers+queue,
+  `scheduled-run` claim/watchdog/completion as standalone functions over an
+  explicit run context, `scheduled-claims` pure patch builders,
+  `scheduled-util` tiny numeric/message helpers, `scheduled-runtime`
+  58-line composition) and the harness-facing pipeline rides the injected
+  `ports.runPipeline` — the runtime never imports the harness, so P9-3c
+  wires NNA behind that seam without touching the runtime. Deltas:
+  (a) deadlines ride the doc's numbers verbatim: global 4 / per-project 2
+  slots, 30 min watchdog default, jitter `random(0..2000)` supplied by the
+  port (production adapter wires `Math.floor(Math.random()*2000)` in
+  P9-3c), and the claim slack predicate is exactly
+  `state.lastScheduledFor` finite with `|diff| <= 5000`
+  (`TASK_DUE_SLACK_MS`) — nothing else consulted, so the on-disk
+  `nextRunAt` being routinely overwritten by sibling syncs never suppresses
+  later occurrences. (b) A due timer arms FOR the exact slot it computed
+  (`scheduledFor` carried by the timer and request), so the claim tests
+  that candidate against the armed occurrence, not against
+  `Date.now()` — under multi-process jitter the two processes race for the
+  same 5 s window rather than whichever woke first. (c) `nextRunAt` is
+  advanced at CLAIM time from `max(now, scheduledFor+1)` (doc step 3), so a
+  mid-run crash cannot double-fire the consumed slot after restart; the
+  refuser of a claim adopts the winner's task into memory and re-arms from
+  the WINNER's persisted `nextRunAt` (only if still future) without
+  dispatching (doc step 5). (d) A claim WRITE failure records
+  `lastStatus:'error', lastError:'Scheduled claim failed: ...',
+  updatedAt` conditionally under the same not-already-claimed predicate
+  (a winner's claim is never clobbered) — NEXT-slot bookkeeping is a
+  separate best-effort patch + arm, not part of the failure record, and
+  the run resolves `{ ok:false, skipped:true, reason:'claim-failed' }`.
+  (e) The watchdog is a `Promise.race`: the timeout rejects a guard
+  promise, the run records `'scheduled task run timed out'` and the
+  session KEEPS RUNNING (doc's explicit note); the discarded background
+  result is intentionally not awaited twice. A pipeline REJECTION (not a
+  timeout) is a run error with the thrown message — the doc leaves the
+  dispatch-crash path implicit; registered: a failed dispatch is an error
+  run, never silence. (f) The `running`-status task-run event (C.6 step 5)
+  is emitted by the PIPELINE side, not the runtime: this slice's runtime
+  emits only the C.7 completion event; P9-3c's adapter emits
+  `status:'running'` at dispatch once a sessionID exists. (g) Completion
+  order follows the doc exactly: consume `once` (whole-task
+  `enabled:false` upsert, warn-only failure) BEFORE the completion patch;
+  then latest-or-memory read, the single patch, exactly ONE retry, and on
+  double failure the in-memory task goes terminal (success keeps its
+  `lastSessionId`, error keeps `lastError`) with the re-arm from the
+  in-memory task — a successfully dispatched run stays `ok` with
+  `persistError` surfaced (the UI toast is P9-3d). (h) Manual `runNow`
+  writes `{lastRunAt, lastStatus:'running', updatedAt}` without claim
+  fields, refuses busy/queued with `task-busy` and
+  `capacity-exhausted` (the doc's 400/409 service-layer mapping is
+  P9-3d), and its completion never re-arms a paused task (an enabled
+  task's completion DOES arm — C.7 says arm if enabled). (i) syncProject
+  in this slice does NOT discover `.agents/loops` or reconcile loop tasks
+  (the doc's `reconcileLoopTasks` step) — loop files are P9-3d; the
+  memory-map replace + per-task patch/arm shape is otherwise doc-faithful.
+  (j) Known environment flake to watch (not this slice's code): the
+  pre-existing `p8-5a` relay client e2e occasionally fails at SUITE level
+  in full parallel runs on Windows (child console attach,
+  `AttachConsole failed`) while all six tests pass; solo runs and most
+  full runs are green. Audit addendum (review round 1, five defects
+  reproduced empirically then fixed): (k) a SYNCHRONOUS `runPipeline`
+  throw escaped the async shell and misclassified an already-CLAIMED run
+  as `claim-failed` — a spurious error patch, a stale-snapshot re-arm
+  clobbering the advanced slot, and no completion/event ever (the manual
+  path even surfaced the raw rejection) — the pipeline invocation is now
+  async-defused with a single failure-mapping catch, so `background`
+  never rejects and the race's catch can only mean the watchdog fired;
+  (l) a throwing event emitter could poison a fully persisted run
+  (emission is now warn-only, per the doc's own "event emission never
+  fails the run"); (m) `stop()` could resurrect timers — a run settling
+  after stop re-armed a future slot — the runtime now latches inert in
+  `stop()` (arming and enqueueing refuse) and clears the latch on
+  `start()`; (n) a refused claim re-armed from the winner's slot but did
+  not ADOPT the winner's record into memory, leaving `onDue`/claim on a
+  stale snapshot until the next sync — now remembered; (o) adoption
+  normalization is fail-closed (a hostile `toString` on a raw record
+  adopts nothing instead of throwing a refused claim into the
+  claim-failure path).
