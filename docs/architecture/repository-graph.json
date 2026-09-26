@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:68a4287eafffab663516e79fce9ff18270f7646b34847691a5c5e7af4669cc60",
+  "source_digest": "sha256:15a9a45651f5f266c4b65031f429393d999bb8760827dd7f60fc002a2359d5bc",
   "counts": {
-    "modules": 407,
+    "modules": 410,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 120
+      "module_count": 123
     },
     {
       "id": "web-entry",
@@ -3056,6 +3056,7 @@
         "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
         "packages/web/src/server/queue/queue-runtime.ts",
+        "packages/web/src/server/scheduled/scheduled-service.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
@@ -3728,6 +3729,16 @@
       ]
     },
     {
+      "path": "packages/web/src/server/scheduled/nna-scheduled-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/scheduled/scheduled-pipeline.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/scheduled/scheduled-claims.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -3740,6 +3751,22 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/scheduled/scheduled-pipeline.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/objective-store.ts",
+        "packages/web/src/server/queue/queue-dispatch.ts",
+        "packages/web/src/server/queue/queue-expansion.ts",
+        "packages/web/src/server/queue/queue-hooks.ts",
+        "packages/web/src/server/scheduled/scheduled-ports.ts",
+        "packages/web/src/server/scheduled/scheduled-util.ts",
+        "packages/web/src/server/scheduled/task-schema.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/scheduled/scheduled-ports.ts",
@@ -3770,6 +3797,25 @@
         "packages/web/src/server/scheduled/scheduled-ports.ts",
         "packages/web/src/server/scheduled/scheduled-run.ts",
         "packages/web/src/server/scheduled/scheduled-state.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/scheduled/scheduled-service.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/goals/objective-store.ts",
+        "packages/web/src/server/lib/bus.ts",
+        "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/queue/queue-hooks.ts",
+        "packages/web/src/server/scheduled/next-run.ts",
+        "packages/web/src/server/scheduled/nna-scheduled-ports.ts",
+        "packages/web/src/server/scheduled/scheduled-pipeline.ts",
+        "packages/web/src/server/scheduled/scheduled-ports.ts",
+        "packages/web/src/server/scheduled/scheduled-runtime.ts",
+        "packages/web/src/server/scheduled/task-config.ts",
+        "packages/web/src/server/scheduled/task-schema.ts"
       ]
     },
     {

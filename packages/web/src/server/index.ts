@@ -16,6 +16,7 @@ import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
 import { wireTunnelPlane } from './lib/tunnels/tunnel-startup.ts';
 import { getMessageQueueRuntime } from './queue/queue-runtime.ts';
+import { bootScheduledTasks, stopScheduledTasks } from './scheduled/scheduled-service.ts';
 import { NnaGoalSafetyRuntime } from './goals/nna-goal-runtime.ts';
 import { runGoalAuditExchange } from './goals/nna-goal-auditor.ts';
 import { createNnaGoalAuditPorts } from './goals/nna-goal-safety-ports.ts';
@@ -74,9 +75,8 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
   // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
   // startup tunnel (failures degrade to no tunnel and never abort boot).
   const tunnelPlane = wireTunnelPlane();
-  // Message queue (doc 12 §D): the feed pump + reconcile beat run for the
-  // process lifetime; routes resolve the same singleton lazily — a
-  // smoky/test app router never holds the event loop open on its own.
+  // Message queue (§D) + scheduled tasks (§C) run for the process lifetime;
+  // routes resolve the same singletons lazily — tests never hold timers.
   const goalSafety = bootAutomation();
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
   let disposed = false;
@@ -89,6 +89,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
     goalSafety?.dispose();
     getMessageQueueRuntime().dispose(); // doc 12 §D runtime owns timers/feed
+    stopScheduledTasks(); // doc 12 §C runtime owns due timers + queue
     localNna?.dispose();
     server.close();
   };
@@ -145,6 +146,7 @@ function bootMessageQueue(): void {
 
 function bootAutomation(): NnaGoalSafetyRuntime | null {
   bootMessageQueue();
+  bootScheduledTasks();
   return bootGoalSafety();
 }
 

@@ -3,6 +3,26 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - scheduled run pipeline on NNA at P9-3c (harness side)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Web server/contract suite | vitest 835/835 (61 files) - includes `p9-3c-scheduled-pipeline.test.ts` 18/18: title stamp in the schedule zone + 120-char clip (unnormalized raw-name guard), plain dispatch body `{model, parts}` + running event fields, part ordering knowledge -> prompt -> goal intro with `recordDelivered` only after ok, goal-write guards (fresh revision 0 tolerance, existing goal expected_id/expected_revision, missing-revision fail-closed), tolerated goal write refusal dispatches WITHOUT the intro, objective-file-first beyond the 5000-char clamp with inline fallback, command route `{command, arguments, model}` + B.8 expansion on the goal objective, plain-path degradation (unmatched slash, skill entry, catalog read failure), knowledge lookup failure tolerance + blank knowledge delivering/recording NOTHING, proceed-on-failed ready poll / throwing emitter / unwired auto-accept warnings, four run-error axes (worktree, session id, prompt 503, command 409), B.6.1 intro wording incl. budget sentence + payload budget-range gate, C.10 payload shape on `notnative:scheduled-task-ran`, project-stem listing, real-store integration (sync persists the next slot; once consumption upsert) |
+| Typecheck | tsc over all tsconfigs (ui, web ui/server/cross) - 0 errors |
+| Quality gates + graph | controlled-language registry 36 terms x 410 source files, function cap 60, file cap 500 - green; repository graph rebuilt at 410 modules |
+| Harness seam isolation | the pipeline reaches the harness only through `harnessRequest`-shaped injected ports (session create/prompt/command/catalog/read/goal-write/directory); the runtime still never imports the harness |
+| Adversarial review | sub-agent audit reproduced and fixed 4 defects (blank/whitespace knowledge recorded DELIVERED though nothing was sent; an `ObjectiveInputError` swallowed without a warn on the objective-file fallback; the objective-file degradation warn unattributed to a session; the B.6.1 budget sentence claiming a 0 budget the goal payload nulls) with 3 regression tests and 1 hardened test; verified-not-defective: ready-wait ordering under the runtime watchdog, `sessionOf` fallbacks, `revisionOf` every path, both event emits' wire shape, singleton re-entrancy, directory-less catalog poll, command-route warn attribution, intro wording, naming-mirror single site |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live NNA dispatch | all pipeline tests run against port fakes; a real NNA session created by a due task is a smoke-probe step after P9-3d routes |
+| Snippet macros + distill | `expandSnippets` ships as identity; `{file}` macros and the B.6.3 small-model distill are future ports |
+| Auto-accept runtime | `permissionAutoAccept` warns and prompts normally (A-6.7 still unwired) |
+
 ## 2026-09-25 - scheduled-task runtime at P9-3b (claims + watchdog + completion)
 
 **Verified working**

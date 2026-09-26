@@ -24,6 +24,8 @@ export const CONTROL_EVENTS = {
   notification: 'notnative:notification',
   // §D.5 message-queue fanout (E-09-1: NND brand on the doc-12 channel)
   messageQueueUpdated: 'notnative:message-queue.updated',
+  // §C.10 scheduled-task run events (same NND brand rule as E-09-1)
+  scheduledTaskRan: 'notnative:scheduled-task-ran',
 } as const;
 
 /**

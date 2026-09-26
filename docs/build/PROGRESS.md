@@ -22,6 +22,26 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 scheduled-task run pipeline on NNA.** The scheduled
+  runtime's injected `runPipeline` port now has the real C.6 adapter behind
+  it: `scheduled-pipeline.ts` (session create with the slot-zone wall-clock
+  title, running event, B.7 goal planting with fresh-revision tolerance,
+  slash resolution riding the queue's B.8 helpers, plain prompt parts in
+  the knowledge -> prompt -> goal-intro order, warn-only auxiliary
+  failures), `nna-scheduled-ports.ts` (production harness ports over
+  `harnessRequest` + the 10 s/250 ms ready poll on `GET /command`), and
+  `scheduled-service.ts` (lazy singleton over the P9-3a store ports,
+  project enumeration, C.10 fanout as `notnative:scheduled-task-ran` with
+  the `sessionId` wire name, boot + dispose wiring). Run errors stay with
+  the runtime (missing worktree, blank session id, rejected dispatch);
+  everything auxiliary degrades with a warning. 18-test pipeline suite
+  green; web 835/835 (61 files), typecheck, gates (410 modules), graph;
+  adversarial review reproduced and fixed 4 defects (blank knowledge
+  recorded delivered though nothing sent, silent objective-store
+  refusal, unattributed objective-file warn, intro budget sentence
+  disagreeing with the payload's budget range). Next: P9-3d loop files
+  + routes/SSE + manual-run 400/409 mapping + the settings-route
+  `scheduledTasks` clobber fix.
 - 2026-09-25 · **P9 scheduled-task runtime, claiming, completion.** The
   execution machine over the P9-3a store now actually runs tasks: the
   injected-pipeline runtime (`scheduled-ports` contracts, `scheduled-state`

@@ -314,6 +314,61 @@ waits — the server row ships first so a closed tab can never strand a queue.
   winner's task into memory). NOT in: the harness pipeline
   adapter (P9-3c), loop files, routes/SSE, UI, and the per-project
   settings-route `scheduledTasks` clobber fix (P9-3d).
+- **P9-3c (scheduled run pipeline on NNA — delivered this slice)** — the
+  C.6/C.10 harness side, injected behind the runtime's `runPipeline` port
+  (the runtime still never imports the harness): `scheduled-pipeline.ts`
+  255 (the adapter: session create, running event, goal planting, dispatch
+  routes), `nna-scheduled-ports.ts` 95 (production ports over the internal
+  adapter seam `harnessRequest` + the ready poll), `scheduled-service.ts`
+  130 (lazy singleton wiring the P9-3a store ports, project enumeration,
+  the C.10 fanout, boot/stop), `harnessNaming` gains
+  `notnative:scheduled-task-ran`, boot joined `bootAutomation`, dispose
+  sheds timers. Behaviors: the title is `${name clipped at 120} ${yyyy-LL-dd
+  HH:mm}` in the SCHEDULE zone's wall clock; the ready poll (250 ms / 10 s
+  against `GET /command`) failing only warns and proceeds (the create
+  attempt adjudicates a cold harness); a missing worktree
+  (`GET /project` id/worktree match), a blank session id (`sessionID ?? id`
+  on the created record), or a rejected dispatch is a run error the
+  RUNTIME records; the `running` event emits at session create (warn-only);
+  auto-accept is unwired in NND (A-6.7), so `permissionAutoAccept` warns
+  and the session prompts normally; slash prompts resolve
+  `commandNameOf`/`commandArgsOf` against the command catalog — a matched
+  non-skill command dispatches `POST /session/:id/command`
+  `{command, arguments, model: 'provider/model', agent?, variant?}` with
+  the goal objective = EXPANDED TEMPLATE (B.8; template-less commands keep
+  the raw invocation), no synthetic parts; a catalog miss, a skill-named
+  entry, or a catalog read failure degrades to the plain prompt path;
+  plain prompts dispatch `prompt_async`
+  `{model: {providerID, modelID}, agent?, variant?, parts}` with parts in
+  the C.6 order knowledge (synthetic; lookup failure sends without) ->
+  prompt -> goal intro (B.6.1 verbatim + the budget sentence before the
+  closing tag), `recordDelivered` only after acceptance; goal planting
+  rides `buildGoalPayload` (objective file first beyond the 5000-char
+  clamp, key from the NND objective store, inline fallback on write
+  failure), fresh sessions read revision 0 when metadata has no
+  `nnd.goalRevision` and no current goal, existing goals guard
+  `expected_id`/`expected_revision` from the record, evaluation
+  provider/model come from the task execution, and a REFUSED goal write
+  dispatches WITHOUT the intro (goal mode must not be claimed falsely;
+  the command route never carries the intro); the run outcome carries
+  `{sessionID, durationMs, reason, startedAt, finishedAt}`. C.10 events
+  fan out on the control bus with the payload
+  `{projectId, taskId, ranAt, status, sessionId?}` (wire name `sessionId`,
+  the internal field stays `sessionID`). Tests:
+  p9-3c-scheduled-pipeline.test.ts` (412, 18: title stamp + clip, plain
+  dispatch body/event, knowledge order + delivery record, revision
+  guards, tolerated goal-write refusal, objective file ride + inline
+  fallback, command route + B.8 expansion, plain-path degradation trio,
+  knowledge failure + blank-knowledge tolerance, ready-poll/emitter/
+  auto-accept warnings, the four run-error axes, intro wording incl. the
+  budget-range gate, C.10 payload shape, project stem listing, and a
+  real-store integration (sync persists the next slot; once
+  consumption); the review regressions: blank knowledge delivers and
+  records NOTHING, the objective-file degradation always warns with the
+  session id, and the intro's budget sentence agrees with the payload's
+  budget range). NOT in: server routes for tasks/manual runNow,
+  loop files, UI listeners, snippet expansion, the B.6.3 distill call
+  (P9-3d and later).
 
 ## B. Adaptation deltas (registered)
 
@@ -664,3 +719,57 @@ waits — the server row ships first so a closed tab can never strand a queue.
   normalization is fail-closed (a hostile `toString` on a raw record
   adopts nothing instead of throwing a refused claim into the
   claim-failure path).
+- **E-09-22 (the scheduled pipeline is seam-first and aux-failure tolerant,
+  with NND-specific degradations)**: doc 12 §C.6 sequences the run as
+  ready-wait, create, event, auto-accept, slash resolution, goal planting,
+  dispatch; NND keeps every step but registers these deltas: (a) the
+  ready poll targets `GET /command` (a cheap real route on both mock and
+  NNA) at 250 ms up to 10 s, and a FAILED poll only warns — the doc's
+  non-prompt-goal clause ("goalEnabled without waitForOpenCodeReady
+  success still proceeds") is generalized to all runs: the create attempt
+  itself adjudicates a cold harness, and its failure is the run's error.
+  (b) The `prompt_async` body carries
+  `{model: {providerID, modelID}, agent?, variant?, parts}` per §C.6
+  step 9 (the same shape the message-queue dispatch already sends);
+  E-09-19's parts-only rule stays specific to goal continuations whose
+  sessions bind the route at ingress, while a scheduled session is fresh
+  and the first dispatch also performs the initial binding. (c) A slash
+  prompt whose catalog entry is missing, is a skill (`source ===
+  'skill'`), or whose catalog READ fails degrades to the plain prompt
+  path — §C.6 has no skill clause and the queue's skill-instruction part
+  is NOT injected here; the raw `/name args` text dispatches as prose.
+  (d) Auxiliary failures degrade warn-only, never fail the run: emission,
+  knowledge lookup, knowledge delivery record, AND a refused goal write
+  (the prompt route drops the intro when planting failed — a falsely
+  claimed goal mode would be worse than a plain run; the command route
+  never carries an intro). (e) Fresh-session goal planting reads revision
+  0 when `metadata.nnd.goalRevision` is absent and there is no current
+  goal (NNA seeds `?? 0`); an EXISTING goal with a missing revision is
+  fail-closed (throws, degrades per (d)). (f) `expandSnippets` is a seam:
+  P9-3c ships the identity expansion — prompts dispatch verbatim; the
+  `{file}`-style macro resolver and the B.6.3 distill call are future
+  ports, and the objective uses `buildGoalPayload`'s 5000-char inline
+  clamp with the NND objective store carrying longer texts file-first.
+  (g) §C.10's wire payload spells `sessionId` (the doc's camelCase) while
+  the internal event field remains `sessionID` — mapped once in the
+  service emit adapter. (h) `listProjects` enumerates
+  `<data-dir>/projects/*.json` stems (comma-free id pattern); a missing
+  or unreadable directory returns an EMPTY list rather than aborting the
+  sync (nothing can be scheduled from a directory that does not exist).
+  (i) The store-port `consumeOnce` is the whole-document upsert
+  `{...task, enabled: false}` (normalize + replace under the same lock,
+  §C.7.1's upsert intent). Audit addendum (review round 1, four defects
+  reproduced then fixed): (j) a blank/whitespace knowledge resolution was
+  dropped from the parts but still recorded DELIVERED (nothing sent, yet
+  consumed from later dispatches) — `resolveKnowledge` now normalizes
+  blank text to null like the queue's own resolver, and the parts gate
+  is a plain `!== null`; (k) an `ObjectiveInputError` from the objective
+  store was swallowed silently (the inline 5000-char fallback is a real
+  degradation the logs must show) — the warn is now unconditional and
+  attributed to the session; (l) the B.6.1 budget sentence could claim
+  `A token budget of 0 tokens` for a task whose schema accepts
+  `goalTokenBudget >= 0` while the payload's own range nulls sub-1
+  budgets — `goalIntro` now applies the payload's budget range, so the
+  intro and the goal payload can no longer disagree; (m) the
+  delivery-record-failure test asserted nothing interesting (dead
+  second-deps construction) — it now pins the warn.

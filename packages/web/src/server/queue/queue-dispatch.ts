@@ -28,7 +28,7 @@ function skillInstruction(name: string): string {
   return `The user explicitly invoked the ${name} skill. Use the corresponding skill tool to handle this request.`;
 }
 
-function commandEntryOf(catalog: unknown, name: string): { source?: unknown; template?: unknown } | null {
+export function commandEntryOf(catalog: unknown, name: string): { source?: unknown; template?: unknown } | null {
   if (!Array.isArray(catalog)) return null;
   for (const entry of catalog) {
     const record = asRecord(entry);

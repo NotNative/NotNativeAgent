@@ -22,7 +22,14 @@ export interface RunRequest {
   scheduledFor?: number;
 }
 
-export interface PipelineOutcome { sessionID?: string }
+export interface PipelineOutcome {
+  sessionID?: string;
+  /** C.6 step 11 return shape (extra fields are ignored by the runtime). */
+  durationMs?: number;
+  reason?: 'scheduled' | 'manual';
+  startedAt?: number;
+  finishedAt?: number;
+}
 
 export interface RunOutcome {
   ok: boolean;
