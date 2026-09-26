@@ -100,6 +100,10 @@
     {
       "version": "20260922-4",
       "content_sha256": "0d5af4d8087e2c387d2dcb8df60cf40f9dad3750c8a3f4106b7b8caf981b7e20"
+    },
+    {
+      "version": "20260926-15",
+      "content_sha256": "f6dd2419eb3835aced8a8140d56712d6fc890a464ec938becfe277fbb9fca0ef"
     }
   ]
 }

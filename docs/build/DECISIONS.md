@@ -39,7 +39,7 @@ of NNA. Delegated contexts spawn per consumer (run-as entitlement). Full framing
 | Area | Reference | Ours + why |
 |---|---|---|
 | Server framework | Express 5 on Bun | **Hono 4 on Node 24** — Windows-native, typed routing for ~253 routes, first-class SSE streaming; Bun avoided on Windows |
-| Server runtime/build | bun, bundled | **Node 24 native TS execution** (`node --watch src/server/index.ts`, erasable-syntax-only TS); no separate server build step on Windows |
+| Server runtime/build | bun, bundled | **Node 24 native TS execution** (`node --experimental-transform-types --watch src/server/index.ts`); parameter properties require transformation; no separate server build step on Windows |
 | Package manager | bun workspaces | **pnpm 10** workspaces |
 | UI build | Vite | **Vite 7** (same); React 19; no react-compiler initially |
 | Styling | Tailwind + tokens (doc 14) | **Tailwind v4** (`@tailwindcss/vite`); token tables land with doc 14 phase; CSS-var placeholders until then |

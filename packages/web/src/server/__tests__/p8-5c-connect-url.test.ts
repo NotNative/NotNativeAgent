@@ -374,8 +374,9 @@ describe('discovery + auto-start (S5.9 ensure posture)', () => {
     expect(result.spawnCalls).toHaveLength(1);
     const call = result.spawnCalls[0]!;
     expect(call.command).toBe(process.execPath);
-    expect(call.args[0]?.endsWith('index.ts')).toBe(true);
-    expect(call.args[0]).toContain('server');
+    expect(call.args[0]).toBe('--experimental-transform-types');
+    expect(call.args[1]?.endsWith('index.ts')).toBe(true);
+    expect(call.args[1]).toContain('server');
     expect(call.env.NOTNATIVE_PORT).toBe(String(PORT));
     expect(call.env.NOTNATIVE_HOST).toBe('192.168.7.9');
     expect(call.env.NOTNATIVE_UI_PASSWORD).toBe('pw');

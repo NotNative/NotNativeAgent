@@ -78,7 +78,9 @@ async function coherentPackage(version) {
 }
 
 function spawnGate(script, label) {
-  const result = spawnSync(process.execPath, [join(root, script)], { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  const args = script === 'scripts/smoke-test.js'
+    ? ['--experimental-transform-types', join(root, script)] : [join(root, script)];
+  const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (result.status !== 0) errors.push(`${label} failed: ${failureText(result)}`);
   else if (result.stdout) process.stdout.write(result.stdout);
 }

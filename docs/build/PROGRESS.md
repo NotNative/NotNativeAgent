@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **Node source-launch and release gate repair.** The root
+  `start`, dev launcher, smoke command, web-package `start`, and CLI detached
+  auto-start now opt into Node's TypeScript transformation for the server's
+  parameter properties. The release gate launches its smoke child the same
+  way; `smoke:test` and the CLI auto-start regression pass. Adversarial review
+  found the two missed launch paths before this slice was sealed.
+
 - 2026-09-26 · **P9 live goal gate recovery.** A profile settings write now
   wakes or stops the NNA goal runtime without requiring an unrelated session
   event. A separate exchange generation keeps the runtime's own goal CAS

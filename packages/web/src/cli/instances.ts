@@ -140,7 +140,7 @@ export async function ensureServerRunning(
   const spawnSeam = seams.spawn ?? defaultSpawnSeam;
   const pid = spawnSeam.spawnDetached(
     process.execPath,
-    [serverEntry],
+    ['--experimental-transform-types', serverEntry],
     {
       NOTNATIVE_PORT: String(target.port),
       PORT: String(target.port),

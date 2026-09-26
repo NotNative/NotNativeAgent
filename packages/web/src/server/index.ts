@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * NotNativeDesktop server entry.
- * Runs on Node 22+ with native TypeScript execution (erasable syntax only).
+ * Runs on Node 22+ with native TypeScript transformation enabled by launchers.
  * The Electron main process will import startServer() in-process (doc 09, P12).
  */
 import { serve } from '@hono/node-server';
