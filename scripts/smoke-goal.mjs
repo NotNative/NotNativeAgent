@@ -49,11 +49,84 @@ async function waitUntil(operation, predicate, message) {
   }
 }
 
-async function settleCompleteTurn(call, json, id) {
+async function settleCompleteTurn(call, json, id, requestId = 'smoke_audit_prompt') {
   await waitUntil(async () => json(call, `/api/session/${id}/activity`, 200),
-    (rows) => (rows.some((row) => row.id === `${id}:turn:smoke_audit_prompt`
+    (rows) => (rows.some((row) => row.id === `${id}:turn:${requestId}`
       && row.status === 'completed') ? rows : undefined),
     'NNA goal-audit turn never reached a completed activity snapshot');
+}
+
+/** Live NND tick → NNA audit → CAS → continuation → final audit proof. */
+export async function probeGoalAutonomousLoop(call, json, directory, providerRequests) {
+  const [{ createNnaGoalAuditPorts }, { runNnaGoalSafetyTick }, { runGoalAuditExchange }] = await Promise.all([
+    import('../packages/web/src/server/goals/nna-goal-safety-ports.ts'),
+    import('../packages/web/src/server/goals/nna-goal-safety-tick.ts'),
+    import('../packages/web/src/server/goals/nna-goal-auditor.ts'),
+  ]);
+  const created = await json(call, '/api/session', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'Goal loop smoke' }) }, 201);
+  const id = created.id;
+  const path = `/api/v1/nnd/sessions/${id}/goal`;
+  const goal = smokeGoal('Verify the live goal loop finishes after a continuation.');
+  const auditRequests = () => providerRequests().filter((request) =>
+    request.messages?.[0]?.content?.startsWith('You audit progress of a coding agent'));
+  const auditsBefore = auditRequests().length;
+  let probeFailed = false;
+  try {
+    await json(call, path, goalBody(goal, null, 0), 200);
+    assert.equal((await call(`/api/session/${id}/prompt_async`, { method: 'POST',
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messageID: 'smoke_goal_start',
+        parts: [{ type: 'text', text: 'Start the goal smoke task.' }] }) })).status, 204);
+    await settleCompleteTurn(call, json, id, 'smoke_goal_start');
+    const ports = createNnaGoalAuditPorts();
+    const first = await runNnaGoalSafetyTick(ports, id, directory);
+    assert.equal(first.kind, 'ready', 'the first completed turn did not become audit-ready');
+    assert.equal(first.skipAudit, false, 'a completed first turn must enter the independent audit');
+    const continued = await runGoalAuditExchange(ports, first, id, directory);
+    assert.equal(continued.kind, 'dispatched', `goal did not dispatch its continuation: ${JSON.stringify(continued)}`);
+    assert.equal(continued.source, 'audit', 'continuation bypassed the independent audit');
+    assert.equal(auditRequests().length, auditsBefore + 1, 'the first turn did not reach the provider auditor');
+    const evidence = await waitUntil(() => json(call, `/api/v1/nnd/sessions/${id}/goal-evidence`, 200),
+      (window) => (window.turns.length === 2 ? window : undefined),
+      'the continuation did not complete a second NNA turn');
+    assert.equal(evidence.window_truncated, false);
+    assert.equal(evidence.turns[1].outcome, 'completed');
+    assert.notEqual(evidence.turns[1].request_id, evidence.turns[0].request_id);
+    assert.ok(providerRequests().some((request) => request.messages?.some((message) =>
+      message.role === 'user' && typeof message.content === 'string'
+      && message.content.startsWith('Continue working toward the active session goal.')
+      && message.content.includes(goal.objective))),
+    'the second turn did not receive the NND continuation prompt');
+    const second = await runNnaGoalSafetyTick(ports, id, directory);
+    assert.equal(second.kind, 'ready', 'the second completed turn did not become audit-ready');
+    assert.equal(second.skipAudit, false, 'the completed continuation must enter the independent audit');
+    const completed = await runGoalAuditExchange(ports, second, id, directory);
+    assert.equal(completed.kind, 'settled', `goal did not settle complete: ${JSON.stringify(completed)}`);
+    assert.equal(completed.outcome, 'complete');
+    assert.equal(auditRequests().length, auditsBefore + 2, 'both completed turns must reach the provider auditor');
+    const stored = await json(call, path, 200);
+    assert.equal(stored.goal.status, 'complete');
+    assert.equal(stored.goal.turnsUsed, 1);
+    assert.equal(stored.goal.evaluationProviderID, 'primary');
+    assert.equal(stored.goal.evaluationModelID, 'test');
+  } catch (error) {
+    probeFailed = true;
+    throw error;
+  } finally {
+    await cleanupGoalLoop(call, json, path, id, goal.id, probeFailed);
+  }
+}
+
+async function cleanupGoalLoop(call, json, path, id, goalId, probeFailed) {
+  let cleanupError = null;
+  try {
+    const stored = await json(call, path, 200);
+    if (stored.goal) await json(call, path, { method: 'DELETE', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expected_id: goalId, expected_revision: stored.revision }) }, 200);
+  } catch (error) { cleanupError = error; }
+  try { await json(call, `/api/session/${id}`, { method: 'DELETE' }, 200); }
+  catch (error) { cleanupError ??= error; }
+  if (cleanupError && !probeFailed) throw cleanupError;
 }
 
 /**

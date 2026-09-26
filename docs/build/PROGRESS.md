@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9 live autonomous-goal loop smoke.** The cross-repo
+  source fixture now drives the production NND goal tick and audit exchange
+  over a real NNA child with an isolated provider: an initial turn is audited,
+  a CAS consumes one continuation slot, the continuation runs, and a second
+  audit persists `complete` with provider/model attribution. This proves the
+  core loop under controlled conditions; the event-timer/bootstrap path and
+  external-provider behavior remain separate validation work.
+
 - 2026-09-26 · **P9 snippet delete race hardening.** On Windows, a
   concurrent delete or file-sharing probe can raise `EPERM` between the
   existence check and unlink. The snippet store now re-probes and retries

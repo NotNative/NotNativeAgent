@@ -241,7 +241,7 @@ unit tests assert in-process). Entries are dated; re-verification supersedes.
 
 | Surface | Evidence |
 |---|---|
-| Cross-repo source smoke (real NNA child + fixture provider) | `npm run integration:smoke -- <NNA source>` exit 0; the `probeGoalAudit` check proves an armed goal under a real attributed provider turn, NNA's evidence-bound audit route through NND's authenticated proxy (`{text, providerID: primary, modelID: test}` with a verdict payload), and the stale-revision refusal (`409 nnd_goal_audit_conflict`) |
+| Cross-repo source smoke (real NNA child + fixture provider) | `npm run integration:smoke -- <NNA source>` exit 0; `probeGoalAudit` checks an attributed audit and stale-revision refusal (`409 nnd_goal_audit_conflict`). `probeGoalAutonomousLoop` then exercises production NND ports through completed turn → audit → CAS → continuation prompt → second turn → complete verdict and persisted goal. |
 | Web server/contract suite | vitest 751/751 (57 files) - includes `p9-2c-goal-auditor.test.ts` 26/26 (apply/interpret matrices, 13 exchange orchestration cases, production-port wire shape, inline-consumer serialization) |
 | UI suite | vitest 824/824 (93 files) |
 | Typecheck | tsc over all tsconfigs (ui, web ui/server/cross) - 0 errors |

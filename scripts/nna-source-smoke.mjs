@@ -7,7 +7,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit } from './smoke-goal.mjs';
+import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs';
 
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
@@ -72,13 +72,12 @@ async function startProvider() {
   return { server, port: address.port, completions: () => completions, requests: () => requests,
     childRequested, releaseChild };
 }
-
 function providerReply(body) {
   const messages = body.messages ?? [];
   const userText = messages.filter((message) => message.role === 'user').map((message) => message.content).join('\n');
   let delta = { role: 'assistant', content: EXPECTED_REPLY };
   let finishReason = 'stop';
-  if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: 'continue', note: 'audit smoke note' }) };
+  if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: userText.includes('NND_LOOP_FINAL') ? 'complete' : 'continue', note: 'audit smoke note' }) };
   else if (messages[0]?.content?.includes('isolated tool-permission decision')) {
     const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
     const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');
@@ -87,7 +86,8 @@ function providerReply(body) {
       confidence: 1, reason_code: approved ? 'explicit_delegate_smoke' : 'no_matching_smoke_intent',
       authority_anchors: approved ? [intent.sequence] : [],
       ...(!approved ? { guidance: 'The smoke fixture grants only its exact delegated task.' } : {}) }) };
-  } else if (userText.includes(CHILD_TASK)) delta = { role: 'assistant',
+  } else if (userText.includes('Continue working toward the active session goal.')) delta = { role: 'assistant', content: 'NND_LOOP_FINAL' };
+  else if (userText.includes(CHILD_TASK)) delta = { role: 'assistant',
     content: userText.includes(CHILD_STEER) ? `${CHILD_REPLY} ${CHILD_STEER_ACK}` : CHILD_REPLY };
   else if (userText.includes('Delegate the smoke task')) {
     const delegationResult = messages.find((message) => message.role === 'tool' && message.tool_call_id === 'smoke_delegate_call');
@@ -109,7 +109,6 @@ function providerReply(body) {
   }
   return `data: ${JSON.stringify({ choices: [{ delta, finish_reason: finishReason }] })}\n\ndata: [DONE]\n\n`;
 }
-
 async function writeManifest(root, providerPort) {
   const config = join(root, 'config');
   const providerEndpoint = `http://127.0.0.1:${providerPort}/v1`;
@@ -124,7 +123,6 @@ async function writeManifest(root, providerPort) {
     mcp_servers: smokeMcpServers(),
   }));
 }
-
 async function writeSmokeSkill(root) {
   await mkdir(join(root, 'skills', 'review'), { recursive: true });
   await writeFile(join(root, 'skills', 'review', 'SKILL.md'), [
@@ -162,6 +160,7 @@ async function probe(app, workspace, provider) {
   assert.deepEqual(discovered, { profile_id: 'primary', models: ['test'] });
   const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200); assert.equal(tested.status, 'ready');
   await probeProviderRoute(call, json); await probeGoal(call, json); await probeGoalAudit(call, json);
+  await probeGoalAutonomousLoop(call, json, workspace, provider.requests);
   const skills = await json(call, '/api/v1/nnd/skills', 200);
   assert.ok(skills.skills.some((skill) => skill.id === 'smoke-review'));
   assert.equal(JSON.stringify(skills).includes('SECRET_SKILL_BODY'), false, 'skill inventory must omit instruction bodies');
@@ -496,5 +495,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, goal bridge with an attributed-turn audit route, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, autonomous continuation and completion, and origin gate.\n');
 }

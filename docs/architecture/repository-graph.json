@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:70649a9d59e4f2abd0b0fd140abc27ada781eeb1ffafae7eea037ee53941a402",
+  "source_digest": "sha256:c3e26804012d29eb8b03351b60960f8ee27a98f5d3c537b351f5a5ea62fd054a",
   "counts": {
     "modules": 427,
     "component_edges": 13
@@ -121,16 +121,16 @@
       "module_count": 35
     },
     {
+      "from": "gates",
+      "to": "web-server",
+      "import_count": 10,
+      "module_count": 3
+    },
+    {
       "from": "web-entry",
       "to": "web-server",
       "import_count": 9,
       "module_count": 3
-    },
-    {
-      "from": "gates",
-      "to": "web-server",
-      "import_count": 7,
-      "module_count": 2
     },
     {
       "from": "sync-engine",
@@ -4252,7 +4252,11 @@
       "path": "scripts/smoke-goal.mjs",
       "component": "gates",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "packages/web/src/server/goals/nna-goal-auditor.ts",
+        "packages/web/src/server/goals/nna-goal-safety-ports.ts",
+        "packages/web/src/server/goals/nna-goal-safety-tick.ts"
+      ]
     },
     {
       "path": "scripts/smoke-provider-route.mjs",
