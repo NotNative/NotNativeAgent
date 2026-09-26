@@ -22,6 +22,29 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4b the scheduled-tasks dialog.** The §H surface came
+  alive in `components/scheduled`: the dialog (project selector riding
+  the active directory's project, schedule summaries
+  `daily/weekly/once/cron (+ tz)`, viewer-zone next/last run stamps,
+  lastStatus badges), the toggle/delete split by ownership (loop tasks
+  mutate their `.agents/loops` file through the PATCH route, plain tasks
+  upsert; the loop delete confirms in-row because it removes the file
+  and reconcile prunes the task), run-now with outcome-differentiated
+  toasts (including the 200 `ok:false` errored-run body), and the
+  loop-file editor handoff into FilesView. The C.10 control fanout got
+  its first UI consumer: a `scheduled-task-ran` frame refreshes the open
+  project's list through `useTaskRanFanout`. The hook keeps a
+  view-ownership guard so slow loads of a previous project or frames
+  through cancelled-but-pending subscriptions paint nothing stale
+  (audit-reproduced), and the editor handoff targets the ACTIVE editor
+  root, never the selected worktree (audit-reproduced). Shell wiring:
+  `nnd:scheduled-tasks-open` + `nnd:files-open` window events, a
+  `◷ tasks` header button, the dialog mount, and the FilesView
+  tab-selection bridge in MainLayout. 20/20 dialog pins (96 files /
+  865 tests UI-wide), typecheck, gates (416 source files), graph (416
+  modules). E-09-25 registers the posture. Next: P9-4c the editor dialog
+  (kind tabs, time pills, weekday chips, cron preview, IANA zone select,
+  model/agent, prompt autocompletes, goal + auto-accept toggles).
 - 2026-09-26 · **P9-4a scheduled-task UI data plane.** The typed §5.16
   client landed in `packages/ui/src/lib/scheduled-tasks-api.ts` — list/
   upsert/delete, loop-file PATCH/DELETE, manual run, scheduler status,

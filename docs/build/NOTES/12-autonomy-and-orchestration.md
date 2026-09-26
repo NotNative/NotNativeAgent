@@ -429,6 +429,27 @@ waits — the server row ships first so a closed tab can never strand a queue.
   server strings survive end-to-end). NOT in: the dialogs, the entry
   point, the live-refresh wiring, the editor's autocompletes
   (P9-4b/4c).
+- **P9-4b (the scheduled-tasks dialog — delivered this slice)** —
+  `components/scheduled/scheduled-tasks-dialog.tsx` 301: the §H dialog
+  (project selector defaulting to the active directory's project, task
+  rows with schedule summaries `daily/weekly/once/cron (+ tz)`, next/last
+  run stamps in the viewer's zone via `lib/format/time`, lastStatus
+  badges, the enable toggle split by ownership, run-now, delete split by
+  ownership, and the loop-file editor handoff) + `scheduled-task-list.ts`
+  119 (the `useScheduledTaskList` + `useTaskRanFanout` hooks: list load
+  with the no-store 404 folded to empty, the C.10 live refresh, the
+  view-ownership guard against stale loads/frames, busy state with
+  single-toast folding) + `scheduled-shell-wiring.tsx` 32
+  (`nnd:scheduled-tasks-open` + `nnd:files-open` window events) +
+  MainLayout wiring (a `◷ tasks` header button, the dialog mount, and
+  `openEditorFile` opening the FilesView pane with the tab selected).
+  Tests: `scheduled-tasks-dialog.test.tsx` 20/20 (default selection,
+  404-empty, toggle split, run-now toasts by outcome incl. the 200
+  `ok:false` body, plain-delete immediacy, loop-delete confirm, the
+  inside-worktree editor handoff with Windows separators, C.10 refresh,
+  Escape + project switch). NOT in: the task editor dialog itself (the
+  Edit button arrives with P9-4c), the editor's autocompletes,
+  session-switcher placement polish (P9-4c).
 
 ## B. Adaptation deltas (registered)
 
@@ -966,3 +987,37 @@ waits — the server row ships first so a closed tab can never strand a queue.
   `lib/__tests__/`); a non-joining `'../..'`-form silently registers a
   key nothing imports and the mock never binds — hit this round's probe
   and registered here as the UI-suite mock rule.
+
+- **E-09-25 (the scheduled surface's UI posture, interpreted for NND)**:
+  registered so P9-4c and future audits do not re-litigate: (a) the
+  view-ownership boundary in `useScheduledTaskList` — a load answers only
+  the CURRENT view (a `viewIdRef` armed by the list effect arms nothing
+  else), so a slow load of a previous project or a C.10 frame through a
+  subscription that is cancelled-but-not-yet-closed paints nothing into
+  the switched view; a fanout resolving after teardown only closes. (b)
+  The loop-file editor handoff targets the ACTIVE directory (FilesView's
+  root and the tabs-store `byRoot` key), never the selected project's
+  worktree — they differ when the session sits in a subfolder or the file
+  belongs to another project; the guard for an unbootstrapped empty
+  active directory; outside-the-active-root loop files keep the button
+  disabled with the path as its title (a user-scope `~/.agents/loops` file
+  cannot ride the workspace-scoped editor by design; the toggle + the
+  enabled-fence PATCH manage it instead). (c) Default project selection:
+  exact worktree match against the active directory (case-insensitive),
+  else the first roster entry. (d) A list 404 renders as "No scheduled
+  tasks for this project yet" — the store is born on the first create
+  (E-09-23 a carried into the UI), never as an error panel. (e) The
+  enable toggle split: loop tasks go through the loop-file PATCH (the
+  file is authoritative; a gone-file 404 toasts verbatim and the refetch
+  repaints the file-owned state), plain tasks through the PUT with the
+  full-task spread (server normalize preserves unknown fields and
+  `state`, verified against task-schema). (f) The delete split: plain
+  delete is immediate, the loop delete confirms in-row ("delete file?")
+  because it removes the FILE and the reconcile prunes the task on the
+  refetch. (g) Weekday summary labels index 0=Sunday, matching the
+  server's `getUTCDay()` filter in `next-run.ts`. (h) Escape-close rides
+  the same no-autofocus overlay convention as TimelineDialog; the shell
+  wiring removes its window listeners on teardown. (i) The function-cap
+  gate measures RAW block length (no nesting collapse) — the dialog is
+  split into hook/fanout/panel/header/rows/name-block/actions so every
+  span stays ≤ 60; expect that shape to be kept, not re-merged.

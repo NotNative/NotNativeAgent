@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:47427d79fe555f2aa06c592463799dcab4178286ac37fcabd55a2b3d7e04d7e8",
+  "source_digest": "sha256:8a56be8b463e085f644137ea2a74227bb27fc8666e7872eb325fbc6198793e48",
   "counts": {
-    "modules": 413,
+    "modules": 416,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 98
+      "module_count": 101
     },
     {
       "id": "web-server",
@@ -99,8 +99,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 122,
-      "module_count": 52
+      "import_count": 127,
+      "module_count": 54
     },
     {
       "from": "sync-engine",
@@ -111,14 +111,14 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 46,
-      "module_count": 18
+      "import_count": 47,
+      "module_count": 19
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 35,
-      "module_count": 32
+      "import_count": 36,
+      "module_count": 33
     },
     {
       "from": "web-entry",
@@ -782,13 +782,17 @@
         "packages/ui/src/components/files/FilesView.tsx",
         "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/plan/PlanView.tsx",
+        "packages/ui/src/components/scheduled/scheduled-shell-wiring.tsx",
+        "packages/ui/src/components/scheduled/scheduled-tasks-dialog.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/components/settings/window.tsx",
         "packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
+        "packages/ui/src/lib/files/tabs-store.ts",
         "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/settings/apply.ts",
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/stores/useConfigStore.ts",
@@ -883,6 +887,34 @@
         "packages/ui/src/lib/inline-comments.ts",
         "packages/ui/src/lib/plan/save-queue.ts",
         "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/scheduled/scheduled-shell-wiring.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/scheduled/scheduled-tasks-dialog.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/scheduled/scheduled-task-list.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/scheduled/scheduled-tasks-dialog.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/scheduled/scheduled-task-list.ts",
+        "packages/ui/src/lib/format/time.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts",
+        "packages/ui/src/sync/global-stores.ts"
       ]
     },
     {

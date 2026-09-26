@@ -22,6 +22,10 @@ import { PlanView } from './plan/PlanView.tsx';
 import { WorktreesView } from './worktrees/WorktreesView.tsx';
 import { TerminalView } from './terminal/TerminalView.tsx';
 import { TerminalKeepaliveOwner } from './terminal/TerminalKeepaliveOwner.tsx';
+import { ScheduledTasksDialog } from './scheduled/scheduled-tasks-dialog.tsx';
+import { useScheduledShellWiring } from './scheduled/scheduled-shell-wiring.tsx';
+import { useFilesViewTabsStore } from '../lib/files/tabs-store.ts';
+import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
@@ -44,6 +48,15 @@ export function MainLayout(): ReactNode {
 
   const closeSettings = useCallback(() => setSettingsPage(null), []);
   const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
+  const [scheduledOpen, setScheduledOpen] = useState(false);
+  const openScheduled = useCallback(() => setScheduledOpen(true), []);
+  const closeScheduled = useCallback(() => setScheduledOpen(false), []);
+  const openEditorFile = useCallback((directory: string, path: string) => {
+    setReviewPane('');
+    setFilesOpen(true);
+    useFilesViewTabsStore.getState().setSelectedPath(directory, path, getRuntimeKey());
+  }, []);
+  useScheduledShellWiring(openScheduled, openEditorFile);
 
   useEffect(() => {
     bindSettingsBridge();
@@ -233,6 +246,15 @@ export function MainLayout(): ReactNode {
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="scheduled-tasks-toggle"
+          title="Scheduled tasks"
+          onClick={openScheduled}
+        >
+          ◷ tasks
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="worktrees-toggle"
           title="Worktrees"
           onClick={() => setWorktreesOpen(!worktreesOpen)}
@@ -285,6 +307,9 @@ export function MainLayout(): ReactNode {
       ) : null}
       {worktreesOpen ? (
         <WorktreesView projectRoot={activeDirectory} onClose={() => setWorktreesOpen(false)} />
+      ) : null}
+      {scheduledOpen ? (
+        <ScheduledTasksDialog directory={activeDirectory} onClose={closeScheduled} />
       ) : null}
       <Toaster position="bottom-right" />
     </div>

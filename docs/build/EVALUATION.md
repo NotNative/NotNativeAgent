@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - scheduled-tasks dialog at P9-4b
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| UI suite | vitest 865/865 (96 files) - the dialog file 20/20: default project selection by active directory (case-insensitive worktree match), the no-store 404 rendered as empty, the toggle split (plain → PUT full task, loop → `PATCH .../loop-file` even for disabling), run-now toasts by outcome (200 `ok:true` success / HTTP 409 refusal string / 200 `ok:false` "ended with error"), plain delete immediate vs loop delete two-step confirm, the editor handoff dispatching `nnd:files-open` with `{directory: active root, path: '.agents/loops/daily.md'}` across Windows separators, a C.10 frame refreshing only the open project, Escape close + project switch reload, stale-load and cancelled-subscription pins (a delayed previous-project load paints nothing; a frame through a cancelled-but-pending subscription loads nothing; the previous subscription's closer runs), and an under-another-project file never enabling the edit button |
+| Live wiring | `useTaskRanFanout` subscribes `subscribeControlEvents` per open project (first UI consumer of the control stream), resolve-gated on teardown; the wiring hook removes both window listeners on unmount |
+| Adversarial review | 2 defect classes reproduced on pristine code and fixed with guards (view-ownership boundary `viewIdRef`; handoff basis switched from the selected worktree to the active directory), plus the function-cap split fallout settled (fanout hook 23 lines, hook ~48, all spans ≤ 60); probed-and-clean list registered in E-09-25 (root-key separator equivalence, runtime-key seam, Windows case reachability, toggle field preservation, gone-file 404 repaint, loop-delete prune, stale closures, Escape convention, weekday 0=Sunday) |
+| Typecheck + gates + graph | tsc clean; quality gates green for 416 production files (raw-block function cap enforced); repository graph current for 416 modules |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Editor dialog | P9-4c: kind tabs, time pills, weekday chips, cron validation + next-4 preview, IANA zone select, model/agent selectors, prompt autocompletes (`@file` / `/command` / `#snippet`), goal budget + auto-accept + enabled toggles |
+| Editor handoff on a live app | the unit pins assert the event payload; the FilesView/browser end-to-end click-through lands with P9-4c's manual pass |
+
 ## 2026-09-26 - scheduled-task UI client at P9-4a
 
 **Verified working**
