@@ -19,6 +19,7 @@ import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 import { ContextInputError, createProjectNote, deleteProjectNote, readProjectContext,
   replaceProjectTodos, updateProjectNote } from '../project-context/context-store.ts';
+import { createProjectPlan, deleteProjectPlan, readProjectPlan, updateProjectPlan } from '../project-context/plan-store.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
  * (review P2 — an admitted guest must not be able to unbond the store). */
@@ -147,6 +148,10 @@ export function registerProjectsRoutes(app: Hono): void {
   app.post('/api/project-context/:projectId/notes', postProjectNote);
   app.patch('/api/project-context/:projectId/notes/:noteId', patchProjectNote);
   app.delete('/api/project-context/:projectId/notes/:noteId', deleteProjectNoteRoute);
+  app.get('/api/project-context/:projectId/plans/:planId', getProjectPlan);
+  app.post('/api/project-context/:projectId/plans', postProjectPlan);
+  app.put('/api/project-context/:projectId/plans/:planId', putProjectPlan);
+  app.delete('/api/project-context/:projectId/plans/:planId', deleteProjectPlanRoute);
 }
 
 async function getProjectConfig(c: Context): Promise<Response> {
@@ -239,6 +244,38 @@ async function deleteProjectNoteRoute(c: Context): Promise<Response> {
   const projectId = validProjectId(c);
   if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
   try { return c.json(await deleteProjectNote(projectId, c.req.param('noteId') ?? '')); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function getProjectPlan(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  try { return c.json(await readProjectPlan(projectId, c.req.param('planId') ?? '')); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function postProjectPlan(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  const body = await readJsonBodyBounded(c.req.raw, 1024 * 1024);
+  if (!body) return c.json({ error: 'plan body must be a JSON object' }, 400);
+  try { return c.json(await createProjectPlan(projectId, body), 201); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function putProjectPlan(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  const body = await readJsonBodyBounded(c.req.raw, 1024 * 1024);
+  if (!body) return c.json({ error: 'plan body must be a JSON object' }, 400);
+  try { return c.json(await updateProjectPlan(projectId, c.req.param('planId') ?? '', body.raw)); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function deleteProjectPlanRoute(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  try { return c.json(await deleteProjectPlan(projectId, c.req.param('planId') ?? '')); }
   catch (error) { return contextError(c, error); }
 }
 

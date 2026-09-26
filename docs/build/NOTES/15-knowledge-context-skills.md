@@ -63,3 +63,20 @@ external worktrees not represented in the roster, session pinning, and a
 full note/todo/plan panel remain follow-ups. Symlink/junction aliases are
 not canonicalized in the browser: an unresolved or ambiguous owner hides
 the Context tab rather than guessing a project.
+
+## P10-4: personal plan lifecycle backend (2026-09-26)
+
+Personal plans now use markdown files under the context-owned `plans/`
+directory, addressed through a validated manifest ID and base filename.
+Create writes the markdown before the manifest; delete removes the manifest
+before the file; update writes raw markdown verbatim through a temporary file
+and refuses to recreate a missing target. The read route returns parsed title
+and body plus raw source. Ambiguous IDs/case-folded filenames, multiline
+titles, and linked plan paths fail closed. The general project config file
+is not modified. A local actor swapping filesystem entries concurrently can
+still race path-based checks; the data directory should remain owner-private.
+
+This is personal-plan CRUD only. Legacy `projectPlanFiles` copy-in, team shared
+plans, share/unshare, session attachments, and a canonical plan UI remain
+unimplemented. Nonempty legacy plan links continue to fail closed so a new
+context file cannot hide them.

@@ -132,6 +132,10 @@
     {
       "version": "20260926-22",
       "content_sha256": "cdbb2e7328ca8abea3645723b8ca00b9f3996eb15e77d4c2b57d419e094c44bd"
+    },
+    {
+      "version": "20260926-23",
+      "content_sha256": "feab19f8b2478e49f92f990a221bc1a7b5c078b1c6ceecee6a24efe08db896d7"
     }
   ]
 }

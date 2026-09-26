@@ -30,10 +30,11 @@ export class ContextInputError extends Error {
 
 const PROJECT_ID = /^[A-Za-z0-9_-]+$/u;
 
-function paths(projectId: string): { config: string; context: string } {
+export function projectContextPaths(projectId: string): { config: string; context: string; plans: string } {
   if (!PROJECT_ID.test(projectId)) throw new Error('invalid project ID');
   const root = join(ENV.dataDir, 'projects');
-  return { config: join(root, `${projectId}.json`), context: join(root, projectId, 'context.json') };
+  return { config: join(root, `${projectId}.json`), context: join(root, projectId, 'context.json'),
+    plans: join(root, projectId, 'plans') };
 }
 
 async function readOptional(path: string): Promise<unknown | undefined> {
@@ -96,13 +97,13 @@ function parseContext(value: unknown): ProjectContext {
 
 /** Missing is empty; malformed files fail visibly so clients keep their prior state. */
 export async function readProjectContext(projectId: string): Promise<ProjectContext> {
-  const target = paths(projectId);
+  const target = projectContextPaths(projectId);
   const stored = await readOptional(target.context);
   if (stored !== undefined) return parseContext(stored);
   return fromLegacy(await readOptional(target.config));
 }
 
-async function commitContext(target: ReturnType<typeof paths>, next: ProjectContext): Promise<void> {
+async function commitContext(target: ReturnType<typeof projectContextPaths>, next: ProjectContext): Promise<void> {
   await mkdir(dirname(target.context), { recursive: true });
   const temp = `${target.context}.tmp-${process.pid}-${randomUUID()}`;
   try {
@@ -116,18 +117,19 @@ async function commitContext(target: ReturnType<typeof paths>, next: ProjectCont
 }
 
 /** Serialize all context mutations with project config writers. */
-async function mutateContext<T>(projectId: string, change: (current: ProjectContext) => { next: ProjectContext; result: T }): Promise<T> {
-  const target = paths(projectId);
+export async function mutateProjectContext<T>(projectId: string, change: (current: ProjectContext) =>
+  Promise<{ next: ProjectContext; result: T }> | { next: ProjectContext; result: T }): Promise<T> {
+  const target = projectContextPaths(projectId);
   return withConfigLock(target.config, async () => {
     const current = await readProjectContext(projectId);
-    const { next, result } = change(current);
+    const { next, result } = await change(current);
     await commitContext(target, next);
     return result;
   });
 }
 
 export async function replaceProjectTodos(projectId: string, todos: unknown[]): Promise<ProjectContext> {
-  return mutateContext(projectId, (current) => {
+  return mutateProjectContext(projectId, (current) => {
     const next = { ...current, todos };
     return { next, result: next };
   });
@@ -167,7 +169,7 @@ export async function createProjectNote(projectId: string, input: {
     const fields = value as Record<string, string>;
     origin = { sessionId: fields.sessionId!, messageId: fields.messageId! };
   }
-  return mutateContext(projectId, (current) => {
+  return mutateProjectContext(projectId, (current) => {
     const notes = checkedNotes(current);
     if (notes.length >= 200) throw new ContextInputError('project note limit reached', 400);
     const now = Date.now();
@@ -181,7 +183,7 @@ export async function updateProjectNote(projectId: string, noteId: string, input
   if (input.body === undefined && input.pinned === undefined) throw new ContextInputError('no note fields supplied', 400);
   const body = input.body === undefined ? undefined : checkedBody(input.body);
   if (input.pinned !== undefined && typeof input.pinned !== 'boolean') throw new ContextInputError('invalid pinned value', 400);
-  return mutateContext(projectId, (current) => {
+  return mutateProjectContext(projectId, (current) => {
     const notes = checkedNotes(current);
     const index = notes.findIndex((note) => note.id === noteId);
     if (index < 0) throw new ContextInputError('note not found', 404);
@@ -194,7 +196,7 @@ export async function updateProjectNote(projectId: string, noteId: string, input
 }
 
 export async function deleteProjectNote(projectId: string, noteId: string): Promise<ProjectContext> {
-  return mutateContext(projectId, (current) => {
+  return mutateProjectContext(projectId, (current) => {
     const notes = checkedNotes(current);
     const index = notes.findIndex((note) => note.id === noteId);
     if (index < 0) throw new ContextInputError('note not found', 404);
