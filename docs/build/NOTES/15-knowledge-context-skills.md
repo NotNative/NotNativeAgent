@@ -186,3 +186,23 @@ Adversarial review found that malformed stored rows could otherwise appear
 in a match count but be suppressed by the destination section. Count guards
 now mirror those sections, including the todo editor's whole-list fail-closed
 behavior.
+
+## P10-13: explicit workspace note/todo copy (2026-09-26)
+
+The legacy Workspace files disclosure offers an opt-in scan of
+`.opencode/nnd/general-notes.md` and `todos.json` through the existing
+workspace-files API. The operator sees the note text and todo list before a
+confirmation. Missing files are empty; ambiguous read errors or malformed
+todos prevent submission. The server validates both inputs before a single
+context-store mutation under the project lock, appends rather than replaces,
+and commits atomically. Source-derived deterministic IDs make an identical
+retry a no-op; a conflicting existing imported todo returns 409 rather than
+silently overwriting it. The original files remain in the workspace.
+
+This flow is intentionally bounded by the current 3,000-character note and
+500-todo context limits. It does not split longer note files, migrate session
+plans, remove legacy files, or automatically keep the two stores in sync.
+The user must explicitly choose the project-owned copy as the active record.
+Adversarial review bound the note identity to its source file, not its body:
+a changed source now returns 409 rather than appending a contradictory note.
+Duplicate stored note IDs also make import fail closed.

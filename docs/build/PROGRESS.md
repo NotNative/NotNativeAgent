@@ -14,13 +14,26 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
-| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, and bounded legacy plan-link migration in progress 2026-09-26; repo-local data migration, shared plans, memory/skills/MCP pending |
+| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, opt-in legacy note/todo copy, and bounded legacy plan-link migration in progress 2026-09-26; shared plans, memory/skills/MCP pending |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, and browser wait UI delivered 2026-09-26; inspection, annotation, tunnels, walkthrough pending |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-26 · **P10-13 opt-in legacy workspace copy.** The Workspace files
+  disclosure now offers a scan/preview/confirm flow for its repo-local
+  `general-notes.md` and `todos.json`. A bounded import route appends a note
+  and normalized project todos under one project-context lock and one atomic
+  context write. Deterministic source-derived IDs make retrying the same
+  snapshot idempotent; conflicting reimports and malformed or oversized
+  inputs fail without a partial import. The original files are never changed
+  or deleted. Notes over 3,000 characters currently require manual handling;
+  this is a safe common-case copy flow, not a claim that all legacy data is
+  migrated. Session plans are not included. Adversarial review fixed a changed
+  legacy note reimport that could have appended contradictory guidance, and
+  made duplicate stored note IDs fail closed.
 
 - 2026-09-26 · **P10-12 cross-tab search discovery.** A search query now
   loads a context snapshot and shows match counts for General note bodies,

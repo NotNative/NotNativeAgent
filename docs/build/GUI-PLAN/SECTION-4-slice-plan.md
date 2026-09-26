@@ -204,7 +204,9 @@ Tasks:
    note bodies, todo text, and plan titles without changing stored lists;
    snapshot match counts now let operators jump to another section. The
    section lists still own their read state, so counts are refreshable rather
-   than claimed as live authority.
+   than claimed as live authority. An explicit scan/preview/confirm flow can
+   copy bounded legacy note/todo files into project context without deleting
+   originals; longer notes and session plans still need a migration path.
 5. A user-driven, sandboxed iframe preview may occupy Browser before the full
    preview/inspection contract. Keep it clearly labelled as a limited manual
    preview; agent navigation, capture, annotation, and take-over wait for

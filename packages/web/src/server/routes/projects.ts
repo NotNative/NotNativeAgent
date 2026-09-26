@@ -20,6 +20,7 @@ import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 import { ContextInputError, createProjectNote, deleteProjectNote, readProjectContext,
   projectTodosRevision, replaceProjectTodosChecked, updateProjectNote } from '../project-context/context-store.ts';
 import { validateProjectTodos } from '../project-context/todo-schema.ts';
+import { importWorkspaceContext } from '../project-context/workspace-import.ts';
 import { createProjectPlan, deleteProjectPlan, readProjectPlan, updateProjectPlan } from '../project-context/plan-store.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
@@ -147,6 +148,7 @@ export function registerProjectsRoutes(app: Hono): void {
   app.get('/api/project-context/:projectId', getProjectContext);
   app.put('/api/project-context/:projectId/todos', putProjectTodos);
   app.post('/api/project-context/:projectId/notes', postProjectNote);
+  app.post('/api/project-context/:projectId/import-workspace', postWorkspaceImport);
   app.patch('/api/project-context/:projectId/notes/:noteId', patchProjectNote);
   app.delete('/api/project-context/:projectId/notes/:noteId', deleteProjectNoteRoute);
   app.get('/api/project-context/:projectId/plans/:planId', getProjectPlan);
@@ -238,6 +240,19 @@ async function postProjectNote(c: Context): Promise<Response> {
   if (!body) return c.json({ error: 'note body must be a JSON object' }, 400);
   try { return c.json(await createProjectNote(projectId, body), 201); }
   catch (error) { return contextError(c, error); }
+}
+
+async function postWorkspaceImport(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
+  let body: unknown;
+  try { body = await readJsonBodyBounded(c.req.raw, 256 * 1024); }
+  catch { return c.json({ error: 'invalid workspace import' }, 400); }
+  try {
+    const result = await importWorkspaceContext(projectId, body);
+    return c.json({ ...result, context: { ...result.context,
+      todosRevision: projectTodosRevision(result.context.todos) } });
+  } catch (error) { return contextError(c, error); }
 }
 
 async function patchProjectNote(c: Context): Promise<Response> {

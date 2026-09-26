@@ -81,6 +81,19 @@ export async function deleteProjectNote(projectId: string, noteId: string): Prom
   return parseContext(await request(notePath(projectId, noteId), { method: 'DELETE' }));
 }
 
+export async function importWorkspaceContext(projectId: string, input: {
+  directory: string; noteText?: string; todos?: { id: string; text: string; done: boolean }[];
+}): Promise<{ context: ProjectContext; importedNotes: number; importedTodos: number }> {
+  const value = await request(endpoint(projectId, '/import-workspace'), { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+  const payload = value as { context?: unknown; importedNotes?: unknown; importedTodos?: unknown };
+  if (!Number.isSafeInteger(payload?.importedNotes) || !Number.isSafeInteger(payload?.importedTodos)) {
+    throw new Error('Invalid workspace import response');
+  }
+  return { context: parseContext(payload.context), importedNotes: payload.importedNotes as number,
+    importedTodos: payload.importedTodos as number };
+}
+
 export async function replaceProjectTodos(projectId: string, todos: ProjectTodo[], expectedRevision: string): Promise<ProjectContext> {
   if (!/^[a-f0-9]{64}$/u.test(expectedRevision)) throw new Error('Invalid todo revision');
   return parseContext(await request(endpoint(projectId, '/todos'), { method: 'PUT',

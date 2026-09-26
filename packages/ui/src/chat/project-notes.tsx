@@ -7,6 +7,7 @@ import { ContextNotes, type ContextNotesDraft } from './context-notes.tsx';
 import { ContextPlans, type ContextPlanDraft } from './context-plans.tsx';
 import { ContextTodos, usableTodo } from './context-todos.tsx';
 import { getProjectContext, type ProjectContext } from '../lib/project-context-api.ts';
+import { WorkspaceContextImport } from './workspace-context-import.tsx';
 
 type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos';
 interface Todo { id: string; text: string; done: boolean }
@@ -39,6 +40,8 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
   const [tab, setTab] = useState<Tab>(() => projectId ? 'context' : 'notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set([projectId ? 'context' : 'notes']));
   const [workspaceFilesOpen, setWorkspaceFilesOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [contextRefresh, setContextRefresh] = useState(0);
   const [query, setQuery] = useState('');
   const [searchSnapshot, setSearchSnapshot] = useState<{ projectId: string; context: ProjectContext } | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -93,6 +96,7 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     </div> : null}
     {projectId && workspaceFilesOpen ? <div id="workspace-note-files" className="border-b border-white/10 px-2 pb-2">
       <p className="pb-1 text-[10px] text-neutral-500">Existing repo-local files remain separate; nothing has been moved.</p>
+      <button type="button" className="mb-1 text-[10px] text-sky-300 underline" onClick={() => setImportOpen(true)}>Copy workspace files to project…</button>
       <nav className="flex flex-wrap gap-1" aria-label="Legacy workspace notes">
         {([{ id: 'notes', label: 'Note file' }, { id: 'todos', label: 'Todo file' }, { id: 'plans', label: 'Session plan' }] as const).map((item) =>
           <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined}
@@ -100,12 +104,14 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
             onClick={() => selectTab(item.id)}>{item.label}</button>)}
       </nav>
     </div> : null}
+    {projectId && importOpen ? <WorkspaceContextImport key={`${projectId}:${directoryKey}`} directory={directory} projectId={projectId}
+      onClose={() => setImportOpen(false)} onImported={() => { setContextRefresh((current) => current + 1); setSearchRevision((current) => current + 1); }} /> : null}
     {opened.has('notes') || activeTab === 'notes' ? <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div> : null}
     {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
-    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
+    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} refreshToken={contextRefresh} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
     {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
-    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
+    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} refreshToken={contextRefresh} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} /></div> : null}
   </section>;
 }
 

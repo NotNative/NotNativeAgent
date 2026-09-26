@@ -11,8 +11,8 @@ export function usableTodo(value: unknown): value is ProjectTodo {
     && typeof todo.completed === 'boolean' && Number.isSafeInteger(todo.createdAt) && todo.createdAt >= 0;
 }
 
-export function ContextTodos({ projectId, visible, query = '', retainedDraft, onDraftChange }: {
-  projectId: string; visible: boolean; query?: string; retainedDraft?: string; onDraftChange?: (projectId: string, draft: string) => void;
+export function ContextTodos({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange }: {
+  projectId: string; visible: boolean; query?: string; refreshToken?: number; retainedDraft?: string; onDraftChange?: (projectId: string, draft: string) => void;
 }): ReactNode {
   const [context, setContext] = useState<ProjectContext | null>(null);
   const [draft, setDraft] = useState(() => retainedDraft ?? '');
@@ -36,7 +36,7 @@ export function ContextTodos({ projectId, visible, query = '', retainedDraft, on
       setError('Project todos could not be loaded. Existing items were left untouched.'); setLoading(false);
     } });
     return () => { active = false; };
-  }, [projectId, revision, visible]);
+  }, [projectId, revision, visible, refreshToken]);
 
   const malformed = !!context && (context.todos.length > 500 || context.todos.some((item) => !usableTodo(item))
     || new Set(context.todos.map((item) => (item as ProjectTodo).id)).size !== context.todos.length);

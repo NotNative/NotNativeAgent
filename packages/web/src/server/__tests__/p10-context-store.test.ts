@@ -16,6 +16,44 @@ beforeAll(async () => {
 afterAll(() => rmSync(dataDir, { recursive: true, force: true }));
 
 describe('P10 separate project context store', () => {
+  it('imports workspace note and todos atomically, append-only, and idempotently', async () => {
+    const { registerProjectsRoutes } = await import('../routes/projects.ts');
+    const app = new Hono(); registerProjectsRoutes(app);
+    const path = '/api/project-context/workspace-import/import-workspace';
+    const post = (value: unknown) => app.request(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
+    const payload = { directory: 'D:/work', noteText: 'Existing workspace note\n',
+      todos: [{ id: 'legacy-1', text: 'Keep task', done: true }] };
+    const first = await post(payload);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ importedNotes: 1, importedTodos: 1 });
+    expect((await readProjectContext('workspace-import')).notes).toMatchObject([{ body: payload.noteText }]);
+    expect((await readProjectContext('workspace-import')).todos).toMatchObject([{ text: 'Keep task', completed: true }]);
+    const repeated = await post(payload);
+    expect(await repeated.json()).toMatchObject({ importedNotes: 0, importedTodos: 0 });
+    const before = await readProjectContext('workspace-import');
+    expect((await post({ ...payload, noteText: 'Changed' })).status).toBe(409);
+    expect(await readProjectContext('workspace-import')).toEqual(before);
+    expect((await post({ ...payload, noteText: 'Changed', todos: [{ ...payload.todos[0], text: 'Changed' }] })).status).toBe(409);
+    expect(await readProjectContext('workspace-import')).toEqual(before);
+    expect((await post({ ...payload, noteText: 'x'.repeat(3001) })).status).toBe(400);
+    expect(await readProjectContext('workspace-import')).toEqual(before);
+  });
+  it('does not append into context with duplicate stored note IDs', async () => {
+    const { registerProjectsRoutes } = await import('../routes/projects.ts');
+    const app = new Hono(); registerProjectsRoutes(app);
+    const folder = join(dataDir, 'projects', 'workspace-import-duplicate');
+    mkdirSync(folder, { recursive: true });
+    const contextPath = join(folder, 'context.json');
+    const malformed = { version: 2, notes: [{ id: 'same', body: 'A' }, { id: 'same', body: 'B' }], todos: [], plans: [] };
+    writeFileSync(contextPath, JSON.stringify(malformed));
+    const before = readFileSync(contextPath, 'utf8');
+    const response = await app.request('/api/project-context/workspace-import-duplicate/import-workspace', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ directory: 'D:/work', noteText: 'Imported note' }),
+    });
+    expect(response.status).toBe(500);
+    expect(readFileSync(contextPath, 'utf8')).toBe(before);
+  });
   it('rejects invalid todo arrays at the route without changing stored context', async () => {
     const { registerProjectsRoutes } = await import('../routes/projects.ts');
     const app = new Hono(); registerProjectsRoutes(app);

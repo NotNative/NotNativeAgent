@@ -11,7 +11,7 @@ function usableNote(value: unknown): value is ProjectNote {
 
 export interface ContextNotesDraft { draft: string; editing: string | null; editBody: string }
 
-function useContextLoad(projectId: string, visible: boolean): {
+function useContextLoad(projectId: string, visible: boolean, refreshToken: number): {
   context: ProjectContext | null; setContext: Dispatch<SetStateAction<ProjectContext | null>>;
   loading: boolean; error: string; setError: Dispatch<SetStateAction<string>>;
   refresh: () => void; requestSequence: MutableRefObject<number>;
@@ -32,16 +32,16 @@ function useContextLoad(projectId: string, visible: boolean): {
       setError('Context could not be loaded. Existing notes were left untouched.'); setLoading(false);
     } });
     return () => { active = false; };
-  }, [projectId, revision, visible]);
+  }, [projectId, revision, visible, refreshToken]);
   return { context, setContext, loading, error, setError,
     refresh: () => setRevision((value) => value + 1), requestSequence };
 }
 
-export function ContextNotes({ projectId, visible, query = '', retainedDraft, onDraftChange }: {
-  projectId: string; visible: boolean; query?: string; retainedDraft?: ContextNotesDraft;
+export function ContextNotes({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange }: {
+  projectId: string; visible: boolean; query?: string; refreshToken?: number; retainedDraft?: ContextNotesDraft;
   onDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
 }): ReactNode {
-  const { context, setContext, loading, error, setError, refresh, requestSequence } = useContextLoad(projectId, visible);
+  const { context, setContext, loading, error, setError, refresh, requestSequence } = useContextLoad(projectId, visible, refreshToken);
   const [draftState, setDraftState] = useState<ContextNotesDraft>(() => retainedDraft ?? { draft: '', editing: null, editBody: '' });
   const { draft, editing, editBody } = draftState;
   const setDraft = (value: string): void => setDraftState((current) => ({ ...current, draft: value }));
