@@ -27,6 +27,7 @@ import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
 import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
 
 /**
@@ -143,7 +144,7 @@ function registerHarnessProxy(app: Hono): void {
   });
 }
 
-export function createApp(options?: { terminal?: TerminalRuntime }) {
+export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
 
@@ -175,7 +176,7 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   // their bespoke headers (login/reset) run un-wrapped; every later /api
   // surface + the harness proxy rides behind it.
   app.use('/api/*', apiAuthGate);
-  registerApiSurfaces(app, terminal);
+  registerApiSurfaces(app, terminal, options?.harnessPort);
 
   registerHarnessProxy(app);
 
@@ -224,7 +225,7 @@ export function errorHygiene(error: unknown, c: Context): Response {
 /** NND-owned /api surfaces (P4/P6/P7 slices): registered between the auth
  * gate and the harness-proxy catch-all (Hono matches in registration
  * order, doc 03 §5.14/§5.13 — nothing may register after the proxy). */
-function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
+function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?: number): void {
   app.route('/', createNotNativeRoutes());
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
@@ -242,6 +243,8 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   registerGitRoutes(app);
   registerGitWorktreeRoutes(app);
   registerTerminalRoutes(app, terminal);
+  registerDevServerRoutes(app, harnessPort === undefined ? undefined
+    : createDevServerScanner({ ownPorts: () => [ENV.port, harnessPort] }));
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);
   registerGitReadRoutes(app);

@@ -15,12 +15,21 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
 | P10 knowledge/context | 15 | pending |
-| P11 preview | 13 | pending |
+| P11 preview | 13 | 🔶 Windows dev-server discovery + browser empty-state list delivered 2026-09-26; inspection, annotation, tunnels, walkthrough pending |
 | P12 Electron | 09 | pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-26 · **P11-1 live dev-server discovery.** The browser empty state
+  offers actual Windows TCP listeners from a bounded `netstat` scan through an
+  authenticated NND route, with 3 s success cache and honest 503 failures.
+  It excludes app/NNA-owned and known infrastructure ports, refreshes while
+  visible, and requires an explicit click to navigate. Remote/LAN viewers do
+  not receive host-local `localhost` suggestions until the preview tunnel is
+  built. Adversarial review fixed five concrete discovery/UX failures;
+  non-Windows discovery and Chromium inspection remain later P11 slices.
 
 - 2026-09-26 · **Node source-launch and release gate repair.** The root
   `start`, dev launcher, smoke command, web-package `start`, and CLI detached

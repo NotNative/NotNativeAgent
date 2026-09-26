@@ -104,6 +104,10 @@
     {
       "version": "20260926-15",
       "content_sha256": "f6dd2419eb3835aced8a8140d56712d6fc890a464ec938becfe277fbb9fca0ef"
+    },
+    {
+      "version": "20260926-16",
+      "content_sha256": "e556b887d0691e23bfb98a0f94cc3ba1592f499c07bc89cc43cedf6baf31abc7"
     }
   ]
 }

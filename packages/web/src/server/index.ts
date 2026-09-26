@@ -40,7 +40,7 @@ export async function startServer(): Promise<{ port: number; dispose(): void }> 
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Promise<{ port: number; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
-  const app = createApp({ terminal });
+  const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
   // error event. Wait here so the caller can stop its already-owned NNA child.

@@ -200,7 +200,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
         ) : null}
         {browserOpenedKey === storageKey || surface === 'browser' ? (
           <div className={surface === 'browser' ? 'h-full min-h-0' : 'hidden'}>
-            <BrowserSurface key={storageKey} />
+            <BrowserSurface key={storageKey} visible={surface === 'browser' && paneVisible} />
           </div>
         ) : null}
       </div>
