@@ -29,6 +29,8 @@ import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
 import { registerProbeUrlRoutes } from './preview/probe-url.ts';
+import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
+import type { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
 
 /**
@@ -145,7 +147,8 @@ function registerHarnessProxy(app: Hono): void {
   });
 }
 
-export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number }) {
+export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
+  browserControl?: BrowserControlBroker; browserCallbackSecret?: string }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
 
@@ -172,6 +175,8 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // an unauthenticated device pairs exactly once and the /api gate would
   // otherwise 401 it before the rate limiter even sees a body.
   app.route('/', createClientAuthPublicRoutes());
+  // Security: this private NNA-child token is independent of browser UI auth.
+  if (options?.browserControl && options.browserCallbackSecret) registerBrowserControlCallback(app, options.browserControl, options.browserCallbackSecret);
   // Global /api gate (doc 08 §2.2 requireAuth): cookie session, client
   // bearer, or allowlisted URL token. Registered after the /auth routes so
   // their bespoke headers (login/reset) run un-wrapped; every later /api

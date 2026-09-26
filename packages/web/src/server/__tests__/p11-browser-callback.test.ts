@@ -1,0 +1,47 @@
+import { Hono } from 'hono';
+import { describe, expect, it } from 'vitest';
+import { BrowserControlBroker } from '../preview/browser-control-broker.ts';
+import { registerBrowserControlCallback } from '../preview/browser-control-callback.ts';
+
+const secret = 's'.repeat(43);
+function fixture() {
+  const app = new Hono();
+  const broker = new BrowserControlBroker();
+  registerBrowserControlCallback(app, broker, secret);
+  const post = (body: unknown, token?: string) => app.request('http://127.0.0.1/api/browser-control/request', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { 'x-nnd-browser-token': token } : {}) },
+    body: JSON.stringify(body),
+  });
+  return { broker, post };
+}
+
+describe('private NNA browser callback', () => {
+  it('rejects UI-only access and malformed actions before broker dispatch', async () => {
+    const { broker, post } = fixture();
+    expect((await post({ action: 'browser.snapshot', parameters: {} })).status).toBe(401);
+    expect((await post({ action: 'browser.click', parameters: {} }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.snapshot', parameters: { url: 'x' } }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.open', parameters: { url: 'x', extra: true } }, secret)).status).toBe(400);
+    broker.dispose();
+  });
+
+  it('dispatches a token-authenticated snapshot to a claimed desktop', async () => {
+    const { broker, post } = fixture();
+    broker.registerClient('desktop', true, (request) => {
+      expect(request.action).toBe('browser.snapshot');
+      expect(broker.claim(request.requestId, 'desktop')).toBe(true);
+      expect(broker.resolve(request.requestId, 'desktop', { ok: true, data: { title: 'Test' } })).toBe(true);
+    });
+    const response = await post({ action: 'browser.snapshot', parameters: {} }, secret);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, data: { title: 'Test' } });
+    broker.dispose();
+  });
+
+  it('fails closed when no desktop is connected', async () => {
+    const { broker, post } = fixture();
+    const response = await post({ action: 'browser.snapshot', parameters: {} }, secret);
+    expect(response.status).toBe(503);
+    broker.dispose();
+  });
+});

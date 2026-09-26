@@ -136,3 +136,23 @@ suite, graph, source smoke, and release gates.
 - This is still not an NNA tool. The tool callback and policy/governance
   registration remain required before an agent can issue a request. Installed
   GUI behavior has not yet been confirmed visually.
+
+## P11-9: governed NNA desktop browser tool (2026-09-26)
+
+- The managed NNA child receives a one-process loopback callback URL and a
+  fresh secret. NND accepts only `browser.open` and read-only
+  `browser.snapshot` at that private callback; normal UI sessions, URL tokens,
+  and attach-mode NNA cannot invoke it. The callback hands actions to the
+  same identity-bound desktop broker used by Electron's top-level frame.
+- NNA registers `nnd_browser` only for its NND integration sessions. It uses
+  the ordinary tool catalog, exact-name search lease, governance review,
+  cancellation, and audit path. Open URLs are HTTPS or numeric-loopback HTTP
+  without embedded credentials; the callback response is byte-bounded.
+  A disconnected or hidden desktop fails explicitly. Adversarial review
+  found that retaining the callback secret in NNA's process environment
+  could expose it to later child processes; NNA now consumes and removes
+  the environment pair during integration startup.
+- This first governed slice advertises only actions the Browser pane actually
+  implements. Click/type/scroll, screenshot capture, element annotation,
+  remote-browser relay, and walkthrough remain P11 follow-ups. NND's web
+  shell still has no embedded guest-control capability.

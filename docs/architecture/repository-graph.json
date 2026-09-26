@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9b718c6872dec4d31cf135e21cf0fba92c47d9e3e2df554ab2048a87f953020e",
+  "source_digest": "sha256:035ddb6f4ae0172df0989eede142e8ae9e1b86b4e2f91f7fa34f9202c9dce3b4",
   "counts": {
-    "modules": 442,
+    "modules": 443,
     "component_edges": 13
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 136
+      "module_count": 137
     },
     {
       "id": "web-entry",
@@ -3002,6 +3002,8 @@
         "packages/web/src/server/lib/http/request-security.ts",
         "packages/web/src/server/lib/relay/identity.ts",
         "packages/web/src/server/lib/static.ts",
+        "packages/web/src/server/preview/browser-control-broker.ts",
+        "packages/web/src/server/preview/browser-control-callback.ts",
         "packages/web/src/server/preview/dev-servers.ts",
         "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/queue/queue-routes.ts",
@@ -3709,6 +3711,15 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/preview/browser-control-callback.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/preview/browser-control-broker.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/preview/dev-servers.ts",

@@ -81,6 +81,21 @@ describe('managed local NNA launcher', () => {
     expect(process.kill).toHaveBeenCalledOnce();
   });
 
+  it('passes only a validated loopback callback capability to the owned child', async () => {
+    const process = child();
+    const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => process);
+    const browserCallback = { url: 'http://127.0.0.1:4172/api/browser-control/request', token };
+    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', browserCallback, spawnChild });
+    expect(spawnChild.mock.calls[0]?.[2]).toMatchObject({ env: {
+      NNA_NND_BROWSER_URL: browserCallback.url, NNA_NND_BROWSER_TOKEN: token,
+    } });
+    process.stdout.write(ready());
+    (await promise).dispose();
+    await expect(startLocalNnaHarness({ command: 'nna', workspaceId: 'local',
+      browserCallback: { url: 'http://evil.example/api/browser-control/request', token }, spawnChild })).rejects.toThrow(/callback/u);
+    expect(spawnChild).toHaveBeenCalledOnce();
+  });
+
   it.each(['http://evil.example:4812', 'http://localhost:4812', 'http://[::1]:4812', 'https://127.0.0.1:4812', 'http://127.0.0.1:0', 'http://127.0.0.1:4812/path'])('rejects unsafe readiness endpoint %s', async (endpoint: string) => {
     const process = child();
     const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild: () => process });

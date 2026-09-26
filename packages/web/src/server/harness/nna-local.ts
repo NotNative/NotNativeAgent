@@ -18,6 +18,7 @@ export interface LocalNnaLaunchOptions {
   commandArguments?: string[];
   dataRoot?: string;
   workspaceId: string;
+  browserCallback?: { url: string; token: string };
   startupTimeoutMs?: number;
   spawnChild?: (command: string, args: string[], options: Parameters<typeof spawn>[2]) => ChildProcessWithoutNullStreams;
 }
@@ -77,11 +78,13 @@ export interface LocalNnaHarness {
 export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<LocalNnaHarness> {
   if (!options.command.trim()) return Promise.reject(new Error('NNA command is required'));
   if (!/^[A-Za-z0-9_.-]{1,128}$/u.test(options.workspaceId)) return Promise.reject(new Error('NNA workspace id is invalid'));
+  if (options.browserCallback && !validBrowserCallback(options.browserCallback)) return Promise.reject(new Error('NNA browser callback is invalid'));
   let child: ChildProcessWithoutNullStreams;
   try {
     child = (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'nnd', 'serve'], {
       stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
-      ...(options.dataRoot ? { env: { ...process.env, NNA_HOME: options.dataRoot } } : {}),
+      env: { ...process.env, ...(options.dataRoot ? { NNA_HOME: options.dataRoot } : {}),
+        ...(options.browserCallback ? { NNA_NND_BROWSER_URL: options.browserCallback.url, NNA_NND_BROWSER_TOKEN: options.browserCallback.token } : {}) },
     }) as ChildProcessWithoutNullStreams;
   } catch {
     return Promise.reject(new Error('NNA local harness could not start'));
@@ -131,6 +134,10 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
     child.once('exit', onPrematureExit);
     child.stdout.on('data', onData);
   });
+}
+
+function validBrowserCallback(callback: { url: string; token: string }): boolean {
+  return /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}\/api\/browser-control\/request$/u.test(callback.url) && TOKEN.test(callback.token);
 }
 
 /** Wrapper gives an explicit harness-down result rather than an empty projection. */

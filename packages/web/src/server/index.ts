@@ -5,6 +5,7 @@
  * The Electron main process will import startServer() in-process (doc 09, P12).
  */
 import { serve } from '@hono/node-server';
+import { randomBytes } from 'node:crypto';
 import { createApp } from './app.ts';
 import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
@@ -27,22 +28,29 @@ import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
 
 export async function startServer(): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
-  const localNna = await configureHarness();
+  const browserControl = new BrowserControlBroker();
+  const browserCallbackSecret = randomBytes(32).toString('base64url');
+  let localNna: LocalNnaHarness | undefined;
   try {
-    return await startConfiguredServer(localNna);
+    localNna = await configureHarness({
+      url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
+    });
+    return await startConfiguredServer(localNna, browserControl, browserCallbackSecret);
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.
     localNna?.dispose();
+    browserControl.dispose();
     throw error;
   }
 }
 
-async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
+async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
+  browserCallbackSecret: string): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
-  const browserControl = new BrowserControlBroker();
-  const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined });
+  const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
+    ...(localNna ? { browserControl, browserCallbackSecret } : {}) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
   // error event. Wait here so the caller can stop its already-owned NNA child.
@@ -80,7 +88,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
   };
   process.once('SIGINT', dispose);
   process.once('SIGTERM', dispose);
-  return { port: ENV.port, browserControl, dispose }; // shell and server share the one broker; no HTTP capability route
+  return { port: ENV.port, browserControl, dispose }; // shell and authenticated child callback share one broker
 }
 
 /** Demand signals drive the relay lifecycle; routes resolve this singleton lazily. */
@@ -109,7 +117,7 @@ function awaitServerListening(server: HttpServer): Promise<void> {
   });
 }
 
-async function configureHarness(): Promise<LocalNnaHarness | undefined> {
+async function configureHarness(browserCallback: { url: string; token: string }): Promise<LocalNnaHarness | undefined> {
   if (ENV.harness !== 'nna') {
     registerHarnessAdapter(mockHarness);
     return undefined;
@@ -123,6 +131,7 @@ async function configureHarness(): Promise<LocalNnaHarness | undefined> {
   const launch = await resolveNnaCommand({ command: ENV.nnaCommand });
   const local = await startLocalNnaHarness({
     command: launch.command, commandArguments: launch.arguments, dataRoot: launch.dataRoot, workspaceId: ENV.nnaWorkspaceId,
+    browserCallback,
   });
   registerHarnessAdapter(guardLocalNnaHarness(createNnaHarnessAdapter({
     endpoint: local.endpoint, token: local.token, principal: local.principal,
