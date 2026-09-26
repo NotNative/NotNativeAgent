@@ -70,3 +70,17 @@ suite, graph, source smoke, and release gates.
   cover the boundary. Installed GUI rendering,
   guest navigation lifecycle, DevTools, capture, annotation, remote tunnels,
   and NNA-granted agent control still need separate verification/slices.
+
+## P11-5: desktop guest navigation lifecycle (2026-09-26)
+
+- Successful top-level and same-page guest navigations update the address and
+  browser history without recreating the webview or restarting its initial
+  loopback-readiness probe. An explicit Go, back/forward, or Reload creates a
+  fresh guest at the selected URL; the non-Electron iframe path is unchanged.
+- Main-frame load failures are shown in the browser chrome; aborted loads and
+  subframe failures do not masquerade as page failures. A stopped guest
+  renderer is reported with a manual Reload path. When a hidden pane destroys
+  its guest, the latest navigated URL is restored on reveal. Adversarial
+  review caught that restoration requirement.
+- This does not yet implement Chromium crash auto-retry, page-title/favicons,
+  DevTools, capture/annotation, remote tunnels, or NNA agent control.

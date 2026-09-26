@@ -61,6 +61,50 @@ describe('BrowserSurface', () => {
     expect(view.querySelector('webview')?.getAttribute('src')).toBe('http://localhost:5173/');
     expect(view.textContent).toContain('requires HTTPS or loopback HTTP');
   });
+  it('tracks guest navigations without remounting the page or probing again', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('localhost:5173/one'); await flush();
+    const guest = view.querySelector('webview')!;
+    const probes = vi.mocked(globalThis.fetch).mock.calls.filter(([url]) => url === '/api/system/probe-url').length;
+    act(() => guest.dispatchEvent(Object.assign(new Event('did-navigate'), { url: 'http://localhost:5173/two' })));
+    expect(view.querySelector('webview')).toBe(guest);
+    expect(view.querySelector('input[aria-label="Preview address"]')?.getAttribute('value')).toBe('http://localhost:5173/two');
+    expect(vi.mocked(globalThis.fetch).mock.calls.filter(([url]) => url === '/api/system/probe-url')).toHaveLength(probes);
+    act(() => (view.querySelector('[aria-label="Preview back"]') as HTMLButtonElement).click());
+    await flush();
+    expect(view.querySelector('webview')?.getAttribute('src')).toBe('http://localhost:5173/one');
+  });
+  it('restores the navigated guest URL when the pane is hidden and revealed', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('localhost:5173/one'); await flush();
+    const guest = view.querySelector('webview')!;
+    act(() => guest.dispatchEvent(Object.assign(new Event('did-navigate'), { url: 'https://example.org/two' })));
+    expect(view.querySelector('webview')).toBe(guest);
+    setVisible(false);
+    expect(view.querySelector('webview')).toBeNull();
+    setVisible(true);
+    expect(view.querySelector('webview')?.getAttribute('src')).toBe('https://example.org/two');
+    expect(view.querySelector('input[aria-label="Preview address"]')?.getAttribute('value')).toBe('https://example.org/two');
+  });
+  it('reports guest main-frame failures but ignores superseded loads', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('https://example.org/'); await flush();
+    const guest = view.querySelector('webview')!;
+    act(() => guest.dispatchEvent(Object.assign(new Event('did-fail-load'), {
+      errorCode: -3, errorDescription: 'aborted', isMainFrame: true,
+    })));
+    expect(view.textContent).not.toContain('aborted');
+    act(() => guest.dispatchEvent(Object.assign(new Event('did-fail-load'), {
+      errorCode: -105, errorDescription: 'NAME_NOT_RESOLVED', isMainFrame: true,
+    })));
+    expect(view.textContent).toContain('NAME_NOT_RESOLVED');
+  });
   it('offers host-local listener URLs only on a loopback app origin', () => {
     expect(canPreviewDiscoveredServers('http://localhost:3902')).toBe(true);
     expect(canPreviewDiscoveredServers('http://[::1]:3902')).toBe(true);

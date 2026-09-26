@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Manual, sandboxed preview. Agent inspection and capture are not exposed here. */
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
@@ -8,6 +8,12 @@ interface DiscoveredServer { port: number; url: string; command: string }
 type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
   | { kind: 'ready'; servers: DiscoveredServer[] };
 type Readiness = { key: string; state: 'checking' | 'ready' | 'timed-out' | 'unavailable' };
+type GuestStatus = { kind: 'loading' | 'ready' | 'failed'; message: string };
+
+function guestEventValue(event: Event, name: string): unknown {
+  const payload = event as Event & Record<string, unknown> & { detail?: Record<string, unknown> };
+  return payload[name] ?? payload.detail?.[name];
+}
 
 function isLoopbackPreview(value: string | null): boolean {
   if (!value) return false;
@@ -100,15 +106,69 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [address, setAddress] = useState('');
   const [history, setHistory] = useState<string[]>([]);
   const [index, setIndex] = useState(-1);
+  const historyRef = useRef(history);
+  const indexRef = useRef(index);
+  const guestRef = useRef<HTMLElement | null>(null);
+  const [guestStart, setGuestStart] = useState<string | null>(null);
+  const [guestStatus, setGuestStatus] = useState<GuestStatus | null>(null);
   const [reload, setReload] = useState(0);
   const [invalid, setInvalid] = useState(false);
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'loading', servers: [] });
   const [scanRevision, setScanRevision] = useState(0);
   const active = index >= 0 ? history[index] ?? null : null;
-  const readiness = usePreviewReadiness(active, reload, visible, localRuntime);
-  const probeKey = `${active ?? ''}|${reload}`;
-  const waitForLocal = localRuntime && isLoopbackPreview(active);
+  historyRef.current = history;
+  indexRef.current = index;
+  // An in-page guest navigation must not remount the guest or restart the
+  // startup probe. Only an explicit toolbar command changes guestStart.
+  const readinessTarget = desktop ? guestStart : active;
+  const readiness = usePreviewReadiness(readinessTarget, reload, visible, localRuntime);
+  const probeKey = `${readinessTarget ?? ''}|${reload}`;
+  const waitForLocal = localRuntime && isLoopbackPreview(readinessTarget);
   const probeState = readiness?.key === probeKey ? readiness.state : 'checking';
+
+  useEffect(() => {
+    // Hiding destroys the guest. Preserve its latest top-level URL so a later
+    // reveal restores the page actually shown, not the original launch URL.
+    if (desktop && !visible && active && guestStart !== active) setGuestStart(active);
+  }, [active, desktop, guestStart, visible]);
+
+  useEffect(() => {
+    const guest = guestRef.current;
+    if (!desktop || !visible || !guest || (waitForLocal && probeState !== 'ready')) return;
+    const navigation = (event: Event): void => {
+      const url = guestEventValue(event, 'url');
+      if (typeof url !== 'string' || !canEmbedDesktopPreview(url)) return;
+      const target = normalizePreviewUrl(url, window.location.origin);
+      if (!target) return;
+      setGuestStatus({ kind: 'ready', message: target });
+      if (target === historyRef.current[indexRef.current]) return;
+      const next = [...historyRef.current.slice(0, indexRef.current + 1), target];
+      historyRef.current = next;
+      indexRef.current = next.length - 1;
+      setHistory(next);
+      setIndex(next.length - 1);
+      setAddress(target);
+    };
+    const loading = (): void => setGuestStatus({ kind: 'loading', message: 'Loading page…' });
+    const failure = (event: Event): void => {
+      if (guestEventValue(event, 'isMainFrame') === false || guestEventValue(event, 'errorCode') === -3) return;
+      const description = guestEventValue(event, 'errorDescription');
+      setGuestStatus({ kind: 'failed', message: typeof description === 'string' ? description : 'Page failed to load.' });
+    };
+    const crashed = (): void => setGuestStatus({ kind: 'failed', message: 'Preview renderer stopped. Reload to retry.' });
+    guest.addEventListener('did-navigate', navigation);
+    guest.addEventListener('did-navigate-in-page', navigation);
+    guest.addEventListener('did-start-loading', loading);
+    guest.addEventListener('did-fail-load', failure);
+    guest.addEventListener('render-process-gone', crashed);
+    return () => {
+      guest.removeEventListener('did-navigate', navigation);
+      guest.removeEventListener('did-navigate-in-page', navigation);
+      guest.removeEventListener('did-start-loading', loading);
+      guest.removeEventListener('did-fail-load', failure);
+      guest.removeEventListener('render-process-gone', crashed);
+    };
+  }, [desktop, guestStart, probeState, reload, visible, waitForLocal]);
 
   useEffect(() => {
     if (!visible || active || !localRuntime) return;
@@ -134,9 +194,14 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   function open(target: string): void {
     setInvalid(false);
     setAddress(target);
+    setGuestStart(target);
+    setGuestStatus(null);
     if (target === active) { setReload((value) => value + 1); return; }
-    setHistory((items) => [...items.slice(0, index + 1), target]);
-    setIndex(index + 1);
+    const next = [...historyRef.current.slice(0, indexRef.current + 1), target];
+    historyRef.current = next;
+    indexRef.current = next.length - 1;
+    setHistory(next);
+    setIndex(next.length - 1);
   }
 
   function navigate(event: FormEvent<HTMLFormElement>): void {
@@ -149,8 +214,11 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   function move(delta: number): void {
     const next = index + delta;
     if (next < 0 || next >= history.length) return;
+    indexRef.current = next;
     setIndex(next);
     setAddress(history[next]!);
+    setGuestStart(history[next]!);
+    setGuestStatus(null);
     setInvalid(false);
   }
 
@@ -166,9 +234,10 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       <div className="mt-2 flex items-center gap-1 text-[11px] text-neutral-300">
         <button type="button" aria-label="Preview back" disabled={index <= 0} onClick={() => move(-1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">←</button>
         <button type="button" aria-label="Preview forward" disabled={index < 0 || index >= history.length - 1} onClick={() => move(1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">→</button>
-        <button type="button" aria-label="Reload preview" disabled={!active} onClick={() => setReload((value) => value + 1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">Reload</button>
+        <button type="button" aria-label="Reload preview" disabled={!active} onClick={() => { setGuestStart(active); setGuestStatus(null); setReload((value) => value + 1); }} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">Reload</button>
         {active ? <a href={active} target="_blank" rel="noopener noreferrer" className="ml-auto rounded border border-white/15 px-2 py-0.5">Open externally</a> : null}
       </div>
+      {desktop && guestStatus ? <p role="status" className={`mt-1 text-[11px] ${guestStatus.kind === 'failed' ? 'text-amber-300' : 'text-neutral-400'}`}>{guestStatus.message}</p> : null}
     </header>
     {active && waitForLocal && probeState !== 'ready' ? <div className="p-3 text-xs text-neutral-400" role="status">
       {probeState === 'checking' ? 'Waiting for local server to start…' : probeState === 'timed-out'
@@ -176,7 +245,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       {probeState !== 'checking' ? <button type="button" className="ml-2 underline" onClick={() => setReload((value) => value + 1)}>Retry</button> : null}
     </div> : null}
     {active && visible && (!waitForLocal || probeState === 'ready') ? desktop
-      ? <webview key={`${active}|${reload}`} title="Isolated desktop browser preview" src={active} partition="nnd-preview"
+      ? <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview"
         className="min-h-0 w-full flex-1 border-0 bg-white" />
       : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active}
         sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer"
