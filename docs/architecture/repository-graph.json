@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:5016c0ba2b95271e8e653df84f25ee95c61a8e003403463a3744a4117c40d317",
+  "source_digest": "sha256:9b718c6872dec4d31cf135e21cf0fba92c47d9e3e2df554ab2048a87f953020e",
   "counts": {
     "modules": 442,
     "component_edges": 13
@@ -3265,6 +3265,7 @@
         "packages/web/src/server/lib/relay/host-service.ts",
         "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
+        "packages/web/src/server/preview/browser-control-broker.ts",
         "packages/web/src/server/queue/queue-runtime.ts",
         "packages/web/src/server/scheduled/scheduled-service.ts",
         "packages/web/src/server/terminal/bootstrap.ts",

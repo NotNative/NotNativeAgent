@@ -116,3 +116,23 @@ suite, graph, source smoke, and release gates.
   Electron IPC bridge must bind claim/result to the authenticated desktop
   connection identity; a requester-supplied client id must never grant a
   capability. NNA tool registration and page-action execution remain next.
+
+## P11-8: desktop broker bridge (2026-09-26)
+
+- The running server now hands its one broker to the Electron main process.
+  Only the top-level NND frame can register a capable client through preload;
+  main derives its broker identity from `event.sender.id`, never renderer
+  payload. The isolated guest has no preload. Request, claim, and bounded
+  result messages stay on this IPC path; no browser-control HTTP route or
+  query-token capability was added. A direct invoke-face test verifies that
+  child frames cannot register and that claim/result ignore a spoofed client
+  id in renderer payload.
+- The visible Browser pane registers and can answer `browser.open` and bounded
+  read-only `browser.snapshot`. Other actions return a clear unsupported
+  result. A hidden/unmounted pane unregisters, and main drops its broker client
+  on main-frame reload, renderer crash, or window destruction. Snapshot work
+  is bounded to 15 seconds and stale results are suppressed. Adversarial
+  review caught these lifecycle cases and listener cleanup.
+- This is still not an NNA tool. The tool callback and policy/governance
+  registration remain required before an agent can issue a request. Installed
+  GUI behavior has not yet been confirmed visually.

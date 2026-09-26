@@ -22,10 +22,11 @@ import { runGoalAuditExchange } from './goals/nna-goal-auditor.ts';
 import { createNnaGoalAuditPorts } from './goals/nna-goal-safety-ports.ts';
 import { onSettingsWrite, readMergedSettings } from './lib/settings-store.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
 
-export async function startServer(): Promise<{ port: number; dispose(): void }> {
+export async function startServer(): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   const localNna = await configureHarness();
   try {
     return await startConfiguredServer(localNna);
@@ -37,9 +38,10 @@ export async function startServer(): Promise<{ port: number; dispose(): void }> 
   }
 }
 
-async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Promise<{ port: number; dispose(): void }> {
+async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
+  const browserControl = new BrowserControlBroker();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
@@ -53,25 +55,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
     (url, headers, method) => upgradeAllowedForRequest(url, headers, method),
   );
   terminal.startSweep();
-  // Relay host service (doc 08 §3.12): demand signals drive the lifecycle —
-  // paired relay devices keep the host up; the 60 s poll also catches
-  // headless pairing writes; the claim watcher arbitrates multi-instance
-  // hosts. Registered BEFORE /api surfaces answer traffic is unnecessary:
-  // the routes resolve the same singleton lazily.
-  const relayService = getRelayHostService({
-    demandSignals: [
-      () => getUiAuthController().hasActiveRelayClients(),
-      () => getPairingSessionStore().hasActiveRelaySession(), // §3.12: still-redeemable relay pairings
-    ],
-    localPort: ENV.port,
-    platform: process.env.NOTNATIVE_RUNTIME ?? 'web',
-    appVersion: ENV.version,
-  });
-  try {
-    relayService.start();
-  } catch (error) {
-    console.warn(`relay service boot failed: ${String(error)}`);
-  }
+  const relayService = startRelayHostService();
   // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
   // startup tunnel (failures degrade to no tunnel and never abort boot).
   const tunnelPlane = wireTunnelPlane();
@@ -84,6 +68,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
     if (disposed) return;
     disposed = true;
     terminal.dispose(); // doc 07 section 4.8: stop sweep, kill all PTYs, drop the WS server
+    browserControl.dispose();
     wiring.dispose();
     relayService.dispose();
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
@@ -95,7 +80,23 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
   };
   process.once('SIGINT', dispose);
   process.once('SIGTERM', dispose);
-  return { port: ENV.port, dispose }; // P12a (NOTES/09 A.2): the in-process shell disposes through this same body
+  return { port: ENV.port, browserControl, dispose }; // shell and server share the one broker; no HTTP capability route
+}
+
+/** Demand signals drive the relay lifecycle; routes resolve this singleton lazily. */
+function startRelayHostService() {
+  const relayService = getRelayHostService({
+    demandSignals: [
+      () => getUiAuthController().hasActiveRelayClients(),
+      () => getPairingSessionStore().hasActiveRelaySession(),
+    ],
+    localPort: ENV.port,
+    platform: process.env.NOTNATIVE_RUNTIME ?? 'web',
+    appVersion: ENV.version,
+  });
+  try { relayService.start(); }
+  catch (error) { console.warn(`relay service boot failed: ${String(error)}`); }
+  return relayService;
 }
 
 function awaitServerListening(server: HttpServer): Promise<void> {

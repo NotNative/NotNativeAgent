@@ -10,6 +10,7 @@ type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
   | { kind: 'ready'; servers: DiscoveredServer[] };
 type Readiness = { key: string; state: 'checking' | 'ready' | 'timed-out' | 'unavailable' };
 type GuestStatus = { kind: 'loading' | 'ready' | 'failed'; message: string };
+type ControlRequest = { requestId: string; action: string; parameters: Record<string, unknown> };
 
 function guestEventValue(event: Event, name: string): unknown {
   const payload = event as Event & Record<string, unknown> & { detail?: Record<string, unknown> };
@@ -116,6 +117,8 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const inspectionRevision = useRef(0);
+  const controlHandler = useRef<(request: ControlRequest) => Promise<void>>(async () => undefined);
+  const controlGeneration = useRef(0);
   const [reload, setReload] = useState(0);
   const [invalid, setInvalid] = useState(false);
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'loading', servers: [] });
@@ -277,6 +280,66 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       if (revision === inspectionRevision.current) setSnapshotBusy(false);
     }
   }
+
+  async function handleControlRequest(request: ControlRequest): Promise<void> {
+    const face = window.__NOTNATIVE_BROWSER_CONTROL__;
+    if (!face || !/^browser-[0-9a-f-]{36}$/u.test(request.requestId)) return;
+    const generation = controlGeneration.current;
+    const claim = await face.claim(request.requestId);
+    if (!claim.ok || claim.result?.granted !== true) return;
+    if (generation !== controlGeneration.current) return;
+    let result: { ok: true; data: unknown } | { ok: false; error: string };
+    try {
+      if (request.action === 'browser.open') {
+        const value = request.parameters?.url;
+        const target = typeof value === 'string' ? normalizePreviewUrl(value, window.location.origin) : null;
+        if (!target || !canEmbedDesktopPreview(target)) throw new Error('The requested preview URL is not allowed.');
+        open(target);
+        result = { ok: true, data: { url: target, opened: true, settled: false } };
+      } else if (request.action === 'browser.snapshot') {
+        const guest = guestRef.current as (HTMLElement & {
+          executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
+        }) | null;
+        if (!guest?.executeJavaScript) throw new Error('Open a page in the desktop Browser pane first.');
+        const revision = inspectionRevision.current;
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        let value: unknown;
+        try {
+          value = await Promise.race([guest.executeJavaScript(pageSnapshotScript(), false),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(() => reject(new Error('Page inspection timed out.')), 15_000);
+            })]);
+        } finally { if (timeout) clearTimeout(timeout); }
+        const snapshot = parsePageSnapshot(value);
+        if (!snapshot || guestRef.current !== guest || revision !== inspectionRevision.current
+          || snapshot.url !== historyRef.current[indexRef.current]) throw new Error('The page changed before the snapshot completed.');
+        result = { ok: true, data: snapshot };
+      } else throw new Error(`${request.action} is not available in this build.`);
+    } catch (error) {
+      result = { ok: false, error: error instanceof Error ? error.message.slice(0, 1000) : 'Browser action failed.' };
+    }
+    if (generation !== controlGeneration.current) return;
+    const posted = await face.result(request.requestId, result);
+    if (!posted.ok) console.warn('Browser control result could not be delivered:', posted.error);
+  }
+  controlHandler.current = handleControlRequest;
+
+  useEffect(() => {
+    const face = window.__NOTNATIVE_BROWSER_CONTROL__;
+    if (!desktop || !visible || !face) return;
+    controlGeneration.current += 1;
+    let closed = false;
+    const unsubscribe = face.onRequest((request) => { if (!closed) void controlHandler.current(request); });
+    void face.register().then((answer) => {
+      if (!answer.ok && !closed) console.warn('Desktop browser control registration failed:', answer.error);
+    });
+    return () => {
+      closed = true;
+      controlGeneration.current += 1;
+      unsubscribe();
+      void face.unregister();
+    };
+  }, [desktop, visible]);
 
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-browser">
     <header className="border-b border-white/10 p-2">

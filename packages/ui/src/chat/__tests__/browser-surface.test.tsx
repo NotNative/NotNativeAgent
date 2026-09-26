@@ -12,7 +12,8 @@ let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 const originalFetch = globalThis.fetch;
 afterEach(() => { act(() => root?.unmount()); container?.remove(); root = null; container = null;
-  globalThis.fetch = originalFetch; delete window.__NOTNATIVE_ELECTRON__; });
+  globalThis.fetch = originalFetch; delete window.__NOTNATIVE_ELECTRON__; delete window.__NOTNATIVE_BROWSER_CONTROL__;
+  vi.useRealTimers(); });
 
 function render(visible = true): HTMLElement {
   container = document.createElement('div');
@@ -46,6 +47,72 @@ async function flush(): Promise<void> {
 }
 
 describe('BrowserSurface', () => {
+  it('binds broker requests only in the desktop pane and claims before opening or snapshotting', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
+    const face = {
+      register: vi.fn().mockResolvedValue({ ok: true }), unregister: vi.fn().mockResolvedValue({ ok: true }),
+      claim: vi.fn().mockResolvedValue({ ok: true, result: { granted: true } }),
+      result: vi.fn().mockResolvedValue({ ok: true, result: { matched: true } }),
+      onRequest: vi.fn((handler: typeof onRequest) => { onRequest = handler; return () => undefined; }),
+    };
+    window.__NOTNATIVE_BROWSER_CONTROL__ = face;
+    readyFetch();
+    const view = render();
+    expect(face.register).toHaveBeenCalledOnce();
+    const openId = 'browser-00000000-0000-0000-0000-000000000001';
+    await act(async () => { onRequest({ requestId: openId, action: 'browser.open', parameters: { url: 'https://example.org/' } });
+      await Promise.resolve(); await Promise.resolve(); });
+    expect(face.claim).toHaveBeenCalledWith(openId);
+    expect(face.result).toHaveBeenCalledWith(openId, { ok: true,
+      data: { url: 'https://example.org/', opened: true, settled: false } });
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    expect(guest.getAttribute('src')).toBe('https://example.org/');
+    guest.executeJavaScript = vi.fn().mockResolvedValue({ url: 'https://example.org/', title: 'Example', text: 'Ready',
+      textTotalChars: 5, textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
+    const snapshotId = 'browser-00000000-0000-0000-0000-000000000002';
+    await act(async () => { onRequest({ requestId: snapshotId, action: 'browser.snapshot', parameters: {} });
+      await Promise.resolve(); await Promise.resolve(); });
+    expect(guest.executeJavaScript).toHaveBeenCalledOnce();
+    expect(face.result).toHaveBeenCalledWith(snapshotId, { ok: true, data: expect.objectContaining({ title: 'Example' }) });
+    setVisible(false);
+    expect(face.unregister).toHaveBeenCalledOnce();
+  });
+  it('bounds a hung guest inspection and drops a late result after the pane closes', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
+    const face = {
+      register: vi.fn().mockResolvedValue({ ok: true }), unregister: vi.fn().mockResolvedValue({ ok: true }),
+      claim: vi.fn().mockResolvedValue({ ok: true, result: { granted: true } }),
+      result: vi.fn().mockResolvedValue({ ok: true, result: { matched: true } }),
+      onRequest: vi.fn((handler: typeof onRequest) => { onRequest = handler; return () => undefined; }),
+    };
+    window.__NOTNATIVE_BROWSER_CONTROL__ = face;
+    readyFetch();
+    const view = render();
+    enter('https://example.org/');
+    await flush();
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    guest.executeJavaScript = vi.fn(() => new Promise(() => undefined));
+    vi.useFakeTimers();
+    const timeoutId = 'browser-00000000-0000-0000-0000-000000000003';
+    await act(async () => { onRequest({ requestId: timeoutId, action: 'browser.snapshot', parameters: {} });
+      await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(face.result).toHaveBeenCalledWith(timeoutId, { ok: false, error: 'Page inspection timed out.' });
+    vi.useRealTimers();
+
+    let resolveSnapshot!: (value: unknown) => void;
+    guest.executeJavaScript = vi.fn(() => new Promise((resolve) => { resolveSnapshot = resolve; }));
+    const lateId = 'browser-00000000-0000-0000-0000-000000000004';
+    await act(async () => { onRequest({ requestId: lateId, action: 'browser.snapshot', parameters: {} });
+      await Promise.resolve(); });
+    setVisible(false);
+    await act(async () => { resolveSnapshot({ url: 'https://example.org/', title: 'Late', text: '', textTotalChars: 0,
+      textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
+      await Promise.resolve(); });
+    expect(face.result).not.toHaveBeenCalledWith(lateId, expect.anything());
+  });
   it('uses an isolated guest only for desktop HTTPS or loopback HTTP', async () => {
     expect(canEmbedDesktopPreview('http://localhost:5173/')).toBe(true);
     expect(canEmbedDesktopPreview('https://example.org/')).toBe(true);

@@ -484,6 +484,8 @@ const invokeFace = createInvokeFace({
   origin: () => localOrigin(),
   appPathPrefix: () => appFileUrlPrefix(),
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
+  mainContents: () => mainWindow?.webContents,
+  browserControl: () => serverHandle?.browserControl,
 });
 
 // ── §1.3 boot flow ──────────────────────────────────────────────────────────

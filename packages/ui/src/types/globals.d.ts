@@ -22,6 +22,14 @@ declare global {
     __NOTNATIVE_RUNTIME_APIS__?: RuntimeAPIs;
     /** Electron shell identity (P12). */
     __NOTNATIVE_ELECTRON__?: { runtime: 'electron'; arch: string; trayEnabled: boolean };
+    /** Main-frame-only, identity-bound Electron broker face; absent on web and guest pages. */
+    __NOTNATIVE_BROWSER_CONTROL__?: {
+      register(): Promise<{ ok: boolean; error?: string }>;
+      unregister(): Promise<{ ok: boolean; error?: string }>;
+      claim(requestId: string): Promise<{ ok: boolean; result?: { granted: boolean }; error?: string }>;
+      result(requestId: string, result: { ok: true; data: unknown } | { ok: false; error: string }): Promise<{ ok: boolean; result?: { matched: boolean }; error?: string }>;
+      onRequest(handler: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void): () => void;
+    };
     __NOTNATIVE_PLATFORM__?: string;
     __NOTNATIVE_MACOS_MAJOR__?: number;
     __NOTNATIVE_HOME__?: string;

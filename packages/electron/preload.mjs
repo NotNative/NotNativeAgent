@@ -60,3 +60,20 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_INVOKE__', async (command, 
     return { ok: false, error: String(error?.message ?? error) };
   }
 });
+
+// The isolated guest has no preload. Only the top-level NND renderer receives
+// this narrow browser-control face; main derives ownership from its sender.
+contextBridge.exposeInMainWorld('__NOTNATIVE_BROWSER_CONTROL__', Object.freeze({
+  register: () => invoke('desktop_browser_register'),
+  unregister: () => invoke('desktop_browser_unregister'),
+  claim: (requestId) => invoke('desktop_browser_claim', { requestId }),
+  result: (requestId, result) => invoke('desktop_browser_result', { requestId, result }),
+  onRequest(handler) {
+    if (typeof handler !== 'function') return () => {};
+    const listener = (_event, request) => {
+      if (request && typeof request.requestId === 'string' && typeof request.action === 'string') handler(request);
+    };
+    ipcRenderer.on('nnd:browser-request', listener);
+    return () => ipcRenderer.removeListener('nnd:browser-request', listener);
+  },
+}));

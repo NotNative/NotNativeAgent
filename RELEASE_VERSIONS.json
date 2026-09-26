@@ -200,6 +200,10 @@
     {
       "version": "20260926-39",
       "content_sha256": "100648da424b12656686933a5a36186c1aeb3513ad2ea12a6a3ed387292e520e"
+    },
+    {
+      "version": "20260926-40",
+      "content_sha256": "d1d5ba6f145ce8b186b11b687fa8ed3438ce66739e7bd757e1f58704f7cccbec"
     }
   ]
 }
