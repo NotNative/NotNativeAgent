@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:938c275db9c9d3dd7f5ace0b4a27e3ede86422f0801b6f39e557480f10a4a9c1",
+  "source_digest": "sha256:9064fc513ad0e8e0188f569409fdba6c0269c3becb0bf029453d8972b7729079",
   "counts": {
-    "modules": 429,
+    "modules": 430,
     "component_edges": 13
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 129
+      "module_count": 130
     },
     {
       "id": "web-entry",
@@ -2945,6 +2945,7 @@
         "packages/web/src/server/lib/relay/identity.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/preview/dev-servers.ts",
+        "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/queue/queue-routes.ts",
         "packages/web/src/server/routes/auth.ts",
         "packages/web/src/server/routes/client-auth.ts",
@@ -3650,6 +3651,14 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/preview/probe-url.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts"
       ]
     },
     {

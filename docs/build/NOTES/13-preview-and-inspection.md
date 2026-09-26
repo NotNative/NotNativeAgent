@@ -19,3 +19,16 @@
 
 Verification: focused server and UI tests, both packages' typechecks, full
 suite, graph, source smoke, and release gates.
+
+## P11-2: loopback startup probe (2026-09-26)
+
+- Authenticated `POST /api/system/probe-url` accepts only HTTP(S) URLs whose
+  canonical host is `localhost`, `127.0.0.1`, or `[::1]`; credentials are
+  refused. A 1500 ms GET uses manual redirects and no credentials. Any HTTP
+  response (including a gateway 5xx) proves a listener answered, whereas a
+  connection failure reports `ok:false` without failing the route.
+- `0.0.0.0` is rejected: it is a wildcard bind address, not a loopback
+  destination. This follows doc 13's loopback-only invariant and intentionally
+  narrows doc 03's older host allowance.
+- The browser's sandboxed iframe does not yet consume this route for startup
+  wait; Chromium/webview lifecycle and tunnel work remain P11 follow-ups.

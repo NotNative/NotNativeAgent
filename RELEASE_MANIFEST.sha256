@@ -5,8 +5,8 @@
 368cf30b7dfbdccfcb5bf09a1de0d2d559b0296273c569d5877eaa51d54575ab *docs/architecture/dependency-registry.json
 659969cd5574bb4edd2e388f72674b51283b24621b820ea8c98532b8a137f4bf *docs/architecture/nnd-terminology.json
 7bb44f94e22e9189926f336474ba8d6b2c4d7b29d799b31da7360503328c9159 *docs/architecture/README.md
-74dcd06faf79471c50a81fd3a49339a7e843a92e4ae9a513abecf6b0bb3556f0 *docs/architecture/repository-graph.json
-3452944c7f00c1599d40e5e545715f72141e25fd324b69c0513efeab1419a3dc *docs/architecture/repository-graph.md
+2068e2acead66f707115e9235b19bad9b5d5abfaeb86830cbc744bf7774593c6 *docs/architecture/repository-graph.json
+78410964a4b2ef556c35b2a4e6630a138e06d74e67c584f8b53673a3869d7bd7 *docs/architecture/repository-graph.md
 e405bb1cf362a38c1ca46b7d6da474e9da565cf5edc873fc15305bd56ad723b0 *docs/build/DECISIONS.md
 1baf495f8d5174eb7ee8bd0438637d738012e638cd2a17f804908257bd99014f *docs/build/EVALUATION.md
 addd4ffa70f5047445950803c63235ec90eaf3f6c1614b39bb6e4591b8acef7f *docs/build/GUI-PLAN.md
@@ -24,7 +24,7 @@ aba1e11005037272954862f0a6472f51fabda0632186d4bdc05a3b1a8f509907 *docs/build/NOT
 3bbef171e7e12b5abbfc44fa084a00417b787d975ae88a2fd97d4c8e91e16b02 *docs/build/NOTES/08-remote-access-and-security.md
 d00b694cbc38ebbe8a47a7aecfc81042ff8571261e2bcca74361775910597b49 *docs/build/NOTES/09-electron-desktop-shell.md
 cf39c0e24a578ef208ebb0a937b01d83d05ec886dd81526c2888a3a623baadc7 *docs/build/NOTES/12-autonomy-and-orchestration.md
-ba00519233b63773b81d8a220581bd0abe78bb421bf9716676b24170954181e8 *docs/build/NOTES/13-preview-and-inspection.md
+ca326371a3d42f62624d77d1e03390739a6552559fea5ec76ff00b39741ff843 *docs/build/NOTES/13-preview-and-inspection.md
 e45d41550d2525357292e74d53a16caedb72a8ea583efbe3c62e5a0aa45b9f88 *docs/build/NOTES/14-theme-settings-system.md
 d4037fd45284dad5f6fd367476f87855c9625b8e68ee99318db7eb3fb3f6b970 *docs/build/NOTES/16-architecture-and-upstream-alignment.md
 ae9a4362827203cc6113fcc2a122d5a505372fc65c55e7949fd0a9e5195d6a2c *docs/build/NOTES/17-nnd-gui-north-star.md
@@ -33,7 +33,7 @@ f5f82e48610e230a866efac231db09de7e82231a9cb408c824c4bef7e9dde054 *docs/build/NOT
 777552b12440de2f77328fe2408f93b8e92c806950a73c5808554c1fd140e4af *docs/build/NOTES/p12b-review-band-notes.md
 41aa66c05bf5a154db57c5928532ff28de17a0172420c5395fca71c770577bad *docs/build/NOTES/p12b-session-product-notes.md
 d9b1a430d4dcf82ed3f30e77bbd1336c63738946b985ff66221c6eef02c69e5f *docs/build/PLAN.md
-ee74cd811b771b2d79d8d20725d88720bb68a79388f424fe056a4fcc0ea1711c *docs/build/PROGRESS.md
+9f0f417defbf8c6d0361f3f7aa20a50f15f66f5509ef43acbacb07bf16a3146f *docs/build/PROGRESS.md
 fdcdc1ac8a3a519a85d9ba9e8f8ebb3d350f22c3a1c8899a546ee7030a962dfb *docs/planning/00-INDEX.md
 247db0e602d1fa55c9a1f6b03f68d164f9d62377ed122c54845262abb1f02ce4 *docs/planning/01-architecture-and-app-shell.md
 95b41b6649e3fb113530679c7b205549dd9e32cfc6bdd91d401b041904dfd75e *docs/planning/02-opencode-harness-contract.md
@@ -50,7 +50,7 @@ af0ca86fb619203dde2e97bb15838bf2bac1dc31a61fd74bd17f7bc7566256e0 *docs/planning/
 0bad0612a9010dbcf1a4026ad8b2621f9d99b2edc762f3f4a1788c0f59a88eed *docs/planning/13-preview-and-inspection.md
 a4c51e68981b876ca247023291f9ddec1f2bb45ed95e9f875005e80d70b2551a *docs/planning/14-theme-settings-system.md
 2308ddc49de8365108b3589a1e4936ab6f64e26c893c183224730f77f56b4cde *docs/planning/15-knowledge-context-skills.md
-d018095cd9e6629b705bf525119be8962ee0ac88f0814a67c077fedd3173076a *package.json
+88154656657ba15185cc6deecc39966f78bfb4efa6d70c15af28379eed693ac0 *package.json
 ccf889e33708d72789a05b803725d95765ed793a28e6f1d971acd8c012057d18 *packages/ui/src/App.tsx
 e57c318e9e6cd92e0b022f7a7108dc0612abc3c951b015678536ccd5ea638697 *packages/ui/src/chat/__tests__/blocking-cards.test.tsx
 c38223e418a4e3687af0fdec87b93bd7f49409855eadfe7f5eff2a23e5af0a9d *packages/ui/src/chat/__tests__/browser-surface.test.tsx
@@ -453,6 +453,7 @@ e212684e355260006bff1f2389f5c181611e7d125b4348a92bf0eb79fe499d07 *packages/web/s
 7f2cd5a9035209561a27aad7edcb9f7475f6dc0c574cf12999c5f2b0dc9f8538 *packages/web/src/server/__tests__/helpers/tunnel-service-kit.ts
 5246e4c8118fced7ea708c003970e84a6fa6bd449c2dac6ecc65b329b27f67ea *packages/web/src/server/__tests__/managed-startup.test.ts
 538f3343ad121402da96d7f670eaccf3c8bfd7cac5a4b532c482fb13df31af98 *packages/web/src/server/__tests__/p11-dev-servers.test.ts
+b1adf2813c63b3d8bd6b2a931ef758291a5136066c2149b4e6620f1585205031 *packages/web/src/server/__tests__/p11-probe-url.test.ts
 1d57565a3e8954bbd62f5fa1f98a54659fb1adcba514946c823b24d69a13e77a *packages/web/src/server/__tests__/p12b-mock-tool-trigger.test.ts
 c0223ec48f400cf5549cfdf0e18f069947760af84b044de57aa1fe57b96cc4fb *packages/web/src/server/__tests__/p4-2-routes.test.ts
 d108a23c5d1809bbcf016ae39419fba873f0cbed4954ba845d343b9d4f20d0be *packages/web/src/server/__tests__/p4-3-routes.test.ts
@@ -515,7 +516,7 @@ a22da806991c5afaaa7c6005ab0f6e0a255cd7e2955abfd3727c4cd217d7e7b3 *packages/web/s
 06cef59d87e9979a1c19a61995fa2c559efaf4691e2e7bc1cc8f025be57c97d2 *packages/web/src/server/__tests__/p9-4f-goal-distill.test.ts
 29e9eb8d7f6cc2a41b8e0bf8de8261ace55c9aed286fbe5f07e9364139f220c8 *packages/web/src/server/__tests__/preview-frame-guard.test.ts
 ba8d748dc8d18e0af3537bdcb7a75a85b87d0927db004a37b6105cfe7c73158a *packages/web/src/server/__tests__/vite-proxy-origin.test.ts
-bfc0da6644a8466828f96a7abacc7277ce4c6f618448cb3c2c420d332b957739 *packages/web/src/server/app.ts
+5ca321e5bd3df219efb31c5d992e138622ae0b1f2b21597b9602fc56d1cabe73 *packages/web/src/server/app.ts
 a2765217d3347108fe801b0b6cfb90d7aa285658bd9cee80546ab7dcdb1124ab *packages/web/src/server/env.ts
 0f906bb4f43123fa20aa10a2c91a040fd2b705969e8bb7a7364d0798800e4368 *packages/web/src/server/goals/goal-audit.ts
 583fc43b7d53cf68bd5c2511cf181060256dcda012610933a0a615c326368866 *packages/web/src/server/goals/goal-constants.ts
@@ -595,6 +596,7 @@ c00b47db4164d911e8e38775d0de918859cb9045f8e210f6eb39b1b71baf517e *packages/web/s
 1d61ed6601ab2649d993ff05c683a74dbbbf7246b0fa62e01a12d352654690b4 *packages/web/src/server/lib/tunnels/tunnel-startup.ts
 132440c52b44b2c159a05a3169cf66625e6ff515f55bdc4abe145c038610c84e *packages/web/src/server/lib/tunnels/tunnel-validate.ts
 506c6b5fe5192676eb0a9f328ebe76845361da5f7d55ae13b5cb4974d2e30e04 *packages/web/src/server/preview/dev-servers.ts
+f4bfda62aa6e312acc6a74b9c865c755867bcb1b88ae53bf9f2b1e00800e735b *packages/web/src/server/preview/probe-url.ts
 c6c42a32eb73a30543f507006f94b0dec0e422877e5ee496c34bc6a036fbf2ef *packages/web/src/server/queue/queue-adapter-calls.ts
 172b96c44b8510ae2afaa3da4c7dceb505c0b650adc9245450c3395d4d7327e2 *packages/web/src/server/queue/queue-dispatch.ts
 6e1589feef97cd3b33d38fb44b05e58fa3e4d686e93c41c7e019881a7dd80fe7 *packages/web/src/server/queue/queue-expansion.ts
@@ -674,4 +676,4 @@ c8f49424a4e8f9de9d809b1f8cb49d2975ac7feeb606fce9907435c9ff23aa6e *scripts/smoke-
 7d1a741bbc75a1eb040f655b3fe3ad9f05f064039325720c308f71c100b44b9b *scripts/web-css-gate.mjs
 9dc68711721df6346e5d1e1ab33e131fa1acaf8fb4391e723d275f7571afb2cf *scripts/web-serve.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-7492be5b131b13000498e78db473eb271a8082ad00958fe59363d590d7db708e *VERSION
+c961856bac7f63e732367e6cc7fadc5ab9db77561a55f126a830d7651aabe959 *VERSION

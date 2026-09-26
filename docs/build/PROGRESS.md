@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P11-2 loopback preview readiness probe.** The auth-gated
+  `POST /api/system/probe-url` route now accepts only credential-free loopback
+  HTTP(S) URLs, bounds the GET to 1500 ms, does not follow redirects, and
+  reports a gateway 5xx as an answering server rather than a transport
+  failure. Adversarial review found no concrete defect. The iframe has not
+  yet adopted startup waiting; that remains with P11's browser lifecycle.
+
 - 2026-09-26 · **P11-1 live dev-server discovery.** The browser empty state
   offers actual Windows TCP listeners from a bounded `netstat` scan through an
   authenticated NND route, with 3 s success cache and honest 503 failures.

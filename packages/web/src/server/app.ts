@@ -28,6 +28,7 @@ import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
+import { registerProbeUrlRoutes } from './preview/probe-url.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
 
 /**
@@ -245,6 +246,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerTerminalRoutes(app, terminal);
   registerDevServerRoutes(app, harnessPort === undefined ? undefined
     : createDevServerScanner({ ownPorts: () => [ENV.port, harnessPort] }));
+  registerProbeUrlRoutes(app);
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);
   registerGitReadRoutes(app);
