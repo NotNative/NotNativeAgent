@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P12 installed-path hardening.** Source installation now skips
+  the top-level pnpm cache, bounds copy retries, and refuses source-overlapping
+  install/uninstall targets. The current script-installed NND shell launched,
+  but its managed NNA child could not boot because installed NNA predates the
+  `nnd serve` command; installed NNA update awaits user approval.
+
 - 2026-09-26 · **P10-7 additive project-context todos.** The rail exposes
   project-owned todos independently from the legacy repo-local file and NNA
   session tasks. Writes adopt committed context; malformed stored lists block

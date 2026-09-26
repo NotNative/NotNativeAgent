@@ -81,7 +81,20 @@ function Test-InstallRunning([string]$ExePath) {
     return $procs.Count -gt 0
 }
 
+# Normalize before either operation. Raw string equality misses `..`, case,
+# and relative spellings; uninstall in particular must never recurse over the
+# source checkout or an ancestor of it.
+$sourcePath = [IO.Path]::GetFullPath($Source).TrimEnd('\', '/')
+$targetPath = [IO.Path]::GetFullPath(
+    $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InstallDir)
+).TrimEnd('\', '/')
+
 if ($Uninstall) {
+    if ($sourcePath.Equals($targetPath, [StringComparison]::OrdinalIgnoreCase) -or
+        $sourcePath.StartsWith("$targetPath\", [StringComparison]::OrdinalIgnoreCase) -or
+        $targetPath.StartsWith("$sourcePath\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "-InstallDir cannot overlap the source repo (got $InstallDir)"
+    }
     Write-Heading "Uninstalling NotNativeDesktop from $InstallDir"
     foreach ($name in @("NotNativeDesktop")) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
@@ -92,9 +105,7 @@ if ($Uninstall) {
         Write-Host "  quit it from the tray menu, then re-run -Uninstall. Shortcuts were removed either way." -ForegroundColor Yellow
         exit 2
     }
-    if ($InstallDir -ne $Source) {
-        if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force; Write-Host "  removed install tree" }
-    }
+    if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force; Write-Host "  removed install tree" }
     if ($PurgeData) {
         $partial = $false
         foreach ($data in @((Join-Path $env:USERPROFILE ".notnative-desktop"), (Join-Path $env:APPDATA "NotNativeDesktop"), (Join-Path $env:APPDATA "NotNativeDesktop Dev"))) {
@@ -112,7 +123,12 @@ if ($Uninstall) {
     Write-Heading "Uninstall complete"; exit 0
 }
 
-if ($Source -eq $InstallDir) { throw "-InstallDir must differ from the source repo (got $InstallDir)" }
+# Robocopy /E follows a destination placed inside its source tree. Refuse
+# before copying or installing dependencies (a sibling prefix remains valid).
+if ($targetPath.Equals($sourcePath, [StringComparison]::OrdinalIgnoreCase) -or
+    $targetPath.StartsWith("$sourcePath\", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "-InstallDir must be outside the source repo (got $InstallDir)"
+}
 if (Test-InstallRunning $ElectronExe) {
     throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
 }
@@ -129,8 +145,8 @@ foreach ($check in @(@("node", "node version"), @("pnpm", "pnpm version"))) {
 
 Write-Heading "Copying source"
 $copyExit = Invoke-Native "robocopy" @(
-    $Source, $InstallDir, "/E", "/NFL", "/NDL", "/NJH", "/NP",
-    "/XD", "node_modules", ".git", ".vite", "coverage", "dist", "dist-server",
+    $Source, $InstallDir, "/E", "/NFL", "/NDL", "/NJH", "/NP", "/R:2", "/W:1",
+    "/XD", "node_modules", ".pnpm-store", ".git", ".vite", "coverage", "dist", "dist-server",
     "dist-electron", "resources", "__pycache__",
     "/XF", "*.log", ".env.local", "packaging-*.log", "install-mode.txt"
 ) "robocopy-errors.log" "robocopy-out.log"

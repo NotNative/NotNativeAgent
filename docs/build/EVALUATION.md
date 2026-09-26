@@ -415,3 +415,22 @@ the expected web-dist digest. This was an artifacts-only check: it did not
 install, launch, or visually verify the current GUI build. An isolated mock
 web preview loaded, but the in-app browser target failed during rail
 interaction and could not be recovered; no NND render defect was confirmed.
+
+## 2026-09-26 · Script-install upgrade and installed harness check
+
+The first upgrade attempt stalled while `robocopy /E` traversed the repo's
+top-level `.pnpm-store`; the installer now excludes that cache and caps copy
+retries. Its path guard also rejects installing inside the source checkout and
+uninstalling any overlapping source path before touching shortcuts or files.
+An escalated retry completed the existing script-installed NND build and
+verified its staged native terminal runtime; the installed `VERSION` was
+`20260926-27` at that check. The partially copied package cache in the install
+tree was intentionally left untouched.
+
+The updated desktop shell launched, but its managed NNA child exited before
+readiness. Directly invoking the installed NNA CLI returned
+`interactive_terminal_required`: that installation is `20260924.0.5` and has
+no `nna nnd serve` entry point, while source NNA is `20260926.0.1`. Source
+integration smoke remains green; this is an installed-version mismatch, not
+proof of a GUI render failure. Updating the installed NNA is pending explicit
+user approval because its installer may stop NNA-managed services.
