@@ -119,6 +119,8 @@ export async function updateProjectPlan(projectId: string, planId: string, rawVa
   }
   const raw = rawValue;
   const paths = projectContextPaths(projectId);
+  // First access may migrate legacy links under the same config lock.
+  await readProjectContext(projectId);
   return withConfigLock(paths.config, async () => {
     const plan = planFor(await readProjectContext(projectId), planId);
     await checkedPlanDirectory(paths.plans);

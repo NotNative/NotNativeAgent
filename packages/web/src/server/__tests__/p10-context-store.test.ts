@@ -60,14 +60,14 @@ describe('P10 separate project context store', () => {
     expect(first).toEqual(second);
     expect(first.notes).toMatchObject([{ body: 'Keep this note', source: 'manual' }]);
     writeFileSync(join(folder, 'old-plan.json'), JSON.stringify({ projectPlanFiles: ['C:\\legacy\\plan.md'] }));
-    await expect(readProjectContext('old-plan')).rejects.toThrow('legacy plan files require migration');
-    await expect(replaceProjectTodos('old-plan', [])).rejects.toThrow('legacy plan files require migration');
+    await expect(readProjectContext('old-plan')).rejects.toThrow('malformed legacy plan link');
+    await expect(replaceProjectTodos('old-plan', [])).rejects.toThrow('malformed legacy plan link');
     expect(readFileSync(join(folder, 'old-plan.json'), 'utf8')).toContain('projectPlanFiles');
     writeFileSync(join(folder, 'mixed-plan.json'), JSON.stringify({
       plans: [{ id: 'new-plan' }], projectPlanFiles: ['C:\\legacy\\old-plan.md'],
     }));
-    await expect(readProjectContext('mixed-plan')).rejects.toThrow('legacy plan files require migration');
-    await expect(replaceProjectTodos('mixed-plan', [])).rejects.toThrow('legacy plan files require migration');
+    await expect(readProjectContext('mixed-plan')).rejects.toThrow('malformed legacy plan link');
+    await expect(replaceProjectTodos('mixed-plan', [])).rejects.toThrow('malformed legacy plan link');
     expect(readFileSync(join(folder, 'mixed-plan.json'), 'utf8')).toContain('projectPlanFiles');
   });
 

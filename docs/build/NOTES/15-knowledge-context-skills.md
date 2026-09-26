@@ -76,7 +76,22 @@ titles, and linked plan paths fail closed. The general project config file
 is not modified. A local actor swapping filesystem entries concurrently can
 still race path-based checks; the data directory should remain owner-private.
 
-This is personal-plan CRUD only. Legacy `projectPlanFiles` copy-in, team shared
-plans, share/unshare, session attachments, and a canonical plan UI remain
-unimplemented. Nonempty legacy plan links continue to fail closed so a new
-context file cannot hide them.
+This is personal-plan CRUD only. Team shared plans, share/unshare, session
+attachments, and a canonical plan UI remain unimplemented.
+
+## P10-5: bounded legacy plan-link migration (2026-09-26)
+
+When `context.json` is absent, legacy `projectPlanFiles` records shaped as
+`{ id, path, createdAt? }` are migrated under the shared config lock. Existing
+markdown under the NND projects data root is copied into the current plan
+directory with a deterministic base filename, then the context file is
+atomically committed. Only after that commit are legacy context keys removed
+from project config. Missing markdown links are dropped; malformed or
+out-of-store links fail visibly without a context commit. Repeated reads
+converge on the new file; context mutations use the same unlocked-in-lock
+read path to avoid deadlock.
+
+This is narrower than OpenChamber's arbitrary absolute-path copy-in: NND
+does not let a client-controlled legacy config link become a read capability
+for unrelated local files. Recovery of links outside NND's projects data root
+requires an explicit future import flow.

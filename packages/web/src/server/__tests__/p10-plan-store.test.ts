@@ -126,4 +126,23 @@ describe('P10 personal plan storage', () => {
     expect((JSON.parse(readFileSync(join(project, 'context.json'), 'utf8')) as { plans: unknown[] }).plans).toHaveLength(2);
     expect(readFileSync(join(folder, 'old.md'), 'utf8')).toBe('# Old\n\nLegacy body');
   });
+
+  it('updates a plan when its first access must migrate an absolute legacy link', async () => {
+    const api = app();
+    const root = join(dataDir, 'projects');
+    const source = join(root, 'first-update-source.md');
+    writeFileSync(source, '# Before');
+    writeFileSync(join(root, 'first-update.json'), JSON.stringify({
+      projectPlanFiles: [{ id: 'old', path: source }], projectNotes: 'Keep',
+    }));
+    const response = await api.request('/api/project-context/first-update/plans/old',
+      json({ raw: '# After' }, 'PUT'));
+    expect(response.status).toBe(200);
+    expect((await api.request('/api/project-context/first-update/plans/old')).status).toBe(200);
+    const context = JSON.parse(readFileSync(join(root, 'first-update', 'context.json'), 'utf8')) as {
+      plans: { file: string }[]; notes: { body: string }[];
+    };
+    expect(readFileSync(join(root, 'first-update', 'plans', context.plans[0]!.file), 'utf8')).toBe('# After');
+    expect(context.notes[0]!.body).toBe('Keep');
+  });
 });

@@ -5,6 +5,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { ENV } from '../env.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
+import { migrateLegacyPlanLinks } from './legacy-plan-migration.ts';
 
 export interface ProjectContext {
   version: 2;
@@ -74,11 +75,11 @@ function legacyNotes(config: Record<string, unknown>): unknown[] {
   return [{ id, body, createdAt: 0, updatedAt: 0, source: 'manual' }];
 }
 
-function fromLegacy(value: unknown): ProjectContext {
+function fromLegacy(value: unknown, migratingPlans = false): ProjectContext {
   if (value === undefined) return { version: 2, notes: [], todos: [], plans: [] };
   const config = asObject(value);
   const planFiles = asList(config.projectPlanFiles);
-  if (planFiles.length > 0) throw new Error('legacy plan files require migration');
+  if (planFiles.length > 0 && !migratingPlans) throw new Error('legacy plan files require migration');
   const todos = asList(config.todos);
   const projectTodos = asList(config.projectTodos);
   if (todos.length > 0 && projectTodos.length > 0) throw new Error('conflicting legacy todos');
@@ -95,12 +96,28 @@ function parseContext(value: unknown): ProjectContext {
   return { ...doc, version: 2, notes: asList(doc.notes), todos: asList(doc.todos), plans: asList(doc.plans) };
 }
 
-/** Missing is empty; malformed files fail visibly so clients keep their prior state. */
+async function readProjectContextUnlocked(projectId: string): Promise<ProjectContext> {
+  const target = projectContextPaths(projectId);
+  const stored = await readOptional(target.context);
+  if (stored !== undefined) return parseContext(stored);
+  const legacy = await readOptional(target.config);
+  if (legacy === undefined) return fromLegacy(undefined);
+  const config = asObject(legacy);
+  const links = asList(config.projectPlanFiles);
+  if (links.length === 0) return fromLegacy(config);
+  return migrateLegacyPlanLinks(target, config, fromLegacy(config, true), (next) => commitContext(target, next));
+}
+
+/** Existing context reads stay lock-free; legacy plan migration serializes. */
 export async function readProjectContext(projectId: string): Promise<ProjectContext> {
   const target = projectContextPaths(projectId);
   const stored = await readOptional(target.context);
   if (stored !== undefined) return parseContext(stored);
-  return fromLegacy(await readOptional(target.config));
+  const config = await readOptional(target.config);
+  if (config === undefined) return fromLegacy(undefined);
+  const links = asList(asObject(config).projectPlanFiles);
+  if (links.length === 0) return fromLegacy(config);
+  return withConfigLock(target.config, () => readProjectContextUnlocked(projectId));
 }
 
 async function commitContext(target: ReturnType<typeof projectContextPaths>, next: ProjectContext): Promise<void> {
@@ -121,7 +138,7 @@ export async function mutateProjectContext<T>(projectId: string, change: (curren
   Promise<{ next: ProjectContext; result: T }> | { next: ProjectContext; result: T }): Promise<T> {
   const target = projectContextPaths(projectId);
   return withConfigLock(target.config, async () => {
-    const current = await readProjectContext(projectId);
+    const current = await readProjectContextUnlocked(projectId);
     const { next, result } = await change(current);
     await commitContext(target, next);
     return result;
