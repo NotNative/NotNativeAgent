@@ -16,6 +16,7 @@ export interface ProjectContext {
   notes: ProjectNote[];
   todos: unknown[];
   plans: unknown[];
+  todosRevision?: string;
 }
 export interface ProjectTodo { id: string; text: string; completed: boolean; createdAt: number }
 export interface ProjectPlan {
@@ -30,8 +31,12 @@ function endpoint(projectId: string, suffix = ''): string {
 
 async function request(path: string, init?: RequestInit): Promise<unknown> {
   const response = await runtimeFetch(path, init);
-  if (!response.ok) throw new Error(`Project context request failed (${response.status})`);
+  if (!response.ok) throw new ProjectContextRequestError(response.status);
   return response.json() as Promise<unknown>;
+}
+
+export class ProjectContextRequestError extends Error {
+  constructor(readonly status: number) { super(`Project context request failed (${status})`); }
 }
 
 function parseContext(value: unknown): ProjectContext {
@@ -76,9 +81,10 @@ export async function deleteProjectNote(projectId: string, noteId: string): Prom
   return parseContext(await request(notePath(projectId, noteId), { method: 'DELETE' }));
 }
 
-export async function replaceProjectTodos(projectId: string, todos: ProjectTodo[]): Promise<ProjectContext> {
+export async function replaceProjectTodos(projectId: string, todos: ProjectTodo[], expectedRevision: string): Promise<ProjectContext> {
+  if (!/^[a-f0-9]{64}$/u.test(expectedRevision)) throw new Error('Invalid todo revision');
   return parseContext(await request(endpoint(projectId, '/todos'), { method: 'PUT',
-    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos }) }));
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos, expectedRevision }) }));
 }
 
 function planPath(projectId: string, planId: string): string {

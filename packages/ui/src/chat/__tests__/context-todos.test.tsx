@@ -4,15 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-vi.mock('../../lib/project-context-api.ts', () => ({ getProjectContext: vi.fn(), replaceProjectTodos: vi.fn() }));
-import { getProjectContext, replaceProjectTodos } from '../../lib/project-context-api.ts';
+vi.mock('../../lib/project-context-api.ts', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../lib/project-context-api.ts')>(),
+  getProjectContext: vi.fn(), replaceProjectTodos: vi.fn(),
+}));
+import { getProjectContext, ProjectContextRequestError, replaceProjectTodos } from '../../lib/project-context-api.ts';
 import { ContextTodos } from '../context-todos.tsx';
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
-const empty = { version: 2 as const, notes: [], todos: [], plans: [] };
+const revision = 'a'.repeat(64);
+const empty = { version: 2 as const, notes: [], todos: [], plans: [], todosRevision: revision };
 beforeEach(() => {
   vi.mocked(getProjectContext).mockReset().mockResolvedValue(empty);
   vi.mocked(replaceProjectTodos).mockReset();
@@ -41,11 +45,11 @@ describe('project context todos panel', () => {
     const item = { id: 'todo-1', text: 'Ship MVP', completed: false, createdAt: 1 };
     vi.mocked(replaceProjectTodos).mockResolvedValueOnce({ ...empty, todos: [item] });
     await click('Add todo');
-    expect(replaceProjectTodos).toHaveBeenCalledWith('project1', [expect.objectContaining({ id: item.id, text: item.text })]);
+    expect(replaceProjectTodos).toHaveBeenCalledWith('project1', [expect.objectContaining({ id: item.id, text: item.text })], revision);
     expect(view.textContent).toContain('Ship MVP');
     vi.mocked(replaceProjectTodos).mockResolvedValueOnce({ ...empty, todos: [{ ...item, completed: true }] });
     await act(async () => { (view.querySelector('[aria-label="Complete Ship MVP"]') as HTMLInputElement).click(); await Promise.resolve(); });
-    expect(replaceProjectTodos).toHaveBeenLastCalledWith('project1', [{ ...item, completed: true }]);
+    expect(replaceProjectTodos).toHaveBeenLastCalledWith('project1', [{ ...item, completed: true }], revision);
     vi.mocked(replaceProjectTodos).mockResolvedValueOnce(empty);
     await click('Delete');
     expect(view.textContent).not.toContain('Ship MVP');
@@ -57,6 +61,22 @@ describe('project context todos panel', () => {
     await click('Add todo');
     expect((view.querySelector('[aria-label="New project todo"]') as HTMLInputElement).value).toBe('Keep draft');
     expect(view.textContent).toContain('last saved list remain');
+  });
+
+  it('blocks further edits after a stale-write conflict until refresh adopts current truth', async () => {
+    const view = await render(); typeTodo('Keep draft');
+    vi.mocked(replaceProjectTodos).mockRejectedValueOnce(new ProjectContextRequestError(409));
+    await click('Add todo');
+    expect(view.textContent).toContain('changed in another window');
+    expect((view.querySelector('[aria-label="New project todo"]') as HTMLInputElement).disabled).toBe(true);
+    expect((view.querySelector('[aria-label="New project todo"]') as HTMLInputElement).value).toBe('Keep draft');
+    vi.mocked(getProjectContext).mockResolvedValueOnce({ ...empty, todosRevision: 'b'.repeat(64) });
+    await click('Refresh');
+    expect((view.querySelector('[aria-label="New project todo"]') as HTMLInputElement).disabled).toBe(false);
+    vi.mocked(replaceProjectTodos).mockResolvedValueOnce({ ...empty, todosRevision: 'c'.repeat(64),
+      todos: [{ id: 'todo-1', text: 'Keep draft', completed: false, createdAt: 1 }] });
+    await click('Add todo');
+    expect(replaceProjectTodos).toHaveBeenLastCalledWith('project1', [expect.objectContaining({ text: 'Keep draft' })], 'b'.repeat(64));
   });
 
   it('refuses to overwrite malformed stored entries', async () => {

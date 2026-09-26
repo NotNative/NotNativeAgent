@@ -751,8 +751,8 @@ failure the route tests mount on a bare app to catch).
 
 | Method | Route | Request | Response | Notes |
 |---|---|---|---|---|
-| GET | `/api/project-context/:projectId` | — | `{ version?, notes, todos, plans, sharedPlansDir }` | missing file is **200 empty**; unparseable → 500 |
-| PUT | `/api/project-context/:projectId/todos` | `{ todos: Todo[] }` | committed context | replaces the whole list |
+| GET | `/api/project-context/:projectId` | — | `{ version?, notes, todos, plans, todosRevision, sharedPlansDir }` | missing file is **200 empty**; unparseable → 500; todo revision is derived, not stored |
+| PUT | `/api/project-context/:projectId/todos` | `{ todos: Todo[], expectedRevision }` | committed context + `todosRevision` | replaces the whole list only if the revision still matches; 409 on conflict |
 | POST | `/api/project-context/:projectId/notes` | `{ body, source?, origin? }` | 201 `{ note, context }` | blank body rejected |
 | PATCH | `/api/project-context/:projectId/notes/:noteId` | `{ body?, pinned? }` (only named fields) | `{ note }` | 404 unknown |
 | DELETE | `/api/project-context/:projectId/notes/:noteId` | — | committed context | 404 unknown |
@@ -1706,7 +1706,9 @@ switch/remount before the next harness poll lands (rendering per 05).
 
 - `PUT /api/project-context/:projectId/todos` replaces the **whole list**
   (no patch route — a toggle must not persist half-typed notes alongside it,
-  and an agent-authored note must not clobber a concurrent todo change).
+  and an agent-authored note must not clobber a concurrent todo change). The
+  revision compare occurs under the project write lock; stale clients must
+  refresh before another whole-list write.
 - Client: optimistic save (`saveTodos`) with rollback; completed items sink
   for display only; add/toggle/delete/clear all funnel through the container
   (`ProjectNotesTodoPanel`) because it already holds the display-sorted list.

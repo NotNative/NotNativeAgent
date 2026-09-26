@@ -26,7 +26,12 @@ export interface ProjectNote {
 }
 
 export class ContextInputError extends Error {
-  constructor(message: string, readonly status: 400 | 404) { super(message); }
+  constructor(message: string, readonly status: 400 | 404 | 409) { super(message); }
+}
+
+/** Fingerprint only the todo list: unrelated note/plan writes do not block a todo edit. */
+export function projectTodosRevision(todos: unknown[]): string {
+  return createHash('sha256').update(JSON.stringify(todos)).digest('hex');
 }
 
 const PROJECT_ID = /^[A-Za-z0-9_-]+$/u;
@@ -147,6 +152,17 @@ export async function mutateProjectContext<T>(projectId: string, change: (curren
 
 export async function replaceProjectTodos(projectId: string, todos: unknown[]): Promise<ProjectContext> {
   return mutateProjectContext(projectId, (current) => {
+    const next = { ...current, todos };
+    return { next, result: next };
+  });
+}
+
+/** The public whole-list writer must compare under the same lock as the commit. */
+export async function replaceProjectTodosChecked(projectId: string, todos: unknown[], expectedRevision: string): Promise<ProjectContext> {
+  return mutateProjectContext(projectId, (current) => {
+    if (projectTodosRevision(current.todos) !== expectedRevision) {
+      throw new ContextInputError('project todos changed; refresh before saving', 409);
+    }
     const next = { ...current, todos };
     return { next, result: next };
   });

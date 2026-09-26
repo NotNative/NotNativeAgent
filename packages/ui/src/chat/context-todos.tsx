@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** NND-owned project todos, separate from NNA session tasks and legacy repo todos. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { getProjectContext, replaceProjectTodos, type ProjectContext, type ProjectTodo } from '../lib/project-context-api.ts';
+import { getProjectContext, ProjectContextRequestError, replaceProjectTodos, type ProjectContext, type ProjectTodo } from '../lib/project-context-api.ts';
 
 function usableTodo(value: unknown): value is ProjectTodo {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -19,6 +19,7 @@ export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [conflicted, setConflicted] = useState(false);
   const [revision, setRevision] = useState(0);
   const sequence = useRef(0);
   const live = useRef(true);
@@ -30,7 +31,7 @@ export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange 
     const token = ++sequence.current;
     setLoading(true);
     void getProjectContext(projectId).then((value) => {
-      if (active && token === sequence.current) { setContext(value); setError(''); setLoading(false); }
+      if (active && token === sequence.current) { setContext(value); setError(''); setConflicted(false); setLoading(false); }
     }).catch(() => { if (active && token === sequence.current) {
       setError('Project todos could not be loaded. Existing items were left untouched.'); setLoading(false);
     } });
@@ -39,15 +40,21 @@ export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange 
 
   const malformed = !!context && (context.todos.length > 500 || context.todos.some((item) => !usableTodo(item))
     || new Set(context.todos.map((item) => (item as ProjectTodo).id)).size !== context.todos.length);
+  const missingRevision = !!context && (typeof context.todosRevision !== 'string' || !/^[a-f0-9]{64}$/u.test(context.todosRevision));
   const todos = context && !malformed ? context.todos as ProjectTodo[] : [];
   async function commit(next: ProjectTodo[], clearDraft = false): Promise<void> {
-    if (busy || loading || !context || malformed) return;
+    if (busy || loading || !context || malformed || missingRevision || conflicted) return;
     ++sequence.current;
     setBusy(true); setError('');
     try {
-      const committed = await replaceProjectTodos(projectId, next);
+      const committed = await replaceProjectTodos(projectId, next, context.todosRevision!);
       if (live.current) { ++sequence.current; setContext(committed); if (clearDraft) setDraft(''); }
-    } catch { if (live.current) setError('Todo change could not be saved. Your draft and last saved list remain.'); }
+    } catch (failure) { if (live.current) {
+      if (failure instanceof ProjectContextRequestError && failure.status === 409) {
+        setConflicted(true);
+        setError('Project todos changed in another window. Refresh before editing; your draft and last saved list remain.');
+      } else setError('Todo change could not be saved. Your draft and last saved list remain.');
+    } }
     finally { if (live.current) setBusy(false); }
   }
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-todos">
@@ -56,8 +63,9 @@ export function ContextTodos({ projectId, visible, retainedDraft, onDraftChange 
     </header>
     {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
     {malformed ? <p role="status" className="text-xs text-amber-300">Some stored todos are malformed. Editing is disabled to avoid losing them.</p> : null}
+    {missingRevision ? <p role="status" className="text-xs text-amber-300">Todo revision is unavailable. Refresh or update the server before editing.</p> : null}
     {!context && loading ? <p className="text-xs text-neutral-500">Loading project todos…</p> : null}
-    {context ? <ContextTodoEditor todos={todos} draft={draft} setDraft={setDraft} busy={busy || loading || malformed}
+    {context ? <ContextTodoEditor todos={todos} draft={draft} setDraft={setDraft} busy={busy || loading || malformed || missingRevision || conflicted}
       commit={commit} /> : null}
   </section>;
 }

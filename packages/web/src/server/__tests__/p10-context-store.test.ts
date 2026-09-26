@@ -19,9 +19,13 @@ describe('P10 separate project context store', () => {
   it('rejects invalid todo arrays at the route without changing stored context', async () => {
     const { registerProjectsRoutes } = await import('../routes/projects.ts');
     const app = new Hono(); registerProjectsRoutes(app);
-    const request = (todos: unknown) => app.request('/api/project-context/todo-validation/todos', {
-      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos }),
-    });
+    const request = async (todos: unknown) => {
+      const current = await (await app.request('/api/project-context/todo-validation')).json() as { todosRevision: string };
+      return app.request('/api/project-context/todo-validation/todos', {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ todos, expectedRevision: current.todosRevision }),
+      });
+    };
     expect((await request([{ id: 'one', text: 'Good' }])).status).toBe(200);
     expect((await request([{ id: 'one', text: 'Overwritten?' }, { id: 'one', text: 'Duplicate' }])).status).toBe(400);
     expect((await request([{ id: 'two', text: 'x'.repeat(121) }])).status).toBe(400);
@@ -47,7 +51,24 @@ describe('P10 separate project context store', () => {
     registerProjectsRoutes(app);
     expect((await app.request('/api/project-context/broken')).status).toBe(500);
     expect((await app.request('/api/project-context/broken/todos', { method: 'PUT',
-      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos: [] }) })).status).toBe(500);
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos: [], expectedRevision: '0'.repeat(64) }) })).status).toBe(500);
+  });
+
+  it('rejects a stale whole-list write without discarding another client’s todo change', async () => {
+    const { registerProjectsRoutes } = await import('../routes/projects.ts');
+    const app = new Hono(); registerProjectsRoutes(app);
+    const initial = await (await app.request('/api/project-context/todo-conflict')).json() as { todosRevision: string };
+    const put = (todos: unknown[], expectedRevision?: string) => app.request('/api/project-context/todo-conflict/todos', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos, expectedRevision }),
+    });
+    const first = [{ id: 'first', text: 'First', completed: false, createdAt: 1 }];
+    expect((await put(first, initial.todosRevision)).status).toBe(200);
+    expect((await put([{ id: 'second', text: 'Second' }], initial.todosRevision)).status).toBe(409);
+    expect((await put([], undefined)).status).toBe(400);
+    expect((await readProjectContext('todo-conflict')).todos).toEqual(first);
+    const fresh = await (await app.request('/api/project-context/todo-conflict')).json() as { todosRevision: string };
+    expect(fresh.todosRevision).not.toBe(initial.todosRevision);
+    expect((await put([], fresh.todosRevision)).status).toBe(200);
   });
 
   it('seeds the isolated file from legacy arrays without overwriting general config', async () => {

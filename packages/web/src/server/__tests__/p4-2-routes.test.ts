@@ -143,10 +143,11 @@ describe('projects config + context (§5.15)', () => {
   });
 
   it('context returns notes/todos/plans after todos PUT', async () => {
+    const initial = await (await call('/api/project-context/beta2')).json() as { todosRevision: string };
     await call('/api/project-context/beta2/todos', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ todos: [{ id: 't1', text: 'ship', completed: false }] }),
+      body: JSON.stringify({ todos: [{ id: 't1', text: 'ship', completed: false }], expectedRevision: initial.todosRevision }),
     });
     const context = await (await call('/api/project-context/beta2')).json() as { todos: { text: string }[]; notes: unknown[] };
     expect(context.todos[0]!.text).toBe('ship');

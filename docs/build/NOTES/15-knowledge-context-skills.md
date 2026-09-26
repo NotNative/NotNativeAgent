@@ -124,5 +124,17 @@ flags/timestamps, lists over 500 items, and bodies over 256 KiB before changing
 the context file. Adversarial review fenced stale refreshes after writes and
 aligned malformed-data detection with writer constraints.
 
-Unifying the older repo-local file, cross-client whole-list conflict handling,
-and session todo-to-project capture remain future work.
+Unifying the older repo-local file and session todo-to-project capture remain
+future work.
+
+## P10-8: project-todo revision guard (2026-09-26)
+
+The public context GET and todo PUT responses carry a SHA-256 revision of the
+current todo list. Whole-list PUT now requires `expectedRevision`; the server
+compares it under the project config/context write lock before committing.
+A stale client gets 409 with no write. This is deliberately todo-specific:
+note and plan mutations do not force a harmless todo editor conflict. The
+NND rail keeps its last saved list and unsent draft on conflict, disables
+editing until a successful refresh, then uses the fresh revision. Internal
+store migration helpers still have an unconditional writer; the public API
+does not. Legacy repo-local todos and session todo capture remain separate.

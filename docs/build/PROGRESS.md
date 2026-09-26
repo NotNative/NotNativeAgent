@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P10-8 project-todo conflict guard.** Context GET now includes
+  a revision of the todo list. The public whole-list PUT requires that revision
+  and compares it under the project write lock; a stale client gets 409 without
+  erasing another window's changes. The rail retains the draft and last saved
+  list, blocks another write, and asks the operator to refresh. Unrelated
+  note/plan writes do not invalidate a todo revision. Full UI/web tests and
+  adversarial review passed. Legacy repo-local todos and canonical ownership
+  consolidation remain open.
+
 - 2026-09-26 · **P12 installed-path hardening.** Source installation now skips
   the top-level pnpm cache, bounds copy retries, and refuses source-overlapping
   install/uninstall targets. The current script-installed NND shell launched,

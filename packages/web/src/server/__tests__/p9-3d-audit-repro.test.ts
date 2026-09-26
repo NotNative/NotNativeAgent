@@ -233,10 +233,12 @@ describe('fix C: the settings-family config PUT serializes with the task store (
     const PID = 'cfglock';
     seedConfig(PID, { notes: 'old', scheduledTasks: [taskDoc()] });
     const api = call(plainApp);
+    const initial = await (await api('/api/project-context/cfglock')).json() as { todosRevision: string };
     const lock = await acquireConfigLock(scheduledConfigPath(PID));
     const outcome = { settled: false, status: 0, fault: '' };
     const pending = api('/api/project-context/cfglock/todos', {
-      method: 'PUT', body: JSON.stringify({ todos: [{ id: 't1', text: 'Task', completed: false, createdAt: 1 }] }),
+      method: 'PUT', body: JSON.stringify({ todos: [{ id: 't1', text: 'Task', completed: false, createdAt: 1 }],
+        expectedRevision: initial.todosRevision }),
     }).then((kept) => {
       outcome.settled = true;
       outcome.status = kept.status;

@@ -39,8 +39,12 @@ describe('project context HTTP boundary', () => {
     expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/p1/notes/n1', { method: 'DELETE' });
     const todo = { id: 't1', text: 'Task', completed: false, createdAt: 1 };
     answer({ ...empty, todos: [todo] });
-    await expect(replaceProjectTodos('p1', [todo])).resolves.toMatchObject({ todos: [todo] });
+    const revision = 'a'.repeat(64);
+    await expect(replaceProjectTodos('p1', [todo], revision)).resolves.toMatchObject({ todos: [todo] });
     expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/p1/todos', expect.objectContaining({ method: 'PUT' }));
+    expect(JSON.parse((vi.mocked(runtimeFetch).mock.lastCall?.[1] as RequestInit).body as string)).toMatchObject({
+      expectedRevision: revision, todos: [todo],
+    });
   });
 
   it('uses saved-plan routes without accepting malformed authoritative responses', async () => {

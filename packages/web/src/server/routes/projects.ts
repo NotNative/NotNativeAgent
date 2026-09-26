@@ -18,7 +18,7 @@ import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 import { ContextInputError, createProjectNote, deleteProjectNote, readProjectContext,
-  replaceProjectTodos, updateProjectNote } from '../project-context/context-store.ts';
+  projectTodosRevision, replaceProjectTodosChecked, updateProjectNote } from '../project-context/context-store.ts';
 import { validateProjectTodos } from '../project-context/todo-schema.ts';
 import { createProjectPlan, deleteProjectPlan, readProjectPlan, updateProjectPlan } from '../project-context/plan-store.ts';
 
@@ -185,23 +185,32 @@ async function putProjectConfig(c: Context): Promise<Response> {
 async function getProjectContext(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
   if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
-  try { return c.json(await readProjectContext(projectID)); }
+  try {
+    const context = await readProjectContext(projectID);
+    return c.json({ ...context, todosRevision: projectTodosRevision(context.todos) });
+  }
   catch { return c.json({ error: 'project context unavailable' }, 500); }
 }
 async function putProjectTodos(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
   if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
   let todos: ReturnType<typeof validateProjectTodos>;
+  let expectedRevision: string;
   try {
-    const body = await readJsonBodyBounded(c.req.raw, 256 * 1024) as { todos?: unknown };
+    const body = await readJsonBodyBounded(c.req.raw, 256 * 1024) as { todos?: unknown; expectedRevision?: unknown };
     todos = validateProjectTodos(body?.todos);
+    if (typeof body?.expectedRevision !== 'string' || !/^[a-f0-9]{64}$/u.test(body.expectedRevision)) {
+      return c.json({ error: 'expected todo revision is required' }, 400);
+    }
+    expectedRevision = body.expectedRevision;
   } catch {
     return c.json({ error: 'invalid project todos' }, 400);
   }
   try {
-    return c.json({ saved: true, ...(await replaceProjectTodos(projectID, todos)) });
-  } catch {
-    return c.json({ error: 'project context write failed' }, 500);
+    const context = await replaceProjectTodosChecked(projectID, todos, expectedRevision);
+    return c.json({ saved: true, ...context, todosRevision: projectTodosRevision(context.todos) });
+  } catch (error) {
+    return contextError(c, error);
   }
 }
 
