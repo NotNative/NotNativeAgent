@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e7cf4dba9ae30c35d8b8256eb02dba779d4c4a3b45b621b78257ba2c1f872c9f",
+  "source_digest": "sha256:76f8d14a6cf1d629477ae2dd4af8a2e1de3339442d6655ca21e41746c9ad42d4",
   "counts": {
-    "modules": 416,
+    "modules": 418,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 101
+      "module_count": 103
     },
     {
       "id": "web-server",
@@ -99,8 +99,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 127,
-      "module_count": 54
+      "import_count": 134,
+      "module_count": 56
     },
     {
       "from": "sync-engine",
@@ -890,6 +890,17 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/scheduled/schedule-form.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/format/time.ts",
+        "packages/ui/src/lib/i18n/runtime.ts",
+        "packages/ui/src/lib/i18n/store.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/scheduled/scheduled-shell-wiring.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -907,10 +918,22 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/scheduled/scheduled-task-schedule-editor.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/scheduled/schedule-form.ts",
+        "packages/ui/src/lib/i18n/runtime.ts",
+        "packages/ui/src/lib/i18n/store.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/scheduled/scheduled-tasks-dialog.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/scheduled/schedule-form.ts",
         "packages/ui/src/components/scheduled/scheduled-task-list.ts",
         "packages/ui/src/lib/format/time.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts",

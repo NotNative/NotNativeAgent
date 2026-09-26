@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-26 - schedule editor machinery at P9-4d-i
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Pure machinery | scheduler-editor suite 21/21: pill labels per preference (24h `09:00`; 12h `9:00 AM`-family with the §J.1 numeric hour convention; auto = locale default: en 12h, de-DE 24h; out-of-range renders verbatim); weekday chip order walks the locale first day (`[1..6,0]` for Monday, `[0..6]` for Sunday tags) with JS-0=Sunday labels; weekInfo probed on every shipped BCP47ByLocale tag (all carry data - the Monday fallback is unreachable); membership toggles hold the last required entry and sort fresh copies (stored unsorted drafts re-sort across the toggle); cron shape 5-6 fields with the 200-char cap; zone choices duplicate-free with local + UTC first |
+| Editor behavior | kind tabs reseed the new kind in the SAME zone; pill/weekday/chip toggles push sorted onChange; once date/time round-trip; cron input flags a failing shape client-side while the preview STILL fires for it (server = validity authority); zone select renders the unlisted stored zone as a first option that collapses on switch-away and reappears on switch-back |
+| Preview generations | sequence-guarded: two rapid zone switches → two preview calls in order, only the 2nd paints; a stale deferred resolve drops; post-unmount resolves are silent (console.error spy clean, React 19 no-op); ok:false → "preview unavailable" note with slots cleared, a later generation restores both; preview slots render the viewer stamp AND the schedule-zone wall time |
+| Adversarial review | 1 defect class reproduced red and fixed (once-date seeded the UTC-calendar tomorrow - Pacific/Kiritimati showed zone-today, Pacific/Honolulu the day-after-tomorrow; fixed to the zone-local wall date via en-CA over now+24h, unusable zone folds the seed only); probed-and-clean: pill mid-day boundary labels, toggleMember copy-vs-mutate, in-place draft mutation absence (drafts replaced whole), ZoneSelect value-independence, 6-field cron shape dead-ends rendering as the registered empty preview |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Execution half (P9-4d-ii) | name/model/agent selectors, prompt textarea with `@file` / slash / `#snippet` autocompletes, "Run as goal" + goal token budget, "Auto-accept permissions", enabled toggle - plus the editor dialog shell hosting both halves and the tasks-dialog Edit button |
+| Save flow | upsert of a NEW task (PUT) and of an EDITED task (state-carrying PUT via the E-09-24 ScheduledTaskInput rule) lands with P9-4d-ii |
+
 ## 2026-09-26 - schedule preview route at P9-4c-i
 
 **Verified working**

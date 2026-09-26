@@ -16,13 +16,12 @@ import {
   upsertScheduledTask, type ScheduledTaskView, type TaskSchedule, type TaskState,
 } from '../../lib/scheduled-tasks-api.ts';
 import { useScheduledTaskList } from './scheduled-task-list.ts';
+import { scheduleLabel } from './schedule-form.ts';
 import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 import { formatDateTimeForPreference } from '../../lib/format/time.ts';
 
 export const SCHEDULED_OPEN_EVENT = 'nnd:scheduled-tasks-open';
 export const FILES_OPEN_EVENT = 'nnd:files-open';
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type TaskListBusy = (id: string, work: () => Promise<unknown>) => Promise<void>;
 
@@ -37,18 +36,6 @@ function withinDir(file: string, directory: string): boolean {
 
 function relativeTo(file: string, directory: string): string {
   return normPath(file).slice(normPath(directory).replace(/\/+$/u, '').length + 1);
-}
-
-/** The schedule summary the list rows show (`daily/weekly/once/cron (+tz)`). */
-export function scheduleLabel(schedule: TaskSchedule): string {
-  const zone = ` · ${schedule.timezone}`;
-  if (schedule.kind === 'daily') return `daily ${schedule.times.join(', ')}${zone}`;
-  if (schedule.kind === 'once') return `once ${schedule.date} ${schedule.time}${zone}`;
-  if (schedule.kind === 'weekly') {
-    const days = schedule.weekdays.map((day) => WEEKDAYS[day] ?? '?').join(',');
-    return `weekly ${days} at ${schedule.times.join(', ')}${zone}`;
-  }
-  return `cron ${schedule.cron}${zone}`;
 }
 
 function badgeClass(status: TaskState['lastStatus']): string {

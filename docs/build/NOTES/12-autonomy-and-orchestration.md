@@ -466,6 +466,25 @@ waits — the server row ships first so a closed tab can never strand a queue.
   count clamp, shape 400s) + 4 client pins. NOT in: the editor dialog
   itself, kinds/time literals/weekday selectors (P9-4d), the debounced
   preview wiring in a React surface.
+- **P9-4d-i (the schedule editor half — delivered this slice)** —
+  `components/scheduled/schedule-form.ts` 157: pure editor machinery —
+  the pill catalogue (30-minute steps), 12h/24h-preference pill labels,
+  locale-first-day weekday chips (Intl weekInfo, Monday fallback),
+  zone choices (`Intl.supportedValuesOf` + local + UTC), draft seeding,
+  cron shape heuristics + example chips, membership toggles that never
+  empty a schedule, the schedule summary labels (moved here from the
+  dialog), and the preview line (viewer stamp + the wall time INSIDE the
+  schedule zone). `scheduled-task-schedule-editor.tsx` 203: the React
+  half — kind tabs (click reseeds the new kind's draft in the SAME
+  zone), the zone select (an unlisted stored zone renders first as an
+  extra option), pill grids, weekly chips, once date/time inputs, the
+  cron input with live client shape hint + example chips, and the
+  debounced next-4-runs preview block (sequence-guarded: only the latest
+  generation paints; ok:false → "preview unavailable"). Tests:
+  `scheduled-task-schedule-editor.test.tsx` 21/21. NOT in: the name/
+  model/agent/prompt/goal execution half, the Edit button that opens
+  this component from the tasks dialog, `@file`/slash/`#snippet`
+  autocompletes (P9-4d-ii).
 
 ## B. Adaptation deltas (registered)
 
@@ -1070,3 +1089,33 @@ waits — the server row ships first so a closed tab can never strand a queue.
   behind the gates, acceptable for a debounced editor call; the same
   cost class exists for the pre-existing armer with 256 KiB stored
   bodies — carried here as a flagged follow-up, not fixed in-slice.
+
+- **E-09-27 (the schedule editor machinery, P9-4d-i)**: registered so
+  P9-4d-ii and future audits do not re-litigate: (a) the once-draft
+  seeds the ZONE-LOCAL wall tomorrow (the `en-CA` YYYY-MM-DD formatter
+  over now + 24h rendered IN the schedule zone; audit-reproduced that
+  the UTC-calendar seed showed zone-today at +14 offsets and zone-day-
+  after-tomorrow at -10); an unusable zone folds the SEED to the
+  UTC-based date while the zone string itself stays in the draft (its
+  preview folds to empty per E-09-26). (b) pill labels follow the
+  §J.1 preference with `auto` = locale default (en → 12h, de-DE → 24h
+  numeric-hour, byte-identical to formatTimeForPreference's hour
+  convention); out-of-range or non-matching inputs render verbatim —
+  the label never lies about the value. (c) weekday chips index
+  JS 0=Sunday labels and walk the locale's first day; the Node 24.13
+  probe found weekInfo on every shipped BCP47ByLocale tag (even the raw
+  weak `en`), so the Monday fallback is unreachable for shipped locales
+  — do not add a maximize() step. (d) membership toggles keep >= 1 time
+  and >= 1 weekday (the schedule kinds must stay valid; the toggle that
+  would empty still calls onChange with the unchanged list) and sort
+  fresh copies (lexical = chronological for zero-padded HH:MM). (e)
+  preview generations: a sequence ref drops stale resolves of a switched
+  draft AND post-unmount resolves silently (React 19 no-op verified
+  with a console.error spy — no dev warning fires); ok:false clears
+  slots to the "preview unavailable" note and a later generation
+  restores both. (f) the zone select prepends the unlisted stored zone
+  as a first option that collapses when a listed zone is chosen and
+  reappears on switching back; choices themselves are value-independent
+  and duplicate-free. (g) the cron-invalid hint is a CLIENT shape
+  heuristic only — the preview request still fires for failing drafts
+  and the server round-trip stays the validity authority (E-09-26 (b)).

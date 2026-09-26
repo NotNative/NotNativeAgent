@@ -22,6 +22,27 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **P9-4d-i the schedule editor half.** The editor's
+  schedule machinery: `schedule-form.ts` pure helpers (30-minute pill
+  catalogue, preference-rendered pill labels, locale-first-day weekday
+  chips over Intl weekInfo, zone choices, kind-seeded drafts, cron shape
+  heuristics + example chips, never-emptying membership toggles, the
+  schedule summary moved from the dialog, preview lines pairing the
+  viewer stamp with the wall time inside the schedule zone) and
+  `scheduled-task-schedule-editor.tsx` (kind tabs reseeding in the same
+  zone, the zone select with the unlisted-zone option, pills/chips,
+  once date/time inputs, the cron input with client-shape hint against
+  example chips, and the sequence-guarded debounced next-runs preview
+  riding the E-09-26 route). The audit reproduced the once-date seed
+  showing zone-today at +14 offsets (fixed: zone-local wall tomorrow
+  via the en-CA formatter) and pinned the browsers' weekInfo reality on
+  all shipped locales, preview generation drops (stale + post-unmount),
+  the unlisted-zone option collapse, and the preview-still-fires rule
+  for client-failing cron shapes. Editor suite 21/21, dialog 20/20, UI
+  97 files / 891 tests, typecheck, gates (418 files), graph (418
+  modules). E-09-27 registers the machinery. Next: P9-4d-ii the
+  execution half + dialog integration + Edit button + autocompletes.
+
 - 2026-09-26 · **P9-4c-i the schedule preview machinery.** The editor
   surface needs "what will this schedule arm" before the task exists:
   `POST /api/openchamber/scheduled-tasks/preview` iterates the armer's
