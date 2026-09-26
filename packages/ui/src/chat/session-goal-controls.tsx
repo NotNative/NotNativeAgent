@@ -91,8 +91,8 @@ export function SessionGoalControls({ sessionID, store, externalRevision = 0 }: 
         {goal.statusReason ? <p>Reason: {goal.statusReason}</p> : null}
         {goal.note ? <p>Progress: {goal.note}</p> : null}
         {goal.evaluationModelID ? <p>Evaluator: {goal.evaluationProviderID}/{goal.evaluationModelID}</p> : null}
-        <p>Auto-continuation is not enabled in this build yet.</p>
-      </div> : <p className="text-[11px] text-neutral-500">Goal tracking is available; auto-continuation is not enabled in this build yet.</p>}
+        <p>Auto-continuations used: {goal.turnsUsed} of 20.{goal.status === 'active' ? ' Completion needs an independent audit.' : ''}</p>
+      </div> : <p className="text-[11px] text-neutral-500">Goal tracking is available; an armed goal self-continues through the engine loop (up to 20 continuations).</p>}
       <div className="flex flex-wrap gap-2">
         {goal?.status !== 'complete' ? <button type="button" disabled={pending || !objective.trim()} onClick={() => { void run(() => saveSessionGoal(sessionID, objective, budgetEnabled ? budget : null), true); }} className="rounded border border-sky-500/40 px-2 py-1 text-sky-200 disabled:opacity-40">{pending ? 'Saving…' : 'Save goal'}</button> : null}
         {goal && goal.status !== 'complete' ? <button type="button" disabled={pending} onClick={() => { void run(() => changeGoalStatus(sessionID, 'complete'), true); }} className="rounded border border-white/15 px-2 py-1 disabled:opacity-40">Mark complete</button> : null}

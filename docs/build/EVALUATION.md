@@ -3,6 +3,26 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-25 - goal continuation dispatch at P9-2d (NNA source harness)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Web server/contract suite | vitest 768/768 - includes `p9-2d-goal-dispatch.test.ts` 17/17 (verbatim builder matrix incl. budget block and XML escaping, parts-only body shape, 9 dispatch-ladder cases: coherence drops, cap settle, tail/open-reply refusals, CAS refusal, 409-busy slot burn, transport faults, resume-label clearing; 5 exchange flows: continue dispatch ordering, skip-audit resume kick, settled/unavailable candidates never send, cap-before-send, read-fault catch) and widened p9-2c fixtures |
+| UI suite | vitest 825/825 (93 files) - the goal strip/editor now renders the live auto-continuation contract; the stale "not enabled in this build" copy is gone |
+| Typecheck | tsc over all tsconfigs (ui, web ui/server/cross) - 0 errors |
+| Quality gates + graph | POWER10 caps, controlled-language registry, 396-module repository graph - green |
+| Send-safety invariants (unit-proven) | every dispatch re-reads and CAS-guards against the persisted candidate before the send; the send is the exchange's last action; a refused/failed/409 send never writes a streak nor sends twice per tick; the cap re-check at dispatch cannot be bypassed by a between-window user reversion |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live full-loop dispatch E2E | the cross-repo smoke still proves the audit wire only; an end-to-end "turn → audit → send → turn" probe needs the smoke fixture to answer a first `continue` then `complete` audit and is queued as its own slice |
+| Real small-model auditor quality | unchanged: the smoke's auditor answer is fixture-provided; genuine provider verdict quality is untested on this host |
+| Mid-goal route change behavior | the send omits model/agent (E-09-19), so NNA's configured route governs; a live route switch mid-goal is reasoned, not executed, on this host |
+
 ## 2026-09-25 - goal evaluator exchange at seal 20260925-73 (NNA source harness)
 
 **Verified working**

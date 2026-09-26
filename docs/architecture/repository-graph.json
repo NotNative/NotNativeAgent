@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:55714b261e9ecbef423c90f252405dc9b92be2989a2ef9cef809c83dea73d8ef",
+  "source_digest": "sha256:4cab1a2b4c9be499ec08b586060b2873dbf92a9a69279d7aeebf2ecf2a9076a7",
   "counts": {
-    "modules": 395,
+    "modules": 396,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 108
+      "module_count": 109
     },
     {
       "id": "web-entry",
@@ -2880,7 +2880,20 @@
         "packages/web/src/server/goals/goal-metadata.ts",
         "packages/web/src/server/goals/goal-payload.ts",
         "packages/web/src/server/goals/goal-state.ts",
+        "packages/web/src/server/goals/nna-goal-dispatch.ts",
         "packages/web/src/server/goals/nna-goal-safety-tick.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/goals/nna-goal-dispatch.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-audit.ts",
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/goal-state.ts",
+        "packages/web/src/server/goals/nna-goal-auditor.ts"
       ]
     },
     {
@@ -2912,6 +2925,7 @@
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/goals/goal-payload.ts",
         "packages/web/src/server/goals/nna-goal-auditor.ts",
+        "packages/web/src/server/goals/nna-goal-dispatch.ts",
         "packages/web/src/server/goals/nna-goal-safety-tick.ts",
         "packages/web/src/server/goals/objective-store.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts"

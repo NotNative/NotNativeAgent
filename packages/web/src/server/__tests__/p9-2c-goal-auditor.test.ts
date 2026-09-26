@@ -2,7 +2,8 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { interpretGoalAuditCall, applyGoalAuditUnavailable, applyGoalAuditVerdict,
   accountingDrift, readGoalRevision, runGoalAuditExchange, sameGoalPayload,
-  type GoalAuditBody, type GoalAuditPorts, type GoalAuditWire } from '../goals/nna-goal-auditor.ts';
+  type GoalAuditBody, type GoalAuditWire } from '../goals/nna-goal-auditor.ts';
+import type { GoalDispatchPorts, GoalPromptBody } from '../goals/nna-goal-dispatch.ts';
 import { buildGoalPayload, type GoalPayload } from '../goals/goal-payload.ts';
 import { NnaGoalSafetyRuntime } from '../goals/nna-goal-runtime.ts';
 import { createNnaGoalAuditPorts } from '../goals/nna-goal-safety-ports.ts';
@@ -47,9 +48,10 @@ interface AuditState {
 
 function makePorts(state: AuditState) {
   const auditBodies: GoalAuditBody[] = [];
+  const sentBodies: GoalPromptBody[] = [];
   const writes: Array<{ goal: GoalPayload; expected_id: string | null; expected_revision: number }> = [];
   const order: string[] = [];
-  const ports: GoalAuditPorts = {
+  const ports: GoalDispatchPorts = {
     listSessions: async () => [],
     readSession: async () => {
       order.push('read');
@@ -70,6 +72,11 @@ function makePorts(state: AuditState) {
       return { status: 200, body: { text: `\`\`\`json\n${verdict}\n\`\`\``,
         providerID: 'primary', modelID: 'test' } } as GoalAuditWire;
     },
+    sendPrompt: async (_sessionId: string, _directory: string, body: GoalPromptBody) => {
+      order.push('send');
+      sentBodies.push(body);
+      return { status: 204, body: null } as GoalAuditWire;
+    },
     writeGoal: async (_sessionId: string, _directory: string, body: {
       goal: GoalPayload; expected_id: string | null; expected_revision: number }) => {
       if (state.failWrites) return false;
@@ -82,7 +89,7 @@ function makePorts(state: AuditState) {
       return true;
     },
   };
-  return { ports, auditBodies, writes, order };
+  return { ports, auditBodies, writes, order, sentBodies };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -215,12 +222,13 @@ describe('runGoalAuditExchange', () => {
     expect(state.goal?.tokensCommitted).toBe(5);
   });
 
-  it('persists a continue verdict without bumping turnsUsed', async () => {
+  it('persists a continue verdict without bumping turnsUsed or dispatching past a stale tail', async () => {
     const state: AuditState = { goal: goal(), revision: 1, failWrites: false, raceMode: false,
       unavailableMode: false, throwAudit: false };
     const fake = makePorts(state);
     const result = await runGoalAuditExchange(fake.ports, ready(applied(), false), SESSION_ID, DIRECTORY);
-    expect(result).toMatchObject({ kind: 'processed', verdict: 'continue' });
+    expect(result).toEqual({ kind: 'dropped', reason: 'goal conversation changed' });
+    expect(fake.sentBodies).toHaveLength(0);
     const written = fake.writes.at(-1) as { goal: GoalPayload };
     expect(written.goal.turnsUsed).toBe(0);
     expect(written.goal.lastAccountedMessageID).toBe('r2');
@@ -330,8 +338,9 @@ describe('runGoalAuditExchange', () => {
     const fake = makePorts(state);
     const result = await runGoalAuditExchange(fake.ports, ready(applied(), true), SESSION_ID, DIRECTORY);
     expect(fake.auditBodies).toHaveLength(0);
-    expect(fake.order).toEqual(['read', 'write']);
-    expect(result.kind).toBe('processed');
+    expect(fake.sentBodies).toHaveLength(0);
+    expect(fake.order).toEqual(['read', 'write', 'read']);
+    expect(result).toEqual({ kind: 'dropped', reason: 'goal conversation changed' });
     expect(state.revision).toBe(2);
   });
 
@@ -340,9 +349,9 @@ describe('runGoalAuditExchange', () => {
       unavailableMode: false, throwAudit: false };
     const fake = makePorts(state);
     const result = await runGoalAuditExchange(fake.ports, ready(applied(), true), SESSION_ID, DIRECTORY);
-    expect(fake.order).toEqual(['read']);
+    expect(fake.order).toEqual(['read', 'read']);
     expect(fake.writes).toHaveLength(0);
-    expect(result.kind).toBe('processed');
+    expect(result).toEqual({ kind: 'dropped', reason: 'goal conversation changed' });
   });
 
   it('degrades an audit route throw and a read fault to bounded outcomes', async () => {

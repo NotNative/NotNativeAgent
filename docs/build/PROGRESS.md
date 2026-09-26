@@ -22,6 +22,23 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 goal continuation dispatch (send arming).** The goal loop
+  now sends prompts: after a `continue` verdict or a skip-audit kick
+  (aborted-turn re-kick, Resume), the exchange dispatches the verbatim
+  continuation prompt as its last action — fresh re-read, loop-field
+  coherence vs the persisted candidate, the 20-cap check (beyond: settle
+  `blocked`/continuation limit, no send), a conversation-tail re-check
+  against the tick's `tailId` (a newer message or an open reply refuses),
+  one slot-consumption CAS (`turnsUsed+1`, `statusReason` cleared so a later
+  cancel pauses a resumed goal), then a parts-only `prompt_async` submit.
+  The body carries no model/agent/variant because NNA refuses per-prompt
+  route overrides — its session-configured route governs (E-09-19). Refused
+  or failed sends write nothing (no streak, no retry): the loop stays quiet
+  and the next exchange re-decides from evidence. The UI auto-continuation
+  label now states the live contract. Before: `continue` verdicts persisted
+  accounting without ever continuing. Verification: 768 web tests, 825 UI
+  tests, typecheck, quality gates, 396-module graph.
+
 - 2026-09-25 · **P9 goal evaluator exchange (audit, no dispatch).** The
   safety runner's `ready` candidates are now consumed by an independent
   auditor exchange through NNA's authenticated, receipt-affinity-bound

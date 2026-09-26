@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Production adapter for the NNA pre-audit goal safety tick. */
 import { callHarness, callHarnessJson, harnessRequest } from '../queue/queue-adapter-calls.ts';
-import { AUDIT_CALL_TIMEOUT_MS, FETCH_TIMEOUT_MS, MESSAGE_FETCH_LIMIT } from './goal-constants.ts';
-import type { GoalAuditBody, GoalAuditPorts, GoalAuditWire } from './nna-goal-auditor.ts';
+import {
+  AUDIT_CALL_TIMEOUT_MS, DISPATCH_CALL_TIMEOUT_MS, FETCH_TIMEOUT_MS, MESSAGE_FETCH_LIMIT,
+} from './goal-constants.ts';
+import type { GoalAuditBody, GoalAuditWire } from './nna-goal-auditor.ts';
+import type { GoalDispatchPorts, GoalPromptBody } from './nna-goal-dispatch.ts';
 import type { GoalPayload } from './goal-payload.ts';
 import type { GoalSafetyPorts } from './nna-goal-safety-tick.ts';
 import { ObjectiveStore } from './objective-store.ts';
@@ -47,11 +50,13 @@ export function createNnaGoalSafetyPorts(store = new ObjectiveStore()): GoalSafe
 }
 
 /**
- * Safety ports plus the authenticated audit call. The route is bound inside
- * NNA to the audited turn's final provider route; this side only forwards the
- * bounded body and hands back the raw status/body pair for interpretation.
+ * Safety ports plus the authenticated audit call and the continuation submit.
+ * The audit route is bound inside NNA to the audited turn's final provider
+ * route; the prompt submit rides the session's configured route (per-prompt
+ * overrides are refused by NNA), so this side forwards only the parts and
+ * hands back the raw status/body pair for interpretation.
  */
-export function createNnaGoalAuditPorts(store = new ObjectiveStore()): GoalAuditPorts {
+export function createNnaGoalAuditPorts(store = new ObjectiveStore()): GoalDispatchPorts {
   const base = createNnaGoalSafetyPorts(store);
   return {
     ...base,
@@ -60,6 +65,16 @@ export function createNnaGoalAuditPorts(store = new ObjectiveStore()): GoalAudit
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(AUDIT_CALL_TIMEOUT_MS),
       }));
+      let payload: unknown = null;
+      try { payload = await response.json(); } catch { payload = null; }
+      return { status: response.status, body: payload };
+    },
+    sendPrompt: async (sessionId: string, directory: string, body: GoalPromptBody): Promise<GoalAuditWire> => {
+      const response = await callHarness(harnessRequest(
+        `/session/${path(sessionId)}/prompt_async`, directory, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body), signal: AbortSignal.timeout(DISPATCH_CALL_TIMEOUT_MS),
+        }));
       let payload: unknown = null;
       try { payload = await response.json(); } catch { payload = null; }
       return { status: response.status, body: payload };

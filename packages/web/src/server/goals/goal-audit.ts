@@ -15,7 +15,7 @@ note: at most 20 words. State the current progress substance directly — what i
 The note MUST be written in the same language as the objective sample given in the user message. Ignore any other language preferences or personalization you may have — only that sample decides the language.
 Use double quotes for JSON strings, no trailing commas.`;
 
-function escapeXml(text: string): string {
+export function escapeXml(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 

@@ -3,15 +3,18 @@
  * Independent goal auditor exchange (doc 12 B.5.5) over NNA's authenticated
  * goal-audit route. NNA binds the call to the final provider route of the
  * audited turn and answers with raw text only; parsing and goal-state
- * mutation stay on this side. The exchange deliberately sends no prompts:
- * verdict candidates persist through the id- and revision-guarded goal CAS,
- * and the loop waits for future turns (or the later dispatch slice).
+ * mutation stay on this side. A `continue` verdict or a skip-audit candidate
+ * dispatches the verbatim continuation prompt (B.6.2, NNA-native send) as
+ * the exchange's last action; dispatch failures stay quiet and bounded, the
+ * next exchange re-decides from evidence. Everything persists through the
+ * id- and revision-guarded goal CAS.
  */
 import { AUDIT_FAIL_LIMIT, BLOCKED_STREAK_LIMIT, GOAL_REASONS } from './goal-constants.ts';
 import { parseGoalAuditOutput, type AuditVerdict } from './goal-audit.ts';
 import { buildGoalWrite } from './goal-metadata.ts';
 import { GOAL_NAMESPACE, cloneGoal, getSessionGoal, type GoalPayload } from './goal-payload.ts';
 import { settleGoal } from './goal-state.ts';
+import { dispatchGoalContinuation, type GoalDispatchResult, type GoalDispatchPorts } from './nna-goal-dispatch.ts';
 import type { GoalSafetyPorts, GoalSafetyTickResult } from './nna-goal-safety-tick.ts';
 
 const AUDIT_ID_LIMIT = 200;
@@ -42,6 +45,7 @@ export interface GoalAuditPorts extends GoalSafetyPorts {
 }
 
 export type GoalAuditExchangeResult =
+  | GoalDispatchResult
   | { kind: 'wait'; reason: string }
   | { kind: 'processed'; goal: GoalPayload; verdict: AuditVerdict | null }
   | { kind: 'settled'; goal: GoalPayload; outcome: 'complete' | 'blocked' }
@@ -160,10 +164,13 @@ export function readGoalRevision(sessionRecord: unknown): number | null {
 /**
  * Runs after the safety tick produced a `ready` candidate. Every write is a
  * CAS against a fresh re-read, so a user Pause, objective edit, or replacement
- * inside the audit window can only refuse the write, never undo it.
+ * inside the audit window can only refuse the write, never undo it. A
+ * continuation verdict or a skip-audit candidate dispatches the verbatim
+ * continuation prompt as the exchange's LAST action (doc 12 B.6.2); settled
+ * candidates and refused/failed sends never re-audit or re-send here.
  */
 export async function runGoalAuditExchange(
-  ports: GoalAuditPorts, ready: ReadyTick, sessionId: string, directory: string,
+  ports: GoalDispatchPorts, ready: ReadyTick, sessionId: string, directory: string,
 ): Promise<GoalAuditExchangeResult> {
   try {
     if (ready.skipAudit) return await persistAccountingCandidate(ports, ready, sessionId, directory);
@@ -174,7 +181,7 @@ export async function runGoalAuditExchange(
 }
 
 async function persistAccountingCandidate(
-  ports: GoalAuditPorts, ready: ReadyTick, sessionId: string, directory: string,
+  ports: GoalDispatchPorts, ready: ReadyTick, sessionId: string, directory: string,
 ): Promise<GoalAuditExchangeResult> {
   const session = await ports.readSession(sessionId, directory);
   const current = getSessionGoal(session);
@@ -184,11 +191,12 @@ async function persistAccountingCandidate(
   if (accountingDrift(current, ready.goal)) return { kind: 'dropped', reason: 'goal changed since the tick' };
   const written = await writeCandidate(ports, sessionId, directory, session, ready.goal);
   if (written === 'refused') return { kind: 'dropped', reason: 'goal CAS write was refused' };
-  return { kind: 'processed', goal: ready.goal, verdict: null };
+  return await dispatchGoalContinuation(ports, sessionId, directory, ready.goal,
+    'skipAudit', ready.objective, ready.tailId);
 }
 
 async function auditExchange(
-  ports: GoalAuditPorts, ready: ReadyTick, sessionId: string, directory: string,
+  ports: GoalDispatchPorts, ready: ReadyTick, sessionId: string, directory: string,
 ): Promise<GoalAuditExchangeResult> {
   const first = await ports.readSession(sessionId, directory);
   const basis = getSessionGoal(first);
@@ -235,9 +243,12 @@ async function auditExchange(
   if (await writeCandidate(ports, sessionId, directory, second, application.goal) === 'refused') {
     return { kind: 'dropped', reason: 'goal CAS write was refused' };
   }
-  return application.settled
-    ? { kind: 'settled', goal: application.goal, outcome: application.settled }
-    : { kind: 'processed', goal: application.goal, verdict: call.verdict };
+  if (application.settled) {
+    return { kind: 'settled', goal: application.goal, outcome: application.settled };
+  }
+  if (call.verdict !== 'continue') return { kind: 'processed', goal: application.goal, verdict: call.verdict };
+  return await dispatchGoalContinuation(ports, sessionId, directory, application.goal,
+    'audit', ready.objective, ready.tailId, now);
 }
 
 async function callAuditor(
@@ -252,7 +263,7 @@ async function callAuditor(
 
 type WriteOutcome = 'written' | 'unchanged' | 'refused';
 
-async function writeCandidate(
+export async function writeCandidate(
   ports: GoalAuditPorts, sessionId: string, directory: string,
   sessionRecord: unknown, next: GoalPayload,
 ): Promise<WriteOutcome> {

@@ -196,6 +196,36 @@ waits — the server row ships first so a closed tab can never strand a queue.
   and the stale-revision `nnd_goal_audit_conflict` refusal. NOT in: send
   arming, continuation dispatch, scheduled tasks, the audit-note auth
   against the live small model (already covered parse-side), multi-run.
+- **P9-2d (continuation dispatch, delivered this slice)** — completes B.6:
+  the exchange's last action is the send (`nna-goal-dispatch.ts` 122, the
+  `sendPrompt` production adapter in `nna-goal-safety-ports.ts` 79, exchange
+  integration +11). Both candidate paths ride it — an audit `continue`
+  verdict and the skip-audit kicks (aborted-turn re-kick, Resume) — and
+  dispatch is the same guarded ladder every time: fresh session re-read,
+  active/id/loop-field coherence vs the persisted candidate
+  (`accountingDrift`), the 20-cap check (beyond it: settle `blocked` /
+  continuation limit, no send), a conversation-tail re-verification against
+  `ready.tailId` (any newer message — user text or an assistant reply still
+  open — refuses the dispatch), ONE slot-consumption CAS
+  (`turnsUsed + 1`, `statusReason` cleared so a later cancel pauses a
+  resumed goal per the resume one-shot), then the single
+  `POST /session/:id/prompt_async` with the verbatim B.6.2 continuation text
+  (XML-escaped objective, budget block or the no-budget line, live
+  `turnsUsed` count). The consumed state builds the prompt, so the sent
+  count includes the continuation being sent; 409 `session_busy` is a drop
+  (`session busy at dispatch`, slot burned — NNA's seat was taken, a queued
+  re-send is exactly the unbounded send the loop forbids), any other
+  refusal/transport fault is a quiet dropped dispatch with NO streak write
+  (send failures are not audit failures; the next exchange re-decides from
+  evidence). No model/agent/variant rides the body (E-09-19); NNA's ingress
+  fence covers the CAS-to-send window. UI: the session goal strip's
+  auto-continuation line now states the live contract (count in the editor,
+  arm-what-you-mean phrasing in the no-goal branch). Tests:
+  `p9-2d-goal-dispatch.test.ts` (306, 17: builder matrix, prompt-body shape,
+  9 dispatch-ladder cases, 5 exchange flow cases, the production-port wire
+  for parts-only submit) + the widened p9-2c exchange fixtures. NOT in:
+  scheduled tasks, a live full-loop smoke probe (route-level probes stay
+  the smoke's scope), queue UI batch, multi-run.
 
 ## B. Adaptation deltas (registered)
 
@@ -395,3 +425,31 @@ waits — the server row ships first so a closed tab can never strand a queue.
   (a rejected consumer cannot strand or crash the loop). Not in: send
   arming, schedules, the audit-note language guard tests for live routes,
   and the broad remote orphan-file quota (E-09-15).
+- **E-09-19 (the continuation send rides NNA's session route; the loop
+  invents no route or retry policy)**: doc 12 B.6.2 copies
+  provider/model/agent/variant from the newest non-summary assistant reply
+  into the prompt body. NNA does not accept that: its prompt ingress
+  requires an EXPLICIT `model` to equal the session's configured route
+  (`nnd_model_override_unsupported`) and any `agent` other than `nna`
+  (`nnd_agent_override_unsupported`) — a stale route copy would turn every
+  post-change continuation into a guaranteed 4xx and strand the goal on its
+  own history. The dispatch therefore sends a parts-only body
+  (`{parts:[{type:'text',text}]}`, no messageID — NNA synthesizes the
+  request id, so no dedupe collision can block a send) and NNA's
+  session-configured route governs, which makes a mid-goal route change the
+  user's authoritative act rather than a loop hazard. Consequent deltas:
+  (a) the send is the exchange's LAST action after the slot-consumption CAS
+  (NNA fences prompt ingress while a durable goal CAS is pending, so the
+  race the upstream persist-then-send order guarded against is structurally
+  absent — E-09-18a's collapse is superseded, not contradicted); (b) a
+  refused or failed send writes NOTHING (no streak, no retry timer): the
+  turn slot may burn (409 busy seat, transport faults after the CAS), the
+  loop stays quiet, and the next exchange re-decides from evidence — a
+  bounded single-loss instead of an unbounded send loop; the skip-audit
+  resume kick simply waits for the next Resume because the send CAS also
+  cleared its label; (c) the turn-slot consumption (`turnsUsed + 1` +
+  `statusReason` cleared) is its OWN CAS between verdict persistence and
+  the send, restoring the upstream "count consumed at send time" contract
+  (E-09-18c); (d) the cap re-check at dispatch time settles
+  `blocked`/`continuation limit` so a cap reached inside the exchange
+  window (user resave reverted the count) can neither send nor overshoot.

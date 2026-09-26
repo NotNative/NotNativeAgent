@@ -39,6 +39,10 @@ export const DISTILLED_OBJECTIVE_CHAR_LIMIT = 4_000;
  *  listener caps forwarded calls at 30 s, so the loop must wait beyond both. */
 export const AUDIT_CALL_TIMEOUT_MS = 40_000;
 
+/** Continuation submit timeout: a submit answers immediately (204 or 409);
+ *  stay under the harness listener's 30 s cap so the loop never double-times. */
+export const DISPATCH_CALL_TIMEOUT_MS = 15_000;
+
 /** Settle reasons written verbatim into `statusReason` (§B.3). */
 export const GOAL_REASONS = {
   verifiedByAudit: 'verified by audit',
