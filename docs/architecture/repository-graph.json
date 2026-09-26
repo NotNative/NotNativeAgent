@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4cab1a2b4c9be499ec08b586060b2873dbf92a9a69279d7aeebf2ecf2a9076a7",
+  "source_digest": "sha256:80f0ddc443bc9424f6d6174359d667e76d7f611bcf8fac440edfc5a346def28e",
   "counts": {
-    "modules": 396,
+    "modules": 401,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 109
+      "module_count": 114
     },
     {
       "id": "web-entry",
@@ -67,6 +67,7 @@
     "@hono/node-server",
     "@simplewebauthn/browser",
     "@simplewebauthn/server",
+    "cron-parser",
     "esbuild",
     "hono",
     "node-pty",
@@ -3707,6 +3708,50 @@
         "packages/web/src/server/lib/tunnels/tunnel-settings.ts",
         "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
         "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/scheduled/config-lock.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/scheduled/scheduled-constants.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/scheduled/next-run.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/scheduled/scheduled-constants.ts",
+        "packages/web/src/server/scheduled/task-schema.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/scheduled/scheduled-constants.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/scheduled/task-config.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/scheduled/config-lock.ts",
+        "packages/web/src/server/scheduled/scheduled-constants.ts",
+        "packages/web/src/server/scheduled/task-schema.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/scheduled/task-schema.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/scheduled/next-run.ts",
+        "packages/web/src/server/scheduled/scheduled-constants.ts"
       ]
     },
     {

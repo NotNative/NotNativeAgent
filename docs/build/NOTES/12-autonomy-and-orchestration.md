@@ -226,6 +226,32 @@ waits — the server row ships first so a closed tab can never strand a queue.
   for parts-only submit) + the widened p9-2c exchange fixtures. NOT in:
   scheduled tasks, a live full-loop smoke probe (route-level probes stay
   the smoke's scope), queue UI batch, multi-run.
+- **P9-3a (scheduled-task storage core, delivered this slice)** — first
+  slice of C: the task schema, next-run math, and the locked per-project
+  store (`scheduled/scheduled-constants.ts` 38, `next-run.ts` 141,
+  `task-schema.ts` 205, `config-lock.ts` 118, `task-config.ts` 197): the
+  C.1 task document (schedule kinds daily/weekly/once/cron, execution with
+  goal settings, runtime state) normalized on every deliberate write with
+  unknown fields preserved verbatim at all four levels (task, schedule,
+  execution, state), the C.2/C.3 next-occurrence computation (Intl zone
+  validation fixed on true Epoch; spring-forward gaps skipped; fall-back
+  repeats resolved to the FIRST instant; cron via the registered
+  cron-parser dependency with `{tz}`), and the C.9 multi-writer store:
+  whole-document atomic rewrite under BOTH an in-process promise chain and
+  a cross-process `{pid, at}` wx-file lock (60 s stale steal, 5 s
+  unreadable-mid-write grace, release verifies own pid), state patches
+  swapping ONLY the state object onto the RAW stored record (an older
+  build cannot strip fields a newer one normalized in), `undefined` patch
+  values clearing keys (the claim clears a past once slot), malformed
+  configs quarantined to `.corrupt-<ts>` on first write, and the
+  read-normalize view reporting damaged entries without deleting them.
+  Tests: `p9-3a-scheduled-storage.test.ts` (351, 26: next-run matrix incl.
+  the America/New_York gap and fold, schema reject matrix, unknown-field
+  preservation, legacy single daily `time`, id immutability, goal-setting
+  coupling, state-patch swap/clear, malformed quarantine readback, lock
+  steal/mid-hold-foreign/chain serialization, the lock fd leak regression,
+  and the updatedAt explicit-undefined regression). NOT in: timers, run
+  pipeline, claiming, loop files, routes/SSE (P9-3b..d), UI.
 
 ## B. Adaptation deltas (registered)
 
@@ -453,3 +479,46 @@ waits — the server row ships first so a closed tab can never strand a queue.
   (E-09-18c); (d) the cap re-check at dispatch time settles
   `blocked`/`continuation limit` so a cap reached inside the exchange
   window (user resave reverted the count) can neither send nor overshoot.
+- **E-09-20 (scheduled-task storage rides Intl, not luxon, and the
+  multi-writer rule is enforced on RAW records)**: doc 12 C.2 formats
+  dates with luxon (`DateTime.fromMillis`, `yyyy-LL-dd HH:mm`) and zone
+  checks with `IANAZone.isValidZone`. Luxon is outside the NND dependency
+  tree; Node's ICU answers the same questions. Deltas: (a) zone validation
+  is a real `Intl.DateTimeFormat` construction (throws for invalid zones
+  — the same fail-closed `null`), and `computeNextRunAt` builds daily/
+  weekly/once candidates in the schedule's wall clock: a nonexistent
+  spring-forward slot is skipped, and a fall-back repeat resolves to its
+  FIRST instant (deterministic; per-kind internal consistency — cron
+  iterations ride cron-parser's own tz machinery, which is fine because a
+  task's kind never mixes paths). (b) Cron is the doc-directed dependency
+  (registered `cron-parser`, MIT, v5 `CronExpressionParser` with the
+  `{tz}` option), used by BOTH the server and the future UI preview so a
+  preview cannot disagree with the dispatch. Storage-level `next()`
+  validation means a never-firing expression (e.g. Feb 31) is rejected at
+  write, not scheduled into permanent silence. (c) C.9's version-skew rule
+  is enforced structurally: a STATE patch swaps only the state object onto
+  the RAW stored record after a `findIndex` (no re-normalization), so an
+  older build writing state after a newer one cannot strip fields it does
+  not know; the SCHEDULING view (read path) IS normalized and reports
+  damaged entries instead of deleting them — an unknown schedule kind
+  still schedules nothing, but its task stays on disk untouched. (d) A
+  patch value of `undefined` is a key CLEAR, not a skip (JSON has no
+  undefined; the claim clears a past once slot by clearing `nextRunAt`).
+  (e) The config lock is `{pid, at}` wx-exclusive-create with a 60 s stale
+  steal and a 5 s unreadable-mid-write grace (a fresh lock caught between
+  create and write is not stolen); release verifies it still names this
+  pid, so a stolen lock is never unlinked by its loser. (f) NND-side
+  storage-safety bounds not in the doc: task id 128, route ids 256,
+  loopFile path 1024, cron 200 — caps beyond which a task is rejected at
+  normalization, never clamped. Audit-registered behaviors: (g) the ONLY
+  modern sub-hour fold (Lord Howe, 30 min) resolves daily/weekly slots to
+  the SECOND occurrence, deterministically per process (the 60 s claim
+  window is unaffected; the island's first-vs-second choice is invisible
+  to the contract); (h) a hard READ error is treated as malformed by the
+  writer, so an unreadable-but-valid config is quarantined like a corrupt
+  one (bytes land in the `.corrupt-<ts>` aside); (i) hand-edited duplicate
+  task ids are loaded as-is (first match wins patches, removal clears all
+  matches) because C.1 implies but does not mandate read-time uniqueness;
+  (j) the projectId regex carries no length bound here — C.1's bounded
+  stem mapping belongs to the project layer, and over-long ids surface as
+  plain fs failures the runtime already logs per project.

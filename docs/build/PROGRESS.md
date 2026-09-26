@@ -22,6 +22,26 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 scheduled-task storage core.** The scheduled-tasks slice
+  starts: the per-project task document (daily/weekly/once/cron schedules,
+  execution with goal settings, runtime state) is stored in the existing
+  project config JSON with unknown fields preserved verbatim at every level.
+  Next-occurrence computation validates IANA zones through Intl (spring-
+  forward gaps skip, fall-back repeats resolve to their first instant) and
+  iterates cron with the newly registered cron-parser dependency, sharing the
+  same call a future UI preview will use. Every write is an atomic whole-
+  document rewrite under an in-process chain plus a cross-process `{pid, at}`
+  file lock; state patches swap only the state object onto the raw stored
+  record so a version-skewed sibling cannot strip fields; malformed configs
+  are quarantined aside rather than overwritten. Adversarial review confirmed
+  and fixed three defects before seal: a file-descriptor leak on every lock
+  acquire, a state patch whose explicit `updatedAt: undefined` cleared the
+  required field instead of falling back to now, and a dead cleanup comparison
+  in the in-process chain map. It also registered the Lord Howe 30-minute
+  fold resolving to the second occurrence, and the read-error/malformed
+  conflation that quarantines unreadable-but-valid configs. Verification:
+  794 web tests, 825 UI tests, typecheck, quality gates, 401-module graph.
+
 - 2026-09-25 · **P9 goal continuation dispatch (send arming).** The goal loop
   now sends prompts: after a `continue` verdict or a skip-audit kick
   (aborted-turn re-kick, Resume), the exchange dispatches the verbatim

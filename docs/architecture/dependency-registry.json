@@ -34,6 +34,13 @@
       "reviewed_at": "2026-09-17"
     },
     {
+      "name": "cron-parser",
+      "packages": ["@notnative/web"],
+      "reason": "Cron occurrence iteration for scheduled tasks (doc 12 C.2): tz-aware next() shared by server dispatch and the future UI preview so preview and schedule agree by construction",
+      "license": "MIT",
+      "reviewed_at": "2026-09-25"
+    },
+    {
       "name": "@simplewebauthn/server",
       "packages": ["@notnative/web"],
       "reason": "Passkey (WebAuthn) ceremony (doc 08 section 2.4): server-side registration/authentication option generation and attestation/assertion verification, wrapped by the WebAuthnCeremony seam",

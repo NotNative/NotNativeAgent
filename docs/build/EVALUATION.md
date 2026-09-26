@@ -3,6 +3,25 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-25 - scheduled-task storage core at P9-3a (NND unit, no harness)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Web server/contract suite | vitest 794/794 (59 files) - includes `p9-3a-scheduled-storage.test.ts` 26/26: next-run matrix (daily push, weekly 15-day scan, once consumption, cron/tz incl. the Berlin offset pinned against a live probe, America/New_York spring-gap skip and fall-back first-instant), schema reject/normalize matrix (unknown-field preservation at all four levels, legacy single daily `time`, id immutability, goal-setting coupling, state clamps), locked store matrix (round-trip, chained upserts, state-patch swap/clear vs other config keys, predicate refusal, remove, malformed quarantine readback), config-lock matrix (stale steal, mid-hold foreign replacement, chain serialization, the fd-leak regression, the updatedAt explicit-undefined regression) |
+| Typecheck | tsc over all tsconfigs (ui, web ui/server/cross) - 0 errors |
+| Quality gates + graph | controlled-language registry, POWER10 caps, 401-module repository graph, dependency registry row for cron-parser (MIT) - green |
+| Version-skew invariant (unit-proven) | a state patch on a task with unknown schedule/task fields persists them verbatim; an unknown schedule kind schedules nothing but stays on disk |
+| Adversarial review | sub-agent audit confirmed and fixed 3 defects (per-acquire file-descriptor leak in the config lock; `updatedAt: undefined` in a state patch cleared the required field instead of falling back to now; dead cleanup comparison in the in-process chain map) with 2 regression tests; registered the Lord Howe 30-minute fold second-occurrence resolution, the read-error/malformed conflation, hand-edited duplicate ids, and the unbounded projectId regex as observed behaviors |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Cross-process claim contention | two REAL processes contending for one config lock is reasoned, not executed, on this host; the lock primitives are unit-proven (steal, mid-hold replacement, in-process chain) but no two-process integration test exists |
+| Runtime scheduling | timers, claiming, the run pipeline, loop files, routes/SSE, and the UI are P9-3b..d work; nothing schedules yet |
+
 ## 2026-09-25 - goal continuation dispatch at P9-2d (NNA source harness)
 
 **Verified working**
