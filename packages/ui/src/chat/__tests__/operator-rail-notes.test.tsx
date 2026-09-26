@@ -10,6 +10,7 @@ vi.mock('../../lib/runtime-fetch.ts', () => ({
 vi.mock('../../lib/project-context-api.ts', () => ({
   getProjectContext: vi.fn(async () => ({ version: 2, notes: [], todos: [], plans: [] })),
   createProjectNote: vi.fn(), updateProjectNote: vi.fn(), deleteProjectNote: vi.fn(),
+  getProjectPlan: vi.fn(), createProjectPlan: vi.fn(), updateProjectPlan: vi.fn(), deleteProjectPlan: vi.fn(),
 }));
 
 import { createDirectoryStore } from '../../sync/child-store.ts';
@@ -60,6 +61,10 @@ describe('OperatorRail Notes surface', () => {
     expect(getProjectContext).toHaveBeenCalledWith('p1');
     expect(container!.querySelector('[data-testid="project-context-notes"]')).not.toBeNull();
     expect(container!.textContent).toContain('separate from General notes');
+    await act(async () => { [...container!.querySelectorAll('[data-testid="project-notes"] button')]
+      .find((button) => button.textContent === 'Saved plans')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve(); });
+    expect(container!.querySelector('[data-testid="project-context-plans"]')).not.toBeNull();
   });
   it('retains context drafts per project across directory switches', async () => {
     const store = createDirectoryStore();

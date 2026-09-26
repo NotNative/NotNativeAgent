@@ -36,6 +36,8 @@ describe('P10 personal plan storage', () => {
       json({ raw: '# Changed\n\nRaw **markdown**' }, 'PUT'));
     expect(updated.status).toBe(200);
     expect(readFileSync(file, 'utf8')).toBe('# Changed\n\nRaw **markdown**');
+    expect((await updated.json() as { plan: { title: string } }).plan.title).toBe('Changed');
+    expect((await (await api.request('/api/project-context/alpha')).json() as { plans: { title: string }[] }).plans[0]!.title).toBe('Changed');
     expect(await (await api.request(`/api/project-context/alpha/plans/${payload.plan.id}`)).json()).toMatchObject({
       title: 'Changed', body: 'Raw **markdown**',
     });
@@ -45,6 +47,7 @@ describe('P10 personal plan storage', () => {
     expect((await api.request(`/api/project-context/alpha/plans/${payload.plan.id}`,
       json({ raw: '' }, 'PUT'))).status).toBe(200);
     expect(readFileSync(file, 'utf8')).toBe('');
+    expect((await (await api.request('/api/project-context/alpha')).json() as { plans: { title: string }[] }).plans[0]!.title).toBe('Untitled plan');
     const removed = await api.request(`/api/project-context/alpha/plans/${payload.plan.id}`, { method: 'DELETE' });
     expect(removed.status).toBe(200);
     expect((await removed.json() as { plans: unknown[] }).plans).toEqual([]);

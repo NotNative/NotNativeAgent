@@ -14,13 +14,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
-| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD, and bounded legacy plan-link migration in progress 2026-09-26; shared plans, unified UI ownership, memory/skills/MCP pending |
+| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, and bounded legacy plan-link migration in progress 2026-09-26; shared plans, unified UI ownership, memory/skills/MCP pending |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, and browser wait UI delivered 2026-09-26; inspection, annotation, tunnels, walkthrough pending |
 | P12 Electron | 09 | pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-26 · **P10-6 additive saved-plans UI.** The operator rail now has a
+  project-owned Saved plans tab alongside the older session PlanView. It
+  lists context manifest entries and uses NND routes for create, raw markdown
+  edit, and delete; unsaved editor text is retained by project. Adversarial
+  review and release validation are in progress.
 
 - 2026-09-26 · **P10-5 bounded legacy plan migration.** First read of a
   legacy absolute plan-link list now copies markdown from within NND's

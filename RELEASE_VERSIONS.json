@@ -140,6 +140,10 @@
     {
       "version": "20260926-24",
       "content_sha256": "423eb5b29e002ddb3b8f5714fc699c392a1462799d373d6a15d7e6094f4ca5a3"
+    },
+    {
+      "version": "20260926-25",
+      "content_sha256": "60236172e1aea3a16564bedcf31b1b62f4c4422f1c7798a56daeefbb3b4c683d"
     }
   ]
 }

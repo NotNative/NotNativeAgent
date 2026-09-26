@@ -9,6 +9,7 @@ import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
 import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
+import type { ContextPlanDraft } from './context-plans.tsx';
 import type { ContextNotesDraft } from './context-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
@@ -108,6 +109,10 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const retainContextDraft = useCallback((id: string, draft: ContextNotesDraft): void => {
     setContextDrafts((current) => ({ ...current, [id]: draft }));
   }, []);
+  const [planDrafts, setPlanDrafts] = useState<Record<string, ContextPlanDraft>>({});
+  const retainPlanDraft = useCallback((id: string, draft: ContextPlanDraft): void => {
+    setPlanDrafts((current) => ({ ...current, [id]: draft }));
+  }, []);
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
   }, [selection.key, selectionKey, storageKey, surface]);
@@ -199,6 +204,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}
               contextDraft={projectId ? contextDrafts[projectId] : undefined} onContextDraftChange={retainContextDraft}
+              planDraft={projectId ? planDrafts[projectId] : undefined} onPlanDraftChange={retainPlanDraft}
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}

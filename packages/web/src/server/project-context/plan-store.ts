@@ -5,7 +5,6 @@ import { mkdir, lstat, readFile, rename, unlink, writeFile } from 'node:fs/promi
 import { dirname, join } from 'node:path';
 import { ContextInputError, mutateProjectContext, projectContextPaths,
   readProjectContext, type ProjectContext } from './context-store.ts';
-import { withConfigLock } from '../scheduled/config-lock.ts';
 
 export interface PlanManifest { id: string; file: string; title: string; createdAt: number; pinned?: boolean; source?: string }
 export interface ProjectPlan extends PlanManifest { body: string; raw: string }
@@ -63,8 +62,8 @@ function planFor(context: ProjectContext, planId: string): PlanManifest {
 function parsedMarkdown(raw: string): { title: string; body: string } {
   const lines = raw.replace(/\r\n/gu, '\n').split('\n');
   const first = lines[0] ?? '';
-  if (first.startsWith('# ')) return { title: first.slice(2).trim(), body: lines.slice(1).join('\n').trim() };
-  return { title: first.trim(), body: raw };
+  if (first.startsWith('# ')) return { title: first.slice(2).trim() || 'Untitled plan', body: lines.slice(1).join('\n').trim() };
+  return { title: first.trim() || 'Untitled plan', body: raw };
 }
 
 function validText(value: unknown, name: string, max: number): string {
@@ -121,8 +120,9 @@ export async function updateProjectPlan(projectId: string, planId: string, rawVa
   const paths = projectContextPaths(projectId);
   // First access may migrate legacy links under the same config lock.
   await readProjectContext(projectId);
-  return withConfigLock(paths.config, async () => {
-    const plan = planFor(await readProjectContext(projectId), planId);
+  return mutateProjectContext(projectId, async (current) => {
+    const plans = plansIn(current);
+    const plan = planFor(current, planId);
     await checkedPlanDirectory(paths.plans);
     const file = join(paths.plans, plan.file);
     await checkedPlanFile(file);
@@ -134,7 +134,9 @@ export async function updateProjectPlan(projectId: string, planId: string, rawVa
     } finally { await unlink(temp).catch((error: unknown) => {
       if ((error as { code?: string }).code !== 'ENOENT') throw error;
     }); }
-    return { plan, raw };
+    const updated = { ...plan, title: parsedMarkdown(raw).title };
+    const next = { ...current, plans: plans.map((item) => item.id === planId ? updated : item) };
+    return { next, result: { plan: updated, raw } };
   });
 }
 

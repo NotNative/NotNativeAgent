@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 import { runtimeFetch } from '../runtime-fetch.ts';
 import { createProjectNote, deleteProjectNote, getProjectContext,
-  replaceProjectTodos, updateProjectNote } from '../project-context-api.ts';
+  replaceProjectTodos, updateProjectNote, createProjectPlan, getProjectPlan,
+  updateProjectPlan, deleteProjectPlan } from '../project-context-api.ts';
 
 const empty = { version: 2, notes: [], todos: [], plans: [] };
 beforeEach(() => vi.mocked(runtimeFetch).mockReset());
@@ -39,5 +40,21 @@ describe('project context HTTP boundary', () => {
     answer({ ...empty, todos: [{ id: 't1' }] });
     await expect(replaceProjectTodos('p1', [{ id: 't1' }])).resolves.toMatchObject({ todos: [{ id: 't1' }] });
     expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/p1/todos', expect.objectContaining({ method: 'PUT' }));
+  });
+
+  it('uses saved-plan routes without accepting malformed authoritative responses', async () => {
+    const plan = { id: 'p1', file: 'p1.md', title: 'Plan', createdAt: 1 };
+    answer({ plan, context: { ...empty, plans: [plan] } });
+    await expect(createProjectPlan('project1', { title: 'Plan', body: 'Body' })).resolves.toMatchObject({ plan });
+    expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/project1/plans', expect.objectContaining({ method: 'POST' }));
+    answer({ ...plan, raw: '# Plan\n\nBody' });
+    await expect(getProjectPlan('project1', 'p1')).resolves.toMatchObject({ raw: '# Plan\n\nBody' });
+    answer({ plan, raw: '' });
+    await expect(updateProjectPlan('project1', 'p1', '')).resolves.toMatchObject({ raw: '' });
+    expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/project1/plans/p1', expect.objectContaining({ method: 'PUT' }));
+    answer(empty);
+    await expect(deleteProjectPlan('project1', 'p1')).resolves.toEqual(empty);
+    answer({ plan });
+    await expect(getProjectPlan('project1', 'p1')).rejects.toThrow('Invalid plan response');
   });
 });

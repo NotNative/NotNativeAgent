@@ -95,3 +95,18 @@ This is narrower than OpenChamber's arbitrary absolute-path copy-in: NND
 does not let a client-controlled legacy config link become a read capability
 for unrelated local files. Recovery of links outside NND's projects data root
 requires an explicit future import flow.
+
+## P10-6: additive saved-plans panel (2026-09-26)
+
+The operator rail's Notes surface now exposes a separate Saved plans tab for
+a resolved NNA project. It lists the context manifest, opens plan markdown by
+ID, and offers create, raw edit, and delete through the NND context API.
+It remains separate from the existing session PlanView and retains per-project
+editor drafts across project switches; neither old plan files nor session
+plans are implicitly replaced. Shared plans and an integrated PlanView
+adapter are follow-ups.
+
+Adversarial review added discard confirmation for dirty markdown when opening
+another plan or closing the editor, and confirmation before deletion. Pending
+responses are fenced to the mounted project editor. A raw markdown save updates
+the manifest title as well as the file, so the list reflects heading edits.

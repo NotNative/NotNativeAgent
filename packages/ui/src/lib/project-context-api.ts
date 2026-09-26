@@ -17,6 +17,10 @@ export interface ProjectContext {
   todos: unknown[];
   plans: unknown[];
 }
+export interface ProjectPlan {
+  id: string; file: string; title: string; createdAt: number;
+  pinned?: boolean; source?: string; body?: string; raw?: string;
+}
 
 function endpoint(projectId: string, suffix = ''): string {
   if (!/^[A-Za-z0-9_-]+$/u.test(projectId)) throw new Error('Invalid project ID');
@@ -74,4 +78,42 @@ export async function deleteProjectNote(projectId: string, noteId: string): Prom
 export async function replaceProjectTodos(projectId: string, todos: unknown[]): Promise<ProjectContext> {
   return parseContext(await request(endpoint(projectId, '/todos'), { method: 'PUT',
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos }) }));
+}
+
+function planPath(projectId: string, planId: string): string {
+  if (!planId || planId.includes('/') || planId.includes('\\')) throw new Error('Invalid plan ID');
+  return endpoint(projectId, `/plans/${encodeURIComponent(planId)}`);
+}
+
+export async function getProjectPlan(projectId: string, planId: string): Promise<ProjectPlan> {
+  const value = await request(planPath(projectId, planId));
+  const plan = value as ProjectPlan;
+  if (!plan || typeof plan.id !== 'string' || typeof plan.raw !== 'string') throw new Error('Invalid plan response');
+  return plan;
+}
+
+export async function createProjectPlan(projectId: string, input: { title: string; body: string }): Promise<{
+  plan: ProjectPlan; context: ProjectContext;
+}> {
+  const value = await request(endpoint(projectId, '/plans'), { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+  const payload = value as { plan?: ProjectPlan; context?: unknown };
+  if (!payload?.plan || typeof payload.plan.id !== 'string') throw new Error('Invalid plan response');
+  return { plan: payload.plan, context: parseContext(payload.context) };
+}
+
+export async function updateProjectPlan(projectId: string, planId: string, raw: string): Promise<{
+  plan: ProjectPlan; raw: string;
+}> {
+  const value = await request(planPath(projectId, planId), { method: 'PUT',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ raw }) });
+  const payload = value as { plan?: ProjectPlan; raw?: unknown };
+  if (!payload?.plan || typeof payload.plan.id !== 'string' || typeof payload.raw !== 'string') {
+    throw new Error('Invalid plan response');
+  }
+  return { plan: payload.plan, raw: payload.raw };
+}
+
+export async function deleteProjectPlan(projectId: string, planId: string): Promise<ProjectContext> {
+  return parseContext(await request(planPath(projectId, planId), { method: 'DELETE' }));
 }
