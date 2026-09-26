@@ -5,12 +5,26 @@ import { FileReadError, readFileText, writeFileText } from '../lib/files/api.ts'
 import { PlanView } from '../components/plan/PlanView.tsx';
 import { ContextNotes, type ContextNotesDraft } from './context-notes.tsx';
 import { ContextPlans, type ContextPlanDraft } from './context-plans.tsx';
-import { ContextTodos } from './context-todos.tsx';
+import { ContextTodos, usableTodo } from './context-todos.tsx';
+import { getProjectContext, type ProjectContext } from '../lib/project-context-api.ts';
 
 type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos';
 interface Todo { id: string; text: string; done: boolean }
 const NOTES_PATH = '.opencode/nnd/general-notes.md';
 const TODOS_PATH = '.opencode/nnd/todos.json';
+
+function searchCounts(context: ProjectContext, query: string): { context: number; 'project-todos': number; saved: number } {
+  const needle = query.trim().toLocaleLowerCase();
+  const contains = (value: unknown): boolean => typeof value === 'string' && value.toLocaleLowerCase().includes(needle);
+  const todosUsable = context.todos.length <= 500 && context.todos.every(usableTodo)
+    && new Set(context.todos.map((todo) => (todo as { id: string }).id)).size === context.todos.length;
+  return {
+    context: context.notes.filter((note) => note && typeof note.id === 'string' && contains(note.body)).length,
+    'project-todos': todosUsable ? context.todos.filter((todo) => contains((todo as { text: string }).text)).length : 0,
+    saved: context.plans.filter((plan) => !!plan && typeof plan === 'object'
+      && typeof (plan as { id?: unknown }).id === 'string' && contains((plan as { title?: unknown }).title)).length,
+  };
+}
 
 export interface NotesDraftLease { directoryKey: string; text: string; revision: number }
 type SetDraftLease = Dispatch<SetStateAction<NotesDraftLease | null>>;
@@ -26,6 +40,23 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set([projectId ? 'context' : 'notes']));
   const [workspaceFilesOpen, setWorkspaceFilesOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchSnapshot, setSearchSnapshot] = useState<{ projectId: string; context: ProjectContext } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [searchRevision, setSearchRevision] = useState(0);
+  const searchEnabled = !!query.trim();
+  useEffect(() => {
+    if (!projectId || !visible || !searchEnabled) return;
+    let active = true;
+    setSearchLoading(true); setSearchError(false); setSearchSnapshot(null);
+    void getProjectContext(projectId).then((context) => {
+      if (active) { setSearchSnapshot({ projectId, context }); setSearchLoading(false); }
+    }).catch(() => {
+      if (active) { setSearchError(true); setSearchLoading(false); }
+    });
+    return () => { active = false; };
+  }, [projectId, visible, searchEnabled, searchRevision]);
+  const counts = searchEnabled && searchSnapshot?.projectId === projectId ? searchCounts(searchSnapshot.context, query) : null;
   const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos') ? 'notes'
     : projectId && !workspaceFilesOpen && (tab === 'notes' || tab === 'todos' || tab === 'plans') ? 'context' : tab;
   const primaryTabs: { id: Tab; label: string }[] = projectId
@@ -50,6 +81,15 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
       <input aria-label="Search project notes, todos, and plan titles" type="search" value={query}
         onChange={(event) => setQuery(event.target.value)} placeholder="Search notes, todos, plan titles"
         className="w-full rounded border border-white/10 bg-neutral-900/40 px-2 py-1 text-xs" />
+      {searchEnabled ? <div className="mt-1 text-[10px] text-neutral-500">
+        {searchLoading ? <span role="status">Counting matches…</span> : searchError ? <span role="alert">Match counts unavailable. Section lists may still be searched.</span> : counts ? <nav aria-label="Search matches by section" className="flex flex-wrap gap-2">
+          {([{ id: 'context', label: 'General' }, { id: 'project-todos', label: 'Todos' }, { id: 'saved', label: 'Plans' }] as const).map((item) =>
+            <button key={item.id} type="button" onClick={() => selectTab(item.id)} className="underline"
+              aria-label={`${item.label}: ${counts[item.id]} snapshot matches`}>{item.label} {counts[item.id]}</button>)}
+        </nav> : null}
+        <button type="button" className="mt-1 underline" onClick={() => setSearchRevision((current) => current + 1)}>Refresh match counts</button>
+        <span className="ml-2">Snapshot counts; refresh after changes.</span>
+      </div> : null}
     </div> : null}
     {projectId && workspaceFilesOpen ? <div id="workspace-note-files" className="border-b border-white/10 px-2 pb-2">
       <p className="pb-1 text-[10px] text-neutral-500">Existing repo-local files remain separate; nothing has been moved.</p>

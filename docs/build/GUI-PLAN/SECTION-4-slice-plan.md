@@ -202,7 +202,9 @@ Tasks:
    project-owned General/Todos/Plans first; repo-local files remain available
    under Workspace files pending safe migration. A UI-local query now filters
    note bodies, todo text, and plan titles without changing stored lists;
-   cross-tab counts and follow-to-hit navigation are still pending.
+   snapshot match counts now let operators jump to another section. The
+   section lists still own their read state, so counts are refreshable rather
+   than claimed as live authority.
 5. A user-driven, sandboxed iframe preview may occupy Browser before the full
    preview/inspection contract. Keep it clearly labelled as a limited manual
    preview; agent navigation, capture, annotation, and take-over wait for

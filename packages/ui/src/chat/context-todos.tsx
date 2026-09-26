@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getProjectContext, ProjectContextRequestError, replaceProjectTodos, type ProjectContext, type ProjectTodo } from '../lib/project-context-api.ts';
 
-function usableTodo(value: unknown): value is ProjectTodo {
+export function usableTodo(value: unknown): value is ProjectTodo {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const todo = value as ProjectTodo;
   return typeof todo.id === 'string' && /^[A-Za-z0-9_-]{1,100}$/u.test(todo.id)

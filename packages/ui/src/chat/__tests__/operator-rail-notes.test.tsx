@@ -30,6 +30,7 @@ let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
 beforeEach(() => {
+  vi.mocked(getProjectContext).mockReset().mockResolvedValue({ version: 2, notes: [], todos: [], plans: [], todosRevision: 'a'.repeat(64) });
   vi.mocked(runtimeFetch).mockImplementation(async () => ({ ok: false, status: 404, text: async () => '', clone: () => ({ json: async () => ({ error: 'File not found', reason: 'not-found' }) }) }) as Response);
 });
 
@@ -81,6 +82,40 @@ describe('OperatorRail Notes surface', () => {
     await act(async () => { ([...container!.querySelectorAll('[data-testid="project-notes"] button')]
       .find((button) => button.textContent === 'General') as HTMLButtonElement).click(); });
     expect(container!.querySelector('[aria-label="Search project notes, todos, and plan titles"]')).not.toBeNull();
+  });
+  it('shows refreshable cross-tab search counts and navigates to a matching section', async () => {
+    useGlobalSyncStore.setState({ projects: [{ id: 'p1', worktree: 'D:/work' }] });
+    vi.mocked(getProjectContext).mockResolvedValue({ version: 2,
+      notes: [{ id: 'n1', body: 'Alpha context', source: 'manual', createdAt: 1, updatedAt: 1 }],
+      todos: [{ id: 't1', text: 'Alpha task', completed: false, createdAt: 1 }],
+      plans: [{ id: 'p1', title: 'Beta plan', file: 'p1.md', createdAt: 1 }], todosRevision: 'a'.repeat(64) });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen /></I18nProvider>); });
+    await act(async () => { (container!.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    const search = container!.querySelector('[aria-label="Search project notes, todos, and plan titles"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'alpha');
+      search.dispatchEvent(new Event('input', { bubbles: true })); await Promise.resolve(); });
+    expect(container!.querySelector('[aria-label="General: 1 snapshot matches"]')).not.toBeNull();
+    expect(container!.querySelector('[aria-label="Todos: 1 snapshot matches"]')).not.toBeNull();
+    expect(container!.querySelector('[aria-label="Plans: 0 snapshot matches"]')).not.toBeNull();
+    await act(async () => { (container!.querySelector('[aria-label="Todos: 1 snapshot matches"]') as HTMLButtonElement).click(); });
+    expect(container!.querySelector('[data-testid="project-context-todos"]')!.textContent).toContain('Alpha task');
+  });
+  it('does not advertise matches in stored entries that sections refuse to display', async () => {
+    useGlobalSyncStore.setState({ projects: [{ id: 'p1', worktree: 'D:/work' }] });
+    vi.mocked(getProjectContext).mockResolvedValue({ version: 2,
+      notes: [{ body: 'Alpha hidden note' } as never],
+      todos: [{ id: 't1', text: 'Alpha task', completed: false, createdAt: 1 }, { id: 'bad', text: 'Alpha malformed' }],
+      plans: [{ title: 'Alpha hidden plan' }], todosRevision: 'a'.repeat(64) });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen /></I18nProvider>); });
+    await act(async () => { (container!.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    const search = container!.querySelector('[aria-label="Search project notes, todos, and plan titles"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'alpha');
+      search.dispatchEvent(new Event('input', { bubbles: true })); await Promise.resolve(); });
+    expect(container!.querySelector('[aria-label="General: 0 snapshot matches"]')).not.toBeNull();
+    expect(container!.querySelector('[aria-label="Todos: 0 snapshot matches"]')).not.toBeNull();
+    expect(container!.querySelector('[aria-label="Plans: 0 snapshot matches"]')).not.toBeNull();
   });
   it('retains context drafts per project across directory switches', async () => {
     const store = createDirectoryStore();

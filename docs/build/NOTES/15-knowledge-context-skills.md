@@ -172,3 +172,17 @@ the first query slice; cross-tab match counts, follow-to-hit navigation, and
 shared load state remain to be implemented. Adversarial review removed the
 search field while a legacy Workspace file tab is selected, where the query
 would otherwise appear to have no effect.
+
+## P10-12: cross-tab search snapshot (2026-09-26)
+
+Entering a project-context query loads one context snapshot for match counts
+across note bodies, todo text, and plan titles. Count buttons jump to a tab;
+the tab uses its own current read and display-only filter. An explicit refresh
+rebuilds counts after external edits. A failed snapshot read shows unavailable,
+not zero, and the UI labels counts as a snapshot to avoid claiming they are
+live. This does not yet unify section data caches or search plan markdown
+bodies, memory, skills, or legacy workspace files.
+Adversarial review found that malformed stored rows could otherwise appear
+in a match count but be suppressed by the destination section. Count guards
+now mirror those sections, including the todo editor's whole-list fail-closed
+behavior.

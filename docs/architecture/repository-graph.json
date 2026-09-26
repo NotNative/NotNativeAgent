@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:71c009277c6a2a710e30e591295509a38c4cae002812e969591ef5143253474c",
+  "source_digest": "sha256:88beb7658a171160d0872415c29a0063f7238f9d01567ab04f2895ed228f8d40",
   "counts": {
     "modules": 438,
     "component_edges": 13
@@ -100,7 +100,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 144,
+      "import_count": 145,
       "module_count": 62
     },
     {
@@ -437,7 +437,8 @@
         "packages/ui/src/chat/context-plans.tsx",
         "packages/ui/src/chat/context-todos.tsx",
         "packages/ui/src/components/plan/PlanView.tsx",
-        "packages/ui/src/lib/files/api.ts"
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/project-context-api.ts"
       ]
     },
     {
