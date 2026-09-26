@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Docked operator surfaces. Activity consumes explicit harness evidence only. */
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
+import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
 import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
+import type { ContextNotesDraft } from './context-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
@@ -42,6 +44,8 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     return () => query.removeEventListener('change', update);
   }, []);
   const paneVisible = !suppressed && (compactOpen || wide);
+  const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
+  const projectId = resolveContextProjectId(directory, global.projects);
   const storageKey = surfaceStorageKey(directory);
   const selectionKey = surfaceSelectionKey(storageKey);
   const preferencesKey = panelPreferencesKey(storageKey);
@@ -100,6 +104,10 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   // Exactly one unsaved General Notes draft may cross project mounts. The
   // Notes pane locks other projects until this lease is saved or discarded.
   const [notesDraft, setNotesDraft] = useState<NotesDraftLease | null>(null);
+  const [contextDrafts, setContextDrafts] = useState<Record<string, ContextNotesDraft>>({});
+  const retainContextDraft = useCallback((id: string, draft: ContextNotesDraft): void => {
+    setContextDrafts((current) => ({ ...current, [id]: draft }));
+  }, []);
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
   }, [selection.key, selectionKey, storageKey, surface]);
@@ -189,7 +197,8 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
         {surface === 'changes' ? <GitView directory={directory} visible compact reviewRequest={reviewRequest} /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
-            <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} visible={surface === 'notes' && paneVisible}
+            <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}
+              contextDraft={projectId ? contextDrafts[projectId] : undefined} onContextDraftChange={retainContextDraft}
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}
@@ -207,6 +216,31 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
       </div>
     </aside>
   );
+}
+
+export function resolveContextProjectId(directory: string, projects: Record<string, unknown>[]): string | null {
+  const target = normalizedProjectPath(directory);
+  const matches = projects.flatMap((project) => {
+    const id = project['id'];
+    const worktree = project['worktree'];
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]+$/u.test(id) || typeof worktree !== 'string') return [];
+    const base = normalizedProjectPath(worktree);
+    return base && (target === base || target.startsWith(`${base}/`)) ? [{ id, length: base.length }] : [];
+  });
+  matches.sort((a, b) => b.length - a.length);
+  // If the roster assigns the same directory to different IDs, there is no
+  // safe owner for a write. Wait for the project roster to be corrected.
+  if (matches.length > 1 && matches[0]!.length === matches[1]!.length && matches[0]!.id !== matches[1]!.id) return null;
+  return matches[0]?.id ?? null;
+}
+
+function normalizedProjectPath(value: string): string {
+  let path = value.trim().replaceAll('\\', '/').replace(/\/+$/u, '');
+  // Lexical traversal aliases can make a directory appear to belong to the
+  // wrong project. Leave such paths unresolved instead of guessing an owner.
+  if (path.split('/').some((segment) => segment === '.' || segment === '..')) return '';
+  if (/^[a-z]:/iu.test(path) || path.startsWith('//')) path = path.toLowerCase();
+  return path;
 }
 
 function readSurface(key: string): Surface {

@@ -44,3 +44,22 @@ limit note bodies to 3000 characters and projects to 200 notes, and return
 and timestamps; patch accepts only body and legacy pinned fields. Each
 successful mutation commits one atomic context file update. The notes UI
 and session attachment behavior are not yet connected.
+
+## P10-3: transitional context notes panel (2026-09-26)
+
+The operator rail now offers a separate Context tab when its directory
+resolves to an NNA project in the live global project roster. The longest
+worktree-path match wins with a path-segment boundary; invalid IDs are not
+sent to the context route. The tab reads and mutates notes through the NND
+context HTTP API, adopts committed server responses, keeps local drafts on
+failure and project switches, and retains the last loaded snapshot when a
+refresh fails. Stale refreshes cannot overwrite committed mutations; bad
+stored note rows surface a warning instead of silently disappearing.
+
+The existing General notes and Todos tabs still use their repo-local files.
+This additive presentation deliberately avoids hiding those files before a
+safe migration and unified owner resolver are built. Chats ownership,
+external worktrees not represented in the roster, session pinning, and a
+full note/todo/plan panel remain follow-ups. Symlink/junction aliases are
+not canonicalized in the browser: an unresolved or ambiguous owner hides
+the Context tab rather than guessing a project.

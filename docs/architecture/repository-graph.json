@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d9f2d969322e5875ef2ee7b3a4ff7520cf5697a3adcdc9378651f9f72b1e5b86",
+  "source_digest": "sha256:aef735c9d76e0f8978e027cc5e174e90707d2a473903e8dfc2721da36476dcef",
   "counts": {
-    "modules": 431,
+    "modules": 433,
     "component_edges": 13
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 123
+      "module_count": 124
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 107
+      "module_count": 108
     },
     {
       "id": "web-server",
@@ -100,8 +100,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 141,
-      "module_count": 59
+      "import_count": 142,
+      "module_count": 60
     },
     {
       "from": "sync-engine",
@@ -112,7 +112,7 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 47,
+      "import_count": 48,
       "module_count": 19
     },
     {
@@ -319,6 +319,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/context-notes.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/project-context-api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/drafts.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -380,6 +388,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/browser-surface.tsx",
+        "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/project-notes.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",
         "packages/ui/src/components/git/GitView.tsx",
@@ -387,6 +396,7 @@
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
+        "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
         "packages/ui/src/sync/view-store.ts"
@@ -406,6 +416,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/components/plan/PlanView.tsx",
         "packages/ui/src/lib/files/api.ts"
       ]
@@ -1599,6 +1610,14 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/project-context-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/redact-url.ts",

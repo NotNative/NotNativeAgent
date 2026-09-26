@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { FileReadError, readFileText, writeFileText } from '../lib/files/api.ts';
 import { PlanView } from '../components/plan/PlanView.tsx';
+import { ContextNotes, type ContextNotesDraft } from './context-notes.tsx';
 
-type Tab = 'notes' | 'todos' | 'plans';
+type Tab = 'notes' | 'todos' | 'plans' | 'context';
 interface Todo { id: string; text: string; done: boolean }
 const NOTES_PATH = '.opencode/nnd/general-notes.md';
 const TODOS_PATH = '.opencode/nnd/todos.json';
@@ -12,17 +13,20 @@ const TODOS_PATH = '.opencode/nnd/todos.json';
 export interface NotesDraftLease { directoryKey: string; text: string; revision: number }
 type SetDraftLease = Dispatch<SetStateAction<NotesDraftLease | null>>;
 
-export function ProjectNotes({ directory, directoryKey, visible, draftLease, setDraftLease }: {
-  directory: string; directoryKey: string; visible: boolean;
+export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange }: {
+  directory: string; directoryKey: string; projectId: string | null; visible: boolean;
   draftLease: NotesDraftLease | null; setDraftLease: SetDraftLease;
+  contextDraft?: ContextNotesDraft; onContextDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
 }): ReactNode {
   const [tab, setTab] = useState<Tab>('notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set(['notes']));
+  const activeTab = tab === 'context' && !projectId ? 'notes' : tab;
   return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes">
-    <nav className="flex gap-1 border-b border-white/10 p-2">{(['notes', 'todos', 'plans'] as const).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${tab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
-    <div className={tab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div>
-    {opened.has('todos') ? <div className={tab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
-    {opened.has('plans') ? <div className={tab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && tab === 'plans'} /></div> : null}
+    <nav className="flex gap-1 border-b border-white/10 p-2">{([...(['notes', 'todos', 'plans'] as const), ...(projectId ? ['context' as const] : [])]).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${activeTab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item === 'context' ? 'Context' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
+    <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div>
+    {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
+    {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
+    {projectId && opened.has('context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
   </section>;
 }
 
