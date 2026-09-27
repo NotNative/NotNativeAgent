@@ -68,7 +68,7 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
   const evidenceHint = completionEvidenceHint(active.completionEvidence);
   return Object.freeze({
     continue: true, countModelStep: false,
-    hint: [gateHint, trustedHandoff?.hint ?? toolContinuationHint(items), evidenceHint].filter(Boolean).join('\n\n'),
+    hint: [gateHint, trustedHandoff?.hint ?? toolContinuationHint(items, null, engine.tools), evidenceHint].filter(Boolean).join('\n\n'),
   });
 }
 

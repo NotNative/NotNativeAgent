@@ -1,5 +1,18 @@
 # Local NND integration
 
+## Browser ownership
+
+NND-owned sessions use `nnd_browser` through the desktop's Electron Chromium
+guest. They do not register NNA's Playwright-backed `web_browse`, so browser
+actions cannot silently run in a separate, invisible browser. The tool is
+registered when the NND service supplies a browser callback at startup. If no
+Electron browser controller is connected, its calls report that no capable
+desktop browser is connected. A service started without a callback and NND
+subagents advertise neither interactive browser tool.
+Standalone TUI/headless NNA retains `web_browse` and its separately managed
+Playwright runtime, even when an NND package is installed. Package registration
+does not change the active surface or select a browser backend.
+
 `nna nnd package activate ROOT` records an installed NND GUI package in
 `config/nnd-package.json` after verifying its `nna-integration/nnd-local/integration.json`
 identity, protocol `1.0`, version agreement with `package.json`, and built web and

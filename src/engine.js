@@ -339,7 +339,7 @@ export class SessionEngine {
     if (!progress.continue) return continueAfterExactToolBoundary(this, active, items, progress, (action) => this.#recordRecovery(action, active));
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
     const outcomeHint = reviewerCompletionHint(active.reviewerCompletion); return { continue: true,
-      hint: [trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action)), outcomeHint, completionEvidenceHint(active.completionEvidence)].filter(Boolean).join('\n\n'),
+      hint: [trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action), this.tools), outcomeHint, completionEvidenceHint(active.completionEvidence)].filter(Boolean).join('\n\n'),
       forceCompact: progress.action?.action === 'compact' || behavioralAction?.action === 'compact' };
   }
   async #afterTextStep(active) {

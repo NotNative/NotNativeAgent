@@ -3,7 +3,7 @@ import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { EMPTY_CONVERSATION_TEXT_LANE } from './conversation-text-lane.js';
-import { EXTERNAL_BROWSER_GUIDANCE } from './reliability/external-browser.js';
+import { externalBrowserGuidance } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 const REVIEWER_SERVICE_FAILURES = new Set([
@@ -53,7 +53,7 @@ export class MandatoryReviewer {
           request,
         );
       }
-      else if (request.resolved?.reliabilitySignals?.includes('external_browser')) decision = deny('external_browser_tool_required', EXTERNAL_BROWSER_GUIDANCE, request);
+      else if (request.resolved?.reliabilitySignals?.includes('external_browser')) decision = deny('external_browser_tool_required', externalBrowserGuidance(context.surface), request);
       else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
       else if (classification.risk === 'reversible' && intentRelation === 'covered') {
         decision = approve('deterministic_reversible', request);

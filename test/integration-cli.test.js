@@ -8,6 +8,26 @@ import { createIntegrationNndEngineHost, runIntegrationCommand, runNndIntegratio
 import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
 import { trustWorkspace } from '../src/experience/trust.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
+import { ToolRegistry } from '../src/tool-registry.js';
+
+test('NND and standalone browser catalogs stay separate even with NND installed', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-browser-surfaces-'));
+  const callback = { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) };
+  const standalone = new ToolRegistry(root, { nndBrowserCallback: callback });
+  const desktop = new ToolRegistry(root, { browserSurface: 'nnd', nndBrowserCallback: callback });
+  const desktopWithoutController = new ToolRegistry(root, { browserSurface: 'nnd' });
+  await Promise.all([standalone.initialize(), desktop.initialize(), desktopWithoutController.initialize()]);
+  try {
+    assert.ok(standalone.definition('web_browse'));
+    assert.equal(standalone.definition('nnd_browser'), undefined);
+    assert.ok(desktop.definition('nnd_browser'));
+    assert.equal(desktop.definition('web_browse'), undefined);
+    assert.equal(desktopWithoutController.definition('nnd_browser'), undefined);
+    assert.equal(desktopWithoutController.definition('web_browse'), undefined);
+  } finally {
+    await Promise.all([standalone.close(), desktop.close(), desktopWithoutController.close()]);
+  }
+});
 
 test('NND local service starts without NNO activation and keeps its authenticated wire contract', async () => {
   assert.throws(() => assertNnoIntegrationActivation(createNndLocalIntegrationActivation()), {
@@ -120,6 +140,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   assert.equal(context.engine.emitContextStatus, true);
   assert.equal(context.engine.surface, 'nnd');
   assert.equal(context.engine.tools.definition('nnd_browser')?.scope, 'browser');
+  assert.equal(context.engine.tools.definition('web_browse'), undefined);
   assert.ok(context.engine.skills.catalog().some((skill) => skill.id === 'nnd-review'));
   await writeFile(join(skillRoot, 'review', 'SKILL.md'), [
     '---', 'id: nnd-review', 'version: 2', 'description: Review a newer change',

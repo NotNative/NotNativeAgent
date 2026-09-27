@@ -58,7 +58,7 @@ export class ToolRegistry {
   #changes;
   constructor(workspaceRoot, options = {}) {
     this.enabled = options.enabled !== false;
-    this.hosted = options.hosted === true;
+    this.hosted = options.hosted === true; this.browserSurface = options.browserSurface === 'nnd' ? 'nnd' : 'playwright';
     this.allowedTools = Array.isArray(options.allowedTools) ? new Set(options.allowedTools) : null;
     this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace, protectedRoots: [userDataPaths().root] });
     this.#changes = new FileChangeLedger(this.paths.inputRoot);
@@ -107,7 +107,7 @@ export class ToolRegistry {
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient, references: this.#references }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath, references: this.#references }));
-    if (!this.hosted) this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot, paths: this.paths,
+    if (!this.hosted && this.browserSurface === 'playwright') this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot, paths: this.paths,
       managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(imageInspectDefinition(this.paths, this.observeImage, { maxBytes: this.imageMaxBytes })); this.#install(toolSearchDefinition(this));
@@ -123,7 +123,7 @@ export class ToolRegistry {
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
-    if (this.nndBrowserCallback && !this.hosted) this.#install(nndBrowserDefinition(this.nndBrowserCallback, { captureRoot: join(dirname(this.browserRoot), 'nnd-captures', this.sessionId ?? 'standalone') }));
+    if (this.browserSurface === 'nnd' && this.nndBrowserCallback && !this.hosted) this.#install(nndBrowserDefinition(this.nndBrowserCallback, { captureRoot: join(dirname(this.browserRoot), 'nnd-captures', this.sessionId ?? 'standalone') }));
     if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
   async close() { await this.definition('web_browse')?.manager?.close?.(); }

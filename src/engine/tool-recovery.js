@@ -15,7 +15,7 @@ export async function continueAfterExactToolBoundary(engine, active, items, prog
   });
   return {
     continue: true,
-    hint: toolContinuationHint(items, engine.reliability.hint(boundary)),
+    hint: toolContinuationHint(items, engine.reliability.hint(boundary), engine.tools),
     forceCompact: false,
   };
 }

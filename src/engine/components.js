@@ -119,8 +119,8 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     allowedTools: engine.config.executionManifest?.allowedTools,
   });
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
-    hosted: engine.config.executionManifest !== null,
-    boundedToWorkspace: engine.config.executionManifest !== null,
+    browserSurface: options.surface === 'nnd' || options.surface === 'nnd_subagent' ? 'nnd' : 'playwright',
+    hosted: engine.config.executionManifest !== null, boundedToWorkspace: engine.config.executionManifest !== null,
     administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),
     allowedTools: engine.config.executionManifest?.allowedTools,

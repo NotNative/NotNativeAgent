@@ -135,7 +135,7 @@ export class ToolLoop {
           if (active.webUrlProvenance.hasFailed(request.args.url)) {
             throw new ContractError(
               'web_fetch_url_already_failed',
-              'WebFetch already failed for this exact URL during the current turn. Do not retry WebFetch. If WebBrowse is available, use web_browse with action navigate on this same exact URL, then inspect the page. Only if browser navigation is unavailable or also fails should you use another exact URL returned by WebSearch or supplied by the user.',
+              `WebFetch already failed for this exact URL during the current turn. Do not retry WebFetch. ${browserRecoveryHint(this.tools)}`,
             );
           }
         }
@@ -429,7 +429,7 @@ function missionToolDisposition(active, items) {
   return null;
 }
 
-export function toolContinuationHint(items, fallback = null) {
+export function toolContinuationHint(items, fallback = null, tools = null) {
   const truncatedArguments = items.find((item) => item.result?.reason_code === 'tool_arguments_truncated');
   if (truncatedArguments) {
     return 'The provider output limit cut off the tool arguments before the JSON closed. Action-repair mode now persists for this turn and disables private thinking on subsequent action steps. Retry with one concise bounded call. For edits, use the smallest unique anchor and replacement, and split larger changes across calls.';
@@ -442,7 +442,7 @@ export function toolContinuationHint(items, fallback = null) {
   const failedFetch = items.find((item) => item.result?.tool_name === 'web_fetch'
     && ['failed', 'invalid_request', 'timed_out'].includes(item.result?.status));
   if (failedFetch) {
-    return 'WebFetch could not retrieve that exact URL. Do not retry it with WebFetch and do not synthesize a replacement path. WebFetch and WebBrowse are independent retrieval paths: if WebBrowse is available, your next recovery call should use web_browse with action navigate on the same exact URL, then inspect the page if navigation succeeds. Only if browser navigation is unavailable or also fails should you choose another exact URL returned by WebSearch or supplied by the user. Do not end the research merely because WebFetch failed.';
+    return `WebFetch could not retrieve that exact URL. Do not retry it with WebFetch and do not synthesize a replacement path. ${browserRecoveryHint(tools)} Do not end the research merely because WebFetch failed.`;
   }
   const failedProcess = items.filter((item) => ['process_run', 'shell_run'].includes(item.result?.tool_name)
     && ['failed', 'completed_nonzero'].includes(item.result?.status));
@@ -480,4 +480,14 @@ export function toolContinuationHint(items, fallback = null) {
   return immutable
     ? 'A tool reached an immutable policy boundary. Do not retry it or ask for authorization to bypass it. Continue the active task within the remaining capabilities, and report the boundary only if it prevents the objective.'
     : 'A tool was denied. Treat the denial as a route constraint, not the end of the task. Do not repeat an equivalent call unchanged. Continue with a safer, narrower, or more reversible approach. Ask the operator only after reasonable alternatives are exhausted; if blocked, state the attempted operation, denial, and exact clarification needed.';
+}
+
+function browserRecoveryHint(tools) {
+  if (tools?.definition('nnd_browser')) {
+    return 'If the exact URL is supported by nnd_browser, use nnd_browser with action open on that URL, then snapshot the page. If that URL is unsupported or browser navigation fails, choose another exact URL returned by WebSearch or supplied by the user.';
+  }
+  if (!tools || tools.definition('web_browse')) {
+    return 'If WebBrowse is available, your next recovery call should use web_browse with action navigate on the same exact URL, then inspect the page if navigation succeeds. Only if browser navigation is unavailable or also fails should you use another exact URL returned by WebSearch or supplied by the user.';
+  }
+  return 'No interactive browser tool is available in this session. Choose another exact URL returned by WebSearch or supplied by the user.';
 }

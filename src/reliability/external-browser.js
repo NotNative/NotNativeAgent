@@ -9,6 +9,13 @@ const SHELL_EXECUTABLES = new Set(['bash', 'cmd', 'powershell', 'pwsh', 'sh']);
 
 export const EXTERNAL_BROWSER_GUIDANCE = 'Direct browser processes are not permitted through shell_run or process_run. Use web_fetch for bounded text retrieval, or web_browse for managed rendering, interaction, local-page serving, and screenshots.';
 
+export function externalBrowserGuidance(surface) {
+  if (surface === 'nnd' || surface === 'nnd_subagent') {
+    return 'Direct browser processes are not permitted through shell_run or process_run. Use web_fetch for bounded text retrieval. If nnd_browser is available, use it to control the connected desktop browser; if it is unavailable, report that browser verification cannot run in this session.';
+  }
+  return EXTERNAL_BROWSER_GUIDANCE;
+}
+
 export function processLaunchesExternalBrowser(executable, args = []) {
   const name = portableExecutableName(executable);
   if (BROWSER_EXECUTABLES.has(name)) return true;
