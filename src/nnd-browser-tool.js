@@ -41,39 +41,21 @@ export function nndBrowserDefinition(callback, options = {}) {
   let observationRevision = 0;
   return {
     name: 'nnd_browser', version: 1,
-    purpose: 'Control the connected NND desktop browser: open a page, snapshot it, inspect one element, or click one visible element on the exact observed URL. Requires a connected desktop.',
+    purpose: 'Control the connected NND desktop browser: open, snapshot, inspect, click, or scroll the exact observed page. Requires a connected desktop.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 55_000, maxOutputBytes: MAX_REPLY_BYTES,
     inputSchema: { type: 'object', additionalProperties: false, required: ['action'], properties: {
-      action: { type: 'string', enum: ['open', 'snapshot', 'inspect', 'click'], description: 'Open a URL, observe the page, inspect one element, or click a visible element.' },
+      action: { type: 'string', enum: ['open', 'snapshot', 'inspect', 'click', 'scroll'], description: 'Open a URL, observe the page, inspect one element, click a visible element, or scroll the viewport.' },
       url: { type: 'string', maxLength: 2048, description: 'Required for open only: HTTPS or numeric-loopback HTTP URL.' },
       selector: { type: 'string', maxLength: 500, description: 'Required for inspect or click: CSS selector from the page.' },
-      expectedUrl: { type: 'string', maxLength: 2048, description: 'Required for click: exact URL from the latest page snapshot.' },
+      expectedUrl: { type: 'string', maxLength: 2048, description: 'Required for click or scroll: exact URL from the latest page snapshot.' },
+      direction: { type: 'string', enum: ['up', 'down', 'top', 'bottom'], description: 'Required for scroll: viewport direction.' },
     } },
-    validate: async (args) => {
-      if (!args || typeof args !== 'object' || Array.isArray(args) || !['open', 'snapshot', 'inspect', 'click'].includes(args.action)
-        || Object.keys(args).some((key) => !['action', 'url', 'selector', 'expectedUrl'].includes(key))) throw invalid('NND browser arguments are invalid');
-      if (args.action === 'open') {
-        if (typeof args.url !== 'string' || args.url.length > 2048 || !safePageUrl(args.url)
-          || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'expectedUrl')) throw invalid('NND browser URL is unsafe');
-      } else if (args.action === 'inspect' || args.action === 'click') {
-        if (Object.hasOwn(args, 'url') || typeof args.selector !== 'string' || !args.selector || args.selector.length > 500
-          || (args.action === 'inspect' && Object.hasOwn(args, 'expectedUrl')))
-          throw invalid(`${args.action} requires one bounded CSS selector`);
-        if (args.action === 'click' && (typeof args.expectedUrl !== 'string' || args.expectedUrl.length > 2048
-          || !safeObservedUrl(args.expectedUrl))) throw invalid('click requires an observed safe page URL');
-      } else if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'expectedUrl'))
-        throw invalid('snapshot takes no parameters');
-      return { args: args.action === 'open' ? { action: 'open', url: args.url }
-        : args.action === 'inspect' ? { action: 'inspect', selector: args.selector }
-          : args.action === 'click' ? { action: 'click', selector: args.selector, expectedUrl: args.expectedUrl }
-            : { action: 'snapshot' },
-        resolved: { surface: 'nnd-desktop-browser' } };
-    },
+    validate: async (args) => validateNndBrowserArgs(args),
     executor: async (request, signal) => {
       const action = request.args.action;
-      if (action === 'click' && observedUrl !== request.args.expectedUrl)
-        throw invalid('click requires a fresh snapshot of the exact page URL');
-      if (action === 'open' || action === 'snapshot' || action === 'click') {
+      if ((action === 'click' || action === 'scroll') && observedUrl !== request.args.expectedUrl)
+        throw invalid(`${action} requires a fresh snapshot of the exact page URL`);
+      if (action === 'open' || action === 'snapshot' || action === 'click' || action === 'scroll') {
         observedUrl = null;
         observationRevision += 1;
       }
@@ -91,6 +73,34 @@ export function nndBrowserDefinition(callback, options = {}) {
   };
 }
 
+function validateNndBrowserArgs(args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args) || !['open', 'snapshot', 'inspect', 'click', 'scroll'].includes(args.action)
+    || Object.keys(args).some((key) => !['action', 'url', 'selector', 'expectedUrl', 'direction'].includes(key))) throw invalid('NND browser arguments are invalid');
+  if (args.action === 'open') {
+    if (typeof args.url !== 'string' || args.url.length > 2048 || !safePageUrl(args.url)
+      || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'expectedUrl') || Object.hasOwn(args, 'direction')) throw invalid('NND browser URL is unsafe');
+  } else if (args.action === 'inspect' || args.action === 'click') {
+    if (Object.hasOwn(args, 'url') || typeof args.selector !== 'string' || !args.selector || args.selector.length > 500
+      || Object.hasOwn(args, 'direction') || (args.action === 'inspect' && Object.hasOwn(args, 'expectedUrl')))
+      throw invalid(`${args.action} requires one bounded CSS selector`);
+    if (args.action === 'click' && (typeof args.expectedUrl !== 'string' || args.expectedUrl.length > 2048
+      || !safeObservedUrl(args.expectedUrl))) throw invalid('click requires an observed safe page URL');
+  } else if (args.action === 'scroll') {
+    if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector')
+      || !['up', 'down', 'top', 'bottom'].includes(args.direction)
+      || typeof args.expectedUrl !== 'string' || args.expectedUrl.length > 2048 || !safeObservedUrl(args.expectedUrl))
+      throw invalid('scroll requires a direction and observed safe page URL');
+  } else if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'expectedUrl')
+    || Object.hasOwn(args, 'direction'))
+    throw invalid('snapshot takes no parameters');
+  return { args: args.action === 'open' ? { action: 'open', url: args.url }
+    : args.action === 'inspect' ? { action: 'inspect', selector: args.selector }
+      : args.action === 'click' ? { action: 'click', selector: args.selector, expectedUrl: args.expectedUrl }
+        : args.action === 'scroll' ? { action: 'scroll', direction: args.direction, expectedUrl: args.expectedUrl }
+          : { action: 'snapshot' },
+    resolved: { surface: 'nnd-desktop-browser' } };
+}
+
 async function executeNndBrowser(callback, fetcher, request, signal) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'browser request was cancelled');
   let response;
@@ -101,13 +111,14 @@ async function executeNndBrowser(callback, fetcher, request, signal) {
       parameters: request.args.action === 'open' ? { url: request.args.url }
         : request.args.action === 'inspect' ? { selector: request.args.selector }
           : request.args.action === 'click' ? { selector: request.args.selector, expectedUrl: request.args.expectedUrl }
+            : request.args.action === 'scroll' ? { direction: request.args.direction, expectedUrl: request.args.expectedUrl }
             : {} }), signal });
   } catch (error) {
     if (signal.aborted) throw new ContractError('tool_cancelled', 'browser request was cancelled', { cause: error });
     throw new ContractError('nnd_browser_unavailable', 'NND desktop browser callback is unavailable', { cause: error });
   }
-  if (!response.ok) throw new ContractError('nnd_browser_failed', request.args.action === 'click'
-    ? `Click outcome is uncertain (${response.status}); snapshot the page before retrying`
+  if (!response.ok) throw new ContractError('nnd_browser_failed', ['click', 'scroll'].includes(request.args.action)
+    ? `${request.args.action} outcome is uncertain (${response.status}); snapshot the page before retrying`
     : response.status === 503 ? 'No connected desktop browser can perform this action'
       : `NND browser action failed (${response.status})`);
   const length = Number(response.headers.get('content-length'));
