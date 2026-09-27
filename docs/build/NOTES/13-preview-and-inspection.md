@@ -189,3 +189,15 @@ suite, graph, source smoke, and release gates.
   hidden, inert, and disabled targets, and a timed-out click blocks further
   snapshots/clicks until its guest script settles. Type/scroll/capture and
   richer page inspection remain pending.
+
+## P11-12: governed viewport scroll (2026-09-26)
+
+- `nnd_browser { action: "scroll", direction, expectedUrl }` supports only
+  `up|down|top|bottom` in the isolated desktop guest. It requires the same
+  session-local, single-use successful snapshot URL as click, and the guest
+  rechecks the exact URL. A double-animation-frame readback reports the
+  resulting position and whether the viewport reached either edge.
+- The script cannot target arbitrary frames or execute model-supplied code.
+  NNA and the private callback enforce a bounded direction/URL schema, and
+  the renderer validates the numeric readback. A failed or timed-out scroll
+  requires a new snapshot before retrying. Type/capture remain pending.

@@ -24,6 +24,7 @@ describe('private NNA browser callback', () => {
     expect((await post({ action: 'browser.inspect', parameters: {} }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.inspect', parameters: { selector: '#x', extra: true } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.click', parameters: { selector: '#x' } }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.scroll', parameters: { direction: 'down' } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.open', parameters: { url: 'x', extra: true } }, secret)).status).toBe(400);
     broker.dispose();
   });
@@ -71,6 +72,21 @@ describe('private NNA browser callback', () => {
     });
     const response = await post({ action: 'browser.click', parameters: {
       selector: '#send', expectedUrl: 'https://example.org/',
+    } }, secret);
+    expect(response.status).toBe(200);
+    broker.dispose();
+  });
+
+  it('dispatches an exact-page scroll direction to a capable desktop', async () => {
+    const { broker, post } = fixture();
+    broker.registerClient('desktop', true, (request) => {
+      expect(request.action).toBe('browser.scroll');
+      expect(request.parameters).toEqual({ direction: 'down', expectedUrl: 'https://example.org/' });
+      expect(broker.claim(request.requestId, 'desktop')).toBe(true);
+      broker.resolve(request.requestId, 'desktop', { ok: true, data: { scrollY: 400 } });
+    });
+    const response = await post({ action: 'browser.scroll', parameters: {
+      direction: 'down', expectedUrl: 'https://example.org/',
     } }, secret);
     expect(response.status).toBe(200);
     broker.dispose();

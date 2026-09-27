@@ -90,6 +90,14 @@ describe('BrowserSurface', () => {
     } }); await Promise.resolve(); await Promise.resolve(); });
     expect(face.result).toHaveBeenCalledWith(clickId, { ok: true,
       data: { selector: '#send', urlBefore: 'https://example.org/', activated: true, settled: false } });
+    guest.executeJavaScript.mockResolvedValueOnce({ urlBefore: 'https://example.org/', direction: 'down',
+      scrollY: 400, maxScrollY: 1000, atTop: false, atBottom: false, settled: true });
+    const scrollId = 'browser-00000000-0000-0000-0000-000000000007';
+    await act(async () => { onRequest({ requestId: scrollId, action: 'browser.scroll', parameters: {
+      direction: 'down', expectedUrl: 'https://example.org/',
+    } }); await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(scrollId, { ok: true,
+      data: expect.objectContaining({ direction: 'down', scrollY: 400, settled: true }) });
     setVisible(false);
     expect(face.unregister).toHaveBeenCalledOnce();
   });
@@ -157,13 +165,83 @@ describe('BrowserSurface', () => {
     const blocked = 'browser-00000000-0000-0000-0000-000000000008';
     await act(async () => { onRequest({ requestId: blocked, action: 'browser.snapshot', parameters: {} }); await Promise.resolve(); });
     expect(face.result).toHaveBeenCalledWith(blocked, { ok: false,
-      error: 'A prior click is still running; wait before taking a new snapshot.' });
+      error: 'A prior browser action is still running; wait before taking a new snapshot.' });
     expect(guest.executeJavaScript).toHaveBeenCalledOnce();
     await act(async () => { finishClick({ selector: '#send', urlBefore: 'https://example.org/', activated: true,
       settled: false }); await Promise.resolve(); });
     const fresh = 'browser-00000000-0000-0000-0000-000000000009';
     await act(async () => { onRequest({ requestId: fresh, action: 'browser.snapshot', parameters: {} }); await Promise.resolve(); });
     expect(face.result).toHaveBeenCalledWith(fresh, { ok: true, data: expect.objectContaining({ title: 'After' }) });
+  });
+  it('blocks observations and repeated writes until a timed-out scroll settles', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
+    const face = {
+      register: vi.fn().mockResolvedValue({ ok: true }), unregister: vi.fn().mockResolvedValue({ ok: true }),
+      claim: vi.fn().mockResolvedValue({ ok: true, result: { granted: true } }),
+      result: vi.fn().mockResolvedValue({ ok: true, result: { matched: true } }),
+      onRequest: vi.fn((handler: typeof onRequest) => { onRequest = handler; return () => undefined; }),
+    };
+    window.__NOTNATIVE_BROWSER_CONTROL__ = face;
+    readyFetch();
+    const view = render();
+    enter('https://example.org/'); await flush();
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    let finishScroll!: (value: unknown) => void;
+    guest.executeJavaScript = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { finishScroll = resolve; }))
+      .mockResolvedValue({ url: 'https://example.org/', title: 'After', text: '', textTotalChars: 0,
+        textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
+    vi.useFakeTimers();
+    const scrollId = 'browser-00000000-0000-0000-0000-000000000010';
+    await act(async () => { onRequest({ requestId: scrollId, action: 'browser.scroll', parameters: {
+      direction: 'down', expectedUrl: 'https://example.org/',
+    } }); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(face.result).toHaveBeenCalledWith(scrollId, { ok: false,
+      error: 'Scroll result timed out; inspect the page before retrying.' });
+    const snapshotId = 'browser-00000000-0000-0000-0000-000000000011';
+    await act(async () => { onRequest({ requestId: snapshotId, action: 'browser.snapshot', parameters: {} }); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(snapshotId, { ok: false,
+      error: 'A prior browser action is still running; wait before taking a new snapshot.' });
+    const repeatId = 'browser-00000000-0000-0000-0000-000000000012';
+    await act(async () => { onRequest({ requestId: repeatId, action: 'browser.scroll', parameters: {
+      direction: 'down', expectedUrl: 'https://example.org/',
+    } }); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(repeatId, { ok: false,
+      error: 'A prior browser action may still complete; wait before scrolling.' });
+    expect(guest.executeJavaScript).toHaveBeenCalledOnce();
+    await act(async () => { finishScroll({ urlBefore: 'https://example.org/', direction: 'down',
+      scrollY: 400, maxScrollY: 1000, atTop: false, atBottom: false, settled: true }); await Promise.resolve(); });
+    vi.useRealTimers();
+    const freshId = 'browser-00000000-0000-0000-0000-000000000013';
+    await act(async () => { onRequest({ requestId: freshId, action: 'browser.snapshot', parameters: {} }); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(freshId, { ok: true, data: expect.objectContaining({ title: 'After' }) });
+  });
+  it('does not report a settled scroll when the guest starts navigating during execution', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
+    const face = {
+      register: vi.fn().mockResolvedValue({ ok: true }), unregister: vi.fn().mockResolvedValue({ ok: true }),
+      claim: vi.fn().mockResolvedValue({ ok: true, result: { granted: true } }),
+      result: vi.fn().mockResolvedValue({ ok: true, result: { matched: true } }),
+      onRequest: vi.fn((handler: typeof onRequest) => { onRequest = handler; return () => undefined; }),
+    };
+    window.__NOTNATIVE_BROWSER_CONTROL__ = face;
+    readyFetch();
+    const view = render();
+    enter('https://example.org/'); await flush();
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    guest.executeJavaScript = vi.fn(() => {
+      guest.dispatchEvent(new Event('did-start-loading'));
+      return Promise.resolve({ urlBefore: 'https://example.org/', direction: 'down',
+        scrollY: 400, maxScrollY: 1000, atTop: false, atBottom: false, settled: true });
+    });
+    const scrollId = 'browser-00000000-0000-0000-0000-000000000014';
+    await act(async () => { onRequest({ requestId: scrollId, action: 'browser.scroll', parameters: {
+      direction: 'down', expectedUrl: 'https://example.org/',
+    } }); await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(scrollId, { ok: false,
+      error: 'Scroll outcome is uncertain; inspect the page before retrying.' });
   });
   it('uses an isolated guest only for desktop HTTPS or loopback HTTP', async () => {
     expect(canEmbedDesktopPreview('http://localhost:5173/')).toBe(true);

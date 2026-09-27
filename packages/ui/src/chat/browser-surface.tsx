@@ -5,6 +5,7 @@ import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
 import { pageSnapshotScript, parsePageSnapshot, type PageSnapshot } from '../lib/browser/page-snapshot.ts';
 import { pageInspectionScript, parsePageInspection } from '../lib/browser/page-inspection.ts';
 import { pageClickScript, parsePageClick } from '../lib/browser/page-click.ts';
+import { pageScrollScript, parsePageScroll, type ScrollDirection } from '../lib/browser/page-scroll.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
@@ -120,6 +121,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const inspectionRevision = useRef(0);
   const clickScriptPending = useRef<Promise<unknown> | null>(null);
+  const scrollScriptPending = useRef<Promise<unknown> | null>(null);
   const controlHandler = useRef<(request: ControlRequest) => Promise<void>>(async () => undefined);
   const controlGeneration = useRef(0);
   const [reload, setReload] = useState(0);
@@ -259,7 +261,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     const guest = guestRef.current as (HTMLElement & {
       executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
     }) | null;
-    if (!desktop || !guest?.executeJavaScript || snapshotBusy) return;
+    if (!desktop || !guest?.executeJavaScript || snapshotBusy || scrollScriptPending.current) return;
     const revision = ++inspectionRevision.current;
     setSnapshotBusy(true);
     setSnapshotError(null);
@@ -300,7 +302,8 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         open(target);
         result = { ok: true, data: { url: target, opened: true, settled: false } };
       } else if (request.action === 'browser.snapshot') {
-        if (clickScriptPending.current) throw new Error('A prior click is still running; wait before taking a new snapshot.');
+        if (clickScriptPending.current || scrollScriptPending.current)
+          throw new Error('A prior browser action is still running; wait before taking a new snapshot.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
@@ -325,6 +328,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
         if (!guest?.executeJavaScript) throw new Error('Open a page in the desktop Browser pane first.');
+        if (scrollScriptPending.current) throw new Error('A prior scroll is still running; wait before inspecting.');
         const revision = inspectionRevision.current;
         let timeout: ReturnType<typeof setTimeout> | null = null;
         let value: unknown;
@@ -348,7 +352,8 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         }) | null;
         if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl)
           throw new Error('The page changed; take a new snapshot before clicking.');
-        if (clickScriptPending.current) throw new Error('A prior click may still complete; wait before retrying.');
+        if (clickScriptPending.current || scrollScriptPending.current)
+          throw new Error('A prior browser action may still complete; wait before retrying.');
         invalidateInspection();
         let timeout: ReturnType<typeof setTimeout> | null = null;
         let value: unknown;
@@ -365,6 +370,37 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         const clicked = parsePageClick(value, selector, expectedUrl);
         if (!clicked) throw new Error('Click outcome is uncertain; inspect the page before retrying.');
         result = { ok: true, data: clicked };
+      } else if (request.action === 'browser.scroll') {
+        const { direction, expectedUrl } = request.parameters ?? {};
+        if (!['up', 'down', 'top', 'bottom'].includes(String(direction))
+          || typeof expectedUrl !== 'string' || !expectedUrl || expectedUrl.length > 2048)
+          throw new Error('A direction and observed URL are required.');
+        const guest = guestRef.current as (HTMLElement & {
+          executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
+        }) | null;
+        if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl)
+          throw new Error('The page changed; take a new snapshot before scrolling.');
+        if (clickScriptPending.current || scrollScriptPending.current)
+          throw new Error('A prior browser action may still complete; wait before scrolling.');
+        invalidateInspection();
+        const revision = inspectionRevision.current;
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        let value: unknown;
+        try {
+          const execution = guest.executeJavaScript(pageScrollScript(direction as ScrollDirection, expectedUrl), false);
+          scrollScriptPending.current = execution;
+          void execution.then(() => { if (scrollScriptPending.current === execution) scrollScriptPending.current = null; },
+            () => { if (scrollScriptPending.current === execution) scrollScriptPending.current = null; });
+          value = await Promise.race([execution,
+            new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Scroll result timed out; inspect the page before retrying.')), 15_000); })]);
+        } finally { if (timeout) clearTimeout(timeout); }
+        if (value && typeof value === 'object' && 'error' in value && typeof value.error === 'string')
+          throw new Error(value.error.slice(0, 200));
+        const scrolled = parsePageScroll(value, direction as ScrollDirection, expectedUrl);
+        if (!scrolled || guestRef.current !== guest || revision !== inspectionRevision.current
+          || historyRef.current[indexRef.current] !== expectedUrl)
+          throw new Error('Scroll outcome is uncertain; inspect the page before retrying.');
+        result = { ok: true, data: scrolled };
       } else throw new Error(`${request.action} is not available in this build.`);
     } catch (error) {
       result = { ok: false, error: error instanceof Error ? error.message.slice(0, 1000) : 'Browser action failed.' };

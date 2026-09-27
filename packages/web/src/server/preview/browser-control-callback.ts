@@ -16,7 +16,7 @@ export function registerBrowserControlCallback(app: Hono, broker: BrowserControl
   app.post('/api/browser-control/request', async (c) => {
     if (!secretMatches(c.req.header('x-nnd-browser-token'), secret)) return c.json({ error: 'unauthorized' }, 401);
     const body = await readJsonBodyBounded(c.req.raw, 4096);
-    if (!body || !['browser.open', 'browser.snapshot', 'browser.inspect', 'browser.click'].includes(String(body.action ?? ''))
+    if (!body || !['browser.open', 'browser.snapshot', 'browser.inspect', 'browser.click', 'browser.scroll'].includes(String(body.action ?? ''))
       || !body.parameters || typeof body.parameters !== 'object' || Array.isArray(body.parameters))
       return c.json({ error: 'invalid browser action' }, 400);
     const parameters = body.parameters as Record<string, unknown>;
@@ -30,9 +30,13 @@ export function registerBrowserControlCallback(app: Hono, broker: BrowserControl
       if (Object.keys(parameters).length !== 2 || typeof parameters.selector !== 'string' || !parameters.selector
         || parameters.selector.length > 500 || typeof parameters.expectedUrl !== 'string' || !parameters.expectedUrl
         || parameters.expectedUrl.length > 2048) return c.json({ error: 'invalid click target' }, 400);
+    } else if (body.action === 'browser.scroll') {
+      if (Object.keys(parameters).length !== 2 || !['up', 'down', 'top', 'bottom'].includes(String(parameters.direction))
+        || typeof parameters.expectedUrl !== 'string' || !parameters.expectedUrl || parameters.expectedUrl.length > 2048)
+        return c.json({ error: 'invalid scroll target' }, 400);
     } else if (Object.keys(parameters).length !== 0) return c.json({ error: 'snapshot takes no parameters' }, 400);
     try {
-      const result = await broker.request(body.action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click', parameters,
+      const result = await broker.request(body.action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click' | 'browser.scroll', parameters,
         { signal: c.req.raw.signal });
       return c.json(result);
     } catch (error) {

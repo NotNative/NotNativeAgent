@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:fdc5d923a2644414dcbd9e5d0a872747b75e26eb569903037c4f34b67505d94b",
+  "source_digest": "sha256:bf5bd5cca96925d49e5190157784a4f196649eb6fcefdf4f5ffd20938e357395",
   "counts": {
-    "modules": 445,
+    "modules": 446,
     "component_edges": 13
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 127
+      "module_count": 128
     },
     {
       "id": "ui-shell",
@@ -100,7 +100,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 151,
+      "import_count": 152,
       "module_count": 63
     },
     {
@@ -218,6 +218,7 @@
       "imports": [
         "packages/ui/src/lib/browser/page-click.ts",
         "packages/ui/src/lib/browser/page-inspection.ts",
+        "packages/ui/src/lib/browser/page-scroll.ts",
         "packages/ui/src/lib/browser/page-snapshot.ts",
         "packages/ui/src/lib/browser/preview-url.ts",
         "packages/ui/src/lib/platform.ts"
@@ -1367,6 +1368,12 @@
     },
     {
       "path": "packages/ui/src/lib/browser/page-inspection.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/browser/page-scroll.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
