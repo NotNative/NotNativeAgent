@@ -217,6 +217,24 @@ try {
             if ($fixExit -ne 0) { Show-NativeFailures "electron-errors.log" 20; throw "electron install.js exited $fixExit" }
         } finally { Pop-Location }
     }
+    # Electron carries Chromium. Verify that the installed executable launches
+    # and reports its embedded Chromium version; UI rendering is checked later.
+    $chromiumOut = [IO.Path]::GetTempFileName()
+    $chromiumErr = [IO.Path]::GetTempFileName()
+    $previousRunAsNode = $env:ELECTRON_RUN_AS_NODE
+    try {
+        $env:ELECTRON_RUN_AS_NODE = '1'
+        $chromiumProbe = Start-Process -FilePath $ElectronExe -ArgumentList @('-p', 'process.versions.chrome') -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $chromiumOut -RedirectStandardError $chromiumErr
+        $chromiumVersion = (Get-Content -LiteralPath $chromiumOut -Raw).Trim()
+        if ($chromiumProbe.ExitCode -ne 0 -or $chromiumVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+            $chromiumFailure = (Get-Content -LiteralPath $chromiumErr -Raw).Trim()
+            throw "Installed Electron Chromium runtime failed verification (exit $($chromiumProbe.ExitCode)): $chromiumFailure"
+        }
+        Write-Good "Electron reports embedded Chromium $chromiumVersion"
+    } finally {
+        $env:ELECTRON_RUN_AS_NODE = $previousRunAsNode
+        Remove-Item -LiteralPath $chromiumOut, $chromiumErr -Force -ErrorAction SilentlyContinue
+    }
     Write-Good "dependencies ready"
 
     Set-Content -Path (Join-Path $InstallDir "packages\electron\install-mode.txt") -Value "script" -NoNewline

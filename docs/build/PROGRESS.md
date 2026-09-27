@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **PB-4 browser ownership split.** The Windows installer
+  verifies that the downloaded Electron executable launches and reports its
+  embedded Chromium version after dependency
+  installation. NND-owned NNA sessions expose only the visible `nnd_browser`
+  tool when its browser callback is configured; they do not inherit NNA's
+  Playwright browser. TUI/headless NNA continues to use Playwright regardless
+  of whether NND is installed. A callback without a connected Electron
+  controller returns an unavailable error; a standalone service started with
+  the bridge disabled advertises no interactive browser tool. A persistent
+  controller attachment seam remains work.
+
 - 2026-09-26 · **PB-3 standalone installed-service entrypoint.** A validated
   installed NND package can run its built web server in Node without an
   Electron window, on explicit loopback port only. Stdout carries a bounded

@@ -280,6 +280,10 @@
     {
       "version": "20260927-1",
       "content_sha256": "afa3db6d513e2ea3ad93eeee6e1aa84815a764222072309f860305e5fbe036d7"
+    },
+    {
+      "version": "20260927-2",
+      "content_sha256": "2b8dcc8d458471bab0168f5e3eec0042aac6337f2a7dfc2b4c79c9454889bf0d"
     }
   ]
 }
