@@ -19,14 +19,14 @@ import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-s
 import type { ToolEvidence } from '../sync/activity-log.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
-const SURFACES: readonly { id: Surface; label: string }[] = [
-  { id: 'context', label: 'Context' },
-  { id: 'activity', label: 'Activity' },
-  { id: 'changes', label: 'Changes' },
-  { id: 'walkthrough', label: 'Walkthrough' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'browser', label: 'Browser' },
-  { id: 'terminal', label: 'Terminal' },
+const SURFACES: readonly { id: Surface; label: string; glyph: string }[] = [
+  { id: 'context', label: 'Context', glyph: '◔' },
+  { id: 'activity', label: 'Activity', glyph: '≋' },
+  { id: 'changes', label: 'Changes', glyph: '⑂' },
+  { id: 'walkthrough', label: 'Walkthrough', glyph: '▣' },
+  { id: 'notes', label: 'Notes', glyph: '▤' },
+  { id: 'browser', label: 'Browser', glyph: '◎' },
+  { id: 'terminal', label: 'Terminal', glyph: '⌁' },
 ];
 type PanelPreferences = { order: Surface[]; visible: Surface[] };
 type ReviewRequest = { directory: string; path: string; id: number };
@@ -39,6 +39,8 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
 }): ReactNode {
   const walkthroughSessionId = useSessionViewStore((state) => state.activeDirectory === directory ? state.currentSessionId : null);
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
+  const [docked, setDocked] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1024px)').matches ?? false));
+  const [panelOpen, setPanelOpen] = useState(wide);
   useEffect(() => {
     const query = window.matchMedia?.('(min-width: 1280px)');
     if (!query) return;
@@ -47,7 +49,20 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-  const paneVisible = !suppressed && (compactOpen || wide);
+  useEffect(() => {
+    const query = window.matchMedia?.('(min-width: 1024px)');
+    if (!query) return;
+    setDocked(query.matches);
+    const update = (event: MediaQueryListEvent): void => setDocked(event.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    // When a foreground compact surface becomes docked, keep its pane open.
+    // ChatView simultaneously restores the chat column at this breakpoint.
+    if (docked && compactOpen) setPanelOpen(true);
+  }, [compactOpen, docked]);
+  const paneVisible = !suppressed && (compactOpen || (docked && panelOpen));
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const projectId = resolveContextProjectId(directory, global.projects);
   const storageKey = surfaceStorageKey(directory);
@@ -76,6 +91,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
   const width = clampRailWidth(savedWidth.key === widthKey ? savedWidth.value : readWidth(widthKey, surface), viewportWidth);
   const dragCleanup = useRef<(() => void) | null>(null);
+  const selectedButton = useRef<HTMLButtonElement | null>(null);
   useEffect(() => () => dragCleanup.current?.(), []);
   useEffect(() => {
     const updateViewport = (): void => setViewportWidth(window.innerWidth);
@@ -130,9 +146,9 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     if (selection.key === selectionKey && surface === 'notes') setNotesOpenedKey(storageKey);
   }, [selection.key, selectionKey, storageKey, surface]);
   return (
-    <aside className={`${suppressed ? 'hidden' : compactOpen ? 'flex' : 'hidden xl:flex'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={wide && !compactOpen ? { width } : undefined} data-testid="operator-rail">
+    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={docked && !compactOpen ? { width: panelOpen ? width + 40 : 40 } : undefined} data-testid="operator-rail">
       <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
-        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed ? 'hidden' : 'hidden xl:block'}`}
+        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen ? 'hidden' : 'hidden lg:block'}`}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           dragCleanup.current?.();
@@ -159,27 +175,31 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
       {compactOpen ? <div className="border-b border-white/10 px-3 py-2">
         <button type="button" data-testid="operator-return-chat" className="rounded px-2 py-1 text-xs text-neutral-200 hover:bg-white/10" onClick={onCloseCompact}>← Return to chat</button>
       </div> : null}
-      <div className="border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300" data-testid="operator-surface-title">{SURFACES.find((item) => item.id === surface)?.label}</div>
+      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300`} data-testid="operator-surface-title">
+        {SURFACES.find((item) => item.id === surface)?.label}
+        {docked && !compactOpen ? <button type="button" aria-label="Close operator panel" className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => { setPanelOpen(false); selectedButton.current?.focus(); }}>×</button> : null}
+      </div>
       <div className="flex min-h-0 flex-1">
-      <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
+      <nav className="order-2 flex w-10 shrink-0 flex-col border-l border-white/10 py-2" aria-label="Operator surfaces">
         {panels.order.filter((id) => panels.visible.includes(id)).map((id) => {
           const item = SURFACES.find((candidate) => candidate.id === id)!;
           return (
-          <button key={item.id} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
-            className={`px-1 py-2 text-[9px] ${surface === item.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
+          <button key={item.id} ref={surface === item.id ? selectedButton : undefined} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
+            className={`px-1 py-2 text-lg leading-5 ${surface === item.id && paneVisible ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-200'}`}
             onClick={() => {
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               if (item.id === 'notes') setNotesOpenedKey(storageKey);
+              if (docked && !compactOpen) setPanelOpen(item.id !== surface || !panelOpen);
               setSelection({ key: selectionKey, surface: item.id });
-            }}>{item.label.slice(0, 1)}</button>
+            }}>{item.glyph}</button>
           );
         })}
         <button type="button" aria-label="Customize operator panels" aria-expanded={customizing}
           className="mt-auto px-1 py-2 text-[9px] text-neutral-500 hover:text-neutral-200"
-          onClick={() => setCustomizing((value) => !value)}>⋯</button>
+          onClick={() => { setPanelOpen(true); setCustomizing((value) => !value); }}>⋯</button>
       </nav>
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : ''} order-1 min-h-0 min-w-0 flex-1 overflow-y-auto`}>
         {customizing ? <section aria-label="Customize operator panels" className="border-b border-white/10 p-2 text-xs">
           <div className="mb-2 text-neutral-300">Panels</div>
           {panels.order.map((id, index) => {

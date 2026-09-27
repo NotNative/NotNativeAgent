@@ -90,7 +90,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
       }
     } else if (returnToChatFocus.current) {
       returnToChatFocus.current = false;
-      if (window.matchMedia?.('(min-width: 1280px)').matches) {
+      if (window.matchMedia?.('(min-width: 1024px)').matches) {
         (chatRoot.current?.querySelector<HTMLElement>('[data-testid="composer-editor"]') ?? chatRoot.current)?.focus();
       } else {
         compactOpenButton.current?.focus();
@@ -98,10 +98,13 @@ export function ChatView(props: ChatViewProps): ReactNode {
     }
   }, [compactSurfaceOpen]);
   useEffect(() => {
-    const wide = window.matchMedia?.('(min-width: 1280px)');
+    const wide = window.matchMedia?.('(min-width: 1024px)');
     if (!wide) return;
     const revealFocusedRail = (event: MediaQueryListEvent): void => {
-      if (event.matches) return;
+      if (event.matches) {
+        setCompactSurfaceOpen(false);
+        return;
+      }
       const rail = chatRoot.current?.querySelector('[data-testid="operator-rail"]');
       if (rail?.contains(document.activeElement)) setCompactSurfaceOpen(true);
     };
@@ -169,15 +172,16 @@ export function ChatView(props: ChatViewProps): ReactNode {
 
   return (
     <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
-      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !expanded ? 'hidden xl:flex' : 'flex'}`}>
-        {!expanded ? <div className="flex justify-end border-b border-white/10 px-3 py-1 xl:hidden">
+      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !expanded ? 'hidden lg:flex' : 'flex'}`}>
+        {!expanded ? <div className="flex justify-end border-b border-white/10 px-3 py-1 lg:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
         <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded ? 'hidden' : ''}`} data-chat-column>
           <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} />
         </div>
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
-        <div className="relative z-10 border-t border-white/10 bg-neutral-950/60 px-4 py-3" data-composer-bound>
+        <div className="relative z-10 border-t border-white/5 bg-neutral-950/80 px-4 py-3" data-composer-bound>
+          <div className="mx-auto max-w-3xl">
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
           {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
@@ -197,6 +201,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
             onModelSelection={setModelSelection}
             onAddProvider={() => toast('Provider management opens with the settings pages (P5)')}
           />}
+          </div>
         </div>
       </div>
       <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory}

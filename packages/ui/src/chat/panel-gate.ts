@@ -27,5 +27,11 @@ export interface PanelStats {
 export function panelStatsIfNeeded(state: DirectoryStore, sessionID: string, committed: PanelStats | null): PanelStats | null {
   if (committed && !panelEligible(state, sessionID)) return committed; // keep during the next active turn
   if (!panelEligible(state, sessionID)) return null;
-  return turnStats(state, sessionID);
+  const next = turnStats(state, sessionID);
+  // turnStats returns a fresh object. Preserve identity while the measured
+  // values have not changed, or a render-to-commit effect loops indefinitely.
+  return committed && Object.is(committed.responseSpeedTokensPerSec, next.responseSpeedTokensPerSec)
+    && Object.is(committed.wholeTurnMS, next.wholeTurnMS) && Object.is(committed.steps, next.steps)
+    && Object.is(committed.outputTokens, next.outputTokens) && Object.is(committed.inputTokens, next.inputTokens)
+    ? committed : next;
 }

@@ -120,7 +120,7 @@ export function Transcript(props: TranscriptProps): ReactNode {
     }
   };
   return (
-    <div ref={transcriptRef} className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-6" data-testid="chat-transcript">
+    <div ref={transcriptRef} className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-4" data-testid="chat-transcript">
       {canLoadOlder ? <div className="flex flex-col items-center gap-1 text-xs">
         <button type="button" disabled={olderBusyKey === loadKey} onClick={() => { void loadOlder(); }}
           className="rounded border border-white/15 px-3 py-1.5 text-neutral-300 hover:bg-white/10 disabled:opacity-50"
@@ -186,7 +186,7 @@ function UserBubble({ parts, anchorID }: { parts: PartLite[]; anchorID: string }
   const text = parts.filter((part) => part.type === 'text' && !part.synthetic && !part.ignored).map((part) => part.text ?? '').join('');
   return (
     <div id={`message-${anchorID}`} className="flex scroll-mt-16 justify-end">
-      <div className={`max-w-[85%] rounded-xl p-3 text-sm text-neutral-100 ${text.startsWith('!') || text.startsWith('/') ? 'bg-neutral-800/80 font-mono text-[13px]' : 'bg-indigo-950/60'}`}>
+      <div className={`max-w-[85%] rounded-lg border border-white/5 px-3 py-2 text-sm text-neutral-100 ${text.startsWith('!') || text.startsWith('/') ? 'bg-neutral-800/80 font-mono text-[13px]' : 'bg-stone-900/80'}`}>
         {text.startsWith('!') ? <span aria-hidden className="mr-1 text-amber-300">$</span> : null}
         {text || '[No text content]'}
       </div>

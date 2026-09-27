@@ -190,6 +190,7 @@ describe('panel gate (§E.9 + doc 04 gate rule 6)', () => {
     expect(duringBusy).toBe(committed); // identity retention, no recompute
     patch(store, { session_status: {} });
     expect(panelEligible(store.getState(), 's1')).toBe(true);
+    expect(panelStatsIfNeeded(store.getState(), 's1', committed)).toBe(committed);
   });
 });
 

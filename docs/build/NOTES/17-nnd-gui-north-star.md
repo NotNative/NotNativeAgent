@@ -17,6 +17,24 @@ NNA remains authoritative. NND presents engine projections and sends authenticat
 requests; it never decides a turn state, permission outcome, lifecycle action, or
 network-exposure policy from the GUI.
 
+## Live OpenChamber comparison (2026-09-27)
+
+The running upstream UI confirmed the intended visual hierarchy beyond the source
+audit: a slim left project/session navigator, a restrained central transcript and
+bottom composer, and a persistent icon dock on the far right. Selecting Context,
+Git, Files, or Project knowledge opens a titled secondary workspace beside chat;
+the panel can occupy a substantial portion of a wide display, and close/expand
+controls do not eject the active conversation. Project knowledge groups Notes,
+Todo, and Plans within that workspace, with search and section counts. Tool calls
+read as compact timeline rows rather than full-sized message cards.
+
+NND should borrow these spatial and interaction principles, not upstream code,
+assets, text, or styling. At a normal desktop window width the icon dock must remain
+discoverable even when the panel is closed. The composer and transcript should share
+a readable maximum width and muted, warm hierarchy. A failed or unfocused desktop
+renderer must never leave a visible but inert window; reopening it must recover the
+page and return keyboard focus to the embedded UI.
+
 ## The seven visible surfaces
 
 | Surface | What the operator should experience | NNA authority needed | NND status / next emphasis |

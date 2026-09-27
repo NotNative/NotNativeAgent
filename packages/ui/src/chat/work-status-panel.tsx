@@ -5,7 +5,7 @@
  * query at the layout layer). Rows read warm caches only; no aggregate
  * endpoints.
  */
-import { useSyncExternalStore, useState, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, useState, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
@@ -23,7 +23,12 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
   const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
   const [hidden, setHidden] = useState<string[]>([]);
-  const [committed, setCommitted] = useState<PanelStats | null>(null);
+  const [committed, setCommitted] = useState<{ sessionID: string; stats: PanelStats } | null>(null);
+  const committedForSession = committed?.sessionID === sessionID ? committed.stats : null;
+  const stats = sessionID ? panelStatsIfNeeded(snapshot, sessionID, committedForSession) : null;
+  useEffect(() => {
+    if (sessionID && stats && stats !== committedForSession) setCommitted({ sessionID, stats });
+  }, [committedForSession, sessionID, stats]);
   if (!sessionID) return <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} p-3 text-xs text-neutral-500`}
     data-testid="work-status-panel">Select a session to inspect its NNA context.</aside>;
 
@@ -42,10 +47,6 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const selectedSession = snapshot.session.find((session) => session.id === sessionID);
   const todos = configuredModel.nnaConfigured || work ? [] : todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
-  const stats = panelStatsIfNeeded(snapshot, sessionID, committed);
-  if (stats && stats !== committed) {
-    queueMicrotask(() => setCommitted(stats)); // commit-once render exit
-  }
   const cost = sessionCostRollup(snapshot, sessionID);
   const branch = snapshot.vcs?.branch ?? '';
   const latestTool = [...snapshot.activity].reverse().find((record) => record.sessionID === sessionID && record.kind === 'tool');

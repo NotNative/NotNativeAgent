@@ -174,36 +174,72 @@ describe('OperatorRail', () => {
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
-    expect(rail.style.width).toBe('300px');
+    expect(rail.style.width).toBe('340px');
     act(() => separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true })));
-    expect(rail.style.width).toBe('324px');
+    expect(rail.style.width).toBe('364px');
     expect(separator.getAttribute('aria-valuenow')).toBe('324');
     act(() => separator.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 500, bubbles: true })));
     act(() => window.dispatchEvent(new MouseEvent('pointermove', { clientX: 460 })));
     act(() => window.dispatchEvent(new MouseEvent('pointerup')));
-    expect(rail.style.width).toBe('364px');
+    expect(rail.style.width).toBe('404px');
     act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
-    expect(rail.style.width).toBe('600px');
+    expect(rail.style.width).toBe('640px');
     vi.stubGlobal('innerWidth', 1100);
     act(() => window.dispatchEvent(new Event('resize')));
-    expect(rail.style.width).toBe('550px');
+    expect(rail.style.width).toBe('590px');
     vi.stubGlobal('innerWidth', 400);
     act(() => window.dispatchEvent(new Event('resize')));
-    expect(rail.style.width).toBe('280px');
+    expect(rail.style.width).toBe('320px');
     vi.stubGlobal('innerWidth', 1280);
     act(() => window.dispatchEvent(new Event('resize')));
-    expect(rail.style.width).toBe('600px');
+    expect(rail.style.width).toBe('640px');
     act(() => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
-    expect(rail.style.width).toBe('364px');
+    expect(rail.style.width).toBe('404px');
     activeRuntime = 'host:other';
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
-    expect(rail.style.width).toBe('300px');
+    expect(rail.style.width).toBe('340px');
     activeRuntime = 'local';
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
-    expect(rail.style.width).toBe('364px');
+    expect(rail.style.width).toBe('404px');
     expect([...Array(window.localStorage.length)].map((_, index) => window.localStorage.key(index)).some((key) => key?.includes('nnd.operator-rail.width:local:'))).toBe(true);
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen />));
     expect(rail.style.width).toBe('');
+  });
+  it('keeps an icon dock visible at the installed desktop width and opens panels on demand', () => {
+    vi.stubGlobal('innerWidth', 1265);
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('1024px'), addEventListener: () => undefined, removeEventListener: () => undefined,
+    }));
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.style.width).toBe('40px');
+    expect(rail.className).toContain('flex');
+    act(() => (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click());
+    expect(rail.style.width).toBe('340px');
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Notes');
+    act(() => (document.querySelector('button[aria-label="Close operator panel"]') as HTMLButtonElement).click());
+    expect(rail.style.width).toBe('40px');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Notes');
+    expect(document.activeElement?.getAttribute('aria-pressed')).toBe('true');
+  });
+  it('keeps the foreground compact pane open when it becomes a desktop dock', () => {
+    vi.stubGlobal('innerWidth', 1100);
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('1024px'), addEventListener: () => undefined, removeEventListener: () => undefined,
+    }));
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen />));
+    act(() => (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click());
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.style.width).toBe('340px');
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Notes');
   });
   it('stops terminal foreground work when the desktop rail becomes compact-hidden', () => {
     let change: ((event: MediaQueryListEvent) => void) | undefined;

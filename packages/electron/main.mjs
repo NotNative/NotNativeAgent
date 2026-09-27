@@ -38,6 +38,7 @@ let trayController = null;
 let quitting = false;
 let bootFailure = null; // boot-abort message; trayed installs linger and must say why
 let windowStateTimer = null;
+let revealPending = false;
 
 // ── §1.2/1.3 module-load identity (before app.whenReady) ────────────────────
 
@@ -65,7 +66,12 @@ if (!app.requestSingleInstanceLock()) {
   app.exit(0);
   process.exit(0);
 }
-app.on('second-instance', () => focusMainWindow());
+app.on('second-instance', () => {
+  // A second launch can arrive after app ready but before boot creates the
+  // first window. Let boot own creation, then honor the user's reveal request.
+  if (!mainWindow) { revealPending = true; return; }
+  ensureMainWindow();
+});
 
 try { process.chdir(os.homedir()); } catch { /* best effort fallback cwd */ }
 
@@ -425,7 +431,19 @@ function createMainWindow() {
     win.on(eventName, () => scheduleWindowStatePersist(win));
   }
   attachWindowGuards(win);
-  win.once('ready-to-show', () => { if (!HIDDEN_START || bootFailure) win.show(); });
+  win.once('ready-to-show', () => {
+    if (!HIDDEN_START || bootFailure) {
+      win.show();
+      win.focus();
+      win.webContents.focus();
+    }
+  });
+  win.on('focus', () => {
+    if (!win.webContents.isDestroyed() && !win.webContents.isCrashed()) win.webContents.focus();
+  });
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[shell] renderer exited:', details.reason, details.exitCode);
+  });
   // Tray mode: the close button hides the window and the service keeps
   // running (reference launcher semantics); Quit belongs to the tray menu.
   win.on('close', (event) => {
@@ -448,6 +466,7 @@ function focusMainWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
+  if (!mainWindow.webContents.isDestroyed() && !mainWindow.webContents.isCrashed()) mainWindow.webContents.focus();
 }
 
 /** Tray "Open <App>": reuse the window or create one targeted at the UI. It
@@ -530,6 +549,10 @@ async function boot() {
   }
   trayController?.setStatus('starting');
   mainWindow = createMainWindow();
+  if (revealPending) {
+    revealPending = false;
+    ensureMainWindow();
+  }
   powerMonitor.on('resume', () => {
     // D-09-11: sealed notnative: brand fan-out (renderer reconnects immediately)
     for (const win of BrowserWindow.getAllWindows()) {
