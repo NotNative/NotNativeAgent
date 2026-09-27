@@ -8,6 +8,7 @@ const STEER_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/steer$/u;
 const GOAL_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal$/u;
 const GOAL_EVIDENCE_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-evidence$/u;
 const GOAL_AUDIT_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-audit$/u;
+const WALKTHROUGH_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/walkthrough$/u;
 
 export async function dispatchNndOperatorRequest(request, response, context) {
   const capability = SESSION_ROUTE.exec(context.url.pathname);
@@ -15,8 +16,9 @@ export async function dispatchNndOperatorRequest(request, response, context) {
   const goal = GOAL_ROUTE.exec(context.url.pathname);
   const goalEvidence = GOAL_EVIDENCE_ROUTE.exec(context.url.pathname);
   const goalAudit = GOAL_AUDIT_ROUTE.exec(context.url.pathname);
-  if (!capability && !steer && !goal && !goalEvidence && !goalAudit) return false;
-  const encoded = (capability ?? steer ?? goal ?? goalEvidence ?? goalAudit)[1];
+  const walkthrough = WALKTHROUGH_ROUTE.exec(context.url.pathname);
+  if (!capability && !steer && !goal && !goalEvidence && !goalAudit && !walkthrough) return false;
+  const encoded = (capability ?? steer ?? goal ?? goalEvidence ?? goalAudit ?? walkthrough)[1];
   let sessionId;
   try { sessionId = decodeURIComponent(encoded); requireExternalId(sessionId, 'session_id'); }
   catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
@@ -31,6 +33,12 @@ export async function dispatchNndOperatorRequest(request, response, context) {
     requireIntegrationPermission(context.principal, 'nnd.goal.manage');
     if (!context.nndEngineHost?.auditGoal) throw new ContractError('nnd_engine_unavailable', 'NND goal auditor is unavailable');
     return send(response, 200, await context.nndEngineHost.auditGoal(sessionId, context.principal, await readJsonBody(request)));
+  }
+  if (walkthrough) {
+    if (request.method !== 'POST') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+    requireIntegrationPermission(context.principal, 'nnd.walkthrough.generate');
+    if (!context.nndEngineHost?.generateWalkthrough) throw new ContractError('nnd_engine_unavailable', 'NND walkthrough generation is unavailable');
+    return send(response, 200, await context.nndEngineHost.generateWalkthrough(sessionId, context.principal, await readJsonBody(request)));
   }
   if (request.method === 'GET' && capability) requireIntegrationPermission(context.principal, 'nnd.read');
   else if (request.method === 'POST' && steer) requireIntegrationPermission(context.principal, 'nnd.steer');

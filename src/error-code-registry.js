@@ -77,6 +77,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
     'nnd_goal_invalid', 'nnd_goal_conflict', 'nnd_goal_audit_invalid', 'nnd_goal_audit_conflict',
+    'nnd_walkthrough_invalid', 'nnd_walkthrough_context_large',
     'nnd_model_override_unsupported', 'nnd_agent_override_unsupported',
   ]),
   extension: Object.freeze([
@@ -127,6 +128,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'engine_settlement_invalid', 'environment_boolean_invalid', 'execution_capabilities_invalid',
     'nnd_engine_unavailable', 'nnd_manifest_unavailable', 'nnd_session_capacity', 'nnd_context_capacity', 'nnd_session_unavailable',
     'nnd_goal_audit_busy', 'nnd_goal_audit_unavailable',
+    'nnd_walkthrough_busy', 'nnd_walkthrough_unavailable',
     'nnd_skills_unavailable',
     'steering_unavailable',
     'execution_manifest_forbidden', 'execution_manifest_mismatch', 'execution_manifest_required',
@@ -263,6 +265,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   provider: Object.freeze([
     'nnd_goal_audit_output_invalid', 'nnd_goal_audit_output_large',
     'nnd_goal_audit_timeout', 'nnd_goal_audit_tool_violation',
+    'nnd_walkthrough_output_invalid', 'nnd_walkthrough_output_large',
+    'nnd_walkthrough_timeout', 'nnd_walkthrough_tool_violation',
     'duplicate_provider', 'missing_provider', 'model_required',
     'model_runtime_route_invalid', 'no_eligible_vision_route', 'provider_bootstrap_command_invalid',
     'provider_bootstrap_file_invalid', 'provider_bootstrap_file_too_large', 'provider_cancelled',

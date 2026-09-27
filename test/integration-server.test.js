@@ -648,6 +648,35 @@ test('NND goal audit endpoint requires goal-management permission and forwards a
   } finally { await service.close(); }
 });
 
+test('NND walkthrough endpoint requires its own generation permission and forwards a scoped digest', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-walkthrough-route-'));
+  const calls = [];
+  const host = { async generateWalkthrough(sessionId, actor, body) {
+    calls.push({ sessionId, actor, body });
+    return { text: '{"chapters":[]}', providerID: 'local', modelID: 'small', revision: body.revision };
+  } };
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const path = '/v1/nnd/sessions/session_test/walkthrough';
+  const body = { revision: 'a'.repeat(64), digest: [{ alias: 'h1', scope: 'working',
+    path: 'main.js', header: '@@ -1 +1 @@', patch: '-old\n+new' }] };
+  try {
+    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['nnd.walkthrough.generate']))).status, 405);
+    assert.equal(calls.length, 0);
+    const result = await request(base, path, principal(['nnd.walkthrough.generate']), { method: 'POST', body });
+    assert.equal(result.status, 200);
+    assert.equal(result.value.revision, body.revision);
+    assert.equal(calls[0].sessionId, 'session_test');
+    assert.equal(calls[0].actor.subjectId, 'u_test');
+    assert.deepEqual(calls[0].body, body);
+    host.generateWalkthrough = async () => { throw new ContractError('nnd_walkthrough_busy', 'busy'); };
+    assert.equal((await request(base, path, principal(['nnd.walkthrough.generate']), { method: 'POST', body })).status, 409);
+  } finally { await service.close(); }
+});
+
 async function request(base, path, actor, options = {}) {
   const response = await fetch(`${base}${path}`, {
     method: options.method ?? 'GET',

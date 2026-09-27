@@ -15,8 +15,8 @@ import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.
 import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { runNndGoalAudit } from './nnd-goal-audit.js';
+import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
-
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
@@ -44,7 +44,6 @@ export class NndEngineHost {
     this.childSnapshotStore = new NndChildSnapshotStore(this.catalogPath, options.persistChildSnapshot);
     this.catalogWrites = Promise.resolve();
   }
-
   async initialize() {
     if (!this.catalogPath) return;
     let source;
@@ -174,6 +173,7 @@ export class NndEngineHost {
 
   goal(sessionId, principal) { const context = this.#owned(sessionId, principal); return { goal: context.goal, revision: context.goalRevision }; }
   auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
+  generateWalkthrough(sessionId, principal, body) { return runNndWalkthrough(this.#owned(sessionId, principal), body); }
   goalEvidence(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
     return nndGoalEvidence(sessionId, context.engine.transcript, context.goalTurnReceipts,

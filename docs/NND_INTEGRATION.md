@@ -68,3 +68,17 @@ surface and the child registry projects the same validated phase on the
 child session. Live phase changes update that child description without
 borrowing the parent's turn state. A completed child settles to idle; its
 restored display-only snapshot retains that idle fact without a live-work claim.
+
+The opt-in `POST /v1/nnd/sessions/:id/walkthrough` route is a separate,
+model-only inference seam for NND's diff walkthrough. It requires
+`nnd.walkthrough.generate` and ownership of the NND session. The caller sends
+a 64-hex revision and a bounded array of aliased staged/working hunks; NNA
+validates the shape and 64 KiB digest bound before resolving the configured
+primary model route. The call runs through the provider scheduler with no
+tools, a 45-second deadline and an output cap no greater than the configured
+route/provider cap. Diff text is explicitly
+untrusted; the route returns model text plus provider/model attribution and
+echoes the revision. NNA does not assert that a model's anchors or prose are
+correct: NND must resolve aliases against its own snapshot, reject unknown
+anchors, and verify the revision before showing a generated walkthrough.
+This route does not mutate a session transcript or invoke an agent turn.
