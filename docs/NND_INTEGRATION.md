@@ -48,6 +48,14 @@ before it emits readiness. Missing or invalid configuration fails startup.
 Requests need both the bearer token and a fresh `X-NNA-Principal` envelope;
 the route layer checks the permissions and workspace grants.
 
+Local NND sessions resolve configured provider credentials through NNA's
+existing `nna.local` Secret Broker realm, including delegated child engines.
+The credential stays in the NNA child process and is never returned to the
+browser. This lets the desktop use the same provider binding as the TUI.
+NNO keeps its deployment-specific secret realm; its session engines do not
+receive an unscoped broker because NNO secrets may have principal-specific
+workspace or user grants.
+
 The local session API supports creating/listing sessions, reading transcript
 messages, submitting a turn, renaming a title, archiving/restoring, cancelling
 an active turn, and removing a session from the desktop catalog. Each mutation has its own

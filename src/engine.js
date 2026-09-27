@@ -55,7 +55,7 @@ export class SessionEngine {
     this.sessionId = options.sessionId ?? newId('session');
     this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
-      providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+      providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
       hookRoot: options.hookRoot, hookRoots: options.hookRoots, skillRoots: options.skillRoots,
       webSearchConfigPath: options.webSearchConfigPath, webSearchClient: options.webSearchClient,

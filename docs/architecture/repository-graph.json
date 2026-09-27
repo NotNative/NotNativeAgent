@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e645ba87cad0076aa7e5a2bc39464b0ddfc8b4cab70ad89c71c018c03196998e",
+  "source_digest": "sha256:05315f6b46516a3c64ced409f4e65d0b6418308e300765ffe022c4b5d2e0bdec",
   "counts": {
     "modules": 382,
     "component_edges": 79
@@ -160,16 +160,16 @@
       "module_count": 11
     },
     {
+      "from": "integrations",
+      "to": "foundation",
+      "import_count": 26,
+      "module_count": 10
+    },
+    {
       "from": "providers",
       "to": "foundation",
       "import_count": 26,
       "module_count": 18
-    },
-    {
-      "from": "integrations",
-      "to": "foundation",
-      "import_count": 25,
-      "module_count": 10
     },
     {
       "from": "opencode-surface",
@@ -1781,6 +1781,7 @@
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
         "src/secret-broker.js",
+        "src/secret-contracts.js",
         "src/skill-registry.js",
         "src/startup-configuration.js"
       ]

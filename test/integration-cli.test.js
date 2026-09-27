@@ -4,8 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createIntegrationNndEngineHost, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
+import { createServer } from 'node:http';
+import { createIntegrationNndEngineHost, integrationSecretRealm, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
 import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
+import { SecretBroker } from '../src/secret-broker.js';
+import { LOCAL_SECRET_REALM } from '../src/secret-contracts.js';
 import { trustWorkspace } from '../src/experience/trust.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { ToolRegistry } from '../src/tool-registry.js';
@@ -54,6 +57,93 @@ test('NND local service starts without NNO activation and keeps its authenticate
   assert.match(frame.endpoint, /^http:\/\/127\.0\.0\.1:\d+$/u);
   assert.match(frame.token, /^[A-Za-z0-9_-]{32,512}$/u);
   await assert.rejects(runNndIntegrationCommand(['extra'], {}, {}), { code: 'nnd_command_invalid' });
+});
+
+test('NND sessions resolve the existing local provider secret, including delegated engines', async () => {
+  assert.equal(integrationSecretRealm('nnd', 'local'), LOCAL_SECRET_REALM);
+  assert.equal(integrationSecretRealm('nno', 'deployment-a'), 'nno:deployment-a');
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-secret-route-'));
+  const paths = {
+    config: join(root, 'config'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
+    secretVault: join(root, 'secrets', 'vault.json'),
+    secretKey: join(root, 'secrets', 'key.json'), secretAudit: join(root, 'secrets', 'audit.ndjson'),
+  };
+  await mkdir(paths.config, { recursive: true });
+  const broker = new SecretBroker({ vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit });
+  const secret = await broker.create({ label: 'Configured provider', kind: 'api_key', fields: { api_key: 'test-only-provider-token' } });
+  await writeFile(join(paths.config, 'manifest.json'), JSON.stringify({
+    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [{ id: 'primary', endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback',
+      credential: { source: 'secret', secret_id: secret.id, field: 'api_key' } }],
+    routes: { primary: { provider_id: 'primary', model: 'test' } },
+  }));
+  const host = await createIntegrationNndEngineHost(paths, { secretBroker: broker });
+  const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
+  try {
+    const context = await host.create('session_secret', principal);
+    const profile = context.engine.config.providerProfiles.primary;
+    const token = await context.engine.credentialResolver.withCredential(profile.credential, {
+      consumer: 'provider:primary', destination: profile.endpoint, purpose: 'test provider dispatch',
+    }, (value) => value);
+    assert.equal(token, 'test-only-provider-token');
+    assert.equal(context.engine.subagentOptions.secretBroker, broker);
+  } finally { await host.shutdown(); }
+});
+
+test('NND service uses the local secret realm for configured provider checks', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-secret-service-'));
+  const paths = {
+    config: join(root, 'config'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
+    secretVault: join(root, 'secrets', 'vault.json'),
+    secretKey: join(root, 'secrets', 'key.json'), secretAudit: join(root, 'secrets', 'audit.ndjson'),
+  };
+  await mkdir(paths.config, { recursive: true });
+  let receivedCredential = false;
+  const provider = createServer((request, response) => {
+    receivedCredential = request.headers.authorization === 'Bearer test-only-provider-token';
+    response.writeHead(receivedCredential ? 200 : 401, { 'content-type': 'application/json' });
+    response.end(JSON.stringify(receivedCredential ? { data: [{ id: 'test-model' }] } : { error: 'unauthorized' }));
+  });
+  await new Promise((resolve) => provider.listen(0, '127.0.0.1', resolve));
+  const controller = new AbortController();
+  let running;
+  try {
+    const broker = new SecretBroker({ vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit });
+    const secret = await broker.create({ label: 'Configured provider', kind: 'api_key', fields: { api_key: 'test-only-provider-token' } });
+    await writeFile(join(paths.config, 'manifest.json'), JSON.stringify({
+      format_version: 1, persistence: 'ephemeral', workspace_root: root,
+      providers: [{ id: 'primary', endpoint: `http://127.0.0.1:${provider.address().port}/v1`, model: 'test-model', trust_zone: 'loopback',
+        credential: { source: 'secret', secret_id: secret.id, field: 'api_key' } }],
+      routes: { primary: { provider_id: 'primary', model: 'test-model' } },
+    }));
+    let resolveReady;
+    const ready = new Promise((resolve) => { resolveReady = resolve; });
+    running = runNndIntegrationCommand(['serve'], paths, {
+      environment: {}, signal: controller.signal,
+      output: { write(value) { resolveReady(JSON.parse(value)); return true; } },
+    });
+    const frame = await Promise.race([ready, running.then(() => { throw new Error('NND service exited before readiness'); })]);
+    const principal = {
+      subject_id: 'operator', platform_role: 'operator', permissions: ['provider.test'],
+      workspace_ids: [], group_ids: [], trace_id: 'provider-check',
+      issued_at: new Date().toISOString(), request_id: 'provider-check',
+    };
+    const response = await fetch(`${frame.endpoint}/v1/provider-profiles/primary/test`, {
+      method: 'POST', headers: {
+        authorization: `Bearer ${frame.token}`,
+        'x-nna-principal': Buffer.from(JSON.stringify(principal)).toString('base64url'),
+      },
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, 'ready');
+    assert.equal(receivedCredential, true);
+  } finally {
+    controller.abort();
+    if (running) await running;
+    await new Promise((resolve, reject) => provider.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test('integration child emits one atomic protocol-only readiness frame', async () => {

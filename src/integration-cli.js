@@ -8,6 +8,7 @@ import { startIntegrationServer } from './integration-server.js';
 import { createNndLocalIntegrationActivation, validateNnoIntegrationActivation } from './nno-integration-activation.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { SecretBroker } from './secret-broker.js';
+import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { resolveManifest } from './config.js';
 import { SessionEngine } from './engine.js';
 import { NndEngineHost } from './nnd-engine-host.js';
@@ -48,12 +49,20 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   const token = randomBytes(32).toString('base64url');
   const instanceId = `nna_${randomUUID()}`;
   const broker = new SecretBroker({
-    realm: `${owner}:${activation.deploymentId}`,
+    // The local desktop is an NNA operator surface and uses the same saved
+    // provider bindings as the TUI. NNO deployments retain their own realm.
+    realm: integrationSecretRealm(owner, activation.deploymentId),
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
   const nndEngineHost = await createIntegrationNndEngineHost(paths, {
-    ...options, nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
+    ...options,
+    // NNO's realm contains principal-scoped secrets. Its session engine does
+    // not carry that principal into credential resolution, so granting the
+    // broker here would bypass workspace/user scope checks. The local NND
+    // operator uses the unscoped NNA realm and may share the TUI binding.
+    secretBroker: owner === 'nnd' ? broker : undefined,
+    nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
   });
   let service;
   try {
@@ -87,6 +96,10 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   return { stopped: true };
 }
 
+export function integrationSecretRealm(owner, deploymentId) {
+  return owner === 'nnd' ? LOCAL_SECRET_REALM : `${owner}:${deploymentId}`;
+}
+
 export async function createIntegrationNndEngineHost(paths, options = {}) {
   const manifest = await readIntegrationManifest(join(paths.config, 'manifest.json'));
   const configOptions = {
@@ -106,6 +119,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
       config: activeConfig, sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
       storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+      secretBroker: options.secretBroker,
       mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
       hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
       skillRoots,
