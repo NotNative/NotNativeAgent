@@ -89,3 +89,11 @@ export async function runNndPackageCommand(args, paths) {
     return { registered: true, valid: false, root: stored.root, version: stored.version, reason: error.code ?? 'nnd_package_invalid' };
   }
 }
+
+export async function assertRegisteredNndPackage(rootInput, paths) {
+  const status = await runNndPackageCommand(['status'], paths);
+  if (!status.registered || !status.valid || !(await samePackageRoot(rootInput, status.root))) {
+    invalid('nnd_package_not_active', 'Installed NND package is not the active validated GUI package');
+  }
+  return status;
+}

@@ -14,6 +14,11 @@ The desktop shell still owns the NND web service and starts a local NNA child;
 `nna nnd serve` remains available without a registered GUI package for that
 transitional path. NNA-owned web-service supervision and a persistent browser
 door remain required for the ADR 0020 drop-in deployment shape.
+Scripted installed desktop launches set `NNA_NND_INSTALL_ROOT`; when present,
+`nna nnd serve` refuses to start unless that exact root is the active,
+version-valid package. Source/development launches omit the variable and keep
+their existing local child path. The root is a local install identity, not a
+browser-provided authorization claim.
 
 `nna nnd serve` starts NNA's authenticated loopback service for a local
 NotNativeDesktop process. NND owns the child process and reads one JSON

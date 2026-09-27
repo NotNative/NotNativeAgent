@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { runNndPackageCommand, validateNndPackage } from '../src/nnd-package.js';
+import { assertRegisteredNndPackage, runNndPackageCommand, validateNndPackage } from '../src/nnd-package.js';
+import { runNndIntegrationCommand } from '../src/integration-cli.js';
 
 const VERSION = '20260926-56';
 async function fixture(root, version = VERSION) {
@@ -30,15 +31,28 @@ test('registers only a complete version-matched NND package and reports drift', 
   assert.deepEqual(await runNndPackageCommand(['status'], paths), { registered: false });
   assert.match((await runNndPackageCommand(['activate', root], paths)).version, /^20260926-56$/u);
   assert.equal((await runNndPackageCommand(['activate', root], paths)).registered, true);
+  assert.equal((await assertRegisteredNndPackage(root, paths)).valid, true);
+  await assert.rejects(assertRegisteredNndPackage(join(temp, 'other'), paths), { code: 'nnd_package_not_active' });
   assert.deepEqual(await runNndPackageCommand(['status'], paths), { registered: true, valid: true, root, version: VERSION });
   await assert.rejects(runNndPackageCommand(['deactivate', join(temp, 'other')], paths), { code: 'nnd_package_root_mismatch' });
   await writeFile(join(root, 'package.json'), JSON.stringify({ nnd_version: '20260926-57' }));
   assert.deepEqual(await runNndPackageCommand(['status'], paths), {
     registered: true, valid: false, root, version: VERSION, reason: 'nnd_package_manifest_invalid',
   });
+  await assert.rejects(assertRegisteredNndPackage(root, paths), { code: 'nnd_package_not_active' });
   const uninstallPath = process.platform === 'win32' ? root.toUpperCase() : root;
   assert.deepEqual(await runNndPackageCommand(['deactivate', uninstallPath], paths), { registered: false });
   assert.deepEqual(await runNndPackageCommand(['status'], paths), { registered: false });
+  await assert.rejects(assertRegisteredNndPackage(root, paths), { code: 'nnd_package_not_active' });
+});
+
+test('installed NND serve rejects an unregistered package before engine startup', async (t) => {
+  const temp = await mkdtemp(join(tmpdir(), 'nna-nnd-package-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const config = join(temp, 'config'); await mkdir(config);
+  await assert.rejects(runNndIntegrationCommand(['serve'], { config }, {
+    environment: { NNA_NND_INSTALL_ROOT: join(temp, 'missing') },
+  }), { code: 'nnd_package_not_active' });
 });
 
 test('rejects incompatible metadata, missing assets, and escaping symlink', async (t) => {
