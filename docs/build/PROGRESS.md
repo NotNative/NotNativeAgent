@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **PB-2 installed activation gate.** The scripted Electron
+  installation identifies its root to the managed NNA child. NNA now checks
+  the registered package's canonical root and current version/assets before
+  starting that desktop integration; drift or deactivation refuses startup.
+  Source/dev runs retain the pre-registration path. The web-service owner is
+  still Electron, so independent NNA daemon supervision remains pending.
+
 - 2026-09-26 · **PB-1 installed package registration.** NND's Windows installer
   writes a versioned NNA integration manifest after building and asks the
   co-installed NNA to validate/register the built server and web bundle.
