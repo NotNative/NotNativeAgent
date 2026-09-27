@@ -19,7 +19,7 @@ let container: HTMLDivElement | null = null;
 const originalFetch = globalThis.fetch;
 afterEach(() => { act(() => root?.unmount()); container?.remove(); root = null; container = null;
   globalThis.fetch = originalFetch; delete window.__NOTNATIVE_ELECTRON__; delete window.__NOTNATIVE_BROWSER_CONTROL__;
-  vi.useRealTimers(); });
+  vi.useRealTimers(); vi.mocked(captureAnnotationImage).mockClear(); });
 
 function render(visible = true): HTMLElement {
   container = document.createElement('div');
@@ -68,6 +68,65 @@ async function brokerSnapshot(onRequest: (request: { requestId: string; action: 
 }
 
 describe('BrowserSurface', () => {
+  it('draws a region on the host shield and adds only the confirmed image/text pair to the draft', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render(); enter('https://example.org/');
+    const guest = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    guest.getURL = () => 'https://example.org/';
+    guest.executeJavaScript = vi.fn().mockResolvedValue({ kind: 'region', url: 'https://example.org/',
+      bounds: { x: 20, y: 30, width: 50, height: 40 },
+      viewport: { width: 100, height: 100, scrollX: 0, scrollY: 0 } });
+    act(() => guest.dispatchEvent(new Event('did-start-loading')));
+    const fill = vi.fn((event: Event) => (event as CustomEvent<{ accept: () => void }>).detail.accept());
+    const target = (event: Event): void => (event as CustomEvent<{ accept: (key: string) => void }>).detail.accept('test-draft');
+    window.addEventListener('nnd:composer-annotation-target', target);
+    window.addEventListener('nnd:composer-annotation', fill);
+    await flush();
+    act(() => ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Annotate region') as HTMLButtonElement).click());
+    const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;
+    shield.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 } as DOMRect);
+    Object.defineProperty(shield, 'clientWidth', { value: 100 });
+    Object.defineProperty(shield, 'clientHeight', { value: 100 });
+    const dispatch = (type: string, x: number, y: number): void => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { pointerId: 1, button: 0, clientX: x, clientY: y });
+      shield.dispatchEvent(event);
+    };
+    const guestPointer = vi.fn(); guest.addEventListener('pointerup', guestPointer);
+    act(() => { dispatch('pointerdown', 20, 30); dispatch('pointermove', 70, 70); });
+    expect(view.querySelector('[data-testid="browser-annotation-region"]')).not.toBeNull();
+    act(() => window.dispatchEvent(new Event('blur')));
+    expect(view.querySelector('[data-testid="browser-annotation-region"]')).toBeNull();
+    act(() => { dispatch('pointerdown', 20, 30); dispatch('pointermove', 70, 70); });
+    shield.getBoundingClientRect = () => ({ left: 5, top: 0, width: 100, height: 100 } as DOMRect);
+    await act(async () => { dispatch('pointerup', 70, 70); await Promise.resolve(); });
+    expect(guest.executeJavaScript).not.toHaveBeenCalled();
+    expect(view.textContent).toContain('viewport moved');
+    shield.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 } as DOMRect);
+    act(() => { dispatch('pointerdown', 20, 30); dispatch('pointermove', 70, 70); });
+    await act(async () => { dispatch('pointerup', 70, 70); await Promise.resolve(); });
+    expect(guestPointer).not.toHaveBeenCalled();
+    expect(guest.executeJavaScript).toHaveBeenCalledWith(expect.stringContaining('selectPageRegion'), false);
+    expect(view.textContent).toContain('Selected page region');
+    const comment = view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement;
+    act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(comment, 'Fix this area');
+      comment.dispatchEvent(new Event('input', { bubbles: true })); });
+    vi.mocked(captureAnnotationImage).mockRejectedValueOnce(new Error('The page changed during screenshot capture.'));
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click();
+      await Promise.resolve(); });
+    expect(fill).not.toHaveBeenCalled();
+    expect((view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement).value).toBe('Fix this area');
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click();
+      await Promise.resolve(); });
+    expect(fill).toHaveBeenCalledOnce();
+    expect(fill.mock.calls[0]?.[0]).toMatchObject({ detail: { text: expect.stringContaining('user-drawn region'),
+      attachment: { mime: 'image/jpeg' } } });
+    window.removeEventListener('nnd:composer-annotation', fill);
+    window.removeEventListener('nnd:composer-annotation-target', target);
+  });
+
   it('adds a validated user-selected element to the composer draft without sending', async () => {
     window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
     readyFetch();

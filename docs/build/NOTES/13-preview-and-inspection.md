@@ -294,3 +294,24 @@ suite, graph, source smoke, and release gates.
   The handoff is idempotent for a repeated annotation ID and never sends the
   draft. This extends the element-only marker; region/drawing marks remain
   future work. The iframe transport still does not offer annotation.
+
+## P11-18: user-drawn region annotation (2026-09-26)
+
+- The desktop Browser pane also offers **Annotate region**. A drag on the
+  renderer-owned shield marks a rectangle; pointer capture keeps the drag
+  out of the guest, and Escape, pointer cancellation, or the toolbar control
+  removes the selection. A rectangle smaller than 8 × 8 guest CSS pixels is
+  refused. Blur clears an active drag; a shield geometry change during a drag
+  refuses the selection instead of combining mismatched coordinates. This is
+  a viewport region, not an element or page-wide drawing.
+- A read-only guest script verifies the exact top-level URL and returns
+  bounded viewport/scroll metadata with the rectangle in guest CSS pixels.
+  **Add to chat draft** rechecks the same guest, navigation revision, URL,
+  viewport and scroll before and after a bounded guest-only capture. The
+  image compositor maps the rectangle using the measured capture-pixel to
+  guest-CSS-pixel ratios. Failures retain the comment and selection for an
+  explicit retry, without a partial draft update.
+- The image and structured region text are handed to the composer atomically;
+  no message is sent automatically. Element annotation remains available,
+  and neither annotation mode is exposed through the iframe transport or the
+  agent browser tool.

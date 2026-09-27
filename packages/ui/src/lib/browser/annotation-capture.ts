@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Bounded, same-page user annotation capture. Never captures the host shell. */
 import type { PageAnnotation } from './page-annotation.ts';
+import type { RegionAnnotation } from './region-annotation.ts';
+
+type Selection = PageAnnotation | RegionAnnotation;
 
 type NativeImage = { getSize(): { width: number; height: number }; toJPEG(quality: number): Uint8Array };
 export type AnnotationGuest = HTMLElement & {
@@ -27,8 +30,17 @@ function sameElement(annotation: PageAnnotation): boolean {
     Math.abs(actual[field] - annotation.bounds[field]) <= 2);
 }
 
-export function annotationCheckScript(annotation: PageAnnotation): string {
-  return `(${sameElement.toString()})(${JSON.stringify(annotation)})`;
+function sameRegion(annotation: RegionAnnotation): boolean {
+  return location.href === annotation.url && window.innerWidth === annotation.viewport.width
+    && window.innerHeight === annotation.viewport.height
+    && Math.abs(window.scrollX - annotation.viewport.scrollX) <= 1
+    && Math.abs(window.scrollY - annotation.viewport.scrollY) <= 1;
+}
+
+export function annotationCheckScript(annotation: Selection): string {
+  return 'kind' in annotation
+    ? `(${sameRegion.toString()})(${JSON.stringify(annotation)})`
+    : `(${sameElement.toString()})(${JSON.stringify(annotation)})`;
 }
 
 async function bounded<T>(task: Promise<T>): Promise<T> {
@@ -54,7 +66,7 @@ async function decodeJpeg(bytes: Uint8Array): Promise<HTMLImageElement> {
   return image;
 }
 
-export async function renderAnnotationImage(image: NativeImage, annotation: PageAnnotation): Promise<AnnotationImage> {
+export async function renderAnnotationImage(image: NativeImage, annotation: Selection): Promise<AnnotationImage> {
   const size = image.getSize();
   if (!Number.isSafeInteger(size.width) || !Number.isSafeInteger(size.height)
     || size.width < 1 || size.height < 1 || size.width > 8192 || size.height > 8192
@@ -87,7 +99,7 @@ export async function renderAnnotationImage(image: NativeImage, annotation: Page
   throw new Error('The highlighted screenshot exceeds the attachment limit.');
 }
 
-export async function captureAnnotationImage(guest: AnnotationGuest, annotation: PageAnnotation,
+export async function captureAnnotationImage(guest: AnnotationGuest, annotation: Selection,
   stillCurrent: () => boolean): Promise<AnnotationImage> {
   if (!guest.capturePage || !guest.executeJavaScript || !stillCurrent())
     throw new Error('The page changed during annotation. Select the element again.');
