@@ -27,8 +27,10 @@ authority.
 | NNO | Business layer: RBAC, user management, org integrations | Managed NNA contexts per user/conversation; entitlement pass-through | Grant NNA more visibility than the acting principal holds |
 
 Installation rule (the keystone): NNA must be installed before its local NND
-package. The NND installer validates NNA before copying or downloading the GUI
-package and registers the built package with NNA before declaring success. An
+package. During source development, the NND installer may first ask to run the
+local sibling NNA installer, or use an explicit unattended opt-in. It then
+validates the installed NNA before copying or downloading the GUI package and
+registers the built package with NNA before declaring success. An
 NND client can only connect to an NNA instance with the NND web-service package
 installed. GUI access is installed, like NNO — it is not a congenital feature
 of the harness. A separately launched service process is an internal package

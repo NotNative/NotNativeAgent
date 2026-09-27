@@ -8,7 +8,9 @@ OpenChamber source was read or copied; the planning docs are the sole contract.
 - **Harness:** [NotNativeAgent](docs/architecture/0020-nna-ecosystem-topology.md)
   (NNA) owns the engine, governance, and lifecycle. NND is its optional GUI
   integration package, not an independently installed agent runtime. The
-  installed NND package requires NNA first and registers with it during setup.
+  installed NND package requires NNA and registers with it during setup. When
+  NNA is absent, the source installer offers to install it from the sibling
+  NNA checkout; unattended runs require an explicit opt-in flag.
   A mock harness remains available for isolated development tests.
 - **Surfaces today:** local web GUI and Electron desktop shell. VS Code and
   mobile are long-term deferred.

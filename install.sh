@@ -25,13 +25,17 @@ set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UNINSTALL=0
 PURGE=0
+NNA_BOOTSTRAP=0
+NNA_SOURCE_ROOT="$(dirname "$SOURCE")/NotNativeAgent"
 ARGS=()
-for arg in "$@"; do
-  case "$arg" in
-    --uninstall) UNINSTALL=1 ;;
-    --purge-data) PURGE=1 ;;
-    --keep-data) PURGE=0 ;;  # accepted for compatibility; keep is now the default
-    *) ARGS+=("$arg") ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --uninstall) UNINSTALL=1; shift ;;
+    --purge-data) PURGE=1; shift ;;
+    --keep-data) PURGE=0; shift ;;  # accepted for compatibility; keep is now the default
+    --install-nna-if-missing) NNA_BOOTSTRAP=1; shift ;;
+    --nna-source-root) [[ $# -ge 2 ]] || { echo "--nna-source-root requires a path" >&2; exit 2; }; NNA_SOURCE_ROOT="$2"; shift 2 ;;
+    *) ARGS+=("$1"); shift ;;
   esac
 done
 DATA_DIR="${ARGS[0]:-}"
@@ -107,12 +111,36 @@ esac
 echo "== NotNativeDesktop source install =="
 echo "   source: $SOURCE"
 echo "   target: $INSTALL_DIR"
-command -v node >/dev/null || { echo "node is required on PATH"; exit 1; }
-command -v pnpm >/dev/null || { echo "pnpm is required on PATH"; exit 1; }
-NNA_LAUNCHER="$(find_nna_launcher || true)"
-if [[ -z "$NNA_LAUNCHER" ]]; then
-  echo "NotNativeAgent must be installed before NND. Install NNA first, then rerun this installer." >&2
-  exit 1
+command -v node >/dev/null || { echo "node is required on PATH" >&2; exit 1; }
+command -v pnpm >/dev/null || { echo "pnpm is required on PATH" >&2; exit 1; }
+if NNA_LAUNCHER="$(find_nna_launcher)"; then
+  :
+else
+  nna_result=$?
+  if [[ $nna_result -eq 2 ]]; then
+    echo "NNA launcher or installation is invalid; repair NNA before installing NND" >&2
+    exit 1
+  fi
+  if [[ ! -f "$NNA_SOURCE_ROOT/install.sh" || ! -f "$NNA_SOURCE_ROOT/package.json" ]]; then
+    echo "NNA is not installed and no local NNA installer was found at $NNA_SOURCE_ROOT. Install NNA first or pass --nna-source-root." >&2
+    exit 1
+  fi
+  if ! node -e 'const p=require(process.argv[1]); if (p.name !== "not-native-agent") process.exit(1)' "$NNA_SOURCE_ROOT/package.json" >/dev/null 2>&1; then
+    echo "Local NNA source identity is invalid at $NNA_SOURCE_ROOT" >&2
+    exit 1
+  fi
+  if [[ $NNA_BOOTSTRAP -ne 1 ]]; then
+    [[ -t 0 ]] || { echo "NNA is not installed. Run interactively to confirm installation, or pass --install-nna-if-missing." >&2; exit 1; }
+    read -r -p "NNA is required. Install it from $NNA_SOURCE_ROOT now? [y/N] " answer
+    case "$answer" in y|Y|yes|YES) ;; *) echo "NNA installation declined; NND was not installed" >&2; exit 1 ;; esac
+  fi
+  echo "== installing required NNA from $NNA_SOURCE_ROOT =="
+  if [[ $NNA_BOOTSTRAP -eq 1 ]]; then
+    sh "$NNA_SOURCE_ROOT/install.sh" --skip-provider-setup --skip-websearch-setup --skip-playwright-setup --skip-gateway-setup --skip-ripgrep-setup
+  else
+    sh "$NNA_SOURCE_ROOT/install.sh"
+  fi
+  NNA_LAUNCHER="$(find_nna_launcher)" || { echo "NNA installer did not leave a valid installed runtime; NND was not installed" >&2; exit 1; }
 fi
 if ! "$NNA_LAUNCHER" nnd package status >/dev/null 2>&1; then
   echo "Installed NNA cannot inspect NND packages. Update or repair NNA, then rerun this installer." >&2

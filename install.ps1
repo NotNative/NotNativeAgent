@@ -9,6 +9,7 @@
 # Usage:
 #   .\install.ps1                       # install to %LOCALAPPDATA%\NotNativeDesktop
 #   .\install.ps1 -InstallDir D:\apps\nnd
+#   .\install.ps1 -InstallNnaIfMissing   # unattended opt-in to local NNA bootstrap
 #   .\install.ps1 -SkipBuild            # reuse an existing built install
 #   .\install.ps1 -Uninstall            # remove shortcuts + installed tree
 #   .\install.ps1 -Uninstall -PurgeData # also erase user data/logs/prefs
@@ -30,6 +31,10 @@
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "NotNativeDesktop"),
     [string]$NnaInstallRoot,
+    [string]$NnaDataRoot,
+    [string]$NnaSourceRoot,
+    [switch]$InstallNnaIfMissing,
+    [switch]$SkipNnaPathUpdate,
     [switch]$Uninstall,
     [switch]$PurgeData,
     [switch]$SkipBuild
@@ -112,6 +117,35 @@ function Get-InstalledNna {
     return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root }
 }
 
+function Install-RequiredNna {
+    $candidate = if ($NnaSourceRoot) { $NnaSourceRoot } else { Join-Path (Split-Path -Parent $Source) 'NotNativeAgent' }
+    $installer = Join-Path $candidate 'install.ps1'
+    $manifestPath = Join-Path $candidate 'package.json'
+    if (!(Test-Path -LiteralPath $installer -PathType Leaf) -or !(Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "NNA is not installed and no local NNA installer was found at $candidate. Install NNA first, or supply -NnaSourceRoot."
+    }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.name -ne 'not-native-agent') { throw "Local NNA source identity is invalid at $candidate." }
+    if (!$InstallNnaIfMissing) {
+        if (![Environment]::UserInteractive -or [Console]::IsInputRedirected) {
+            throw 'NNA is not installed. Run interactively to confirm its installation, or pass -InstallNnaIfMissing for an unattended local-source bootstrap.'
+        }
+        $answer = Read-Host "NNA is required. Install it from $candidate now? [y/N]"
+        if ($answer -notin @('y', 'Y', 'yes', 'YES')) { throw 'NNA installation declined; NND was not installed.' }
+    }
+    Write-Heading "Installing required NNA from $candidate"
+    $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $installer)
+    if ($NnaInstallRoot) { $arguments += @('-InstallRoot', $NnaInstallRoot) }
+    if ($NnaDataRoot) { $arguments += @('-DataRoot', $NnaDataRoot) }
+    if ($SkipNnaPathUpdate) { $arguments += '-SkipPathUpdate' }
+    if ($InstallNnaIfMissing) {
+        $arguments += @('-SkipProviderSetup', '-SkipWebSearchSetup', '-SkipPlaywrightSetup', '-SkipGatewaySetup', '-SkipRipgrepSetup')
+    }
+    & powershell @arguments
+    if ($LASTEXITCODE -ne 0) { throw "NNA installation failed (exit $LASTEXITCODE); NND was not installed." }
+    if (!(Get-InstalledNna)) { throw 'NNA installer finished without a valid installed runtime; NND was not installed.' }
+}
+
 function Invoke-NndRegistration([string]$Action, [string]$Root) {
     $nna = Get-InstalledNna
     if (!$nna) {
@@ -190,9 +224,15 @@ if ($targetPath.Equals($sourcePath, [StringComparison]::OrdinalIgnoreCase) -or
 if (Test-InstallRunning $ElectronExe) {
     throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
 }
+foreach ($check in @(@("node", "node version"), @("pnpm", "pnpm version"))) {
+    $probe = & $check[0] --version 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "$($check[0]) is required on PATH (empty $($check[1]))" }
+    Write-Host "  using $($check[0]) $probe"
+}
 $nna = Get-InstalledNna
 if (!$nna) {
-    throw 'NotNativeAgent must be installed before NND. Install NNA first, then rerun this installer (or provide -NnaInstallRoot for a custom NNA install).'
+    Install-RequiredNna
+    $nna = Get-InstalledNna
 }
 
 Write-Heading "Installing NotNativeDesktop"
@@ -200,12 +240,6 @@ Write-Host "  source : $Source"
 Write-Host "  target : $InstallDir"
 Write-Good "NNA found at $($nna.Cli)"
 Invoke-NndRegistration 'status' $targetPath
-
-foreach ($check in @(@("node", "node version"), @("pnpm", "pnpm version"))) {
-    $probe = & $check[0] --version 2>$null
-    if ($LASTEXITCODE -ne 0) { throw "$($check[0]) is required on PATH (empty $($check[1]))" }
-    Write-Host "  using $($check[0]) $probe"
-}
 
 Write-Heading "Copying source"
 $copyExit = Invoke-Native "robocopy" @(

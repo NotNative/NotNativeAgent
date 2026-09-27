@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **PB-6 local NNA bootstrap.** The source NND installers can
+  offer to invoke the sibling NNA installer when NNA is absent. Non-interactive
+  runs require an explicit opt-in flag; an invalid existing NNA is not silently
+  replaced. NND verifies the new installation before touching its own tree.
+  This development convenience does not define a distributable NNA download;
+  NSIS remains gated until that path has equivalent bootstrap/registration.
+
 - 2026-09-27 · **PB-5 NNA-first install prerequisite.** The NND installer
   discovers a usable NNA before changing the install tree and reports that NNA
   must be installed first when missing. The POSIX source installer now also
