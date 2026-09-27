@@ -46,6 +46,9 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   await assert.rejects(definition.validate({ action: 'snapshot', url: 'https://example.com' }));
   await assert.rejects(definition.validate({ action: 'open', url: 'http://example.com' }));
   await assert.rejects(definition.validate({ action: 'open', url: 'https://user:pass@example.com' }));
+  await assert.rejects(definition.validate({ action: 'inspect' }));
+  await assert.rejects(definition.validate({ action: 'inspect', selector: '#send', url: 'https://example.com' }));
+  assert.deepEqual((await definition.validate({ action: 'inspect', selector: '#send' })).args, { action: 'inspect', selector: '#send' });
   const request = await definition.validate({ action: 'open', url: 'https://example.com' });
   const signal = new AbortController().signal;
   const result = await definition.executor(request, signal);
@@ -54,6 +57,8 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   assert.equal(calls[0].options.signal, signal);
   assert.equal(calls[0].options.headers['x-nnd-browser-token'], token);
   assert.deepEqual(JSON.parse(calls[0].options.body), { action: 'browser.open', parameters: { url: 'https://example.com' } });
+  await definition.executor(await definition.validate({ action: 'inspect', selector: '#send' }), signal);
+  assert.deepEqual(JSON.parse(calls[1].options.body), { action: 'browser.inspect', parameters: { selector: '#send' } });
 });
 
 test('browser tool refuses oversized replies and failed desktop outcomes', async () => {
