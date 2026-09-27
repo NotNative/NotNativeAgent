@@ -123,7 +123,7 @@ export class ToolRegistry {
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
-    if (this.nndBrowserCallback && !this.hosted) this.#install(nndBrowserDefinition(this.nndBrowserCallback));
+    if (this.nndBrowserCallback && !this.hosted) this.#install(nndBrowserDefinition(this.nndBrowserCallback, { captureRoot: join(dirname(this.browserRoot), 'nnd-captures', this.sessionId ?? 'standalone') }));
     if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
   async close() { await this.definition('web_browse')?.manager?.close?.(); }

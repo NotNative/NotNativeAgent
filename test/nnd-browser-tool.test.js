@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, readdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { consumeNndBrowserCallbackFromEnvironment, nndBrowserCallbackFromEnvironment, nndBrowserDefinition } from '../src/nnd-browser-tool.js';
 
 const token = 's'.repeat(43);
@@ -177,4 +180,66 @@ test('a failed type dispatch consumes its observation and reports uncertainty', 
   await assert.rejects(definition.executor(type, signal), /outcome is uncertain/u);
   await assert.rejects(definition.executor(type, signal), /fresh snapshot/u);
   assert.deepEqual(calls, ['browser.snapshot', 'browser.type']);
+});
+
+test('capture requires a single-use observation and saves only a validated bounded image', async () => {
+  const captureRoot = await mkdtemp(join(tmpdir(), 'nna-browser-capture-'));
+  const calls = [];
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+  try {
+    const definition = nndBrowserDefinition({ url, token }, { captureRoot, fetcher: async (_target, options) => {
+      const body = JSON.parse(options.body);
+      calls.push(body);
+      return new Response(JSON.stringify({ ok: true, data: body.action === 'browser.snapshot'
+        ? { url: 'https://example.org/', observationRevision: 7, observationId }
+        : { url: 'https://example.org/', mime: 'image/jpeg', width: 800, height: 600, base64: jpeg.toString('base64') } }));
+    } });
+    const capture = await definition.validate({ action: 'capture', expectedUrl: 'https://example.org/' });
+    await assert.rejects(definition.executor(capture, new AbortController().signal), /fresh snapshot/u);
+    await assert.rejects(definition.validate({ action: 'capture', expectedUrl: 'https://example.org/', selector: '#x' }));
+    await definition.executor(await definition.validate({ action: 'snapshot' }), new AbortController().signal);
+    const receipt = await definition.executor(capture, new AbortController().signal);
+    const path = receipt.metadata.path;
+    assert.match(receipt.content, /Use image_inspect with this exact path/u);
+    assert.deepEqual(await readFile(path), jpeg);
+    assert.deepEqual(calls.at(-1), { action: 'browser.capture', parameters: {
+      expectedUrl: 'https://example.org/', observationRevision: 7, observationId,
+    } });
+    await assert.rejects(definition.executor(capture, new AbortController().signal), /fresh snapshot/u);
+  } finally { await rm(captureRoot, { recursive: true, force: true }); }
+});
+
+test('malformed capture reply is never persisted', async () => {
+  const captureRoot = await mkdtemp(join(tmpdir(), 'nna-browser-capture-'));
+  try {
+    const definition = nndBrowserDefinition({ url, token }, { captureRoot, fetcher: async (_target, options) => {
+      const action = JSON.parse(options.body).action;
+      return new Response(JSON.stringify({ ok: true, data: action === 'browser.snapshot'
+        ? { url: 'https://example.org/', observationRevision: 7, observationId }
+        : { url: 'https://example.org/', mime: 'image/jpeg', width: 800, height: 600, base64: Buffer.from('not a jpeg').toString('base64') } }));
+    } });
+    const signal = new AbortController().signal;
+    await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
+    await assert.rejects(definition.executor(await definition.validate({ action: 'capture', expectedUrl: 'https://example.org/' }), signal), /capture image was invalid/u);
+    assert.deepEqual(await readdir(captureRoot), []);
+  } finally { await rm(captureRoot, { recursive: true, force: true }); }
+});
+
+test('capture quota preserves prior screenshots and refuses unbounded session growth', async () => {
+  const captureRoot = await mkdtemp(join(tmpdir(), 'nna-browser-capture-'));
+  try {
+    await Promise.all(Array.from({ length: 256 }, (_, index) => writeFile(join(captureRoot,
+      `capture-${String(index).padStart(8, '0')}-0000-4000-8000-000000000000.jpg`), 'retained')));
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    const definition = nndBrowserDefinition({ url, token }, { captureRoot, fetcher: async (_target, options) =>
+      new Response(JSON.stringify({ ok: true, data: JSON.parse(options.body).action === 'browser.snapshot'
+        ? { url: 'https://example.org/', observationRevision: 7, observationId }
+        : { url: 'https://example.org/', mime: 'image/jpeg', width: 800, height: 600,
+          base64: jpeg.toString('base64') } })) });
+    const signal = new AbortController().signal;
+    await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
+    await assert.rejects(definition.executor(await definition.validate({ action: 'capture',
+      expectedUrl: 'https://example.org/' }), signal), { code: 'nnd_browser_capture_limit' });
+    assert.equal((await readdir(captureRoot)).length, 256);
+  } finally { await rm(captureRoot, { recursive: true, force: true }); }
 });

@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { mkdir, open, readdir, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 const TOKEN = /^[A-Za-z0-9_-]{32,512}$/u;
 const CALLBACK_PATH = '/api/browser-control/request';
 const MAX_REPLY_BYTES = 262_144;
+const MAX_CAPTURES_PER_SESSION = 256;
 
 /** A capability exists only in the NND-owned child, never in standalone NNA. */
 export function nndBrowserCallbackFromEnvironment(environment) {
@@ -43,25 +47,25 @@ export function nndBrowserDefinition(callback, options = {}) {
   let observationRevision = 0;
   return {
     name: 'nnd_browser', version: 1,
-    purpose: 'Control the connected NND desktop browser: open, snapshot, inspect, click, scroll, or type into the exact observed page. Requires a connected desktop.',
+    purpose: 'Control the connected NND desktop browser: open, snapshot, inspect, click, scroll, type, or capture the exact observed page. Requires a connected desktop.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 55_000, maxOutputBytes: MAX_REPLY_BYTES,
     inputSchema: { type: 'object', additionalProperties: false, required: ['action'], properties: {
-      action: { type: 'string', enum: ['open', 'snapshot', 'inspect', 'click', 'scroll', 'type'], description: 'Open, observe, inspect, click, scroll, or type into one field.' },
+      action: { type: 'string', enum: ['open', 'snapshot', 'inspect', 'click', 'scroll', 'type', 'capture'], description: 'Open, observe, inspect, click, scroll, type into one field, or capture the viewport.' },
       url: { type: 'string', maxLength: 2048, description: 'Required for open only: HTTPS or numeric-loopback HTTP URL.' },
       selector: { type: 'string', maxLength: 500, description: 'Required for inspect, click, or type: CSS selector from the page.' },
-      expectedUrl: { type: 'string', maxLength: 2048, description: 'Required for click, scroll, or type: exact URL from the latest page snapshot.' },
+      expectedUrl: { type: 'string', maxLength: 2048, description: 'Required for click, scroll, type, or capture: exact URL from the latest page snapshot.' },
       direction: { type: 'string', enum: ['up', 'down', 'top', 'bottom'], description: 'Required for scroll: viewport direction.' },
       text: { type: 'string', maxLength: 2000, description: 'Required for type: replacement text for one ordinary field. Never use for passwords or secrets.' },
     } },
     validate: async (args) => validateNndBrowserArgs(args),
     executor: async (request, signal) => {
       const action = request.args.action;
-      if (['click', 'scroll', 'type'].includes(action)
+      if (['click', 'scroll', 'type', 'capture'].includes(action)
         && (observedUrl !== request.args.expectedUrl || observedRevision === null || observedId === null))
         throw invalid(`${action} requires a fresh snapshot of the exact page URL`);
       const authorizedRevision = observedRevision;
       const authorizedId = observedId;
-      if (['open', 'snapshot', 'click', 'scroll', 'type'].includes(action)) {
+      if (['open', 'snapshot', 'click', 'scroll', 'type', 'capture'].includes(action)) {
         observedUrl = null;
         observedRevision = null;
         observedId = null;
@@ -84,13 +88,14 @@ export function nndBrowserDefinition(callback, options = {}) {
         const { observationRevision: _privateRevision, observationId: _privateId, ...publicSnapshot } = data;
         return { ...result, content: JSON.stringify(publicSnapshot) };
       }
+      if (action === 'capture') return persistNndCapture(result, request.args.expectedUrl, options.captureRoot, signal);
       return result;
     },
   };
 }
 
 function validateNndBrowserArgs(args) {
-  if (!args || typeof args !== 'object' || Array.isArray(args) || !['open', 'snapshot', 'inspect', 'click', 'scroll', 'type'].includes(args.action)
+  if (!args || typeof args !== 'object' || Array.isArray(args) || !['open', 'snapshot', 'inspect', 'click', 'scroll', 'type', 'capture'].includes(args.action)
     || Object.keys(args).some((key) => !['action', 'url', 'selector', 'expectedUrl', 'direction', 'text'].includes(key))) throw invalid('NND browser arguments are invalid');
   if (args.action === 'open') {
     if (typeof args.url !== 'string' || args.url.length > 2048 || !safePageUrl(args.url)
@@ -110,6 +115,11 @@ function validateNndBrowserArgs(args) {
       || !['up', 'down', 'top', 'bottom'].includes(args.direction)
       || typeof args.expectedUrl !== 'string' || args.expectedUrl.length > 2048 || !safeObservedUrl(args.expectedUrl))
       throw invalid('scroll requires a direction and observed safe page URL');
+  } else if (args.action === 'capture') {
+    if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'text')
+      || Object.hasOwn(args, 'direction') || typeof args.expectedUrl !== 'string'
+      || args.expectedUrl.length > 2048 || !safeObservedUrl(args.expectedUrl))
+      throw invalid('capture requires an observed safe page URL');
   } else if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'expectedUrl')
     || Object.hasOwn(args, 'direction') || Object.hasOwn(args, 'text'))
     throw invalid('snapshot takes no parameters');
@@ -118,6 +128,7 @@ function validateNndBrowserArgs(args) {
       : args.action === 'click' ? { action: 'click', selector: args.selector, expectedUrl: args.expectedUrl }
         : args.action === 'scroll' ? { action: 'scroll', direction: args.direction, expectedUrl: args.expectedUrl }
           : args.action === 'type' ? { action: 'type', selector: args.selector, expectedUrl: args.expectedUrl, text: args.text }
+            : args.action === 'capture' ? { action: 'capture', expectedUrl: args.expectedUrl }
           : { action: 'snapshot' },
     resolved: { surface: 'nnd-desktop-browser' } };
 }
@@ -134,12 +145,13 @@ async function executeNndBrowser(callback, fetcher, request, signal, observedRev
           : request.args.action === 'click' ? { selector: request.args.selector, expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
             : request.args.action === 'scroll' ? { direction: request.args.direction, expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
               : request.args.action === 'type' ? { selector: request.args.selector, expectedUrl: request.args.expectedUrl, text: request.args.text, observationRevision: observedRevision, observationId: observedId }
+                : request.args.action === 'capture' ? { expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
             : {} }), signal });
   } catch (error) {
     if (signal.aborted) throw new ContractError('tool_cancelled', 'browser request was cancelled', { cause: error });
     throw new ContractError('nnd_browser_unavailable', 'NND desktop browser callback is unavailable', { cause: error });
   }
-  if (!response.ok) throw new ContractError('nnd_browser_failed', ['click', 'scroll', 'type'].includes(request.args.action)
+  if (!response.ok) throw new ContractError('nnd_browser_failed', ['click', 'scroll', 'type', 'capture'].includes(request.args.action)
     ? `${request.args.action} outcome is uncertain (${response.status}); snapshot the page before retrying`
     : response.status === 503 ? 'No connected desktop browser can perform this action'
       : `NND browser action failed (${response.status})`);
@@ -165,6 +177,44 @@ async function executeNndBrowser(callback, fetcher, request, signal, observedRev
   if (!result.ok) throw new ContractError('nnd_browser_failed',
     typeof result.error === 'string' ? result.error.slice(0, 500) : 'NND browser action failed');
   return { content: JSON.stringify(result.data), metadata: { action: request.args.action, surface: 'nnd-desktop-browser' } };
+}
+
+async function persistNndCapture(result, expectedUrl, captureRoot, signal) {
+  if (typeof captureRoot !== 'string' || !captureRoot) throw new ContractError('nnd_browser_unavailable', 'NND capture storage is unavailable');
+  let capture;
+  try { capture = JSON.parse(result.content); }
+  catch { throw new ContractError('nnd_browser_reply_invalid', 'NND capture reply was invalid'); }
+  if (!capture || capture.url !== expectedUrl || capture.mime !== 'image/jpeg'
+    || !Number.isSafeInteger(capture.width) || capture.width < 1 || capture.width > 1600
+    || !Number.isSafeInteger(capture.height) || capture.height < 1 || capture.height > 1200
+    || typeof capture.base64 !== 'string' || capture.base64.length > 200_000
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(capture.base64))
+    throw new ContractError('nnd_browser_reply_invalid', 'NND capture reply was invalid');
+  const bytes = Buffer.from(capture.base64, 'base64');
+  if (bytes.length < 4 || bytes.length > 150_000 || bytes.toString('base64') !== capture.base64
+    || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes.at(-2) !== 0xff || bytes.at(-1) !== 0xd9)
+    throw new ContractError('nnd_browser_reply_invalid', 'NND capture image was invalid');
+  if (signal.aborted) throw new ContractError('tool_cancelled', 'browser capture was cancelled');
+  await mkdir(captureRoot, { recursive: true, mode: 0o700 });
+  const priorCaptures = (await readdir(captureRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && /^capture-[0-9a-f-]{36}\.jpg$/u.test(entry.name)).length;
+  if (priorCaptures >= MAX_CAPTURES_PER_SESSION)
+    throw new ContractError('nnd_browser_capture_limit', 'This session reached its 256-capture limit; remove old captures before taking another screenshot');
+  const path = join(captureRoot, `capture-${randomUUID()}.jpg`);
+  let handle;
+  try {
+    handle = await open(path, 'wx', 0o600);
+    await handle.writeFile(bytes, { signal });
+    await handle.close();
+    handle = null;
+    if (signal.aborted) throw new ContractError('tool_cancelled', 'browser capture was cancelled');
+  } catch (error) {
+    await handle?.close().catch(() => undefined);
+    await unlink(path).catch(() => undefined);
+    throw error;
+  }
+  return { content: `Screenshot saved: ${path}\n\nUse image_inspect with this exact path when visual interpretation is needed.`,
+    metadata: { ...result.metadata, path, mimeType: 'image/jpeg', width: capture.width, height: capture.height } };
 }
 
 function safePageUrl(value) {
