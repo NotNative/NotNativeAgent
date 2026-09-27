@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { BrowserSurface, canEmbedDesktopPreview, canPreviewDiscoveredServers } from '../browser-surface.tsx';
+import { captureAnnotationImage } from '../../lib/browser/annotation-capture.ts';
+
+vi.mock('../../lib/browser/annotation-capture.ts', () => ({
+  captureAnnotationImage: vi.fn().mockResolvedValue({ name: 'browser-annotation-1.jpg', mime: 'image/jpeg',
+    dataUrl: 'data:image/jpeg;base64,AA==' }),
+}));
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -73,8 +79,10 @@ describe('BrowserSurface', () => {
     let resolveSelection!: (value: unknown) => void;
     guest.executeJavaScript = vi.fn().mockImplementation(() => new Promise((resolve) => { resolveSelection = resolve; }));
     act(() => guest.dispatchEvent(new Event('did-start-loading')));
-    const fill = vi.fn();
-    window.addEventListener('nnd:composer-fill', fill);
+    const fill = vi.fn((event: Event) => (event as CustomEvent<{ accept: () => void }>).detail.accept());
+    const target = (event: Event): void => (event as CustomEvent<{ accept: (key: string) => void }>).detail.accept('test-draft');
+    window.addEventListener('nnd:composer-annotation-target', target);
+    window.addEventListener('nnd:composer-annotation', fill);
     await flush();
     expect((view.querySelector('[data-testid="browser-annotation-controls"] button') as HTMLButtonElement).disabled,
       view.innerHTML.slice(0, 3000)).toBe(false);
@@ -90,15 +98,25 @@ describe('BrowserSurface', () => {
     expect(pageClick).not.toHaveBeenCalled();
     expect(guest.executeJavaScript).toHaveBeenCalledWith(expect.stringContaining('selectPageElement'), false);
     await act(async () => { resolveSelection({ url: 'https://example.org/', tag: 'button', selector: 'html > body > button',
-      label: 'Save', bounds: { x: 10, y: 20, width: 30, height: 40 } }); await Promise.resolve(); });
+      label: 'Save', bounds: { x: 10, y: 20, width: 30, height: 40 },
+      viewport: { width: 100, height: 100, scrollX: 0, scrollY: 0 } }); await Promise.resolve(); });
     const comment = view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement;
     act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(comment, 'Please check this.');
       comment.dispatchEvent(new Event('input', { bubbles: true })); });
-    act(() => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click(); });
+    vi.mocked(captureAnnotationImage).mockRejectedValueOnce(new Error('The page changed during screenshot capture.'));
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click();
+      await Promise.resolve(); });
+    expect(fill).not.toHaveBeenCalled();
+    expect((view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement).value).toBe('Please check this.');
+    expect(view.querySelector('[data-testid="browser-annotation-draft"]')).not.toBeNull();
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click();
+      await Promise.resolve(); });
     expect(fill).toHaveBeenCalledOnce();
-    expect(fill.mock.calls[0]?.[0]).toMatchObject({ detail: { append: true,
+    expect(captureAnnotationImage).toHaveBeenCalledTimes(2);
+    expect(fill.mock.calls[0]?.[0]).toMatchObject({ detail: { attachment: { mime: 'image/jpeg' },
       text: expect.stringContaining('User comment: Please check this.') } });
-    window.removeEventListener('nnd:composer-fill', fill);
+    window.removeEventListener('nnd:composer-annotation', fill);
+    window.removeEventListener('nnd:composer-annotation-target', target);
   });
 
   it('tears down the host shield on Escape or same-URL guest remount and drops late selection', async () => {
@@ -126,7 +144,8 @@ describe('BrowserSurface', () => {
     act(() => (view.querySelector('[aria-label="Reload preview"]') as HTMLButtonElement).click());
     expect(view.querySelector('[data-testid="browser-annotation-shield"]')).toBeNull();
     await act(async () => { resolveSelection({ url: 'https://example.org/', tag: 'button', selector: 'button', label: 'Late',
-      bounds: { x: 1, y: 1, width: 20, height: 20 } }); await Promise.resolve(); });
+      bounds: { x: 1, y: 1, width: 20, height: 20 },
+      viewport: { width: 100, height: 100, scrollX: 0, scrollY: 0 } }); await Promise.resolve(); });
     expect(view.querySelector('[data-testid="browser-annotation-draft"]')).toBeNull();
   });
 
@@ -139,7 +158,8 @@ describe('BrowserSurface', () => {
       executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
     guest.getURL = () => 'https://example.org/';
     guest.executeJavaScript = vi.fn().mockResolvedValue({ url: 'https://example.org/', tag: 'button',
-      selector: 'html > body > button', label: 'Save', bounds: { x: 1, y: 2, width: 30, height: 20 } });
+      selector: 'html > body > button', label: 'Save', bounds: { x: 1, y: 2, width: 30, height: 20 },
+      viewport: { width: 100, height: 100, scrollX: 0, scrollY: 0 } });
     act(() => guest.dispatchEvent(new Event('did-start-loading')));
     act(() => (view.querySelector('[data-testid="browser-annotation-controls"] button') as HTMLButtonElement).click());
     const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;

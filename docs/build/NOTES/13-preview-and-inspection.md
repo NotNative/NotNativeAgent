@@ -277,3 +277,20 @@ suite, graph, source smoke, and release gates.
   screenshot attachment/compositing from the planning contract remain pending;
   the UI and draft say that no screenshot is attached. The iframe transport
   never offers annotation.
+
+## P11-17: bounded element annotation screenshot (2026-09-26)
+
+- On explicit **Add to chat draft**, the renderer rechecks the selected guest,
+  exact URL, navigation revision, viewport dimensions and scroll, plus the
+  selected element's current bounds. It captures only that Electron guest's
+  visible viewport and checks the page again after capture. A page change,
+  failed decode, timeout, or excessive image size leaves the selected element
+  and comment in place for retry; no partial composer text is added.
+- Composition uses the measured captured-image-pixel/guest-CSS-pixel ratios,
+  draws a resolved translucent fill and outline on the **whole viewport**, and
+  emits a bounded JPEG data URL. It does not create a blob URL or capture the
+  host window. The composer accepts the image and structured text as one
+  acknowledged draft change, with the image present before text claims it.
+  The handoff is idempotent for a repeated annotation ID and never sends the
+  draft. This extends the element-only marker; region/drawing marks remain
+  future work. The iframe transport still does not offer annotation.

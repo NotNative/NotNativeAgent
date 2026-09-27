@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9d0e39753ef98d42ee9574e6954686872d6a553c2df047d54c74fce54f8eca6b",
+  "source_digest": "sha256:b6eaf1c74be1a82feb2d8f6e2d4b977320d38e8ac45b8457f6296a10ee06fd09",
   "counts": {
-    "modules": 453,
+    "modules": 455,
     "component_edges": 13
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 134
+      "module_count": 135
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 112
+      "module_count": 113
     },
     {
       "id": "web-server",
@@ -101,7 +101,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 157,
+      "import_count": 158,
       "module_count": 64
     },
     {
@@ -217,6 +217,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/browser/annotation-capture.ts",
         "packages/ui/src/lib/browser/page-annotation.ts"
       ]
     },
@@ -269,6 +270,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/composer-annotation.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/drafts.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/composer-attachments.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -313,6 +322,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/composer-annotation.ts",
         "packages/ui/src/chat/composer-attachments.ts",
         "packages/ui/src/chat/composer-bits.tsx",
         "packages/ui/src/chat/composer-model-config.ts",
@@ -1373,6 +1383,14 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/browser/annotation-capture.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/browser/page-annotation.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/browser/desktop-capture-action.ts",

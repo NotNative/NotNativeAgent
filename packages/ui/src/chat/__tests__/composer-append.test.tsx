@@ -13,7 +13,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { StoreApi } from 'zustand/vanilla';
 
 import { Composer } from '../composer.tsx';
-import { __resetDraftStoreForTests } from '../drafts.ts';
+import { __resetDraftStoreForTests, draftKey, readDraft } from '../drafts.ts';
 import type { DirectoryStore } from '../../sync/types.ts';
 
 declare global {
@@ -26,6 +26,7 @@ const EMPTY_SNAPSHOT = {
   command: [],
   agent: [],
   provider: [],
+  session: [],
   message: {},
   part: {},
   permission: {},
@@ -152,5 +153,92 @@ describe('Composer add-to-chat fill channel', () => {
     });
     expect(editor().value).toBe('queued work');
     expect(document.activeElement).toBe(editor());
+  });
+
+  it('accepts a bounded annotation image and text as one unsent draft', async () => {
+    await renderComposer();
+    await typePending('Keep this');
+    let accepted = false;
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail: {
+        id: '00000000-0000-4000-8000-000000000001',
+        targetKey: draftKey('/proj', 'draft'),
+        text: 'Page annotation (highlighted viewport screenshot attached)\nUser comment: Fix this',
+        attachment: { name: 'browser-annotation-1-00000000-0000-4000-8000-000000000001.jpg', mime: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==' },
+        accept: () => { accepted = true; },
+      } }));
+    });
+    expect(accepted).toBe(true);
+    expect(editor().value).toContain('Keep this\n\nPage annotation');
+    expect(readDraft('/proj', 'draft').attachments).toMatchObject([{ name: 'browser-annotation-1-00000000-0000-4000-8000-000000000001.jpg' }]);
+    expect(readDraft('/proj', 'draft').text).toBe(editor().value);
+  });
+
+  it('rejects an invalid annotation image without changing the draft', async () => {
+    await renderComposer();
+    await typePending('Keep this');
+    let accepted = false;
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail: {
+        id: '00000000-0000-4000-8000-000000000002',
+        targetKey: draftKey('/proj', 'draft'),
+        text: 'Page annotation (highlighted viewport screenshot attached)',
+        attachment: { name: 'browser-annotation-2-00000000-0000-4000-8000-000000000002.jpg', mime: 'image/jpeg', dataUrl: 'blob:unsafe' },
+        accept: () => { accepted = true; },
+      } }));
+    });
+    expect(accepted).toBe(false);
+    expect(editor().value).toBe('Keep this');
+    expect(readDraft('/proj', 'draft').attachments).toEqual([]);
+  });
+
+  it('acknowledges an already accepted annotation retry without duplicating text or image', async () => {
+    await renderComposer();
+    const detail = { id: '00000000-0000-4000-8000-000000000003',
+      targetKey: draftKey('/proj', 'draft'),
+      text: 'Page annotation (highlighted viewport screenshot attached)',
+      attachment: { name: 'browser-annotation-3-00000000-0000-4000-8000-000000000003.jpg',
+        mime: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==' }, accept: () => undefined };
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail }));
+      window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail }));
+    });
+    expect(readDraft('/proj', 'draft').attachments).toHaveLength(1);
+    expect(editor().value.match(/Page annotation/gu)).toHaveLength(1);
+  });
+
+  it('keeps two distinct same-turn annotation transfers together', async () => {
+    await renderComposer();
+    const transfer = (suffix: string): void => { window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail: {
+      id: `00000000-0000-4000-8000-00000000000${suffix}`, targetKey: draftKey('/proj', 'draft'),
+      text: `Page annotation ${suffix}`, attachment: {
+        name: `browser-annotation-${suffix}-00000000-0000-4000-8000-00000000000${suffix}.jpg`,
+        mime: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==' }, accept: () => undefined,
+    } })); };
+    await act(async () => { transfer('4'); transfer('5'); });
+    expect(readDraft('/proj', 'draft').attachments).toHaveLength(2);
+    expect(editor().value).toContain('Page annotation 4\n\nPage annotation 5');
+  });
+
+  it('does not acknowledge or write a late transfer after switching composer targets', async () => {
+    await renderComposer();
+    const previousTarget = draftKey('/proj', 'draft');
+    let capturedTarget = '';
+    act(() => window.dispatchEvent(new CustomEvent('nnd:composer-annotation-target', { detail: {
+      accept: (key: string) => { capturedTarget = key; },
+    } })));
+    expect(capturedTarget).toBe(previousTarget);
+    await act(async () => { rootHandle!.render(<Composer services={services} sessionID='next' directory='/proj'
+      sessionKey='next' />); await Promise.resolve(); });
+    let accepted = false;
+    await act(async () => { window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail: {
+      id: '00000000-0000-4000-8000-000000000006', targetKey: capturedTarget,
+      text: 'Page annotation old session', attachment: {
+        name: 'browser-annotation-6-00000000-0000-4000-8000-000000000006.jpg',
+        mime: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==' }, accept: () => { accepted = true; },
+    } })); });
+    expect(accepted).toBe(false);
+    expect(readDraft('/proj', 'next').attachments).toEqual([]);
+    expect(readDraft('/proj', 'draft').attachments).toEqual([]);
   });
 });

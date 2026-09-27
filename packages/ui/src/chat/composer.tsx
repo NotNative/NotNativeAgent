@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-/**
- * Composer v2 (doc 05 §B, P3a): prompt language + textarea editor, real
- * draft-held queue with idle flush, shell mode routing to the harness,
- * pickers sourced from the draft/snippet/registry stores, reactive harness
- * catalog, restore-on-failure that returns draft sends to the draft column.
- */
+/** Composer v2: prompt editor, attachments, queue, and harness routing. */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
@@ -15,12 +10,13 @@ import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import { toast } from 'sonner';
 import { activeTrigger, commandRegistry, replaceTriggerToken, tokenizePrompt, type AutocompleteTrigger, type PromptToken } from './prompt-language.ts';
 import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
-import { readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
+import { draftKey, readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
 import { planSend, type PlannedSend } from './send-planner.ts';
 import { useAuthSessionStore, authSessionBlocksSend } from '../lib/runtime-auth-expiry.ts';
 import { ComposerFooter, AttachmentChips, PickerPopup, QueueChipsRow } from './composer-bits.tsx';
 import { describeSendFailure, dedupeNames, fileToDataUrl } from './composer-attachments.ts';
+import { createAnnotationHandler } from './composer-annotation.ts';
 import { handleQueuedTarget } from './composer-queue.ts';
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import { starterInsertText, type Starter } from './starters.ts';
@@ -30,7 +26,6 @@ import { refreshSnippets, snippetMap, snippetSubscribe } from '../lib/snippets-s
 import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
-
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
 const MAX_LINES = 8;
 
@@ -73,12 +68,13 @@ export function Composer(props: ComposerProps): ReactNode {
   const restoringRef = useRef(false);
   const recallRef = useRef<{ list: HistoryEntry[]; position: number; liveText: string }>({ list: [], position: -1, liveText: '' });
   const restoreSnapshot = useRef<{ text: string; attachments: DraftAttachment[] }>({ text: '', attachments: [] });
+  const acceptedAnnotations = useRef(new Set<string>());
   const textRef = useRef(text);
   textRef.current = text;
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
   const pickerRef = useRef<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
-  // P9-4e-ii: the mention search counter crosses renders - a per-render `let`
-  // froze one frame per keystroke, so every pending response compared against
-  // its OWN frame (always equal) and the staleness guard was a no-op.
+  // Mention search counter must cross renders to reject stale responses.
   const mentionTokenRef = useRef(0);
 
   const store = services.store(directory);
@@ -96,6 +92,8 @@ export function Composer(props: ComposerProps): ReactNode {
     restoringRef.current = true;
     setText(draft.text);
     setAttachments(draft.attachments);
+    textRef.current = draft.text;
+    attachmentsRef.current = draft.attachments;
     setAutoAccept(draft.autoAccept);
     setQueueChips(draft.queue);
     restoringRef.current = false;
@@ -103,8 +101,7 @@ export function Composer(props: ComposerProps): ReactNode {
 
   useEffect(() => () => { flushDraftsNow(); }, []);
 
-  // The server queue owns delivery timing: hydrate the projection once the
-  // composer targets a session (doc 12 §D.6 one request-owner per runtime).
+  // Hydrate server queue projection when the composer targets a session.
   useEffect(() => {
     void useMessageQueueStore.getState().hydrate().catch(() => undefined);
   }, [sessionID]);
@@ -112,35 +109,6 @@ export function Composer(props: ComposerProps): ReactNode {
   // P9-4e-ii: the `#` picker rides the config-entity roster; a failed
   // refresh keeps the current roster and the picker stays whatever it was.
   useEffect(() => { void refreshSnippets(); }, []);
-
-  // §B.9/§C.10: one fill channel for revert/undo and the §E.4 suggestion chip
-  // (detail without `append` replaces). §10.5 add-to-chat rides the same
-  // channel with `append: true` — the capture is appended to the pending
-  // input and the caret moves after it. §10.5 focus-only rides
-  // `nnd:composer-focus` (no capture: just focus).
-  useEffect(() => {
-    const handler = (event: Event): void => {
-      const detail = (event as CustomEvent<{ text?: string; append?: boolean }>).detail;
-      const incoming = detail?.text ?? '';
-      if (!incoming) return;
-      const appended = detail?.append === true;
-      const base = textRef.current;
-      const next = appended && base.length > 0 ? `${base}\n\n${incoming}` : incoming;
-      setText(next);
-      persist(next, attachments, autoAccept);
-      requestAnimationFrame(() => {
-        editorRef.current?.focus();
-        if (appended) editorRef.current?.setSelectionRange(next.length, next.length);
-      });
-    };
-    const focusHandler = (): void => { editorRef.current?.focus(); };
-    window.addEventListener('nnd:composer-fill', handler);
-    window.addEventListener('nnd:composer-focus', focusHandler);
-    return () => {
-      window.removeEventListener('nnd:composer-fill', handler);
-      window.removeEventListener('nnd:composer-focus', focusHandler);
-    };
-  }, [attachments, autoAccept]);
 
   const persist = useCallback((nextText: string, nextAttachments: DraftAttachment[], nextAutoAccept: boolean, queue?: QueuedMessage[]) => {
     if (restoringRef.current) return;
@@ -150,7 +118,44 @@ export function Composer(props: ComposerProps): ReactNode {
       autoAccept: nextAutoAccept,
       queue: queue ?? (sessionKey === 'draft' ? readDraft(directory, 'draft').queue : readDraft(directory, sessionID ?? '').queue),
     });
-  }, [directory, sessionKey]);
+  }, [directory, sessionKey, sessionID]);
+
+  // Revert/suggestions use fill; annotation transfers text and image atomically.
+  useEffect(() => {
+    const targetKey = draftKey(directory, sessionKey);
+    const handler = (event: Event): void => {
+      const detail = (event as CustomEvent<{ text?: string; append?: boolean }>).detail;
+      const incoming = detail?.text ?? '';
+      if (!incoming) return;
+      const appended = detail?.append === true;
+      const base = textRef.current;
+      const next = appended && base.length > 0 ? `${base}\n\n${incoming}` : incoming;
+      setText(next);
+      persist(next, attachmentsRef.current, autoAccept);
+      requestAnimationFrame(() => {
+        editorRef.current?.focus();
+        if (appended) editorRef.current?.setSelectionRange(next.length, next.length);
+      });
+    };
+    const focusHandler = (): void => { editorRef.current?.focus(); };
+    const targetHandler = (event: Event): void => {
+      if (!shell) (event as CustomEvent<{ accept?: (key: string) => void }>).detail?.accept?.(targetKey);
+    };
+    const annotationHandler = shell ? () => undefined : createAnnotationHandler({
+      targetKey, text: textRef, attachments: attachmentsRef, accepted: acceptedAnnotations,
+      editor: editorRef, persist, setText, setAttachments, autoAccept,
+    });
+    window.addEventListener('nnd:composer-fill', handler);
+    window.addEventListener('nnd:composer-focus', focusHandler);
+    window.addEventListener('nnd:composer-annotation-target', targetHandler);
+    window.addEventListener('nnd:composer-annotation', annotationHandler);
+    return () => {
+      window.removeEventListener('nnd:composer-fill', handler);
+      window.removeEventListener('nnd:composer-focus', focusHandler);
+      window.removeEventListener('nnd:composer-annotation-target', targetHandler);
+      window.removeEventListener('nnd:composer-annotation', annotationHandler);
+    };
+  }, [autoAccept, directory, persist, sessionKey, shell]);
 
   const subscribeStatus = useGlobalSessionStatusStore.subscribe;
   const statusById = useSyncExternalStore(subscribeStatus, () => useGlobalSessionStatusStore.getState().statusById);

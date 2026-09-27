@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 import { annotationScript, formatAnnotationDraft,
   parsePageAnnotation, type PageAnnotation } from '../lib/browser/page-annotation.ts';
+import { captureAnnotationImage, type AnnotationGuest } from '../lib/browser/annotation-capture.ts';
 
-type Guest = HTMLElement & { executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>; getURL?: () => string };
+type Guest = AnnotationGuest;
 
 export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldTarget, blocked, onActive }: {
   guest: () => Guest | null; currentUrl: () => string | null; revision: () => number;
@@ -15,11 +16,13 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
   const [selected, setSelected] = useState<PageAnnotation | null>(null);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [attaching, setAttaching] = useState(false);
   const run = useRef(0);
   const selectingGuest = useRef<Guest | null>(null);
   const selectedGuest = useRef<Guest | null>(null);
   const selectionRevision = useRef(0);
   const selectionBusy = useRef(false);
+  const selectionId = useRef('');
   const shieldRef = useRef<HTMLDivElement | null>(null);
   const url = currentUrl();
 
@@ -60,6 +63,7 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
     const pageUrl = currentUrl();
     if (!target?.executeJavaScript || !pageUrl || target.getURL?.() !== pageUrl || !shieldTarget || blocked()) return;
     setSelected(null);
+    selectionId.current = '';
     selectedGuest.current = null;
     setComment('');
     setError(null);
@@ -94,6 +98,7 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
       const parsed = parsePageAnnotation(value);
       if (!parsed || parsed.url !== pageUrl) throw new Error('No verifiable element was selected. Try another point.');
       selectedGuest.current = target;
+      selectionId.current = crypto.randomUUID();
       setSelected(parsed);
       cancel();
     } catch (cause) {
@@ -103,19 +108,43 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
     }
   }
 
-  function addToComposer(): void {
+  async function addToComposer(): Promise<void> {
     if (!selected || !comment.trim() || selected.url !== currentUrl() || guest() !== selectedGuest.current
-      || revision() !== selectionRevision.current
+      || revision() !== selectionRevision.current || blocked() || attaching
       || guest()?.getURL?.() !== selected.url) {
       setError('The page changed, or a comment is missing. Select the element again.');
       return;
     }
-    window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: {
-      text: formatAnnotationDraft(selected, comment), append: true,
+    const target = selectedGuest.current!;
+    const annotation = selected;
+    const message = comment;
+    let targetKey = '';
+    window.dispatchEvent(new CustomEvent('nnd:composer-annotation-target', { detail: {
+      accept: (key: string) => { targetKey = key; },
     } }));
-    setSelected(null);
-    selectedGuest.current = null;
-    setComment('');
+    if (!targetKey) { setError('Open a chat draft before adding this annotation.'); return; }
+    onActive(true);
+    selectionRevision.current = revision();
+    const token = ++run.current;
+    setAttaching(true); setError(null);
+    const stillCurrent = (): boolean => token === run.current && guest() === target
+      && currentUrl() === annotation.url && target.getURL?.() === annotation.url
+      && revision() === selectionRevision.current;
+    try {
+      const attachment = await captureAnnotationImage(target, annotation, stillCurrent);
+      if (!stillCurrent()) throw new Error('The page changed during screenshot capture. Select the element again.');
+      let accepted = false;
+      window.dispatchEvent(new CustomEvent('nnd:composer-annotation', { detail: {
+        id: selectionId.current, targetKey, text: formatAnnotationDraft(annotation, message), attachment,
+        accept: () => { accepted = true; },
+      } }));
+      if (!accepted) throw new Error('Open a chat draft before adding this annotation.');
+      setSelected(null); selectedGuest.current = null; setComment('');
+    } catch (cause) {
+      if (token === run.current) setError(cause instanceof Error ? cause.message.slice(0, 200) : 'Screenshot attachment failed.');
+    } finally {
+      if (token === run.current) { setAttaching(false); onActive(false); }
+    }
   }
 
   return <div className="mt-2 text-[11px] text-neutral-300" data-testid="browser-annotation-controls">
@@ -140,10 +169,10 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
       <textarea id="browser-annotation-comment" value={comment} maxLength={2000}
         onChange={(event) => setComment(event.target.value)} rows={2}
         className="block w-full resize-y rounded border border-white/15 bg-neutral-900 p-1 text-neutral-100" />
-      <button type="button" onClick={addToComposer} disabled={!comment.trim()}
-        className="rounded border border-sky-500/50 px-2 py-0.5 disabled:opacity-35">Add to chat draft</button>
-      <button type="button" onClick={() => { setSelected(null); setComment(''); }} className="ml-2 underline">Discard</button>
-      <p className="text-neutral-500">Element details only; no screenshot attached. Nothing is sent automatically.</p>
+      <button type="button" onClick={() => { void addToComposer(); }} disabled={!comment.trim() || attaching}
+        className="rounded border border-sky-500/50 px-2 py-0.5 disabled:opacity-35">{attaching ? 'Capturing…' : 'Add to chat draft'}</button>
+      <button type="button" disabled={attaching} onClick={() => { setSelected(null); setComment(''); }} className="ml-2 underline disabled:opacity-35">Discard</button>
+      <p className="text-neutral-500">Adds a highlighted viewport screenshot and element details to the draft; nothing is sent automatically.</p>
     </div> : null}
     {error ? <p role="alert" className="mt-1 text-amber-300">{error}</p> : null}
   </div>;

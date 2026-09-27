@@ -22,6 +22,7 @@ it('uses a bounded read-only hit test after the host catches the click', () => {
   const result = execute();
   expect(hit).toHaveBeenCalledWith(window.innerWidth / 4, window.innerHeight / 2);
   expect(result).toMatchObject({ url: location.href, tag: 'button', label: 'Submit', bounds: { width: 60 } });
+  expect(result).toMatchObject({ viewport: { width: window.innerWidth, height: window.innerHeight } });
   expect(pageClick).not.toHaveBeenCalled();
   expect(document.querySelector('[data-nnd-annotation]')).toBeNull();
   window.removeEventListener('click', pageClick, true);
@@ -49,9 +50,10 @@ it('does not copy editable values exposed through page-provided labels', () => {
     bounds: { x: 0, y: 0, width: 5, height: Infinity } })).toBeNull();
 });
 
-it('formats a structured, explicitly screenshot-free composer draft', () => {
+it('formats a structured draft that claims the screenshot only after the composer accepts it', () => {
   const annotation = { url: 'https://example.org/', tag: 'button', selector: 'html > body > button',
-    label: 'Save', bounds: { x: 1, y: 2, width: 30, height: 20 } };
-  expect(formatAnnotationDraft(annotation, 'Please inspect this.')).toContain('no screenshot attached');
+    label: 'Save', bounds: { x: 1, y: 2, width: 30, height: 20 },
+    viewport: { width: 800, height: 600, scrollX: 0, scrollY: 0 } };
+  expect(formatAnnotationDraft(annotation, 'Please inspect this.')).toContain('highlighted viewport screenshot attached');
   expect(formatAnnotationDraft(annotation, 'Please inspect this.')).toContain('User comment: Please inspect this.');
 });
