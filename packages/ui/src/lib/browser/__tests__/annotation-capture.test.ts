@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { annotationCheckScript, captureAnnotationImage, renderAnnotationImage } from '../annotation-capture.ts';
 import type { PageAnnotation } from '../page-annotation.ts';
 import type { RegionAnnotation } from '../region-annotation.ts';
+import type { StrokeAnnotation } from '../stroke-annotation.ts';
 
 const annotation: PageAnnotation = { url: 'https://example.org/', tag: 'button', selector: 'button', label: 'Save',
   bounds: { x: 10, y: 20, width: 30, height: 40 },
@@ -82,5 +83,28 @@ it('composites a drawn region using the measured image-to-CSS ratio', async () =
       toJPEG: () => new Uint8Array([255, 216, 255]) }, region);
     expect(fillRect).toHaveBeenCalledWith(40, 60, 80, 100);
     expect(strokeRect).toHaveBeenCalledWith(40, 60, 80, 100);
+  } finally { globalThis.Image = originalImage; }
+});
+
+it('composites freehand strokes with measured image-to-CSS scaling', async () => {
+  const stroke: StrokeAnnotation = { kind: 'stroke', url: 'https://example.org/',
+    strokes: [[{ x: 20, y: 30 }, { x: 60, y: 80 }]],
+    viewport: { width: 400, height: 300, scrollX: 0, scrollY: 0 } };
+  const moveTo = vi.fn(); const lineTo = vi.fn(); const beginPath = vi.fn(); const strokePath = vi.fn();
+  const canvas = document.createElement('canvas');
+  vi.spyOn(canvas, 'getContext').mockReturnValue({ drawImage: vi.fn(), beginPath, moveTo, lineTo,
+    stroke: strokePath } as never);
+  vi.spyOn(canvas, 'toDataURL').mockReturnValue('data:image/jpeg;base64,AA==');
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation((name: string) => name === 'canvas' ? canvas : create(name));
+  const originalImage = globalThis.Image;
+  globalThis.Image = class { src = ''; async decode(): Promise<void> {} } as never;
+  try {
+    await renderAnnotationImage({ getSize: () => ({ width: 800, height: 600 }),
+      toJPEG: () => new Uint8Array([255, 216, 255]) }, stroke);
+    expect(beginPath).toHaveBeenCalledOnce();
+    expect(moveTo).toHaveBeenCalledWith(40, 60);
+    expect(lineTo).toHaveBeenCalledWith(120, 160);
+    expect(strokePath).toHaveBeenCalledOnce();
   } finally { globalThis.Image = originalImage; }
 });

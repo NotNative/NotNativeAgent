@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2fa647d7ea23405e8432b3a0b8a4a15be61be757f83272c468cb7e644053a422",
+  "source_digest": "sha256:c7c49536b56e2675658e006de46c50b3266c460e141b026d6a1b4aa724fcef68",
   "counts": {
-    "modules": 456,
+    "modules": 457,
     "component_edges": 13
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 136
+      "module_count": 137
     },
     {
       "id": "ui-shell",
@@ -101,7 +101,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 159,
+      "import_count": 160,
       "module_count": 64
     },
     {
@@ -219,7 +219,8 @@
       "imports": [
         "packages/ui/src/lib/browser/annotation-capture.ts",
         "packages/ui/src/lib/browser/page-annotation.ts",
-        "packages/ui/src/lib/browser/region-annotation.ts"
+        "packages/ui/src/lib/browser/region-annotation.ts",
+        "packages/ui/src/lib/browser/stroke-annotation.ts"
       ]
     },
     {
@@ -1391,7 +1392,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/browser/page-annotation.ts",
-        "packages/ui/src/lib/browser/region-annotation.ts"
+        "packages/ui/src/lib/browser/region-annotation.ts",
+        "packages/ui/src/lib/browser/stroke-annotation.ts"
       ]
     },
     {
@@ -1466,6 +1468,12 @@
     },
     {
       "path": "packages/ui/src/lib/browser/region-annotation.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/browser/stroke-annotation.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []

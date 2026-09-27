@@ -2,8 +2,9 @@
 /** Bounded, same-page user annotation capture. Never captures the host shell. */
 import type { PageAnnotation } from './page-annotation.ts';
 import type { RegionAnnotation } from './region-annotation.ts';
+import type { StrokeAnnotation } from './stroke-annotation.ts';
 
-type Selection = PageAnnotation | RegionAnnotation;
+type Selection = PageAnnotation | RegionAnnotation | StrokeAnnotation;
 
 type NativeImage = { getSize(): { width: number; height: number }; toJPEG(quality: number): Uint8Array };
 export type AnnotationGuest = HTMLElement & {
@@ -30,7 +31,7 @@ function sameElement(annotation: PageAnnotation): boolean {
     Math.abs(actual[field] - annotation.bounds[field]) <= 2);
 }
 
-function sameRegion(annotation: RegionAnnotation): boolean {
+function sameRegion(annotation: RegionAnnotation | StrokeAnnotation): boolean {
   return location.href === annotation.url && window.innerWidth === annotation.viewport.width
     && window.innerHeight === annotation.viewport.height
     && Math.abs(window.scrollX - annotation.viewport.scrollX) <= 1
@@ -84,12 +85,24 @@ export async function renderAnnotationImage(image: NativeImage, annotation: Sele
   context.drawImage(source, 0, 0, width, height);
   const ratioX = width / annotation.viewport.width;
   const ratioY = height / annotation.viewport.height;
-  const { x, y, width: boxWidth, height: boxHeight } = annotation.bounds;
-  context.fillStyle = 'rgba(14, 165, 233, 0.18)';
   context.strokeStyle = '#0ea5e9';
-  context.lineWidth = Math.max(2, width / 600);
-  context.fillRect(x * ratioX, y * ratioY, boxWidth * ratioX, boxHeight * ratioY);
-  context.strokeRect(x * ratioX, y * ratioY, boxWidth * ratioX, boxHeight * ratioY);
+  context.lineWidth = Math.max(3, width / 450);
+  if ('kind' in annotation && annotation.kind === 'stroke') {
+    context.lineCap = 'round'; context.lineJoin = 'round';
+    for (const stroke of annotation.strokes) {
+      context.beginPath();
+      stroke.forEach((point, index) => index === 0
+        ? context.moveTo(point.x * ratioX, point.y * ratioY)
+        : context.lineTo(point.x * ratioX, point.y * ratioY));
+      context.stroke();
+    }
+  } else {
+    const { x, y, width: boxWidth, height: boxHeight } = annotation.bounds;
+    context.fillStyle = 'rgba(14, 165, 233, 0.18)';
+    context.lineWidth = Math.max(2, width / 600);
+    context.fillRect(x * ratioX, y * ratioY, boxWidth * ratioX, boxHeight * ratioY);
+    context.strokeRect(x * ratioX, y * ratioY, boxWidth * ratioX, boxHeight * ratioY);
+  }
   for (const quality of [0.85, 0.65, 0.45, 0.3]) {
     const dataUrl = canvas.toDataURL('image/jpeg', quality);
     if (/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/u.test(dataUrl)

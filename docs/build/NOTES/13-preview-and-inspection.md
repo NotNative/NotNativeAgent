@@ -315,3 +315,24 @@ suite, graph, source smoke, and release gates.
   no message is sent automatically. Element annotation remains available,
   and neither annotation mode is exposed through the iframe transport or the
   agent browser tool.
+
+## P11-19: user-drawn freehand annotation (2026-09-26)
+
+- The desktop Browser pane also offers **Draw on page**. The host-owned shield
+  captures pointer strokes without forwarding drawing gestures to the guest.
+  Up to eight strokes of 128 points each are retained; each must cover at least
+  eight guest CSS pixels. Escape cancels, while pointer cancellation or window
+  blur discards only the active gesture. The user explicitly confirms the
+  drawing with **Use drawing** before entering a comment. The host guards
+  pointer cancellation by ID and holds preview geometry across strokes, so an
+  unrelated pointer or a mid-drawing resize cannot silently shift the marks.
+- A read-only guest script checks the exact page URL and converts normalized
+  stroke points to bounded viewport CSS coordinates. The renderer validates
+  viewport/scroll metadata and rechecks guest identity, navigation revision,
+  URL, viewport and scroll around guest-only screenshot capture. The compositor
+  uses measured capture-pixel/CSS-pixel ratios to draw the strokes onto the
+  screenshot. A failed capture leaves the comment and selection available for
+  retry without partial draft text.
+- **Add to chat draft** atomically attaches the marked screenshot and structured
+  drawing details. It never sends the message. Element and region modes remain
+  available; the iframe transport and agent browser tool do not gain drawing.

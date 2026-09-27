@@ -68,6 +68,80 @@ async function brokerSnapshot(onRequest: (request: { requestId: string; action: 
 }
 
 describe('BrowserSurface', () => {
+  it('keeps freehand gestures on the host shield and adds a drawing only by explicit draft action', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render(); enter('https://example.org/');
+    const guest = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    guest.getURL = () => 'https://example.org/';
+    guest.executeJavaScript = vi.fn().mockResolvedValue({ kind: 'stroke', url: 'https://example.org/',
+      strokes: [[{ x: 20, y: 30 }, { x: 80, y: 90 }]],
+      viewport: { width: 100, height: 100, scrollX: 0, scrollY: 0 } });
+    act(() => guest.dispatchEvent(new Event('did-start-loading')));
+    const fill = vi.fn((event: Event) => (event as CustomEvent<{ accept: () => void }>).detail.accept());
+    const target = (event: Event): void => (event as CustomEvent<{ accept: (key: string) => void }>).detail.accept('draft');
+    window.addEventListener('nnd:composer-annotation-target', target);
+    window.addEventListener('nnd:composer-annotation', fill);
+    await flush();
+    act(() => ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Draw on page') as HTMLButtonElement).click());
+    const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;
+    shield.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 } as DOMRect);
+    const dispatch = (type: string, x: number, y: number, pointerId = 1): void => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { pointerId, button: 0, clientX: x, clientY: y });
+      shield.dispatchEvent(event);
+    };
+    const guestPointer = vi.fn(); guest.addEventListener('pointerup', guestPointer);
+    expect(shield.className).toContain('touch-none');
+    act(() => { dispatch('pointerdown', 20, 30); dispatch('pointercancel', 30, 30, 2);
+      dispatch('lostpointercapture', 30, 30, 2); dispatch('pointermove', 50, 60); dispatch('pointerup', 80, 90); });
+    expect(guestPointer).not.toHaveBeenCalled();
+    expect(view.querySelector('[data-testid="browser-annotation-strokes"] polyline')).not.toBeNull();
+    expect(fill).not.toHaveBeenCalled();
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent?.startsWith('Use drawing')) as HTMLButtonElement).click();
+      await Promise.resolve(); });
+    expect(guest.executeJavaScript).toHaveBeenCalledWith(expect.stringContaining('selectPageStrokes'), false);
+    expect(view.textContent).toContain('Selected page drawing');
+    const comment = view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement;
+    act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(comment, 'Fix the line');
+      comment.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click();
+      await Promise.resolve(); });
+    expect(fill).toHaveBeenCalledOnce();
+    expect(fill.mock.calls[0]?.[0]).toMatchObject({ detail: { text: expect.stringContaining('freehand strokes'),
+      attachment: { mime: 'image/jpeg' } } });
+    window.removeEventListener('nnd:composer-annotation', fill);
+    window.removeEventListener('nnd:composer-annotation-target', target);
+  });
+
+  it('rejects a drawing if the preview frame moves before confirmation', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render(); enter('https://example.org/');
+    const guest = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    guest.getURL = () => 'https://example.org/'; guest.executeJavaScript = vi.fn();
+    act(() => guest.dispatchEvent(new Event('did-start-loading'))); await flush();
+    act(() => ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Draw on page') as HTMLButtonElement).click());
+    const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;
+    let left = 0;
+    shield.getBoundingClientRect = () => ({ left, top: 0, width: 100, height: 100 } as DOMRect);
+    const dispatch = (type: string, x: number, y: number): void => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { pointerId: 1, button: 0, clientX: x, clientY: y });
+      shield.dispatchEvent(event);
+    };
+    act(() => { dispatch('pointerdown', 20, 20); dispatch('pointerup', 80, 80); });
+    expect(view.querySelector('[data-testid="browser-annotation-strokes"] polyline')).not.toBeNull();
+    left = 8;
+    await act(async () => { ([...view.querySelectorAll('button')].find((button) => button.textContent?.startsWith('Use drawing')) as HTMLButtonElement).click();
+      await Promise.resolve(); });
+    expect(guest.executeJavaScript).not.toHaveBeenCalled();
+    expect(view.querySelector('[data-testid="browser-annotation-strokes"] polyline')).toBeNull();
+    expect(view.textContent).toContain('viewport moved');
+  });
+
   it('draws a region on the host shield and adds only the confirmed image/text pair to the draft', async () => {
     window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
     readyFetch();
