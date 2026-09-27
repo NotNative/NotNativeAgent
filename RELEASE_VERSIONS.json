@@ -268,6 +268,10 @@
     {
       "version": "20260926-56",
       "content_sha256": "dee05ac2f5ea799430c4f6a0df75b1ef0265a6b94f6f30946b97c9ca05af462c"
+    },
+    {
+      "version": "20260926-57",
+      "content_sha256": "6bdc7f3bd7bda94f5fbb616a3068e65be7a24239d80a68d0892a044a3ded16ba"
     }
   ]
 }

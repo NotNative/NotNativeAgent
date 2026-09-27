@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **PB-1 installed package registration.** NND's Windows installer
+  writes a versioned NNA integration manifest after building and asks the
+  co-installed NNA to validate/register the built server and web bundle.
+  Uninstall deactivates the exact package before deleting it. NNA's status
+  revalidates identity and version drift. This is metadata registration only:
+  Electron still supervises the web service and local NNA child, so NNA-owned
+  lifecycle, persistent browser door, LAN consent, and NND-first install
+  reconciliation remain open MVP work.
+
 - 2026-09-26 · **P11-23 staged/unstaged walkthrough scope.** All uncommitted,
   Staged, and Unstaged selection is carried through capture, freshness checks,
   and revision-bound model generation. Untracked files belong only to the

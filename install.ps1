@@ -81,6 +81,47 @@ function Test-InstallRunning([string]$ExePath) {
     return $procs.Count -gt 0
 }
 
+# The NND installer registers only with a validated co-installed NNA. The
+# registration is metadata, not a daemon launch; the legacy desktop child
+# remains available until NNA owns the GUI service lifecycle.
+function Get-InstalledNna {
+    $descriptorPath = Join-Path $env:LOCALAPPDATA 'NotNativeAgent\install.json'
+    if (!(Test-Path -LiteralPath $descriptorPath -PathType Leaf)) { return $null }
+    $descriptor = Get-Content -LiteralPath $descriptorPath -Raw | ConvertFrom-Json
+    if ($descriptor.product -ne 'NotNativeAgent' -or
+        ![IO.Path]::IsPathRooted([string]$descriptor.node) -or
+        ![IO.Path]::IsPathRooted([string]$descriptor.install_root) -or
+        ![IO.Path]::IsPathRooted([string]$descriptor.data_root)) {
+        throw 'Installed NNA descriptor is invalid; NND registration was not attempted.'
+    }
+    $cli = Join-Path $descriptor.install_root 'installed\src\cli.js'
+    if (!(Test-Path -LiteralPath $descriptor.node -PathType Leaf) -or !(Test-Path -LiteralPath $cli -PathType Leaf)) {
+        throw 'Installed NNA runtime is incomplete; NND registration was not attempted.'
+    }
+    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root }
+}
+
+function Invoke-NndRegistration([string]$Action, [string]$Root) {
+    $nna = Get-InstalledNna
+    if (!$nna) {
+        if ($Action -eq 'deactivate') {
+            Write-Host '  NNA is not installed; no live registration can be deactivated. Preserved NNA data may retain a stale package record.' -ForegroundColor Yellow
+        } else {
+            Write-Host '  NNA is not installed; package registration deferred. Re-run this installer after NNA is installed.' -ForegroundColor Yellow
+        }
+        return
+    }
+    $previous = $env:NNA_HOME
+    $env:NNA_HOME = $nna.DataRoot
+    try {
+        $oldPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try { & $nna.Node $nna.Cli nnd package $Action $Root }
+        finally { $ErrorActionPreference = $oldPreference }
+        if ($LASTEXITCODE -ne 0) { throw "NNA rejected NND package $Action (exit $LASTEXITCODE)." }
+    } finally { $env:NNA_HOME = $previous }
+}
+
 # Normalize before either operation. Raw string equality misses `..`, case,
 # and relative spellings; uninstall in particular must never recurse over the
 # source checkout or an ancestor of it.
@@ -96,14 +137,17 @@ if ($Uninstall) {
         throw "-InstallDir cannot overlap the source repo (got $InstallDir)"
     }
     Write-Heading "Uninstalling NotNativeDesktop from $InstallDir"
+    if (Test-InstallRunning $ElectronExe) {
+        Write-Host "  NOT deleted: the app is running from $InstallDir (its electron.exe is locked while alive)." -ForegroundColor Yellow
+        Write-Host "  quit it from the tray menu, then re-run -Uninstall." -ForegroundColor Yellow
+        exit 2
+    }
+    # Do not delete an installed package while NNA still points at it. A
+    # failed deactivation leaves the install intact for an explicit retry.
+    Invoke-NndRegistration 'deactivate' $targetPath
     foreach ($name in @("NotNativeDesktop")) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
         foreach ($link in $links) { if (Test-Path $link) { Remove-Item $link -Force; Write-Host "  removed shortcut $link" } }
-    }
-    if (Test-InstallRunning $ElectronExe) {
-        Write-Host "  NOT deleted: the app is running from $InstallDir (its electron.exe is locked while alive)." -ForegroundColor Yellow
-        Write-Host "  quit it from the tray menu, then re-run -Uninstall. Shortcuts were removed either way." -ForegroundColor Yellow
-        exit 2
     }
     if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force; Write-Host "  removed install tree" }
     if ($PurgeData) {
@@ -232,6 +276,15 @@ try {
         Write-Good "build green"
     }
 } finally { Pop-Location }
+
+Write-Heading 'Registering NND package with NNA'
+$manifestDir = Join-Path $InstallDir 'nna-integration\nnd-local'
+New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
+$release = (Get-Content -LiteralPath (Join-Path $InstallDir 'package.json') -Raw | ConvertFrom-Json).nnd_version
+if ([string]::IsNullOrWhiteSpace([string]$release)) { throw 'Installed NND version is missing.' }
+$manifest = [ordered]@{ id = 'nnd-local'; ownership = 'nnd'; scope = 'local-gui'; nna_integration_protocol = '1.0'; version = $release } | ConvertTo-Json -Compress
+[IO.File]::WriteAllText((Join-Path $manifestDir 'integration.json'), $manifest, (New-Object Text.UTF8Encoding($false)))
+Invoke-NndRegistration 'activate' $targetPath
 
 Write-Heading "Creating shortcuts"
 foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
