@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -45,6 +45,40 @@ describe('server-owned walkthrough snapshot', () => {
     writeFileSync(join(repo, 'both.txt'), 'before\n');
     expect(() => getWalkthroughSnapshot(repo, () => writeFileSync(join(repo, 'both.txt'), 'after\n')))
       .toThrow(/Changes moved.*Retry/u);
+  });
+
+  it('limits the snapshot to the selected staged or working scope', () => {
+    writeFileSync(join(repo, 'both.txt'), 'staged\n'); git('add', 'both.txt');
+    writeFileSync(join(repo, 'both.txt'), 'working\n');
+    writeFileSync(join(repo, 'new.txt'), 'untracked\n');
+    const staged = getWalkthroughSnapshot(repo, undefined, 'staged');
+    const working = getWalkthroughSnapshot(repo, undefined, 'working');
+    expect(staged.stops.every((item) => item.scope === 'staged')).toBe(true);
+    expect(working.stops.every((item) => item.scope === 'working')).toBe(true);
+    expect(staged.stops.map((item) => item.path)).not.toContain('new.txt');
+    expect(working.stops.map((item) => item.path)).toContain('new.txt');
+    expect(staged.signature).not.toBe(working.signature);
+    expect(() => getWalkthroughSnapshot(repo, undefined, 'else' as 'all')).toThrow(/Invalid walkthrough scope/u);
+  });
+
+  it('keeps scoped revision stable when only the other side changes, including a mixed-status file', () => {
+    writeFileSync(join(repo, 'both.txt'), 'staged\n'); git('add', 'both.txt');
+    const staged = getWalkthroughSnapshot(repo, undefined, 'staged');
+    writeFileSync(join(repo, 'both.txt'), 'working one\n');
+    writeFileSync(join(repo, 'new.txt'), 'untracked\n');
+    expect(getWalkthroughSnapshot(repo, undefined, 'staged').signature).toBe(staged.signature);
+    const working = getWalkthroughSnapshot(repo, undefined, 'working');
+    writeFileSync(join(repo, 'rename.txt'), 'new staged\n'); git('add', 'rename.txt');
+    expect(getWalkthroughSnapshot(repo, undefined, 'working').signature).toBe(working.signature);
+    writeFileSync(join(repo, 'both.txt'), 'working two\n');
+    expect(getWalkthroughSnapshot(repo, undefined, 'working').signature).not.toBe(working.signature);
+  });
+
+  it('keeps the staged anchor when a separately modified file is renamed only in the worktree', () => {
+    writeFileSync(join(repo, 'both.txt'), 'staged\n'); git('add', 'both.txt');
+    renameSync(join(repo, 'both.txt'), join(repo, 'worktree-name.txt'));
+    const staged = getWalkthroughSnapshot(repo, undefined, 'staged');
+    expect(staged.stops.map((item) => item.path)).toEqual(['both.txt']);
   });
 
   it('keeps deleted tracked paths and absent rename sources in the tour', () => {

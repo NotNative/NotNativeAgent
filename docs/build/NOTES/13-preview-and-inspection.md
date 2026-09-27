@@ -344,6 +344,11 @@ suite, graph, source smoke, and release gates.
   drawing details. It never sends the message. Element and region modes remain
   available; the iframe transport and agent browser tool do not gain drawing.
 
+## P11-23: staged/unstaged walkthrough scope (2026-09-26)
+
+- The Walkthrough header now selects All uncommitted, Staged, or Unstaged. The server filters patch collection and file-scope limits accordingly; untracked files are part of Unstaged only. Each scope has a distinct revision signature even if its hunk bodies happen to match another scope.
+- Switching scope clears the prior preview and model prose. Refresh, freshness checks, and explicit model generation all carry the selected scope, so a model explanation cannot silently move from staged to working changes. Branch, commit, and PR choices remain follow-ups.
+
 ## P11-22: explicit model explanation on the current diff (2026-09-26)
 
 - The Walkthrough pane adds an explicit **Generate explanation** action for a selected NNA session. The NND server rechecks the snapshot revision, checks that the NNA session belongs to the selected workspace, and sends only an aliased, 64 KiB-bounded hunk digest to NNA's `nnd.walkthrough.generate` route. Known sensitive-path hunks are omitted; the UI warns that other code may still contain secrets and that the configured model receives the digest. No agent turn or tool call is made.

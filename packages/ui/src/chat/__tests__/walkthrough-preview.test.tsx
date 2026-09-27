@@ -74,7 +74,7 @@ describe('WalkthroughPreviewSurface', () => {
     await render();
     expect(generate).not.toHaveBeenCalled();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
-    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1');
+    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all');
     expect(document.body.textContent).toContain('The output value changes.');
     expect(document.body.textContent).toContain('1 sensitive-path hunk(s) were not sent');
     load.mockResolvedValue({ signature: 'rev2', fileCount: 1, stops: [stop('c.ts')] });
@@ -99,5 +99,18 @@ describe('WalkthroughPreviewSurface', () => {
     expect(document.body.textContent).toContain('Refresh must clear this.');
     await act(async () => { (document.querySelector('button:nth-of-type(1)') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(document.body.textContent).not.toContain('Refresh must clear this.');
+  });
+
+  it('switches staged and unstaged scopes without carrying the old preview or prose', async () => {
+    await render();
+    load.mockResolvedValue({ signature: 'rev-staged', fileCount: 1, stops: [stop('staged.ts')] });
+    await act(async () => {
+      const select = document.querySelector('select[aria-label="Walkthrough scope"]') as HTMLSelectElement;
+      select.value = 'staged'; select.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(load).toHaveBeenLastCalledWith('/repo', 'staged');
+    expect(document.body.textContent).toContain('staged.ts');
+    expect(document.body.textContent).not.toContain('b.ts');
   });
 });

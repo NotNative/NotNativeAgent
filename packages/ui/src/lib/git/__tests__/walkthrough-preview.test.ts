@@ -16,7 +16,7 @@ describe('deterministic walkthrough client', () => {
     request.mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 }));
     const result = await loadWalkthroughPreview('/repo');
     expect(request).toHaveBeenCalledOnce();
-    expect(String(request.mock.calls[0]?.[0])).toContain('/api/git/walkthrough-snapshot?directory=%2Frepo');
+    expect(String(request.mock.calls[0]?.[0])).toContain('/api/git/walkthrough-snapshot?directory=%2Frepo&scope=all');
     expect(result.signature).toBe('server-revision');
     expect(result.stops[0]?.id).toBe('working:a.ts:abcd1234');
     expect(result.stops[0]?.body).toBe('-old\n+new');
@@ -38,6 +38,6 @@ describe('deterministic walkthrough client', () => {
     expect(request.mock.calls[0]?.[0]).toBe('/api/git/walkthrough-generate');
     const init = request.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({ directory: '/repo', sessionId: 'ses_test', revision: 'rev1' });
+    expect(JSON.parse(String(init.body))).toEqual({ directory: '/repo', sessionId: 'ses_test', revision: 'rev1', scope: 'all' });
   });
 });

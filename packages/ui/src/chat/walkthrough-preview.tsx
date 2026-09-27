@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { generateWalkthroughPreview, loadWalkthroughPreview, type GeneratedWalkthrough, type WalkthroughPreview } from '../lib/git/walkthrough-preview.ts';
+import { generateWalkthroughPreview, loadWalkthroughPreview, type GeneratedWalkthrough, type WalkthroughPreview, type WalkthroughScope } from '../lib/git/walkthrough-preview.ts';
 
 export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { directory: string; sessionId: string | null; visible: boolean }): ReactNode {
-  const [record, setRecord] = useState<{ directory: string; preview: WalkthroughPreview } | null>(null);
+  const [scope, setScope] = useState<WalkthroughScope>('all');
+  const [record, setRecord] = useState<{ directory: string; scope: WalkthroughScope; preview: WalkthroughPreview } | null>(null);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(false);
   const [stale, setStale] = useState(false);
@@ -11,22 +12,22 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
   const request = useRef(0);
   const generationRequest = useRef(0);
   const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState<{ directory: string; sessionId: string; value: GeneratedWalkthrough } | null>(null);
-  const preview = record?.directory === directory ? record.preview : null;
-  const narrative = generated?.directory === directory && generated.sessionId === sessionId
+  const [generated, setGenerated] = useState<{ directory: string; scope: WalkthroughScope; sessionId: string; value: GeneratedWalkthrough } | null>(null);
+  const preview = record?.directory === directory && record.scope === scope ? record.preview : null;
+  const narrative = generated?.directory === directory && generated.scope === scope && generated.sessionId === sessionId
     && generated.value.revision === preview?.signature && !stale ? generated.value : null;
   useEffect(() => {
     generationRequest.current += 1;
     setGenerated(null);
     setGenerating(false);
-  }, [directory, sessionId]);
+  }, [directory, scope, sessionId]);
   const capture = useCallback(async (): Promise<void> => {
     const id = ++request.current;
     setLoading(true); setError(null);
     try {
-      const next = await loadWalkthroughPreview(directory);
+      const next = await loadWalkthroughPreview(directory, scope);
       if (id !== request.current) return;
-      setRecord({ directory, preview: next }); setActive(0); setStale(false);
+      setRecord({ directory, scope, preview: next }); setActive(0); setStale(false);
       generationRequest.current += 1; setGenerated(null); setGenerating(false);
     } catch (cause) {
       if (id === request.current) {
@@ -35,18 +36,18 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
       }
     }
     finally { if (id === request.current) setLoading(false); }
-  }, [directory]);
+  }, [directory, scope]);
   const generate = useCallback(async (): Promise<void> => {
     if (!sessionId || !preview || stale) return;
     const id = ++generationRequest.current;
     setGenerating(true); setError(null);
     try {
-      const value = await generateWalkthroughPreview(directory, sessionId, preview.signature);
-      if (id === generationRequest.current) setGenerated({ directory, sessionId, value });
+      const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, scope);
+      if (id === generationRequest.current) setGenerated({ directory, scope, sessionId, value });
     } catch (cause) {
       if (id === generationRequest.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');
     } finally { if (id === generationRequest.current) setGenerating(false); }
-  }, [directory, preview, sessionId, stale]);
+  }, [directory, preview, scope, sessionId, stale]);
   useEffect(() => {
     if (!visible) return;
     void capture();
@@ -59,7 +60,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
     const check = (): void => {
       if (document.hidden || checking) return;
       checking = true;
-      void loadWalkthroughPreview(directory).then((current) => {
+      void loadWalkthroughPreview(directory, scope).then((current) => {
         if (live && current.signature !== preview.signature) setStale(true);
       }).catch(() => { if (live) { setStale(true); setError('Could not verify whether this preview is current. Refresh before relying on it.'); } })
         .finally(() => { checking = false; });
@@ -67,11 +68,15 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
     const timer = window.setInterval(check, 15_000);
     window.addEventListener('focus', check);
     return () => { live = false; window.clearInterval(timer); window.removeEventListener('focus', check); };
-  }, [directory, preview, stale, visible]);
+  }, [directory, preview, scope, stale, visible]);
   const stop = preview?.stops[active];
   return <section className="flex h-full min-h-0 flex-col" data-testid="walkthrough-preview">
-    <header className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-      <div className="min-w-0 flex-1 text-xs font-medium text-neutral-200">Diff walkthrough</div>
+    <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
+      <div className="w-full text-xs font-medium text-neutral-200">Diff walkthrough</div>
+      <select aria-label="Walkthrough scope" value={scope} onChange={(event) => setScope(event.target.value as WalkthroughScope)}
+        className="min-w-0 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300">
+        <option value="all">All uncommitted</option><option value="staged">Staged</option><option value="working">Unstaged</option>
+      </select>
       <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300" disabled={loading} onClick={() => void capture()}>Refresh</button>
       <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
         disabled={!sessionId || !preview?.stops.length || loading || stale || generating}

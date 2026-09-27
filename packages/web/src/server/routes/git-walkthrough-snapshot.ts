@@ -12,6 +12,7 @@ export const SNAPSHOT_MAX_HUNKS = 200;
 export const SNAPSHOT_MAX_PATCH_BYTES = 750_000;
 const TIMEOUT_MS = 10_000;
 type Scope = 'staged' | 'working';
+export type WalkthroughScope = 'all' | Scope;
 type Entry = { path: string; oldPath?: string; index: string; working: string };
 type Part = { scope: Scope; path: string; oldPath?: string; patch: string };
 type Stop = { id: string; scope: Scope; path: string; oldPath?: string; header: string; oldStart: number; newStart: number; body: string };
@@ -68,11 +69,12 @@ function safePath(root: string, directory: string, path: string): boolean {
   return resolveWithin(workspace, realpath(parent)) !== null;
 }
 
-function capture(directory: string, root: string, prefix: string): { key: string; parts: Part[] } {
+function capture(directory: string, root: string, prefix: string, selected: WalkthroughScope): { key: string; parts: Part[] } {
   const raw = git(root, ['status', '--porcelain=v1', '-z', '-b', '--untracked-files=all', '--', prefix ? `:(literal)${prefix}` : '.']);
   const entries = parseStatus(raw);
-  const fileScopes = entries.reduce((count, entry) => count + Number(entry.index !== ' ' && entry.index !== '?')
-    + Number(entry.working !== ' ' || entry.index === '?'), 0);
+  const fileScopes = entries.reduce((count, entry) => count
+    + Number(selected !== 'working' && entry.index !== ' ' && entry.index !== '?')
+    + Number(selected !== 'staged' && (entry.working !== ' ' || entry.index === '?')), 0);
   if (fileScopes > SNAPSHOT_MAX_FILES) throw new SnapshotError(`Walkthrough supports at most ${SNAPSHOT_MAX_FILES} changed file scopes.`, 413, 'too-many-files');
   const parts: Part[] = [];
   let bytes = 0;
@@ -82,13 +84,29 @@ function capture(directory: string, root: string, prefix: string): { key: string
     parts.push(part);
   };
   for (const entry of entries) {
+    const staged = selected !== 'working' && entry.index !== ' ' && entry.index !== '?';
+    const working = selected !== 'staged' && (entry.working !== ' ' || entry.index === '?');
+    if (!staged && !working) continue;
     if (!safePath(root, directory, entry.path)) throw new SnapshotError('Diff path escapes the workspace.', 403, 'access-denied');
     if (entry.oldPath && !safePath(root, directory, entry.oldPath)) throw new SnapshotError('Rename crosses the workspace boundary.', 403, 'access-denied');
-    if (entry.index !== ' ' && entry.index !== '?') append(diffPart(root, entry, 'staged'));
-    if (entry.working !== ' ' || entry.index === '?') append(diffPart(root, entry, 'working'));
+    if (staged) append(diffPart(root, entry, 'staged'));
+    if (working) append(diffPart(root, entry, 'working'));
   }
   parts.sort((a, b) => a.path.localeCompare(b.path) || a.scope.localeCompare(b.scope));
-  const key = createHash('sha256').update(raw).update('\0')
+  // Preserve branch identity, but do not invalidate a scoped tour when only
+  // the other side of the index/worktree changes. The selected patches below
+  // still bind the signature to the actual bytes under review.
+  // Ahead/behind tracking metadata may change after a fetch without changing
+  // either local diff. Only the local branch identity belongs in this proof.
+  const branch = (raw.split('\0', 1)[0] ?? '').replace(/(?:\.\.\..*| \[.*)$/u, '');
+  const selectedStatus = entries.flatMap((entry) => {
+    const staged = selected !== 'working' && entry.index !== ' ' && entry.index !== '?';
+    const working = selected !== 'staged' && (entry.working !== ' ' || entry.index === '?');
+    return [staged ? `staged\0${entry.index}\0${entry.path}\0${entry.oldPath ?? ''}` : '',
+      working ? `working\0${entry.working}\0${entry.path}\0${entry.oldPath ?? ''}` : ''].filter(Boolean);
+  });
+  const key = createHash('sha256').update(selected).update('\0').update(branch).update('\0')
+    .update(selectedStatus.join('\0\0')).update('\0')
     .update(parts.map(({ scope, path, oldPath, patch }) => `${scope}\0${path}\0${oldPath ?? ''}\0${patch}`).join('\0\0')).digest('hex');
   return { key, parts };
 }
@@ -145,16 +163,17 @@ function stopsFrom(parts: Part[]): Snapshot {
   return { signature: '', stops, fileCount: parts.length, binaryFiles };
 }
 
-export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: () => void): Snapshot {
+export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: () => void, selected: WalkthroughScope = 'all'): Snapshot {
+  if (!['all', 'staged', 'working'].includes(selected)) throw new SnapshotError('Invalid walkthrough scope.', 400, 'invalid-scope');
   const root = git(directory, ['rev-parse', '--show-toplevel'], 4096).trim();
   if (!root || !isAbsolute(root)) throw new SnapshotError('No Git repository is available.', 404, 'not-repository');
   const rootReal = realpathSync(root);
   const directoryReal = realpathSync(directory);
   if (resolveWithin(rootReal, directoryReal) === null) throw new SnapshotError('Access denied.', 403, 'access-denied');
   const prefix = relative(rootReal, directoryReal).split(sep).join('/');
-  const before = capture(directoryReal, rootReal, prefix);
+  const before = capture(directoryReal, rootReal, prefix, selected);
   afterFirstCapture?.();
-  const after = capture(directoryReal, rootReal, prefix);
+  const after = capture(directoryReal, rootReal, prefix, selected);
   if (before.key !== after.key) throw new SnapshotError('Changes moved while capturing the diff. Retry.', 409, 'snapshot-stale');
   return { ...stopsFrom(before.parts), signature: before.key };
 }
@@ -162,8 +181,9 @@ export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: ()
 export function registerGitWalkthroughSnapshotRoute(app: Hono): void {
   app.get('/api/git/walkthrough-snapshot', (c) => {
     const directory = c.req.query('directory');
+    const scope = c.req.query('scope') ?? 'all';
     if (!directory) return c.json({ error: 'directory parameter is required' }, 400);
-    try { return c.json(getWalkthroughSnapshot(directory)); }
+    try { return c.json(getWalkthroughSnapshot(directory, undefined, scope as WalkthroughScope)); }
     catch (cause) {
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);
       return c.json({ error: 'Git snapshot failed.', code: 'git-failed' }, 500);

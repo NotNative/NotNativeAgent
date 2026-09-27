@@ -66,4 +66,21 @@ describe('model-authored walkthrough boundary', () => {
     expect(sent.digest).toHaveLength(1);
     expect(JSON.stringify(sent)).not.toContain('fake');
   });
+
+  it('rechecks the selected staged scope and refuses an invalid scope before any NNA call', async () => {
+    const scopes: unknown[] = [];
+    let calls = 0;
+    const ports = { snapshot: (_directory: string, _after: unknown, scope: unknown) => {
+      scopes.push(scope); return snapshot();
+    }, call: async (request: Request) => {
+      calls += 1;
+      if (new URL(request.url).pathname.endsWith('/session/ses_test')) return json({ directory: '/repo' });
+      return json({ revision, text: narrative, providerID: 'local', modelID: 'small' });
+    } };
+    await generateWalkthrough('/repo', 'ses_test', revision, ports, 'staged');
+    expect(scopes).toEqual(['staged', 'staged']);
+    await expect(generateWalkthrough('/repo', 'ses_test', revision, ports, 'invalid' as 'all'))
+      .rejects.toMatchObject({ code: 'invalid-request' });
+    expect(calls).toBe(2);
+  });
 });

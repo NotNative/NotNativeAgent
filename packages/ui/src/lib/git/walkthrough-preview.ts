@@ -12,6 +12,7 @@ export interface WalkthroughStopPreview {
   body: string;
 }
 export interface WalkthroughPreview { signature: string; stops: WalkthroughStopPreview[]; fileCount: number; binaryFiles: number }
+export type WalkthroughScope = 'all' | 'staged' | 'working';
 export interface GeneratedWalkthrough {
   revision: string;
   chapters: { title: string; stops: { id: string; explanation: string }[] }[];
@@ -19,18 +20,19 @@ export interface GeneratedWalkthrough {
   providerID: string;
   modelID: string;
 }
-export async function loadWalkthroughPreview(directory: string): Promise<WalkthroughPreview> {
-  const response = await runtimeFetch(`/api/git/walkthrough-snapshot?directory=${encodeURIComponent(directory)}`);
+export async function loadWalkthroughPreview(directory: string, scope: WalkthroughScope = 'all'): Promise<WalkthroughPreview> {
+  const response = await runtimeFetch(`/api/git/walkthrough-snapshot?directory=${encodeURIComponent(directory)}&scope=${scope}`);
   const payload = await response.json().catch(() => null) as WalkthroughPreview | { error?: string; code?: string } | null;
   if (!response.ok) throw new Error(payload && 'error' in payload && payload.error ? payload.error : `Git snapshot failed (${response.status}).`);
   if (!payload || !('signature' in payload) || !Array.isArray(payload.stops)) throw new Error('Invalid Git snapshot response.');
   return payload;
 }
 
-export async function generateWalkthroughPreview(directory: string, sessionId: string, revision: string): Promise<GeneratedWalkthrough> {
+export async function generateWalkthroughPreview(directory: string, sessionId: string, revision: string,
+  scope: WalkthroughScope = 'all'): Promise<GeneratedWalkthrough> {
   const response = await runtimeFetch('/api/git/walkthrough-generate', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ directory, sessionId, revision }),
+    body: JSON.stringify({ directory, sessionId, revision, scope }),
   });
   const payload = await response.json().catch(() => null) as GeneratedWalkthrough | { error?: string } | null;
   if (!response.ok) throw new Error(payload && 'error' in payload && payload.error ? payload.error : `Walkthrough generation failed (${response.status}).`);
