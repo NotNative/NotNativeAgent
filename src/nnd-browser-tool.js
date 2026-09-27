@@ -47,25 +47,25 @@ export function nndBrowserDefinition(callback, options = {}) {
   let observationRevision = 0;
   return {
     name: 'nnd_browser', version: 1,
-    purpose: 'Control the connected NND desktop browser: open, snapshot, inspect, click, scroll, type, or capture the exact observed page. Requires a connected desktop.',
+    purpose: 'Control the connected NND desktop browser: open, snapshot, inspect, click, scroll, history, type, or capture the exact observed page. Requires a connected desktop.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 55_000, maxOutputBytes: MAX_REPLY_BYTES,
     inputSchema: { type: 'object', additionalProperties: false, required: ['action'], properties: {
-      action: { type: 'string', enum: ['open', 'snapshot', 'inspect', 'click', 'scroll', 'type', 'capture'], description: 'Open, observe, inspect, click, scroll, type into one field, or capture the viewport.' },
+      action: { type: 'string', enum: ['open', 'snapshot', 'inspect', 'click', 'scroll', 'history', 'type', 'capture'], description: 'Open, observe, inspect, click, scroll, navigate preview history, type into one field, or capture the viewport.' },
       url: { type: 'string', maxLength: 2048, description: 'Required for open only: HTTPS or numeric-loopback HTTP URL.' },
       selector: { type: 'string', maxLength: 500, description: 'Required for inspect, click, or type: CSS selector from the page.' },
-      expectedUrl: { type: 'string', maxLength: 2048, description: 'Required for click, scroll, type, or capture: exact URL from the latest page snapshot.' },
-      direction: { type: 'string', enum: ['up', 'down', 'top', 'bottom'], description: 'Required for scroll: viewport direction.' },
+      expectedUrl: { type: 'string', maxLength: 2048, description: 'Required for click, scroll, history, type, or capture: exact URL from the latest page snapshot.' },
+      direction: { type: 'string', enum: ['up', 'down', 'top', 'bottom', 'back', 'forward'], description: 'Required for scroll (viewport) or history (preview back/forward).' },
       text: { type: 'string', maxLength: 2000, description: 'Required for type: replacement text for one ordinary field. Never use for passwords or secrets.' },
     } },
     validate: async (args) => validateNndBrowserArgs(args),
     executor: async (request, signal) => {
       const action = request.args.action;
-      if (['click', 'scroll', 'type', 'capture'].includes(action)
+      if (['click', 'scroll', 'history', 'type', 'capture'].includes(action)
         && (observedUrl !== request.args.expectedUrl || observedRevision === null || observedId === null))
         throw invalid(`${action} requires a fresh snapshot of the exact page URL`);
       const authorizedRevision = observedRevision;
       const authorizedId = observedId;
-      if (['open', 'snapshot', 'click', 'scroll', 'type', 'capture'].includes(action)) {
+      if (['open', 'snapshot', 'click', 'scroll', 'history', 'type', 'capture'].includes(action)) {
         observedUrl = null;
         observedRevision = null;
         observedId = null;
@@ -95,7 +95,7 @@ export function nndBrowserDefinition(callback, options = {}) {
 }
 
 function validateNndBrowserArgs(args) {
-  if (!args || typeof args !== 'object' || Array.isArray(args) || !['open', 'snapshot', 'inspect', 'click', 'scroll', 'type', 'capture'].includes(args.action)
+  if (!args || typeof args !== 'object' || Array.isArray(args) || !['open', 'snapshot', 'inspect', 'click', 'scroll', 'history', 'type', 'capture'].includes(args.action)
     || Object.keys(args).some((key) => !['action', 'url', 'selector', 'expectedUrl', 'direction', 'text'].includes(key))) throw invalid('NND browser arguments are invalid');
   if (args.action === 'open') {
     if (typeof args.url !== 'string' || args.url.length > 2048 || !safePageUrl(args.url)
@@ -115,6 +115,11 @@ function validateNndBrowserArgs(args) {
       || !['up', 'down', 'top', 'bottom'].includes(args.direction)
       || typeof args.expectedUrl !== 'string' || args.expectedUrl.length > 2048 || !safeObservedUrl(args.expectedUrl))
       throw invalid('scroll requires a direction and observed safe page URL');
+  } else if (args.action === 'history') {
+    if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'text')
+      || !['back', 'forward'].includes(args.direction)
+      || typeof args.expectedUrl !== 'string' || args.expectedUrl.length > 2048 || !safeObservedUrl(args.expectedUrl))
+      throw invalid('history requires back or forward and an observed safe page URL');
   } else if (args.action === 'capture') {
     if (Object.hasOwn(args, 'url') || Object.hasOwn(args, 'selector') || Object.hasOwn(args, 'text')
       || Object.hasOwn(args, 'direction') || typeof args.expectedUrl !== 'string'
@@ -126,7 +131,7 @@ function validateNndBrowserArgs(args) {
   return { args: args.action === 'open' ? { action: 'open', url: args.url }
     : args.action === 'inspect' ? { action: 'inspect', selector: args.selector }
       : args.action === 'click' ? { action: 'click', selector: args.selector, expectedUrl: args.expectedUrl }
-        : args.action === 'scroll' ? { action: 'scroll', direction: args.direction, expectedUrl: args.expectedUrl }
+        : ['scroll', 'history'].includes(args.action) ? { action: args.action, direction: args.direction, expectedUrl: args.expectedUrl }
           : args.action === 'type' ? { action: 'type', selector: args.selector, expectedUrl: args.expectedUrl, text: args.text }
             : args.action === 'capture' ? { action: 'capture', expectedUrl: args.expectedUrl }
           : { action: 'snapshot' },
@@ -143,7 +148,7 @@ async function executeNndBrowser(callback, fetcher, request, signal, observedRev
       parameters: request.args.action === 'open' ? { url: request.args.url }
         : request.args.action === 'inspect' ? { selector: request.args.selector }
           : request.args.action === 'click' ? { selector: request.args.selector, expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
-            : request.args.action === 'scroll' ? { direction: request.args.direction, expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
+            : ['scroll', 'history'].includes(request.args.action) ? { direction: request.args.direction, expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
               : request.args.action === 'type' ? { selector: request.args.selector, expectedUrl: request.args.expectedUrl, text: request.args.text, observationRevision: observedRevision, observationId: observedId }
                 : request.args.action === 'capture' ? { expectedUrl: request.args.expectedUrl, observationRevision: observedRevision, observationId: observedId }
             : {} }), signal });
@@ -151,7 +156,7 @@ async function executeNndBrowser(callback, fetcher, request, signal, observedRev
     if (signal.aborted) throw new ContractError('tool_cancelled', 'browser request was cancelled', { cause: error });
     throw new ContractError('nnd_browser_unavailable', 'NND desktop browser callback is unavailable', { cause: error });
   }
-  if (!response.ok) throw new ContractError('nnd_browser_failed', ['click', 'scroll', 'type', 'capture'].includes(request.args.action)
+  if (!response.ok) throw new ContractError('nnd_browser_failed', ['click', 'scroll', 'history', 'type', 'capture'].includes(request.args.action)
     ? `${request.args.action} outcome is uncertain (${response.status}); snapshot the page before retrying`
     : response.status === 503 ? 'No connected desktop browser can perform this action'
       : `NND browser action failed (${response.status})`);

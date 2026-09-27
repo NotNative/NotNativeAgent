@@ -59,6 +59,9 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   await assert.rejects(definition.validate({ action: 'click', selector: '#send' }));
   await assert.rejects(definition.validate({ action: 'click', selector: '#send', expectedUrl: 'http://remote.example/' }));
   await assert.rejects(definition.validate({ action: 'scroll', direction: 'down' }));
+  await assert.rejects(definition.validate({ action: 'history', direction: 'back' }));
+  await assert.rejects(definition.validate({ action: 'history', direction: 'up', expectedUrl: 'https://example.org/' }));
+  await assert.rejects(definition.validate({ action: 'history', direction: 'forward', expectedUrl: 'https://example.org/', selector: '#x' }));
   await assert.rejects(definition.validate({ action: 'type', selector: '#query', text: 'x' }));
   await assert.rejects(definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/' }));
   await assert.rejects(definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'x'.repeat(2001) }));
@@ -67,12 +70,16 @@ test('governed browser tool validates narrow actions and forwards cancellation',
     { action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: '' });
   assert.deepEqual((await definition.validate({ action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' })).args,
     { action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' });
+  assert.deepEqual((await definition.validate({ action: 'history', direction: 'back', expectedUrl: 'https://example.org/' })).args,
+    { action: 'history', direction: 'back', expectedUrl: 'https://example.org/' });
   assert.deepEqual((await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' })).args,
     { action: 'click', selector: '#send', expectedUrl: 'https://example.org/' });
   const click = await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' });
   await assert.rejects(definition.executor(click, new AbortController().signal), /fresh snapshot/u);
   const scroll = await definition.validate({ action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' });
   await assert.rejects(definition.executor(scroll, new AbortController().signal), /fresh snapshot/u);
+  const history = await definition.validate({ action: 'history', direction: 'back', expectedUrl: 'https://example.org/' });
+  await assert.rejects(definition.executor(history, new AbortController().signal), /fresh snapshot/u);
   const type = await definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'hello' });
   await assert.rejects(definition.executor(type, new AbortController().signal), /fresh snapshot/u);
   const request = await definition.validate({ action: 'open', url: 'https://example.com' });
@@ -95,8 +102,14 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   assert.deepEqual(JSON.parse(calls[5].options.body), { action: 'browser.scroll', parameters: { direction: 'down', expectedUrl: 'https://example.org/', observationRevision: 7, observationId } });
   await assert.rejects(definition.executor(scroll, signal), /fresh snapshot/u);
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
+  await definition.executor(history, signal);
+  assert.deepEqual(JSON.parse(calls[7].options.body), { action: 'browser.history', parameters: {
+    direction: 'back', expectedUrl: 'https://example.org/', observationRevision: 7, observationId,
+  } });
+  await assert.rejects(definition.executor(history, signal), /fresh snapshot/u);
+  await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(type, signal);
-  assert.deepEqual(JSON.parse(calls[7].options.body), { action: 'browser.type', parameters: {
+  assert.deepEqual(JSON.parse(calls[9].options.body), { action: 'browser.type', parameters: {
     selector: '#query', expectedUrl: 'https://example.org/', text: 'hello', observationRevision: 7, observationId,
   } });
   await assert.rejects(definition.executor(type, signal), /fresh snapshot/u);
