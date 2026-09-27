@@ -166,6 +166,26 @@ describe('loader behavior', () => {
     expect(store.getState().message.s1).toEqual([]); // empty claim held; superseded load discarded
     expect(loader.getState(loaderTarget)).toMatchObject({ status: 'ready', complete: true, resolved: true });
   });
+
+  it('does not refetch a resolved empty transcript on navigation', async () => {
+    configureHarness({ listMessagesPage: () => ({ data: [], response: { status: 200 } }) });
+    const { store, target: loaderTarget } = target();
+    const loader = new SessionMessageLoader();
+    await loader.ensure(loaderTarget);
+    expect(store.getState().message.s1).toEqual([]);
+    await loader.ensure(loaderTarget, { reason: 'navigation' });
+    expect(callsFor('listMessagesPage')).toHaveLength(1);
+  });
+
+  it('still fetches when a new message lacks its part bucket after an empty page', async () => {
+    configureHarness({ listMessagesPage: () => ({ data: [], response: { status: 200 } }) });
+    const { store, target: loaderTarget } = target();
+    const loader = new SessionMessageLoader();
+    await loader.ensure(loaderTarget);
+    store.setState({ message: { s1: [entries(1)[0]!.info as never] } });
+    await loader.ensure(loaderTarget, { reason: 'navigation' });
+    expect(callsFor('listMessagesPage')).toHaveLength(2);
+  });
 });
 
 function userEntries(): { info: { id: string; sessionID: string; role: string; time: { created: number } }; parts: [] }[] {

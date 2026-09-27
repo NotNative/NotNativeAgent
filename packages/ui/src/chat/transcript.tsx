@@ -4,7 +4,7 @@
  * dispatch, tool cards (plain bodies; rich diff lands with P6), facts footer,
  * error callouts, status chip (§E.1), and §F blocking cards.
  */
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { AssistantMessage, PermissionRequest, QuestionRequest, SessionStatus } from '../lib/nnd/types.ts';
 import type { DirectoryStore } from '../sync/types.ts';
@@ -25,10 +25,35 @@ export interface TranscriptProps {
 
 export function Transcript(props: TranscriptProps): ReactNode {
   const { store, engine, sessionID, directory } = props;
-  void directory;
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
+  const [retry, setRetry] = useState<{ key: string; count: number }>({ key: '', count: 0 });
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const loadKey = `${directory}\n${sessionID ?? ''}`;
+  useEffect(() => {
+    if (!sessionID) return;
+    let active = true;
+    const target = { directory, sessionID, store };
+    const force = retry.key === loadKey && retry.count > 0;
+    void engine.loader.ensure(target, { reason: 'navigation', force })
+      .then(() => {
+        if (active) setFailedKey(engine.loader.getState(target).status === 'error' ? loadKey : null);
+      })
+      .catch(() => {
+        if (active) setFailedKey(loadKey);
+      });
+    return () => { active = false; };
+  }, [engine.loader, store, directory, sessionID, loadKey, retry]);
   if (!sessionID) {
     return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-600" data-testid="chat-empty">No session selected — open the sidebar to start.</div>;
+  }
+  if (snapshot.message[sessionID] === undefined || snapshot.message[sessionID]?.length === 0) {
+    if (failedKey === loadKey) {
+      return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-400" data-testid="chat-load-error">
+        <p>Could not load this session’s messages.</p>
+        <button type="button" className="mt-3 rounded border border-white/15 px-3 py-1.5 text-neutral-200 hover:bg-white/10"
+          onClick={() => { setFailedKey(null); setRetry((value) => ({ key: loadKey, count: value.key === loadKey ? value.count + 1 : 1 })); }}>Retry</button>
+      </div>;
+    }
   }
   if (snapshot.message[sessionID] === undefined) {
     return <Skeleton />;

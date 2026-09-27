@@ -225,8 +225,20 @@ if (Test-InstallRunning $ElectronExe) {
     throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
 }
 foreach ($check in @(@("node", "node version"), @("pnpm", "pnpm version"))) {
-    $probe = & $check[0] --version 2>$null
-    if ($LASTEXITCODE -ne 0) { throw "$($check[0]) is required on PATH (empty $($check[1]))" }
+    # A missing command leaves LASTEXITCODE unchanged in PowerShell, so a
+    # successful node probe could otherwise mask an absent pnpm executable.
+    if (!(Get-Command $check[0] -ErrorAction SilentlyContinue)) {
+        throw "$($check[0]) is required on PATH (empty $($check[1]))"
+    }
+    # pnpm may emit non-fatal deprecation warnings on stderr. Under EAP=Stop
+    # PowerShell turns them into terminating NativeCommandError records.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $probe = & $check[0] --version 2>$null
+        $probeExit = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $previous }
+    if ($probeExit -ne 0) { throw "$($check[0]) is required on PATH (empty $($check[1]))" }
     Write-Host "  using $($check[0]) $probe"
 }
 $nna = Get-InstalledNna

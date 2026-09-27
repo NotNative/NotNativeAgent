@@ -22,6 +22,21 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **PB-7 installed GUI transcript hydration.** Installed-app
+  visual QA exposed a session that stayed on its loading skeleton: the
+  session-message loader was implemented but never called on chat navigation.
+  The transcript now hydrates the selected session, shows a retry action when
+  loading fails (including an empty cached bucket), and preserves already
+  resolved empty sessions without repeat reads. Adversarial review added
+  regression coverage for both failure and empty-session behavior. The Windows
+  installer also now tolerates pnpm's non-fatal version-probe warning under
+  PowerShell's strict error mode. Installed `20260927-5` GUI QA confirmed an
+  existing transcript opens, Activity displays a failed-turn event, and the
+  Context and Browser operator surfaces open from the right rail.
+  Installer adversarial review also caught the missing-command case: a
+  nonexistent `pnpm` could leave PowerShell's prior successful exit code
+  unchanged, so preflight now checks command discovery explicitly.
+
 - 2026-09-27 · **PB-6 local NNA bootstrap.** The source NND installers can
   offer to invoke the sibling NNA installer when NNA is absent. Non-interactive
   runs require an explicit opt-in flag; an invalid existing NNA is not silently

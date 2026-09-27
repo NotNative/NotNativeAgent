@@ -292,6 +292,14 @@
     {
       "version": "20260927-4",
       "content_sha256": "fc6383ea809e11f00ef899150f4f816254690352c76a1118392004865fc3b3af"
+    },
+    {
+      "version": "20260927-5",
+      "content_sha256": "f357af3970c8beec48cd96314f8dcfa52bdf2381a0bd487018988bb61bc23c1d"
+    },
+    {
+      "version": "20260927-6",
+      "content_sha256": "393bfbc591de6bd942547ef8e8e9484f1abeb9b659d0818291bfb6616abf2db7"
     }
   ]
 }

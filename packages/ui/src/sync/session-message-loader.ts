@@ -114,6 +114,12 @@ export class SessionMessageLoader {
   /** Renderable ⇒ ready without HTTP; in-flight attaches; prefetch→initial promotion. */
   ensure(target: LoaderTarget, opts?: { force?: boolean; reason?: 'initial' | 'prefetch' | 'navigation' }): Promise<void> {
     const entry = this.entry(target);
+    // A successful empty page (including a just-created session) is already
+    // hydrated. Empty transcripts cannot satisfy isTranscriptRenderable().
+    if (!opts?.force && entry.state.status === 'ready' && entry.state.resolved
+      && target.store.getState().message[target.sessionID]?.length === 0) {
+      return Promise.resolve();
+    }
     if (!opts?.force && isTranscriptRenderable(target.store, target.sessionID)) {
       if (entry.state.status !== 'ready') {
         entry.state = { ...entry.state, status: 'ready', loadingKind: null, resolved: true, updatedAt: Date.now() };
