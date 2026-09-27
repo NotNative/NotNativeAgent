@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
 import { pageSnapshotScript, parsePageSnapshot, type PageSnapshot } from '../lib/browser/page-snapshot.ts';
 import { pageInspectionScript, parsePageInspection } from '../lib/browser/page-inspection.ts';
+import { pageClickScript, parsePageClick } from '../lib/browser/page-click.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
@@ -118,6 +119,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const inspectionRevision = useRef(0);
+  const clickScriptPending = useRef<Promise<unknown> | null>(null);
   const controlHandler = useRef<(request: ControlRequest) => Promise<void>>(async () => undefined);
   const controlGeneration = useRef(0);
   const [reload, setReload] = useState(0);
@@ -298,6 +300,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         open(target);
         result = { ok: true, data: { url: target, opened: true, settled: false } };
       } else if (request.action === 'browser.snapshot') {
+        if (clickScriptPending.current) throw new Error('A prior click is still running; wait before taking a new snapshot.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
@@ -335,6 +338,33 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!inspection || guestRef.current !== guest || revision !== inspectionRevision.current
           || inspection.url !== historyRef.current[indexRef.current]) throw new Error('The page changed before inspection completed.');
         result = { ok: true, data: inspection };
+      } else if (request.action === 'browser.click') {
+        const { selector, expectedUrl } = request.parameters ?? {};
+        if (typeof selector !== 'string' || !selector || selector.length > 500
+          || typeof expectedUrl !== 'string' || !expectedUrl || expectedUrl.length > 2048)
+          throw new Error('A bounded selector and observed URL are required.');
+        const guest = guestRef.current as (HTMLElement & {
+          executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
+        }) | null;
+        if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl)
+          throw new Error('The page changed; take a new snapshot before clicking.');
+        if (clickScriptPending.current) throw new Error('A prior click may still complete; wait before retrying.');
+        invalidateInspection();
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        let value: unknown;
+        try {
+          const execution = guest.executeJavaScript(pageClickScript(selector, expectedUrl), true);
+          clickScriptPending.current = execution;
+          void execution.then(() => { if (clickScriptPending.current === execution) clickScriptPending.current = null; },
+            () => { if (clickScriptPending.current === execution) clickScriptPending.current = null; });
+          value = await Promise.race([execution,
+            new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Click result timed out; inspect the page before retrying.')), 15_000); })]);
+        } finally { if (timeout) clearTimeout(timeout); }
+        if (value && typeof value === 'object' && 'error' in value && typeof value.error === 'string')
+          throw new Error(value.error.slice(0, 200));
+        const clicked = parsePageClick(value, selector, expectedUrl);
+        if (!clicked) throw new Error('Click outcome is uncertain; inspect the page before retrying.');
+        result = { ok: true, data: clicked };
       } else throw new Error(`${request.action} is not available in this build.`);
     } catch (error) {
       result = { ok: false, error: error instanceof Error ? error.message.slice(0, 1000) : 'Browser action failed.' };

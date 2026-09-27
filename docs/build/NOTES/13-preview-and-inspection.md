@@ -170,3 +170,22 @@ suite, graph, source smoke, and release gates.
   explicitly. Adversarial review caught editable draft text leaking through
   `textContent` used as a label; editable controls and descendants now omit
   text-derived labels. Click/type/scroll and visual capture remain pending.
+
+## P11-11: exact-page browser click (2026-09-26)
+
+- The first governed page mutation is `nnd_browser { action: "click", selector,
+  expectedUrl }`. `expectedUrl` must be the exact URL observed from a recent
+  snapshot; NNA validates it, NND's private callback bounds it, the Browser
+  pane compares it with current navigation, and the guest checks `location`
+  synchronously before activation. A stale page or disabled/hidden target is
+  rejected without clicking.
+- Success means a visible element was activated, not that navigation or a
+  remote side effect settled. The receipt explicitly says `settled:false`;
+  the next step is a fresh snapshot. Timeout or lost results are marked
+  uncertain, so a caller must inspect before retrying rather than double
+  clicking. The adversarial review additionally required a same-session,
+  single-use successful snapshot URL before dispatch; stale concurrent
+  snapshots cannot restore that evidence. The guest rejects covered,
+  hidden, inert, and disabled targets, and a timed-out click blocks further
+  snapshots/clicks until its guest script settles. Type/scroll/capture and
+  richer page inspection remain pending.

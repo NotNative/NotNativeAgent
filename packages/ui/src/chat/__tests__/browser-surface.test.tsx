@@ -83,6 +83,13 @@ describe('BrowserSurface', () => {
       await Promise.resolve(); await Promise.resolve(); });
     expect(face.result).toHaveBeenCalledWith(inspectId, { ok: true,
       data: expect.objectContaining({ selector: '#send', tag: 'button' }) });
+    guest.executeJavaScript.mockResolvedValueOnce({ selector: '#send', urlBefore: 'https://example.org/', activated: true, settled: false });
+    const clickId = 'browser-00000000-0000-0000-0000-000000000006';
+    await act(async () => { onRequest({ requestId: clickId, action: 'browser.click', parameters: {
+      selector: '#send', expectedUrl: 'https://example.org/',
+    } }); await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(clickId, { ok: true,
+      data: { selector: '#send', urlBefore: 'https://example.org/', activated: true, settled: false } });
     setVisible(false);
     expect(face.unregister).toHaveBeenCalledOnce();
   });
@@ -120,6 +127,43 @@ describe('BrowserSurface', () => {
       textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
       await Promise.resolve(); });
     expect(face.result).not.toHaveBeenCalledWith(lateId, expect.anything());
+  });
+  it('does not take a fresh snapshot while a timed-out click can still run', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
+    const face = {
+      register: vi.fn().mockResolvedValue({ ok: true }), unregister: vi.fn().mockResolvedValue({ ok: true }),
+      claim: vi.fn().mockResolvedValue({ ok: true, result: { granted: true } }),
+      result: vi.fn().mockResolvedValue({ ok: true, result: { matched: true } }),
+      onRequest: vi.fn((handler: typeof onRequest) => { onRequest = handler; return () => undefined; }),
+    };
+    window.__NOTNATIVE_BROWSER_CONTROL__ = face;
+    readyFetch();
+    const view = render();
+    enter('https://example.org/'); await flush();
+    const guest = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn> };
+    let finishClick!: (value: unknown) => void;
+    guest.executeJavaScript = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { finishClick = resolve; }))
+      .mockResolvedValue({ url: 'https://example.org/', title: 'After', text: '', textTotalChars: 0,
+        textTruncated: false, elements: [], interactiveElementsOnPage: 0, elementsTruncated: false });
+    vi.useFakeTimers();
+    const clickId = 'browser-00000000-0000-0000-0000-000000000007';
+    await act(async () => { onRequest({ requestId: clickId, action: 'browser.click', parameters: {
+      selector: '#send', expectedUrl: 'https://example.org/',
+    } }); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(face.result).toHaveBeenCalledWith(clickId, { ok: false,
+      error: 'Click result timed out; inspect the page before retrying.' });
+    const blocked = 'browser-00000000-0000-0000-0000-000000000008';
+    await act(async () => { onRequest({ requestId: blocked, action: 'browser.snapshot', parameters: {} }); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(blocked, { ok: false,
+      error: 'A prior click is still running; wait before taking a new snapshot.' });
+    expect(guest.executeJavaScript).toHaveBeenCalledOnce();
+    await act(async () => { finishClick({ selector: '#send', urlBefore: 'https://example.org/', activated: true,
+      settled: false }); await Promise.resolve(); });
+    const fresh = 'browser-00000000-0000-0000-0000-000000000009';
+    await act(async () => { onRequest({ requestId: fresh, action: 'browser.snapshot', parameters: {} }); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(fresh, { ok: true, data: expect.objectContaining({ title: 'After' }) });
   });
   it('uses an isolated guest only for desktop HTTPS or loopback HTTP', async () => {
     expect(canEmbedDesktopPreview('http://localhost:5173/')).toBe(true);
