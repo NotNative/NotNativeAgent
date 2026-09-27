@@ -62,7 +62,10 @@ suffix bounded by 2,048 published events and 16 MiB of serialized frames. A reco
 the same principal and complete-workspace-grant filter as live delivery. A
 missing or expired cursor does not trigger a partial replay; NND reconciles
 from session/status/transcript snapshots on every SSE reconnect. The replay window is not durable
-across an NNA process restart.
+across an NNA process restart. While subscribers are connected, NNA sends an
+SSE comment heartbeat every 10 seconds; comments carry no event ID and never
+enter the replay suffix. This keeps NND's 30-second idle-stream watchdog from
+discarding a healthy but quiet connection.
 
 Session listing accepts `roots=true` for parent sessions or `roots=false` for
 child sessions; omitting it returns both. `limit` bounds the returned list in

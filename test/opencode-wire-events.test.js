@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createWireEventBus, wireEnvelopeShapes } from '../src/opencode/wire-events.js';
 
 function fakeRes(written) {
@@ -36,6 +37,25 @@ test('bus frames server events under the global payload envelope and fans out', 
   bus.publishGlobal('ping2', {});
   assert.equal(first.length, 2);
   assert.equal(second.length, 3);
+  bus.close();
+});
+
+test('idle subscribers receive cursor-free heartbeats and unsubscribe stops the timer', async () => {
+  const bus = createWireEventBus({ heartbeatIntervalMs: 5 });
+  const written = [];
+  const stop = bus.subscribe(fakeRes(written));
+  await delay(35);
+  assert.ok(written.slice(1).some((frame) => frame === ': heartbeat\n\n'));
+  assert.equal(bus.subscriberCount(), 1);
+  const count = written.length;
+  stop();
+  await delay(25);
+  assert.equal(written.length, count, 'unsubscribed streams must not receive timer writes');
+  bus.close();
+
+  const resumed = [];
+  bus.subscribe(fakeRes(resumed), { lastEventId: 'missing' });
+  assert.equal(resumed.length, 1, 'heartbeats must not enter the replay ring');
   bus.close();
 });
 

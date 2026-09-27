@@ -8,9 +8,12 @@ import { sseFrame, sseClose } from './protocol.js';
 
 const REPLAY_LIMIT = 2048;
 const REPLAY_BYTES_LIMIT = 16 * 1024 * 1024;
+// NND considers an idle event stream stale after 30 seconds. A comment frame
+// keeps the transport alive without creating a replayable event or cursor.
+const HEARTBEAT_INTERVAL_MS = 10_000;
 
-export function createWireEventBus() {
-  const subscribers = new Set();
+export function createWireEventBus({ heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS } = {}) {
+  const { subscribers, add, remove } = createSubscriberRegistry(heartbeatIntervalMs);
   const replay = { entries: [], bytes: 0 };
   return {
     subscribe(res, scope = {}) {
@@ -19,7 +22,7 @@ export function createWireEventBus() {
         subjectId: scope.subjectId ?? null,
         workspaceIds: Array.isArray(scope.workspaceIds) ? new Set(scope.workspaceIds) : null,
       };
-      subscribers.add(subscriber);
+      add(subscriber);
       // Why: the opener is a per-connection receipt, not a fan-out broadcast;
       // every existing subscriber must NOT see the new connection's opener.
       sseFrame(res, { data: JSON.stringify(globalEnvelope(eventId(), 'server.connected', {})) });
@@ -32,16 +35,16 @@ export function createWireEventBus() {
           for (const entry of replay.entries.slice(index + 1)) {
             if (!visibleTo(subscriber, entry.envelope, entry.scope)) continue;
             if (!sendEnvelope(subscriber, entry.envelope)) {
-              dropSubscriber(subscribers, subscriber);
+              remove(subscriber);
               break;
             }
           }
         }
       }
-      return () => dropSubscriber(subscribers, subscriber);
+      return () => remove(subscriber);
     },
     publishGlobal(type, properties) {
-      return publish(subscribers, replay, globalEnvelope(eventId(), type, properties));
+      return publish(subscribers, replay, globalEnvelope(eventId(), type, properties), {}, remove);
     },
     // Why: observed OC shapes — server/global events ride as {payload}; every
     // session-scoped event carries {directory, project, payload}. Durable
@@ -49,14 +52,14 @@ export function createWireEventBus() {
     // a `.1` type suffix, the per-session monotonic seq, and data = properties.
     publishSession({ directory, sessionID, project, subjectId = null, workspaceIds = null, type, properties, mirror = false, seq = null }) {
       const scope = { project, subjectId, workspaceIds };
-      if (!mirror) return publish(subscribers, replay, scopedEnvelope(directory, project, eventId(), type, properties), scope);
+      if (!mirror) return publish(subscribers, replay, scopedEnvelope(directory, project, eventId(), type, properties), scope, remove);
       const eventIdValue = eventId();
-      publish(subscribers, replay, scopedEnvelope(directory, project, eventIdValue, type, properties), scope);
-      return publish(subscribers, replay, scopedEnvelope(directory, project, eventId(), 'sync', syncMirror(eventIdValue, type, seq, sessionID, properties)), scope);
+      publish(subscribers, replay, scopedEnvelope(directory, project, eventIdValue, type, properties), scope, remove);
+      return publish(subscribers, replay, scopedEnvelope(directory, project, eventId(), 'sync', syncMirror(eventIdValue, type, seq, sessionID, properties)), scope, remove);
     },
     close() {
       for (const subscriber of [...subscribers]) {
-        dropSubscriber(subscribers, subscriber);
+        remove(subscriber);
         sseClose(subscriber.res);
       }
       replay.entries.length = 0;
@@ -64,6 +67,33 @@ export function createWireEventBus() {
     },
     subscriberCount() { return subscribers.size; },
   };
+}
+
+function createSubscriberRegistry(heartbeatIntervalMs) {
+  const subscribers = new Set();
+  let timer = null;
+  const remove = (subscriber) => {
+    subscribers.delete(subscriber);
+    if (subscribers.size === 0 && timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
+  };
+  const heartbeat = () => {
+    for (const subscriber of [...subscribers]) {
+      if (subscriber.res.destroyed || subscriber.res.writableEnded) { remove(subscriber); continue; }
+      try { subscriber.res.write(': heartbeat\n\n'); }
+      catch { remove(subscriber); }
+    }
+  };
+  const add = (subscriber) => {
+    subscribers.add(subscriber);
+    if (timer === null) {
+      timer = setInterval(heartbeat, heartbeatIntervalMs);
+      timer.unref?.();
+    }
+  };
+  return { subscribers, add, remove };
 }
 
 export function wireEnvelopeShapes() {
@@ -84,13 +114,13 @@ function syncMirror(eventIdValue, type, seq, sessionID, data) {
 
 function eventId() { return newId('evt'); }
 
-function publish(subscribers, replay, envelope, scope = {}) {
+function publish(subscribers, replay, envelope, scope, remove) {
   retainReplay(replay, envelope, scope);
   let delivered = 0;
   for (const subscriber of [...subscribers]) {
     if (!visibleTo(subscriber, envelope, scope)) continue;
     if (!sendEnvelope(subscriber, envelope)) {
-      dropSubscriber(subscribers, subscriber);
+      remove(subscriber);
       continue;
     }
     delivered += 1;
@@ -130,8 +160,4 @@ function visibleTo(subscriber, envelope, scope) {
 
 function sendEnvelope(subscriber, envelope) {
   return sseFrame(subscriber.res, { id: envelope.payload.id, data: JSON.stringify(envelope) });
-}
-
-function dropSubscriber(subscribers, subscriber) {
-  subscribers.delete(subscriber);
 }
