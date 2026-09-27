@@ -18,6 +18,7 @@ import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { consumeNndBrowserCallbackFromEnvironment } from './nnd-browser-tool.js';
+import { runNndPackageCommand } from './nnd-package.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -29,8 +30,9 @@ export async function runIntegrationCommand(args, paths, options = {}) {
 }
 
 export async function runNndIntegrationCommand(args, paths, options = {}) {
+  if (args[0] === 'package') return runNndPackageCommand(args.slice(1), paths);
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
-    throw new ContractError('nnd_command_invalid', 'nnd command supports serve');
+    throw new ContractError('nnd_command_invalid', 'nnd command supports serve and package');
   }
   return runActivatedIntegrationCommand(paths, options, createNndLocalIntegrationActivation(), 'nnd');
 }

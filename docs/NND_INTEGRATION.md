@@ -1,5 +1,20 @@
 # Local NND integration
 
+`nna nnd package activate ROOT` records an installed NND GUI package in
+`config/nnd-package.json` after verifying its `nna-integration/nnd-local/integration.json`
+identity, protocol `1.0`, version agreement with `package.json`, and built web and
+server entrypoints. `nna nnd package status` revalidates the record; it reports
+`valid:false` when the installed package has moved or drifted. `nna nnd package
+deactivate ROOT` removes only a matching registered root. NND's Windows installer
+calls these commands after building and before uninstalling. Installing NND before
+NNA requires rerunning the NND installer after NNA is installed.
+
+This registration is a package-identity milestone, not daemon activation yet.
+The desktop shell still owns the NND web service and starts a local NNA child;
+`nna nnd serve` remains available without a registered GUI package for that
+transitional path. NNA-owned web-service supervision and a persistent browser
+door remain required for the ADR 0020 drop-in deployment shape.
+
 `nna nnd serve` starts NNA's authenticated loopback service for a local
 NotNativeDesktop process. NND owns the child process and reads one JSON
 readiness line from stdout. The line contains protocol `1.0`, the loopback

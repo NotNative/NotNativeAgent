@@ -84,7 +84,8 @@ try {
     });
   }
   else if (options.mode === 'nnd') {
-    await runNndIntegrationCommand(options.prompt, await runtimePaths(), { output: process.stdout, diagnostics: process.stderr });
+    const result = await runNndIntegrationCommand(options.prompt, await runtimePaths(), { output: process.stdout, diagnostics: process.stderr });
+    if (options.prompt?.[0] === 'package') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   }
   else if (options.mode === 'opencode') {
     const paths = await runtimePaths();
@@ -175,6 +176,8 @@ function help() {
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
     '  nna nnd serve                            Start the local NND integration service',
+    '  nna nnd package activate ROOT|deactivate ROOT|status',
+    '                                           Register or inspect an installed NND GUI package',
     '  nna opencode start|stop|status',
     '                                           Run or inspect the OpenCode-compatible OpenChamber surface',
     '  nna opencode enable [--port P] [--hostname H] | disable',
