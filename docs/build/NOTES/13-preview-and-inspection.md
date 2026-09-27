@@ -201,3 +201,22 @@ suite, graph, source smoke, and release gates.
   NNA and the private callback enforce a bounded direction/URL schema, and
   the renderer validates the numeric readback. A failed or timed-out scroll
   requires a new snapshot before retrying. Type/capture remain pending.
+
+## P11-13: bounded exact-page typing (2026-09-26)
+
+- `nnd_browser { action: "type", selector, expectedUrl, text }` replaces the
+  value of exactly one ordinary input (`text` or `search`) or textarea in the
+  isolated desktop guest. The text is capped at 2,000 characters; the receipt
+  never echoes it. This does not press Enter, submit a form, or type into a
+  remote browser outside the desktop guest.
+- NNA requires and consumes the session's latest successful snapshot URL
+  before dispatch. The private callback and desktop renderer validate the
+  bounded fields, current page, and navigation revision; the guest rechecks
+  `location.href` immediately before setting the field. Password/special
+  input types, active autocomplete, sensitive field identifiers, disabled,
+  readonly, hidden, inert, duplicate, and covered targets are refused.
+- The guest uses the native value setter and dispatches bubbling `input` and
+  `change` events. The receipt confirms event dispatch, not that the app
+  accepted or saved the text (`settled:false`). A timed-out guest action keeps
+  a mutation latch until its script settles; snapshots and subsequent
+  mutations are blocked meanwhile. Capture/annotation remain pending.

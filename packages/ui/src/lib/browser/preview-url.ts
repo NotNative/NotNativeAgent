@@ -2,6 +2,19 @@
 /** URL policy for the unprivileged, user-driven preview pane. */
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]']);
 
+export function isLoopbackPreview(value: string | null): boolean {
+  if (!value) return false;
+  try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(value).hostname.toLowerCase()); }
+  catch { return false; }
+}
+
+export function canEmbedDesktopPreview(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || (url.protocol === 'http:' && isLoopbackPreview(value));
+  } catch { return false; }
+}
+
 function isLoopbackHost(hostname: string): boolean {
   // A terminal dot is a valid DNS spelling of localhost. URL canonicalizes
   // alternate IPv4 spellings (127.1, hex/octal) but preserves that dot.

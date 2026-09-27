@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Manual, isolated preview with user-triggered read-only DOM inspection. */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { normalizePreviewUrl } from '../lib/browser/preview-url.ts';
+import { normalizePreviewUrl, isLoopbackPreview, canEmbedDesktopPreview } from '../lib/browser/preview-url.ts';
+export { canEmbedDesktopPreview } from '../lib/browser/preview-url.ts';
 import { pageSnapshotScript, parsePageSnapshot, type PageSnapshot } from '../lib/browser/page-snapshot.ts';
 import { pageInspectionScript, parsePageInspection } from '../lib/browser/page-inspection.ts';
 import { pageClickScript, parsePageClick } from '../lib/browser/page-click.ts';
 import { pageScrollScript, parsePageScroll, type ScrollDirection } from '../lib/browser/page-scroll.ts';
+import { executeDesktopType } from '../lib/browser/desktop-type-action.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
@@ -18,19 +20,6 @@ type ControlRequest = { requestId: string; action: string; parameters: Record<st
 function guestEventValue(event: Event, name: string): unknown {
   const payload = event as Event & Record<string, unknown> & { detail?: Record<string, unknown> };
   return payload[name] ?? payload.detail?.[name];
-}
-
-function isLoopbackPreview(value: string | null): boolean {
-  if (!value) return false;
-  try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(value).hostname.toLowerCase()); }
-  catch { return false; }
-}
-
-export function canEmbedDesktopPreview(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' || (url.protocol === 'http:' && isLoopbackPreview(value));
-  } catch { return false; }
 }
 
 function usePreviewReadiness(active: string | null, reload: number, visible: boolean, localRuntime: boolean): Readiness | null {
@@ -120,8 +109,10 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const inspectionRevision = useRef(0);
+  const observationId = useRef<string | null>(null);
   const clickScriptPending = useRef<Promise<unknown> | null>(null);
   const scrollScriptPending = useRef<Promise<unknown> | null>(null);
+  const typeScriptPending = useRef<Promise<unknown> | null>(null);
   const controlHandler = useRef<(request: ControlRequest) => Promise<void>>(async () => undefined);
   const controlGeneration = useRef(0);
   const [reload, setReload] = useState(0);
@@ -141,6 +132,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
 
   function invalidateInspection(): void {
     inspectionRevision.current += 1;
+    observationId.current = null;
     setSnapshot(null);
     setSnapshotError(null);
     setSnapshotBusy(false);
@@ -261,7 +253,8 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     const guest = guestRef.current as (HTMLElement & {
       executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
     }) | null;
-    if (!desktop || !guest?.executeJavaScript || snapshotBusy || scrollScriptPending.current) return;
+    if (!desktop || !guest?.executeJavaScript || snapshotBusy || clickScriptPending.current
+      || scrollScriptPending.current || typeScriptPending.current) return;
     const revision = ++inspectionRevision.current;
     setSnapshotBusy(true);
     setSnapshotError(null);
@@ -302,7 +295,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         open(target);
         result = { ok: true, data: { url: target, opened: true, settled: false } };
       } else if (request.action === 'browser.snapshot') {
-        if (clickScriptPending.current || scrollScriptPending.current)
+        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current)
           throw new Error('A prior browser action is still running; wait before taking a new snapshot.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
@@ -320,7 +313,8 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         const snapshot = parsePageSnapshot(value);
         if (!snapshot || guestRef.current !== guest || revision !== inspectionRevision.current
           || snapshot.url !== historyRef.current[indexRef.current]) throw new Error('The page changed before the snapshot completed.');
-        result = { ok: true, data: snapshot };
+        observationId.current = crypto.randomUUID();
+        result = { ok: true, data: { ...snapshot, observationRevision: revision, observationId: observationId.current } };
       } else if (request.action === 'browser.inspect') {
         const selector = request.parameters?.selector;
         if (typeof selector !== 'string' || !selector || selector.length > 500) throw new Error('A bounded CSS selector is required.');
@@ -328,7 +322,8 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
         if (!guest?.executeJavaScript) throw new Error('Open a page in the desktop Browser pane first.');
-        if (scrollScriptPending.current) throw new Error('A prior scroll is still running; wait before inspecting.');
+        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current)
+          throw new Error('A prior browser action is still running; wait before inspecting.');
         const revision = inspectionRevision.current;
         let timeout: ReturnType<typeof setTimeout> | null = null;
         let value: unknown;
@@ -343,16 +338,19 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           || inspection.url !== historyRef.current[indexRef.current]) throw new Error('The page changed before inspection completed.');
         result = { ok: true, data: inspection };
       } else if (request.action === 'browser.click') {
-        const { selector, expectedUrl } = request.parameters ?? {};
+        const { selector, expectedUrl, observationRevision, observationId: expectedObservationId } = request.parameters ?? {};
         if (typeof selector !== 'string' || !selector || selector.length > 500
-          || typeof expectedUrl !== 'string' || !expectedUrl || expectedUrl.length > 2048)
+          || typeof expectedUrl !== 'string' || !expectedUrl || expectedUrl.length > 2048
+          || !Number.isSafeInteger(observationRevision) || (observationRevision as number) < 0
+          || typeof expectedObservationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(expectedObservationId))
           throw new Error('A bounded selector and observed URL are required.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
-        if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl)
+        if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl
+          || inspectionRevision.current !== observationRevision || observationId.current !== expectedObservationId)
           throw new Error('The page changed; take a new snapshot before clicking.');
-        if (clickScriptPending.current || scrollScriptPending.current)
+        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current)
           throw new Error('A prior browser action may still complete; wait before retrying.');
         invalidateInspection();
         let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -371,16 +369,19 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!clicked) throw new Error('Click outcome is uncertain; inspect the page before retrying.');
         result = { ok: true, data: clicked };
       } else if (request.action === 'browser.scroll') {
-        const { direction, expectedUrl } = request.parameters ?? {};
+        const { direction, expectedUrl, observationRevision, observationId: expectedObservationId } = request.parameters ?? {};
         if (!['up', 'down', 'top', 'bottom'].includes(String(direction))
-          || typeof expectedUrl !== 'string' || !expectedUrl || expectedUrl.length > 2048)
+          || typeof expectedUrl !== 'string' || !expectedUrl || expectedUrl.length > 2048
+          || !Number.isSafeInteger(observationRevision) || (observationRevision as number) < 0
+          || typeof expectedObservationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(expectedObservationId))
           throw new Error('A direction and observed URL are required.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
-        if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl)
+        if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl
+          || inspectionRevision.current !== observationRevision || observationId.current !== expectedObservationId)
           throw new Error('The page changed; take a new snapshot before scrolling.');
-        if (clickScriptPending.current || scrollScriptPending.current)
+        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current)
           throw new Error('A prior browser action may still complete; wait before scrolling.');
         invalidateInspection();
         const revision = inspectionRevision.current;
@@ -401,9 +402,21 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           || historyRef.current[indexRef.current] !== expectedUrl)
           throw new Error('Scroll outcome is uncertain; inspect the page before retrying.');
         result = { ok: true, data: scrolled };
+      } else if (request.action === 'browser.type') {
+        const typed = await executeDesktopType(request.parameters ?? {}, {
+          guest: guestRef.current, currentGuest: () => guestRef.current,
+          currentUrl: () => historyRef.current[indexRef.current], revision: () => inspectionRevision.current,
+          observationId: () => observationId.current,
+          otherPending: () => Boolean(clickScriptPending.current || scrollScriptPending.current),
+          pending: typeScriptPending, invalidate: invalidateInspection,
+        });
+        result = { ok: true, data: typed };
       } else throw new Error(`${request.action} is not available in this build.`);
     } catch (error) {
-      result = { ok: false, error: error instanceof Error ? error.message.slice(0, 1000) : 'Browser action failed.' };
+      const message = error instanceof Error ? error.message.slice(0, 1000) : 'Browser action failed.';
+      result = { ok: false, error: request.action === 'browser.type'
+        && message !== 'Type result timed out; inspect the page before retrying.'
+        ? 'Type action failed or its outcome is uncertain; inspect the page before retrying.' : message };
     }
     if (generation !== controlGeneration.current) return;
     const posted = await face.result(request.requestId, result);
