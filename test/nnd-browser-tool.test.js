@@ -5,6 +5,7 @@ import { consumeNndBrowserCallbackFromEnvironment, nndBrowserCallbackFromEnviron
 
 const token = 's'.repeat(43);
 const url = 'http://127.0.0.1:4172/api/browser-control/request';
+const observationId = '00000000-0000-4000-8000-000000000007';
 
 test('desktop callback is absent by default and rejects non-loopback authority', () => {
   assert.equal(nndBrowserCallbackFromEnvironment({}), null);
@@ -39,7 +40,10 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   const calls = [];
   const definition = nndBrowserDefinition({ url, token }, { fetcher: async (target, options) => {
     calls.push({ target, options });
-    return new Response(JSON.stringify({ ok: true, data: { url: 'https://example.org/', title: 'Example' } }), { headers: { 'content-type': 'application/json' } });
+    const snapshot = JSON.parse(options.body).action === 'browser.snapshot';
+    return new Response(JSON.stringify({ ok: true, data: {
+      url: 'https://example.org/', title: 'Example', ...(snapshot ? { observationRevision: 7, observationId } : {}),
+    } }), { headers: { 'content-type': 'application/json' } });
   } });
   assert.equal(definition.sideEffect, 'unknown');
   assert.deepEqual((await definition.validate({ action: 'snapshot' })).args, { action: 'snapshot' });
@@ -52,6 +56,12 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   await assert.rejects(definition.validate({ action: 'click', selector: '#send' }));
   await assert.rejects(definition.validate({ action: 'click', selector: '#send', expectedUrl: 'http://remote.example/' }));
   await assert.rejects(definition.validate({ action: 'scroll', direction: 'down' }));
+  await assert.rejects(definition.validate({ action: 'type', selector: '#query', text: 'x' }));
+  await assert.rejects(definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/' }));
+  await assert.rejects(definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'x'.repeat(2001) }));
+  await assert.rejects(definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'x', direction: 'down' }));
+  assert.deepEqual((await definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: '' })).args,
+    { action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: '' });
   assert.deepEqual((await definition.validate({ action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' })).args,
     { action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' });
   assert.deepEqual((await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' })).args,
@@ -60,6 +70,8 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   await assert.rejects(definition.executor(click, new AbortController().signal), /fresh snapshot/u);
   const scroll = await definition.validate({ action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' });
   await assert.rejects(definition.executor(scroll, new AbortController().signal), /fresh snapshot/u);
+  const type = await definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'hello' });
+  await assert.rejects(definition.executor(type, new AbortController().signal), /fresh snapshot/u);
   const request = await definition.validate({ action: 'open', url: 'https://example.com' });
   const signal = new AbortController().signal;
   const result = await definition.executor(request, signal);
@@ -72,13 +84,19 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   assert.deepEqual(JSON.parse(calls[1].options.body), { action: 'browser.inspect', parameters: { selector: '#send' } });
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' }), signal);
-  assert.deepEqual(JSON.parse(calls[3].options.body), { action: 'browser.click', parameters: { selector: '#send', expectedUrl: 'https://example.org/' } });
+  assert.deepEqual(JSON.parse(calls[3].options.body), { action: 'browser.click', parameters: { selector: '#send', expectedUrl: 'https://example.org/', observationRevision: 7, observationId } });
   await assert.rejects(definition.executor(click, signal), /fresh snapshot/u);
   assert.equal(calls.length, 4);
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(scroll, signal);
-  assert.deepEqual(JSON.parse(calls[5].options.body), { action: 'browser.scroll', parameters: { direction: 'down', expectedUrl: 'https://example.org/' } });
+  assert.deepEqual(JSON.parse(calls[5].options.body), { action: 'browser.scroll', parameters: { direction: 'down', expectedUrl: 'https://example.org/', observationRevision: 7, observationId } });
   await assert.rejects(definition.executor(scroll, signal), /fresh snapshot/u);
+  await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
+  await definition.executor(type, signal);
+  assert.deepEqual(JSON.parse(calls[7].options.body), { action: 'browser.type', parameters: {
+    selector: '#query', expectedUrl: 'https://example.org/', text: 'hello', observationRevision: 7, observationId,
+  } });
+  await assert.rejects(definition.executor(type, signal), /fresh snapshot/u);
 });
 
 test('a later open consumes observation and an old snapshot cannot reauthorize a click', async () => {
@@ -88,7 +106,7 @@ test('a later open consumes observation and an old snapshot cannot reauthorize a
     const action = JSON.parse(options.body).action;
     calls.push(action);
     if (action === 'browser.snapshot') return new Promise((resolve) => { finishSnapshot = () => resolve(new Response(JSON.stringify({
-      ok: true, data: { url: 'https://example.org/' },
+      ok: true, data: { url: 'https://example.org/', observationRevision: 7, observationId },
     }))); });
     return new Response(JSON.stringify({ ok: true, data: { opened: true } }));
   } });
@@ -108,12 +126,16 @@ test('browser tool refuses oversized replies and failed desktop outcomes', async
   await assert.rejects(large.executor(args, new AbortController().signal), /bound/u);
   const failed = nndBrowserDefinition({ url, token }, { fetcher: async () => new Response(JSON.stringify({ ok: false, error: 'desktop refused' })) });
   await assert.rejects(failed.executor(args, new AbortController().signal), /desktop refused/u);
+  const noRevision = nndBrowserDefinition({ url, token }, { fetcher: async () => new Response(JSON.stringify({
+    ok: true, data: { url: 'https://example.org/' },
+  })) });
+  await assert.rejects(noRevision.executor(args, new AbortController().signal), /safe observation/u);
 });
 
 test('a disconnected desktop after click dispatch remains an uncertain outcome', async () => {
   const definition = nndBrowserDefinition({ url, token }, { fetcher: async (_target, options) =>
     JSON.parse(options.body).action === 'browser.snapshot'
-      ? new Response(JSON.stringify({ ok: true, data: { url: 'https://example.org/' } }))
+      ? new Response(JSON.stringify({ ok: true, data: { url: 'https://example.org/', observationRevision: 7, observationId } }))
       : new Response(JSON.stringify({ error: 'desktop disconnected' }), { status: 503 }) });
   const signal = new AbortController().signal;
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
@@ -128,7 +150,7 @@ test('a timed-out scroll consumes its observation even when the desktop outcome 
     const action = JSON.parse(options.body).action;
     calls.push(action);
     return action === 'browser.snapshot'
-      ? new Response(JSON.stringify({ ok: true, data: { url: 'https://example.org/' } }))
+      ? new Response(JSON.stringify({ ok: true, data: { url: 'https://example.org/', observationRevision: 7, observationId } }))
       : new Response(JSON.stringify({ error: 'timed out' }), { status: 504 });
   } });
   const signal = new AbortController().signal;
@@ -138,4 +160,21 @@ test('a timed-out scroll consumes its observation even when the desktop outcome 
   await assert.rejects(definition.executor(scroll, signal), /outcome is uncertain/u);
   await assert.rejects(definition.executor(scroll, signal), /fresh snapshot/u);
   assert.deepEqual(calls, ['browser.snapshot', 'browser.scroll']);
+});
+
+test('a failed type dispatch consumes its observation and reports uncertainty', async () => {
+  const calls = [];
+  const definition = nndBrowserDefinition({ url, token }, { fetcher: async (_target, options) => {
+    const action = JSON.parse(options.body).action;
+    calls.push(action);
+    return action === 'browser.snapshot'
+      ? new Response(JSON.stringify({ ok: true, data: { url: 'https://example.org/', observationRevision: 7, observationId } }))
+      : new Response(JSON.stringify({ error: 'timeout' }), { status: 504 });
+  } });
+  const signal = new AbortController().signal;
+  const type = await definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'hello' });
+  await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
+  await assert.rejects(definition.executor(type, signal), /outcome is uncertain/u);
+  await assert.rejects(definition.executor(type, signal), /fresh snapshot/u);
+  assert.deepEqual(calls, ['browser.snapshot', 'browser.type']);
 });
