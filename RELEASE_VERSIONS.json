@@ -232,6 +232,14 @@
     {
       "version": "20260926-47",
       "content_sha256": "91b270f7aa381fe7444c9bde75cb6d27926e842cafb124ff064947be3dbc3d4e"
+    },
+    {
+      "version": "20260926-48",
+      "content_sha256": "303314c2eab2e585471f75b45aaecafe40c3003db94417a465671143c237e816"
+    },
+    {
+      "version": "20260926-49",
+      "content_sha256": "07f444b0b48044d70ae3be427b275970812a76f59c5fbc3c6121a4cabeb3281e"
     }
   ]
 }

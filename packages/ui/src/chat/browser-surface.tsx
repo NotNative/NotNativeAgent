@@ -10,6 +10,7 @@ import { pageScrollScript, parsePageScroll, type ScrollDirection } from '../lib/
 import { executeDesktopType } from '../lib/browser/desktop-type-action.ts';
 import { executeDesktopCapture } from '../lib/browser/desktop-capture-action.ts';
 import { executeDesktopHistory, historyNavigationPending as historyPendingNow, type HistoryPending } from '../lib/browser/desktop-history-action.ts';
+import { BrowserAnnotationControls } from './browser-annotation-controls.tsx';
 import { usePreviewReadiness } from '../lib/browser/preview-readiness.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
@@ -51,6 +52,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const historyRef = useRef(history);
   const indexRef = useRef(index);
   const guestRef = useRef<HTMLElement | null>(null);
+  const [annotationShieldTarget, setAnnotationShieldTarget] = useState<HTMLDivElement | null>(null);
   const [guestStart, setGuestStart] = useState<string | null>(null);
   const [guestStatus, setGuestStatus] = useState<GuestStatus | null>(null);
   const [snapshot, setSnapshot] = useState<PageSnapshot | null>(null);
@@ -62,6 +64,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const scrollScriptPending = useRef<Promise<unknown> | null>(null);
   const typeScriptPending = useRef<Promise<unknown> | null>(null);
   const capturePending = useRef<Promise<unknown> | null>(null);
+  const annotationActive = useRef(false);
   const historyPending = useRef<HistoryPending | null>(null);
   const controlHandler = useRef<(request: ControlRequest) => Promise<void>>(async () => undefined);
   const controlGeneration = useRef(0);
@@ -90,6 +93,11 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
 
   function historyNavigationPending(): boolean {
     return historyPendingNow(historyPending, guestRef.current, historyRef.current[indexRef.current]);
+  }
+
+  function otherActionPending(): boolean {
+    return Boolean(historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current
+      || typeScriptPending.current || capturePending.current);
   }
 
   useEffect(() => {
@@ -219,8 +227,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     const guest = guestRef.current as (HTMLElement & {
       executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
     }) | null;
-    if (!desktop || !guest?.executeJavaScript || snapshotBusy || historyNavigationPending() || clickScriptPending.current
-      || scrollScriptPending.current || typeScriptPending.current || capturePending.current) return;
+    if (!desktop || !guest?.executeJavaScript || snapshotBusy || otherActionPending() || annotationActive.current) return;
     const revision = ++inspectionRevision.current;
     setSnapshotBusy(true);
     setSnapshotError(null);
@@ -255,13 +262,14 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     let result: { ok: true; data: unknown } | { ok: false; error: string };
     try {
       if (request.action === 'browser.open') {
+        if (annotationActive.current) throw new Error('Finish page annotation before another browser action.');
         const value = request.parameters?.url;
         const target = typeof value === 'string' ? normalizePreviewUrl(value, window.location.origin) : null;
         if (!target || !canEmbedDesktopPreview(target)) throw new Error('The requested preview URL is not allowed.');
         open(target);
         result = { ok: true, data: { url: target, opened: true, settled: false } };
       } else if (request.action === 'browser.snapshot') {
-        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (otherActionPending() || annotationActive.current)
           throw new Error('A prior browser action is still running; wait before taking a new snapshot.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
@@ -288,7 +296,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
         if (!guest?.executeJavaScript) throw new Error('Open a page in the desktop Browser pane first.');
-        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (otherActionPending() || annotationActive.current)
           throw new Error('A prior browser action is still running; wait before inspecting.');
         const revision = inspectionRevision.current;
         let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -316,7 +324,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl
           || inspectionRevision.current !== observationRevision || observationId.current !== expectedObservationId)
           throw new Error('The page changed; take a new snapshot before clicking.');
-        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (otherActionPending() || annotationActive.current)
           throw new Error('A prior browser action may still complete; wait before retrying.');
         invalidateInspection();
         let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -347,7 +355,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl
           || inspectionRevision.current !== observationRevision || observationId.current !== expectedObservationId)
           throw new Error('The page changed; take a new snapshot before scrolling.');
-        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (otherActionPending() || annotationActive.current)
           throw new Error('A prior browser action may still complete; wait before scrolling.');
         invalidateInspection();
         const revision = inspectionRevision.current;
@@ -372,7 +380,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         result = { ok: true, data: executeDesktopHistory(request.parameters ?? {}, {
           guest: guestRef.current, history: historyRef.current, index: indexRef.current,
           revision: inspectionRevision.current, observationId: observationId.current, pending: historyPending,
-          otherPending: () => Boolean(clickScriptPending.current || scrollScriptPending.current
+          otherPending: () => Boolean(annotationActive.current || clickScriptPending.current || scrollScriptPending.current
             || typeScriptPending.current || capturePending.current), move,
         }) };
       } else if (request.action === 'browser.type') {
@@ -380,7 +388,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           guest: guestRef.current, currentGuest: () => guestRef.current,
           currentUrl: () => historyRef.current[indexRef.current], revision: () => inspectionRevision.current,
           observationId: () => observationId.current,
-          otherPending: () => Boolean(historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || capturePending.current),
+          otherPending: () => Boolean(annotationActive.current || historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || capturePending.current),
           pending: typeScriptPending, invalidate: invalidateInspection,
         });
         result = { ok: true, data: typed };
@@ -388,7 +396,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         const captured = await executeDesktopCapture(request.parameters ?? {}, {
           guest: guestRef.current, currentGuest: () => guestRef.current, currentUrl: () => historyRef.current[indexRef.current],
           revision: () => inspectionRevision.current, observationId: () => observationId.current,
-          otherPending: () => Boolean(historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current), pending: capturePending, invalidate: invalidateInspection,
+          otherPending: () => Boolean(annotationActive.current || historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current), pending: capturePending, invalidate: invalidateInspection,
         });
         result = { ok: true, data: captured };
       } else throw new Error(`${request.action} is not available in this build.`);
@@ -438,6 +446,11 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">{snapshotBusy ? 'Inspecting…' : 'Inspect page'}</button> : null}
         {active ? <a href={active} target="_blank" rel="noopener noreferrer" className="ml-auto rounded border border-white/15 px-2 py-0.5">Open externally</a> : null}
       </div>
+      {desktop && active && visible ? <BrowserAnnotationControls key={`${guestStart}|${reload}|${active}`} guest={() => guestRef.current}
+        currentUrl={() => historyRef.current[indexRef.current] ?? null}
+        revision={() => inspectionRevision.current} shieldTarget={annotationShieldTarget}
+        blocked={() => otherActionPending() || snapshotBusy}
+        onActive={(value) => { annotationActive.current = value; if (value) invalidateInspection(); }} /> : null}
       {desktop && guestStatus ? <p role="status" className={`mt-1 text-[11px] ${guestStatus.kind === 'failed' ? 'text-amber-300' : 'text-neutral-400'}`}>{guestStatus.message}</p> : null}
       {snapshotError ? <p role="alert" className="mt-1 text-[11px] text-amber-300">{snapshotError}</p> : null}
     </header>
@@ -454,7 +467,9 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       {probeState !== 'checking' ? <button type="button" className="ml-2 underline" onClick={() => setReload((value) => value + 1)}>Retry</button> : null}
     </div> : null}
     {active && visible && (!waitForLocal || probeState === 'ready') ? desktop
-      ? <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="min-h-0 w-full flex-1 border-0 bg-white" />
+      ? <div className="relative min-h-0 flex-1" ref={setAnnotationShieldTarget}>
+        <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="h-full w-full border-0 bg-white" />
+      </div>
       : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
       <div className="p-3 text-[11px] text-neutral-500">
         <p>{desktop ? 'Enter a local dev-server or HTTPS site to open in an isolated desktop browser. Governed agent inspection and viewport capture require an open page; annotation remains pending.' : 'Enter a local dev-server or website address to preview it. This isolated web preview cannot inspect, annotate, or capture the page. Sites that prohibit embedding may not display.'}</p>

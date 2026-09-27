@@ -258,3 +258,22 @@ suite, graph, source smoke, and release gates.
   replacement guest reports load completion, including a same-URL history
   entry. Timeout or disconnection leaves the outcome uncertain and never
   reuses the consumed observation for a duplicate navigation.
+
+## P11-16: user element annotation draft (2026-09-26)
+
+- The visible isolated Electron Browser pane offers **Annotate element**.
+  The user points and clicks one visible page element through a renderer-owned
+  shield above the webview. The guest never receives the selection click, even
+  if its page registered capture-phase listeners first. A read-only guest hit
+  test resolves the marked element using viewport-relative coordinates.
+  Escape or the toolbar toggle cancels by removing the shield. No guest DOM
+  overlay or event listeners are installed.
+- The renderer validates the bounded page URL, tag, selector, label and
+  viewport bounds, then checks that the selected page is still the same guest
+  and top-level URL. A separate bounded comment field explicitly adds
+  structured text to the existing chat draft. It does **not** send a message
+  or call an agent/browser tool. Page-derived label text is marked untrusted.
+- This is deliberately an element-only first slice. Region/drawing marks and
+  screenshot attachment/compositing from the planning contract remain pending;
+  the UI and draft say that no screenshot is attached. The iframe transport
+  never offers annotation.

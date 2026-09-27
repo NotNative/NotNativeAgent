@@ -62,6 +62,102 @@ async function brokerSnapshot(onRequest: (request: { requestId: string; action: 
 }
 
 describe('BrowserSurface', () => {
+  it('adds a validated user-selected element to the composer draft without sending', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('https://example.org/');
+    const guest = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    guest.getURL = () => 'https://example.org/';
+    let resolveSelection!: (value: unknown) => void;
+    guest.executeJavaScript = vi.fn().mockImplementation(() => new Promise((resolve) => { resolveSelection = resolve; }));
+    act(() => guest.dispatchEvent(new Event('did-start-loading')));
+    const fill = vi.fn();
+    window.addEventListener('nnd:composer-fill', fill);
+    await flush();
+    expect((view.querySelector('[data-testid="browser-annotation-controls"] button') as HTMLButtonElement).disabled,
+      view.innerHTML.slice(0, 3000)).toBe(false);
+    await act(async () => { (view.querySelector('[data-testid="browser-annotation-controls"] button') as HTMLButtonElement).click(); });
+    const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;
+    expect(shield).not.toBeNull();
+    expect(guest.executeJavaScript).not.toHaveBeenCalled();
+    expect(view.textContent).toContain('Click a visible page element');
+    const pageClick = vi.fn();
+    guest.addEventListener('click', pageClick, true);
+    shield.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 } as DOMRect);
+    await act(async () => { shield.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 })); });
+    expect(pageClick).not.toHaveBeenCalled();
+    expect(guest.executeJavaScript).toHaveBeenCalledWith(expect.stringContaining('selectPageElement'), false);
+    await act(async () => { resolveSelection({ url: 'https://example.org/', tag: 'button', selector: 'html > body > button',
+      label: 'Save', bounds: { x: 10, y: 20, width: 30, height: 40 } }); await Promise.resolve(); });
+    const comment = view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement;
+    act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(comment, 'Please check this.');
+      comment.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => { ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click(); });
+    expect(fill).toHaveBeenCalledOnce();
+    expect(fill.mock.calls[0]?.[0]).toMatchObject({ detail: { append: true,
+      text: expect.stringContaining('User comment: Please check this.') } });
+    window.removeEventListener('nnd:composer-fill', fill);
+  });
+
+  it('tears down the host shield on Escape or same-URL guest remount and drops late selection', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('https://example.org/');
+    const guest = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    guest.getURL = () => 'https://example.org/';
+    let resolveSelection!: (value: unknown) => void;
+    guest.executeJavaScript = vi.fn().mockImplementation(() => new Promise((resolve) => { resolveSelection = resolve; }));
+    act(() => guest.dispatchEvent(new Event('did-start-loading')));
+    const toggle = (): void => { (view.querySelector('[data-testid="browser-annotation-controls"] button') as HTMLButtonElement).click(); };
+    act(toggle);
+    expect(view.querySelector('[data-testid="browser-annotation-shield"]')).not.toBeNull();
+    act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true })));
+    expect(view.querySelector('[data-testid="browser-annotation-shield"]')).not.toBeNull();
+    act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(view.querySelector('[data-testid="browser-annotation-shield"]')).toBeNull();
+    act(toggle);
+    const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;
+    shield.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 } as DOMRect);
+    await act(async () => { shield.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 })); });
+    act(() => (view.querySelector('[aria-label="Reload preview"]') as HTMLButtonElement).click());
+    expect(view.querySelector('[data-testid="browser-annotation-shield"]')).toBeNull();
+    await act(async () => { resolveSelection({ url: 'https://example.org/', tag: 'button', selector: 'button', label: 'Late',
+      bounds: { x: 1, y: 1, width: 20, height: 20 } }); await Promise.resolve(); });
+    expect(view.querySelector('[data-testid="browser-annotation-draft"]')).toBeNull();
+  });
+
+  it('refuses to append a selected element after same-URL navigation invalidates it', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    readyFetch();
+    const view = render();
+    enter('https://example.org/');
+    const guest = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    guest.getURL = () => 'https://example.org/';
+    guest.executeJavaScript = vi.fn().mockResolvedValue({ url: 'https://example.org/', tag: 'button',
+      selector: 'html > body > button', label: 'Save', bounds: { x: 1, y: 2, width: 30, height: 20 } });
+    act(() => guest.dispatchEvent(new Event('did-start-loading')));
+    act(() => (view.querySelector('[data-testid="browser-annotation-controls"] button') as HTMLButtonElement).click());
+    const shield = view.querySelector('[data-testid="browser-annotation-shield"]') as HTMLDivElement;
+    shield.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 } as DOMRect);
+    await act(async () => { shield.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 }));
+      await Promise.resolve(); });
+    const comment = view.querySelector('#browser-annotation-comment') as HTMLTextAreaElement;
+    act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(comment, 'Change this');
+      comment.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => guest.dispatchEvent(new Event('did-start-loading')));
+    const fill = vi.fn();
+    window.addEventListener('nnd:composer-fill', fill);
+    act(() => ([...view.querySelectorAll('button')].find((button) => button.textContent === 'Add to chat draft') as HTMLButtonElement).click());
+    expect(fill).not.toHaveBeenCalled();
+    expect(view.textContent).toContain('The page changed');
+    window.removeEventListener('nnd:composer-fill', fill);
+  });
+
   it('navigates only observed preview history and blocks snapshots until the replacement guest finishes loading', async () => {
     window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
     let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
