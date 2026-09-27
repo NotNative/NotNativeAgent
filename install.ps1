@@ -29,6 +29,7 @@
 # =============================================================================
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "NotNativeDesktop"),
+    [string]$NnaInstallRoot,
     [switch]$Uninstall,
     [switch]$PurgeData,
     [switch]$SkipBuild
@@ -85,13 +86,23 @@ function Test-InstallRunning([string]$ExePath) {
 # registration is metadata, not a daemon launch; the legacy desktop child
 # remains available until NNA owns the GUI service lifecycle.
 function Get-InstalledNna {
-    $descriptorPath = Join-Path $env:LOCALAPPDATA 'NotNativeAgent\install.json'
+    $nnaRoot = if ($NnaInstallRoot) { $NnaInstallRoot } else { Join-Path $env:LOCALAPPDATA 'NotNativeAgent' }
+    if (!$NnaInstallRoot -and !(Test-Path -LiteralPath (Join-Path $nnaRoot 'install.json') -PathType Leaf)) {
+        $launcher = Get-Command 'nna.cmd' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($launcher) {
+            $binRoot = Split-Path -Parent $launcher.Source
+            if ((Split-Path -Leaf $binRoot) -eq 'bin') { $nnaRoot = Split-Path -Parent $binRoot }
+        }
+    }
+    $descriptorPath = Join-Path $nnaRoot 'install.json'
     if (!(Test-Path -LiteralPath $descriptorPath -PathType Leaf)) { return $null }
     $descriptor = Get-Content -LiteralPath $descriptorPath -Raw | ConvertFrom-Json
     if ($descriptor.product -ne 'NotNativeAgent' -or
         ![IO.Path]::IsPathRooted([string]$descriptor.node) -or
         ![IO.Path]::IsPathRooted([string]$descriptor.install_root) -or
-        ![IO.Path]::IsPathRooted([string]$descriptor.data_root)) {
+        ![IO.Path]::IsPathRooted([string]$descriptor.data_root) -or
+        !([IO.Path]::GetFullPath([string]$descriptor.install_root).TrimEnd('\', '/')).Equals(
+            [IO.Path]::GetFullPath($nnaRoot).TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Installed NNA descriptor is invalid; NND registration was not attempted.'
     }
     $cli = Join-Path $descriptor.install_root 'installed\src\cli.js'
@@ -107,7 +118,7 @@ function Invoke-NndRegistration([string]$Action, [string]$Root) {
         if ($Action -eq 'deactivate') {
             Write-Host '  NNA is not installed; no live registration can be deactivated. Preserved NNA data may retain a stale package record.' -ForegroundColor Yellow
         } else {
-            Write-Host '  NNA is not installed; package registration deferred. Re-run this installer after NNA is installed.' -ForegroundColor Yellow
+            throw 'NotNativeAgent must be installed before NND. Install NNA first, then rerun this installer (or provide -NnaInstallRoot for a custom NNA install).'
         }
         return
     }
@@ -116,7 +127,10 @@ function Invoke-NndRegistration([string]$Action, [string]$Root) {
     try {
         $oldPreference = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        try { & $nna.Node $nna.Cli nnd package $Action $Root }
+        try {
+            if ($Action -eq 'status') { & $nna.Node $nna.Cli nnd package status | Out-Null }
+            else { & $nna.Node $nna.Cli nnd package $Action $Root }
+        }
         finally { $ErrorActionPreference = $oldPreference }
         if ($LASTEXITCODE -ne 0) { throw "NNA rejected NND package $Action (exit $LASTEXITCODE)." }
     } finally { $env:NNA_HOME = $previous }
@@ -176,10 +190,16 @@ if ($targetPath.Equals($sourcePath, [StringComparison]::OrdinalIgnoreCase) -or
 if (Test-InstallRunning $ElectronExe) {
     throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
 }
+$nna = Get-InstalledNna
+if (!$nna) {
+    throw 'NotNativeAgent must be installed before NND. Install NNA first, then rerun this installer (or provide -NnaInstallRoot for a custom NNA install).'
+}
 
 Write-Heading "Installing NotNativeDesktop"
 Write-Host "  source : $Source"
 Write-Host "  target : $InstallDir"
+Write-Good "NNA found at $($nna.Cli)"
+Invoke-NndRegistration 'status' $targetPath
 
 foreach ($check in @(@("node", "node version"), @("pnpm", "pnpm version"))) {
     $probe = & $check[0] --version 2>$null

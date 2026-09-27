@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **PB-5 NNA-first install prerequisite.** The NND installer
+  discovers a usable NNA before changing the install tree and reports that NNA
+  must be installed first when missing. The POSIX source installer now also
+  registers and deactivates its package through the NNA CLI. The installed
+  NND server process remains an internal module entrypoint, not a supported
+  standalone product installation. The NSIS builder is gated until its EXE can
+  implement the same NNA prerequisite or bootstrap and package registration.
+  NNA-owned service supervision is pending.
+
 - 2026-09-27 · **PB-4 browser ownership split.** The Windows installer
   verifies that the downloaded Electron executable launches and reports its
   embedded Chromium version after dependency

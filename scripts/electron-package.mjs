@@ -49,6 +49,9 @@ main().catch((error) => {
 });
 
 async function main() {
+  if (!NO_NSIS) {
+    throw new Error('NSIS installer generation is disabled until it can install or validate NNA and register the NND package. Use the NNA-aware source installer for now.');
+  }
   const version = readRootVersion();
   log(`packaging NotNativeDesktop ${version} (win-x64,${NO_NSIS ? ' artifacts only' : ' unsigned NSIS'})`);
   ensureElectronBinary();

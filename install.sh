@@ -45,9 +45,42 @@ INSTALL_DIR="${DATA_DIR:-$DEFAULT_DIR}"
 
 APP_ENTRIES_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 
+find_nna_launcher() {
+  local candidate="${HOME}/.local/bin/nna"
+  [[ -x "$candidate" && -f "$candidate" ]] || return 1
+  # NNA's installer writes this launcher and install.json together. A source
+  # checkout CLI on PATH can answer `package status`, but is not an install.
+  node -e 'const fs=require("fs"), path=require("path");
+    const launcher=process.argv[1], source=fs.readFileSync(launcher,"utf8");
+    const match=source.match(/\x27([^\x27\r\n]*\/installed\/src\/cli\.js)\x27/);
+    if (!match) process.exit(1);
+    const cli=match[1], root=path.dirname(path.dirname(path.dirname(cli)));
+    if (process.env.NNA_INSTALL_ROOT && path.resolve(process.env.NNA_INSTALL_ROOT)!==path.resolve(root)) process.exit(1);
+    const marker=JSON.parse(fs.readFileSync(path.join(root,"install.json"),"utf8"));
+    if (marker.product!=="NotNativeAgent" || !path.isAbsolute(marker.install_root)
+      || path.resolve(marker.install_root)!==path.resolve(root)
+      || !path.isAbsolute(marker.node) || !fs.statSync(marker.node).isFile()
+      || !path.isAbsolute(marker.data_root) || !fs.statSync(cli).isFile()) process.exit(1);' "$candidate" >/dev/null 2>&1 || return 2
+  printf '%s\n' "$candidate"
+}
+
 if [[ $UNINSTALL -eq 1 ]]; then
   echo "Uninstalling from $INSTALL_DIR (user data kept unless --purge-data)"
   if [[ "$INSTALL_DIR" == "$SOURCE" ]]; then echo "refusing to delete the source repo"; exit 1; fi
+  if NNA_LAUNCHER="$(find_nna_launcher)"; then
+    if ! "$NNA_LAUNCHER" nnd package status >/dev/null; then
+      echo "NNA is installed but package status failed; refusing to erase an NND package that NNA may still reference" >&2
+      exit 1
+    fi
+    "$NNA_LAUNCHER" nnd package deactivate "$INSTALL_DIR"
+  else
+    nna_result=$?
+    if [[ $nna_result -eq 2 ]]; then
+      echo "NNA launcher or installation is invalid; refusing to erase an NND package that NNA may still reference" >&2
+      exit 1
+    fi
+    echo "NNA is unavailable; no live registration can be deactivated (preserved NNA data may retain a stale record)" >&2
+  fi
   # POSIX note: a running install is unlinkable (rm deletes the inode while
   # the in-memory server keeps serving); no lock refusal is mirrored from
   # install.ps1 because deleting a live tree is safe here.
@@ -76,6 +109,16 @@ echo "   source: $SOURCE"
 echo "   target: $INSTALL_DIR"
 command -v node >/dev/null || { echo "node is required on PATH"; exit 1; }
 command -v pnpm >/dev/null || { echo "pnpm is required on PATH"; exit 1; }
+NNA_LAUNCHER="$(find_nna_launcher || true)"
+if [[ -z "$NNA_LAUNCHER" ]]; then
+  echo "NotNativeAgent must be installed before NND. Install NNA first, then rerun this installer." >&2
+  exit 1
+fi
+if ! "$NNA_LAUNCHER" nnd package status >/dev/null 2>&1; then
+  echo "Installed NNA cannot inspect NND packages. Update or repair NNA, then rerun this installer." >&2
+  exit 1
+fi
+echo "   NNA: $NNA_LAUNCHER"
 
 echo "== copying source =="
 mkdir -p "$INSTALL_DIR"
@@ -108,6 +151,15 @@ printf 'script' > "$INSTALL_DIR/packages/electron/install-mode.txt"
 
 echo "== building shell artifacts =="
 ( cd "$INSTALL_DIR" && node scripts/electron-package.mjs --no-nsis )
+
+node -e 'const fs=require("fs"), path=require("path");
+  const root=process.argv[1], version=JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8")).nnd_version;
+  if (typeof version!=="string" || !/^\d{8}-[1-9]\d{0,5}$/.test(version)) throw new Error("Installed NND version is invalid");
+  const dir=path.join(root,"nna-integration","nnd-local"); fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(path.join(dir,"integration.json"),JSON.stringify({id:"nnd-local",ownership:"nnd",scope:"local-gui",nna_integration_protocol:"1.0",version}));' "$INSTALL_DIR"
+
+echo "== registering NND package with NNA =="
+"$NNA_LAUNCHER" nnd package activate "$INSTALL_DIR"
 
 echo "== desktop entry =="
 mkdir -p "$APP_ENTRIES_DIR"

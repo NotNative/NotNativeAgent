@@ -26,9 +26,13 @@ authority.
 | NND (remote door) | Desktop shell + client sync engine + connection manager | Connections to NNA endpoints that have the NND web-service package installed | Spawn or host harness processes; substitute for the NNA TUI |
 | NNO | Business layer: RBAC, user management, org integrations | Managed NNA contexts per user/conversation; entitlement pass-through | Grant NNA more visibility than the acting principal holds |
 
-Installation rule (the keystone): an NND client can only connect to an NNA instance
-with the NND web-service package installed. GUI access is installed, like NNO — it is
-not a congenital feature of the harness.
+Installation rule (the keystone): NNA must be installed before its local NND
+package. The NND installer validates NNA before copying or downloading the GUI
+package and registers the built package with NNA before declaring success. An
+NND client can only connect to an NNA instance with the NND web-service package
+installed. GUI access is installed, like NNO — it is not a congenital feature
+of the harness. A separately launched service process is an internal package
+component for NNA supervision, not a standalone NND product install.
 
 ## Local integration boundary
 
