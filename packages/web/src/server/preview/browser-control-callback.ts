@@ -18,7 +18,7 @@ export function registerBrowserControlCallback(app: Hono, broker: BrowserControl
     // A 2,000-character type payload can exceed 4 KiB once JSON/UTF-8 encoded.
     // The per-field limits below still constrain the accepted action shape.
     const body = await readJsonBodyBounded(c.req.raw, 32_768);
-    if (!body || !['browser.open', 'browser.snapshot', 'browser.inspect', 'browser.click', 'browser.scroll', 'browser.type'].includes(String(body.action ?? ''))
+    if (!body || !['browser.open', 'browser.snapshot', 'browser.inspect', 'browser.click', 'browser.scroll', 'browser.type', 'browser.capture'].includes(String(body.action ?? ''))
       || !body.parameters || typeof body.parameters !== 'object' || Array.isArray(body.parameters))
       return c.json({ error: 'invalid browser action' }, 400);
     const parameters = body.parameters as Record<string, unknown>;
@@ -47,9 +47,15 @@ export function registerBrowserControlCallback(app: Hono, broker: BrowserControl
         || !Number.isSafeInteger(parameters.observationRevision) || (parameters.observationRevision as number) < 0
         || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
         return c.json({ error: 'invalid type target' }, 400);
+    } else if (body.action === 'browser.capture') {
+      if (Object.keys(parameters).length !== 3 || typeof parameters.expectedUrl !== 'string'
+        || !parameters.expectedUrl || parameters.expectedUrl.length > 2048
+        || !Number.isSafeInteger(parameters.observationRevision) || (parameters.observationRevision as number) < 0
+        || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
+        return c.json({ error: 'invalid capture target' }, 400);
     } else if (Object.keys(parameters).length !== 0) return c.json({ error: 'snapshot takes no parameters' }, 400);
     try {
-      const result = await broker.request(body.action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click' | 'browser.scroll' | 'browser.type', parameters,
+      const result = await broker.request(body.action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click' | 'browser.scroll' | 'browser.type' | 'browser.capture', parameters,
         { signal: c.req.raw.signal });
       return c.json(result);
     } catch (error) {

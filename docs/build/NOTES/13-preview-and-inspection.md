@@ -220,3 +220,27 @@ suite, graph, source smoke, and release gates.
   accepted or saved the text (`settled:false`). A timed-out guest action keeps
   a mutation latch until its script settles; snapshots and subsequent
   mutations are blocked meanwhile. Capture/annotation remain pending.
+
+## P11-14: bounded desktop-guest capture (2026-09-26)
+
+- `nnd_browser { action: "capture", expectedUrl }` requires and consumes the
+  latest successful session snapshot, including its private page observation
+  identity. Only the currently mounted isolated Electron guest can capture;
+  a stale navigation, missing guest, or concurrent page action is refused.
+- The desktop captures the visible viewport via Electron's webview API, scales
+  it to at most 1600 × 1200 pixels, and encodes a JPEG no larger than 150 KiB.
+  The private callback transports the image only to the owned NNA child. NNA
+  validates URL, dimensions, encoding, and JPEG bounds before exclusively
+  writing a session-owned file; the model receives an exact path and can call
+  its existing `image_inspect` tool. Image bytes are not added to model text or
+  logged. A capture is an observation, not evidence that the page has settled.
+- NNA preserves capture files so paths already referenced in a transcript stay
+  usable. It refuses a 257th capture in one session with an explicit quota
+  error; the operator can remove old files from that session's managed
+  `runtime/browser/nnd-captures` directory before retrying. This bounds one
+  session to about 38 MiB but does not yet impose a global retention policy
+  across sessions; longer-lived installations need an explicit artifact-lifetime
+  decision before automatic pruning.
+- This first slice does not capture arbitrary tabs, remote web clients,
+  offscreen/full-page content, or annotation overlays. Those remain separate
+  work; a hidden or non-composited guest must fail explicitly.

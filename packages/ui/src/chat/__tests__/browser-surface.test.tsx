@@ -124,6 +124,19 @@ describe('BrowserSurface', () => {
     } }); await Promise.resolve(); await Promise.resolve(); });
     expect(face.result).toHaveBeenCalledWith(typeId, { ok: true,
       data: { selector: '#query', urlBefore: 'https://example.org/', typed: true, settled: false } });
+    const captureObservation = await brokerSnapshot(onRequest, face.result, 'browser-00000000-0000-0000-0000-000000000031');
+    Object.defineProperty(guest, 'getBoundingClientRect', { configurable: true,
+      value: () => ({ width: 800, height: 600 }) });
+    const capturePage = vi.fn().mockResolvedValue({ getSize: () => ({ width: 800, height: 600 }),
+      toJPEG: () => Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]) });
+    Object.assign(guest, { capturePage });
+    const captureId = 'browser-00000000-0000-0000-0000-000000000032';
+    await act(async () => { onRequest({ requestId: captureId, action: 'browser.capture', parameters: {
+      expectedUrl: 'https://example.org/', ...captureObservation,
+    } }); await Promise.resolve(); await Promise.resolve(); });
+    expect(capturePage).toHaveBeenCalledOnce();
+    expect(face.result).toHaveBeenCalledWith(captureId, { ok: true,
+      data: { url: 'https://example.org/', mime: 'image/jpeg', base64: '/9j/2Q==', width: 800, height: 600 } });
     const failedTypeObservation = await brokerSnapshot(onRequest, face.result, 'browser-00000000-0000-0000-0000-000000000022');
     guest.executeJavaScript.mockResolvedValueOnce({ error: 'Type result timed out: page echoed hello' });
     const failedTypeId = 'browser-00000000-0000-0000-0000-000000000019';

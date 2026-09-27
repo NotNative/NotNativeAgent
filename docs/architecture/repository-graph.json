@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d8b3374bff65299ff00c7ed6a117a14b24b70728b9cdb3634f85892f4a98f873",
+  "source_digest": "sha256:06288dececba31e4721630317d6334989deac10f668b38d1fb0231948b1ca999",
   "counts": {
-    "modules": 448,
+    "modules": 449,
     "component_edges": 13
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 130
+      "module_count": 131
     },
     {
       "id": "ui-shell",
@@ -100,7 +100,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 153,
+      "import_count": 154,
       "module_count": 63
     },
     {
@@ -216,6 +216,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/browser/desktop-capture-action.ts",
         "packages/ui/src/lib/browser/desktop-type-action.ts",
         "packages/ui/src/lib/browser/page-click.ts",
         "packages/ui/src/lib/browser/page-inspection.ts",
@@ -1357,6 +1358,12 @@
     },
     {
       "path": "packages/ui/src/lib/api/types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/browser/desktop-capture-action.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
