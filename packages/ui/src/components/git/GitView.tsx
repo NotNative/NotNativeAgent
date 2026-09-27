@@ -22,8 +22,8 @@ import { GitFilePreview } from './git-file-preview.tsx';
 type SelectedFile = { directory: string; path: string; staged: boolean };
 type ReviewRequest = { directory: string; path: string; id: number } | null;
 
-export function GitView({ directory, visible = true, compact = false, reviewRequest = null }: {
-  directory: string; visible?: boolean; compact?: boolean; reviewRequest?: ReviewRequest;
+export function GitView({ directory, visible = true, compact = false, reviewRequest = null, onOpenWalkthrough }: {
+  directory: string; visible?: boolean; compact?: boolean; reviewRequest?: ReviewRequest; onOpenWalkthrough?: () => void;
 }): ReactNode {
   const [statusSnapshot, setStatusSnapshot] = useState<{ directory: string; value: GitStatus } | null>(null);
   const currentDirectory = useRef(directory);
@@ -211,6 +211,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         <span className="ml-auto flex items-center gap-1">
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>History</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>Branches</button>
+          {onOpenWalkthrough ? <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-walkthrough" onClick={onOpenWalkthrough}>Walkthrough</button> : null}
         </span>
       </header>
       <div className={`flex min-h-0 flex-1 gap-3 ${compact ? 'flex-col' : ''}`}>

@@ -67,7 +67,7 @@ describe('OperatorRail', () => {
     expect(document.querySelector('nav button[aria-label="Context"]')).toBeNull();
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Activity');
     expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/work')).toBe('activity');
-    for (const label of ['Changes', 'Notes', 'Browser', 'Terminal']) {
+    for (const label of ['Changes', 'Walkthrough', 'Notes', 'Browser', 'Terminal']) {
       act(() => (document.querySelector(`input[aria-label="Show ${label}"]`) as HTMLInputElement).click());
     }
     expect((document.querySelector('input[aria-label="Show Activity"]') as HTMLInputElement).disabled).toBe(true);
@@ -90,8 +90,24 @@ describe('OperatorRail', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
     act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
-    expect([...document.querySelectorAll('section[aria-label="Customize operator panels"] input[type="checkbox"]')]).toHaveLength(6);
+    expect([...document.querySelectorAll('section[aria-label="Customize operator panels"] input[type="checkbox"]')]).toHaveLength(7);
     expect([...document.querySelectorAll('nav[aria-label="Operator surfaces"] button[aria-pressed]')].map((button) => button.getAttribute('aria-label'))).toEqual(['Activity']);
+  });
+
+  it('opens Walkthrough from Changes even when an older saved layout hides it', async () => {
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
+      isGitRepository: true, branch: 'main', files: [], trackingAhead: 0, trackingBehind: 0,
+    }), { headers: { 'content-type': 'application/json' } }));
+    const key = 'nnd.operator-rail.panels:local:nnd.operator-rail.surface:D:/work';
+    window.localStorage.setItem(key, JSON.stringify({ order: ['context', 'changes'], visible: ['context', 'changes'] }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />); });
+    await act(async () => (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click());
+    await act(async () => (document.querySelector('[data-testid="git-open-walkthrough"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Walkthrough');
+    expect(document.querySelector('nav button[aria-label="Walkthrough"]')).not.toBeNull();
+    expect(JSON.parse(window.localStorage.getItem(key)!).visible).toContain('walkthrough');
   });
 
   it('does not let a hidden pane on a remote runtime overwrite the local selection', () => {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c7c49536b56e2675658e006de46c50b3266c460e141b026d6a1b4aa724fcef68",
+  "source_digest": "sha256:92face258259a5b1c4bb9a0f144fa419b7c4c0afa3a0344012e2cba2623d7715",
   "counts": {
-    "modules": 457,
+    "modules": 459,
     "component_edges": 13
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 137
+      "module_count": 138
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 113
+      "module_count": 114
     },
     {
       "id": "web-server",
@@ -101,8 +101,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 160,
-      "module_count": 64
+      "import_count": 161,
+      "module_count": 65
     },
     {
       "from": "sync-engine",
@@ -438,6 +438,7 @@
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
         "packages/ui/src/chat/project-notes.tsx",
+        "packages/ui/src/chat/walkthrough-preview.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",
         "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
@@ -603,6 +604,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/walkthrough-preview.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/git/walkthrough-preview.ts"
       ]
     },
     {
@@ -1608,6 +1617,15 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/git/walkthrough-preview.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/git/api.ts",
+        "packages/ui/src/lib/git/diff-model.ts"
       ]
     },
     {

@@ -13,15 +13,17 @@ import type { ContextPlanDraft } from './context-plans.tsx';
 import type { ContextNotesDraft } from './context-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
+import { WalkthroughPreviewSurface } from './walkthrough-preview.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
 import type { ToolEvidence } from '../sync/activity-log.ts';
 
-type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
+type Surface = 'context' | 'activity' | 'changes' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'context', label: 'Context' },
   { id: 'activity', label: 'Activity' },
   { id: 'changes', label: 'Changes' },
+  { id: 'walkthrough', label: 'Walkthrough' },
   { id: 'notes', label: 'Notes' },
   { id: 'browser', label: 'Browser' },
   { id: 'terminal', label: 'Terminal' },
@@ -203,7 +205,12 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
           setReviewRequest({ directory, path, id: Date.now() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
-        {surface === 'changes' ? <GitView directory={directory} visible compact reviewRequest={reviewRequest} /> : null}
+        {surface === 'changes' ? <GitView directory={directory} visible compact reviewRequest={reviewRequest}
+          onOpenWalkthrough={() => {
+            if (!panels.visible.includes('walkthrough')) changePanels({ ...panels, visible: [...panels.visible, 'walkthrough'] });
+            setSelection({ key: selectionKey, surface: 'walkthrough' });
+          }} /> : null}
+        {surface === 'walkthrough' ? <WalkthroughPreviewSurface directory={directory} visible={paneVisible} /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}

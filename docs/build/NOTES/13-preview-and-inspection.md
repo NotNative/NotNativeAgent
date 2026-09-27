@@ -316,6 +316,13 @@ suite, graph, source smoke, and release gates.
   and neither annotation mode is exposed through the iframe transport or the
   agent browser tool.
 
+## P11-20: deterministic diff walkthrough foundation (2026-09-26)
+
+- The right rail adds a Walkthrough pane, also opened explicitly from Changes. Opening it reads the current local working-tree Git status and staged/working per-file patches. It does not invoke NNA, a model, or a remote service.
+- A bounded parser uses the shared unified-diff model to present one navigable stop per actual hunk, in deterministic file/scope/patch order. Each stop shows the file, scope, old/new line anchors and the original diff rows. This is visibly labelled a deterministic preview, not an AI explanation or finding.
+- The snapshot signature includes branch, complete status codes and all fetched patch text. A visible panel rechecks on focus and every 15 seconds, marking its existing stops stale when the source changes; only the user's Refresh replaces them. Read failures warn that currency cannot be verified. Oversized changes refuse rather than silently truncate, and omitted binary file scopes are disclosed.
+- This is the substrate for planning doc 13 F/G, not its narrative pipeline: content-addressed server hunk ids, model selection/generation, cache, chapter grouping, and PR/branch/commit scopes remain follow-up work.
+
 ## P11-19: user-drawn freehand annotation (2026-09-26)
 
 - The desktop Browser pane also offers **Draw on page**. The host-owned shield
