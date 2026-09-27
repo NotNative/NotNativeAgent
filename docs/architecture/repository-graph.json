@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d72b569e4705940d9d90476c23e7c8218caab3a215b4a667bb981f5fa8ddbf65",
+  "source_digest": "sha256:ccdc813fa4f28a59268ae11cb2256cdfca25c8ff33a1445e2a90c5b9d41d0731",
   "counts": {
     "modules": 465,
     "component_edges": 13
@@ -114,7 +114,7 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 49,
+      "import_count": 50,
       "module_count": 19
     },
     {
@@ -601,6 +601,7 @@
         "packages/ui/src/chat/tool-cards.tsx",
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/session-message-loader.ts",
         "packages/ui/src/sync/sync-engine.ts",

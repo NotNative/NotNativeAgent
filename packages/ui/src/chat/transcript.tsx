@@ -10,6 +10,7 @@ import type { AssistantMessage, PermissionRequest, QuestionRequest, SessionStatu
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SessionMessageLoadState } from '../sync/session-message-loader.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
+import { isNnaActivitySource } from '../sync/activity-snapshot.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { projectTurns, streamingTail, turnSettled, assistantLiveStatus, toolPhrase, workingPhrase, type PartLite, type ChatTurn } from './turns.ts';
 import { renderMarkdown } from './markdown-lite.tsx';
@@ -294,7 +295,8 @@ export function StatusChip({ store, sessionID }: { store: StoreApi<DirectoryStor
   }
   if (status?.type === 'busy') {
     const working = live?.kind === 'thinking' ? 'thinking' : live?.kind === 'tool' ? toolPhrase(live.tool) : live?.kind === 'composing' ? 'composing' : workingPhrase(messageID ?? 'idle');
-    return <aside data-testid="status-chip" className="absolute bottom-full left-4 mb-2 rounded-full bg-neutral-800/90 px-3 py-1 text-[11px] text-neutral-300">mock-smart is {working}<BusyDots /></aside>;
+    const source = isNnaActivitySource(store) ? 'NNA' : 'mock-smart';
+    return <aside data-testid="status-chip" className="absolute bottom-full left-4 mb-2 rounded-full bg-neutral-800/90 px-3 py-1 text-[11px] text-neutral-300">{source} is {working}<BusyDots /></aside>;
   }
   return null;
 }
