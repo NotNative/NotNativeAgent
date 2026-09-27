@@ -18,9 +18,11 @@ does not change the active surface or select a browser backend.
 identity, protocol `1.0`, version agreement with `package.json`, and built web and
 server entrypoints. `nna nnd package status` revalidates the record; it reports
 `valid:false` when the installed package has moved or drifted. `nna nnd package
-deactivate ROOT` removes only a matching registered root. NND's Windows installer
-calls these commands after building and before uninstalling. Installing NND before
-NNA requires rerunning the NND installer after NNA is installed.
+deactivate ROOT` removes only a matching registered root. NND's installers
+require an installed NNA before copying the GUI package, activate it after
+building, and deactivate it before uninstalling when NNA remains available.
+An NND service process may run separately for NNA supervision, but NND is not
+an independently installed agent runtime.
 
 This registration is a package-identity milestone, not daemon activation yet.
 The desktop shell still owns the NND web service and starts a local NNA child;
