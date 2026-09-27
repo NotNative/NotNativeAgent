@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 
 export type BrowserAction = 'browser.open' | 'browser.snapshot' | 'browser.click'
-  | 'browser.type' | 'browser.scroll' | 'browser.back' | 'browser.forward'
+  | 'browser.type' | 'browser.scroll' | 'browser.history' | 'browser.back' | 'browser.forward'
   | 'browser.inspect' | 'browser.resize' | 'browser.capture';
 
 export interface BrowserRequest {

@@ -9,72 +9,19 @@ import { pageClickScript, parsePageClick } from '../lib/browser/page-click.ts';
 import { pageScrollScript, parsePageScroll, type ScrollDirection } from '../lib/browser/page-scroll.ts';
 import { executeDesktopType } from '../lib/browser/desktop-type-action.ts';
 import { executeDesktopCapture } from '../lib/browser/desktop-capture-action.ts';
+import { executeDesktopHistory, historyNavigationPending as historyPendingNow, type HistoryPending } from '../lib/browser/desktop-history-action.ts';
+import { usePreviewReadiness } from '../lib/browser/preview-readiness.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
 type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
   | { kind: 'ready'; servers: DiscoveredServer[] };
-type Readiness = { key: string; state: 'checking' | 'ready' | 'timed-out' | 'unavailable' };
 type GuestStatus = { kind: 'loading' | 'ready' | 'failed'; message: string };
 type ControlRequest = { requestId: string; action: string; parameters: Record<string, unknown> };
 
 function guestEventValue(event: Event, name: string): unknown {
   const payload = event as Event & Record<string, unknown> & { detail?: Record<string, unknown> };
   return payload[name] ?? payload.detail?.[name];
-}
-
-function usePreviewReadiness(active: string | null, reload: number, visible: boolean, localRuntime: boolean): Readiness | null {
-  const [readiness, setReadiness] = useState<Readiness | null>(null);
-  const key = `${active ?? ''}|${reload}`;
-  useEffect(() => {
-    if (!active || !visible || !localRuntime || !isLoopbackPreview(active)) {
-      setReadiness(null);
-      return;
-    }
-    let closed = false;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    const controller = new AbortController();
-    const started = Date.now();
-    const deadlineTimer = setTimeout(() => {
-      closed = true;
-      controller.abort();
-      if (retryTimer) clearTimeout(retryTimer);
-      setReadiness({ key, state: 'timed-out' });
-    }, 30_000);
-    setReadiness({ key, state: 'checking' });
-    const probe = async (): Promise<void> => {
-      try {
-        const response = await fetch('/api/system/probe-url', { method: 'POST',
-          headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: active }), signal: controller.signal });
-        if (!response.ok) throw new Error('probe unavailable');
-        const result = await response.json() as { ok?: unknown; status?: unknown };
-        if (closed) return;
-        if (result.ok === true) {
-          if (!Number.isInteger(result.status) || (result.status as number) < 200
-            || (result.status as number) >= 600) throw new Error('invalid probe response');
-          if ((result.status as number) < 500 || Date.now() - started >= 20_000) {
-            clearTimeout(deadlineTimer);
-            setReadiness({ key, state: 'ready' });
-            return;
-          }
-        } else if (result.ok !== false) throw new Error('invalid probe response');
-      } catch {
-        if (closed) return;
-        clearTimeout(deadlineTimer);
-        setReadiness({ key, state: 'unavailable' });
-        return;
-      }
-      retryTimer = setTimeout(() => { void probe(); }, 2000);
-    };
-    void probe();
-    return () => {
-      closed = true;
-      controller.abort();
-      clearTimeout(deadlineTimer);
-      if (retryTimer) clearTimeout(retryTimer);
-    };
-  }, [active, key, localRuntime, visible]);
-  return readiness;
 }
 
 export function canPreviewDiscoveredServers(appOrigin: string): boolean {
@@ -115,6 +62,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const scrollScriptPending = useRef<Promise<unknown> | null>(null);
   const typeScriptPending = useRef<Promise<unknown> | null>(null);
   const capturePending = useRef<Promise<unknown> | null>(null);
+  const historyPending = useRef<HistoryPending | null>(null);
   const controlHandler = useRef<(request: ControlRequest) => Promise<void>>(async () => undefined);
   const controlGeneration = useRef(0);
   const [reload, setReload] = useState(0);
@@ -140,6 +88,10 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     setSnapshotBusy(false);
   }
 
+  function historyNavigationPending(): boolean {
+    return historyPendingNow(historyPending, guestRef.current, historyRef.current[indexRef.current]);
+  }
+
   useEffect(() => {
     if (!visible) invalidateInspection();
   }, [visible]);
@@ -156,6 +108,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     const guest = guestRef.current;
     if (!desktop || !visible || !guest || (waitForLocal && probeState !== 'ready')) return;
     const navigation = (event: Event): void => {
+      if (historyPending.current?.fromGuest === guest) return;
       const url = guestEventValue(event, 'url');
       if (typeof url !== 'string' || !canEmbedDesktopPreview(url)) return;
       const target = normalizePreviewUrl(url, window.location.origin);
@@ -183,17 +136,25 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       invalidateInspection();
       setGuestStatus({ kind: 'failed', message: 'Preview renderer stopped. Reload to retry.' });
     };
+    const stopped = (): void => {
+      // History remounts the guest. An old guest finishing a prior load cannot
+      // authorize the next snapshot; only the replacement guest can do that.
+      if (historyPending.current && guestRef.current === guest
+        && historyPending.current.fromGuest !== guest) historyNavigationPending();
+    };
     guest.addEventListener('did-navigate', navigation);
     guest.addEventListener('did-navigate-in-page', navigation);
     guest.addEventListener('did-start-loading', loading);
     guest.addEventListener('did-fail-load', failure);
     guest.addEventListener('render-process-gone', crashed);
+    guest.addEventListener('did-stop-loading', stopped);
     return () => {
       guest.removeEventListener('did-navigate', navigation);
       guest.removeEventListener('did-navigate-in-page', navigation);
       guest.removeEventListener('did-start-loading', loading);
       guest.removeEventListener('did-fail-load', failure);
       guest.removeEventListener('render-process-gone', crashed);
+      guest.removeEventListener('did-stop-loading', stopped);
     };
   }, [desktop, guestStart, probeState, reload, visible, waitForLocal]);
 
@@ -219,6 +180,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   }, [scanRevision, visible, active, localRuntime]);
 
   function open(target: string): void {
+    historyPending.current = null;
     setInvalid(false);
     setAddress(target);
     setGuestStart(target);
@@ -240,12 +202,14 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   }
 
   function move(delta: number): void {
-    const next = index + delta;
-    if (next < 0 || next >= history.length) return;
+    const next = indexRef.current + delta;
+    if (next < 0 || next >= historyRef.current.length) return;
+    const target = historyRef.current[next]!;
     indexRef.current = next;
     setIndex(next);
-    setAddress(history[next]!);
-    setGuestStart(history[next]!);
+    setAddress(target);
+    setGuestStart(target);
+    if (guestStart === target) setReload((value) => value + 1);
     setGuestStatus(null);
     invalidateInspection();
     setInvalid(false);
@@ -255,7 +219,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     const guest = guestRef.current as (HTMLElement & {
       executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
     }) | null;
-    if (!desktop || !guest?.executeJavaScript || snapshotBusy || clickScriptPending.current
+    if (!desktop || !guest?.executeJavaScript || snapshotBusy || historyNavigationPending() || clickScriptPending.current
       || scrollScriptPending.current || typeScriptPending.current || capturePending.current) return;
     const revision = ++inspectionRevision.current;
     setSnapshotBusy(true);
@@ -297,7 +261,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         open(target);
         result = { ok: true, data: { url: target, opened: true, settled: false } };
       } else if (request.action === 'browser.snapshot') {
-        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
           throw new Error('A prior browser action is still running; wait before taking a new snapshot.');
         const guest = guestRef.current as (HTMLElement & {
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
@@ -324,7 +288,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           executeJavaScript?: (script: string, userGesture?: boolean) => Promise<unknown>;
         }) | null;
         if (!guest?.executeJavaScript) throw new Error('Open a page in the desktop Browser pane first.');
-        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
           throw new Error('A prior browser action is still running; wait before inspecting.');
         const revision = inspectionRevision.current;
         let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -352,7 +316,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl
           || inspectionRevision.current !== observationRevision || observationId.current !== expectedObservationId)
           throw new Error('The page changed; take a new snapshot before clicking.');
-        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
           throw new Error('A prior browser action may still complete; wait before retrying.');
         invalidateInspection();
         let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -383,7 +347,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         if (!guest?.executeJavaScript || historyRef.current[indexRef.current] !== expectedUrl
           || inspectionRevision.current !== observationRevision || observationId.current !== expectedObservationId)
           throw new Error('The page changed; take a new snapshot before scrolling.');
-        if (clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
+        if (historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current || capturePending.current)
           throw new Error('A prior browser action may still complete; wait before scrolling.');
         invalidateInspection();
         const revision = inspectionRevision.current;
@@ -404,12 +368,19 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
           || historyRef.current[indexRef.current] !== expectedUrl)
           throw new Error('Scroll outcome is uncertain; inspect the page before retrying.');
         result = { ok: true, data: scrolled };
+      } else if (request.action === 'browser.history') {
+        result = { ok: true, data: executeDesktopHistory(request.parameters ?? {}, {
+          guest: guestRef.current, history: historyRef.current, index: indexRef.current,
+          revision: inspectionRevision.current, observationId: observationId.current, pending: historyPending,
+          otherPending: () => Boolean(clickScriptPending.current || scrollScriptPending.current
+            || typeScriptPending.current || capturePending.current), move,
+        }) };
       } else if (request.action === 'browser.type') {
         const typed = await executeDesktopType(request.parameters ?? {}, {
           guest: guestRef.current, currentGuest: () => guestRef.current,
           currentUrl: () => historyRef.current[indexRef.current], revision: () => inspectionRevision.current,
           observationId: () => observationId.current,
-          otherPending: () => Boolean(clickScriptPending.current || scrollScriptPending.current || capturePending.current),
+          otherPending: () => Boolean(historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || capturePending.current),
           pending: typeScriptPending, invalidate: invalidateInspection,
         });
         result = { ok: true, data: typed };
@@ -417,7 +388,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         const captured = await executeDesktopCapture(request.parameters ?? {}, {
           guest: guestRef.current, currentGuest: () => guestRef.current, currentUrl: () => historyRef.current[indexRef.current],
           revision: () => inspectionRevision.current, observationId: () => observationId.current,
-          otherPending: () => Boolean(clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current), pending: capturePending, invalidate: invalidateInspection,
+          otherPending: () => Boolean(historyNavigationPending() || clickScriptPending.current || scrollScriptPending.current || typeScriptPending.current), pending: capturePending, invalidate: invalidateInspection,
         });
         result = { ok: true, data: captured };
       } else throw new Error(`${request.action} is not available in this build.`);

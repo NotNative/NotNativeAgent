@@ -29,6 +29,10 @@ describe('private NNA browser callback', () => {
       selector: '#x', expectedUrl: 'https://example.org/', observationRevision: '7', observationId,
     } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.scroll', parameters: { direction: 'down' } }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.history', parameters: { direction: 'back' } }, secret)).status).toBe(400);
+    expect((await post({ action: 'browser.history', parameters: {
+      direction: 'up', expectedUrl: 'https://example.org/', observationRevision: 7, observationId,
+    } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.type', parameters: { selector: '#query', expectedUrl: 'https://example.org/' } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.type', parameters: { selector: '#query', expectedUrl: 'https://example.org/', text: 'x'.repeat(2001) } }, secret)).status).toBe(400);
     expect((await post({ action: 'browser.capture', parameters: { expectedUrl: 'https://example.org/' } }, secret)).status).toBe(400);
@@ -110,6 +114,21 @@ describe('private NNA browser callback', () => {
     });
     const response = await post({ action: 'browser.type', parameters: {
       selector: '#query', expectedUrl: 'https://example.org/', text: 'hello', observationRevision: 7, observationId,
+    } }, secret);
+    expect(response.status).toBe(200);
+    broker.dispose();
+  });
+
+  it('dispatches exact-observation preview history direction to a capable desktop', async () => {
+    const { broker, post } = fixture();
+    broker.registerClient('desktop', true, (request) => {
+      expect(request.action).toBe('browser.history');
+      expect(request.parameters).toEqual({ direction: 'back', expectedUrl: 'https://example.org/', observationRevision: 7, observationId });
+      expect(broker.claim(request.requestId, 'desktop')).toBe(true);
+      broker.resolve(request.requestId, 'desktop', { ok: true, data: { requested: true, settled: false } });
+    });
+    const response = await post({ action: 'browser.history', parameters: {
+      direction: 'back', expectedUrl: 'https://example.org/', observationRevision: 7, observationId,
     } }, secret);
     expect(response.status).toBe(200);
     broker.dispose();

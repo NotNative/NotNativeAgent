@@ -244,3 +244,17 @@ suite, graph, source smoke, and release gates.
 - This first slice does not capture arbitrary tabs, remote web clients,
   offscreen/full-page content, or annotation overlays. Those remain separate
   work; a hidden or non-composited guest must fail explicitly.
+
+## P11-15: governed preview history (2026-09-26)
+
+- `nnd_browser { action: "history", direction: "back"|"forward", expectedUrl }`
+  moves only within the Browser pane's existing isolated-guest history. It
+  cannot supply a new URL. NNA consumes a fresh, single-use snapshot URL and
+  private observation identity; the renderer checks these against the current
+  guest and its URL before dispatch. Missing history is an explicit refusal.
+- The command replaces the guest with the selected history entry. Its receipt
+  means navigation was requested, not settled; a new snapshot is needed for
+  page content. Snapshots and further mutations remain blocked until the
+  replacement guest reports load completion, including a same-URL history
+  entry. Timeout or disconnection leaves the outcome uncertain and never
+  reuses the consumed observation for a duplicate navigation.

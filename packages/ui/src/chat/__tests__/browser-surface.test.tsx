@@ -62,6 +62,56 @@ async function brokerSnapshot(onRequest: (request: { requestId: string; action: 
 }
 
 describe('BrowserSurface', () => {
+  it('navigates only observed preview history and blocks snapshots until the replacement guest finishes loading', async () => {
+    window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
+    let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
+    const face = {
+      register: vi.fn().mockResolvedValue({ ok: true }), unregister: vi.fn().mockResolvedValue({ ok: true }),
+      claim: vi.fn().mockResolvedValue({ ok: true, result: { granted: true } }),
+      result: vi.fn().mockResolvedValue({ ok: true, result: { matched: true } }),
+      onRequest: vi.fn((handler: typeof onRequest) => { onRequest = handler; return () => undefined; }),
+    };
+    window.__NOTNATIVE_BROWSER_CONTROL__ = face;
+    readyFetch();
+    const view = render();
+    enter('https://example.org/first');
+    enter('https://example.org/second');
+    const source = view.querySelector('webview') as HTMLElement & { executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string };
+    source.executeJavaScript = vi.fn().mockResolvedValue({ ...observedPage, url: 'https://example.org/second' });
+    source.getURL = () => 'https://example.org/second';
+    const evidence = await brokerSnapshot(onRequest, face.result, 'browser-00000000-0000-0000-0000-000000000041');
+    const historyId = 'browser-00000000-0000-0000-0000-000000000042';
+    await act(async () => { onRequest({ requestId: historyId, action: 'browser.history', parameters: {
+      direction: 'back', expectedUrl: 'https://example.org/second', ...evidence,
+    } }); await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result).toHaveBeenCalledWith(historyId, { ok: true, data: {
+      direction: 'back', urlBefore: 'https://example.org/second', targetUrl: 'https://example.org/first',
+      requested: true, settled: false,
+    } });
+    const replacement = view.querySelector('webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>; getURL?: () => string; isLoading?: () => boolean };
+    expect(replacement).not.toBe(source);
+    expect(replacement.getAttribute('src')).toBe('https://example.org/first');
+    replacement.executeJavaScript = vi.fn().mockResolvedValue({ ...observedPage, url: 'https://example.org/first' });
+    let loading = true;
+    replacement.getURL = () => 'https://example.org/first';
+    replacement.isLoading = () => loading;
+    const earlyId = 'browser-00000000-0000-0000-0000-000000000043';
+    await act(async () => { onRequest({ requestId: earlyId, action: 'browser.snapshot', parameters: {} });
+      await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result.mock.calls.find(([id]) => id === earlyId)?.[1]).toEqual({ ok: false,
+      error: 'A prior browser action is still running; wait before taking a new snapshot.' });
+    loading = false;
+    act(() => replacement.dispatchEvent(new Event('did-stop-loading')));
+    const firstEvidence = await brokerSnapshot(onRequest, face.result, 'browser-00000000-0000-0000-0000-000000000044');
+    const missingId = 'browser-00000000-0000-0000-0000-000000000045';
+    await act(async () => { onRequest({ requestId: missingId, action: 'browser.history', parameters: {
+      direction: 'back', expectedUrl: 'https://example.org/first', ...firstEvidence,
+    } }); await Promise.resolve(); await Promise.resolve(); });
+    expect(face.result.mock.calls.find(([id]) => id === missingId)?.[1]).toEqual({ ok: false,
+      error: 'No back page is available in this preview history.' });
+  });
+
   it('binds broker requests only in the desktop pane and claims before opening or snapshotting', async () => {
     window.__NOTNATIVE_ELECTRON__ = { runtime: 'electron', arch: 'x64', trayEnabled: false };
     let onRequest!: (request: { requestId: string; action: string; parameters: Record<string, unknown> }) => void;
