@@ -73,7 +73,7 @@ export function WalkthroughPreviewSurface({ directory, visible }: { directory: s
       </nav>
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
         <div className="sticky top-0 bg-neutral-950 py-1 text-xs text-neutral-200">{stop.scope} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
-        <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-neutral-300" data-testid="walkthrough-hunk">{stop.header}{'\n'}{stop.hunk.rows.map((row) => `${row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : ' '}${row.text}`).join('\n')}</pre>
+        <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-neutral-300" data-testid="walkthrough-hunk">{stop.header}{'\n'}{stop.body}</pre>
       </div>
     </div> : null}
   </section>;

@@ -343,3 +343,27 @@ suite, graph, source smoke, and release gates.
 - **Add to chat draft** atomically attaches the marked screenshot and structured
   drawing details. It never sends the message. Element and region modes remain
   available; the iframe transport and agent browser tool do not gain drawing.
+
+## P11-21: server-owned working-tree diff snapshot (2026-09-26)
+
+- `GET /api/git/walkthrough-snapshot?directory=…` now owns the deterministic
+  Walkthrough preview's Git capture, hunk parsing and revision signature.
+  It rides the normal authenticated Git route group and is read-only. The
+  client no longer builds IDs or combines status with individually timed diff
+  requests. Only the explicit Walkthrough pane calls it; there is no model
+  invocation or remote send.
+- The endpoint reads staged and working scopes separately, includes regular
+  untracked files without staging, preserves rename metadata, and labels
+  binary-only scopes rather than inventing text hunks. IDs hash the hunk
+  header and body under scope and repository-relative path; equal repeats
+  receive `-2`, `-3`, etc. The returned SHA-256 signature covers the branch
+  status record and all bounded patches. Each capture is performed twice;
+  disagreement returns `409 snapshot-stale` with a retry message, never a
+  mixed-source tour. The panel's existing focus/15-second staleness check
+  compares these server signatures and still requires user Refresh to replace
+  visible stops.
+- Limits are 60 file scopes, 200 hunks and 750,000 patch bytes. Paths remain
+  within the requested workspace, including realpath checks; symlinked or
+  oversized untracked files fail explicitly. The endpoint currently supports
+  only working-tree scope and deterministic preview. Narrative generation,
+  cached chapters and branch/commit/PR source descriptors remain pending.

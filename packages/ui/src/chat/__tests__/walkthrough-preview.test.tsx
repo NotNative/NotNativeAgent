@@ -13,7 +13,7 @@ const load = loadWalkthroughPreview as ReturnType<typeof vi.fn>;
 let container: HTMLDivElement;
 let root: Root;
 const stop = (path: string) => ({ id: `working:${path}:1:1:0`, scope: 'working', path, header: '@@ -1 +1 @@', oldStart: 1, newStart: 1,
-  hunk: { rows: [{ kind: 'del', text: 'old' }, { kind: 'add', text: 'new' }] } });
+  body: '-old\n+new' });
 
 beforeEach(() => {
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
