@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **PB-8 older transcript pages.** The chat transcript now
+  exposes NNA's older-message cursor through a load-more control with retry,
+  retains the viewport anchor when rows prepend, and keeps pagination state
+  scoped to the selected session and store. NNA's companion route pages root
+  history beyond its former 200-message display window and survives a child
+  live-preview cursor settling into a completed message. Browser-level
+  confirmation of this new control still needs a long real session; focused
+  and integration tests cover the wire behavior.
+
 - 2026-09-27 · **PB-7 installed GUI transcript hydration.** Installed-app
   visual QA exposed a session that stayed on its loading skeleton: the
   session-message loader was implemented but never called on chat navigation.

@@ -4,10 +4,11 @@
  * dispatch, tool cards (plain bodies; rich diff lands with P6), facts footer,
  * error callouts, status chip (§E.1), and §F blocking cards.
  */
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { AssistantMessage, PermissionRequest, QuestionRequest, SessionStatus } from '../lib/nnd/types.ts';
 import type { DirectoryStore } from '../sync/types.ts';
+import type { SessionMessageLoadState } from '../sync/session-message-loader.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { projectTurns, streamingTail, turnSettled, assistantLiveStatus, toolPhrase, workingPhrase, type PartLite, type ChatTurn } from './turns.ts';
@@ -28,7 +29,26 @@ export function Transcript(props: TranscriptProps): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const [retry, setRetry] = useState<{ key: string; count: number }>({ key: '', count: 0 });
   const [failedKey, setFailedKey] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<{ key: string; state: SessionMessageLoadState } | null>(null);
+  const [olderBusyKey, setOlderBusyKey] = useState<string | null>(null);
+  const [olderFailedKey, setOlderFailedKey] = useState<string | null>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const olderAnchor = useRef<{ key: string; store: StoreApi<DirectoryStore>; firstMessageID: string; id: string; top: number; viewport: HTMLElement } | null>(null);
   const loadKey = `${directory}\n${sessionID ?? ''}`;
+  useLayoutEffect(() => {
+    const anchor = olderAnchor.current;
+    if (!anchor) return;
+    if (anchor.key !== loadKey || anchor.store !== store) {
+      olderAnchor.current = null;
+      return;
+    }
+    if (snapshot.message[sessionID ?? '']?.[0]?.id === anchor.firstMessageID) return;
+    const node = [...(transcriptRef.current?.querySelectorAll<HTMLElement>('[id^="message-"]') ?? [])]
+      .find((candidate) => candidate.id === anchor.id);
+    if (!node) return;
+    anchor.viewport.scrollTop += node.getBoundingClientRect().top - anchor.top;
+    olderAnchor.current = null;
+  }, [loadKey, store, snapshot.message]);
   useEffect(() => {
     if (!sessionID) return;
     let active = true;
@@ -36,7 +56,11 @@ export function Transcript(props: TranscriptProps): ReactNode {
     const force = retry.key === loadKey && retry.count > 0;
     void engine.loader.ensure(target, { reason: 'navigation', force })
       .then(() => {
-        if (active) setFailedKey(engine.loader.getState(target).status === 'error' ? loadKey : null);
+        if (active) {
+          const next = engine.loader.getState(target);
+          setLoadState({ key: loadKey, state: next });
+          setFailedKey(next.status === 'error' ? loadKey : null);
+        }
       })
       .catch(() => {
         if (active) setFailedKey(loadKey);
@@ -64,10 +88,47 @@ export function Transcript(props: TranscriptProps): ReactNode {
   const turns = projectTurns(snapshot.message[sessionID] ?? []);
   const tail = streamingTail(turns);
   const lastIndex = turns.length - 1;
+  const currentLoad = loadState?.key === loadKey ? loadState.state : null;
+  const canLoadOlder = !!currentLoad?.cursor && !currentLoad.complete;
+  const loadOlder = async (): Promise<void> => {
+    if (olderBusyKey === loadKey) return;
+    const viewport = transcriptRef.current?.closest<HTMLElement>('[data-chat-column]');
+    const anchor = transcriptRef.current?.querySelector<HTMLElement>('[id^="message-"]');
+    const firstMessageID = snapshot.message[sessionID]?.[0]?.id;
+    olderAnchor.current = viewport && anchor && firstMessageID
+      ? { key: loadKey, store, firstMessageID, id: anchor.id, top: anchor.getBoundingClientRect().top, viewport }
+      : null;
+    setOlderBusyKey(loadKey);
+    setOlderFailedKey(null);
+    const target = { directory, sessionID, store };
+    try {
+      await engine.loader.loadOlder(target);
+      const next = engine.loader.getState(target);
+      setLoadState({ key: loadKey, state: next });
+      if (next.status === 'error') setOlderFailedKey(loadKey);
+    } catch {
+      setOlderFailedKey(loadKey);
+    } finally {
+      // The store may publish before React commits the new rows. Keep the
+      // anchor for useLayoutEffect when a page actually prepended; discard it
+      // immediately only when no first-message change can consume it.
+      if (olderAnchor.current?.key === loadKey && olderAnchor.current.store === store
+        && store.getState().message[sessionID]?.[0]?.id === olderAnchor.current.firstMessageID) {
+        olderAnchor.current = null;
+      }
+      setOlderBusyKey((current) => current === loadKey ? null : current);
+    }
+  };
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-6" data-testid="chat-transcript">
+    <div ref={transcriptRef} className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-6" data-testid="chat-transcript">
+      {canLoadOlder ? <div className="flex flex-col items-center gap-1 text-xs">
+        <button type="button" disabled={olderBusyKey === loadKey} onClick={() => { void loadOlder(); }}
+          className="rounded border border-white/15 px-3 py-1.5 text-neutral-300 hover:bg-white/10 disabled:opacity-50"
+          data-testid="load-older-messages">{olderBusyKey === loadKey ? 'Loading older messages…' : 'Load older messages'}</button>
+        {olderFailedKey === loadKey ? <span role="alert" className="text-rose-400">Could not load older messages. Retry above.</span> : null}
+      </div> : null}
       {turns.map((turn, index) => (
-        <TurnRow key={`${turn.userMessage.id}-${index}`} turn={turn} store={store} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} />
+        <TurnRow key={turn.userMessage.id} turn={turn} store={store} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} />
       ))}
       {tail ? <StreamingTailRow key={tail.id} parts={(snapshot.part[tail.id] ?? []) as PartLite[]} messageID={tail.id} /> : null}
       {permissionsOf(snapshot, sessionID).length > 0 || questionsOf(snapshot, sessionID).length > 0

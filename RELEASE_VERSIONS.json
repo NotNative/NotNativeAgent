@@ -300,6 +300,10 @@
     {
       "version": "20260927-6",
       "content_sha256": "393bfbc591de6bd942547ef8e8e9484f1abeb9b659d0818291bfb6616abf2db7"
+    },
+    {
+      "version": "20260927-7",
+      "content_sha256": "9abe102c12c95743964a83fe49d7f260d10c85445d4cdf43b72e36b8fd144b90"
     }
   ]
 }
