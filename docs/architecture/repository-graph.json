@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:391639a34843e63ceae585d4c2e00f02ea9e6afd58a7348f5ddc5408667c1dab",
+  "source_digest": "sha256:d72b569e4705940d9d90476c23e7c8218caab3a215b4a667bb981f5fa8ddbf65",
   "counts": {
-    "modules": 464,
+    "modules": 465,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 114
+      "module_count": 115
     },
     {
       "id": "web-server",
@@ -431,6 +431,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/operator-icons.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/chat/operator-rail.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -438,6 +444,7 @@
         "packages/ui/src/chat/browser-surface.tsx",
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
+        "packages/ui/src/chat/operator-icons.tsx",
         "packages/ui/src/chat/project-notes.tsx",
         "packages/ui/src/chat/walkthrough-preview.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",

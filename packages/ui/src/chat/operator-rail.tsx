@@ -17,16 +17,17 @@ import { WalkthroughPreviewSurface } from './walkthrough-preview.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
 import type { ToolEvidence } from '../sync/activity-log.ts';
+import { OperatorIcon } from './operator-icons.tsx';
 
 type Surface = 'context' | 'activity' | 'changes' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
-const SURFACES: readonly { id: Surface; label: string; glyph: string }[] = [
-  { id: 'context', label: 'Context', glyph: '◔' },
-  { id: 'activity', label: 'Activity', glyph: '≋' },
-  { id: 'changes', label: 'Changes', glyph: '⑂' },
-  { id: 'walkthrough', label: 'Walkthrough', glyph: '▣' },
-  { id: 'notes', label: 'Notes', glyph: '▤' },
-  { id: 'browser', label: 'Browser', glyph: '◎' },
-  { id: 'terminal', label: 'Terminal', glyph: '⌁' },
+const SURFACES: readonly { id: Surface; label: string }[] = [
+  { id: 'context', label: 'Context' },
+  { id: 'activity', label: 'Activity' },
+  { id: 'changes', label: 'Changes' },
+  { id: 'walkthrough', label: 'Walkthrough' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'browser', label: 'Browser' },
+  { id: 'terminal', label: 'Terminal' },
 ];
 type PanelPreferences = { order: Surface[]; visible: Surface[] };
 type ReviewRequest = { directory: string; path: string; id: number };
@@ -145,8 +146,11 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'notes') setNotesOpenedKey(storageKey);
   }, [selection.key, selectionKey, storageKey, surface]);
+  // The 40px icon nav sits inside this aside's 1px border. Omitting that
+  // border pixel makes the document itself scroll in both directions.
+  const dockWidth = 41;
   return (
-    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={docked && !compactOpen ? { width: panelOpen ? width + 40 : 40 } : undefined} data-testid="operator-rail">
+    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={docked && !compactOpen ? { width: panelOpen ? width + dockWidth : dockWidth } : undefined} data-testid="operator-rail">
       <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
         className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen ? 'hidden' : 'hidden lg:block'}`}
         onPointerDown={(event) => {
@@ -185,14 +189,14 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
           const item = SURFACES.find((candidate) => candidate.id === id)!;
           return (
           <button key={item.id} ref={surface === item.id ? selectedButton : undefined} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
-            className={`px-1 py-2 text-lg leading-5 ${surface === item.id && paneVisible ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-200'}`}
+            className={`flex h-10 items-center justify-center ${surface === item.id && paneVisible ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-200'}`}
             onClick={() => {
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               if (item.id === 'notes') setNotesOpenedKey(storageKey);
               if (docked && !compactOpen) setPanelOpen(item.id !== surface || !panelOpen);
               setSelection({ key: selectionKey, surface: item.id });
-            }}>{item.glyph}</button>
+            }}><OperatorIcon surface={item.id} /></button>
           );
         })}
         <button type="button" aria-label="Customize operator panels" aria-expanded={customizing}
@@ -338,7 +342,7 @@ function surfaceWidthStorageKey(directoryKey: string, surface: Surface): string 
 }
 
 function maxRailWidth(viewportWidth: number): number {
-  return Math.max(280, Math.min(900, viewportWidth - 550));
+  return Math.max(280, Math.min(1200, viewportWidth - 550));
 }
 
 function clampRailWidth(width: number, viewportWidth: number): number {
@@ -346,12 +350,13 @@ function clampRailWidth(width: number, viewportWidth: number): number {
 }
 
 function readWidth(key: string | null, surface: Surface): number {
-  const fallback = surface === 'browser' ? 600 : 300;
+  const viewport = typeof window === 'undefined' ? 1280 : window.innerWidth;
+  const fallback = viewport >= 1600 ? Math.min(1200, Math.round(viewport * 0.36)) : surface === 'browser' ? 600 : 300;
   if (key === null) return fallback;
   try {
     const raw = localStorage.getItem(key);
     const saved = raw === null ? NaN : Number(raw);
-    return Number.isFinite(saved) ? Math.min(900, Math.max(280, Math.round(saved))) : fallback;
+    return Number.isFinite(saved) ? Math.min(1200, Math.max(280, Math.round(saved))) : fallback;
   } catch { return fallback; }
 }
 

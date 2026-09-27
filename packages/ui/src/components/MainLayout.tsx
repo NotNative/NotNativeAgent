@@ -189,7 +189,7 @@ export function MainLayout(): ReactNode {
     <div className="flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100">
       <TerminalKeepaliveOwner />
       <ShellShortcuts />
-      <header className="flex items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
+      <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
         <SessionTabs engine={engine} directory={activeDirectory} />
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
@@ -200,87 +200,95 @@ export function MainLayout(): ReactNode {
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="diff-toggle"
           title="Changes"
+          aria-label="Changes"
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'diff' ? '' : 'diff');
           }}
         >
-          ⇆ diffs
+          ⇆
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="git-toggle"
           title="Git"
+          aria-label="Git"
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'git' ? '' : 'git');
           }}
         >
-          ⑂ git
+          ⑂
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="plan-toggle"
           title="Plan"
+          aria-label="Plan"
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'plan' ? '' : 'plan');
           }}
         >
-          ▤ plan
+          ▤
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="terminal-toggle"
           title={t('terminal.title')}
+          aria-label={t('terminal.title')}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'terminal' ? '' : 'terminal');
           }}
         >
-          &gt;_ {t('terminal.title')}
+          &gt;_
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="scheduled-tasks-toggle"
           title="Scheduled tasks"
+          aria-label="Scheduled tasks"
           onClick={openScheduled}
         >
-          ◷ tasks
+          ◷
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="worktrees-toggle"
           title="Worktrees"
+          aria-label="Worktrees"
           onClick={() => setWorktreesOpen(!worktreesOpen)}
         >
-          ⌥ worktrees
+          ⌥
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="files-toggle"
           title="Files"
+          aria-label="Files"
           onClick={() => {
             setReviewPane('');
             setFilesOpen(!filesOpen);
           }}
         >
-          ▤ files
+          <svg aria-hidden="true" className="inline-block align-middle" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 9h18" /></svg>
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="settings-gear"
           title="Settings (Ctrl+Comma)"
+          aria-label="Settings"
           onClick={() => openSettings('general')}
         >
-          ⚙ settings
+          ⚙
         </button>
       </header>
       <AuthExpiredBanner />
