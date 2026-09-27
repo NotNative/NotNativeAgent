@@ -335,7 +335,7 @@ export class NndEngineHost {
     }
     return statuses;
   }
-  messages(sessionId, principal) {
+  messages(sessionId, principal, { all = false } = {}) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
     if (!this.#contexts.has(sessionId)) {
       const child = this.childSessions.get?.(sessionId, principal);
@@ -350,7 +350,7 @@ export class NndEngineHost {
     return context.engine.transcript
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => item?.type === 'message' && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
-      .slice(-200)
+      .slice(all ? 0 : -200)
       .map(({ item, index }) => messageProjection(context, item, index));
   }
 

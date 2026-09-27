@@ -72,6 +72,16 @@ remaining sessions. `GET /session/:id/children` lists an owned parent's
 accessible child sessions in session-ID order. These read paths require `nnd.read`
 and the full original workspace grant. They do not grant child steering.
 
+`GET /session/:id/message?limit=N` returns the newest `N` projected messages
+(`1..200`) and, when older history remains, an `x-next-cursor` header. Send
+that opaque cursor as `before` with a bounded `limit` to read the next older
+page. Cursors are exclusive except for the internal live-child boundary token,
+which preserves the correct older page when a transient streaming preview
+becomes a completed message. Unknown or stale cursors fail rather than silently
+returning a partial history. An unbounded message read retains its legacy
+200-message view. The same read permission and workspace grant apply to every
+page; a cursor cannot select another principal's session.
+
 With durable persistence, NNA keeps a bounded session catalog beside its
 session journals. A new NND child reopens those sessions under their original
 subject and workspace grants before it emits readiness. An invalid catalog

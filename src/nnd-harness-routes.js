@@ -5,6 +5,7 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
 const MESSAGE_LIMIT_MAX = 200;
+const LIVE_BOUNDARY_PREFIX = 'nnd-live-boundary:';
 export async function dispatchNndHarnessRequest(request, response, context) {
   if (openEventStream(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
@@ -66,12 +67,33 @@ function readSession(response, context, host, id, detail) {
   requireIntegrationPermission(context.principal, 'nnd.read');
   if (detail === 'message') {
     const values = context.url.searchParams.getAll('limit');
+    const beforeValues = context.url.searchParams.getAll('before');
     if (values.length > 1 || values.length === 1 && (!/^[0-9]{1,3}$/u.test(values[0])
       || Number(values[0]) < 1 || Number(values[0]) > MESSAGE_LIMIT_MAX)) {
       throw new ContractError('request_invalid', 'message limit must be an integer from 1 to 200');
     }
-    const messages = host.messages(id, context.principal);
-    return send(response, 200, values.length === 1 ? messages.slice(-Number(values[0])) : messages);
+    if (beforeValues.length > 1 || beforeValues.length === 1 && !beforeValues[0]) {
+      throw new ContractError('request_invalid', 'message cursor must be a single non-empty id');
+    }
+    if (beforeValues.length === 1 && values.length === 0) {
+      throw new ContractError('request_invalid', 'message cursor requires a bounded limit');
+    }
+    const messages = host.messages(id, context.principal, { all: values.length === 1 });
+    const cursor = beforeValues[0];
+    const liveBoundary = cursor?.startsWith(LIVE_BOUNDARY_PREFIX);
+    const boundaryId = liveBoundary ? Buffer.from(cursor.slice(LIVE_BOUNDARY_PREFIX.length), 'base64url').toString('utf8') : cursor;
+    const boundary = beforeValues.length === 1 ? messages.findIndex((message) => message.info.id === boundaryId) : messages.length;
+    const end = liveBoundary && boundary >= 0 ? boundary + 1 : boundary;
+    if (end < 0) throw new ContractError('nnd_message_cursor_invalid', 'message cursor is unavailable');
+    const start = values.length === 1 ? Math.max(0, end - Number(values[0])) : 0;
+    const page = messages.slice(start, end);
+    if (start > 0 && page.length > 0) {
+      const firstId = page[0].info.id;
+      const nextCursor = firstId === `${id}:live`
+        ? `${LIVE_BOUNDARY_PREFIX}${Buffer.from(messages[start - 1].info.id).toString('base64url')}` : firstId;
+      response.setHeader('x-next-cursor', nextCursor);
+    }
+    return send(response, 200, page);
   }
   if (detail === 'children') return send(response, 200, host.listChildren(id, context.principal));
   if (detail === 'activity') return send(response, 200, host.activity(id, context.principal));

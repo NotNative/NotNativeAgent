@@ -76,6 +76,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_command_invalid', 'nnd_manifest_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
+    'nnd_message_cursor_invalid',
     'nnd_goal_invalid', 'nnd_goal_conflict', 'nnd_goal_audit_invalid', 'nnd_goal_audit_conflict',
     'nnd_walkthrough_invalid', 'nnd_walkthrough_context_large',
     'nnd_model_override_unsupported', 'nnd_agent_override_unsupported',

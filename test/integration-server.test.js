@@ -484,9 +484,12 @@ test('NND harness session routes bind creation to the complete principal workspa
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const factoryOptions = [];
+  const engines = [];
   const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
     factoryOptions.push(options);
-    return { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async cancel() { return { accepted: true }; }, async shutdown() {} };
+    const engine = { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async cancel() { return { accepted: true }; }, async shutdown() {} };
+    engines.push(engine);
+    return engine;
   } });
   nndEngineHost.nndModel = { providerID: 'primary', modelID: 'test' };
   const service = await startIntegrationServer({
@@ -549,8 +552,16 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.deepEqual(childMessages.value.map((message) => [message.info.id, message.parts[0].text]), [
       ['agent_coder_http:message:0', 'Inspect this'], ['agent_coder_http:message:1', 'Private finding'],
     ]);
-    assert.deepEqual((await request(base, '/session/agent_coder_http/message?limit=1', owner)).value
-      .map((message) => message.parts[0].text), ['Private finding']);
+    const newestPage = await request(base, '/session/agent_coder_http/message?limit=1', owner);
+    assert.deepEqual(newestPage.value.map((message) => message.parts[0].text), ['Private finding']);
+    assert.equal(newestPage.nextCursor, 'agent_coder_http:message:1');
+    const olderPage = await request(base, `/session/agent_coder_http/message?limit=1&before=${encodeURIComponent(newestPage.nextCursor)}`, owner);
+    assert.deepEqual(olderPage.value.map((message) => message.parts[0].text), ['Inspect this']);
+    assert.equal(olderPage.nextCursor, null);
+    assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=not-a-message', owner)).status, 400);
+    assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=nnd-live-boundary%3Abm90LWEtbWVzc2FnZQ', owner)).status, 400);
+    assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=a&before=b', owner)).status, 400);
+    assert.equal((await request(base, '/session/agent_coder_http/message?before=agent_coder_http%3Amessage%3A1', owner)).status, 400);
     for (const limit of ['0', '201', 'NaN', '1.5', '1&limit=2']) {
       assert.equal((await request(base, `/session/agent_coder_http/message?limit=${limit}`, owner)).status, 400);
     }
@@ -560,7 +571,17 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal((await request(base, '/session/agent_coder_http/message', partialReader)).status, 404);
     assert.equal((await request(base, '/session/agent_coder_http/activity', partialReader)).status, 404);
     assert.equal((await request(base, `/session/${created.value.id}/children`, partialReader)).status, 404);
+    nndEngineHost.childSessions.observeOutput('agent_coder_http', {
+      type: 'stream_delta', session_id: 'agent_coder_http', turn_id: 'turn_live', text: 'Finalizing',
+    });
+    const livePage = await request(base, '/session/agent_coder_http/message?limit=1', owner);
+    assert.equal(livePage.value[0].info.id, 'agent_coder_http:live');
+    assert.match(livePage.nextCursor, /^nnd-live-boundary:/u);
+    childEngine.transcript.push({ type: 'message', role: 'assistant', content: 'Finalized' });
     stopChild();
+    const afterLivePage = await request(base, `/session/agent_coder_http/message?limit=1&before=${encodeURIComponent(livePage.nextCursor)}`, owner);
+    assert.equal(afterLivePage.value[0].parts[0].text, 'Private finding');
+    assert.equal(afterLivePage.nextCursor, 'agent_coder_http:message:1');
     assert.equal((await request(base, '/session/agent_coder_http/message', owner)).value[1].parts[0].text, 'Private finding');
     const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'hello NNA' }] },
@@ -607,6 +628,17 @@ test('NND harness session routes bind creation to the complete principal workspa
     });
     assert.equal(renamed.status, 200);
     assert.equal(renamed.value.title, 'Renamed session');
+    engines[0].transcript.push(...Array.from({ length: 251 }, (_, index) => ({ type: 'message', role: 'assistant', content: `history ${index}` })));
+    const legacyWindow = await request(base, `/session/${created.value.id}/message`, owner);
+    assert.equal(legacyWindow.value.length, 200);
+    assert.equal(legacyWindow.value[0].parts[0].text, 'history 51');
+    const rootNewest = await request(base, `/session/${created.value.id}/message?limit=200`, owner);
+    assert.equal(rootNewest.nextCursor, `${created.value.id}:message:51`);
+    const rootOlder = await request(base, `/session/${created.value.id}/message?limit=200&before=${encodeURIComponent(rootNewest.nextCursor)}`, owner);
+    assert.equal(rootOlder.value.length, 51);
+    assert.equal(rootOlder.value[0].parts[0].text, 'history 0');
+    assert.equal(rootOlder.nextCursor, null);
+    assert.equal((await request(base, `/session/${created.value.id}/message?limit=1&before=${encodeURIComponent(rootNewest.nextCursor)}`, partialReader)).status, 404);
     assert.equal((await request(base, `/session/${created.value.id}/abort`, owner, { method: 'POST' })).status, 403);
     assert.equal((await request(base, `/session/${created.value.id}/abort`, principal(['nnd.session.abort'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'POST' })).status, 200);
     assert.equal((await request(base, `/session/${created.value.id}`, owner, { method: 'DELETE' })).status, 403);
@@ -689,7 +721,7 @@ async function request(base, path, actor, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const text = await response.text();
-  return { status: response.status, value: text ? JSON.parse(text) : undefined };
+  return { status: response.status, value: text ? JSON.parse(text) : undefined, nextCursor: response.headers.get('x-next-cursor') };
 }
 
 function principal(permissions, overrides = {}) {
