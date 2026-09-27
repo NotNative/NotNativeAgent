@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:675810d935b0b877166c06acb1d23495facca25125befb5629b93edbdcfd86c9",
+  "source_digest": "sha256:83ca34097d936bcce9399009b7f6231c47337bac3ccfe03bc6c34a3f771e4c87",
   "counts": {
-    "modules": 460,
+    "modules": 462,
     "component_edges": 13
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 138
+      "module_count": 139
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 19
+      "module_count": 20
     },
     {
       "id": "foundation",
@@ -3139,6 +3139,7 @@
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git-diff.ts",
+        "packages/web/src/server/routes/git-walkthrough-generate.ts",
         "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
         "packages/web/src/server/routes/git-worktrees.ts",
         "packages/web/src/server/routes/git.ts",
@@ -4046,6 +4047,16 @@
       ]
     },
     {
+      "path": "packages/web/src/server/routes/git-walkthrough-generate.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/routes/git-walkthrough-snapshot.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -4491,7 +4502,8 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna.ts",
-        "scripts/smoke-provider-route.mjs"
+        "scripts/smoke-provider-route.mjs",
+        "scripts/smoke-walkthrough.mjs"
       ]
     },
     {
@@ -4565,6 +4577,12 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts"
       ]
+    },
+    {
+      "path": "scripts/smoke-walkthrough.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "scripts/web-css-gate.mjs",

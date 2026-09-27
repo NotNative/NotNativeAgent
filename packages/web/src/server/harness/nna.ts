@@ -6,6 +6,10 @@
 import { harnessError, type HarnessAdapter } from './adapter.ts';
 
 const REQUEST_TIMEOUT_MS = 30_000;
+// NNA's explicit walkthrough generation has a 45-second model deadline.
+// Preserve the shorter bound for ordinary API calls while allowing that
+// governed read-only request to finish or report its own deadline.
+const WALKTHROUGH_TIMEOUT_MS = 55_000;
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 
 export interface NnaHarnessOptions {
@@ -54,7 +58,9 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   // Keep its signal attached to fetch for the stream lifetime so NNA can
   // release the subscriber instead of holding a ghost connection.
   const signal = AbortSignal.any([controller.signal, request.signal]);
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutMs = request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(path)
+    ? WALKTHROUGH_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await requestFetch(target, {
       method: request.method, headers, redirect: 'error', signal,

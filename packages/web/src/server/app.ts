@@ -17,6 +17,7 @@ import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitDiffRoutes } from './routes/git-diff.ts';
 import { registerGitWalkthroughSnapshotRoute } from './routes/git-walkthrough-snapshot.ts';
+import { registerGitWalkthroughGenerateRoute } from './routes/git-walkthrough-generate.ts';
 import { registerGitRoutes } from './routes/git.ts';
 import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
@@ -248,6 +249,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);
   registerGitWalkthroughSnapshotRoute(app);
+  registerGitWalkthroughGenerateRoute(app);
   registerGitRoutes(app);
   registerGitWorktreeRoutes(app);
   registerTerminalRoutes(app, terminal);

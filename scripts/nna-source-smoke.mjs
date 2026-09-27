@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs';
-
+import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
@@ -78,6 +78,7 @@ function providerReply(body) {
   let delta = { role: 'assistant', content: EXPECTED_REPLY };
   let finishReason = 'stop';
   if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: userText.includes('NND_LOOP_FINAL') ? 'complete' : 'continue', note: 'audit smoke note' }) };
+  else if (walkthroughProviderReply(body)) delta = { role: 'assistant', content: walkthroughProviderReply(body) };
   else if (messages[0]?.content?.includes('isolated tool-permission decision')) {
     const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
     const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');
@@ -130,7 +131,6 @@ async function writeSmokeSkill(root) {
     'invocation: both', '---', 'SECRET_SKILL_BODY',
   ].join('\n'));
 }
-
 function smokeMcpServers() {
   const endpoint = 'http://127.0.0.1:9/mcp';
   return [{ id: 'smoke_memory', transport: 'streamable_http', enabled: false,
@@ -223,6 +223,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
     'NNA must project the submitted user ID for optimistic transcript reconciliation');
   assert.ok(settledMessages[1].info.time.completed >= settledMessages[1].info.time.created,
     'journal-backed assistant reply must be complete, not a perpetual live tail');
+  await probeWalkthrough(call, json, id, provider.requests);
   const delegated = await call(`/api/session/${id}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ messageID: 'smoke_delegate', parts: [{ type: 'text', text: 'Delegate the smoke task to a general sub-agent.' }] }),
@@ -495,5 +496,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, direct and SSE-driven autonomous continuation, completion, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, model-only diff walkthrough, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, direct and SSE-driven autonomous continuation, completion, and origin gate.\n');
 }

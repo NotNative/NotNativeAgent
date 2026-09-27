@@ -160,7 +160,7 @@ function mintLocalPrincipal(workspaceId: string): string {
   const now = new Date().toISOString();
   return Buffer.from(JSON.stringify({
     subject_id: 'nnd-local-operator', platform_role: 'operator',
-    permissions: ['nnd.read', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
+    permissions: ['nnd.read', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
     workspace_ids: [workspaceId], group_ids: [], trace_id: randomUUID(), request_id: randomUUID(), issued_at: now,
   }), 'utf8').toString('base64url');
 }

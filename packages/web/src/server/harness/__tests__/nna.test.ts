@@ -54,6 +54,28 @@ describe('NNA harness adapter', () => {
     expect(await response.json()).toEqual({ error: { message: 'NNA harness request timed out' } });
   });
 
+  it('allows the 45-second NNA walkthrough deadline while keeping ordinary calls at 30 seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      const signals: AbortSignal[] = [];
+      const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        signals.push(init!.signal!);
+        return new Promise((_resolve, reject) => init!.signal!.addEventListener('abort',
+          () => reject(new DOMException('deadline', 'AbortError')), { once: true }));
+      });
+      const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
+      const walkthrough = adapter.handle(new Request('http://nnd.local/api/v1/nnd/sessions/ses_test/walkthrough', { method: 'POST' }));
+      const ordinary = adapter.handle(new Request('http://nnd.local/api/session'));
+      await vi.advanceTimersByTimeAsync(30_001);
+      expect(signals[0]!.aborted).toBe(false);
+      expect(signals[1]!.aborted).toBe(true);
+      expect((await ordinary).status).toBe(504);
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(signals[0]!.aborted).toBe(true);
+      expect((await walkthrough).status).toBe(504);
+    } finally { vi.useRealTimers(); }
+  });
+
   it('propagates client cancellation while waiting for upstream headers', async () => {
     const client = new AbortController();
     let upstreamSignal: AbortSignal | undefined;

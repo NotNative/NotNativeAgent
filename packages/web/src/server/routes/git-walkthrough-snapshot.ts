@@ -17,7 +17,7 @@ type Part = { scope: Scope; path: string; oldPath?: string; patch: string };
 type Stop = { id: string; scope: Scope; path: string; oldPath?: string; header: string; oldStart: number; newStart: number; body: string };
 type Snapshot = { signature: string; stops: Stop[]; fileCount: number; binaryFiles: number };
 
-class SnapshotError extends Error {
+export class SnapshotError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) { super(message); }
 }
 

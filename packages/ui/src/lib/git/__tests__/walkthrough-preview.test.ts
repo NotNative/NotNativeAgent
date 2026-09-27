@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 import { runtimeFetch } from '../../runtime-fetch.ts';
-import { loadWalkthroughPreview } from '../walkthrough-preview.ts';
+import { generateWalkthroughPreview, loadWalkthroughPreview } from '../walkthrough-preview.ts';
 
 const request = runtimeFetch as ReturnType<typeof vi.fn>;
 const snapshot = { signature: 'server-revision', fileCount: 1, binaryFiles: 0, stops: [
@@ -30,5 +30,14 @@ describe('deterministic walkthrough client', () => {
   it('rejects a malformed successful payload', async () => {
     request.mockResolvedValue(new Response(JSON.stringify({ files: [] }), { status: 200 }));
     await expect(loadWalkthroughPreview('/repo')).rejects.toThrow(/Invalid Git snapshot/u);
+  });
+
+  it('sends an explicit revision-bound generation request', async () => {
+    request.mockResolvedValue(new Response(JSON.stringify({ revision: 'rev1', chapters: [], omittedSensitiveHunks: 0 }), { status: 200 }));
+    await generateWalkthroughPreview('/repo', 'ses_test', 'rev1');
+    expect(request.mock.calls[0]?.[0]).toBe('/api/git/walkthrough-generate');
+    const init = request.mock.calls[0]?.[1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ directory: '/repo', sessionId: 'ses_test', revision: 'rev1' });
   });
 });

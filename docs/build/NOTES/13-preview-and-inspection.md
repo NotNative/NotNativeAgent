@@ -344,6 +344,12 @@ suite, graph, source smoke, and release gates.
   drawing details. It never sends the message. Element and region modes remain
   available; the iframe transport and agent browser tool do not gain drawing.
 
+## P11-22: explicit model explanation on the current diff (2026-09-26)
+
+- The Walkthrough pane adds an explicit **Generate explanation** action for a selected NNA session. The NND server rechecks the snapshot revision, checks that the NNA session belongs to the selected workspace, and sends only an aliased, 64 KiB-bounded hunk digest to NNA's `nnd.walkthrough.generate` route. Known sensitive-path hunks are omitted; the UI warns that other code may still contain secrets and that the configured model receives the digest. No agent turn or tool call is made.
+- NNA's model-only route is separately permissioned, scheduled, deadline-bound and output-bounded. NND accepts model output only as plain-text chapter/explanation prose; it resolves aliases to the server-owned hunk IDs, drops invented or repeated aliases, refuses invalid output, and rechecks the diff revision before display. Prose is displayed beside the real hunk with provider/model attribution and a verification warning.
+- This is an in-memory, working-tree-only narrative slice. Content-addressed review caching, model override/picker, branch/commit/PR sources, generation progress/cancel, and deeper generated-file exclusions remain P11 follow-ups.
+
 ## P11-21: server-owned working-tree diff snapshot (2026-09-26)
 
 - `GET /api/git/walkthrough-snapshot?directory=…` now owns the deterministic

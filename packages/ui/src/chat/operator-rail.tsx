@@ -37,6 +37,7 @@ const DEFAULT_PANEL_PREFERENCES: PanelPreferences = {
 export function OperatorRail({ store, engine, directory, compactOpen = false, suppressed = false, onCloseCompact }: {
   store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string; compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
 }): ReactNode {
+  const walkthroughSessionId = useSessionViewStore((state) => state.activeDirectory === directory ? state.currentSessionId : null);
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
   useEffect(() => {
     const query = window.matchMedia?.('(min-width: 1280px)');
@@ -210,7 +211,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             if (!panels.visible.includes('walkthrough')) changePanels({ ...panels, visible: [...panels.visible, 'walkthrough'] });
             setSelection({ key: selectionKey, surface: 'walkthrough' });
           }} /> : null}
-        {surface === 'walkthrough' ? <WalkthroughPreviewSurface directory={directory} visible={paneVisible} /> : null}
+        {surface === 'walkthrough' ? <WalkthroughPreviewSurface directory={directory} sessionId={walkthroughSessionId} visible={paneVisible} /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}
