@@ -96,6 +96,28 @@ describe('managed local NNA launcher', () => {
     expect(spawnChild).toHaveBeenCalledOnce();
   });
 
+  it('does not inherit a stale browser callback when this launch has no bridge', async () => {
+    const previousUrl = process.env.NNA_NND_BROWSER_URL;
+    const previousToken = process.env.NNA_NND_BROWSER_TOKEN;
+    process.env.NNA_NND_BROWSER_URL = 'http://127.0.0.1:4172/api/browser-control/request';
+    process.env.NNA_NND_BROWSER_TOKEN = token;
+    try {
+      const launched = child();
+      const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => launched);
+      const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild });
+      const childEnv = (spawnChild.mock.calls[0]?.[2] as { env: NodeJS.ProcessEnv }).env;
+      expect(childEnv.NNA_NND_BROWSER_URL).toBeUndefined();
+      expect(childEnv.NNA_NND_BROWSER_TOKEN).toBeUndefined();
+      launched.stdout.write(ready());
+      (await promise).dispose();
+    } finally {
+      if (previousUrl === undefined) delete process.env.NNA_NND_BROWSER_URL;
+      else process.env.NNA_NND_BROWSER_URL = previousUrl;
+      if (previousToken === undefined) delete process.env.NNA_NND_BROWSER_TOKEN;
+      else process.env.NNA_NND_BROWSER_TOKEN = previousToken;
+    }
+  });
+
   it.each(['http://evil.example:4812', 'http://localhost:4812', 'http://[::1]:4812', 'https://127.0.0.1:4812', 'http://127.0.0.1:0', 'http://127.0.0.1:4812/path'])('rejects unsafe readiness endpoint %s', async (endpoint: string) => {
     const process = child();
     const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild: () => process });

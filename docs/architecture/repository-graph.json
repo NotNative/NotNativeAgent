@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a25779d515fe29cfbb13d94db9ef3bf122b7aa0dae52f41a2011c743a6a9cdde",
+  "source_digest": "sha256:a8ff8a1232c9e7f26c6a418ad79d8fd067df257339f999a82053c909ebae8cc0",
   "counts": {
-    "modules": 462,
+    "modules": 464,
     "component_edges": 13
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 20
+      "module_count": 22
     },
     {
       "id": "foundation",
@@ -84,6 +84,7 @@
     "node:os",
     "node:path",
     "node:process",
+    "node:test",
     "node:url",
     "node:util",
     "node:zlib",
@@ -4538,6 +4539,20 @@
       "component": "gates",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "scripts/serve-installed.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/serve-installed.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/serve-installed.mjs"
+      ]
     },
     {
       "path": "scripts/smoke-goal-runtime.mjs",

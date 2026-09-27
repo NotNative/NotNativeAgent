@@ -11,7 +11,11 @@ remaining P12 slices ride after it.
   1. `packages/electron/` workspace: `main.mjs` (boot per §1.2/1.3 v1 subset),
      `preload.mjs` (minimal §3.4 face), `package.json` (electron + electron-builder
      devDeps; `build` config per §14.1 win/nsis subset).
-  2. Server hosting (§2.1): **in-process, never a sidecar** (hard invariant).
+  2. Server hosting (§2.1): upstream uses **in-process, never a sidecar**.
+     NND keeps that as its current Electron fallback, but ADR 0020 and the
+     user's NNA-owned add-on direction supersede it for the target deployment:
+     an installed NND web service must be independently runnable and then
+     supervised by NNA, while Electron becomes an attaching shell.
      `main.mjs` sets NOTNATIVE_* env BEFORE a dynamic ESM import of the server
      bundle, then `startServer()`. The packaged app CANNOT run raw TS (Electron's
      Node lacks type-stripping), so `scripts/electron-build.mjs` bundles

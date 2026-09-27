@@ -83,8 +83,7 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
   try {
     child = (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'nnd', 'serve'], {
       stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
-      env: { ...process.env, ...(options.dataRoot ? { NNA_HOME: options.dataRoot } : {}),
-        ...(options.browserCallback ? { NNA_NND_BROWSER_URL: options.browserCallback.url, NNA_NND_BROWSER_TOKEN: options.browserCallback.token } : {}) },
+      env: localChildEnvironment(options),
     }) as ChildProcessWithoutNullStreams;
   } catch {
     return Promise.reject(new Error('NNA local harness could not start'));
@@ -134,6 +133,19 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
     child.once('exit', onPrematureExit);
     child.stdout.on('data', onData);
   });
+}
+
+function localChildEnvironment(options: LocalNnaLaunchOptions): NodeJS.ProcessEnv {
+  // Browser authority must be supplied by this launch, never inherited from
+  // an operator shell or an earlier NND process with a different bridge.
+  const environment: NodeJS.ProcessEnv = { ...process.env, ...(options.dataRoot ? { NNA_HOME: options.dataRoot } : {}) };
+  delete environment.NNA_NND_BROWSER_URL;
+  delete environment.NNA_NND_BROWSER_TOKEN;
+  if (options.browserCallback) {
+    environment.NNA_NND_BROWSER_URL = options.browserCallback.url;
+    environment.NNA_NND_BROWSER_TOKEN = options.browserCallback.token;
+  }
+  return environment;
 }
 
 function validBrowserCallback(callback: { url: string; token: string }): boolean {

@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-26 · **PB-3 standalone installed-service entrypoint.** A validated
+  installed NND package can run its built web server in Node without an
+  Electron window, on explicit loopback port only. Stdout carries a bounded
+  readiness frame while diagnostics go to stderr. The standalone path disables
+  the NNA browser tool because no Electron guest/IPC controller exists; it
+  must not advertise a capability that would time out. NNA supervision,
+  shell attachment, and a remote browser bridge remain pending.
+
 - 2026-09-26 · **PB-2 installed activation gate.** The scripted Electron
   installation identifies its root to the managed NNA child. NNA now checks
   the registered package's canonical root and current version/assets before

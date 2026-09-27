@@ -30,12 +30,13 @@ import type { Server as HttpServer } from 'node:http';
 export async function startServer(): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   const browserControl = new BrowserControlBroker();
   const browserCallbackSecret = randomBytes(32).toString('base64url');
+  const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
+    url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
+  };
   let localNna: LocalNnaHarness | undefined;
   try {
-    localNna = await configureHarness({
-      url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
-    });
-    return await startConfiguredServer(localNna, browserControl, browserCallbackSecret);
+    localNna = await configureHarness(browserCallback);
+    return await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined);
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.
@@ -46,30 +47,41 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
 }
 
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
-  browserCallbackSecret: string): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
+  browserCallbackSecret: string | undefined): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
-    ...(localNna ? { browserControl, browserCallbackSecret } : {}) });
+    ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
   // error event. Wait here so the caller can stop its already-owned NNA child.
   await awaitServerListening(server as HttpServer);
-  // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
-  // upgrade gate (loopback stays enforced in the wire layer).
-  const wiring = attachTerminalWebsocket(
-    server as HttpServer,
-    terminal,
-    (url, headers, method) => upgradeAllowedForRequest(url, headers, method),
-  );
-  terminal.startSweep();
-  const relayService = startRelayHostService();
-  // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
-  // startup tunnel (failures degrade to no tunnel and never abort boot).
-  const tunnelPlane = wireTunnelPlane();
-  // Message queue (§D) + scheduled tasks (§C) run for the process lifetime;
-  // routes resolve the same singletons lazily — tests never hold timers.
-  const goalSafety = bootAutomation();
+  let wiring: ReturnType<typeof attachTerminalWebsocket> | undefined;
+  let relayService: ReturnType<typeof startRelayHostService> | undefined;
+  let tunnelPlane: ReturnType<typeof wireTunnelPlane> | undefined;
+  let goalSafety: ReturnType<typeof bootAutomation> | undefined;
+  try {
+    // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
+    // upgrade gate (loopback stays enforced in the wire layer).
+    wiring = attachTerminalWebsocket(
+      server as HttpServer,
+      terminal,
+      (url, headers, method) => upgradeAllowedForRequest(url, headers, method),
+    );
+    terminal.startSweep();
+    relayService = startRelayHostService();
+    // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
+    // startup tunnel (failures degrade to no tunnel and never abort boot).
+    tunnelPlane = wireTunnelPlane();
+    // Message queue (§D) + scheduled tasks (§C) run for the process lifetime;
+    // routes resolve the same singletons lazily — tests never hold timers.
+    goalSafety = bootAutomation();
+  } catch (error) {
+    // A failure after bind must not leave a listener accepting requests with
+    // its authenticated NNA child already stopped by the outer boot guard.
+    rollbackServerStart(server as HttpServer, terminal, wiring, relayService, tunnelPlane, goalSafety);
+    throw error;
+  }
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
   let disposed = false;
   const dispose = (): void => {
@@ -89,6 +101,17 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   process.once('SIGINT', dispose);
   process.once('SIGTERM', dispose);
   return { port: ENV.port, browserControl, dispose }; // shell and authenticated child callback share one broker
+}
+
+function rollbackServerStart(server: HttpServer, terminal: ReturnType<typeof createTerminalRuntime>,
+  wiring?: ReturnType<typeof attachTerminalWebsocket>, relay?: ReturnType<typeof startRelayHostService>,
+  tunnel?: ReturnType<typeof wireTunnelPlane>, goal?: ReturnType<typeof bootAutomation>): void {
+  server.close();
+  terminal.dispose();
+  wiring?.dispose();
+  relay?.dispose();
+  void tunnel?.dispose();
+  goal?.dispose();
 }
 
 /** Demand signals drive the relay lifecycle; routes resolve this singleton lazily. */
@@ -117,7 +140,7 @@ function awaitServerListening(server: HttpServer): Promise<void> {
   });
 }
 
-async function configureHarness(browserCallback: { url: string; token: string }): Promise<LocalNnaHarness | undefined> {
+async function configureHarness(browserCallback: { url: string; token: string } | undefined): Promise<LocalNnaHarness | undefined> {
   if (ENV.harness !== 'nna') {
     registerHarnessAdapter(mockHarness);
     return undefined;
