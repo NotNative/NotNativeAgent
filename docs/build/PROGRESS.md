@@ -22,6 +22,11 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Changes group navigation.** The Git surface now labels
+  staged and working groups with their file counts and lets each collapse
+  independently. Bulk stage/unstage remains available in a collapsed group;
+  selected diff and commit draft stay in place while scanning long lists.
+
 - 2026-09-28 · **Readable maximized Activity.** The installed desktop GUI
   showed log events spanning an ultrawide monitor. Maximized Activity now
   centers its header, event rows, empty state, and live-tail control in a

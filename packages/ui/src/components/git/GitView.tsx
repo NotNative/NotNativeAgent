@@ -231,6 +231,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto" data-testid="git-changes-scroll">
           <Section
             title="Staged"
+            count={staged.length}
             accent
             primaryLabel="Unstage all"
             onPrimary={staged.length > 0 ? () => stageWithHint(staged.map((entry) => entry.path), 'unstage') : undefined}
@@ -250,6 +251,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
           </Section>
           <Section
             title="Changes"
+            count={working.length}
             primaryLabel="Stage all"
             onPrimary={working.length > 0 ? () => stageWithHint(working.map((entry) => entry.path), 'stage') : undefined}
           >
@@ -339,18 +341,24 @@ function Centered({ label, testid }: { label: string; testid: string }): ReactNo
 }
 
 function Section({
-  title, accent, primaryLabel, onPrimary, children,
+  title, count, accent, primaryLabel, onPrimary, children,
 }: {
   title: string;
+  count: number;
   accent?: boolean;
   primaryLabel: string;
   onPrimary?: (() => void) | undefined;
   children: ReactNode;
 }): ReactNode {
+  const [expanded, setExpanded] = useState(true);
   return (
     <section className={`rounded-lg border p-2 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/60 bg-card/40'}`}>
       <header className="mb-1 flex items-center gap-2 px-1">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
+        <button type="button" aria-expanded={expanded} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${title.toLowerCase()} files`}
+          className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          data-testid={`git-${title.toLowerCase()}-toggle`} onClick={() => setExpanded((value) => !value)}>
+          <span aria-hidden="true" className="w-3 text-center">{expanded ? '⌄' : '›'}</span>{title} <span className="font-normal">{count}</span>
+        </button>
         {onPrimary !== undefined ? (
           <button
             type="button"
@@ -362,7 +370,7 @@ function Section({
           </button>
         ) : null}
       </header>
-      {children}
+      {expanded ? children : null}
     </section>
   );
 }

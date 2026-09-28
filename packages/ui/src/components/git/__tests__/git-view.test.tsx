@@ -312,6 +312,26 @@ describe('GitView (doc 06 §6 v1)', () => {
     }
   });
 
+  it('shows file counts and collapses each Changes group without hiding its bulk action', async () => {
+    await render();
+    await settle();
+    const stagedToggle = document.querySelector('[data-testid="git-staged-toggle"]') as HTMLButtonElement;
+    const changesToggle = document.querySelector('[data-testid="git-changes-toggle"]') as HTMLButtonElement;
+    expect(stagedToggle.textContent).toContain('Staged 1');
+    expect(changesToggle.textContent).toContain('Changes 1');
+    expect(stagedToggle.getAttribute('aria-expanded')).toBe('true');
+    act(() => stagedToggle.click());
+    expect(stagedToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('[data-path="staged.ts"]')).toBeNull();
+    expect(rowOf('work.ts', 'working')).toBeDefined();
+    expect(document.querySelector('[data-testid="git-staged-primary"]')).not.toBeNull();
+    act(() => changesToggle.click());
+    expect(document.querySelector('[data-path="work.ts"]')).toBeNull();
+    act(() => { stagedToggle.click(); changesToggle.click(); });
+    expect(rowOf('staged.ts', 'staged')).toBeDefined();
+    expect(rowOf('work.ts', 'working')).toBeDefined();
+  });
+
   it('discards through the confirm dialog against /api/git/discard', async () => {
     await render();
     await settle();

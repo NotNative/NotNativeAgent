@@ -212,6 +212,9 @@ Tasks:
    refresh pauses. Commit drafts survive workspace switches and full-view
    navigation within this app session, keyed by runtime and workspace; they
    are never written to disk, and a successful commit clears only its own text.
+   **Changes group navigation implemented (2026-09-28):** staged and working
+   file groups show live counts and can collapse independently while keeping
+   their bulk actions and any selected review/commit draft available.
    **Worktrees rail implemented (2026-09-28):** the live worktree manager can
    stay beside chat and retains an in-progress creation form while another
    operator pane is foregrounded; the existing modal remains available.

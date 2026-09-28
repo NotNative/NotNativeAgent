@@ -348,6 +348,10 @@
     {
       "version": "20260928-22",
       "content_sha256": "3e1095826e47ddd61922f5d921b5a57c45229d4972d2484eec715ede7e52bad1"
+    },
+    {
+      "version": "20260928-23",
+      "content_sha256": "d65ca5a1c7b7db66dc2a00861d309264c186d6bda1290fff3a41dc5607d8d9ad"
     }
   ]
 }
