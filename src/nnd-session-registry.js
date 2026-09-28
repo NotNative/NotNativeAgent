@@ -37,11 +37,12 @@ export class NndSessionRegistry {
     }
     if (this.#sessions.size >= this.limit) throw new ContractError('nnd_session_capacity', 'NND session registry is full');
     const createdAt = Date.now();
+    const agent = childAgentType(options.type);
     const record = {
       sessionId, parentId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds ?? []),
       engine, ingress: new CanonicalIngress(engine), revision: 1,
       directory: engine.config?.workspaceRoot ?? '', createdAt, updatedAt: createdAt,
-      title: `Subagent${typeof options.type === 'string' ? ` · ${options.type}` : ''}`,
+      title: `Subagent${agent ? ` · ${agent}` : ''}`, agent,
       configuredModel: configuredModelProjection(engine),
       transcript: [],
     };
@@ -65,7 +66,7 @@ export class NndSessionRegistry {
     if (!record || record.engine || !Number.isSafeInteger(parentCreatedAt)) return null;
     return { version: 1, sessionId: record.sessionId, parentId: record.parentId, parentCreatedAt,
       subjectId: record.subjectId, workspaceIds: [...record.workspaceIds], directory: record.directory,
-      title: record.title, configuredModel: record.configuredModel, createdAt: record.createdAt,
+      title: record.title, ...(record.agent ? { agent: record.agent } : {}), configuredModel: record.configuredModel, createdAt: record.createdAt,
       updatedAt: record.updatedAt, transcript: record.transcript };
   }
   restoreCompleted(snapshot) {
@@ -75,7 +76,7 @@ export class NndSessionRegistry {
     this.#sessions.set(snapshot.sessionId, {
       sessionId: snapshot.sessionId, parentId: snapshot.parentId, subjectId: snapshot.subjectId,
       workspaceIds: new Set(snapshot.workspaceIds), engine: null, ingress: null, revision: 1,
-      directory: snapshot.directory, title: snapshot.title, configuredModel: snapshot.configuredModel,
+      directory: snapshot.directory, title: snapshot.title, agent: snapshot.agent ?? null, configuredModel: snapshot.configuredModel,
       createdAt: snapshot.createdAt, updatedAt: snapshot.updatedAt, transcript: snapshot.transcript,
       turnState: 'idle',
       attention: latestTurnNeedsInput(snapshot.activity),
@@ -165,7 +166,7 @@ function samePrincipal(record, principal) {
 function describeChild(record) {
   return { id: record.sessionId, slug: record.sessionId, parentID: record.parentId,
     projectID: record.workspaceIds.values().next().value, directory: record.directory,
-    title: record.title, version: '1.0',
+    title: record.title, ...(record.agent ? { agent: record.agent } : {}), version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
     ...(record.configuredModel || record.turnState || record.attention ? { metadata: { nnd: {
       ...(record.configuredModel ? { configuredModel: record.configuredModel } : {}),
@@ -174,6 +175,11 @@ function describeChild(record) {
     } } } : {}),
     time: { created: record.createdAt, updated: record.updatedAt },
   };
+}
+
+function childAgentType(value) {
+  return typeof value === 'string' && value.trim() && value.trim().length <= 128
+    && !/[\u0000-\u001f\u007f]/u.test(value) ? value.trim() : null;
 }
 
 function boundedTranscript(transcript) {

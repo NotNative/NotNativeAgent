@@ -517,6 +517,7 @@ test('NND engine host lists child sessions and projects their retained transcrip
   assert.throws(() => host.listChildren('session_a', { subjectId: 'other', workspaceIds: owner.workspaceIds }),
     { code: 'nnd_session_unavailable' });
   assert.equal(host.get('agent_coder_1', owner).parentID, 'session_a');
+  assert.equal(host.get('agent_coder_1', owner).agent, 'coder');
   assert.deepEqual(host.get('agent_coder_1', owner).metadata.nnd.configuredModel,
     { providerID: 'child-provider', modelID: 'child-model' });
   assert.equal(JSON.stringify(host.list(owner)).includes('private child credential'), false);
@@ -525,6 +526,7 @@ test('NND engine host lists child sessions and projects their retained transcrip
     ['agent_coder_1:message:0', 'Inspect this'], ['agent_coder_1:message:1', 'Done'],
   ]);
   stop();
+  assert.equal(host.get('agent_coder_1', owner).agent, 'coder');
   assert.deepEqual(host.get('agent_coder_1', owner).metadata.nnd.configuredModel,
     { providerID: 'child-provider', modelID: 'child-model' });
   assert.deepEqual(host.statuses(owner), {});
@@ -624,6 +626,7 @@ test('NND completed child transcript survives restart as read-only owned history
   const second = makeHost();
   await second.initialize();
   assert.deepEqual(second.listChildren('session_a', principal).map((session) => session.id), ['agent_a']);
+  assert.equal(second.get('agent_a', principal).agent, 'coder');
   assert.equal(second.get('agent_a', principal).metadata.nnd.configuredModel.modelID, 'child-model');
   assert.deepEqual(second.get('agent_a', principal).metadata.nnd.turnState, { phase: 'idle' });
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.parts[0].text), ['Inspect this', 'Done']);

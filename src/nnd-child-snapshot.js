@@ -110,6 +110,8 @@ function validSnapshot(value) {
     && Number.isSafeInteger(value.updatedAt) && value.updatedAt >= value.createdAt
     && typeof value.directory === 'string' && value.directory.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value.directory)
     && typeof value.title === 'string' && value.title.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(value.title)
+    && (value.agent === undefined || typeof value.agent === 'string' && value.agent.trim().length > 0
+      && value.agent.length <= 128 && !/[\u0000-\u001f\u007f]/u.test(value.agent))
     && (value.configuredModel === null || validModel(value.configuredModel))
     && validTranscript(value.transcript)
     && (value.activity === undefined || Array.isArray(value.activity) && value.activity.length <= 500

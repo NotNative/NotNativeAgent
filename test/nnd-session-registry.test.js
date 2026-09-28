@@ -69,3 +69,18 @@ test('NND completed child time remains recoverable after a wall-clock correction
     assert.equal(snapshot.updatedAt, 2_001, 'settled child must outrank its earlier live description');
   } finally { Date.now = originalNow; }
 });
+
+test('NND child agent identity is a bounded structured field, not parsed from the title', () => {
+  const owner = { subjectId: 'u1', workspaceIds: ['w1'] };
+  const registry = new NndSessionRegistry();
+  const engine = { active: null, transcript: [] };
+  registry.register('child_coder', 'parent_1', owner, engine, { type: ' coder ' });
+  assert.equal(registry.get('child_coder', owner).agent, 'coder');
+  assert.equal(registry.get('child_coder', owner).title, 'Subagent · coder');
+  registry.register('child_invalid', 'parent_1', owner, engine, { type: 'bad\nname' });
+  assert.equal(registry.get('child_invalid', owner).agent, undefined);
+  assert.equal(registry.get('child_invalid', owner).title, 'Subagent');
+  registry.register('child_long', 'parent_1', owner, engine, { type: 'x'.repeat(129) });
+  assert.equal(registry.get('child_long', owner).agent, undefined);
+  assert.equal(registry.get('child_long', owner).title, 'Subagent');
+});

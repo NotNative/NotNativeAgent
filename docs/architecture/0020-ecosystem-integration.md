@@ -110,6 +110,8 @@ may differ from the root's primary route; this is not a claim about which
 fallback actually answered a turn. Provider endpoints, profiles, and credentials
   remain private. The child route ID remains available in its bounded
   description after completion.
+The delegated agent type is a separate, bounded display field in live and
+retained child descriptions. NND does not infer it from the child title.
 
 The NND integration host connects `SessionEngine.output` to its authenticated
 session event stream. Text deltas form a bounded, temporary assistant preview;
