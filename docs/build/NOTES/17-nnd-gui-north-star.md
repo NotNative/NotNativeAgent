@@ -81,6 +81,11 @@ which surface is foregrounded and gets a persistent return-to-chat affordance. I
 not silently collapse the chat, submit focus to a hidden composer, or treat a compact
 viewport as an operator request to expand a panel.
 
+A panel width saved on an ultrawide display is a preference, not a demand on a
+smaller window. Desktop restoration clamps it after reserving room for the
+session sidebar, icon dock, and a readable chat column; the saved wide value
+remains available if the window grows again.
+
 | Rail surface | Operator experience | Authority and safety boundary |
 |---|---|---|
 | Context | A calm summary of the active session: authored turn state, governance mode, selected model/agent/tools, context use, task/goal/subagent state, and audited cost/usage. | NNA supplies projections and accounting. NND does not derive state or manufacture a zero/complete value when data is unavailable. |

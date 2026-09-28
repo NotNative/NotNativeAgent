@@ -106,7 +106,12 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     if (savedWidth.key !== widthKey || widthKey === null) return;
     try { localStorage.setItem(widthKey, String(savedWidth.value)); } catch { /* optional device preference */ }
   }, [savedWidth.key, savedWidth.value, widthKey]);
-  const resize = (next: number): void => setSavedWidth({ key: widthKey, value: clampRailWidth(next, viewportWidth) });
+  const resize = (next: number): void => {
+    const resized = clampRailWidth(next, viewportWidth);
+    // A no-op at the viewport limit is not a new width preference. Keep an
+    // ultrawide saved width for when this window is widened again.
+    if (resized !== width) setSavedWidth({ key: widthKey, value: resized });
+  };
   useEffect(() => {
     if (selection.key !== selectionKey) setSelection({ key: selectionKey, surface: readSurface(selectionKey) });
   }, [selection.key, selectionKey]);
@@ -342,7 +347,13 @@ function surfaceWidthStorageKey(directoryKey: string, surface: Surface): string 
 }
 
 function maxRailWidth(viewportWidth: number): number {
-  return Math.max(280, Math.min(1200, viewportWidth - 550));
+  // The dock is beside a 288px session sidebar, not an otherwise empty page.
+  // A width saved on an ultrawide monitor must leave a readable chat column
+  // when restored in the ordinary desktop window.
+  const sidebarWidth = 288;
+  const dockWidth = 41;
+  const minimumChatWidth = 480;
+  return Math.max(280, Math.min(1200, viewportWidth - sidebarWidth - dockWidth - minimumChatWidth));
 }
 
 function clampRailWidth(width: number, viewportWidth: number): number {

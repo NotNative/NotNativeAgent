@@ -183,16 +183,16 @@ describe('OperatorRail', () => {
     act(() => window.dispatchEvent(new MouseEvent('pointerup')));
     expect(rail.style.width).toBe('405px');
     act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
-    expect(rail.style.width).toBe('641px');
+    expect(rail.style.width).toBe('512px');
     vi.stubGlobal('innerWidth', 1100);
     act(() => window.dispatchEvent(new Event('resize')));
-    expect(rail.style.width).toBe('591px');
+    expect(rail.style.width).toBe('332px');
     vi.stubGlobal('innerWidth', 400);
     act(() => window.dispatchEvent(new Event('resize')));
     expect(rail.style.width).toBe('321px');
     vi.stubGlobal('innerWidth', 1280);
     act(() => window.dispatchEvent(new Event('resize')));
-    expect(rail.style.width).toBe('641px');
+    expect(rail.style.width).toBe('512px');
     act(() => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
     expect(rail.style.width).toBe('405px');
     activeRuntime = 'host:other';
@@ -238,7 +238,7 @@ describe('OperatorRail', () => {
     expect(rail.style.width).toBe('1241px');
     vi.stubGlobal('innerWidth', 1100);
     act(() => window.dispatchEvent(new Event('resize')));
-    expect(rail.style.width).toBe('591px');
+    expect(rail.style.width).toBe('332px');
     expect(window.localStorage.getItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/wide:context')).toBe('1200');
     vi.stubGlobal('innerWidth', 3440);
     act(() => window.dispatchEvent(new Event('resize')));
@@ -246,6 +246,25 @@ describe('OperatorRail', () => {
     window.localStorage.setItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/narrow:context', '300');
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/narrow" />));
     expect(rail.style.width).toBe('341px');
+  });
+  it('restores an ultrawide panel without crushing chat on a normal desktop', () => {
+    vi.stubGlobal('innerWidth', 1265);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    window.localStorage.setItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/work:context', '1200');
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.style.width).toBe('497px'); // 456px panel + 41px dock; 480px chat remains beside the sidebar.
+    const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
+    act(() => separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true })));
+    expect(rail.style.width).toBe('497px');
+    expect(window.localStorage.getItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/work:context')).toBe('1200');
+    vi.stubGlobal('innerWidth', 3440);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('1241px');
   });
   it('keeps the foreground compact pane open when it becomes a desktop dock', () => {
     vi.stubGlobal('innerWidth', 1100);
@@ -260,7 +279,7 @@ describe('OperatorRail', () => {
     act(() => (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click());
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
-    expect(rail.style.width).toBe('341px');
+    expect(rail.style.width).toBe('332px');
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Notes');
   });
   it('stops terminal foreground work when the desktop rail becomes compact-hidden', () => {
