@@ -158,6 +158,23 @@ describe('OperatorRail', () => {
     expect(panel.textContent).not.toContain('Other tool');
   });
 
+  it('keeps wide Context content readable and dates Activity rows across days', () => {
+    vi.stubGlobal('innerWidth', 3440);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: 'D:/work' });
+    const time = Date.UTC(2026, 8, 28, 18, 31);
+    const store = createDirectoryStore({ session: [{ id: 's1', time: { created: 1, updated: 2 } }] as never,
+      activity: [{ id: 'turn-1', sessionID: 's1', time, kind: 'turn', status: 'completed', summary: 'Turn completed' }] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="context-reading-column"]')?.className).toContain('max-w-4xl');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const stamp = document.querySelector('[data-testid="activity-timestamp"]') as HTMLTimeElement;
+    expect(stamp.dateTime).toBe(new Date(time).toISOString());
+    expect(stamp.textContent).toContain('2026');
+    expect(stamp.parentElement?.className).toContain('flex-wrap');
+  });
+
   it('does not show a new project session against the old column during a directory switch', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();

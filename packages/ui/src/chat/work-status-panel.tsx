@@ -168,7 +168,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const hasSessionDetails = sections.some((section) => section.id !== 'project') || (expanded && ledger.length > 0);
   return (
     <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
-      <div className={`${expanded ? 'mx-auto w-full max-w-4xl' : 'w-full'} flex flex-col gap-3`}>
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-3" data-testid="context-reading-column">
       {selectedSession ? <header className={expanded ? 'px-1 py-3' : 'px-1 py-1'} data-testid="context-session-header">
         <h2 className={`truncate font-medium text-neutral-200 ${expanded ? 'text-base' : 'text-sm'}`}>{selectedSession.title}</h2>
         {routeLabel ? <p className="mt-1 truncate text-xs text-neutral-500">{routeLabel}</p> : null}
