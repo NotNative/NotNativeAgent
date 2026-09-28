@@ -337,7 +337,7 @@ export function Composer(props: ComposerProps): ReactNode {
     const target = sessionID;
     const payloadParts = outgoing.map((part) => part.type === 'file'
       ? ({ type: 'file' as const, url: part.url, filename: part.filename, mime: part.mime })
-      : ({ type: 'text' as const, text: part.text }));
+      : ({ type: 'text' as const, text: part.text, ...(part.synthetic ? { synthetic: true } : {}) }));
     const command = shell ? text.trim() : '';
     if (target && shell && command) {
       await services.engine.actions.runShell(target, command);

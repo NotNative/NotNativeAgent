@@ -94,6 +94,20 @@ export async function removeWorktree(directory: string, worktreePath: string, de
   return { ok: true, branch: body.branch ?? null };
 }
 
+/** §5.31 magic prompts: fusion reads overrides; an absent endpoint can still
+ * use built-in catalog defaults, so HTTP failure folds to null. */
+export async function listMagicPromptOverrides(): Promise<Record<string, string> | null> {
+  const response = await runtimeFetch('/api/magic-prompts');
+  if (!response.ok) return null;
+  const body = await response.json() as { overrides?: unknown };
+  const overrides = body.overrides;
+  if (typeof overrides !== 'object' || overrides === null) return null;
+  return Object.fromEntries(
+    Object.entries(overrides as Record<string, unknown>)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
+
 // ---------- terminal command plane (doc 07 section 3.7) ----------
 
 export interface TerminalShellOptionResponse { id: string; name: string; supportsLogin: boolean }

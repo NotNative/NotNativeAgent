@@ -90,7 +90,10 @@ export async function optimisticSend(
     directory: string;
     sessionID: string;
     delivery?: 'steer' | 'queue';
-    parts: Array<{ type: 'text'; text: string } | { type: 'file'; url?: string; mime?: string; filename?: string }>;
+    parts: Array<
+      { type: 'text'; text: string; synthetic?: boolean } |
+      { type: 'file'; url?: string; mime?: string; filename?: string }
+    >;
     model: { providerID: string; modelID: string; variant?: string };
     agent?: string;
   },
@@ -131,7 +134,8 @@ function addOptimisticDraft(
   } as Message;
   const optimisticParts: Part[] = input.parts.map((part) =>
     part.type === 'text'
-      ? ({ id: ascendingId('prt'), sessionID: '', messageID, type: 'text', text: part.text } as unknown as Part)
+      ? ({ id: ascendingId('prt'), sessionID: '', messageID, type: 'text', text: part.text,
+          ...(part.synthetic ? { synthetic: true } : {}) } as unknown as Part)
       : ({ id: ascendingId('prt'), sessionID: '', messageID, type: 'file', url: part.url ?? '', mime: part.mime ?? 'application/octet-stream', filename: part.filename } as unknown as Part),
   );
   engine.loaderOptimisticAdd(directory, input.sessionID, store, { messageID, message: optimisticMessage, parts: optimisticParts });
@@ -162,7 +166,7 @@ async function dispatchPrompt(
       ...(input.delivery ? { delivery: input.delivery } : {}),
       parts: input.parts.map((part) =>
         part.type === 'text'
-          ? { type: 'text', text: part.text }
+          ? { type: 'text', text: part.text, ...(part.synthetic ? { synthetic: true } : {}) }
           : { type: 'file', url: part.url ?? '', mime: part.mime ?? 'application/octet-stream', filename: part.filename },
       ),
     },

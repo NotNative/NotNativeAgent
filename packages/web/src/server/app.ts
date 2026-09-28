@@ -26,6 +26,7 @@ import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
 import { registerSnippetRoutes } from './routes/snippets.ts';
+import { registerMagicPromptRoutes } from './routes/magic-prompts.ts';
 import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
 import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
@@ -243,6 +244,8 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   // Snippet config-entity family (doc 03 §5.x, NND addition): BEFORE the
   // harness proxy, riding the same auth posture as its siblings.
   registerSnippetRoutes(app);
+  // Magic-prompt template overrides (doc 03 §5.31): before the proxy.
+  registerMagicPromptRoutes(app);
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
   registerTunnelRoutes(app);

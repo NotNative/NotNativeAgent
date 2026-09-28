@@ -26,6 +26,9 @@ import { TerminalView } from './terminal/TerminalView.tsx';
 import { TerminalKeepaliveOwner } from './terminal/TerminalKeepaliveOwner.tsx';
 import { ScheduledTasksDialog } from './scheduled/scheduled-tasks-dialog.tsx';
 import { launchedSessionDirectory, MultiRunLauncher } from '../chat/multirun-launcher.tsx';
+import { MultiRunFusionDialog } from '../chat/multirun-fusion-dialog.tsx';
+import { fusionIdentityFromSession } from '../lib/multirun/fusion.ts';
+import type { Session } from '../lib/nnd/types.ts';
 import { useScheduledShellWiring } from './scheduled/scheduled-shell-wiring.tsx';
 import { useFilesViewTabsStore } from '../lib/files/tabs-store.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
@@ -61,9 +64,16 @@ export function MainLayout(): ReactNode {
   const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [multiRunOpen, setMultiRunOpen] = useState(false);
+  const [fusionTarget, setFusionTarget] = useState<{ trigger: Session; identity: NonNullable<ReturnType<typeof fusionIdentityFromSession>> } | null>(null);
   const openScheduled = useCallback(() => setScheduledOpen(true), []);
   const closeScheduled = useCallback(() => setScheduledOpen(false), []);
   const closeMultiRun = useCallback(() => setMultiRunOpen(false), []);
+  const openFusion = useCallback((session: Session) => {
+    const identity = fusionIdentityFromSession(session);
+    if (identity === null) return;
+    setFusionTarget({ trigger: session, identity });
+  }, []);
+  const closeFusion = useCallback(() => setFusionTarget(null), []);
   const openEditorFile = useCallback((directory: string, path: string) => {
     setReviewPane('');
     setFilesOpen(true);
@@ -333,7 +343,7 @@ export function MainLayout(): ReactNode {
             onOpenSession={actions.openSession} onRestore={actions.restore} onDelete={actions.deleteSession} />
         ) : (
           <>
-            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} />
+            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} onRunFusion={openFusion} />
             <ChatView services={services} currentDirectory={activeDirectory} />
           </>
         )}
@@ -354,6 +364,15 @@ export function MainLayout(): ReactNode {
             if (result.firstSessionId === null || firstSessionDirectory === null) return;
             actions.openSession(result.firstSessionId, firstSessionDirectory);
           }} />
+      ) : null}
+      {fusionTarget ? (
+        <MultiRunFusionDialog
+          services={services}
+          trigger={fusionTarget.trigger}
+          identity={fusionTarget.identity}
+          onClose={closeFusion}
+          onLaunched={() => setFusionTarget(null)}
+        />
       ) : null}
       <Toaster position="bottom-right" />
     </div>
