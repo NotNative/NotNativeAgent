@@ -6,6 +6,7 @@ import { activityStatus, childLiveMessage, observeChildLifecycle, turnActivity }
 import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
+import { NndActiveTools } from './nnd-active-tools.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
@@ -224,7 +225,7 @@ export class NndEngineHost {
     }
     const turn = { requestId: command.request_id, activityId: `${sessionId}:turn:${command.request_id}`,
       messageId: `${sessionId}:live:${command.request_id}`, streamedChars: 0, previewLimited: false,
-      opened: false, turnId: null, outcome: null };
+      opened: false, turnId: null, outcome: null, activeTools: new NndActiveTools() };
     context.liveTurn = turn;
     let started;
     try { started = context.ingress.start(command, principal); }
@@ -241,7 +242,6 @@ export class NndEngineHost {
     );
     return { accepted: true, request_id: command.request_id };
   }
-
   /** Observational engine-output boundary; a display subscriber cannot fail a governed turn. */
   observeOutput(sessionId, record) {
     try {
@@ -253,9 +253,9 @@ export class NndEngineHost {
         turn.turnId ??= record.turn_id;
       }
       const observation = nndContextObservation(record);
-      if (observeNndSessionState(context, record)) {
-        this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
-      }
+      const phaseChanged = observeNndSessionState(context, record); const toolsChanged = turn.activeTools.observe(record);
+      if (toolsChanged && !phaseChanged) context.updatedAt = nextUpdatedAt(context);
+      if (toolsChanged || phaseChanged) this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
       if (observation) {
         context.contextUsage = observation;
         this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);

@@ -3,6 +3,7 @@ import { ContractError, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { configuredModelProjection, latestTurnNeedsInput } from './nnd-session-description.js';
 import { nndPhaseFromOutput } from './nnd-turn-state.js';
+import { NndActiveTools } from './nnd-active-tools.js';
 
 const TRANSCRIPT_LIMIT = 200;
 const TRANSCRIPT_CHARS = 262_144;
@@ -44,6 +45,7 @@ export class NndSessionRegistry {
       directory: engine.config?.workspaceRoot ?? '', createdAt, updatedAt: createdAt,
       title: `Subagent${agent ? ` · ${agent}` : ''}`, agent,
       configuredModel: configuredModelProjection(engine),
+      activeTools: new NndActiveTools(),
       transcript: [],
     };
     this.#sessions.set(sessionId, record);
@@ -54,6 +56,7 @@ export class NndSessionRegistry {
       record.engine = null;
       record.ingress = null;
       record.turnState = 'idle';
+      record.activeTools = null;
       record.attention = outcome === 'needs_input';
       // Invariant: a wall-clock correction cannot make a retained child invalid on recovery.
       record.updatedAt = Math.max(Date.now(), record.updatedAt + 1, record.createdAt);
@@ -92,6 +95,10 @@ export class NndSessionRegistry {
       const phase = nndPhaseFromOutput(output);
       if (phase && phase !== record.turnState) {
         record.turnState = phase;
+        record.updatedAt = Math.max(Date.now(), record.updatedAt + 1);
+        this.#notify('phase', record);
+      }
+      if (record.activeTools?.observe(output)) {
         record.updatedAt = Math.max(Date.now(), record.updatedAt + 1);
         this.#notify('phase', record);
       }
@@ -168,9 +175,10 @@ function describeChild(record) {
     projectID: record.workspaceIds.values().next().value, directory: record.directory,
     title: record.title, ...(record.agent ? { agent: record.agent } : {}), version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-    ...(record.configuredModel || record.turnState || record.attention ? { metadata: { nnd: {
+    ...(record.configuredModel || record.turnState || record.attention || record.activeTools?.projection() ? { metadata: { nnd: {
       ...(record.configuredModel ? { configuredModel: record.configuredModel } : {}),
       ...(record.turnState ? { turnState: { phase: record.turnState } } : {}),
+      ...(record.activeTools?.projection() ? { activeTools: record.activeTools.projection() } : {}),
       ...(record.attention ? { attention: { kind: 'needs_input' } } : {}),
     } } } : {}),
     time: { created: record.createdAt, updated: record.updatedAt },

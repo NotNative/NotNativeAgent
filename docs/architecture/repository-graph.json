@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:9d8529f2699eccf90e1e3b4731ece77a8fc73120f8ef63f05afb11edf7de52b6",
+  "source_digest": "sha256:29a665ad0688c27a51a8d200930a6c2649d4ba714135affb402288b392ec6a71",
   "counts": {
-    "modules": 382,
+    "modules": 383,
     "component_edges": 79
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 46
+      "module_count": 47
     },
     {
       "id": "guidance",
@@ -376,6 +376,12 @@
       "module_count": 3
     },
     {
+      "from": "foundation",
+      "to": "tools",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
       "from": "gateway",
       "to": "gateway",
       "import_count": 3,
@@ -498,12 +504,6 @@
     {
       "from": "foundation",
       "to": "gateway",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "foundation",
-      "to": "tools",
       "import_count": 1,
       "module_count": 1
     },
@@ -1882,6 +1882,12 @@
       ]
     },
     {
+      "path": "src/nnd-active-tools.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/nnd-activity-snapshot.js",
       "component": "foundation",
       "entrypoint": false,
@@ -1936,6 +1942,7 @@
       "imports": [
         "src/ids.js",
         "src/ingress.js",
+        "src/nnd-active-tools.js",
         "src/nnd-activity-snapshot.js",
         "src/nnd-child-snapshot.js",
         "src/nnd-child-stream.js",
@@ -2047,6 +2054,7 @@
       "imports": [
         "src/ids.js",
         "src/ingress.js",
+        "src/nnd-active-tools.js",
         "src/nnd-session-description.js",
         "src/nnd-turn-state.js"
       ]

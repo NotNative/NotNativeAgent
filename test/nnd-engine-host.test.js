@@ -103,12 +103,22 @@ test('NND projects only authored semantic turn phases and settles them to idle',
   output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'running',
     tool: 'fs.write', tool_request_id: 'tool_a' });
   assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'running_tool' });
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.activeTools, { count: 1, names: ['fs.write'] });
   assert.ok(events.some((event) => event.type === 'nnd.activity' && event.properties.id === 'session_a:ts:tool_a'),
     'phase updates must not swallow tool activity');
+  const firstRunningStamp = host.get('session_a', owner).time.updated;
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'succeeded',
+    tool: 'fs.write', tool_request_id: 'tool_a' });
+  assert.equal(host.get('session_a', owner).metadata.nnd.activeTools, undefined);
+  assert.ok(host.get('session_a', owner).time.updated > firstRunningStamp,
+    'terminal tool snapshot must outrank a stale running snapshot even when phase is unchanged');
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'running',
+    tool: 'fs.write', tool_request_id: 'tool_b' });
   const runningStamp = host.get('session_a', owner).time.updated;
   resolveTurn({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'idle' });
+  assert.equal(host.get('session_a', owner).metadata.nnd.activeTools, undefined);
   assert.ok(host.get('session_a', owner).time.updated > runningStamp,
     'settled phase must outrank an in-flight prior session snapshot');
   await host.shutdown();
@@ -622,6 +632,13 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   host.childSessions.observeOutput('agent_coder_1', { type: 'state_status', session_id: 'agent_coder_1',
     turn_id: 'turn_a', semantic_state: 'waiting_provider' });
   assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.turnState, { phase: 'waiting_provider' });
+  host.childSessions.observeOutput('agent_coder_1', { type: 'tool_status', session_id: 'agent_coder_1',
+    turn_id: 'turn_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'running', arguments: { secret: 'private' } });
+  assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.activeTools, { count: 1, names: ['shell_run'] });
+  assert.equal(JSON.stringify(events.filter((event) => event.type === 'session.updated')).includes('private'), false);
+  host.childSessions.observeOutput('agent_coder_1', { type: 'tool_status', session_id: 'agent_coder_1',
+    turn_id: 'turn_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded' });
+  assert.equal(host.get('agent_coder_1', principal).metadata.nnd.activeTools, undefined);
   const waitingStamp = host.get('agent_coder_1', principal).time.updated;
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: 'Hello' });
   assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello');
@@ -647,7 +664,8 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   assert.equal(events.at(-1).type, 'session.updated');
   assert.equal(host.messages('agent_coder_1', principal)[1].parts[0].text, 'Hello world');
   assert.equal(host.messages('agent_coder_1', principal).some((entry) => entry.info.id === 'agent_coder_1:live'), false);
-  assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status), ['started', 'completed']);
+  assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status),
+    ['started', 'started', 'completed', 'completed']);
   await host.close('session_a', principal);
   assert.throws(() => host.activity('agent_coder_1', principal), { code: 'nnd_session_unavailable' });
   assert.deepEqual(events.slice(-2).map((event) => event.type), ['session.deleted', 'session.deleted']);

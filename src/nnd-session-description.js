@@ -15,6 +15,7 @@ export function describe(context) {
     ...(configuredModel ? { configuredModel } : {}),
     ...(work ? { work } : {}),
     ...(turnState ? { turnState } : {}),
+    ...(context.liveTurn?.activeTools?.projection() ? { activeTools: context.liveTurn.activeTools.projection() } : {}),
     ...(attention ? { attention } : {}),
     ...(context.goal ? { goal: context.goal } : {}),
     goalRevision: context.goalRevision,
