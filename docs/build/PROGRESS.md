@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Recoverable Changes status failures.** The Changes pane
+  now distinguishes a failed Git status load from an indefinitely pending
+  request and offers an explicit retry. When a refresh fails after a previous
+  success, the pane labels its rows as last-known and pauses staging,
+  discarding, committing, and syncing until a fresh status succeeds. The
+  adversarial review caught both stale-row mutation risk and a retry window
+  that briefly re-enabled controls; Retry now bypasses a cached status and
+  keeps controls disabled until its request completes successfully.
+
 - 2026-09-28 · **Visible branch tracking in Changes.** The status route now
   separates branch from upstream in porcelain headers (including ahead,
   behind, gone, detached, and unborn cases). The Git header shows no upstream,

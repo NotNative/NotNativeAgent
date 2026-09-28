@@ -181,6 +181,68 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(document.querySelector('[data-testid="git-file-preview"]')).toBeNull();
   });
 
+  it('offers a retry when the first status request fails instead of checking forever', async () => {
+    let failing = true;
+    fetchMock.mockImplementation(async (input: string) => {
+      if (String(input).includes('/api/git/status') && failing) return jsonResponse({ error: 'offline' }, false);
+      return route(String(input));
+    });
+    await render();
+    await settle();
+    expect(document.querySelector('[data-testid="git-status-error"]')?.textContent).toContain('Could not load Git status');
+    expect(document.querySelector('[data-testid="git-view-loading"]')).toBeNull();
+    failing = false;
+    await act(async () => { (document.querySelector('[data-testid="git-status-error"] button') as HTMLButtonElement).click(); });
+    await settle();
+    expect(rowOf('work.ts', 'working')).toBeDefined();
+    expect(document.querySelector('[data-testid="git-status-error"]')).toBeNull();
+  });
+
+  it('shows a workspace-scoped recovery state after a failed directory switch', async () => {
+    await render();
+    await settle();
+    fetchMock.mockImplementation(async (input: string) => {
+      if (String(input).includes('/api/git/status') && String(input).includes('directory=%2Fother')) throw new Error('offline');
+      return route(String(input));
+    });
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory="/other" visible /></I18nProvider>); });
+    await settle();
+    expect(document.querySelector('[data-testid="git-status-error"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="git-file-row"]')).toBeNull();
+  });
+
+  it('disables Git mutations while the visible status is stale and restores them after retry', async () => {
+    vi.useFakeTimers();
+    await render();
+    let failing = true;
+    fetchMock.mockImplementation(async (input: string) => {
+      if (String(input).includes('/api/git/status') && failing) return jsonResponse({ error: 'offline' }, false);
+      return route(String(input));
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_500); });
+    expect(document.querySelector('[data-testid="git-status-stale"]')).not.toBeNull();
+    expect((rowOf('work.ts', 'working').querySelector('[data-testid="git-file-stage"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((rowOf('work.ts', 'working').querySelector('[data-testid="git-file-revert-working"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(document.querySelector('[data-testid="git-changes-primary"]')).toBeNull();
+    expect((document.querySelector('[data-testid="git-sync"]') as HTMLButtonElement).disabled).toBe(true);
+    failing = false;
+    let releaseRetry: ((response: Response) => void) | undefined;
+    fetchMock.mockImplementation(async (input: string) => {
+      if (String(input).includes('/api/git/status')) return new Promise<Response>((resolve) => { releaseRetry = resolve; });
+      return route(String(input));
+    });
+    // Simulate another Git surface populating the shared five-second cache.
+    // Explicit Retry must still make a fresh request before enabling changes.
+    useGitStore.getState().applyStatus(DIR, STATUS as GitStatus, 'light');
+    act(() => { (document.querySelector('[data-testid="git-status-stale"] button') as HTMLButtonElement).click(); });
+    expect(releaseRetry).toBeDefined();
+    expect(document.querySelector('[data-testid="git-status-stale"]')).not.toBeNull();
+    expect((rowOf('work.ts', 'working').querySelector('[data-testid="git-file-stage"]') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { releaseRetry!(jsonResponse(STATUS)); });
+    expect(document.querySelector('[data-testid="git-status-stale"]')).toBeNull();
+    expect((rowOf('work.ts', 'working').querySelector('[data-testid="git-file-stage"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('opens a read-only per-file diff from the filename; staging remains an explicit separate action', async () => {
     await render(true);
     await settle();
