@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner';
 import { useGitStore, groupedStatusFiles, scheduleGitReconcile } from '../../lib/git/store';
 import {
-  commitChanges, discardGitFiles, fetchGitBranches, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
+  commitChanges, discardGitFiles, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
   statusSymbol, type GitStatus, type GitStatusFile,
 } from '../../lib/git/api';
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
@@ -35,7 +35,6 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
       setStatusSnapshot({ directory: targetDirectory, value: next });
     }
   }, []);
-  const [branch, setBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [localMessage, setLocalMessage] = useState('');
   const scopedMessage = useCommitDraftStore((state) => draftScope ? state.drafts[draftScope] ?? '' : '');
@@ -73,9 +72,6 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
       const light = await ensureStatus(directory, 'light');
       if (!live) return;
       setStatus(directory, light);
-      const branches = await fetchGitBranches(directory);
-      if (!live) return;
-      setBranch(branches?.current ?? null);
       setLoading(false);
     })();
     const poll = window.setInterval(() => {
@@ -103,7 +99,6 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
     void ensureStatus(directory, 'light').then((next) => {
       if (next !== null) setStatus(directory, next);
     });
-    void fetchGitBranches(directory).then((next) => setBranch(next?.current ?? null));
   });
 
   const grouped = status !== null ? groupedStatusFiles(status) : { staged: [], working: [] };
@@ -233,10 +228,11 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-3 pb-3 pt-2" data-testid="git-view">
-      <header className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2">
-        <span className="text-xs font-medium text-foreground" data-testid="git-branch">{branch ?? 'Detached HEAD'}</span>
+      <header className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2">
+        <span className="min-w-0 truncate text-xs font-medium text-foreground" data-testid="git-branch">{status.branch ?? 'Detached HEAD'}</span>
         <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">Current</span>
-        <span className="ml-auto flex items-center gap-1">
+        <BranchTracking status={status} />
+        <span className={`flex flex-wrap items-center gap-1 ${compact ? 'w-full justify-end' : 'ml-auto'}`}>
           <button type="button" disabled={busy !== ''} className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
             data-testid="git-sync" onClick={syncBranch}>{busy === 'sync' ? 'Syncing...' : 'Sync branch'}</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>History</button>
@@ -439,6 +435,15 @@ function FileRow({ entry, staged, selected, onOpen, onStageToggle, onRevert }: {
 
 function EmptyLine({ label }: { label: string }): ReactNode {
   return <div className="px-2 py-1 text-[11px] text-muted-foreground">{label}</div>;
+}
+
+function BranchTracking({ status }: { status: GitStatus }): ReactNode {
+  if (status.upstream === undefined || status.branch === null) return null;
+  const label = status.upstream === null ? 'No upstream' : status.upstreamGone ? 'Upstream missing'
+    : status.trackingAhead === 0 && status.trackingBehind === 0 ? 'Up to date'
+    : `↑${status.trackingAhead} ↓${status.trackingBehind}`;
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] ${status.upstreamGone ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-muted-foreground'}`}
+    title={status.upstream ?? 'No upstream configured'} data-testid="git-tracking">{label}</span>;
 }
 
 function gitError(error: unknown): string {

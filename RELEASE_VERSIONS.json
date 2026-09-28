@@ -360,6 +360,10 @@
     {
       "version": "20260928-25",
       "content_sha256": "fb8f40fa8d94af93d72532bca6f68830d5a6f0edc359b9053cdbec19522a2350"
+    },
+    {
+      "version": "20260928-26",
+      "content_sha256": "0fc048bb6cdad498c4744e64daa80e2e3bda01927ae93a3427ab666ebe1e4e70"
     }
   ]
 }

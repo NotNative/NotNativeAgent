@@ -20,6 +20,8 @@ export interface GitStatusPayload {
   /** Repository-root-relative prefix of the requested workspace directory. */
   workspacePrefix: string;
   branch: string | null;
+  upstream: string | null;
+  upstreamGone: boolean;
   trackingAhead: number;
   trackingBehind: number;
   mergeInProgress: boolean;
@@ -51,7 +53,7 @@ export function isGitRepository(directory: string): boolean {
 
 function gitStatus(directory: string, light: boolean): GitStatusPayload | string {
   if (!isGitRepository(directory)) {
-    return { isGitRepository: false, workspacePrefix: '', branch: null, trackingAhead: 0, trackingBehind: 0, mergeInProgress: false, rebaseInProgress: false, files: [] };
+    return { isGitRepository: false, workspacePrefix: '', branch: null, upstream: null, upstreamGone: false, trackingAhead: 0, trackingBehind: 0, mergeInProgress: false, rebaseInProgress: false, files: [] };
   }
   const porcelain = git(['status', '--porcelain=v1', '-z', '-b', '--untracked-files=all'], directory);
   if (porcelain.status !== 0) {
@@ -68,6 +70,8 @@ export function parsePorcelain(stdout: string, light: boolean, workspacePrefix =
   // -z keeps NUL-terminated entries: `XY <path>\0[path\0]` (renames doubled)
   const records = stdout.split('\0').filter((record) => record.length > 0);
   let branch: string | null = null;
+  let upstream: string | null = null;
+  let upstreamGone = false;
   let trackingAhead = 0;
   let trackingBehind = 0;
   const files: GitStatusEntry[] = [];
@@ -83,11 +87,15 @@ export function parsePorcelain(stdout: string, light: boolean, workspacePrefix =
       if (trackingMatch) {
         trackingAhead = Number(trackingMatch[1] ?? 0) || 0;
         trackingBehind = Number(trackingMatch[2] ?? 0) || 0;
-        branch = head.slice(0, trackingMatch.index).trim().replace(/\.\.\.$/u, '') || null;
-      } else {
-        branch = head.includes('...') ? head.split('...')[0]!.trim() : head.trim() || null;
       }
-      if (branch === 'HEAD') branch = 'HEAD';
+      upstreamGone = head.endsWith(' [gone]');
+      const suffix = head.indexOf(' [');
+      const identity = (suffix < 0 ? head : head.slice(0, suffix)).trim();
+      const separator = identity.indexOf('...');
+      branch = separator < 0 ? identity : identity.slice(0, separator);
+      upstream = separator < 0 ? null : identity.slice(separator + 3) || null;
+      if (branch.startsWith('No commits yet on ')) branch = branch.slice('No commits yet on '.length);
+      if (branch === 'HEAD (no branch)') branch = null;
       continue;
     }
     if (record.length <= 3) continue;
@@ -97,7 +105,7 @@ export function parsePorcelain(stdout: string, light: boolean, workspacePrefix =
     const path = renameParts[renameParts.length - 1] ?? pathPart;
     emit(xy, path);
   }
-  return { isGitRepository: true, workspacePrefix, branch, trackingAhead, trackingBehind, mergeInProgress: false, rebaseInProgress: false, files };
+  return { isGitRepository: true, workspacePrefix, branch, upstream, upstreamGone, trackingAhead, trackingBehind, mergeInProgress: false, rebaseInProgress: false, files };
 }
 
 function git(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {

@@ -20,6 +20,7 @@ vi.mock('sonner', () => ({
 
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { GitView } from '../GitView.tsx';
+import type { GitStatus } from '../../../lib/git/api.ts';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { useGitStore } from '../../../lib/git/store';
 import { commitDraftScope, useCommitDraftStore } from '../../../lib/git/commit-drafts.ts';
@@ -331,6 +332,30 @@ describe('GitView (doc 06 §6 v1)', () => {
     act(() => { stagedToggle.click(); changesToggle.click(); });
     expect(rowOf('staged.ts', 'staged')).toBeDefined();
     expect(rowOf('work.ts', 'working')).toBeDefined();
+  });
+
+  it('shows honest upstream and ahead/behind state in a compact branch header', async () => {
+    let projected: GitStatus = { ...STATUS, upstream: null, upstreamGone: false };
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/status')
+      ? jsonResponse(projected) : route(String(input)));
+    await render(true);
+    await settle();
+    expect(document.querySelector('[data-testid="git-tracking"]')?.textContent).toBe('No upstream');
+    expect(document.querySelector('[data-testid="git-sync"]')?.parentElement?.className).toContain('w-full');
+    projected = { ...STATUS, branch: 'feature', upstream: 'origin/feature', upstreamGone: false, trackingAhead: 2, trackingBehind: 1 };
+    act(() => publishReviewRefresh(DIR, null, 'git-mutation'));
+    await settle();
+    expect(document.querySelector('[data-testid="git-branch"]')?.textContent).toBe('feature');
+    expect(document.querySelector('[data-testid="git-tracking"]')?.textContent).toBe('↑2 ↓1');
+    projected = { ...STATUS, branch: 'feature', upstream: 'origin/feature', upstreamGone: true };
+    act(() => publishReviewRefresh(DIR, null, 'git-mutation'));
+    await settle();
+    expect(document.querySelector('[data-testid="git-tracking"]')?.textContent).toBe('Upstream missing');
+    projected = { ...STATUS, branch: null, upstream: null, upstreamGone: false };
+    act(() => publishReviewRefresh(DIR, null, 'git-mutation'));
+    await settle();
+    expect(document.querySelector('[data-testid="git-branch"]')?.textContent).toBe('Detached HEAD');
+    expect(document.querySelector('[data-testid="git-tracking"]')).toBeNull();
   });
 
   it('discards through the confirm dialog against /api/git/discard', async () => {

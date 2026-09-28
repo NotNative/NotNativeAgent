@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Visible branch tracking in Changes.** The status route now
+  separates branch from upstream in porcelain headers (including ahead,
+  behind, gone, detached, and unborn cases). The Git header shows no upstream,
+  up-to-date, divergence counts, or a missing upstream only when the status
+  projection supports that claim. Compact rail actions wrap onto their own
+  row instead of crowding the branch and sync state. Adversarial review caught
+  a mixed-snapshot branch label; branch and tracking now render from the same
+  polled status and detached HEAD has no misleading upstream chip.
+
 - 2026-09-28 · **Safe first-push sync.** A new local branch without tracking
   can now use Sync branch or Commit & sync when one remote is available, or
   when the branch/repository explicitly selects a push remote. NND probes the

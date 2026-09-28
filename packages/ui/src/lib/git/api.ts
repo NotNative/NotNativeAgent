@@ -11,6 +11,8 @@ export interface GitStatus {
   isGitRepository: boolean;
   workspacePrefix?: string;
   branch: string | null;
+  upstream?: string | null;
+  upstreamGone?: boolean;
   trackingBehind: number;
   trackingAhead: number;
   files: GitStatusFile[];

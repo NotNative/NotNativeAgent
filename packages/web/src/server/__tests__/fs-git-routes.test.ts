@@ -14,6 +14,7 @@ import { createApp } from '../app.ts';
 import { registerHarnessAdapter } from '../harness/adapter.ts';
 import { mockHarness } from '../harness/mock/index.ts';
 import { resolveWithin } from '../routes/fs.ts';
+import { parsePorcelain } from '../routes/git.ts';
 
 const origin = 'http://test.local';
 let scope = '';
@@ -96,6 +97,21 @@ describe('resolveWithin (containment unit)', () => {
     expect(resolveWithin(scope, 'sub')).toBeTruthy();
     expect(resolveWithin(scope, '../nnd-outer')).toBeNull();
     expect(resolveWithin(scope, './../..')).toBeNull();
+  });
+});
+
+describe('porcelain branch projection', () => {
+  it('keeps the branch separate from upstream and reports divergence and gone tracking', () => {
+    const diverged = parsePorcelain('## main...origin/main [ahead 2, behind 3]\0', true);
+    expect(diverged).toMatchObject({ branch: 'main', upstream: 'origin/main', upstreamGone: false, trackingAhead: 2, trackingBehind: 3 });
+    const gone = parsePorcelain('## feature...origin/feature [gone]\0', true);
+    expect(gone).toMatchObject({ branch: 'feature', upstream: 'origin/feature', upstreamGone: true, trackingAhead: 0, trackingBehind: 0 });
+  });
+
+  it('distinguishes a branch without upstream from a detached or unborn HEAD', () => {
+    expect(parsePorcelain('## local\0', true)).toMatchObject({ branch: 'local', upstream: null });
+    expect(parsePorcelain('## No commits yet on main\0', true)).toMatchObject({ branch: 'main', upstream: null });
+    expect(parsePorcelain('## HEAD (no branch)\0', true)).toMatchObject({ branch: null, upstream: null });
   });
 });
 
