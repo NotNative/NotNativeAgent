@@ -8,6 +8,7 @@ import { ChatSidebar } from '../session-sidebar.tsx';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
 import { useSessionPinnedStore } from '../../stores/useSessionPinnedStore.ts';
+import { useSessionExpansionStore } from '../../stores/useSessionExpansionStore.ts';
 import { initializeRuntimeEndpoint, switchRuntimeEndpoint } from '../../lib/runtime-switch.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -20,6 +21,7 @@ let originalSessionLoad: () => Promise<void>;
 beforeEach(() => {
   localStorage.clear();
   useSessionPinnedStore.setState({ pins: {} });
+  useSessionExpansionStore.setState({ expanded: {} });
   originalLoad = useSessionFoldersStore.getState().load;
   originalSessionLoad = useGlobalSessionsStore.getState().loadSessions;
   useSessionFoldersStore.setState({ load: async () => undefined, foldersByDirectory: {}, collapsedFolderIds: {} });
@@ -182,6 +184,8 @@ it('shows a delegated child below its parent in the same folder with NNA agent i
   });
   const { node } = mount('D:/work');
   const folderNode = node.querySelector('[data-testid="folder-f1"]')!;
+  expect(folderNode.querySelector('[data-child-session="true"]')).toBeNull();
+  act(() => (folderNode.querySelector('[aria-label="Expand Main task subtasks"]') as HTMLButtonElement).click());
   expect([...folderNode.querySelectorAll('[data-testid="session-row"]')].map((row) => row.textContent)).toEqual([
     expect.stringContaining('Main task'), expect.stringContaining('Research'),
   ]);
@@ -193,6 +197,22 @@ it('shows a delegated child below its parent in the same folder with NNA agent i
   expect(folderNode.querySelector('[data-child-session="true"] [aria-label^="Delete"]')).toBeNull();
   expect(folderNode.querySelector('[aria-label="Unfile from folder"]')).toBeTruthy();
   expect(node.querySelector('[data-testid="workspace-zone"] > ul > [data-child-session="true"]')).toBeNull();
+});
+
+it('keeps delegated children collapsed by default and restores an explicit expansion choice', () => {
+  useGlobalSessionsStore.setState({ active: [session('parent', 'D:/work', 'Main task'),
+    { ...session('child', 'D:/work', 'Research'), parentID: 'parent' }] });
+  const { node } = mount('D:/work');
+  expect(node.querySelector('[data-child-session="true"]')).toBeNull();
+  act(() => (node.querySelector('[aria-label="Expand Main task subtasks"]') as HTMLButtonElement).click());
+  expect(node.querySelector('[data-child-session="true"]')?.textContent).toContain('Research');
+  expect(localStorage.getItem('nnd.sessions.expanded.v1')).toContain('parent');
+  act(() => useSessionExpansionStore.setState({ expanded: {} }));
+  expect(node.querySelector('[data-child-session="true"]')).toBeNull();
+  act(() => useSessionExpansionStore.getState().reload());
+  expect(node.querySelector('[data-child-session="true"]')?.textContent).toContain('Research');
+  act(() => (node.querySelector('[aria-label="Collapse Main task subtasks"]') as HTMLButtonElement).click());
+  expect(node.querySelector('[data-child-session="true"]')).toBeNull();
 });
 
 it('keeps a filed child with an unavailable parent in its folder with an actionable unfile control', () => {
@@ -214,6 +234,7 @@ it('keeps unfiled descendants nested beneath a child whose parent is unavailable
   ] });
   const { node } = mount('D:/work');
   expect(node.textContent).toContain('Parent unavailable');
+  act(() => (node.querySelector('[aria-label="Expand Research subtasks"]') as HTMLButtonElement).click());
   const rows = [...node.querySelectorAll('[data-testid="workspace-zone"] > ul > [data-child-session="true"]')];
   expect(rows.map((row) => row.textContent)).toEqual([
     expect.stringContaining('Research'), expect.stringContaining('Follow-up'),

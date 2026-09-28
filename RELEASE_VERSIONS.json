@@ -340,6 +340,10 @@
     {
       "version": "20260928-20",
       "content_sha256": "908f4e45be1502cf55e0a8167080bb86aa78b65833b51d0659f6e281f0afd8ed"
+    },
+    {
+      "version": "20260928-21",
+      "content_sha256": "5e1684af091080c445f8ac1f6a2d87e84c027916e3484e0b7cc5b22420658a69"
     }
   ]
 }

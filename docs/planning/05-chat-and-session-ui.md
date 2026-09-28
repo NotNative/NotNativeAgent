@@ -959,7 +959,13 @@ Badges/indicators:
   ("Q{n pending}"); conversation-unseen count (notification badge; subtasks
   only when "notify on subtasks" enabled).
 - Expansion chevron for subsessions (aria "Expand/Collapse {title}"); state
-  per user-only (parent never auto-expands).
+  per user-only (parent never auto-expands). NND persists the user's opened
+  parent IDs locally per runtime; an opened parent reveals its older children
+  even when they fall outside the recent-root cap. Search can reveal a child
+  without changing the saved expansion choice. A collapsed parent summarizes
+  NNA-authored attention on hidden descendants; attention-bearing trees remain
+  discoverable even when both parent and child age beyond that cap, so
+  approval/input needs are not silently concealed.
 - Subsession label: children render teal-indented under parents; PR-status
   summary on sessions backed by PR tracking ("Merged", "Ready to merge",
   "PR open", "Merge conflicts", "Merge blocked", "Draft PR", "Closed";

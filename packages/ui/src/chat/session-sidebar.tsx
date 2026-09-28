@@ -17,10 +17,11 @@ import type { Session, SessionStatus } from '../lib/nnd/types.ts';
 import { toast } from 'sonner';
 import { formatRelative } from './time-format.ts';
 import { sidebarHierarchy } from './session-sidebar-hierarchy.ts';
-import { nnaTurnPhaseFromMetadata } from './work-status.ts';
+import { childActivityPhrase, sessionAttention } from './session-row-evidence.ts';
 import { pinnedSessionIds, useSessionPinnedStore } from '../stores/useSessionPinnedStore.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { clearKnownSessionTreePins } from './session-pin-cleanup.ts';
+import { expandedParentIds, useSessionExpansionStore } from '../stores/useSessionExpansionStore.ts';
 
 const AVATAR_LIMIT = 50;
 
@@ -57,6 +58,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const statusById = useSyncExternalStore(useGlobalSessionStatusStore.subscribe, () => useGlobalSessionStatusStore.getState().statusById);
   const orderingRanks = useSyncExternalStore(useSessionOrderingStore.subscribe, () => useSessionOrderingStore.getState().rankById) as Record<string, number>;
   const pins = useSyncExternalStore(useSessionPinnedStore.subscribe, () => useSessionPinnedStore.getState().pins);
+  const expanded = useSyncExternalStore(useSessionExpansionStore.subscribe, () => useSessionExpansionStore.getState().expanded);
+  const expandedIds = useMemo(() => expandedParentIds(expanded, runtimeKey), [expanded, runtimeKey]);
   const selectable = useMemo(() => new Map(sessionsGlobal.active.filter((session) => !session.parentID).map((session) => [session.id, session])), [sessionsGlobal.active]);
   const selected = [...selectedIds].map((id) => selectable.get(id)).filter((session): session is Session => Boolean(session));
   const toggleSelected = (ids: string[]): void => setSelectedIds((current) => {
@@ -110,7 +113,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     if (!useGlobalSessionsStore.getState().hasLoaded) void useGlobalSessionsStore.getState().loadSessions();
   }, [runtimeKey]);
   useEffect(() => {
-    const refresh = (): void => useSessionPinnedStore.getState().reload();
+    const refresh = (): void => { useSessionPinnedStore.getState().reload(); useSessionExpansionStore.getState().reload(); };
     window.addEventListener('storage', refresh);
     return () => window.removeEventListener('storage', refresh);
   }, []);
@@ -199,6 +202,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
               selecting={selecting}
               selectedIds={selectedIds}
               onToggleSelected={toggleSelected}
+              expandedIds={expandedIds}
+              onToggleExpanded={(id) => useSessionExpansionStore.getState().toggle(id, runtimeKey)}
             />
           ))}
       </div>
@@ -229,17 +234,52 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error' }): ReactNode {
+function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, expandedIds, onToggleExpanded }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions);
   // Search shows only matching rows; an omitted parent is not unavailable.
-  const hierarchy = forceOpen ? null : sidebarHierarchy(ordered, folders, AVATAR_LIMIT, pinnedIds);
+  const hierarchy = forceOpen ? null : sidebarHierarchy(ordered, folders, AVATAR_LIMIT, pinnedIds, expandedIds,
+    new Set(ordered.filter((session) => sessionAttention(session)).map((session) => session.id)));
+  const childParents = new Set(ordered.map((session) => session.parentID).filter((id): id is string => Boolean(id)));
+  const shown = new Set(hierarchy?.visible.filter((id) => {
+    if ((hierarchy.depth.get(id) ?? 0) === 0) return true;
+    let parentId = hierarchy.byId.get(id)?.parentID;
+    const seen = new Set([id]);
+    while (parentId && hierarchy.byId.has(parentId) && !seen.has(parentId)) {
+      if (!expandedIds.has(parentId)) return false;
+      seen.add(parentId);
+      parentId = hierarchy.byId.get(parentId)?.parentID;
+    }
+    return true;
+  }) ?? []);
+  // A collapsed branch must still advertise NNA-authored attention. Without
+  // this, a child needing input can vanish entirely behind its parent (or the
+  // recent-row cap) until the operator happens to open that branch.
+  const hiddenAttention = new Map<string, string[]>();
+  if (!forceOpen) {
+    const all = new Map(ordered.map((session) => [session.id, session]));
+    for (const session of ordered) {
+      if (shown.has(session.id)) continue;
+      const attention = sessionAttention(session);
+      if (!attention) continue;
+      const seen = new Set([session.id]);
+      let parentId = session.parentID;
+      while (parentId && !seen.has(parentId)) {
+        seen.add(parentId);
+        if (shown.has(parentId) && !expandedIds.has(parentId)) {
+          hiddenAttention.set(parentId, [...(hiddenAttention.get(parentId) ?? []), attention]);
+          break;
+        }
+        parentId = all.get(parentId)?.parentID;
+      }
+    }
+  }
   const searchRows = forceOpen ? ordered.slice(0, AVATAR_LIMIT) : [];
   const byId = hierarchy?.byId ?? new Map(searchRows.map((session) => [session.id, session]));
   const depthById = hierarchy?.depth ?? sessionDepths(searchRows);
-  const visibleUnsorted = hierarchy?.unfiled ?? unsortedSessionIds(directory, searchRows);
-  const orphaned = hierarchy?.unavailableParent ?? [];
+  const visibleUnsorted = hierarchy?.unfiled.filter((id) => shown.has(id)) ?? unsortedSessionIds(directory, searchRows);
+  const orphaned = hierarchy?.unavailableParent.filter((id) => shown.has(id)) ?? [];
   const foldersState = useSessionFoldersStore.getState();
   const createFolder = (name: string): void => { void useSessionFoldersStore.getState().createFolder(directory, name); };
 
@@ -266,7 +306,7 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
         {folders.map((folder) => {
           const isCollapsed = !forceOpen && Boolean(collapsed[folder.id]);
           const inside = hierarchy
-            ? hierarchy.visible.filter((id) => hierarchy.folder.get(id) === folder.id && !orphaned.includes(id)).map((id) => byId.get(id)!)
+            ? hierarchy.visible.filter((id) => shown.has(id) && hierarchy.folder.get(id) === folder.id && !orphaned.includes(id)).map((id) => byId.get(id)!)
             : folder.sessionIds.map((id) => byId.get(id)).filter((session): session is Session => Boolean(session));
           const folderNormal = inside.filter((session) => !hierarchy?.unavailableIds.has(session.id));
           const folderUnavailable = inside.filter((session) => hierarchy?.unavailableIds.has(session.id));
@@ -287,11 +327,11 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
               {!isCollapsed ? (
                 <ul className="ml-3 border-l border-white/5">
                   {folderNormal.map((session) => (
-                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => onToggleSelected([session.id])} />
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => onToggleSelected([session.id])} hasChildren={!forceOpen && childParents.has(session.id)} expanded={expandedIds.has(session.id)} onToggleExpanded={() => onToggleExpanded(session.id)} hiddenAttention={hiddenAttention.get(session.id)} />
                   ))}
                   {folderUnavailable.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
                   {folderUnavailable.map((session) => (
-                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => onToggleSelected([session.id])} />
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => onToggleSelected([session.id])} hasChildren={!forceOpen && childParents.has(session.id)} expanded={expandedIds.has(session.id)} onToggleExpanded={() => onToggleExpanded(session.id)} hiddenAttention={hiddenAttention.get(session.id)} />
                   ))}
                   {inside.length === 0 ? <li className="px-2 py-1 text-[10px] text-neutral-600">Empty folder — sessions land via the row menu.</li> : null}
                 </ul>
@@ -304,11 +344,11 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
           : null}
         {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[11px] text-neutral-600" data-testid="zone-empty">{sessionListStatus === 'loading' ? 'Loading sessions…' : sessionListStatus === 'error' ? 'Could not refresh sessions.' : 'No sessions in this workspace yet.'}</li> : null}
         {visibleUnsorted.map((sessionID) => (
-          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} />
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} hasChildren={!forceOpen && childParents.has(sessionID)} expanded={expandedIds.has(sessionID)} onToggleExpanded={() => onToggleExpanded(sessionID)} hiddenAttention={hiddenAttention.get(sessionID)} />
         ))}
         {orphaned.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
         {orphaned.map((sessionID) => (
-          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} />
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} hasChildren={!forceOpen && childParents.has(sessionID)} expanded={expandedIds.has(sessionID)} onToggleExpanded={() => onToggleExpanded(sessionID)} hiddenAttention={hiddenAttention.get(sessionID)} />
         ))}
       </ul> : null}
       {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
@@ -331,21 +371,22 @@ function FolderActions({ directory, folderId, folderName, hasSessions }: { direc
   );
 }
 
-function SidebarRow({ session, status, currentSessionId, actions, pinned, folderId, depth = 0, selecting, selected, onToggleSelected }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; pinned: boolean; folderId?: string; depth?: number; selecting: boolean; selected: boolean; onToggleSelected: () => void }): ReactNode {
+function SidebarRow({ session, status, currentSessionId, actions, pinned, folderId, depth = 0, selecting, selected, onToggleSelected, hasChildren, expanded, onToggleExpanded, hiddenAttention }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; pinned: boolean; folderId?: string; depth?: number; selecting: boolean; selected: boolean; onToggleSelected: () => void; hasChildren: boolean; expanded: boolean; onToggleExpanded: () => void; hiddenAttention?: string[] }): ReactNode {
   const active = status && status.type !== 'idle';
   const attention = sessionAttention(session);
   const activity = session.parentID && !attention ? childActivityPhrase(session.metadata) : null;
   return (
     <li className={`group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 ${depth > 0 ? 'border-l border-white/10' : ''}`} style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined} data-child-session={session.parentID ? 'true' : undefined} data-child-depth={depth > 0 ? depth : undefined} data-attention={attention ?? undefined}>
+      {hasChildren ? <button type="button" aria-label={`${expanded ? 'Collapse' : 'Expand'} ${session.title || 'session'} subtasks`} aria-expanded={expanded} className="shrink-0 text-[11px] text-neutral-500 hover:text-neutral-200" onClick={onToggleExpanded}>{expanded ? '▾' : '▸'}</button> : null}
       {selecting && !session.parentID ? <input type="checkbox" aria-label={`Select ${session.title || 'session'}`} checked={selected} onChange={onToggleSelected} /> : null}
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => selecting && !session.parentID ? onToggleSelected() : actions.openSession(session.id, session.directory ?? '')} data-testid="session-row">
         <div className="flex items-center gap-1.5">
-          <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${attention ? 'bg-amber-400' : active ? 'bg-sky-400' : 'bg-neutral-700'}`} />
+          <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${attention || hiddenAttention?.length ? 'bg-amber-400' : active ? 'bg-sky-400' : 'bg-neutral-700'}`} />
           {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
           {pinned ? <span aria-label="Pinned session" className="text-[10px] text-amber-400">◆</span> : null}
         </div>
-        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{activity ? <span className="text-sky-300" data-testid="child-current-activity"> · {activity}</span> : null}</div>
+        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{hiddenAttention?.length ? <span className="text-amber-300" data-testid="collapsed-subtask-attention"> · {hiddenAttention.length} subtask{hiddenAttention.length === 1 ? ' needs' : 's need'} attention</span> : null}{activity ? <span className="text-sky-300" data-testid="child-current-activity"> · {activity}</span> : null}</div>
       </button>
       {!selecting ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title || 'session'}`} className="hover:text-amber-300" onClick={() => useSessionPinnedStore.getState().toggle(session.directory ?? 'global', session.id)}>{pinned ? '◆' : '◇'}</button>
@@ -428,30 +469,6 @@ function sessionDepths(sessions: Session[]): Map<string, number> {
   return depths;
 }
 
-/** Only NNA-authored session metadata can assert attention here. Transport
- * busy/idle has no permission or question semantics. */
-export function sessionAttention(session: Session): string | null {
-  const nnd = session.metadata?.nnd;
-  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
-  const evidence = nnd as Record<string, unknown>;
-  if ((evidence.attention as { kind?: unknown } | undefined)?.kind === 'needs_input') return 'needs input';
-  const phase = (evidence.turnState as { phase?: unknown } | undefined)?.phase;
-  if (phase === 'awaiting_approval') return 'approval pending';
-  if (phase === 'needs_input' || phase === 'attention_required') return 'needs input';
-  if (phase === 'failed') return 'failed';
-  return null;
-}
-
-/** NNA's enumerated phase is display evidence, not a transport-busy guess. */
-export function childActivityPhrase(metadata: unknown): string | null {
-  const phase = nnaTurnPhaseFromMetadata(metadata);
-  const labels: Record<string, string> = {
-    preparing: 'preparing', waiting_provider: 'waiting for model', reasoning: 'reasoning',
-    streaming: 'replying', running_tool: 'using tool', recovering: 'recovering', cancelling: 'stopping',
-  };
-  return phase ? labels[phase] ?? null : null;
-}
-
 function shortDirectory(directory: string): string {
   const segments = directory.split('/').filter(Boolean);
   if (segments.length === 0) return directory || 'general';
@@ -469,4 +486,4 @@ function filterSessions(sessions: Session[], query: string): Session[] {
   return sessions.filter((session) => (session.title ?? '').toLowerCase().includes(needle) || session.id.toLowerCase().includes(needle));
 }
 
-export { toast };
+export { toast, sessionAttention, childActivityPhrase };

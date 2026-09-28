@@ -54,4 +54,17 @@ describe('delegated session navigation', () => {
     expect(result.visible).toEqual(['new', 'parent', 'child']);
     expect(result.depth.get('child')).toBe(1);
   });
+
+  it('includes older descendants when a retained parent is explicitly expanded', () => {
+    const ordered = [session('new'), session('parent'), session('child', 'parent'), session('grandchild', 'child')];
+    expect(sidebarHierarchy(ordered, [], 2).visible).toEqual(['new', 'parent']);
+    expect(sidebarHierarchy(ordered, [], 2, new Set(), new Set(['parent'])).visible).toEqual(['new', 'parent', 'child']);
+    expect(sidebarHierarchy(ordered, [], 2, new Set(), new Set(['parent', 'child'])).visible).toEqual(['new', 'parent', 'child', 'grandchild']);
+  });
+
+  it('retains an attention-bearing child and ancestor outside the recent cap', () => {
+    const ordered = [session('new'), session('parent'), session('child', 'parent')];
+    expect(sidebarHierarchy(ordered, [], 1).visible).toEqual(['new']);
+    expect(sidebarHierarchy(ordered, [], 1, new Set(), new Set(), new Set(['child'])).visible).toEqual(['new', 'parent', 'child']);
+  });
 });

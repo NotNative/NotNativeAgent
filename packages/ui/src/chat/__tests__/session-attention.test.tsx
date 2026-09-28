@@ -7,6 +7,7 @@ import type { Session } from '../../lib/nnd/types.ts';
 import { ChatSidebar, childActivityPhrase, sessionAttention } from '../session-sidebar.tsx';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
+import { useSessionExpansionStore } from '../../stores/useSessionExpansionStore.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -53,12 +54,48 @@ describe('session navigator attention', () => {
       act(() => root.render(<ChatSidebar engine={{} as never} currentDirectory="/work" currentSessionId={null}
         actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
           archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
+      expect(node.querySelector('[data-child-session="true"]')).toBeNull();
+      expect(node.querySelector('[data-testid="collapsed-subtask-attention"]')?.textContent).toContain('1 subtask needs attention');
+      act(() => (node.querySelector('[aria-label="Expand Parent subtasks"]') as HTMLButtonElement).click());
       const row = node.querySelector('[data-child-session="true"]')!;
       expect(row.getAttribute('data-attention')).toBe('needs input');
       expect(row.textContent).toContain('needs input');
+      expect(node.querySelector('[data-testid="collapsed-subtask-attention"]')).toBeNull();
     } finally {
       act(() => root.unmount()); node.remove();
       useGlobalSessionsStore.getState().reset();
+      useSessionExpansionStore.setState({ expanded: {} });
+      localStorage.removeItem('nnd.sessions.expanded.v1');
+      useSessionFoldersStore.setState({ load: originalLoad });
+    }
+  });
+
+  it('surfaces attention from a child older than the recent-row cap on its collapsed parent', () => {
+    const originalLoad = useSessionFoldersStore.getState().load;
+    useSessionFoldersStore.setState({ load: async () => undefined });
+    const parent = { ...session(null), id: 'parent', title: 'Parent', time: { created: 100, updated: 100 } };
+    const child = { ...session({ turnState: { phase: 'awaiting_approval' } }), id: 'child', parentID: 'parent',
+      title: 'Old child', time: { created: 1, updated: 1 } };
+    const newer = Array.from({ length: 50 }, (_, index) => ({ ...session(null), id: `new-${index}`,
+      title: `New ${index}`, time: { created: 200 + index, updated: 200 + index } }));
+    useGlobalSessionsStore.setState({ active: [...newer, parent, child] });
+    const node = document.createElement('div'); document.body.appendChild(node);
+    const root = createRoot(node);
+    try {
+      act(() => root.render(<ChatSidebar engine={{} as never} currentDirectory="/work" currentSessionId={null}
+        actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
+          archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
+      // Both parent and child are older than the cap but must stay navigable.
+      expect(node.querySelector('[aria-label="Expand Parent subtasks"]')).not.toBeNull();
+      expect(node.querySelector('[data-child-session="true"]')).toBeNull();
+      expect(node.querySelector('[data-testid="collapsed-subtask-attention"]')?.textContent).toContain('1 subtask needs attention');
+      act(() => (node.querySelector('[aria-label="Expand Parent subtasks"]') as HTMLButtonElement).click());
+      expect(node.querySelector('[data-child-session="true"]')?.textContent).toContain('approval pending');
+    } finally {
+      act(() => root.unmount()); node.remove();
+      useGlobalSessionsStore.getState().reset();
+      useSessionExpansionStore.setState({ expanded: {} });
+      localStorage.removeItem('nnd.sessions.expanded.v1');
       useSessionFoldersStore.setState({ load: originalLoad });
     }
   });

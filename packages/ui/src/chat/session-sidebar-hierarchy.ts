@@ -13,9 +13,9 @@ export interface SidebarHierarchy {
   visible: string[];
 }
 
-export function sidebarHierarchy(ordered: Session[], folders: SessionFolder[], limit: number, pinnedIds: ReadonlySet<string> = new Set()): SidebarHierarchy {
+export function sidebarHierarchy(ordered: Session[], folders: SessionFolder[], limit: number, pinnedIds: ReadonlySet<string> = new Set(), expandedIds: ReadonlySet<string> = new Set(), attentionIds: ReadonlySet<string> = new Set()): SidebarHierarchy {
   const all = new Map(ordered.map((session) => [session.id, session]));
-  const included = expandRecentWithAncestors(ordered, all, limit, pinnedIds);
+  const included = expandRecentWithAncestors(ordered, all, limit, pinnedIds, expandedIds, attentionIds);
   const byId = new Map(ordered.filter((session) => included.has(session.id)).map((session) => [session.id, session]));
   const directFolder = new Map<string, string>();
   for (const group of folders) for (const id of group.sessionIds) {
@@ -66,9 +66,13 @@ export function sidebarHierarchy(ordered: Session[], folders: SessionFolder[], l
   };
 }
 
-function expandRecentWithAncestors(ordered: Session[], all: Map<string, Session>, limit: number, pinnedIds: ReadonlySet<string>): Set<string> {
+function expandRecentWithAncestors(ordered: Session[], all: Map<string, Session>, limit: number, pinnedIds: ReadonlySet<string>, expandedIds: ReadonlySet<string>, attentionIds: ReadonlySet<string>): Set<string> {
   const included = new Set(ordered.slice(0, limit).map((session) => session.id));
   for (const id of pinnedIds) if (all.has(id)) included.add(id);
+  // Attention is authored by NNA, not inferred from transport state. Its
+  // parent tree remains discoverable even when every member aged out of the
+  // recent rows; a collapsed ancestor summarizes the hidden child.
+  for (const id of attentionIds) if (all.has(id)) included.add(id);
   // A recent child must not become an "orphan" merely because its older
   // parent falls outside the recent-session cap.
   for (const id of [...included]) {
@@ -78,6 +82,26 @@ function expandRecentWithAncestors(ordered: Session[], all: Map<string, Session>
       seen.add(parentID);
       included.add(parentID);
       parentID = all.get(parentID)?.parentID;
+    }
+  }
+  // Opening a retained parent must reveal older children even when those
+  // children fell outside the recent-row cap. Traverse only opened branches.
+  const children = new Map<string, string[]>();
+  for (const session of ordered) {
+    if (!session.parentID) continue;
+    const list = children.get(session.parentID) ?? [];
+    list.push(session.id);
+    children.set(session.parentID, list);
+  }
+  const pending = [...included].filter((id) => expandedIds.has(id));
+  const seen = new Set<string>();
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const child of children.get(id) ?? []) {
+      included.add(child);
+      if (expandedIds.has(child)) pending.push(child);
     }
   }
   return included;
