@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:5e5a80b8bcf43d04310f8e3cb102d800b0228415f02d5b7d15efc67c32f47b83",
+  "source_digest": "sha256:40baabd1d883e228630ed57458fba86438db3b172f4824292aa4fed7f38fbf2f",
   "counts": {
-    "modules": 465,
+    "modules": 466,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 115
+      "module_count": 116
     },
     {
       "id": "web-server",
@@ -114,8 +114,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 50,
-      "module_count": 19
+      "import_count": 51,
+      "module_count": 20
     },
     {
       "from": "ui-shell",
@@ -891,6 +891,7 @@
         "packages/ui/src/components/settings/window.tsx",
         "packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
+        "packages/ui/src/components/workspace-identity.tsx",
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/files/tabs-store.ts",
         "packages/ui/src/lib/i18n/context.tsx",
@@ -1363,6 +1364,14 @@
         "packages/ui/src/lib/theme/storage.ts",
         "packages/ui/src/lib/theme/themes.ts",
         "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/workspace-identity.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {

@@ -29,6 +29,7 @@ import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
+import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
 
 /** MainLayout (doc 01 13.1) with the P3a chat product, the P5-6
@@ -191,6 +192,7 @@ export function MainLayout(): ReactNode {
       <ShellShortcuts />
       <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
+        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={getRuntimeKey()} />
         <SessionTabs engine={engine} directory={activeDirectory} />
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
           {connected ? 'connected' : 'reconnecting'}

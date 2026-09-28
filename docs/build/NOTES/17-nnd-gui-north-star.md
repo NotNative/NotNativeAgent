@@ -35,6 +35,11 @@ while no session is selected. Once a session opens, the transcript regains the
 canvas and the composer returns to its stable bottom position, preserving the
 same editor and unsent draft through the transition.
 
+The upstream header also keeps the active workspace and Git branch visible while
+switching between a conversation and supporting panes. NND should show the
+selected NNA directory identity and only a branch actually projected for that
+directory, not a branch inferred from the UI process's own repository.
+
 NND should borrow these spatial and interaction principles, not upstream code,
 assets, text, or styling. At a normal desktop window width the icon dock must remain
 discoverable even when the panel is closed. The composer and transcript should share
