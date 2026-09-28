@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Session } from '../../lib/nnd/types.ts';
-import { ChatSidebar, sessionAttention } from '../session-sidebar.tsx';
+import { ChatSidebar, childActivityPhrase, sessionAttention } from '../session-sidebar.tsx';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
 
@@ -30,6 +30,14 @@ describe('session navigator attention', () => {
     expect(sessionAttention(session({ attention: 'needs_input' }))).toBeNull();
   });
 
+  it('labels only NNA-authored active child phases, without reinterpreting idle or unknown values', () => {
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'running_tool' } } })).toBe('using tool');
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'waiting_provider' } } })).toBe('waiting for model');
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'idle' } } })).toBeNull();
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'unknown' } } })).toBeNull();
+    expect(childActivityPhrase({ nnd: { turnState: 'running_tool' } })).toBeNull();
+  });
+
   it('renders the authored attention badge for a child session after its live status becomes idle', () => {
     const originalLoad = useSessionFoldersStore.getState().load;
     useSessionFoldersStore.setState({ load: async () => undefined });
@@ -48,6 +56,32 @@ describe('session navigator attention', () => {
       const row = node.querySelector('[data-child-session="true"]')!;
       expect(row.getAttribute('data-attention')).toBe('needs input');
       expect(row.textContent).toContain('needs input');
+    } finally {
+      act(() => root.unmount()); node.remove();
+      useGlobalSessionsStore.getState().reset();
+      useSessionFoldersStore.setState({ load: originalLoad });
+    }
+  });
+
+  it('updates a child row from an authored phase and lets attention take precedence', () => {
+    const originalLoad = useSessionFoldersStore.getState().load;
+    useSessionFoldersStore.setState({ load: async () => undefined });
+    const child = { ...session({ turnState: { phase: 'running_tool' } }), id: 'child', parentID: 'parent', title: 'Research',
+      time: { created: 2, updated: 2 } };
+    useGlobalSessionsStore.setState({ active: [session(null), child] });
+    const node = document.createElement('div'); document.body.appendChild(node);
+    const root = createRoot(node);
+    try {
+      act(() => root.render(<ChatSidebar engine={{} as never} currentDirectory="/work" currentSessionId={null}
+        actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
+          archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
+      expect(node.querySelector('[data-child-session="true"] [data-testid="child-current-activity"]')?.textContent).toContain('using tool');
+      act(() => useGlobalSessionsStore.setState({ active: [session(null), { ...child, metadata: { nnd: {
+        attention: { kind: 'needs_input' }, turnState: { phase: 'running_tool' },
+      } } }] }));
+      const row = node.querySelector('[data-child-session="true"]')!;
+      expect(row.textContent).toContain('needs input');
+      expect(row.querySelector('[data-testid="child-current-activity"]')).toBeNull();
     } finally {
       act(() => root.unmount()); node.remove();
       useGlobalSessionsStore.getState().reset();

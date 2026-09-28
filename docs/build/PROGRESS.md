@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Live delegated activity in the session navigator.** A child
+  row now shows a short label from NNA's enumerated turn phase (for example,
+  using a tool or waiting for a model). Attention and failure remain more
+  prominent; idle, absent, or malformed phase data yields no guessed activity.
+  The same selector powers Context, so the two surfaces agree. Adversarial
+  review traced completion and recovery and found no concrete defect.
+
 - 2026-09-28 · **Delegated-session navigator hierarchy.** Recent child
   sessions now appear beneath their NNA-known parent even when that older
   parent falls beyond the sidebar's recent-row cap. A child follows its

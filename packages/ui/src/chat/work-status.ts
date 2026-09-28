@@ -51,7 +51,12 @@ const NNA_TURN_PHASES = new Set([
 /** NNA-authored semantic phase. Client busy/idle is only transport bookkeeping. */
 export function nnaTurnPhase(state: DirectoryStore, sessionID: string): string | null {
   const session = state.session.find((item) => item.id === sessionID);
-  const nnd = session?.metadata?.nnd;
+  return nnaTurnPhaseFromMetadata(session?.metadata);
+}
+
+export function nnaTurnPhaseFromMetadata(metadata: unknown): string | null {
+  const nnd = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>).nnd : null;
   if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
   const turnState = (nnd as Record<string, unknown>).turnState;
   if (!turnState || typeof turnState !== 'object' || Array.isArray(turnState)) return null;

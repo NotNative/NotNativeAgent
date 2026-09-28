@@ -17,6 +17,7 @@ import type { Session, SessionStatus } from '../lib/nnd/types.ts';
 import { toast } from 'sonner';
 import { formatRelative } from './time-format.ts';
 import { sidebarHierarchy } from './session-sidebar-hierarchy.ts';
+import { nnaTurnPhaseFromMetadata } from './work-status.ts';
 
 const AVATAR_LIMIT = 50;
 
@@ -240,6 +241,7 @@ function FolderActions({ directory, folderId, folderName, hasSessions }: { direc
 function SidebarRow({ session, status, currentSessionId, actions, folderId, depth = 0 }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; folderId?: string; depth?: number }): ReactNode {
   const active = status && status.type !== 'idle';
   const attention = sessionAttention(session);
+  const activity = session.parentID && !attention ? childActivityPhrase(session.metadata) : null;
   return (
     <li className={`group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 ${depth > 0 ? 'border-l border-white/10' : ''}`} style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined} data-child-session={session.parentID ? 'true' : undefined} data-child-depth={depth > 0 ? depth : undefined} data-attention={attention ?? undefined}>
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => actions.openSession(session.id, session.directory ?? '')} data-testid="session-row">
@@ -248,7 +250,7 @@ function SidebarRow({ session, status, currentSessionId, actions, folderId, dept
           {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
         </div>
-        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}</div>
+        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{activity ? <span className="text-sky-300" data-testid="child-current-activity"> · {activity}</span> : null}</div>
       </button>
       <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`Rename ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => {
@@ -336,6 +338,16 @@ export function sessionAttention(session: Session): string | null {
   if (phase === 'needs_input' || phase === 'attention_required') return 'needs input';
   if (phase === 'failed') return 'failed';
   return null;
+}
+
+/** NNA's enumerated phase is display evidence, not a transport-busy guess. */
+export function childActivityPhrase(metadata: unknown): string | null {
+  const phase = nnaTurnPhaseFromMetadata(metadata);
+  const labels: Record<string, string> = {
+    preparing: 'preparing', waiting_provider: 'waiting for model', reasoning: 'reasoning',
+    streaming: 'replying', running_tool: 'using tool', recovering: 'recovering', cancelling: 'stopping',
+  };
+  return phase ? labels[phase] ?? null : null;
 }
 
 function shortDirectory(directory: string): string {

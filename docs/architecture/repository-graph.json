@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:0b7a9a8df59f16d7366c0e4e8885e3ba8ce4b6d996aa39516549294933a25d9e",
+  "source_digest": "sha256:e11bbc49bf3f41e23c2bde57411ae99416e04c6a209113c408ef0e5f8a461404",
   "counts": {
     "modules": 476,
     "component_edges": 13
@@ -586,6 +586,7 @@
       "imports": [
         "packages/ui/src/chat/session-sidebar-hierarchy.ts",
         "packages/ui/src/chat/time-format.ts",
+        "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/session-folders.ts",
