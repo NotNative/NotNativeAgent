@@ -109,6 +109,28 @@ async function typePending(value: string): Promise<void> {
 }
 
 describe('Composer add-to-chat fill channel', () => {
+  it('accepts a targeted todo only for its mounted project and session', async () => {
+    await renderComposer();
+    let accepted = 0;
+    const target = { text: 'Todo: Ship MVP', append: true, directory: '/proj', sessionKey: 'draft', accept: () => { accepted += 1; } };
+    await act(async () => { fill({ ...target, directory: '/other' }); fill({ ...target, sessionKey: 'wrong' }); await Promise.resolve(); });
+    expect(editor().value).toBe('');
+    expect(accepted).toBe(0);
+    await act(async () => { fill(target); await Promise.resolve(); });
+    expect(editor().value).toBe('Todo: Ship MVP');
+    expect(readDraft('/proj', 'draft').text).toBe('Todo: Ship MVP');
+    expect(accepted).toBe(1);
+  });
+  it('retains both accepted todo handoffs before a render flush', async () => {
+    await renderComposer();
+    await act(async () => {
+      fill({ text: 'Todo: First', append: true, directory: '/proj', sessionKey: 'draft' });
+      fill({ text: 'Todo: Second', append: true, directory: '/proj', sessionKey: 'draft' });
+      await Promise.resolve();
+    });
+    expect(editor().value).toBe('Todo: First\n\nTodo: Second');
+    expect(readDraft('/proj', 'draft').text).toBe(editor().value);
+  });
   it('append:true appends the capture to non-empty pending input and parks the caret after it', async () => {
     await renderComposer();
     await typePending('pending');

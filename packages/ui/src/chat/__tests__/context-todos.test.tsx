@@ -51,6 +51,23 @@ describe('project context todos panel', () => {
     await act(async () => { (view.querySelector('[aria-label="Complete Alpha task"]') as HTMLInputElement).click(); await Promise.resolve(); });
     expect(replaceProjectTodos).toHaveBeenCalledWith('project1', [{ ...first, completed: true }, second], revision);
   });
+  it('hands a todo to chat without changing or completing the saved list', async () => {
+    const item = { id: 'one', text: 'Ship MVP', completed: false, createdAt: 1 };
+    vi.mocked(getProjectContext).mockResolvedValue({ ...empty, todos: [item] });
+    const handoff = vi.fn(() => true);
+    const view = await render();
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible onAddToChat={handoff} />); });
+    await click('Add to chat');
+    expect(handoff).toHaveBeenCalledWith('Ship MVP');
+    expect(replaceProjectTodos).not.toHaveBeenCalled();
+    expect(view.textContent).toContain('Ship MVP');
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible onAddToChat={() => false} />); });
+    await click('Add to chat');
+    expect(view.textContent).toContain('Chat input is not available');
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible onAddToChat={handoff} />); });
+    await click('Add to chat');
+    expect(view.textContent).not.toContain('Chat input is not available');
+  });
   it('adds and adopts committed server truth, then toggles and deletes', async () => {
     const view = await render();
     typeTodo('Ship MVP');

@@ -74,7 +74,6 @@ export function Composer(props: ComposerProps): ReactNode {
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
   const pickerRef = useRef<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
-  // Mention search counter must cross renders to reject stale responses.
   const mentionTokenRef = useRef(0);
 
   const store = services.store(directory);
@@ -120,18 +119,21 @@ export function Composer(props: ComposerProps): ReactNode {
     });
   }, [directory, sessionKey, sessionID]);
 
-  // Revert/suggestions use fill; annotation transfers text and image atomically.
   useEffect(() => {
     const targetKey = draftKey(directory, sessionKey);
     const handler = (event: Event): void => {
-      const detail = (event as CustomEvent<{ text?: string; append?: boolean }>).detail;
+      const detail = (event as CustomEvent<{ text?: string; append?: boolean; directory?: string; sessionKey?: string; accept?: () => void }>).detail;
+      if (detail?.directory !== undefined && detail.directory !== directory) return;
+      if (detail?.sessionKey !== undefined && detail.sessionKey !== sessionKey) return;
       const incoming = detail?.text ?? '';
       if (!incoming) return;
       const appended = detail?.append === true;
       const base = textRef.current;
       const next = appended && base.length > 0 ? `${base}\n\n${incoming}` : incoming;
+      textRef.current = next;
       setText(next);
       persist(next, attachmentsRef.current, autoAccept);
+      detail.accept?.();
       requestAnimationFrame(() => {
         editorRef.current?.focus();
         if (appended) editorRef.current?.setSelectionRange(next.length, next.length);

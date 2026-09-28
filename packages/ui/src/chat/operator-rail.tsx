@@ -302,6 +302,15 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
               contextDraft={projectId ? contextDrafts[projectId] : undefined} onContextDraftChange={retainContextDraft}
               planDraft={projectId ? planDrafts[projectId] : undefined} onPlanDraftChange={retainPlanDraft}
               todoDraft={projectId ? todoDrafts[projectId] : undefined} onTodoDraftChange={retainTodoDraft}
+              onAddTodoToChat={(text) => {
+                let accepted = false;
+                window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: {
+                  text: `Todo: ${text}`, append: true, directory, sessionKey: walkthroughSessionId ?? 'draft',
+                  accept: () => { accepted = true; },
+                } }));
+                if (accepted && compactOpen) onCloseCompact?.();
+                return accepted;
+              }}
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}
