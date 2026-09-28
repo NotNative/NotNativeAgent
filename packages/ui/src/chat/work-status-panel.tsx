@@ -11,7 +11,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
+import { contextUsage, nnaActiveTools, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
@@ -51,6 +51,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   // must not borrow the percentage of a provider-reported assistant message.
   const contextPercent = nnaContext ? nnaContext.percent : context.percent;
   const turnPhase = nnaTurnPhase(snapshot, sessionID);
+  const activeTools = nnaActiveTools(snapshot, sessionID);
   const turnLabel = turnPhase ? turnPhaseLabel(turnPhase) : null;
   const governance = nnaGovernanceSummary(snapshot, sessionID);
   const work = nnaWorkSummary(snapshot, sessionID);
@@ -126,6 +127,8 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     sections.push({ id: 'session', label: 'Session', rows: [row('Turn', turnLabel)] });
   }
   if (branch) sections.push({ id: 'project', label: 'Project', rows: [row('Branch', branch)] });
+  if (activeTools) sections.push({ id: 'active-tools', label: `Running tools (${activeTools.count})`, rows:
+    activeTools.names.map((name, index) => row(`Tool ${index + 1}`, name)) });
   if (latestTool) sections.push({ id: 'latest-tool', label: 'Latest tool event', rows: [
     row('Event', latestTool.summary), row('State', latestTool.status === 'attention' ? 'Needs input' : latestTool.status),
   ] });

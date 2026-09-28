@@ -871,6 +871,28 @@ describe('OperatorRail', () => {
     expect(context.textContent).toContain('primary · root-only');
   });
 
+  it('shows only the selected session\'s live tools and clears them on a newer snapshot', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ session: [
+      { id: 's1', metadata: { nnd: { activeTools: { count: 1, names: ['shell_run'] } } }, time: { created: 1, updated: 2 } },
+      { id: 's2', metadata: { nnd: { activeTools: { count: 1, names: ['edit'] } } }, time: { created: 1, updated: 2 } },
+    ] as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const panel = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(panel.textContent).toContain('Running tools (1)');
+    expect(panel.textContent).toContain('shell_run');
+    expect(panel.textContent).not.toContain('edit');
+    act(() => useSessionViewStore.getState().setCurrentSession('s2'));
+    expect(panel.textContent).toContain('edit');
+    expect(panel.textContent).not.toContain('shell_run');
+    act(() => store.getState().patch({ session: [
+      { id: 's1', time: { created: 1, updated: 2 } },
+      { id: 's2', metadata: { nnd: {} }, time: { created: 1, updated: 3 } },
+    ] as never }));
+    expect(panel.textContent).not.toContain('Running tools');
+  });
+
   it('follows a selected session change even without a directory-store update', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ session: [

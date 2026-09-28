@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
+import { contextUsage, nnaActiveTools, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
 import { panelEligible, panelStatsIfNeeded } from '../panel-gate.ts';
 import { INITIAL_STATE, type DirectoryStore } from '../../sync/types.ts';
 import type { Message, Todo } from '../../lib/nnd/types.ts';
@@ -79,6 +79,22 @@ describe('NNA-authored turn phase', () => {
       phase: 'made_up_phase',
     } } }, time: { created: 1, updated: 3 } }] } as unknown as Partial<DirectoryStore>);
     expect(nnaTurnPhase(store.getState(), 's1')).toBeNull();
+  });
+});
+
+describe('NNA live tool projection', () => {
+  it('reads only a bounded per-session snapshot, not old tool activity', () => {
+    const store = emptyStore();
+    expect(nnaActiveTools(store.getState(), 's1')).toBeNull();
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { activeTools: {
+      count: 2, names: ['shell_run', 'edit'], secret: 'private',
+    } } }, time: { created: 1, updated: 2 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaActiveTools(store.getState(), 's1')).toEqual({ count: 2, names: ['shell_run', 'edit'] });
+    expect(nnaActiveTools(store.getState(), 'other')).toBeNull();
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { activeTools: {
+      count: 2, names: ['shell_run'],
+    } } }, time: { created: 1, updated: 3 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaActiveTools(store.getState(), 's1')).toBeNull();
   });
 });
 
