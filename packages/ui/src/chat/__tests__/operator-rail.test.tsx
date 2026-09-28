@@ -295,6 +295,60 @@ describe('OperatorRail', () => {
     expect(document.activeElement?.getAttribute('aria-label')).toBe('Notes');
     expect(document.activeElement?.getAttribute('aria-pressed')).toBe('true');
   });
+  it('restores dock visibility per workspace and runtime without carrying another project\'s open state', () => {
+    vi.stubGlobal('innerWidth', 1265);
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('1024px'), addEventListener: () => undefined, removeEventListener: () => undefined,
+    }));
+    let runtime = 'local';
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.style.width).toBe('41px');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(rail.style.width).toBe('341px');
+    expect(window.localStorage.getItem('nnd.operator-rail.open:local:nnd.operator-rail.surface:D:/first')).toBe('open');
+
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/second" />));
+    expect(rail.style.width).toBe('41px');
+    act(() => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
+    act(() => (document.querySelector('button[aria-label="Close operator panel"]') as HTMLButtonElement).click());
+    expect(window.localStorage.getItem('nnd.operator-rail.open:local:nnd.operator-rail.surface:D:/second')).toBe('closed');
+
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    expect(rail.style.width).toBe('341px');
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Activity');
+    runtime = 'host:other';
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    expect(rail.style.width).toBe('41px');
+    runtime = 'local';
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    expect(rail.style.width).toBe('341px');
+  });
+  it('does not save an untouched viewport default as a panel preference', () => {
+    let wide = false;
+    vi.stubGlobal('innerWidth', 1265);
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('1024px') || (query.includes('1280px') && wide),
+      addEventListener: () => undefined, removeEventListener: () => undefined,
+    }));
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    const openKey = 'nnd.operator-rail.open:local:nnd.operator-rail.surface:D:/work';
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect((document.querySelector('[data-testid="operator-rail"]') as HTMLElement).style.width).toBe('41px');
+    expect(window.localStorage.getItem(openKey)).toBeNull();
+    act(() => rootHandle!.unmount());
+    wide = true;
+    vi.stubGlobal('innerWidth', 1600);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect((document.querySelector('[data-testid="operator-rail"]') as HTMLElement).style.width).not.toBe('41px');
+    expect(window.localStorage.getItem(openKey)).toBeNull();
+  });
   it('gives new wide-screen panels a substantial width while respecting a saved narrow preference', () => {
     vi.stubGlobal('innerWidth', 3440);
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));

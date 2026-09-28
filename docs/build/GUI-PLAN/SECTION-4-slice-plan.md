@@ -184,6 +184,9 @@ Tasks:
    **Order/visibility implemented (2026-09-25):** an in-rail customization
    control saves the pane order and visible set by runtime/directory, repairs
    malformed saved values, and prevents hiding the final pane.
+   **Open-state continuity implemented (2026-09-27):** explicit dock open/close
+   choices restore by runtime and workspace. An untouched responsive default
+   is not persisted as an operator preference.
 2. Promote the existing work-status content into the Context surface. Add the Activity
    surface over explicit normalized mock evidence events first; message parts and
    blocking records remain linked evidence, not synthetic log rows. Its event model

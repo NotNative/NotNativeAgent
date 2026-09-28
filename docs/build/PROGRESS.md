@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **Operator rail workspace continuity.** The open/closed state
+  of the right-side pane now follows its workspace and runtime, alongside the
+  existing selected surface and saved width. Returning to a workspace restores
+  the operator's deliberate choice without carrying another workspace's state.
+  Adversarial review prevented a viewport-derived default from being silently
+  stored as a user preference.
+
 - 2026-09-27 · **Activity history states and recovery.** The logs-style rail
   now distinguishes no selected session, loading a saved NNA snapshot, a
   genuinely empty history, and unavailable history. A failed snapshot offers

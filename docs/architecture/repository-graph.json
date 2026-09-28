@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2cb25ff9ee15ab070f89309f2672e28345123845b0d3042c560c0768d35a7b28",
+  "source_digest": "sha256:54921792f9aeeb811e247553dcb24f23e275e8eda055984f477485e4809a9a53",
   "counts": {
-    "modules": 466,
+    "modules": 467,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 116
+      "module_count": 117
     },
     {
       "id": "web-server",
@@ -431,6 +431,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/operator-context-project.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/chat/operator-icons.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -444,6 +450,7 @@
         "packages/ui/src/chat/browser-surface.tsx",
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
+        "packages/ui/src/chat/operator-context-project.ts",
         "packages/ui/src/chat/operator-icons.tsx",
         "packages/ui/src/chat/project-notes.tsx",
         "packages/ui/src/chat/walkthrough-preview.tsx",

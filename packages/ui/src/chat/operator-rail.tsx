@@ -18,6 +18,8 @@ import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
 import type { ToolEvidence } from '../sync/activity-log.ts';
 import { OperatorIcon } from './operator-icons.tsx';
+import { resolveContextProjectId } from './operator-context-project.ts';
+export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -41,7 +43,6 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const walkthroughSessionId = useSessionViewStore((state) => state.activeDirectory === directory ? state.currentSessionId : null);
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
   const [docked, setDocked] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1024px)').matches ?? false));
-  const [panelOpen, setPanelOpen] = useState(wide);
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
     const query = window.matchMedia?.('(min-width: 1280px)');
@@ -60,17 +61,33 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     return () => query.removeEventListener('change', update);
   }, []);
   useEffect(() => {
+    if (!docked || compactOpen || suppressed) setMaximized(false);
+  }, [compactOpen, docked, suppressed]);
+  const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
+  const projectId = resolveContextProjectId(directory, global.projects);
+  const storageKey = surfaceStorageKey(directory);
+  const openKey = panelOpenStorageKey(storageKey);
+  const openIdentity = openKey ?? `volatile:${getRuntimeKey()}:${storageKey}`;
+  const [openState, setOpenState] = useState(() => ({ key: openIdentity, value: readPanelOpen(openKey, wide), touched: false }));
+  const panelOpen = openState.key === openIdentity ? openState.value : readPanelOpen(openKey, wide);
+  const setPanelOpen = (next: boolean | ((current: boolean) => boolean)): void => {
+    setOpenState({ key: openIdentity, value: typeof next === 'function' ? next(panelOpen) : next, touched: true });
+  };
+  useEffect(() => {
+    if (openState.key !== openIdentity) setOpenState({ key: openIdentity, value: readPanelOpen(openKey, wide), touched: false });
+  }, [openIdentity, openKey, openState.key, wide]);
+  useEffect(() => {
+    // A viewport-derived default is not an operator preference. Persist only
+    // after an explicit panel action or compact-to-docked handoff.
+    if (openState.key !== openIdentity || openKey === null || !openState.touched) return;
+    try { localStorage.setItem(openKey, openState.value ? 'open' : 'closed'); } catch { /* optional device preference */ }
+  }, [openIdentity, openKey, openState.key, openState.touched, openState.value]);
+  useEffect(() => {
     // When a foreground compact surface becomes docked, keep its pane open.
     // ChatView simultaneously restores the chat column at this breakpoint.
     if (docked && compactOpen) setPanelOpen(true);
   }, [compactOpen, docked]);
-  useEffect(() => {
-    if (!docked || compactOpen || suppressed) setMaximized(false);
-  }, [compactOpen, docked, suppressed]);
   const paneVisible = !suppressed && (compactOpen || (docked && panelOpen));
-  const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
-  const projectId = resolveContextProjectId(directory, global.projects);
-  const storageKey = surfaceStorageKey(directory);
   const selectionKey = surfaceSelectionKey(storageKey);
   const preferencesKey = panelPreferencesKey(storageKey);
   const [panelState, setPanelState] = useState(() => ({ key: preferencesKey, value: readPanelPreferences(preferencesKey) }));
@@ -276,31 +293,6 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   );
 }
 
-export function resolveContextProjectId(directory: string, projects: Record<string, unknown>[]): string | null {
-  const target = normalizedProjectPath(directory);
-  const matches = projects.flatMap((project) => {
-    const id = project['id'];
-    const worktree = project['worktree'];
-    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]+$/u.test(id) || typeof worktree !== 'string') return [];
-    const base = normalizedProjectPath(worktree);
-    return base && (target === base || target.startsWith(`${base}/`)) ? [{ id, length: base.length }] : [];
-  });
-  matches.sort((a, b) => b.length - a.length);
-  // If the roster assigns the same directory to different IDs, there is no
-  // safe owner for a write. Wait for the project roster to be corrected.
-  if (matches.length > 1 && matches[0]!.length === matches[1]!.length && matches[0]!.id !== matches[1]!.id) return null;
-  return matches[0]?.id ?? null;
-}
-
-function normalizedProjectPath(value: string): string {
-  let path = value.trim().replaceAll('\\', '/').replace(/\/+$/u, '');
-  // Lexical traversal aliases can make a directory appear to belong to the
-  // wrong project. Leave such paths unresolved instead of guessing an owner.
-  if (path.split('/').some((segment) => segment === '.' || segment === '..')) return '';
-  if (/^[a-z]:/iu.test(path) || path.startsWith('//')) path = path.toLowerCase();
-  return path;
-}
-
 function readSurface(key: string): Surface {
   try { const value = localStorage.getItem(key); return SURFACES.some((surface) => surface.id === value) ? value as Surface : 'context'; } catch { return 'context'; }
 }
@@ -315,6 +307,19 @@ function surfaceSelectionKey(directoryKey: string): string {
 function panelPreferencesKey(directoryKey: string): string | null {
   const runtime = getRuntimeKey();
   return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.panels:${runtime}:${directoryKey}`;
+}
+
+function panelOpenStorageKey(directoryKey: string): string | null {
+  const runtime = getRuntimeKey();
+  return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.open:${runtime}:${directoryKey}`;
+}
+
+function readPanelOpen(key: string | null, defaultOpen: boolean): boolean {
+  if (key === null) return defaultOpen;
+  try {
+    const saved = localStorage.getItem(key);
+    return saved === 'open' ? true : saved === 'closed' ? false : defaultOpen;
+  } catch { return defaultOpen; }
 }
 
 function readPanelPreferences(key: string | null): PanelPreferences {
