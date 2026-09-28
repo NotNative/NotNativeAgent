@@ -68,14 +68,19 @@ export function nnaTurnPhaseFromMetadata(metadata: unknown): string | null {
  * from an old started Activity record. */
 export function nnaActiveTools(state: DirectoryStore, sessionID: string): { count: number; names: string[] } | null {
   const session = state.session.find((item) => item.id === sessionID);
-  const nnd = session?.metadata?.nnd;
+  return nnaActiveToolsFromMetadata(session?.metadata);
+}
+
+export function nnaActiveToolsFromMetadata(metadata: unknown): { count: number; names: string[] } | null {
+  const nnd = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>).nnd : null;
   if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
   const raw = (nnd as Record<string, unknown>).activeTools;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const { count, names } = raw as Record<string, unknown>;
   const validName = (name: unknown): name is string => typeof name === 'string' && name.trim().length > 0
     && name.length <= 128 && !/[\u0000-\u001f\u007f]/u.test(name);
-  if (!Number.isSafeInteger(count) || (count as number) < 1 || (count as number) > 64
+  if (!Number.isSafeInteger(count) || (count as number) < 0 || (count as number) > 64
     || !Array.isArray(names) || names.length !== count || !names.every(validName)) return null;
   return { count: count as number, names };
 }

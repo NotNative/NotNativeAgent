@@ -37,6 +37,12 @@ describe('session navigator attention', () => {
     expect(childActivityPhrase({ nnd: { turnState: { phase: 'idle' } } })).toBeNull();
     expect(childActivityPhrase({ nnd: { turnState: { phase: 'unknown' } } })).toBeNull();
     expect(childActivityPhrase({ nnd: { turnState: 'running_tool' } })).toBeNull();
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'running_tool' },
+      activeTools: { count: 2, names: ['shell_run', 'edit'] } } })).toBe('using shell_run +1');
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'running_tool' },
+      activeTools: { count: 0, names: [] } } })).toBeNull();
+    expect(childActivityPhrase({ nnd: { turnState: { phase: 'running_tool' },
+      activeTools: { count: 1, names: ['shell_run\nprivate'] } } })).toBe('using tool');
   });
 
   it('renders the authored attention badge for a child session after its live status becomes idle', () => {
@@ -103,7 +109,7 @@ describe('session navigator attention', () => {
   it('updates a child row from an authored phase and lets attention take precedence', () => {
     const originalLoad = useSessionFoldersStore.getState().load;
     useSessionFoldersStore.setState({ load: async () => undefined });
-    const child = { ...session({ turnState: { phase: 'running_tool' } }), id: 'child', parentID: 'parent', title: 'Research',
+    const child = { ...session({ turnState: { phase: 'running_tool' }, activeTools: { count: 1, names: ['shell_run'] } }), id: 'child', parentID: 'parent', title: 'Research',
       time: { created: 2, updated: 2 } };
     useGlobalSessionsStore.setState({ active: [session(null), child] });
     const node = document.createElement('div'); document.body.appendChild(node);
@@ -112,13 +118,39 @@ describe('session navigator attention', () => {
       act(() => root.render(<ChatSidebar engine={{} as never} currentDirectory="/work" currentSessionId={null}
         actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
           archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
-      expect(node.querySelector('[data-child-session="true"] [data-testid="child-current-activity"]')?.textContent).toContain('using tool');
+      expect(node.querySelector('[data-child-session="true"] [data-testid="child-current-activity"]')?.textContent).toContain('using shell_run');
+      act(() => useGlobalSessionsStore.setState({ active: [session(null), { ...child, metadata: { nnd: {
+        turnState: { phase: 'running_tool' }, activeTools: { count: 0, names: [] },
+      } } }] }));
+      expect(node.querySelector('[data-child-session="true"] [data-testid="child-current-activity"]')).toBeNull();
       act(() => useGlobalSessionsStore.setState({ active: [session(null), { ...child, metadata: { nnd: {
         attention: { kind: 'needs_input' }, turnState: { phase: 'running_tool' },
       } } }] }));
       const row = node.querySelector('[data-child-session="true"]')!;
       expect(row.textContent).toContain('needs input');
       expect(row.querySelector('[data-testid="child-current-activity"]')).toBeNull();
+    } finally {
+      act(() => root.unmount()); node.remove();
+      useGlobalSessionsStore.getState().reset();
+      useSessionFoldersStore.setState({ load: originalLoad });
+    }
+  });
+
+  it('shows root tool work in the session navigator without borrowing a sibling snapshot', () => {
+    const originalLoad = useSessionFoldersStore.getState().load;
+    useSessionFoldersStore.setState({ load: async () => undefined });
+    useGlobalSessionsStore.setState({ active: [session({ activeTools: { count: 1, names: ['edit'] },
+      turnState: { phase: 'running_tool' } }), { ...session({ activeTools: { count: 1, names: ['shell_run'] } }),
+      id: 's2', title: 'Sibling', time: { created: 2, updated: 2 } }] });
+    const node = document.createElement('div'); document.body.appendChild(node);
+    const root = createRoot(node);
+    try {
+      act(() => root.render(<ChatSidebar engine={{} as never} currentDirectory="/work" currentSessionId={null}
+        actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
+          archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
+      const rows = node.querySelectorAll('[data-testid="session-row"]');
+      expect([...rows].some((row) => row.textContent?.includes('using edit'))).toBe(true);
+      expect([...rows].some((row) => row.textContent?.includes('using shell_run'))).toBe(true);
     } finally {
       act(() => root.unmount()); node.remove();
       useGlobalSessionsStore.getState().reset();

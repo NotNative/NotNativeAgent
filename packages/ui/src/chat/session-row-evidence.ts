@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Display-only NNA evidence for navigator rows; never infer authority from busy state. */
 import type { Session } from '../lib/nnd/types.ts';
-import { nnaTurnPhaseFromMetadata } from './work-status.ts';
+import { nnaActiveToolsFromMetadata, nnaTurnPhaseFromMetadata } from './work-status.ts';
 
 /** Only NNA-authored session metadata can assert attention here. */
 export function sessionAttention(session: Session): string | null {
@@ -16,12 +16,20 @@ export function sessionAttention(session: Session): string | null {
   return null;
 }
 
-/** NNA's enumerated phase is display evidence, not a transport-busy guess. */
-export function childActivityPhrase(metadata: unknown): string | null {
+/** Prefer a live NNA tool snapshot over a semantic phase that may linger
+ * after a terminal tool event. No tool name is inferred from Activity history. */
+export function sessionActivityPhrase(metadata: unknown): string | null {
+  const tools = nnaActiveToolsFromMetadata(metadata);
+  if (tools?.count) return `using ${tools.names[0]}${tools.count > 1 ? ` +${tools.count - 1}` : ''}`;
   const phase = nnaTurnPhaseFromMetadata(metadata);
+  // The phase can remain running_tool until another engine state arrives;
+  // an explicit empty live snapshot outranks that older phase.
+  if (tools && phase === 'running_tool') return null;
   const labels: Record<string, string> = {
     preparing: 'preparing', waiting_provider: 'waiting for model', reasoning: 'reasoning',
     streaming: 'replying', running_tool: 'using tool', recovering: 'recovering', cancelling: 'stopping',
   };
   return phase ? labels[phase] ?? null : null;
 }
+
+export const childActivityPhrase = sessionActivityPhrase;

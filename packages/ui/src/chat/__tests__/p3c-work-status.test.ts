@@ -90,10 +90,14 @@ describe('NNA live tool projection', () => {
       count: 2, names: ['shell_run', 'edit'], secret: 'private',
     } } }, time: { created: 1, updated: 2 } }] } as unknown as Partial<DirectoryStore>);
     expect(nnaActiveTools(store.getState(), 's1')).toEqual({ count: 2, names: ['shell_run', 'edit'] });
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { activeTools: {
+      count: 0, names: [],
+    } } }, time: { created: 1, updated: 3 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaActiveTools(store.getState(), 's1')).toEqual({ count: 0, names: [] });
     expect(nnaActiveTools(store.getState(), 'other')).toBeNull();
     patch(store, { session: [{ id: 's1', metadata: { nnd: { activeTools: {
       count: 2, names: ['shell_run'],
-    } } }, time: { created: 1, updated: 3 } }] } as unknown as Partial<DirectoryStore>);
+    } } }, time: { created: 1, updated: 4 } }] } as unknown as Partial<DirectoryStore>);
     expect(nnaActiveTools(store.getState(), 's1')).toBeNull();
   });
 });

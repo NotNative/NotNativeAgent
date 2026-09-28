@@ -127,7 +127,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     sections.push({ id: 'session', label: 'Session', rows: [row('Turn', turnLabel)] });
   }
   if (branch) sections.push({ id: 'project', label: 'Project', rows: [row('Branch', branch)] });
-  if (activeTools) sections.push({ id: 'active-tools', label: `Running tools (${activeTools.count})`, rows:
+  if (activeTools && activeTools.count > 0) sections.push({ id: 'active-tools', label: `Running tools (${activeTools.count})`, rows:
     activeTools.names.map((name, index) => row(`Tool ${index + 1}`, name)) });
   if (latestTool) sections.push({ id: 'latest-tool', label: 'Latest tool event', rows: [
     row('Event', latestTool.summary), row('State', latestTool.status === 'attention' ? 'Needs input' : latestTool.status),
