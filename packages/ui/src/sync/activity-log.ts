@@ -18,6 +18,7 @@ export interface ActivityRecord {
 }
 
 export interface ToolEvidence {
+  turnRequestID?: string;
   target?: string;
   reviewPath?: string;
   reviewDirectory?: string;
@@ -78,7 +79,7 @@ function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolea
 
 export function sameToolEvidence(left?: ToolEvidence, right?: ToolEvidence): boolean {
   if (!left || !right) return left === right;
-  return left.target === right.target && left.effect === right.effect
+  return left.target === right.target && left.effect === right.effect && left.turnRequestID === right.turnRequestID
     && left.reviewPath === right.reviewPath && left.reviewDirectory === right.reviewDirectory
     && left.reasonCode === right.reasonCode && left.elapsedMs === right.elapsedMs && left.exitCode === right.exitCode;
 }
@@ -86,10 +87,11 @@ export function sameToolEvidence(left?: ToolEvidence, right?: ToolEvidence): boo
 function parseToolEvidence(value: unknown): ToolEvidence | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const source = value as Record<string, unknown>;
-  if (Object.keys(source).some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return null;
+  if (Object.keys(source).some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode', 'turnRequestID'].includes(key))) return null;
   const validText = (item: unknown, max: number): boolean => item === undefined
     || typeof item === 'string' && item.length > 0 && item.length <= max && !/[\u0000-\u001f\u007f]/u.test(item);
   if (!validText(source.target, 180) || !validReviewPath(source.reviewPath, source.reviewDirectory)
+    || !validText(source.turnRequestID, 256)
     || !validText(source.effect, 48) || !validText(source.reasonCode, 80)
     || source.elapsedMs !== undefined && (typeof source.elapsedMs !== 'number' || !Number.isSafeInteger(source.elapsedMs)
       || source.elapsedMs < 0 || source.elapsedMs > 604_800_000)

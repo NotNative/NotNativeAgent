@@ -50,6 +50,14 @@ describe('operator activity evidence', () => {
       toolEvidence: { target: 'x'.repeat(181) } } })).toBeNull();
     const record = activityRecordFromEvent({ type: 'nnd.activity', properties })!;
     expect(mergeActivityRecord([record], { ...record, toolEvidence: { ...record.toolEvidence!, elapsedMs: 26 } })).not.toBe(record);
+    const correlated = { ...properties, toolEvidence: { ...properties.toolEvidence, turnRequestID: 'prompt-a' } };
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: correlated })?.toolEvidence?.turnRequestID).toBe('prompt-a');
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...correlated,
+      toolEvidence: { ...correlated.toolEvidence, turnRequestID: 'bad\nrequest' } } })).toBeNull();
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...correlated,
+      toolEvidence: { ...correlated.toolEvidence, turnRequestID: 'x'.repeat(257) } } })).toBeNull();
+    const linked = activityRecordFromEvent({ type: 'nnd.activity', properties: correlated })!;
+    expect(mergeActivityRecord([linked], { ...linked, toolEvidence: { ...linked.toolEvidence!, turnRequestID: 'prompt-b' } })).not.toBe(linked);
   });
 
   it('validates the authored review path and removes it on correction', () => {

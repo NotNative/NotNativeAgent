@@ -19,10 +19,11 @@ export function repoPathFromWorkspace(prefix: unknown, path: string): string | n
 }
 
 export function sessionChangedFiles(records: readonly ActivityRecord[], sessionID: string, directory: string,
-  status: GitStatus): SessionChangeEvidence[] {
+  status: GitStatus, turnRequestID?: string): SessionChangeEvidence[] {
   if (repoPathFromWorkspace(status.workspacePrefix, '') === null) return [];
   const touched = new Set(records.filter((record) => record.sessionID === sessionID && record.kind === 'tool'
     && record.status === 'completed' && record.toolEvidence?.reviewDirectory === directory
+    && (turnRequestID === undefined || record.toolEvidence.turnRequestID === turnRequestID)
     && typeof record.toolEvidence.reviewPath === 'string')
     .map((record) => repoPathFromWorkspace(status.workspacePrefix, record.toolEvidence!.reviewPath!)!));
   const grouped = groupedStatusFiles(status);
@@ -33,4 +34,10 @@ export function sessionChangedFiles(records: readonly ActivityRecord[], sessionI
     current.set(file.path, { path: file.path, staged: existing?.staged ?? false, working: true });
   }
   return [...current.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+/** Authored turn records carry the prompt ID; legacy rows are not inferred. */
+export function latestTurnRequestID(records: readonly ActivityRecord[], sessionID: string): string | null {
+  return records.filter((record) => record.sessionID === sessionID && record.kind === 'turn'
+    && record.evidenceMessageID).at(-1)?.evidenceMessageID ?? null;
 }

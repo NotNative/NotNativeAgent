@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActivityRecord } from '../../../sync/activity-log.ts';
 import type { GitStatus } from '../../../lib/git/api.ts';
-import { sessionChangedFiles } from '../session-change-evidence.ts';
+import { latestTurnRequestID, sessionChangedFiles } from '../session-change-evidence.ts';
 
 const directory = '/repo/packages/ui';
 const status: GitStatus = {
@@ -40,5 +40,23 @@ describe('sessionChangedFiles', () => {
   it('refuses malformed repository prefixes instead of matching an unrelated path', () => {
     expect(sessionChangedFiles([evidence('a', 'src/both.ts')], 'selected', directory,
       { ...status, workspacePrefix: '../' })).toEqual([]);
+  });
+
+  it('uses only authored correlation for last-turn changes, never time proximity', () => {
+    const records = [
+      { id: 'turn-old', sessionID: 'selected', time: 1, kind: 'turn', status: 'completed',
+        summary: 'Done', evidenceMessageID: 'old' } as ActivityRecord,
+      evidence('a', 'src/both.ts', { toolEvidence: { reviewPath: 'src/both.ts', reviewDirectory: directory, turnRequestID: 'old' } }),
+      { id: 'turn-new', sessionID: 'selected', time: 2, kind: 'turn', status: 'started',
+        summary: 'Started', evidenceMessageID: 'new' } as ActivityRecord,
+      evidence('b', 'src/working.ts', { toolEvidence: { reviewPath: 'src/working.ts', reviewDirectory: directory, turnRequestID: 'new' } }),
+      evidence('legacy', 'src/other.ts'),
+    ];
+    const latest = latestTurnRequestID(records, 'selected');
+    expect(latest).toBe('new');
+    expect(sessionChangedFiles(records, 'selected', directory, status, latest!)).toEqual([
+      { path: 'packages/ui/src/working.ts', staged: false, working: true },
+    ]);
+    expect(latestTurnRequestID(records, 'different')).toBeNull();
   });
 });

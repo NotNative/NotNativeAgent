@@ -60,4 +60,32 @@ describe('SessionChanges', () => {
     expect(element.textContent).toContain('Saved activity unavailable; live evidence may be incomplete.');
     expect(element.querySelector<HTMLButtonElement>('button[aria-label="View current diff for session-touched work.ts"]')?.disabled).toBe(true);
   });
+
+  it('switches from session evidence to the latest authored turn without guessing legacy tool ownership', async () => {
+    const store = createDirectoryStore({ activity: [
+      { id: 'turn-old', sessionID: 'selected', time: 1, kind: 'turn', status: 'completed', summary: 'Done', evidenceMessageID: 'old' },
+      { id: 'file-old', sessionID: 'selected', time: 2, kind: 'tool', status: 'completed', summary: 'Edited old.ts',
+        toolEvidence: { reviewPath: 'old.ts', reviewDirectory: directory, turnRequestID: 'old' } },
+      { id: 'turn-new', sessionID: 'selected', time: 3, kind: 'turn', status: 'started', summary: 'Started', evidenceMessageID: 'new' },
+      { id: 'file-new', sessionID: 'selected', time: 4, kind: 'tool', status: 'completed', summary: 'Edited work.ts',
+        toolEvidence: { reviewPath: 'work.ts', reviewDirectory: directory, turnRequestID: 'new' } },
+      { id: 'file-legacy', sessionID: 'selected', time: 5, kind: 'tool', status: 'completed', summary: 'Edited legacy.ts',
+        toolEvidence: { reviewPath: 'legacy.ts', reviewDirectory: directory } },
+    ] });
+    const current = { ...status, files: [
+      ...status.files, { path: 'old.ts', index: ' ', working_dir: 'M' },
+      { path: 'legacy.ts', index: ' ', working_dir: 'M' },
+    ] };
+    element = document.createElement('div'); document.body.appendChild(element); root = createRoot(element);
+    await act(async () => { root!.render(<SessionChanges store={store} directory={directory} sessionID="selected"
+      status={current} stale={false} visible onOpen={vi.fn()} />); });
+    expect(element.querySelectorAll('button[aria-label^="View current diff"]')).toHaveLength(3);
+    await act(async () => { [...element!.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === 'Last turn')?.click(); });
+    expect(element.querySelectorAll('button[aria-label^="View current diff"]')).toHaveLength(1);
+    expect(element.textContent).toContain('Touched in last turn');
+    expect(element.textContent).toContain('work.ts');
+    expect(element.textContent).not.toContain('old.ts');
+    expect(element.textContent).not.toContain('legacy.ts');
+  });
 });

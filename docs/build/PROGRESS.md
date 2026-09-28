@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Last-turn file evidence in Changes.** NNA now projects the
+  owning prompt request ID with sanitized parent tool evidence. Changes offers
+  Session and Last turn scopes, with the latter matching only completed file
+  mutations explicitly correlated to the latest authored turn and still in
+  current Git changes. Legacy uncorrelated events are not guessed into a turn.
+  The view remains navigational: current diffs can contain later edits, and
+  bounded Activity history may omit older file evidence. An adversarial
+  review found no concrete defect in this slice.
+
 - 2026-09-28 · **Session evidence in Changes.** The selected session's
   completed file-tool evidence is now matched to current staged and working
   Git paths, including nested workspaces. The section says when a file was
