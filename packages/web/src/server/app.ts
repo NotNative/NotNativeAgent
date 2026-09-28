@@ -29,6 +29,7 @@ import { registerSnippetRoutes } from './routes/snippets.ts';
 import { registerMagicPromptRoutes } from './routes/magic-prompts.ts';
 import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
 import { registerObjectiveRoutes } from './goals/objective-routes.ts';
+import { registerOpenChamberSessionRoutes } from './session-orchestration/openchamber-sessions.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
@@ -239,6 +240,8 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   app.route('/', createNotNativeRoutes());
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
+  // §5.17 session orchestration: server-side create/send/fork/archive.
+  registerOpenChamberSessionRoutes(app);
   // §5.16 scheduled-task family (doc 12 C): BEFORE the harness proxy.
   app.route('/', createScheduledTaskRoutes());
   // Snippet config-entity family (doc 03 §5.x, NND addition): BEFORE the

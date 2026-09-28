@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:5a7812deb016e5348251355a1ec4d43211a8891b6babbd01d14add1e12bfaad3",
+  "source_digest": "sha256:5e88a75ff81b167e5523eec6192fb8094436f42a61b26c8180b36a6515491ad7",
   "counts": {
-    "modules": 499,
+    "modules": 511,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 142
+      "module_count": 154
     },
     {
       "id": "web-entry",
@@ -136,6 +136,12 @@
       "module_count": 3
     },
     {
+      "from": "web-server",
+      "to": "harness-facade",
+      "import_count": 9,
+      "module_count": 9
+    },
+    {
       "from": "runtime-io",
       "to": "harness-facade",
       "import_count": 8,
@@ -146,12 +152,6 @@
       "to": "runtime-io",
       "import_count": 7,
       "module_count": 6
-    },
-    {
-      "from": "web-server",
-      "to": "harness-facade",
-      "import_count": 5,
-      "module_count": 5
     },
     {
       "from": "harness-facade",
@@ -3504,6 +3504,7 @@
         "packages/web/src/server/routes/session-folders.ts",
         "packages/web/src/server/routes/snippets.ts",
         "packages/web/src/server/routes/tunnel.ts",
+        "packages/web/src/server/session-orchestration/openchamber-sessions.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/routes.ts",
         "packages/web/src/server/terminal/session-core.ts"
@@ -4709,6 +4710,139 @@
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/scheduled/next-run.ts",
         "packages/web/src/server/scheduled/scheduled-constants.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/openchamber-sessions.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/objective-store.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/session-orchestration/session-harness-ports.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-dispatch.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-input.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-service.ts",
+        "packages/web/src/server/session-orchestration/session-worktree.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-harness-port-seams.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/session-orchestration/session-harness-port-timeouts.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-harness-port-timeouts.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-harness-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/session-orchestration/session-harness-port-timeouts.ts",
+        "packages/web/src/server/session-orchestration/session-harness-read-ports.ts",
+        "packages/web/src/server/session-orchestration/session-harness-write-ports.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-harness-read-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/session-orchestration/session-harness-port-seams.ts",
+        "packages/web/src/server/session-orchestration/session-harness-port-timeouts.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-harness-write-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/session-orchestration/session-harness-port-seams.ts",
+        "packages/web/src/server/session-orchestration/session-harness-port-timeouts.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-orchestration-contract.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/goals/goal-distill.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/objective-store.ts",
+        "packages/web/src/server/queue/queue-hooks.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-orchestration-dispatch.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-distill.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/lib/bus.ts",
+        "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/queue/queue-expansion.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-orchestration-input.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-orchestration-selection.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-orchestration-service.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/bus.ts",
+        "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-dispatch.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-input.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-selection.ts",
+        "packages/web/src/server/session-orchestration/session-worktree.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-orchestration/session-worktree.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/routes/git.ts",
+        "packages/web/src/server/session-orchestration/session-orchestration-contract.ts"
       ]
     },
     {

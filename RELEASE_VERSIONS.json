@@ -380,6 +380,10 @@
     {
       "version": "20260928-47",
       "content_sha256": "f37b4fa2fe411b86c872fac7da01d8bbe09e617051bf79184336dc67be6de185"
+    },
+    {
+      "version": "20260928-48",
+      "content_sha256": "cb0d35115fee492cb22cd1ddb587a2cd732e14c5863983cea22c14b9061245dd"
     }
   ]
 }

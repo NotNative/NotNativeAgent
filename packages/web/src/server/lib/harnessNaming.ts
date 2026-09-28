@@ -26,6 +26,8 @@ export const CONTROL_EVENTS = {
   messageQueueUpdated: 'notnative:message-queue.updated',
   // §C.10 scheduled-task run events (same NND brand rule as E-09-1)
   scheduledTaskRan: 'notnative:scheduled-task-ran',
+  // P9-6b orchestration fanout
+  sessionCreated: 'notnative:session-created',
 } as const;
 
 /**
