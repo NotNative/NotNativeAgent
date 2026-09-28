@@ -19,6 +19,8 @@ import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-s
 import type { ToolEvidence } from '../sync/activity-log.ts';
 import { OperatorIcon } from './operator-icons.tsx';
 import { resolveContextProjectId } from './operator-context-project.ts';
+import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
+import { clampRailWidth, maxRailWidth, readWidth, surfaceWidthStorageKey } from './operator-rail-width.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
@@ -32,7 +34,7 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
 ];
 type PanelPreferences = { order: Surface[]; visible: Surface[] };
-type ReviewRequest = { directory: string; path: string; id: number };
+type ReviewRequest = { directory: string; path: string; id: number; runtimeKey: string };
 const DEFAULT_PANEL_PREFERENCES: PanelPreferences = {
   order: SURFACES.map((item) => item.id), visible: SURFACES.map((item) => item.id),
 };
@@ -66,6 +68,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const projectId = resolveContextProjectId(directory, global.projects);
   const storageKey = surfaceStorageKey(directory);
+  const changesIdentity = `${getRuntimeKey()}:${storageKey}`;
   const openKey = panelOpenStorageKey(storageKey);
   const openIdentity = openKey ?? `volatile:${getRuntimeKey()}:${storageKey}`;
   const [openState, setOpenState] = useState(() => ({ key: openIdentity, value: readPanelOpen(openKey, wide), touched: false }));
@@ -94,6 +97,15 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const panels = panelState.key === preferencesKey ? panelState.value : readPanelPreferences(preferencesKey);
   const [customizing, setCustomizing] = useState(false);
   const [reviewRequest, setReviewRequest] = useState<ReviewRequest | null>(null);
+  const reviewIdentity = useRef(changesIdentity);
+  useEffect(() => {
+    // A jump belongs to the workspace/runtime where Activity authored it.
+    // Do not replay it when a retained Changes view is mounted again later.
+    if (reviewIdentity.current !== changesIdentity) {
+      reviewIdentity.current = changesIdentity;
+      setReviewRequest(null);
+    }
+  }, [changesIdentity]);
   useEffect(() => {
     if (panelState.key !== preferencesKey) setPanelState({ key: preferencesKey, value: readPanelPreferences(preferencesKey) });
   }, [panelState.key, preferencesKey]);
@@ -148,6 +160,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
   const [browserOpenedKey, setBrowserOpenedKey] = useState<string | null>(() => selection.surface === 'browser' ? storageKey : null);
   const [notesOpenedKey, setNotesOpenedKey] = useState<string | null>(() => selection.surface === 'notes' ? storageKey : null);
+  const [changesOpenedKey, setChangesOpenedKey] = useState<string | null>(() => selection.surface === 'changes' ? changesIdentity : null);
   // Exactly one unsaved General Notes draft may cross project mounts. The
   // Notes pane locks other projects until this lease is saved or discarded.
   const [notesDraft, setNotesDraft] = useState<NotesDraftLease | null>(null);
@@ -172,6 +185,9 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'notes') setNotesOpenedKey(storageKey);
   }, [selection.key, selectionKey, storageKey, surface]);
+  useEffect(() => {
+    if (selection.key === selectionKey && surface === 'changes') setChangesOpenedKey(changesIdentity);
+  }, [changesIdentity, selection.key, selectionKey, surface]);
   // The 40px icon nav sits inside this aside's 1px border. Omitting that
   // border pixel makes the document itself scroll in both directions.
   const dockWidth = 41;
@@ -224,6 +240,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               if (item.id === 'notes') setNotesOpenedKey(storageKey);
+              if (item.id === 'changes') setChangesOpenedKey(changesIdentity);
               // A maximized surface must not collapse into an opaque, full-chat
               // icon strip when its already selected icon is clicked.
               if (docked && !compactOpen) setPanelOpen(maximized || item.id !== surface || !panelOpen);
@@ -259,14 +276,16 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
         </section> : null}
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded expanded={maximized} /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} directory={directory} onReviewPath={(path) => {
-          setReviewRequest({ directory, path, id: Date.now() });
+          setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
-        {surface === 'changes' ? <GitView directory={directory} visible compact reviewRequest={reviewRequest}
+        {changesOpenedKey === changesIdentity || surface === 'changes' ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
+          <GitView key={changesIdentity} directory={directory} visible={surface === 'changes' && paneVisible} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
           onOpenWalkthrough={() => {
             if (!panels.visible.includes('walkthrough')) changePanels({ ...panels, visible: [...panels.visible, 'walkthrough'] });
             setSelection({ key: selectionKey, surface: 'walkthrough' });
-          }} /> : null}
+          }} />
+        </div> : null}
         {surface === 'walkthrough' ? <WalkthroughPreviewSurface directory={directory} sessionId={walkthroughSessionId} visible={paneVisible} /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
@@ -309,19 +328,6 @@ function panelPreferencesKey(directoryKey: string): string | null {
   return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.panels:${runtime}:${directoryKey}`;
 }
 
-function panelOpenStorageKey(directoryKey: string): string | null {
-  const runtime = getRuntimeKey();
-  return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.open:${runtime}:${directoryKey}`;
-}
-
-function readPanelOpen(key: string | null, defaultOpen: boolean): boolean {
-  if (key === null) return defaultOpen;
-  try {
-    const saved = localStorage.getItem(key);
-    return saved === 'open' ? true : saved === 'closed' ? false : defaultOpen;
-  } catch { return defaultOpen; }
-}
-
 function readPanelPreferences(key: string | null): PanelPreferences {
   if (key === null) return DEFAULT_PANEL_PREFERENCES;
   try {
@@ -354,36 +360,6 @@ function surfaceStorageKey(directory: string): string {
   normalized = normalized.replace(/^([a-z]):/u, (_match, drive: string) => `${drive.toUpperCase()}:`);
   normalized = normalized.length > 1 ? normalized.replace(/\/+$/u, '') : normalized;
   return `nnd.operator-rail.surface:${normalized}`;
-}
-
-function surfaceWidthStorageKey(directoryKey: string, surface: Surface): string | null {
-  const runtime = getRuntimeKey();
-  return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.width:${runtime}:${directoryKey}:${surface}`;
-}
-
-function maxRailWidth(viewportWidth: number): number {
-  // The dock is beside a 288px session sidebar, not an otherwise empty page.
-  // A width saved on an ultrawide monitor must leave a readable chat column
-  // when restored in the ordinary desktop window.
-  const sidebarWidth = 288;
-  const dockWidth = 41;
-  const minimumChatWidth = 480;
-  return Math.max(280, Math.min(1200, viewportWidth - sidebarWidth - dockWidth - minimumChatWidth));
-}
-
-function clampRailWidth(width: number, viewportWidth: number): number {
-  return Math.min(maxRailWidth(viewportWidth), Math.max(280, Math.round(width)));
-}
-
-function readWidth(key: string | null, surface: Surface): number {
-  const viewport = typeof window === 'undefined' ? 1280 : window.innerWidth;
-  const fallback = viewport >= 1600 ? Math.min(1200, Math.round(viewport * 0.36)) : surface === 'browser' ? 600 : 300;
-  if (key === null) return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    const saved = raw === null ? NaN : Number(raw);
-    return Number.isFinite(saved) ? Math.min(1200, Math.max(280, Math.round(saved))) : fallback;
-  } catch { return fallback; }
 }
 
 type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'attention' | 'failed';

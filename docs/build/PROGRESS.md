@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Changes pane continuity.** Once opened, the Changes workbench
+  stays mounted while another operator surface is foregrounded. Its selected
+  diff and unsubmitted commit text survive a surface switch, while Git polling
+  pauses when hidden. The retained instance is runtime/workspace-scoped.
+  Adversarial review prevented an old Activity-to-Changes review request from
+  replaying after switching away from and back to a workspace.
+
 - 2026-09-27 · **Operator rail workspace continuity.** The open/closed state
   of the right-side pane now follows its workspace and runtime, alongside the
   existing selected surface and saved width. Returning to a workspace restores

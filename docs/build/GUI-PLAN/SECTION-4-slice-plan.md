@@ -198,6 +198,9 @@ Tasks:
 3. Host the existing Diff/Files/Git material as Changes, and host Terminal as a
    keep-alive pane. Adopt visibility-gated refresh/reconnect behavior rather than
    replacing a hidden pane with a new instance.
+   **Changes keep-alive implemented (2026-09-28):** selected diff and commit
+   draft survive rail-surface changes within one runtime/workspace; hidden Git
+   refresh pauses. Cross-workspace draft leasing remains separate lifecycle work.
 4. Add the Notes surface as project-owned general notes, todos, and plans. Keep agent
    memory source-labelled and behind the later NNA knowledge contract. A plan opens in
    the panel with an explicit project owner.

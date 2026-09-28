@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:54921792f9aeeb811e247553dcb24f23e275e8eda055984f477485e4809a9a53",
+  "source_digest": "sha256:43a6d133f021e76dc9e03eb4d9391b7ef2374cc680460dd6322b1530f73d973c",
   "counts": {
-    "modules": 467,
+    "modules": 469,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 117
+      "module_count": 119
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 161,
-      "module_count": 65
+      "import_count": 163,
+      "module_count": 67
     },
     {
       "from": "sync-engine",
@@ -443,6 +443,22 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/chat/operator-panel-open.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/operator-rail-width.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/operator-rail.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -452,6 +468,8 @@
         "packages/ui/src/chat/context-plans.tsx",
         "packages/ui/src/chat/operator-context-project.ts",
         "packages/ui/src/chat/operator-icons.tsx",
+        "packages/ui/src/chat/operator-panel-open.ts",
+        "packages/ui/src/chat/operator-rail-width.ts",
         "packages/ui/src/chat/project-notes.tsx",
         "packages/ui/src/chat/walkthrough-preview.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",

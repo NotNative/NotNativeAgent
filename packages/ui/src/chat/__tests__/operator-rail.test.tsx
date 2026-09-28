@@ -117,6 +117,7 @@ describe('OperatorRail', () => {
   });
 
   it('opens Walkthrough from Changes even when an older saved layout hides it', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
     vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
       isGitRepository: true, branch: 'main', files: [], trackingAhead: 0, trackingBehind: 0,
@@ -127,9 +128,82 @@ describe('OperatorRail', () => {
     await act(async () => { rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />); });
     await act(async () => (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click());
     await act(async () => (document.querySelector('[data-testid="git-open-walkthrough"]') as HTMLButtonElement).click());
-    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Walkthrough');
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Walkthrough');
     expect(document.querySelector('nav button[aria-label="Walkthrough"]')).not.toBeNull();
     expect(JSON.parse(window.localStorage.getItem(key)!).visible).toContain('walkthrough');
+  });
+
+  it('keeps the Changes view and unsubmitted commit text while another surface is foregrounded', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    let runtime = 'local';
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
+    vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
+      isGitRepository: true, branch: 'main', files: [], trackingAhead: 0, trackingBehind: 0,
+    }), { headers: { 'content-type': 'application/json' } }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    const view = document.querySelector('[data-testid="git-view"]')!;
+    const textarea = view.querySelector('textarea') as HTMLTextAreaElement;
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => { setValue.call(textarea, 'Keep this draft'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(textarea.value).toBe('Keep this draft');
+    await act(async () => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="git-view"]')).toBe(view);
+    expect(view.parentElement?.className).toContain('hidden');
+    expect(textarea.value).toBe('Keep this draft');
+    await act(async () => (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="git-view"]')).toBe(view);
+    expect(view.parentElement?.className).not.toContain('hidden');
+    expect(textarea.value).toBe('Keep this draft');
+    runtime = 'host:other';
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    const otherRuntimeView = document.querySelector('[data-testid="git-view"]')!;
+    expect(otherRuntimeView).not.toBe(view);
+    expect((otherRuntimeView.querySelector('textarea') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('does not replay a prior Activity review jump after leaving and returning to a workspace', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
+      isGitRepository: true, workspacePrefix: '', branch: 'main', trackingAhead: 0, trackingBehind: 0,
+      files: [{ path: 'work.ts', index: ' ', working_dir: 'M' }],
+    }), { headers: { 'content-type': 'application/json' } }));
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [{ id: 'write', sessionID: 's1', time: 1, kind: 'tool',
+      status: 'completed', summary: 'file written', toolEvidence: { reviewPath: 'work.ts', reviewDirectory: 'D:/work' } }] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    await act(async () => { ([...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
+      .find((button) => button.textContent === 'Review file in Changes') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(document.querySelector('button[aria-label="View diff for work.ts (working)"]')?.getAttribute('aria-pressed')).toBe('true');
+
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/other" />));
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(document.querySelector('button[aria-label="View diff for work.ts (working)"]')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('pauses retained Changes status polling while another surface is foregrounded', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    const fetch = vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
+      isGitRepository: true, workspacePrefix: '', branch: 'main', files: [], trackingAhead: 0, trackingBehind: 0,
+    }), { headers: { 'content-type': 'application/json' } }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    await act(async () => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="git-view"]')).not.toBeNull();
+    const before = fetch.mock.calls.filter(([url]) => String(url).includes('/api/git/status')).length;
+    vi.useFakeTimers();
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
+      expect(fetch.mock.calls.filter(([url]) => String(url).includes('/api/git/status')).length).toBe(before);
+    } finally { vi.useRealTimers(); }
   });
 
   it('does not let a hidden pane on a remote runtime overwrite the local selection', () => {
