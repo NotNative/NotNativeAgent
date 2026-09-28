@@ -37,7 +37,13 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const messages = snapshot.message[sessionID] ?? [];
   const ledger = contextMessageLedger(messages, snapshot.part);
   const lastAssistant = [...messages].reverse().find((source) => (source as { role?: string }).role === 'assistant');
-  const contextLimit = resolveContextLimit(snapshot.provider as never, (lastAssistant as { modelID?: string } | undefined)?.modelID);
+  // A later assistant message may have no total yet (for example, while it
+  // streams). Match the limit to the message that actually reported usage.
+  const lastReportingAssistant = [...messages].reverse().find((source) => source.role === 'assistant' && source.tokens?.total) as { providerID?: string; modelID?: string } | undefined;
+  const reportingProviders = lastReportingAssistant?.providerID
+    ? snapshot.provider.filter((provider) => (provider as { id?: string }).id === lastReportingAssistant.providerID)
+    : [];
+  const contextLimit = resolveContextLimit(reportingProviders as never, lastReportingAssistant?.modelID);
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
   // These are different measurements. An NNA estimate without a known limit
@@ -159,11 +165,11 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   return (
     <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
       <div className={`${expanded ? 'mx-auto w-full max-w-4xl' : 'w-full'} flex flex-col gap-3`}>
-      {expanded && selectedSession ? <header className="px-1 py-3" data-testid="context-session-header">
-        <h2 className="truncate text-base font-medium text-neutral-200">{selectedSession.title}</h2>
+      {selectedSession ? <header className={expanded ? 'px-1 py-3' : 'px-1 py-1'} data-testid="context-session-header">
+        <h2 className={`truncate font-medium text-neutral-200 ${expanded ? 'text-base' : 'text-sm'}`}>{selectedSession.title}</h2>
         {routeLabel ? <p className="mt-1 truncate text-xs text-neutral-500">{routeLabel}</p> : null}
       </header> : null}
-      {expanded && (nnaContext || context.tokens || messages.length > 0) ? <section className="rounded-lg border border-white/10 bg-neutral-900/40 p-4" aria-label="Session usage" data-testid="context-usage-summary">
+      {(nnaContext || context.tokens || expanded && messages.length > 0) ? <section className={`rounded-lg border border-white/10 bg-neutral-900/40 ${expanded ? 'p-4' : 'p-3'}`} aria-label="Session usage" data-testid="context-usage-summary">
         <h3 className="text-xs font-medium text-neutral-300">Session usage</h3>
         {nnaContext || context.tokens ? <div className="mt-3">
           <div className="flex justify-between gap-3 text-[11px] text-neutral-500"><span>Context</span><span>{nnaContext
@@ -173,13 +179,13 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
             <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, Math.max(0, contextPercent))}%` }} />
           </div> : null}
         </div> : null}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {expanded ? <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {messages.length > 0 ? <UsageFact label="Loaded messages" value={messages.length.toLocaleString()} /> : null}
           {messages.length > 0 ? <UsageFact label="Loaded user" value={messages.filter((message) => message.role === 'user').length.toLocaleString()} /> : null}
           {messages.length > 0 ? <UsageFact label="Loaded assistant" value={messages.filter((message) => message.role === 'assistant').length.toLocaleString()} /> : null}
           {cost > 0 ? <UsageFact label="Recorded cost" value={`$${cost.toFixed(2)}`} /> : null}
-        </div>
-        {tokenFacts.length > 0 ? <div className="mt-4 border-t border-white/10 pt-3" data-testid="context-last-assistant-usage">
+        </div> : null}
+        {expanded && tokenFacts.length > 0 ? <div className="mt-4 border-t border-white/10 pt-3" data-testid="context-last-assistant-usage">
           <h4 className="mb-2 text-[11px] text-neutral-400">Last assistant message · reported tokens</h4>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{tokenFacts.map((fact) => <UsageFact key={fact.label} {...fact} />)}</div>
         </div> : null}

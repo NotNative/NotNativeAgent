@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Context rail session identity and compact usage.** The normal
+  docked Context pane now shows the selected session title, its NNA-configured
+  route when known, and an honest context meter without requiring maximization.
+  Unknown limits remain unknown; long message history and detailed usage cards
+  remain in the expanded view. Adversarial review caught a cross-model/provider
+  percentage mismatch in reported assistant usage; the limit now belongs to
+  the assistant message that supplied the token count.
+
 - 2026-09-28 · **Local branch creation in Changes.** The Branches dialog now
   offers a named Create & switch action from the current branch. The server
   validates the name, refuses an existing branch, stale current-branch view,

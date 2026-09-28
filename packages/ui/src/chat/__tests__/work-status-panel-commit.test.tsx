@@ -78,6 +78,57 @@ it('shows only reported usage in expanded Context and labels paged message count
   expect(document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('25');
 });
 
+it('shows session identity and an honest context meter in the docked rail', () => {
+  const store = createDirectoryStore();
+  store.setState({ session: [
+    { id: 's1', title: 'Investigate build', time: { created: 1, updated: 1 }, metadata: { nnd: {
+      configuredModel: { providerID: 'local', modelID: 'coder' },
+      context: { estimatedTokens: 4_000, limitTokens: 16_000, measurement: 'estimated' },
+    } } },
+    { id: 's2', title: 'Review changes', time: { created: 2, updated: 2 }, metadata: { nnd: {
+      context: { estimatedTokens: 5_000, measurement: 'estimated' },
+    } } },
+  ] } as unknown as Partial<DirectoryStore>);
+  useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: '/work' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  act(() => root!.render(<WorkStatusPanel store={store} engine={{} as never} embedded />));
+  expect(container.querySelector('[data-testid="context-session-header"]')?.textContent).toContain('Investigate build');
+  expect(container.querySelector('[data-testid="context-session-header"]')?.textContent).toContain('local · coder');
+  const usage = container.querySelector('[data-testid="context-usage-summary"]')!;
+  expect(usage.textContent).toContain('4,000 estimated tokens / 16,000 limit');
+  expect(usage.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('25');
+  expect(container.querySelector('[data-testid="context-message-ledger"]')).toBeNull();
+  act(() => useSessionViewStore.setState({ currentSessionId: 's2' }));
+  expect(container.querySelector('[data-testid="context-session-header"]')?.textContent).toContain('Review changes');
+  expect(container.querySelector('[data-testid="context-session-header"]')?.textContent).not.toContain('local · coder');
+  expect(container.querySelector('[data-testid="context-usage-summary"]')?.textContent).toContain('5,000 estimated tokens · limit unknown');
+  expect(container.querySelector('[data-testid="context-usage-summary"] [role="progressbar"]')).toBeNull();
+});
+
+it('uses the reporting assistant model for the docked context percentage', () => {
+  const store = createDirectoryStore();
+  store.setState({
+    session: [{ id: 's1', title: 'Review', time: { created: 1, updated: 1 } }],
+    provider: [
+      { id: 'other', models: { first: { limit: { context: 200 } } } },
+      { id: 'p', models: {
+        first: { limit: { context: 100 } },
+        next: { limit: { context: 200 } },
+      } },
+    ],
+    message: { s1: [
+      { id: 'a1', sessionID: 's1', role: 'assistant', time: { created: 1 }, providerID: 'p', modelID: 'first', tokens: { total: 25 } },
+      { id: 'a2', sessionID: 's1', role: 'assistant', time: { created: 2 }, providerID: 'p', modelID: 'next' },
+    ] },
+  } as unknown as Partial<DirectoryStore>);
+  useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: '/work' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  act(() => root!.render(<WorkStatusPanel store={store} engine={{} as never} embedded />));
+  const usage = container.querySelector('[data-testid="context-usage-summary"]')!;
+  expect(usage.textContent).toContain('25 reported tokens · 25.0% of model limit');
+  expect(usage.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('25');
+});
+
 it('does not borrow a provider percentage for an NNA estimate with unknown limit', () => {
   const store = createDirectoryStore();
   const session = { id: 's1', title: 'Review', time: { created: 1, updated: 1 } };
