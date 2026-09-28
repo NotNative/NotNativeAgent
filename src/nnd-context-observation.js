@@ -13,3 +13,13 @@ export function nndContextObservation(record) {
     observedAt: Date.now(),
   };
 }
+
+/** Only this bounded numeric shape may be restored into a session projection. */
+export function validNndContextObservation(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === 4
+    && Number.isSafeInteger(value.estimatedTokens) && value.estimatedTokens >= 0
+    && (value.limitTokens === null || Number.isSafeInteger(value.limitTokens) && value.limitTokens > 0)
+    && value.measurement === 'estimated'
+    && Number.isSafeInteger(value.observedAt) && value.observedAt > 0;
+}

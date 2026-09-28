@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:dac3d5b8eb7979c503a886b573be8b61596a84fac9783d7fcbbb49d61abb4ae6",
+  "source_digest": "sha256:a8ea7c6628e0afab7b66143d90a4da3775210458e3524a351cff50ea21e17ad5",
   "counts": {
     "modules": 382,
     "component_edges": 79
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 188,
+      "import_count": 190,
       "module_count": 85
     },
     {
@@ -2035,7 +2035,9 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/nnd-goal.js"
+        "src/nnd-context-observation.js",
+        "src/nnd-goal.js",
+        "src/nnd-session-description.js"
       ]
     },
     {

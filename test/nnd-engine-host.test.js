@@ -147,6 +147,63 @@ test('NND durable catalog refuses malformed records without discarding them', as
   assert.match(await readFile(catalogPath, 'utf8'), /escape/u);
 });
 
+test('NND restores only the last classified numeric context observation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-context-'));
+  const catalogPath = join(root, 'catalog.json');
+  let output; let release;
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const first = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+    output = options.output; return engine;
+  } });
+  await first.create('session_a', owner);
+  first.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'context_status', session_id: 'session_a', turn_id: 'turn_a',
+    estimated_tokens: 4_000, limit_tokens: 16_000, source_text: 'private context' });
+  output({ type: 'context_usage', session_id: 'session_a', turn_id: 'turn_a',
+    current_estimated_tokens: 5_000, limit_tokens: 16_000, source_text: 'private context' });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  await first.catalogWrites;
+  const catalog = await readFile(catalogPath, 'utf8');
+  assert.equal(catalog.includes('private context'), false);
+  assert.equal(JSON.parse(catalog)[0].contextUsage.estimatedTokens, 5_000);
+  await first.shutdown();
+  const second = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await second.initialize();
+  assert.deepEqual(second.get('session_a', owner).metadata.nnd.context,
+    JSON.parse(catalog)[0].contextUsage);
+  await second.shutdown();
+  const corrupt = JSON.parse(catalog);
+  corrupt[0].contextUsage.secret = 'do-not-project';
+  await writeFile(catalogPath, JSON.stringify(corrupt));
+  const third = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await assert.rejects(third.initialize(), { code: 'nnd_catalog_invalid' });
+  assert.match(await readFile(catalogPath, 'utf8'), /do-not-project/u);
+});
+
+test('a failed context estimate save is visible but does not fail the governed turn', async () => {
+  let output; let release; let writes = 0;
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({ catalogPath: 'test-catalog',
+    persistCatalog: async () => { if (++writes === 2) throw new Error('disk full'); },
+    persistActivity: async () => {},
+    createEngine: async (options) => { output = options.output; return engine; } });
+  await host.create('session_a', owner);
+  host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'context_status', session_id: 'session_a', turn_id: 'turn_a',
+    estimated_tokens: 100, limit_tokens: 1_000 });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  await host.catalogWrites.catch(() => undefined);
+  assert.equal(host.activity('session_a', owner).some((row) => row.summary === 'Context estimate could not be saved'), true);
+  assert.equal(host.activity('session_a', owner).some((row) => row.summary === 'Turn completed'), true);
+  await host.shutdown();
+});
+
 test('NND activity snapshot reopens after restart and requires the complete owner grant', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-activity-'));
   const catalogPath = join(root, 'catalog.json');

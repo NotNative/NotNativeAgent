@@ -16,7 +16,7 @@ import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
-import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
+import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
@@ -64,7 +64,7 @@ export class NndEngineHost {
         await this.#createContext(record.sessionId, { subjectId: record.subjectId, workspaceIds: record.workspaceIds }, {
         title: record.title, directory: record.directory, createdAt: record.createdAt,
           updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
-          goal: record.goal ?? null, goalRevision: record.goalRevision ?? 0,
+          goal: record.goal ?? null, goalRevision: record.goalRevision ?? 0, contextUsage: record.contextUsage ?? null,
         }, true);
       }
       for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
@@ -101,7 +101,7 @@ export class NndEngineHost {
       const activity = restoring ? await loadActivity(this.catalogPath, sessionId, createdAt) : [];
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
-        updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: null,
+        updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: restoring ? options.contextUsage : null,
         goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
         goalRevision: restoring ? options.goalRevision : 0, goalTurnReceipts: [], goalTurnReceiptsTruncated: false,
         archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
@@ -388,6 +388,7 @@ export class NndEngineHost {
     })));
     await Promise.all(contexts.map((context) => drainActivityWrites(context)));
     await this.childSnapshotStore.drain();
+    await this.catalogWrites.catch(() => undefined);
     const failed = settled.find((result) => result.status === 'rejected');
     if (failed) throw failed.reason;
   }
@@ -399,13 +400,7 @@ export class NndEngineHost {
     const transaction = this.catalogWrites.catch(() => undefined).then(async () => {
       const candidate = new Map(this.#contexts);
       change(candidate);
-      const records = [...candidate.values()].map((context) => ({
-        sessionId: context.sessionId, subjectId: context.subjectId, workspaceIds: [...context.workspaceIds],
-        title: context.title, directory: directoryFor(context), createdAt: context.createdAt,
-        updatedAt: context.updatedAt, archivedAt: context.archivedAt,
-        goalRevision: context.goalRevision,
-        ...(context.goal ? { goal: context.goal } : {}),
-      }));
+      const records = [...candidate.values()].map(catalogRecord);
       if (Buffer.byteLength(`${JSON.stringify(records, null, 2)}\n`, 'utf8') > CATALOG_LIMIT_BYTES) {
         throw new ContractError('nnd_catalog_capacity', 'NND session catalog capacity is full');
       }
@@ -443,6 +438,10 @@ export class NndEngineHost {
       this.#publish(context, 'session.idle', { sessionID: context.sessionId });
     }
     this.#publish(context, 'session.updated', { sessionID: context.sessionId, info: describe(context) }, true);
+    if (context.contextUsage) void this.#commitCatalogChange(() => {}, () => {}).catch(() => {
+      if (!context.closing) this.#activity(context, `${context.sessionId}:context-save:${turn.requestId}`,
+        'notice', 'failed', 'Context estimate could not be saved');
+    });
   }
 
   #activity(context, id, kind, status, summary, evidenceMessageID, toolEvidence) {

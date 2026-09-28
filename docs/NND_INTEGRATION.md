@@ -136,6 +136,14 @@ evidence only; prompt text, tool arguments, and tool output never enter the
 Activity record. NND can therefore replay a readable sequence after restart
 without treating a past start row as the current session status.
 
+The Context rail's numeric token estimate is also an NNA-authored projection.
+NNA saves only its bounded estimated-token count, optional positive limit,
+measurement label, and observation time when a turn settles. On restart, the
+last observation is restored for the owned session; an invalid catalog shape
+is rejected rather than projected. Context text, prompts, and provider payloads
+are never part of this saved measurement, and a session that has not reported
+an estimate continues to show the limit as unknown.
+
 The opt-in `POST /v1/nnd/sessions/:id/walkthrough` route is a separate,
 model-only inference seam for NND's diff walkthrough. It requires
 `nnd.walkthrough.generate` and ownership of the NND session. The caller sends
