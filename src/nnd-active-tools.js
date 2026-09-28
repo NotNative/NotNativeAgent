@@ -12,8 +12,9 @@ export class NndActiveTools {
     if (record?.type !== 'tool_status' || this.#unavailable) return false;
     const id = record.tool_request_id ?? record.provider_call_id;
     if (typeof id !== 'string' || !id || id.length > 256) {
-      if (record.status !== 'running' && this.#tools.size) return this.#invalidate();
-      return false;
+      // An uncorrelated lifecycle event makes even an empty snapshot
+      // incomplete: callers may still show NNA's generic turn phase.
+      return record.status === 'running' || this.#tools.size ? this.#invalidate() : false;
     }
     if (record.status !== 'running') return this.#tools.delete(id);
     const name = record.tool;
@@ -26,8 +27,7 @@ export class NndActiveTools {
   }
 
   projection() {
-    return this.#unavailable || !this.#tools.size ? null
-      : { count: this.#tools.size, names: [...this.#tools.values()] };
+    return this.#unavailable ? null : { count: this.#tools.size, names: [...this.#tools.values()] };
   }
 
   #invalidate() {

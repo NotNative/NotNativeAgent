@@ -253,7 +253,7 @@ export class NndEngineHost {
         turn.turnId ??= record.turn_id;
       }
       const observation = nndContextObservation(record);
-      const phaseChanged = observeNndSessionState(context, record); const toolsChanged = turn.activeTools.observe(record);
+      const toolsChanged = turn.activeTools.observe(record); const phaseChanged = observeNndSessionState(context, record, turn.activeTools.projection());
       if (toolsChanged && !phaseChanged) context.updatedAt = nextUpdatedAt(context);
       if (toolsChanged || phaseChanged) this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
       if (observation) {

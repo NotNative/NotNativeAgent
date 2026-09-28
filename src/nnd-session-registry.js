@@ -2,7 +2,7 @@
 import { ContractError, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { configuredModelProjection, latestTurnNeedsInput } from './nnd-session-description.js';
-import { nndPhaseFromOutput } from './nnd-turn-state.js';
+import { nndPhaseFromOutput, shouldClearNndToolPhase } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
 
 const TRANSCRIPT_LIMIT = 200;
@@ -99,6 +99,11 @@ export class NndSessionRegistry {
         this.#notify('phase', record);
       }
       if (record.activeTools?.observe(output)) {
+        record.updatedAt = Math.max(Date.now(), record.updatedAt + 1);
+        this.#notify('phase', record);
+      }
+      if (shouldClearNndToolPhase(output, record.turnState, record.activeTools?.projection())) {
+        record.turnState = null;
         record.updatedAt = Math.max(Date.now(), record.updatedAt + 1);
         this.#notify('phase', record);
       }

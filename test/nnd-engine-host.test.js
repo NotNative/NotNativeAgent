@@ -109,9 +109,15 @@ test('NND projects only authored semantic turn phases and settles them to idle',
   const firstRunningStamp = host.get('session_a', owner).time.updated;
   output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'succeeded',
     tool: 'fs.write', tool_request_id: 'tool_a' });
-  assert.equal(host.get('session_a', owner).metadata.nnd.activeTools, undefined);
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.activeTools, { count: 0, names: [] });
+  assert.equal(host.get('session_a', owner).metadata.nnd.turnState, undefined);
   assert.ok(host.get('session_a', owner).time.updated > firstRunningStamp,
     'terminal tool snapshot must outrank a stale running snapshot even when phase is unchanged');
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'running', tool: 'fs.write' });
+  assert.equal(host.get('session_a', owner).metadata.nnd.activeTools, undefined);
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'running_tool' });
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'succeeded', tool: 'fs.write' });
+  assert.equal(host.get('session_a', owner).metadata.nnd.turnState, undefined);
   output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'running',
     tool: 'fs.write', tool_request_id: 'tool_b' });
   const runningStamp = host.get('session_a', owner).time.updated;
@@ -638,7 +644,15 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   assert.equal(JSON.stringify(events.filter((event) => event.type === 'session.updated')).includes('private'), false);
   host.childSessions.observeOutput('agent_coder_1', { type: 'tool_status', session_id: 'agent_coder_1',
     turn_id: 'turn_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded' });
+  assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.activeTools, { count: 0, names: [] });
+  assert.equal(host.get('agent_coder_1', principal).metadata?.nnd?.turnState, undefined);
+  host.childSessions.observeOutput('agent_coder_1', { type: 'tool_status', session_id: 'agent_coder_1',
+    turn_id: 'turn_a', tool: 'shell_run', status: 'running' });
   assert.equal(host.get('agent_coder_1', principal).metadata.nnd.activeTools, undefined);
+  assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.turnState, { phase: 'running_tool' });
+  host.childSessions.observeOutput('agent_coder_1', { type: 'tool_status', session_id: 'agent_coder_1',
+    turn_id: 'turn_a', tool: 'shell_run', status: 'succeeded' });
+  assert.equal(host.get('agent_coder_1', principal).metadata?.nnd?.turnState, undefined);
   const waitingStamp = host.get('agent_coder_1', principal).time.updated;
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: 'Hello' });
   assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello');

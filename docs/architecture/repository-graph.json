@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:29a665ad0688c27a51a8d200930a6c2649d4ba714135affb402288b392ec6a71",
+  "source_digest": "sha256:f7015f101deb77652b3125c6f66a61aa47ddf363ff88b9bdb1ef18e28054d77c",
   "counts": {
     "modules": 383,
     "component_edges": 79
@@ -244,16 +244,16 @@
       "module_count": 6
     },
     {
+      "from": "foundation",
+      "to": "experience-engine",
+      "import_count": 9,
+      "module_count": 6
+    },
+    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
       "module_count": 8
-    },
-    {
-      "from": "foundation",
-      "to": "experience-engine",
-      "import_count": 8,
-      "module_count": 5
     },
     {
       "from": "foundation",
@@ -2075,7 +2075,9 @@
       "path": "src/nnd-turn-state.js",
       "component": "foundation",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/experience/tool-lifecycle.js"
+      ]
     },
     {
       "path": "src/nnd-walkthrough.js",
