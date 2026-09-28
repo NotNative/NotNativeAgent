@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Readable chat at the compact/docked boundary.** The operator
+  rail and chat column now share a 1100-pixel breakpoint instead of docking at
+  1024 pixels, where the minimum 280-pixel pane could leave less than 480
+  pixels for chat beside the 288-pixel session list. Below 1100 pixels the
+  surface opens full-width with a return-to-chat control; at the boundary the
+  dock leaves at least 491 pixels for chat. The responsive classes, focus
+  handoff, and resize affordance switch together. Adversarial review found no
+  concrete defect; 1120 UI tests and the production CSS build pass.
+
 - 2026-09-28 · **Responsive operator panel width.** Installed desktop
   inspection found a previously saved 300-pixel Context pane cramping NNA
   route and governance rows on an ultrawide display. Untouched pane widths
@@ -29,7 +38,6 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   the title bar has a Fit control that clears only the current pane's override.
   Manual resize remains per runtime/workspace/surface. Adversarial review
   fixed Fit-after-narrow-window restoration and a drag-back-to-start miss.
-  The 1024–1088px docked breakpoint still needs coordinated chat-width work.
 
 - 2026-09-28 · **Child transcript header.** A delegated session now shows
   its NNA-projected title and agent identity above the transcript, with the

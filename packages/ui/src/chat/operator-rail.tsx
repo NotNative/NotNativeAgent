@@ -50,7 +50,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
 }): ReactNode {
   const walkthroughSessionId = useSessionViewStore((state) => state.activeDirectory === directory ? state.currentSessionId : null);
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
-  const [docked, setDocked] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1024px)').matches ?? false));
+  const [docked, setDocked] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1100px)').matches ?? false));
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
     const query = window.matchMedia?.('(min-width: 1280px)');
@@ -61,7 +61,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     return () => query.removeEventListener('change', update);
   }, []);
   useEffect(() => {
-    const query = window.matchMedia?.('(min-width: 1024px)');
+    const query = window.matchMedia?.('(min-width: 1100px)');
     if (!query) return;
     setDocked(query.matches);
     const update = (event: MediaQueryListEvent): void => setDocked(event.matches);
@@ -185,7 +185,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   return (
     <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} ${maximized && docked && !compactOpen ? 'absolute inset-0 z-30 w-full' : `relative shrink-0 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} min-w-0 flex-col border-l border-white/10 bg-neutral-950`} style={docked && !compactOpen && !maximized ? { width: panelOpen ? width + dockWidth : dockWidth } : undefined} data-testid="operator-rail">
       <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
-        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen || maximized ? 'hidden' : 'hidden lg:block'}`}
+        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen || maximized ? 'hidden' : 'hidden min-[1100px]:block'}`}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           dragCleanup.current?.();

@@ -92,7 +92,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
       }
     } else if (returnToChatFocus.current) {
       returnToChatFocus.current = false;
-      if (window.matchMedia?.('(min-width: 1024px)').matches) {
+      if (window.matchMedia?.('(min-width: 1100px)').matches) {
         (chatRoot.current?.querySelector<HTMLElement>('[data-testid="composer-editor"]') ?? chatRoot.current)?.focus();
       } else {
         compactOpenButton.current?.focus();
@@ -100,7 +100,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
     }
   }, [compactSurfaceOpen]);
   useEffect(() => {
-    const wide = window.matchMedia?.('(min-width: 1024px)');
+    const wide = window.matchMedia?.('(min-width: 1100px)');
     if (!wide) return;
     const revealFocusedRail = (event: MediaQueryListEvent): void => {
       if (event.matches) {
@@ -184,8 +184,8 @@ export function ChatView(props: ChatViewProps): ReactNode {
 
   return (
     <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
-      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden lg:flex' : 'flex'}`}>
-        {!focusMode ? <div className="flex justify-end border-b border-white/10 px-3 py-1 lg:hidden">
+      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden min-[1100px]:flex' : 'flex'}`}>
+        {!focusMode ? <div className="flex justify-end border-b border-white/10 px-3 py-1 min-[1100px]:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
         {isChildSession && selected && shownRef.sessionID ? <header className="border-b border-white/10 bg-neutral-950 px-4 py-3" data-testid="child-transcript-header">

@@ -444,7 +444,7 @@ describe('OperatorRail', () => {
   it('keeps an icon dock visible at the installed desktop width and opens panels on demand', () => {
     vi.stubGlobal('innerWidth', 1265);
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('1024px'), addEventListener: () => undefined, removeEventListener: () => undefined,
+      matches: query.includes('1100px'), addEventListener: () => undefined, removeEventListener: () => undefined,
     }));
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -461,10 +461,34 @@ describe('OperatorRail', () => {
     expect(document.activeElement?.getAttribute('aria-label')).toBe('Notes');
     expect(document.activeElement?.getAttribute('aria-pressed')).toBe('true');
   });
+  it('keeps the rail compact below the width that preserves a readable chat column', () => {
+    let viewport = 1099;
+    vi.stubGlobal('innerWidth', viewport);
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: viewport >= Number(query.match(/min-width: (\d+)px/)?.[1] ?? Infinity),
+      addEventListener: () => undefined, removeEventListener: () => undefined,
+    }));
+    container = document.createElement('div'); document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.className).toContain('hidden');
+    expect(rail.style.width).toBe('');
+    act(() => rootHandle!.unmount());
+    viewport = 1100;
+    vi.stubGlobal('innerWidth', viewport);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(rail.isConnected).toBe(false);
+    const dock = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(dock.className).toContain('flex');
+    expect(dock.style.width).toBe('41px');
+  });
   it('restores dock visibility per workspace and runtime without carrying another project\'s open state', () => {
     vi.stubGlobal('innerWidth', 1265);
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('1024px'), addEventListener: () => undefined, removeEventListener: () => undefined,
+      matches: query.includes('1100px'), addEventListener: () => undefined, removeEventListener: () => undefined,
     }));
     let runtime = 'local';
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
@@ -497,7 +521,7 @@ describe('OperatorRail', () => {
     let wide = false;
     vi.stubGlobal('innerWidth', 1265);
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('1024px') || (query.includes('1280px') && wide),
+      matches: query.includes('1100px') || (query.includes('1280px') && wide),
       addEventListener: () => undefined, removeEventListener: () => undefined,
     }));
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
@@ -605,7 +629,7 @@ describe('OperatorRail', () => {
   it('keeps the foreground compact pane open when it becomes a desktop dock', () => {
     vi.stubGlobal('innerWidth', 1100);
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('1024px'), addEventListener: () => undefined, removeEventListener: () => undefined,
+      matches: query.includes('1100px'), addEventListener: () => undefined, removeEventListener: () => undefined,
     }));
     container = document.createElement('div');
     document.body.appendChild(container);

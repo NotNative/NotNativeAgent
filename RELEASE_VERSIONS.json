@@ -304,6 +304,10 @@
     {
       "version": "20260927-7",
       "content_sha256": "9abe102c12c95743964a83fe49d7f260d10c85445d4cdf43b72e36b8fd144b90"
+    },
+    {
+      "version": "20260928-12",
+      "content_sha256": "889bd513f92289260fc5682e668e9d98167861aa8b22cadaa1e9a0f16016eb3a"
     }
   ]
 }

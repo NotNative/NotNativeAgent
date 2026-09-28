@@ -111,12 +111,12 @@ it('foregrounds compact operator surfaces and returns focus to chat without remo
   expect(document.querySelector('[data-testid="operator-rail"]')?.getAttribute('data-open')).toBe('false');
   await act(async () => open.click());
   const chatColumn = document.querySelector('[data-chat-column]')!.parentElement!;
-  expect(chatColumn.className).toContain('hidden lg:flex');
+  expect(chatColumn.className).toContain('hidden min-[1100px]:flex');
   expect(document.querySelector('[data-testid="operator-rail"]')?.getAttribute('data-open')).toBe('true');
   expect(document.activeElement?.getAttribute('data-testid')).toBe('operator-return-chat');
   await act(async () => (document.querySelector('[data-testid="operator-return-chat"]') as HTMLButtonElement).click());
   expect(chatColumn.className).toContain('flex');
-  expect(chatColumn.className).not.toContain('hidden lg:flex');
+  expect(chatColumn.className).not.toContain('hidden min-[1100px]:flex');
   expect(document.activeElement).toBe(open);
 });
 
@@ -143,7 +143,7 @@ it('reveals a focused rail when the viewport shrinks and restores the chat colum
   wide = true;
   await act(async () => change?.({ matches: true } as MediaQueryListEvent));
   expect(document.querySelector('[data-testid="operator-rail"]')?.getAttribute('data-open')).toBe('false');
-  expect(document.querySelector('[data-chat-column]')?.parentElement?.className).not.toContain('hidden lg:flex');
+  expect(document.querySelector('[data-chat-column]')?.parentElement?.className).not.toContain('hidden min-[1100px]:flex');
   expect(document.activeElement).toBe(railSurface);
 });
 
