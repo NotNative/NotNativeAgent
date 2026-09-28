@@ -20,6 +20,7 @@ import { WalkthroughPreviewSurface } from './walkthrough-preview.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
 import type { ToolEvidence } from '../sync/activity-log.ts';
+import { ACTIVITY_FILTERS, filterActivityRecords, type ActivityFilter } from './operator-activity-filter.ts';
 import { OperatorIcon } from './operator-icons.tsx';
 import { resolveContextProjectId } from './operator-context-project.ts';
 import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
@@ -376,12 +377,6 @@ function surfaceStorageKey(directory: string): string {
   return `nnd.operator-rail.surface:${normalized}`;
 }
 
-type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'attention' | 'failed';
-const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
-  { id: 'all', label: 'All' }, { id: 'turn', label: 'Turns' }, { id: 'tool', label: 'Tools' },
-  { id: 'notice', label: 'Notices' }, { id: 'attention', label: 'Needs input' }, { id: 'failed', label: 'Failures' },
-];
-
 function ActivitySurface({ store, directory, expanded, onReviewPath }: {
   store: StoreApi<DirectoryStore>; directory: string; expanded: boolean; onReviewPath: (path: string) => void;
 }): ReactNode {
@@ -408,8 +403,7 @@ function ActivitySurface({ store, directory, expanded, onReviewPath }: {
   const previous = useRef({ key: '', ids: new Set<string>() });
   // Preserve the harness's arrival order. The source merges corrections in
   // place, so a redaction does not masquerade as a newly emitted row.
-  const records = useMemo(() => snapshot.activity.filter((record) => record.sessionID === view.currentSessionId
-    && (filter === 'all' || (filter === 'failed' || filter === 'attention' ? record.status === filter : record.kind === filter))),
+  const records = useMemo(() => filterActivityRecords(snapshot.activity, view.currentSessionId, filter),
   [snapshot.activity, view.currentSessionId, filter]);
   const key = `${view.currentSessionId ?? ''}\u0000${filter}`;
   useEffect(() => {
@@ -457,6 +451,8 @@ function ActivitySurface({ store, directory, expanded, onReviewPath }: {
         : historyStatus === 'unavailable' ? 'Saved activity could not be loaded. Live events will still appear here.'
         : filter === 'all' ? 'No recorded activity for this session yet. Conversation messages remain in the transcript.'
         : filter === 'attention' ? 'No activity requiring input has been received for this session.'
+        : filter === 'files' ? 'No recorded completed file changes for this session.'
+        : filter === 'last-turn' ? 'No turn-correlated activity is available for the latest turn.'
         : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
         : records.map((record) => <li key={record.id} className={`${expanded ? 'mx-auto w-full max-w-5xl ' : ''}rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
           {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
@@ -464,9 +460,10 @@ function ActivitySurface({ store, directory, expanded, onReviewPath }: {
             && record.toolEvidence.reviewDirectory === directory ? <button type="button"
             className="mt-1 text-sky-300 hover:underline" onClick={() => onReviewPath(record.toolEvidence!.reviewPath!)}>
             Review file in Changes</button> : null}
-          {record.evidenceMessageID && snapshot.message[record.sessionID]?.some((message) => message.id === record.evidenceMessageID)
+          {(record.evidenceMessageID || record.toolEvidence?.turnRequestID)
+            && snapshot.message[record.sessionID]?.some((message) => message.id === (record.evidenceMessageID || record.toolEvidence?.turnRequestID))
             ? <button type="button" className="mt-1 text-sky-300 hover:underline" onClick={() => {
-              const anchor = `message-${record.evidenceMessageID}`;
+              const anchor = `message-${record.evidenceMessageID || record.toolEvidence?.turnRequestID}`;
               window.history.replaceState(null, '', window.location.pathname + window.location.search);
               window.location.hash = `#${anchor}`;
               document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
@@ -483,6 +480,7 @@ function ToolEvidenceDetail({ evidence }: { evidence: ToolEvidence }): ReactNode
     ['Elapsed', evidence.elapsedMs === undefined ? undefined : `${evidence.elapsedMs} ms`],
     ['Exit code', evidence.exitCode === undefined ? undefined : String(evidence.exitCode)],
   ].filter((row): row is [string, string] => row[1] !== undefined);
+  if (rows.length === 0) return null;
   return <details className="mt-1 rounded border border-white/10 px-2 py-1" data-testid="activity-tool-evidence">
     <summary className="cursor-pointer text-sky-300">Tool evidence</summary>
     <dl className="mt-1 space-y-1">{rows.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-2">

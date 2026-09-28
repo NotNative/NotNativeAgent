@@ -35,9 +35,3 @@ export function sessionChangedFiles(records: readonly ActivityRecord[], sessionI
   }
   return [...current.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
-
-/** Authored turn records carry the prompt ID; legacy rows are not inferred. */
-export function latestTurnRequestID(records: readonly ActivityRecord[], sessionID: string): string | null {
-  return records.filter((record) => record.sessionID === sessionID && record.kind === 'turn'
-    && record.evidenceMessageID).at(-1)?.evidenceMessageID ?? null;
-}

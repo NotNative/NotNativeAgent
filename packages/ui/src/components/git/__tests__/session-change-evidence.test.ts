@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ActivityRecord } from '../../../sync/activity-log.ts';
 import type { GitStatus } from '../../../lib/git/api.ts';
-import { latestTurnRequestID, sessionChangedFiles } from '../session-change-evidence.ts';
+import { latestTurnRequestID } from '../../../sync/activity-log.ts';
+import { sessionChangedFiles } from '../session-change-evidence.ts';
 
 const directory = '/repo/packages/ui';
 const status: GitStatus = {
@@ -58,5 +59,7 @@ describe('sessionChangedFiles', () => {
       { path: 'packages/ui/src/working.ts', staged: false, working: true },
     ]);
     expect(latestTurnRequestID(records, 'different')).toBeNull();
+    expect(latestTurnRequestID([...records, { id: 'turn-legacy', sessionID: 'selected', time: 3,
+      kind: 'turn', status: 'started', summary: 'Uncorrelated turn' }], 'selected')).toBeNull();
   });
 });

@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Activity file and last-turn filters.** The live session log
+  now filters completed, NNA-authored file changes and the latest turn's
+  explicitly correlated turn/tool evidence. Correlated tool rows can jump to
+  their prompt; a turn ID alone no longer produces an empty evidence expander.
+  Adversarial review caught a false fallback to an older turn when the newest
+  turn lacked correlation. That case now stays unattributed instead of
+  displaying older work as the last turn.
+
 - 2026-09-28 · **Last-turn file evidence in Changes.** NNA now projects the
   owning prompt request ID with sanitized parent tool evidence. Changes offers
   Session and Last turn scopes, with the latter matching only completed file

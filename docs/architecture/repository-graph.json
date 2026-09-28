@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:98106271777fbe0d19103f49042f19ff0b624c18d1ba17735c43cdcdc745c5ac",
+  "source_digest": "sha256:56f00227e1a4b6cc887988638dfc0f607b3bb1f102ea71fa054156d4fa2186d2",
   "counts": {
-    "modules": 486,
+    "modules": 487,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 133
+      "module_count": 134
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 58,
-      "module_count": 24
+      "import_count": 60,
+      "module_count": 25
     },
     {
       "from": "sync-engine",
@@ -456,6 +456,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/operator-activity-filter.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/activity-log.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/operator-context-project.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -504,6 +512,7 @@
         "packages/ui/src/chat/browser-surface.tsx",
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
+        "packages/ui/src/chat/operator-activity-filter.ts",
         "packages/ui/src/chat/operator-context-project.ts",
         "packages/ui/src/chat/operator-files.tsx",
         "packages/ui/src/chat/operator-icons.tsx",
@@ -1016,6 +1025,7 @@
       "imports": [
         "packages/ui/src/components/git/session-change-evidence.ts",
         "packages/ui/src/lib/git/api.ts",
+        "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/types.ts"
       ]

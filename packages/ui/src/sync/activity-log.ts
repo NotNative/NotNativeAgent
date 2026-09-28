@@ -32,6 +32,12 @@ export const MAX_ACTIVITY_RECORDS = 500;
 export const MAX_ACTIVITY_SUMMARY_LENGTH = 4_000;
 const MAX_ACTIVITY_ID_LENGTH = 264;
 
+/** Source order is authored order; an uncorrelated latest turn must not fall back to an older one. */
+export function latestTurnRequestID(records: readonly ActivityRecord[], sessionID: string): string | null {
+  return records.filter((record) => record.sessionID === sessionID && record.kind === 'turn')
+    .at(-1)?.evidenceMessageID ?? null;
+}
+
 export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | null {
   if (event.type !== 'nnd.activity') return null;
   const props = event.properties ?? {};

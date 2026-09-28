@@ -4,7 +4,8 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../../sync/types.ts';
 import type { GitStatus } from '../../lib/git/api.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../../sync/activity-snapshot.ts';
-import { latestTurnRequestID, sessionChangedFiles } from './session-change-evidence.ts';
+import { latestTurnRequestID } from '../../sync/activity-log.ts';
+import { sessionChangedFiles } from './session-change-evidence.ts';
 
 export function SessionChanges({ store, directory, sessionID, status, stale, visible, onOpen }: {
   store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; status: GitStatus;

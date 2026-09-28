@@ -979,6 +979,26 @@ describe('OperatorRail', () => {
     expect(detail.open).toBe(true);
   });
 
+  it('links a correlated tool to its prompt without showing an empty evidence expander', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({
+      message: { s1: [{ id: 'prompt_a', sessionID: 's1', role: 'user', time: { created: 1 } }] } as never,
+      activity: [{ id: 'tool-a', sessionID: 's1', time: 1, kind: 'tool', status: 'completed',
+        summary: 'Tool completed', toolEvidence: { turnRequestID: 'prompt_a' } }],
+    });
+    const anchor = document.createElement('div'); anchor.id = 'message-prompt_a';
+    const scroll = vi.fn(); anchor.scrollIntoView = scroll; document.body.appendChild(anchor);
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-tool-evidence"]')).toBeNull();
+    const link = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
+      .find((button) => button.textContent === 'View prompt');
+    expect(link).toBeDefined();
+    act(() => link!.click());
+    expect(scroll).toHaveBeenCalledWith({ block: 'start' });
+  });
+
   it('offers a Changes jump only for a completed tool with an authored review path', async () => {
     vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
       isGitRepository: false, branch: null, files: [], current: null,
