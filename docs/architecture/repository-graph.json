@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a2bca382691e9dda0cd12f121b20226a013fb9ad83ad019f2e274f7bd78bab7f",
+  "source_digest": "sha256:deada92a0d724aad1141261b2242ff1de696af7f2641d192404d3a56d01c39fe",
   "counts": {
-    "modules": 477,
+    "modules": 478,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 125
+      "module_count": 126
     },
     {
       "id": "web-server",
@@ -120,8 +120,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 41,
-      "module_count": 38
+      "import_count": 42,
+      "module_count": 39
     },
     {
       "from": "gates",
@@ -350,6 +350,14 @@
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
         "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/context-message-ledger.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
       ]
     },
     {
@@ -696,6 +704,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/composer-model-config.ts",
+        "packages/ui/src/chat/context-message-ledger.ts",
         "packages/ui/src/chat/panel-gate.ts",
         "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/nnd/types.ts",

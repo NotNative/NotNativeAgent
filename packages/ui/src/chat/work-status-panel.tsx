@@ -15,6 +15,7 @@ import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfigur
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
+import { contextMessageLedger, MAX_LEDGER_ROWS } from './context-message-ledger.ts';
 
 const PANEL_WIDTH = 300;
 
@@ -34,6 +35,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
 
   // model limit resolves from the provider catalog; unknown model hides Context
   const messages = snapshot.message[sessionID] ?? [];
+  const ledger = contextMessageLedger(messages, snapshot.part);
   const lastAssistant = [...messages].reverse().find((source) => (source as { role?: string }).role === 'assistant');
   const contextLimit = resolveContextLimit(snapshot.provider as never, (lastAssistant as { modelID?: string } | undefined)?.modelID);
   const context = contextUsage(snapshot, sessionID, contextLimit);
@@ -153,7 +155,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const visibleSections = sections.filter((section) => !hidden.includes(section.id));
   // The project branch is useful ambient workspace information, but it is
   // not evidence that the selected session has a context projection.
-  const hasSessionDetails = sections.some((section) => section.id !== 'project');
+  const hasSessionDetails = sections.some((section) => section.id !== 'project') || (expanded && ledger.length > 0);
   return (
     <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
       <div className={`${expanded ? 'mx-auto w-full max-w-4xl' : 'w-full'} flex flex-col gap-3`}>
@@ -182,8 +184,20 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{tokenFacts.map((fact) => <UsageFact key={fact.label} {...fact} />)}</div>
         </div> : null}
       </section> : null}
+      {expanded && ledger.length > 0 ? <section className="rounded-lg border border-white/10 bg-neutral-900/40 p-3" aria-label="Loaded message ledger" data-testid="context-message-ledger">
+        <header className="mb-2 flex items-center justify-between gap-2 text-[11px]">
+          <h3 className="font-medium text-neutral-300">Message ledger</h3>
+          <span className="text-neutral-500">{messages.length > MAX_LEDGER_ROWS ? `Newest ${MAX_LEDGER_ROWS} of ${messages.length} loaded` : `${messages.length} loaded`}</span>
+        </header>
+        <p className="mb-2 text-[10px] text-neutral-600">Part kinds and reported tokens only; message content is not shown here.</p>
+        <ol className="space-y-1" aria-label="Loaded messages, newest first">{ledger.map((item) => <li key={item.id} className="flex items-center gap-2 rounded bg-white/[0.03] px-2 py-1.5 text-[10px] text-neutral-400">
+          <span className="min-w-0 flex-1 truncate" title={`${item.role} · ${item.kinds}`}>{item.role} · {item.kinds}</span>
+          {item.input !== null || item.output !== null ? <span className="shrink-0 tabular-nums text-neutral-500" aria-label="Reported input and output tokens">{item.input === null ? '—' : item.input.toLocaleString()} / {item.output === null ? '—' : item.output.toLocaleString()}</span> : null}
+          {item.created !== null ? <time className="shrink-0 text-neutral-600" dateTime={new Date(item.created).toISOString()}>{new Date(item.created).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time> : null}
+        </li>)}</ol>
+      </section> : null}
       {!hasSessionDetails ? <div className="text-[11px] text-neutral-500">NNA context details are not available for this session yet.</div> : null}
-      {visibleSections.length === 0 && hasSessionDetails ? <div className="text-[11px] text-neutral-500">All sections hidden</div> : null}
+      {sections.length > 0 && visibleSections.length === 0 ? <div className="text-[11px] text-neutral-500">All sections hidden</div> : null}
       <div className={`${expanded ? 'grid grid-cols-1 gap-3 md:grid-cols-2' : 'flex flex-col gap-3'}`}>
       {visibleSections.map((section) => (
         <section key={section.id} className="rounded-lg border border-white/10 bg-neutral-900/40 p-2" data-testid={`ws-${section.id}`}>

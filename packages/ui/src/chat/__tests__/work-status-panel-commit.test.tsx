@@ -97,3 +97,49 @@ it('does not borrow a provider percentage for an NNA estimate with unknown limit
   expect(usage.textContent).toContain('25 reported tokens · 25.0% of model limit');
   expect(usage.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('25');
 });
+
+it('renders a loaded-message ledger without leaking user, tool, or reasoning payloads', () => {
+  const store = createDirectoryStore();
+  store.setState({
+    session: [{ id: 's1', title: 'Review', time: { created: 1, updated: 1 } }],
+    message: { s1: [
+      { id: 'u1', sessionID: 's1', role: 'user', time: { created: 1 } },
+      { id: 'a1', sessionID: 's1', role: 'assistant', time: { created: 2 }, tokens: { input: 240, output: 12 } },
+    ] },
+    part: {
+      u1: [{ id: 'p1', sessionID: 's1', messageID: 'u1', type: 'text', text: 'private request' }],
+      a1: [{ id: 'p2', sessionID: 's1', messageID: 'a1', type: 'reasoning', text: 'private reasoning', time: { start: 2 } },
+        { id: 'p3', sessionID: 's1', messageID: 'a1', type: 'tool', tool: 'bash', state: { status: 'completed', output: 'secret output' } }],
+    },
+  } as unknown as Partial<DirectoryStore>);
+  useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: '/work' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  act(() => root!.render(<WorkStatusPanel store={store} engine={{} as never} embedded expanded />));
+  const ledger = document.querySelector('[data-testid="context-message-ledger"]')!;
+  expect(ledger.textContent).toContain('assistant · reasoning + tool');
+  expect(ledger.textContent).toContain('240 / 12');
+  expect(ledger.textContent).toContain('2 loaded');
+  expect(ledger.textContent).not.toMatch(/private request|private reasoning|secret output/);
+  expect(container.textContent).not.toContain('NNA context details are not available');
+  expect(container.textContent).not.toContain('All sections hidden');
+});
+
+it('keeps the long message ledger out of the docked Context rail', () => {
+  const store = createDirectoryStore();
+  store.setState({
+    session: [{ id: 's1', title: 'Review', time: { created: 1, updated: 1 } }],
+    message: { s1: Array.from({ length: 120 }, (_, index) => ({
+      id: `a${index}`, sessionID: 's1', role: 'assistant', time: { created: index + 1 },
+    })) },
+  } as unknown as Partial<DirectoryStore>);
+  useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: '/work' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  act(() => root!.render(<WorkStatusPanel store={store} engine={{} as never} embedded />));
+  expect(container.querySelector('[data-testid="context-message-ledger"]')).toBeNull();
+  expect(container.textContent).toContain('NNA context details are not available');
+  act(() => root!.render(<WorkStatusPanel store={store} engine={{} as never} embedded expanded />));
+  expect(container.querySelectorAll('[data-testid="context-message-ledger"] li')).toHaveLength(100);
+  expect(container.textContent).toContain('Newest 100 of 120 loaded');
+  expect(container.textContent).not.toContain('NNA context details are not available');
+  expect(container.textContent).not.toContain('All sections hidden');
+});

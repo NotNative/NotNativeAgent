@@ -196,6 +196,9 @@ Tasks:
    frames. The mock must emit explicit normalized evidence events; NND must not infer a
    purported engine log from message parts or blocking records. No private reasoning or
    secret-bearing raw payload can enter the surface by default.
+   **Expanded Context ledger implemented (2026-09-28):** the maximized pane
+   lists bounded, loaded-message metadata and reported tokens without copying
+   any message, tool, or reasoning payload into this overview.
 3. Host the existing Diff/Files/Git material as Changes, and host Terminal as a
    keep-alive pane. Adopt visibility-gated refresh/reconnect behavior rather than
    replacing a hidden pane with a new instance.

@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Expanded Context message ledger.** Maximized Context now
+  presents the newest 100 loaded messages in reverse order with role, part
+  kinds, reported input/output tokens, and timestamp. It labels the loaded
+  window honestly and never renders prompt text, tool output, or reasoning
+  content in the ledger. The docked rail keeps actionable governance and
+  subagent status ahead of long history; adversarial review caught and fixed
+  this layout regression.
+
 - 2026-09-28 · **Context-to-subagent handoff.** Each NNA-projected child in
   the Context pane now opens its own transcript directly, without leaving the
   active workspace. This uses the same session pointer as the navigator; the
