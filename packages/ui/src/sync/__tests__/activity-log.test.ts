@@ -30,6 +30,8 @@ describe('operator activity evidence', () => {
     expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties, evidenceMessageID: 'bad\nanchor' } })).toBeNull();
     expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties, evidenceMessageID: 'x'.repeat(257) } })).toBeNull();
     expect(mergeActivityRecord([linked!], { ...linked!, evidenceMessageID: undefined })).not.toBe(linked);
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties,
+      id: 's1:state:1', kind: 'state', summary: 'Waiting for model' } })?.evidenceMessageID).toBe('prompt_a');
   });
 
   it('retains authored needs-input status without classifying it as a failure', () => {

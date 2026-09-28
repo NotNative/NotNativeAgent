@@ -8,6 +8,7 @@ const activity: ActivityRecord[] = [
   { id: 'old-file', sessionID: 's1', time: 2, kind: 'tool', status: 'completed', summary: 'Old file',
     toolEvidence: { reviewPath: 'old.ts', reviewDirectory: '/work', turnRequestID: 'old' } },
   { id: 'new-turn', sessionID: 's1', time: 3, kind: 'turn', status: 'started', summary: 'New', evidenceMessageID: 'new' },
+  { id: 'new-state', sessionID: 's1', time: 3.5, kind: 'state', status: 'started', summary: 'Waiting for model', evidenceMessageID: 'new' },
   { id: 'new-file', sessionID: 's1', time: 4, kind: 'tool', status: 'completed', summary: 'New file',
     toolEvidence: { reviewPath: 'new.ts', reviewDirectory: '/work', turnRequestID: 'new' } },
   { id: 'legacy-file', sessionID: 's1', time: 5, kind: 'tool', status: 'completed', summary: 'Legacy file',
@@ -20,7 +21,8 @@ const activity: ActivityRecord[] = [
 describe('filterActivityRecords', () => {
   it('uses authored turn correlation and includes turn milestones with their tools', () => {
     expect(filterActivityRecords(activity, 's1', 'last-turn').map((record) => record.id))
-      .toEqual(['new-turn', 'new-file', 'failed-tool']);
+      .toEqual(['new-turn', 'new-state', 'new-file', 'failed-tool']);
+    expect(filterActivityRecords(activity, 's1', 'state').map((record) => record.id)).toEqual(['new-state']);
     expect(filterActivityRecords(activity.filter((record) => record.kind !== 'turn'), 's1', 'last-turn')).toEqual([]);
     expect(filterActivityRecords([...activity, { id: 'legacy-turn', sessionID: 's1', time: 8,
       kind: 'turn', status: 'started', summary: 'Legacy turn' }], 's1', 'last-turn')).toEqual([]);

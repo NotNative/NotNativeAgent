@@ -10,7 +10,7 @@ export interface ActivityRecord {
   id: string;
   sessionID: string;
   time: number;
-  kind: 'turn' | 'tool' | 'notice';
+  kind: 'turn' | 'tool' | 'notice' | 'state';
   summary: string;
   status: 'started' | 'completed' | 'attention' | 'failed' | 'redacted';
   evidenceMessageID?: string;
@@ -53,7 +53,7 @@ export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | n
   if (!id || id.length > MAX_ACTIVITY_ID_LENGTH || !sessionID || !summary || summary.length > MAX_ACTIVITY_SUMMARY_LENGTH || !isKind(kind) || !isStatus(status) || time === null || !isRenderableTime(time)) return null;
   const rawEvidence = props.evidenceMessageID;
   if (rawEvidence !== undefined && (typeof rawEvidence !== 'string' || rawEvidence.length < 1 || rawEvidence.length > 256
-    || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn')) return null;
+    || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn' && kind !== 'state')) return null;
   const toolEvidence = parseToolEvidence(props.toolEvidence);
   if (props.toolEvidence !== undefined && (kind !== 'tool' || !toolEvidence)) return null;
   return { id, sessionID, time, kind, summary, status,
@@ -134,7 +134,7 @@ function isRenderableTime(value: number): boolean {
 }
 
 function isKind(value: string | null): value is ActivityRecord['kind'] {
-  return value === 'turn' || value === 'tool' || value === 'notice';
+  return value === 'turn' || value === 'tool' || value === 'notice' || value === 'state';
 }
 
 function isStatus(value: string | null): value is ActivityRecord['status'] {
