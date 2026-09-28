@@ -440,24 +440,12 @@ export function Composer(props: ComposerProps): ReactNode {
   const canSend = text.trim().length > 0 && !sendBlocked;
   const starterList = props.starters ?? [];
 
-  return (
+  return (<>
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
       data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : undefined)}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments, autoAccept); }} /> : null}
       {sessionKey === 'draft' && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
-      {sessionKey === 'draft' && starterList.length > 0 ? (
-        <div className="flex flex-wrap gap-1 px-1 pt-1" data-testid="starter-chips">
-          {starterList.map((starter) => (
-            <span key={starter.id} className="group inline-flex items-center rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-neutral-300 hover:border-white/25">
-              <button type="button" onClick={() => applyStarter(starter)}>{starter.label}</button>
-              <button type="button" aria-label={`Remove ${starter.label}`} className="ml-1 hidden text-neutral-600 group-hover:inline" onClick={() => {
-                import('./starters.ts').then(({ removeStarter }) => removeStarter(starter.id, directory)).catch(() => undefined);
-              }}>×</button>
-            </span>
-          ))}
-        </div>
-      ) : null}
       <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next, autoAccept); }} />
       <PickerPopup picker={picker} />
       {modelPickerOpen && !nnaConfigured && !configUnavailable ? (
@@ -492,7 +480,19 @@ export function Composer(props: ComposerProps): ReactNode {
         onFiles={(files) => attachFiles({ target: { files, value: '' } } as never)}
       />
     </form>
-  );
+    {sessionKey === 'draft' && starterList.length > 0 ? (
+      <div className="mt-4 flex flex-wrap justify-center gap-2" data-testid="starter-chips">
+        {starterList.map((starter) => (
+          <span key={starter.id} className="group inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-neutral-400 hover:border-white/20 hover:text-neutral-200">
+            <button type="button" onClick={() => applyStarter(starter)}>{starter.label}</button>
+            <button type="button" aria-label={`Remove ${starter.label}`} className="ml-2 hidden text-neutral-600 group-hover:inline" onClick={() => {
+              import('./starters.ts').then(({ removeStarter }) => removeStarter(starter.id, directory)).catch(() => undefined);
+            }}>×</button>
+          </span>
+        ))}
+      </div>
+    ) : null}
+  </>);
 }
 
 export type { QueuedMessage };

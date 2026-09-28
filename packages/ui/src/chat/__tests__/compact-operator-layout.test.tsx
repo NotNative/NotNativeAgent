@@ -97,3 +97,21 @@ it('keeps the rail mounted but suppressed when the composer enters expanded mode
   expect(document.querySelector('[data-testid="operator-rail"]')).toBe(rail);
   expect(rail?.getAttribute('data-suppressed')).toBe('true');
 });
+
+it('centers the draft starting point and restores the transcript layout for a selected session', async () => {
+  const store = createDirectoryStore();
+  const engine = { childStoreOf: () => store, manager: { ensureChild: () => store } } as never;
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => root!.render(<ChatView services={{ engine, store: () => store, dispatch: () => undefined }} currentDirectory="/proj" />));
+  expect(document.querySelector('[data-testid="chat-draft-landing"]')?.textContent).toContain('proj');
+  expect(document.querySelector('[data-composer-bound]')?.className).toContain('overflow-y-auto');
+  expect(document.querySelector('[data-composer-bound] > div')?.className).toContain('my-auto');
+  expect(document.querySelector('[data-testid="transcript-stub"]')).toBeNull();
+  act(() => store.setState({ session: [{ id: 's1', title: 'Existing session' }], message: { s1: [] } } as never));
+  await act(async () => useSessionViewStore.setState({ currentSessionId: 's1' }));
+  expect(document.querySelector('[data-testid="chat-draft-landing"]')).toBeNull();
+  expect(document.querySelector('[data-testid="transcript-stub"]')).toBeTruthy();
+  expect(document.querySelector('[data-composer-bound]')?.className).toContain('border-t');
+});

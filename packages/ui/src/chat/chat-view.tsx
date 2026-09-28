@@ -169,6 +169,8 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const globalNnd = globalGoalSession?.metadata?.['nnd'];
   const globalGoalRevision = globalNnd && typeof globalNnd === 'object'
     ? (globalNnd as Record<string, unknown>)['goalRevision'] : undefined;
+  const draftLanding = shownRef.sessionID === null && !expanded;
+  const workspaceName = shownRef.directory.replace(/[\\/]+$/u, '').split(/[\\/]/u).filter(Boolean).at(-1) ?? 'this workspace';
 
   return (
     <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
@@ -176,12 +178,16 @@ export function ChatView(props: ChatViewProps): ReactNode {
         {!expanded ? <div className="flex justify-end border-b border-white/10 px-3 py-1 lg:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
-        <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded ? 'hidden' : ''}`} data-chat-column>
-          <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} />
+        <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded || draftLanding ? 'hidden' : ''}`} data-chat-column>
+          {!draftLanding ? <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : null}
         </div>
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
-        <div className="relative z-10 border-t border-white/5 bg-neutral-950/80 px-4 py-3" data-composer-bound>
-          <div className="mx-auto max-w-3xl">
+        <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>
+          <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full max-w-3xl`}>
+          {draftLanding ? <div className="mb-7" data-testid="chat-draft-landing">
+            <h1 className="text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">What should we work on in {workspaceName}?</h1>
+            <p className="mt-2 text-xs text-neutral-500">Your workspace is ready. Start with a message or choose a suggestion.</p>
+          </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
           {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (

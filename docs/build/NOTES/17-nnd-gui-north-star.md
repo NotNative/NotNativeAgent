@@ -28,6 +28,13 @@ controls do not eject the active conversation. Project knowledge groups Notes,
 Todo, and Plans within that workspace, with search and section counts. Tool calls
 read as compact timeline rows rather than full-sized message cards.
 
+A follow-up live comparison of a new workspace showed a distinct first-use state:
+the workspace name and prompt composer form one centered starting point, and
+suggested prompts sit below the composer. NND should use that composition only
+while no session is selected. Once a session opens, the transcript regains the
+canvas and the composer returns to its stable bottom position, preserving the
+same editor and unsent draft through the transition.
+
 NND should borrow these spatial and interaction principles, not upstream code,
 assets, text, or styling. At a normal desktop window width the icon dock must remain
 discoverable even when the panel is closed. The composer and transcript should share
