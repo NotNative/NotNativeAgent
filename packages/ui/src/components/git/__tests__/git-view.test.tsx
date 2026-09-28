@@ -22,6 +22,7 @@ import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { GitView } from '../GitView.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { useGitStore } from '../../../lib/git/store';
+import { commitDraftScope, useCommitDraftStore } from '../../../lib/git/commit-drafts.ts';
 import { publishReviewRefresh, subscribeReviewRefresh, __resetReviewRefreshForTests, type ReviewRefreshHint } from '../../../lib/git/refresh-hints';
 
 const fetchMock = runtimeFetch as unknown as Mock;
@@ -77,6 +78,7 @@ beforeEach(() => {
   fetchMock.mockImplementation(async (input: string) => route(String(input)));
   useGitStore.getState().__resetForTests();
   __resetReviewRefreshForTests();
+  useCommitDraftStore.setState({ drafts: {} });
   document.body.innerHTML = '';
 });
 
@@ -120,6 +122,30 @@ function rowOf(path: string, scope: string): HTMLElement {
 }
 
 describe('GitView (doc 06 §6 v1)', () => {
+  it('restores a commit draft across workspace remounts and full/compact views without crossing runtimes', async () => {
+    await render(true);
+    const scope = commitDraftScope('local', DIR);
+    const otherScope = commitDraftScope('local', '/other');
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} compact draftScope={scope} /></I18nProvider>); });
+    await settle();
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setValue.call(textarea, 'Keep this work');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(useCommitDraftStore.getState().drafts[scope]).toBe('Keep this work');
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView key="other" directory="/other" draftScope={otherScope} /></I18nProvider>); });
+    await settle();
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('');
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView key="back" directory={DIR} draftScope={scope} /></I18nProvider>); });
+    await settle();
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Keep this work');
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView key="remote" directory={DIR} draftScope={commitDraftScope('remote', DIR)} /></I18nProvider>); });
+    await settle();
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('');
+  });
+
   it('hides the previous repository rows and preview while a new directory loads', async () => {
     await render();
     await settle();
@@ -308,6 +334,24 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(commitCalls.length).toBe(1);
     expect(JSON.parse(String((commitCalls[0]![1] as RequestInit).body))).toEqual({ message: 'feat: real commit' });
     expect(toast.success).toHaveBeenCalledWith('Commit created');
+  });
+
+  it('reports a rejected commit and retains its scoped draft for retry', async () => {
+    const scope = commitDraftScope('local', DIR);
+    useCommitDraftStore.getState().setDraft(scope, 'feat: retry me');
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/commit')
+      ? jsonResponse({ error: 'commit rejected' }, false) : route(String(input)));
+    await render();
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} draftScope={scope} /></I18nProvider>); });
+    await settle();
+    await act(async () => {
+      (document.querySelector('[data-testid="git-commit"]') as HTMLButtonElement).click();
+      await new Promise((done) => setTimeout(done, 30));
+    });
+    const { toast } = await import('sonner');
+    expect(toast.error).toHaveBeenCalledWith('Failed to create commit');
+    expect(useCommitDraftStore.getState().drafts[scope]).toBe('feat: retry me');
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('feat: retry me');
   });
 
   it('shows the read-only history and branches dialogs from the git log/branch read family', async () => {

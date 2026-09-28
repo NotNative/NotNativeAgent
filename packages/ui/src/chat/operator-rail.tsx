@@ -8,6 +8,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
+import { commitDraftScope } from '../lib/git/commit-drafts.ts';
 import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
 import type { ContextPlanDraft } from './context-plans.tsx';
 import type { ContextNotesDraft } from './context-notes.tsx';
@@ -280,7 +281,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
         {changesOpenedKey === changesIdentity || surface === 'changes' ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
-          <GitView key={changesIdentity} directory={directory} visible={surface === 'changes' && paneVisible} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
+          <GitView key={changesIdentity} directory={directory} draftScope={commitDraftScope(getRuntimeKey(), directory)} visible={surface === 'changes' && paneVisible} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
           onOpenWalkthrough={() => {
             if (!panels.visible.includes('walkthrough')) changePanels({ ...panels, visible: [...panels.visible, 'walkthrough'] });
             setSelection({ key: selectionKey, surface: 'walkthrough' });

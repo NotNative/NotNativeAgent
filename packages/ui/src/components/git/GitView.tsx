@@ -16,14 +16,15 @@ import {
 } from '../../lib/git/api';
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
 import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
+import { useCommitDraftStore } from '../../lib/git/commit-drafts.ts';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
 
 type SelectedFile = { directory: string; path: string; staged: boolean };
 type ReviewRequest = { directory: string; path: string; id: number } | null;
 
-export function GitView({ directory, visible = true, compact = false, reviewRequest = null, onOpenWalkthrough }: {
-  directory: string; visible?: boolean; compact?: boolean; reviewRequest?: ReviewRequest; onOpenWalkthrough?: () => void;
+export function GitView({ directory, visible = true, compact = false, reviewRequest = null, onOpenWalkthrough, draftScope }: {
+  directory: string; visible?: boolean; compact?: boolean; reviewRequest?: ReviewRequest; onOpenWalkthrough?: () => void; draftScope?: string;
 }): ReactNode {
   const [statusSnapshot, setStatusSnapshot] = useState<{ directory: string; value: GitStatus } | null>(null);
   const currentDirectory = useRef(directory);
@@ -36,7 +37,12 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   }, []);
   const [branch, setBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [localMessage, setLocalMessage] = useState('');
+  const scopedMessage = useCommitDraftStore((state) => draftScope ? state.drafts[draftScope] ?? '' : '');
+  const setDraft = useCommitDraftStore((state) => state.setDraft);
+  const clearIfMatches = useCommitDraftStore((state) => state.clearIfMatches);
+  const message = draftScope ? scopedMessage : localMessage;
+  const setMessage = (next: string): void => { if (draftScope) setDraft(draftScope, next); else setLocalMessage(next); };
   const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert'>('');
   const [dialog, setDialog] = useState<GitDialogKind>(null);
   const [confirmRevert, setConfirmRevert] = useState<GitStatusFile | null>(null);
@@ -182,19 +188,26 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
 
   const commit = useCallback((sync: boolean): void => {
     void withBusy('commit', async () => {
-      if (message.trim().length === 0) {
+      const submittedMessage = message;
+      if (submittedMessage.trim().length === 0) {
         toast.error('Enter a commit message');
         return;
       }
-      await commitChanges(directory, message);
+      try {
+        await commitChanges(directory, submittedMessage);
+      } catch {
+        toast.error('Failed to create commit');
+        return;
+      }
       toast.success('Commit created');
-      setMessage('');
+      if (draftScope) clearIfMatches(draftScope, submittedMessage);
+      else setLocalMessage((current) => current === submittedMessage ? '' : current);
       bumpIndexRevision(directory);
       await refresh();
       publishReviewRefresh(directory, null, 'git-mutation');
       if (sync) toast.message('Commit created — push rides with the P11 routes');
     });
-  }, [directory, message, refresh, withBusy, bumpIndexRevision]);
+  }, [directory, message, draftScope, clearIfMatches, refresh, withBusy, bumpIndexRevision]);
 
   if (loading || statusSnapshot?.directory !== directory) {
     return <Centered label="Checking repository..." testid="git-view-loading" />;

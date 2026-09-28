@@ -200,7 +200,9 @@ Tasks:
    replacing a hidden pane with a new instance.
    **Changes keep-alive implemented (2026-09-28):** selected diff and commit
    draft survive rail-surface changes within one runtime/workspace; hidden Git
-   refresh pauses. Cross-workspace draft leasing remains separate lifecycle work.
+     refresh pauses. Commit drafts now survive workspace switches and full-view
+     navigation within this app session, keyed by runtime and workspace; they
+     are never written to disk, and a successful commit clears only its own text.
 4. Add the Notes surface as project-owned general notes, todos, and plans. Keep agent
    memory source-labelled and behind the later NNA knowledge contract. A plan opens in
    the panel with an explicit project owner.

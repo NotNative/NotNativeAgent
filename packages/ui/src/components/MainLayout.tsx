@@ -18,6 +18,7 @@ import { SettingsWindow } from './settings/window.tsx';
 import { FilesView } from './files/FilesView.tsx';
 import { DiffView } from './diff/DiffView.tsx';
 import { GitView } from './git/GitView.tsx';
+import { commitDraftScope } from '../lib/git/commit-drafts.ts';
 import { PlanView } from './plan/PlanView.tsx';
 import { WorktreesView } from './worktrees/WorktreesView.tsx';
 import { TerminalView } from './terminal/TerminalView.tsx';
@@ -300,7 +301,7 @@ export function MainLayout(): ReactNode {
         ) : reviewPane === 'diff' ? (
           <DiffView directory={activeDirectory} visible />
         ) : reviewPane === 'git' ? (
-          <GitView directory={activeDirectory} />
+          <GitView directory={activeDirectory} draftScope={commitDraftScope(getRuntimeKey(), activeDirectory)} />
         ) : reviewPane === 'plan' ? (
           <PlanView directory={activeDirectory} visible />
         ) : reviewPane === 'terminal' ? (

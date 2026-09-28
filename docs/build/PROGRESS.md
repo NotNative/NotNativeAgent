@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Commit draft continuity.** Changes commit text now survives
+  switching workspaces and opening the full Git view during the same app run.
+  Drafts stay in memory, are isolated by runtime/workspace, and a completed
+  commit cannot erase text revised while its request was in flight. Rejected
+  commit requests now show an error while retaining the draft for retry.
+
 - 2026-09-28 · **Changes pane continuity.** Once opened, the Changes workbench
   stays mounted while another operator surface is foregrounded. Its selected
   diff and unsubmitted commit text survive a surface switch, while Git polling
