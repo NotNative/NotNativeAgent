@@ -14,7 +14,7 @@ vi.mock('../harness/adapter.ts', () => ({ registerHarnessAdapter: state.register
 vi.mock('../harness/nna.ts', () => ({ createNnaHarnessAdapter: () => ({ handle: vi.fn() }) }));
 vi.mock('../harness/nna-local.ts', () => ({
   resolveNnaCommand: async () => ({ command: 'nna', arguments: [] }),
-  startLocalNnaHarness: async () => ({ endpoint: 'http://127.0.0.1:4999', token: 't'.repeat(32), principal: () => 'principal', isRunning: () => true, dispose: state.dispose }),
+  startLocalNnaHarnessWithRetry: async () => ({ endpoint: 'http://127.0.0.1:4999', token: 't'.repeat(32), principal: () => 'principal', isRunning: () => true, dispose: state.dispose }),
   guardLocalNnaHarness: (adapter: unknown) => adapter,
 }));
 

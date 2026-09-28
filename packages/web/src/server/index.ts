@@ -11,7 +11,7 @@ import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
 import { createNnaHarnessAdapter } from './harness/nna.ts';
-import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarness, type LocalNnaHarness } from './harness/nna-local.ts';
+import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarnessWithRetry, type LocalNnaHarness } from './harness/nna-local.ts';
 import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
 import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
@@ -152,7 +152,7 @@ async function configureHarness(browserCallback: { url: string; token: string } 
     return undefined;
   }
   const launch = await resolveNnaCommand({ command: ENV.nnaCommand });
-  const local = await startLocalNnaHarness({
+  const local = await startLocalNnaHarnessWithRetry({
     command: launch.command, commandArguments: launch.arguments, dataRoot: launch.dataRoot, workspaceId: ENV.nnaWorkspaceId,
     browserCallback,
   });

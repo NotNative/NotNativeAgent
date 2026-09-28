@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Installed NNA startup recovery.** A first-launch NNA child
+  exit was observed after install while a subsequent launch succeeded. The
+  managed desktop now makes one bounded retry only for exit-before-readiness,
+  surfaces a sanitized NNA diagnostic code or exit status if the retry fails,
+  and retains its child error listener after readiness so a shutdown error
+  cannot crash the Electron host. The cause of the initial exit remains
+  unconfirmed; persistent configuration failures still stop startup.
+
 - 2026-09-28 · **Files inspection beside chat.** Added a read-only Files
   operator pane with searchable tree, bounded text preview, binary/oversize
   fallback, and an explicit handoff to the full editor. The pane retains its

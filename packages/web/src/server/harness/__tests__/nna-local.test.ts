@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
-import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarness } from '../nna-local.ts';
+import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarness, startLocalNnaHarnessWithRetry } from '../nna-local.ts';
 
 const token = 't'.repeat(32);
 
@@ -141,6 +141,44 @@ describe('managed local NNA launcher', () => {
     process.emit('exit', 1);
     await expect(promise).rejects.toThrow('NNA local harness exited before readiness');
     await expect(promise).rejects.not.toThrow('top-secret');
+  });
+
+  it('retries one early child exit and accepts readiness from the replacement', async () => {
+    const first = child();
+    const second = child();
+    const spawnChild = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const promise = startLocalNnaHarnessWithRetry({ command: 'nna', workspaceId: 'local', spawnChild });
+    first.stderr.write('nna: internal_failure\n');
+    first.emit('exit', 2);
+    await vi.waitFor(() => expect(spawnChild).toHaveBeenCalledTimes(2));
+    second.stdout.write(ready());
+    const harness = await promise;
+    expect(harness.endpoint).toBe('http://127.0.0.1:4812');
+    harness.dispose();
+  });
+
+  it('stops after a second early exit and reports only a sanitized NNA failure code', async () => {
+    const first = child();
+    const second = child();
+    const spawnChild = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const promise = startLocalNnaHarnessWithRetry({ command: 'nna', workspaceId: 'local', spawnChild });
+    first.emit('exit', 2);
+    await vi.waitFor(() => expect(spawnChild).toHaveBeenCalledTimes(2));
+    second.stderr.write('token=top-secret\nnna: package_not_registered\n');
+    second.emit('exit', 2);
+    await expect(promise).rejects.toThrow('NNA local harness exited before readiness (package_not_registered)');
+    await expect(promise).rejects.not.toThrow('top-secret');
+    expect(spawnChild).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not crash the host on a child error after readiness', async () => {
+    const process = child();
+    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild: () => process });
+    process.stdout.write(ready());
+    const harness = await promise;
+    expect(() => process.emit('error', new Error('kill failed; token=top-secret'))).not.toThrow();
+    expect(() => process.emit('error', new Error('second shutdown error'))).not.toThrow();
+    expect(harness.isRunning()).toBe(false);
   });
 
   it('returns an explicit unavailable response after an owned child stops', async () => {

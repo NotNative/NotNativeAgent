@@ -9,6 +9,7 @@ import { harnessError, type HarnessAdapter } from './adapter.ts';
 
 const READY_LIMIT = 16 * 1024;
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
+const EARLY_EXIT_RETRY_DELAY_MS = 250;
 // NNA creates base64url tokens.  Keep this ASCII-only at the readiness
 // boundary so it is always safe to place in a Node HTTP header later.
 const TOKEN = /^[A-Za-z0-9_-]{32,512}$/u;
@@ -74,6 +75,25 @@ export interface LocalNnaHarness {
   dispose(): void;
 }
 
+class EarlyNnaExitError extends Error {
+  constructor(exitCode: number | null, diagnosticCode: string | null) {
+    super(`NNA local harness exited before readiness${diagnosticCode ? ` (${diagnosticCode})`
+      : exitCode === null ? '' : ` (exit ${exitCode})`}`);
+  }
+}
+
+/** A child that dies before its first readiness frame gets one fresh launch.
+ * Persistent configuration and registration failures still surface promptly. */
+export async function startLocalNnaHarnessWithRetry(options: LocalNnaLaunchOptions): Promise<LocalNnaHarness> {
+  try {
+    return await startLocalNnaHarness(options);
+  } catch (error) {
+    if (!(error instanceof EarlyNnaExitError)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, EARLY_EXIT_RETRY_DELAY_MS));
+    return startLocalNnaHarness(options);
+  }
+}
+
 /** Starts NNA and accepts only its one-line, loopback readiness protocol. */
 export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<LocalNnaHarness> {
   if (!options.command.trim()) return Promise.reject(new Error('NNA command is required'));
@@ -81,24 +101,23 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
   if (options.browserCallback && !validBrowserCallback(options.browserCallback)) return Promise.reject(new Error('NNA browser callback is invalid'));
   let child: ChildProcessWithoutNullStreams;
   try {
-    child = (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'nnd', 'serve'], {
-      stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
-      env: localChildEnvironment(options),
-    }) as ChildProcessWithoutNullStreams;
+    child = spawnNnaChild(options);
   } catch {
     return Promise.reject(new Error('NNA local harness could not start'));
   }
   let running = true;
   let settled = false;
   child.once('exit', () => { running = false; });
-  // Stderr is deliberately consumed so a noisy child cannot block, but no
-  // diagnostic content is reflected into browser responses or startup errors.
-  child.stderr.resume();
+  // NNA CLI failures emit `nna: <code>`. Keep only that bounded identifier;
+  // raw stderr may contain credentials and must never reach browser/log errors.
+  const diagnostic = createNnaDiagnosticCapture();
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => fail('NNA local harness did not become ready'), options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS);
     let buffered = '';
-    const onError = (): void => fail('NNA local harness could not start');
-    const onPrematureExit = (): void => fail('NNA local harness exited before readiness');
+    // Keep this listener after readiness too. ChildProcess may emit `error`
+    // if a later kill fails; without a listener that would crash the host.
+    const onError = (): void => { running = false; fail('NNA local harness could not start'); };
+    const onPrematureExit = (code: number | null): void => fail(new EarlyNnaExitError(code, diagnostic.finish()));
     const onData = (part: Buffer | string): void => {
       if (settled) return;
       buffered += String(part);
@@ -121,18 +140,49 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
     const clean = (): void => {
       clearTimeout(timeout);
       child.stdout.off('data', onData);
-      child.off('error', onError);
+      child.stderr.off('data', diagnostic.write);
+      child.stderr.resume();
       child.off('exit', onPrematureExit);
     };
     const stop = (): void => { if (running) { running = false; child.kill(); } };
-    const fail = (message: string): void => {
+    const fail = (reason: string | Error): void => {
       if (settled) return;
-      settled = true; clean(); stop(); reject(new Error(message));
+      settled = true; clean(); stop(); reject(typeof reason === 'string' ? new Error(reason) : reason);
     };
-    child.once('error', onError);
+    child.on('error', onError);
     child.once('exit', onPrematureExit);
     child.stdout.on('data', onData);
+    child.stderr.on('data', diagnostic.write);
   });
+}
+
+function spawnNnaChild(options: LocalNnaLaunchOptions): ChildProcessWithoutNullStreams {
+  return (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'nnd', 'serve'], {
+    stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
+    env: localChildEnvironment(options),
+  }) as ChildProcessWithoutNullStreams;
+}
+
+function createNnaDiagnosticCapture(): { write(part: Buffer | string): void; finish(): string | null } {
+  let diagnosticCode: string | null = null;
+  let stderrLine = '';
+  const captureLine = (line: string): void => {
+    const match = /^nna: ([a-z][a-z0-9_]{0,63})\r?$/u.exec(line);
+    if (match) diagnosticCode = match[1]!;
+  };
+  return {
+    write(part) {
+      stderrLine += String(part);
+      if (stderrLine.length > READY_LIMIT) stderrLine = stderrLine.slice(-READY_LIMIT);
+      let newline = stderrLine.indexOf('\n');
+      while (newline >= 0) {
+        captureLine(stderrLine.slice(0, newline));
+        stderrLine = stderrLine.slice(newline + 1);
+        newline = stderrLine.indexOf('\n');
+      }
+    },
+    finish() { captureLine(stderrLine); return diagnosticCode; },
+  };
 }
 
 function localChildEnvironment(options: LocalNnaLaunchOptions): NodeJS.ProcessEnv {
