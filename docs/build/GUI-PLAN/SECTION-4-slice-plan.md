@@ -147,7 +147,8 @@ Tasks:
    (routes/session-folders.ts exists) to a folders store; archive view
    (current `time.archived` split already in globalSessions store);
    rename = real `updateSession` (mock PATCH works, main.tsx toast text is
-   stale — MainLayout.tsx:136–139); pins/multi-select later.
+   stale — MainLayout.tsx:136–139); local, runtime-scoped pins implemented
+   2026-09-28 (including retention beyond the 50-row cap); multi-select later.
 3. **Permission/question flow completeness**: reply routes under /api +
    v2 surface exist in the mock; align card UI to doc 05 §F (incl.
    send-while-blocked rule) and server-side auto-accept policy persistence

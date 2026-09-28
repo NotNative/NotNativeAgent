@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 import { formatRelative } from './time-format.ts';
 import { sidebarHierarchy } from './session-sidebar-hierarchy.ts';
 import { nnaTurnPhaseFromMetadata } from './work-status.ts';
+import { pinnedSessionIds, useSessionPinnedStore } from '../stores/useSessionPinnedStore.ts';
+import { getRuntimeKey } from '../lib/runtime-switch.ts';
 
 const AVATAR_LIMIT = 50;
 
@@ -43,8 +45,14 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const folders = useSyncExternalStore(useSessionFoldersStore.subscribe, useSessionFoldersStore.getState);
   const statusById = useSyncExternalStore(useGlobalSessionStatusStore.subscribe, () => useGlobalSessionStatusStore.getState().statusById);
   const orderingRanks = useSyncExternalStore(useSessionOrderingStore.subscribe, () => useSessionOrderingStore.getState().rankById) as Record<string, number>;
+  const pins = useSyncExternalStore(useSessionPinnedStore.subscribe, () => useSessionPinnedStore.getState().pins);
 
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
+  useEffect(() => {
+    const refresh = (): void => useSessionPinnedStore.getState().reload();
+    window.addEventListener('storage', refresh);
+    return () => window.removeEventListener('storage', refresh);
+  }, []);
 
   const zones = useMemo(() => {
     const grouped = new Map<string, Session[]>();
@@ -98,6 +106,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
               sessions={filtered.filter((session) => normalizeDirectory(session.directory ?? 'global') === directory)}
               statusById={statusById}
               ranks={orderingRanks}
+              pinnedIds={pinnedSessionIds(pins, directory)}
               currentSessionId={props.currentSessionId}
               actions={props.actions}
               folders={folders.foldersByDirectory[directory] ?? []}
@@ -138,12 +147,12 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ directory, sessions, statusById, ranks, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean }): ReactNode {
+function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions);
   // Search shows only matching rows; an omitted parent is not unavailable.
-  const hierarchy = forceOpen ? null : sidebarHierarchy(ordered, folders, AVATAR_LIMIT);
+  const hierarchy = forceOpen ? null : sidebarHierarchy(ordered, folders, AVATAR_LIMIT, pinnedIds);
   const searchRows = forceOpen ? ordered.slice(0, AVATAR_LIMIT) : [];
   const byId = hierarchy?.byId ?? new Map(searchRows.map((session) => [session.id, session]));
   const depthById = hierarchy?.depth ?? sessionDepths(searchRows);
@@ -194,11 +203,11 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
               {!isCollapsed ? (
                 <ul className="ml-3 border-l border-white/5">
                   {folderNormal.map((session) => (
-                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} />
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} />
                   ))}
                   {folderUnavailable.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
                   {folderUnavailable.map((session) => (
-                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} />
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} />
                   ))}
                   {inside.length === 0 ? <li className="px-2 py-1 text-[10px] text-neutral-600">Empty folder — sessions land via the row menu.</li> : null}
                 </ul>
@@ -211,11 +220,11 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
           : null}
         {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[11px] text-neutral-600" data-testid="zone-empty">No sessions in this workspace yet.</li> : null}
         {visibleUnsorted.map((sessionID) => (
-          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={depthById.get(sessionID) ?? 0} />
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} />
         ))}
         {orphaned.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
         {orphaned.map((sessionID) => (
-          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={depthById.get(sessionID) ?? 0} />
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} />
         ))}
       </ul> : null}
       {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
@@ -238,7 +247,7 @@ function FolderActions({ directory, folderId, folderName, hasSessions }: { direc
   );
 }
 
-function SidebarRow({ session, status, currentSessionId, actions, folderId, depth = 0 }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; folderId?: string; depth?: number }): ReactNode {
+function SidebarRow({ session, status, currentSessionId, actions, pinned, folderId, depth = 0 }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; pinned: boolean; folderId?: string; depth?: number }): ReactNode {
   const active = status && status.type !== 'idle';
   const attention = sessionAttention(session);
   const activity = session.parentID && !attention ? childActivityPhrase(session.metadata) : null;
@@ -249,10 +258,12 @@ function SidebarRow({ session, status, currentSessionId, actions, folderId, dept
           <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${attention ? 'bg-amber-400' : active ? 'bg-sky-400' : 'bg-neutral-700'}`} />
           {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
+          {pinned ? <span aria-label="Pinned session" className="text-[10px] text-amber-400">◆</span> : null}
         </div>
         <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{activity ? <span className="text-sky-300" data-testid="child-current-activity"> · {activity}</span> : null}</div>
       </button>
       <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
+        <button type="button" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title || 'session'}`} className="hover:text-amber-300" onClick={() => useSessionPinnedStore.getState().toggle(session.directory ?? 'global', session.id)}>{pinned ? '◆' : '◇'}</button>
         <button type="button" aria-label={`Rename ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => {
           const title = prompt('Rename session', session.title ?? ''); // eslint-disable-line no-alert
           if (title !== null) void actions.rename(session.id, title);
@@ -269,7 +280,8 @@ function SidebarRow({ session, status, currentSessionId, actions, folderId, dept
         {folderId ? <button type="button" aria-label="Unfile from folder" onClick={() => void useSessionFoldersStore.getState().unassignSession(session.directory ?? '', session.id)}>⤫</button> : null}
         <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
           if (!confirm(`Delete ${session.title || 'session'} and its subtasks?`)) return; // eslint-disable-line no-alert
-          void actions.deleteSession(session.id, session.directory ?? '').catch(() => toast.error('Failed to delete the session'));
+          const runtimeKey = getRuntimeKey();
+          void actions.deleteSession(session.id, session.directory ?? '').then(() => useSessionPinnedStore.getState().clear(session.directory ?? 'global', session.id, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
         }}>🗑</button>
       </div>
     </li>
@@ -287,7 +299,8 @@ function ArchivedRow({ session, actions }: { session: Session; actions: ChatSide
         <button type="button" aria-label={`Restore ${session.title || 'session'}`} data-testid="restore-session" className="hover:text-neutral-200" onClick={() => void actions.restore(session.id, session.directory ?? '')}>↩</button>
         <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
           if (!confirm(`Delete ${session.title || 'session'} permanently?`)) return; // eslint-disable-line no-alert
-          void actions.deleteSession(session.id, session.directory ?? '').catch(() => toast.error('Failed to delete the session'));
+          const runtimeKey = getRuntimeKey();
+          void actions.deleteSession(session.id, session.directory ?? '').then(() => useSessionPinnedStore.getState().clear(session.directory ?? 'global', session.id, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
         }}>🗑</button>
       </div>
     </li>

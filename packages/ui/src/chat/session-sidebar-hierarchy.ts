@@ -13,9 +13,9 @@ export interface SidebarHierarchy {
   visible: string[];
 }
 
-export function sidebarHierarchy(ordered: Session[], folders: SessionFolder[], limit: number): SidebarHierarchy {
+export function sidebarHierarchy(ordered: Session[], folders: SessionFolder[], limit: number, pinnedIds: ReadonlySet<string> = new Set()): SidebarHierarchy {
   const all = new Map(ordered.map((session) => [session.id, session]));
-  const included = expandRecentWithAncestors(ordered, all, limit);
+  const included = expandRecentWithAncestors(ordered, all, limit, pinnedIds);
   const byId = new Map(ordered.filter((session) => included.has(session.id)).map((session) => [session.id, session]));
   const directFolder = new Map<string, string>();
   for (const group of folders) for (const id of group.sessionIds) {
@@ -66,8 +66,9 @@ export function sidebarHierarchy(ordered: Session[], folders: SessionFolder[], l
   };
 }
 
-function expandRecentWithAncestors(ordered: Session[], all: Map<string, Session>, limit: number): Set<string> {
+function expandRecentWithAncestors(ordered: Session[], all: Map<string, Session>, limit: number, pinnedIds: ReadonlySet<string>): Set<string> {
   const included = new Set(ordered.slice(0, limit).map((session) => session.id));
+  for (const id of pinnedIds) if (all.has(id)) included.add(id);
   // A recent child must not become an "orphan" merely because its older
   // parent falls outside the recent-session cap.
   for (const id of [...included]) {

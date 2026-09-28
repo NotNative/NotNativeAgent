@@ -43,4 +43,15 @@ describe('delegated session navigation', () => {
     expect(result.visible).toEqual(['a', 'b']);
     expect(result.unavailableParent).toEqual([]);
   });
+
+  it('retains an older pin beyond the recent cap without moving it ahead of newer rows', () => {
+    const result = sidebarHierarchy([session('new'), session('middle'), session('pinned')], [], 2, new Set(['pinned']));
+    expect(result.visible).toEqual(['new', 'middle', 'pinned']);
+  });
+
+  it('retains a pinned child and its parent beyond the recent cap', () => {
+    const result = sidebarHierarchy([session('new'), session('child', 'parent'), session('parent')], [], 1, new Set(['child']));
+    expect(result.visible).toEqual(['new', 'parent', 'child']);
+    expect(result.depth.get('child')).toBe(1);
+  });
 });

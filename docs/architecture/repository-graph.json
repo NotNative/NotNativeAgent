@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e11bbc49bf3f41e23c2bde57411ae99416e04c6a209113c408ef0e5f8a461404",
+  "source_digest": "sha256:65f7e48f395fcd58afa7368c15edb6cda82fa086681cfbab070fea34fa58492a",
   "counts": {
-    "modules": 476,
+    "modules": 477,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 124
+      "module_count": 125
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 174,
-      "module_count": 70
+      "import_count": 176,
+      "module_count": 71
     },
     {
       "from": "ui-shell",
@@ -120,8 +120,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 40,
-      "module_count": 37
+      "import_count": 41,
+      "module_count": 38
     },
     {
       "from": "gates",
@@ -589,8 +589,10 @@
         "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/session-folders.ts",
         "packages/ui/src/stores/useSessionFoldersStore.ts",
+        "packages/ui/src/stores/useSessionPinnedStore.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/session-ordering.ts",
         "packages/ui/src/sync/sync-engine.ts",
@@ -2692,6 +2694,15 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/session-folders.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/stores/useSessionPinnedStore.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
       ]
     },
     {

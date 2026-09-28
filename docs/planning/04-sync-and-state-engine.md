@@ -1176,9 +1176,9 @@ its ancestors while unrelated sessions continue); cleanup uses the CANONICAL arc
   (`oc.sessions.folders` runtime-suffixed + STORAGE_INDEX_KEY index, legacy claimed once); syncs
   with a server file too, with revision rules (§G.5); `removeSessionEverywhere(runtime, sessionId)`
   on delete; create-time folder assignment via draft `targetFolderId`.
-- Pins (`useSessionPinnedStore`): `oc.sessions.pinned.v2`, keys
-  `JSON:[runtimeKey, normalizedDir, sessionId]`, touchedAt bounded map, NO silent age/count
-  eviction, never pruned from the first startup list; `clearPinnedSession` on delete.
+- Pins (`useSessionPinnedStore`): `nnd.sessions.pinned.v1`, keys
+  `JSON:[runtimeKey, normalizedDir, sessionId]`, touchedAt map, NO silent age/count
+  eviction, never pruned from the first startup list; clear on delete.
 - Tabs (`useSessionTabsStore`): `session-tabs-store`, `tabIds` order-only, `MAX_SESSION_TABS = 10`
   soft cap (oldest leaves, never the session being opened); ids whose session is unknown are kept.
 - Todos (`useTodosPersistStore`): `openchamber-session-todos` v2, key
@@ -1572,18 +1572,20 @@ above stays:
   ONE rank, ties broken by timestamps).
 - Removal on `session.deleted`/archive (removeFromIndex + rank cleanup); full reset on runtime
   switch (phases, baselines, lastRank, ranks).
-- Baselines: fallback timestamp FROZEN at first participation — pinned sessions freeze
-  `time.created`, others freeze `time.updated` (`baselineRank`). `raiseSessionOrderingBaselines`
+- Baselines: fallback timestamp FROZEN at first participation from
+  `time.updated` (`baselineRank`). `raiseSessionOrderingBaselines`
   runs only on AUTHORITATIVE snapshots (never demotes; wells stale live ranks up to fresh
   authoritative `updated` stamps for sessions re-activated on other devices while this client
   slept).
-- Comparator (`compareSessionsByLifecycleOrder` / `orderSessionsByLifecycleScopes`): pinned first
-  bucket; lifecycle rank compared ONLY within scope (roots against roots, children only against
+- Comparator (`compareSessionsByLifecycleOrder` / `orderSessionsByLifecycleScopes`): pins do not
+  reorder (05 §D.12); lifecycle rank compared ONLY within scope (roots against roots, children only against
   siblings sharing `parentID`); then frozen baseline desc, creation desc, id asc. Hierarchies from
   the global structure indexes drive root/children grouping; remaining unindexed sessions are
   appended after by the same comparator; cycles guarded by visited set.
 - Every user-visible list must consume this comparator — sorting by `time.updated` re-introduces
   streaming-frequency churn.
+- Sidebar presentation includes pinned IDs beyond its recent-row cap, plus their
+  known ancestors, while preserving the comparator's order.
 
 **Timing** (src: session-activity-timing.ts):
 
@@ -1649,5 +1651,4 @@ above stays:
 | `useDirectoryStore` | yes | currentDirectory/history/home/persisted flags | `lastDirectory`/`homeDirectory` | device-wide; home re-resolved per runtime |
 | `useNotificationStore` | yes | list + session/project unseen indexes | no (in-memory; 30d TTL, 500 cap) | runtime-wide |
 | `contextStore.ts` (stores/) | yes | project notes/todos/plan links cache keyed by project id; optimistic writes serialized per project | via project routes only | per project |
-
 

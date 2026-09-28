@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Session pins.** The sidebar can pin/unpin a session with a
+  visible marker; runtime/workspace-scoped pins persist locally and remain
+  reachable beyond the 50-recent-session cap without disrupting lifecycle
+  ordering or delegated hierarchy. Deletion clears the pin. Adversarial review
+  caught and fixed the undefined-directory global-session case. The conflicting
+  pinned-first language in the earlier ordering plan was reconciled with the
+  explicit no-reorder interaction rule in doc 05 §D.12.
+
 - 2026-09-28 · **Live delegated activity in the session navigator.** A child
   row now shows a short label from NNA's enumerated turn phase (for example,
   using a tool or waiting for a model). Attention and failure remain more

@@ -7,13 +7,18 @@ import type { Session } from '../../lib/nnd/types.ts';
 import { ChatSidebar } from '../session-sidebar.tsx';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
+import { useSessionPinnedStore } from '../../stores/useSessionPinnedStore.ts';
+import { initializeRuntimeEndpoint } from '../../lib/runtime-switch.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 let originalLoad: () => Promise<void>;
 
 beforeEach(() => {
+  localStorage.clear();
+  useSessionPinnedStore.setState({ pins: {} });
   originalLoad = useSessionFoldersStore.getState().load;
   useSessionFoldersStore.setState({ load: async () => undefined, foldersByDirectory: {}, collapsedFolderIds: {} });
 });
@@ -47,6 +52,15 @@ it('keeps the active workspace visible even before its first session', () => {
   expect(zone.querySelector('[data-testid="zone-empty"]')).toBeTruthy();
   act(() => (zone.querySelector('[aria-label="New draft session in D:/work/Empty"]') as HTMLButtonElement).click());
   expect(openDraft).toHaveBeenCalledWith('D:/work/Empty');
+});
+
+it('pins a session without a directory in the displayed global workspace', () => {
+  useGlobalSessionsStore.setState({ active: [{ ...session('global-one', 'global', 'Global chat'), directory: undefined } as unknown as Session] });
+  const { node } = mount('global');
+  const row = node.querySelector('[data-testid="session-row"]')!;
+  act(() => (row.parentElement!.querySelector('[aria-label="Pin Global chat"]') as HTMLButtonElement).click());
+  expect(row.querySelector('[aria-label="Pinned session"]')).toBeTruthy();
+  expect(row.parentElement!.querySelector('[aria-label="Unpin Global chat"]')).toBeTruthy();
 });
 
 it('puts the active workspace first and folds its sessions without hiding its actions', () => {
