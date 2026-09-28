@@ -276,3 +276,21 @@ setting. Combined-scope reads flag global/project failures separately.
 Unknown updates are 404, validation is 400, and storage failures are 500.
 Panel memory UI, scope resolution from a directory, the managed memory tool,
 session-index delivery, and change notifications remain.
+
+## P10-17: memory ownership and panel surface (2026-09-28)
+
+Memory stores now have explicit ownership metadata. A storage owner can be
+passed directly for tool callbacks or derived from a session directory. The
+mapper favors a configured project path (exact or contained), then the managed
+chats root, and otherwise names an unregistered path by its canonical-path
+digest. It does not make unregistered worktrees inherit a primary repository
+store. Custom path-truth callbacks are rejected so paths cannot change relative
+containment by a truthiness seam.
+
+The Context rail adds a Memory tab over both scopes. The server owns reads,
+edits, deletion, and missing-entry responses; the panel separates project and
+global lists, flags unavailable scopes, keeps a failed draft, refreshes with a
+state revision, and has no agent-owned create route. If a server sends
+`Session-Memory-Content`, the client transparently reads the old `flagged`
+field so already-deployed runtime members can stream without a coordinated
+restart.

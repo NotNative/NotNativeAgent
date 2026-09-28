@@ -258,6 +258,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   Tool callbacks, directory scope resolution, session delivery, and Memory UI
   remain.
 
+- 2026-09-28 · **Memory ownership and panel.** Session directories can map to
+  project or managed-chats memory owners before storage access, with
+  unregistered paths using digest-scoped stores instead of inheriting a
+  registered repository store. The Context rail adds a scoped Memory panel for
+  user edit/forget, including failed-scope and injection warning states;
+  agent-created memory still waits on the managed tool.
+
 - 2026-09-28 · **Guarded Files saves.** The editor now sends its original file
   content as a write precondition. The server compares it immediately before
   replacement and returns a typed conflict if another writer changed, removed,

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f7ed3e9551de95e880ac3eb48eafe7ea1ff044dd110926722ef106fb02ee9a5b",
+  "source_digest": "sha256:6ef6b84ce78874f596022ac29dfe8daff9c684308083cb0d1d844633306fb83f",
   "counts": {
-    "modules": 516,
+    "modules": 519,
     "component_edges": 14
   },
   "components": [
@@ -24,19 +24,19 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 145
+      "module_count": 146
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 139
+      "module_count": 140
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 159
+      "module_count": 160
     },
     {
       "id": "web-entry",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 191,
-      "module_count": 78
+      "import_count": 192,
+      "module_count": 79
     },
     {
       "from": "ui-shell",
@@ -374,6 +374,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/context-memory.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/agent-memory-api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/context-message-ledger.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -598,6 +606,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/context-memory.tsx",
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
         "packages/ui/src/chat/context-todos.tsx",
@@ -1647,6 +1656,14 @@
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/server-api.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/agent-memory-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {
@@ -4235,6 +4252,12 @@
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/project-context/agent-memory-ownership.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/project-context/agent-memory.ts",

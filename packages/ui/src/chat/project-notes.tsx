@@ -4,12 +4,13 @@ import { useEffect, useRef, useState, type Dispatch, type ReactNode, type SetSta
 import { FileReadError, readFileText, writeFileText } from '../lib/files/api.ts';
 import { PlanView } from '../components/plan/PlanView.tsx';
 import { ContextNotes, type ContextNotesDraft } from './context-notes.tsx';
+import { ContextMemory, type ContextMemoryDraft } from './context-memory.tsx';
 import { ContextPlans, type ContextPlanDraft } from './context-plans.tsx';
 import { ContextTodos, usableTodo } from './context-todos.tsx';
 import { getProjectContext, type ProjectContext } from '../lib/project-context-api.ts';
 import { WorkspaceContextImport } from './workspace-context-import.tsx';
 
-type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos';
+type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos' | 'memory';
 interface Todo { id: string; text: string; done: boolean }
 const NOTES_PATH = '.opencode/nnd/general-notes.md';
 const TODOS_PATH = '.opencode/nnd/todos.json';
@@ -62,10 +63,10 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     return () => { active = false; };
   }, [projectId, visible, searchEnabled, searchRevision]);
   const counts = searchEnabled && searchSnapshot?.projectId === projectId ? searchCounts(searchSnapshot.context, query) : null;
-  const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos') ? 'notes'
+  const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos' || tab === 'memory') ? 'notes'
     : projectId && !workspaceFilesOpen && (tab === 'notes' || tab === 'todos' || tab === 'plans') ? 'context' : tab;
   const primaryTabs: { id: Tab; label: string }[] = projectId
-    ? [{ id: 'context', label: 'General' }, { id: 'project-todos', label: 'Todos' }, { id: 'saved', label: 'Plans' }]
+    ? [{ id: 'context', label: 'General' }, { id: 'project-todos', label: 'Todos' }, { id: 'saved', label: 'Plans' }, { id: 'memory', label: 'Memory' }]
     : [{ id: 'notes', label: 'General' }, { id: 'todos', label: 'Todos' }, { id: 'plans', label: 'Plans' }];
   const selectTab = (item: Tab): void => {
     setOpened((current) => new Set([...current, item]));
@@ -82,7 +83,7 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
         Workspace files {workspaceFilesOpen ? '▴' : '▾'}
       </button> : null}
     </nav>
-    {projectId && (activeTab === 'context' || activeTab === 'project-todos' || activeTab === 'saved') ? <div className="border-b border-white/10 px-2 py-1">
+    {projectId && (activeTab === 'context' || activeTab === 'project-todos' || activeTab === 'saved' || activeTab === 'memory') ? <div className="border-b border-white/10 px-2 py-1">
       <input aria-label="Search project notes, todos, and plan titles" type="search" value={query}
         onChange={(event) => setQuery(event.target.value)} placeholder="Search notes, todos, plan titles"
         className="w-full rounded border border-white/10 bg-neutral-900/40 px-2 py-1 text-xs" />
@@ -114,6 +115,7 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} refreshToken={contextRefresh} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
     {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} directory={directory} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
     {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} refreshToken={contextRefresh} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} onAddToChat={onAddTodoToChat} onAddToNewChat={onAddTodoToNewChat} /></div> : null}
+    {projectId && (opened.has('memory') || activeTab === 'memory') ? <div className={activeTab === 'memory' ? 'min-h-0 flex-1' : 'hidden'}><ContextMemory key={projectId} projectId={projectId} visible={visible && activeTab === 'memory'} query={query} /></div> : null}
   </section>;
 }
 
