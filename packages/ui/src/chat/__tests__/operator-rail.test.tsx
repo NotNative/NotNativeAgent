@@ -1020,6 +1020,30 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-browser"] iframe')).toBeNull();
   });
 
+  it('opens an NNA-linked subagent transcript only while that child is discoverable', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ session: [{ id: 's1' }, { id: 's2' },
+      { id: 'child_a', parentID: 's1' }, { id: 'child_other', parentID: 's2' }] as never,
+      activity: [
+        { id: 'child-live', sessionID: 's1', time: 1, kind: 'subagent', status: 'started',
+          summary: 'Subagent working', childSessionID: 'child_a' },
+        { id: 'child-gone', sessionID: 's1', time: 2, kind: 'subagent', status: 'completed',
+          summary: 'Subagent completed', childSessionID: 'unavailable' },
+        { id: 'child-other-parent', sessionID: 's1', time: 3, kind: 'subagent', status: 'completed',
+          summary: 'Subagent completed', childSessionID: 'child_other' },
+        { id: 'child-root', sessionID: 's1', time: 4, kind: 'subagent', status: 'completed',
+          summary: 'Subagent completed', childSessionID: 's2' },
+      ] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const links = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
+      .filter((button) => button.textContent === 'Open subagent transcript');
+    expect(links).toHaveLength(1);
+    act(() => links[0]!.click());
+    expect(useSessionViewStore.getState().currentSessionId).toBe('child_a');
+  });
+
   it('jumps from an authored turn to its loaded prompt without inventing links for tools or missing messages', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({

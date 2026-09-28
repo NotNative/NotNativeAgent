@@ -10,10 +10,11 @@ export interface ActivityRecord {
   id: string;
   sessionID: string;
   time: number;
-  kind: 'turn' | 'tool' | 'notice' | 'state';
+  kind: 'turn' | 'tool' | 'notice' | 'state' | 'subagent';
   summary: string;
   status: 'started' | 'completed' | 'attention' | 'failed' | 'redacted';
   evidenceMessageID?: string;
+  childSessionID?: string;
   toolEvidence?: ToolEvidence;
 }
 
@@ -53,17 +54,20 @@ export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | n
   if (!id || id.length > MAX_ACTIVITY_ID_LENGTH || !sessionID || !summary || summary.length > MAX_ACTIVITY_SUMMARY_LENGTH || !isKind(kind) || !isStatus(status) || time === null || !isRenderableTime(time)) return null;
   const rawEvidence = props.evidenceMessageID;
   if (rawEvidence !== undefined && (typeof rawEvidence !== 'string' || rawEvidence.length < 1 || rawEvidence.length > 256
-    || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn' && kind !== 'state')) return null;
+    || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn' && kind !== 'state' && kind !== 'subagent')) return null;
   const toolEvidence = parseToolEvidence(props.toolEvidence);
   if (props.toolEvidence !== undefined && (kind !== 'tool' || !toolEvidence)) return null;
+  const childSessionID = props.childSessionID;
+  if (childSessionID !== undefined && (kind !== 'subagent' || typeof childSessionID !== 'string'
+    || childSessionID.length < 1 || childSessionID.length > 128 || /[\u0000-\u001f\u007f]/u.test(childSessionID))) return null;
   return { id, sessionID, time, kind, summary, status,
     ...(typeof rawEvidence === 'string' ? { evidenceMessageID: rawEvidence } : {}),
-    ...(toolEvidence ? { toolEvidence } : {}) };
+    ...(toolEvidence ? { toolEvidence } : {}), ...(typeof childSessionID === 'string' ? { childSessionID } : {}) };
 }
 
 /** Upserts corrections/redactions by stable evidence id and remains bounded. */
 export function mergeActivityRecord(records: readonly ActivityRecord[], incoming: ActivityRecord): ActivityRecord[] {
-  const index = records.findIndex((record) => record.id === incoming.id);
+  const index = records.findIndex((record) => record.id === incoming.id && record.sessionID === incoming.sessionID);
   // Event streams reconnect and may replay the same evidence frame.  Preserve
   // the existing reference for an exact replay so it cannot trigger a false UI
   // update or make a stable reader appear to have unseen activity.
@@ -80,6 +84,7 @@ function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolea
     && left.summary === right.summary
     && left.status === right.status
     && left.evidenceMessageID === right.evidenceMessageID
+    && left.childSessionID === right.childSessionID
     && sameToolEvidence(left.toolEvidence, right.toolEvidence);
 }
 
@@ -134,7 +139,7 @@ function isRenderableTime(value: number): boolean {
 }
 
 function isKind(value: string | null): value is ActivityRecord['kind'] {
-  return value === 'turn' || value === 'tool' || value === 'notice' || value === 'state';
+  return value === 'turn' || value === 'tool' || value === 'notice' || value === 'state' || value === 'subagent';
 }
 
 function isStatus(value: string | null): value is ActivityRecord['status'] {

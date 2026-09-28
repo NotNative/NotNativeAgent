@@ -2,11 +2,11 @@
 /** NNA-authored Activity filters: never infer tool ownership from timestamps. */
 import { latestTurnRequestID, type ActivityRecord } from '../sync/activity-log.ts';
 
-export type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'state' | 'attention' | 'failed' | 'files' | 'last-turn';
+export type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'state' | 'subagent' | 'attention' | 'failed' | 'files' | 'last-turn';
 
 export const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
   { id: 'all', label: 'All' }, { id: 'last-turn', label: 'Last turn' },
-  { id: 'files', label: 'Files' }, { id: 'turn', label: 'Turns' }, { id: 'state', label: 'States' }, { id: 'tool', label: 'Tools' },
+  { id: 'files', label: 'Files' }, { id: 'turn', label: 'Turns' }, { id: 'state', label: 'States' }, { id: 'tool', label: 'Tools' }, { id: 'subagent', label: 'Subagents' },
   { id: 'notice', label: 'Notices' }, { id: 'attention', label: 'Needs input' }, { id: 'failed', label: 'Failures' },
 ];
 
@@ -18,7 +18,7 @@ export function filterActivityRecords(activity: readonly ActivityRecord[], sessi
   if (filter === 'last-turn') {
     const turnRequestID = latestTurnRequestID(records, sessionID);
     if (!turnRequestID) return [];
-    return records.filter((record) => (record.kind === 'turn' || record.kind === 'state') && record.evidenceMessageID === turnRequestID
+    return records.filter((record) => (record.kind === 'turn' || record.kind === 'state' || record.kind === 'subagent') && record.evidenceMessageID === turnRequestID
       || record.kind === 'tool' && record.toolEvidence?.turnRequestID === turnRequestID);
   }
   if (filter === 'files') return records.filter((record) => record.kind === 'tool'

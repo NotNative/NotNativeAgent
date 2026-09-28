@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:8844a7fdcb0c0d4a4e3d4ed1dbc88bbfd7dc053284af74420915667378e85c99",
+  "source_digest": "sha256:c109cc01a6d48ee14bf18d8303651e09f7caa128002b55c690e0d3c9e5755fae",
   "counts": {
-    "modules": 488,
+    "modules": 489,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 135
+      "module_count": 136
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 62,
-      "module_count": 26
+      "import_count": 63,
+      "module_count": 27
     },
     {
       "from": "sync-engine",
@@ -464,6 +464,17 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/operator-activity-surface.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/operator-activity-filter.ts",
+        "packages/ui/src/sync/activity-log.ts",
+        "packages/ui/src/sync/activity-snapshot.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/operator-context-project.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -512,7 +523,7 @@
         "packages/ui/src/chat/browser-surface.tsx",
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
-        "packages/ui/src/chat/operator-activity-filter.ts",
+        "packages/ui/src/chat/operator-activity-surface.tsx",
         "packages/ui/src/chat/operator-context-project.ts",
         "packages/ui/src/chat/operator-files.tsx",
         "packages/ui/src/chat/operator-icons.tsx",
@@ -528,8 +539,6 @@
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/git/commit-drafts.ts",
         "packages/ui/src/lib/runtime-switch.ts",
-        "packages/ui/src/sync/activity-log.ts",
-        "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/sync-engine.ts",

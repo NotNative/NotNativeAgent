@@ -34,6 +34,18 @@ describe('operator activity evidence', () => {
       id: 's1:state:1', kind: 'state', summary: 'Waiting for model' } })?.evidenceMessageID).toBe('prompt_a');
   });
 
+  it('keeps only a bounded authored subagent target and updates it on correction', () => {
+    const properties = { id: 'parent-child', sessionID: 'parent', kind: 'subagent', status: 'started',
+      summary: 'Subagent working', time: 10, childSessionID: 'child', evidenceMessageID: 'prompt_a' };
+    const linked = activityRecordFromEvent({ type: 'nnd.activity', properties })!;
+    expect(linked.childSessionID).toBe('child');
+    expect(linked.evidenceMessageID).toBe('prompt_a');
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties, kind: 'tool' } })).toBeNull();
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties, childSessionID: 'bad\nchild' } })).toBeNull();
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties, childSessionID: 'x'.repeat(129) } })).toBeNull();
+    expect(mergeActivityRecord([linked], { ...linked, childSessionID: undefined })).not.toBe(linked);
+  });
+
   it('retains authored needs-input status without classifying it as a failure', () => {
     const record = activityRecordFromEvent({ type: 'nnd.activity', properties: {
       id: 'turn-a', sessionID: 's1', kind: 'turn', status: 'attention', summary: 'Turn needs input', time: 10,
@@ -81,6 +93,12 @@ describe('operator activity evidence', () => {
     const started = activityRecordFromEvent({ type: 'nnd.activity', properties: { id: 'a1', sessionID: 's1', kind: 'turn', status: 'started', summary: 'Turn started', time: 10 } })!;
     const redacted = { ...started, status: 'redacted' as const, summary: 'Redacted by NNA', time: 12 };
     expect(mergeActivityRecord([started], redacted)).toEqual([redacted]);
+  });
+
+  it('does not move an evidence id across sessions when ids collide', () => {
+    const first = { id: 'a1', sessionID: 's1', kind: 'notice' as const, status: 'completed' as const, summary: 'First', time: 1 };
+    const second = { ...first, sessionID: 's2', summary: 'Second' };
+    expect(mergeActivityRecord([first], second)).toEqual([first, second]);
   });
 
   it('keeps the newest bounded evidence rows', () => {
