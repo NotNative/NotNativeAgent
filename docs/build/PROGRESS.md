@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Session evidence in Changes.** The selected session's
+  completed file-tool evidence is now matched to current staged and working
+  Git paths, including nested workspaces. The section says when a file was
+  touched during the session without attributing later edits to the agent;
+  committed or reverted paths no longer appear in its current-change list.
+  Saved Activity loads when the pane opens, including when NNA configuration
+  arrives later, with an explicit unavailable/retry state. Stale Git status
+  disables its diff links. Adversarial review fixed the late-configuration
+  history-recovery race. Evidence remains bounded, so an empty match is not
+  proof that no file was ever touched.
+
 - 2026-09-28 · **Context rail session identity and compact usage.** The normal
   docked Context pane now shows the selected session title, its NNA-configured
   route when known, and an honest context meter without requiring maximization.

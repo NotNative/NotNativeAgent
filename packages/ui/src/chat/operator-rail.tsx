@@ -284,6 +284,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
         }} /> : null}
         {changesOpenedKey === changesIdentity || surface === 'changes' ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
           <GitView key={changesIdentity} directory={directory} draftScope={commitDraftScope(getRuntimeKey(), directory)} visible={surface === 'changes' && paneVisible} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
+            activityStore={store} sessionID={walkthroughSessionId}
           onOpenWalkthrough={() => {
             if (!panels.visible.includes('walkthrough')) changePanels({ ...panels, visible: [...panels.visible, 'walkthrough'] });
             setSelection({ key: selectionKey, surface: 'walkthrough' });

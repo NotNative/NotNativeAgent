@@ -20,12 +20,15 @@ import { useCommitDraftStore } from '../../lib/git/commit-drafts.ts';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
 import { BranchTracking, StatusFailure, gitError, symbolColorOf } from './git-view-chrome.tsx';
-
+import { SessionChanges } from './session-changes.tsx';
+import { repoPathFromWorkspace } from './session-change-evidence.ts';
+import type { StoreApi } from 'zustand/vanilla';
+import type { DirectoryStore } from '../../sync/types.ts';
 type SelectedFile = { directory: string; path: string; staged: boolean };
 type ReviewRequest = { directory: string; path: string; id: number } | null;
-
-export function GitView({ directory, visible = true, compact = false, reviewRequest = null, onOpenWalkthrough, draftScope }: {
+export function GitView({ directory, visible = true, compact = false, reviewRequest = null, onOpenWalkthrough, draftScope, activityStore, sessionID }: {
   directory: string; visible?: boolean; compact?: boolean; reviewRequest?: ReviewRequest; onOpenWalkthrough?: () => void; draftScope?: string;
+  activityStore?: StoreApi<DirectoryStore>; sessionID?: string | null;
 }): ReactNode {
   const [statusSnapshot, setStatusSnapshot] = useState<{ directory: string; value: GitStatus } | null>(null);
   const currentDirectory = useRef(directory);
@@ -126,8 +129,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   });
 
   const grouped = status !== null ? groupedStatusFiles(status) : { staged: [], working: [] };
-  const staged = grouped.staged;
-  const working = grouped.working;
+  const staged = grouped.staged, working = grouped.working;
   const shownFile = selectedFile?.directory === directory &&
     (selectedFile.staged ? staged : working).some((entry) => entry.path === selectedFile.path) ? selectedFile : null;
   useEffect(() => {
@@ -145,15 +147,11 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
       if (fresh === null) { setReviewErrorPath(reviewRequest.path); return; }
       // Porcelain v1 paths are repository-root-relative, even when the
       // session workspace is a nested directory within that repository.
-      const prefix = fresh.workspacePrefix;
-      if (typeof prefix !== 'string' || prefix.startsWith('/') || prefix !== '' && !prefix.endsWith('/')
-        || /\\|[\u0000-\u001f\u007f]/u.test(prefix)
-        || prefix.split('/').some((segment, index, parts) => segment === '..' || segment === '.'
-          || segment === '' && index !== parts.length - 1)) {
+      const repoPath = repoPathFromWorkspace(fresh.workspacePrefix, reviewRequest.path);
+      if (repoPath === null) {
         setReviewErrorPath(reviewRequest.path);
         return;
       }
-      const repoPath = `${prefix}${reviewRequest.path}`;
       useGitStore.getState().applyStatus(directory, fresh, 'light');
       setStatus(directory, fresh);
       const files = groupedStatusFiles(fresh);
@@ -296,6 +294,10 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
       </header>
       <div className={`flex min-h-0 flex-1 gap-3 ${compact ? 'flex-col' : ''}`}>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto" data-testid="git-changes-scroll">
+          {activityStore ? <SessionChanges store={activityStore} directory={directory} sessionID={sessionID ?? null} visible={visible}
+            status={status} stale={statusStale} onOpen={(path, stagedFile) => {
+              setMissingReviewPath(null); setReviewErrorPath(null); setSelectedFile({ directory, path, staged: stagedFile });
+            }} /> : null}
           <Section
             title="Staged"
             count={staged.length}

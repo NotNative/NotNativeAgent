@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f6f7285fdfd4e888ba49efcb01d07ce440a20c5829d808393b65c2d099fca660",
+  "source_digest": "sha256:234370a19938ab52ffe3c6eccf2c9d50da9aaddd2e52d519c8231d30a5a44da6",
   "counts": {
-    "modules": 484,
+    "modules": 486,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 131
+      "module_count": 133
     },
     {
       "id": "web-server",
@@ -102,14 +102,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 179,
-      "module_count": 73
+      "import_count": 181,
+      "module_count": 75
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 54,
-      "module_count": 21
+      "import_count": 58,
+      "module_count": 24
     },
     {
       "from": "sync-engine",
@@ -993,8 +993,31 @@
         "packages/ui/src/components/git/git-dialogs.tsx",
         "packages/ui/src/components/git/git-file-preview.tsx",
         "packages/ui/src/components/git/git-view-chrome.tsx",
+        "packages/ui/src/components/git/session-change-evidence.ts",
+        "packages/ui/src/components/git/session-changes.tsx",
         "packages/ui/src/lib/files/edit-support.ts",
-        "packages/ui/src/lib/git/commit-drafts.ts"
+        "packages/ui/src/lib/git/commit-drafts.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/git/session-change-evidence.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/git/api.ts",
+        "packages/ui/src/sync/activity-log.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/git/session-changes.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/git/session-change-evidence.ts",
+        "packages/ui/src/lib/git/api.ts",
+        "packages/ui/src/sync/activity-snapshot.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {
