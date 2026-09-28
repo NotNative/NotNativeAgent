@@ -16,6 +16,7 @@ import { registerTunnelRoutes } from './routes/tunnel.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitDiffRoutes } from './routes/git-diff.ts';
+import { registerGitSyncRoutes } from './routes/git-sync.ts';
 import { registerGitWalkthroughSnapshotRoute } from './routes/git-walkthrough-snapshot.ts';
 import { registerGitWalkthroughGenerateRoute } from './routes/git-walkthrough-generate.ts';
 import { registerGitRoutes } from './routes/git.ts';
@@ -248,6 +249,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerFsRoutes(app);
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);
+  registerGitSyncRoutes(app);
   registerGitWalkthroughSnapshotRoute(app);
   registerGitWalkthroughGenerateRoute(app);
   registerGitRoutes(app);

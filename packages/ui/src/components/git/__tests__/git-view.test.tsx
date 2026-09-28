@@ -64,6 +64,7 @@ function route(url: string): Response {
   if (url.includes('/api/git/status')) return jsonResponse(STATUS);
   if (url.includes('/api/git/branches')) return jsonResponse(BRANCHES);
   if (url.includes('/api/git/log')) return jsonResponse(LOG);
+  if (url.includes('/api/git/sync')) return jsonResponse({ synced: true, branch: 'main', pulled: false, pushed: true });
   if (url.includes('/api/git/diff')) {
     const path = new URL(url, 'http://localhost').searchParams.get('path') ?? 'work.ts';
     return jsonResponse({ diff: `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new\n` });
@@ -371,6 +372,48 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(commitCalls.length).toBe(1);
     expect(JSON.parse(String((commitCalls[0]![1] as RequestInit).body))).toEqual({ message: 'feat: real commit' });
     expect(toast.success).toHaveBeenCalledWith('Commit created');
+  });
+
+  it('uses a real sync request after Commit & sync and also offers a standalone retry', async () => {
+    await render();
+    await settle();
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setValue.call(textarea, 'feat: sync me');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      ([...document.querySelectorAll('button')].find((button) => button.textContent === 'Commit & sync') as HTMLButtonElement).click();
+      await new Promise((done) => setTimeout(done, 40));
+    });
+    const calls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(calls.findIndex((url) => url.includes('/api/git/commit'))).toBeGreaterThanOrEqual(0);
+    expect(calls.findIndex((url) => url.includes('/api/git/sync'))).toBeGreaterThan(calls.findIndex((url) => url.includes('/api/git/commit')));
+    const { toast } = await import('sonner');
+    expect(toast.success).toHaveBeenCalledWith('Commit created and synced');
+    fetchMock.mockClear();
+    await act(async () => { (document.querySelector('[data-testid="git-sync"]') as HTMLButtonElement).click(); await new Promise((done) => setTimeout(done, 40)); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/git/sync'))).toBe(true);
+    expect(toast.success).toHaveBeenCalledWith('Branch synced');
+  });
+
+  it('reports a committed-but-unsynced result instead of claiming the remote changed', async () => {
+    const { toast } = await import('sonner');
+    vi.mocked(toast.success).mockClear();
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/sync')
+      ? jsonResponse({ error: 'Configure an upstream branch before syncing' }, false) : route(String(input)));
+    await render();
+    await settle();
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setValue.call(textarea, 'feat: local only');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      ([...document.querySelectorAll('button')].find((button) => button.textContent === 'Commit & sync') as HTMLButtonElement).click();
+      await new Promise((done) => setTimeout(done, 40));
+    });
+    expect(toast.error).toHaveBeenCalledWith('Commit created locally; sync failed: Configure an upstream branch before syncing');
+    expect(toast.success).not.toHaveBeenCalledWith('Commit created and synced');
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('');
   });
 
   it('reports a rejected commit and retains its scoped draft for retry', async () => {

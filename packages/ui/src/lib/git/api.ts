@@ -100,6 +100,10 @@ export async function commitChanges(directory: string, message: string): Promise
   return postJson(`/api/git/commit?directory=${encodeURIComponent(directory)}`, { message });
 }
 
+export async function syncGitBranch(directory: string): Promise<{ synced: true; branch: string; pulled: boolean; pushed: boolean }> {
+  return postJson(`/api/git/sync?directory=${encodeURIComponent(directory)}`, {});
+}
+
 /** §6.3/§11.1 status derivation per §2.2 porcelain codes: staged = the index
  * (X) carries a significant code; working = the worktree (Y) carries one.
  * Untracked (both sides `?` after §2.2 recovery) is WORKING, never staged. */

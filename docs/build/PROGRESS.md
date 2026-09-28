@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Real Git branch sync from Changes.** `Commit & sync` now
+  commits locally, then invokes an explicit server-owned sync: require a
+  configured upstream and clean worktree, fetch, rebase behind commits, and
+  push only the selected branch's upstream ref. A separate Sync branch action
+  can retry without another commit. Failures distinguish a successful local
+  commit from an unsynced remote; rebase conflicts remain in Git for deliberate
+  operator resolution rather than being silently discarded. Isolated local
+  remotes cover push, divergent rebase, dirty refusal, and push.default scope.
+  Adversarial review pinned the source commit and suppressed configured tag or
+  submodule pushes, so a branch switch or Git preference cannot silently
+  broaden the action to other refs.
+
 - 2026-09-28 · **Changes group navigation.** The Git surface now labels
   staged and working groups with their file counts and lets each collapse
   independently. Bulk stage/unstage remains available in a collapsed group;

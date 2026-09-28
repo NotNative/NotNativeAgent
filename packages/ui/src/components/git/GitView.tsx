@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner';
 import { useGitStore, groupedStatusFiles, scheduleGitReconcile } from '../../lib/git/store';
 import {
-  commitChanges, discardGitFiles, fetchGitBranches, fetchGitStatus, stageGitFiles, unstageGitFiles,
+  commitChanges, discardGitFiles, fetchGitBranches, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
   statusSymbol, type GitStatus, type GitStatusFile,
 } from '../../lib/git/api';
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
@@ -43,7 +43,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   const clearIfMatches = useCommitDraftStore((state) => state.clearIfMatches);
   const message = draftScope ? scopedMessage : localMessage;
   const setMessage = (next: string): void => { if (draftScope) setDraft(draftScope, next); else setLocalMessage(next); };
-  const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert'>('');
+  const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert' | 'sync'>('');
   const [dialog, setDialog] = useState<GitDialogKind>(null);
   const [confirmRevert, setConfirmRevert] = useState<GitStatusFile | null>(null);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
@@ -147,7 +147,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
     return () => { current = false; };
   }, [directory, reviewRequest, setStatus]);
 
-  const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert', run: () => Promise<void>): Promise<void> => {
+  const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert' | 'sync', run: () => Promise<void>): Promise<void> => {
     setBusy(kind);
     try {
       await run();
@@ -187,7 +187,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   }, [directory, refresh, withBusy]);
 
   const commit = useCallback((sync: boolean): void => {
-    void withBusy('commit', async () => {
+    void withBusy(sync ? 'sync' : 'commit', async () => {
       const submittedMessage = message;
       if (submittedMessage.trim().length === 0) {
         toast.error('Enter a commit message');
@@ -199,15 +199,30 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         toast.error('Failed to create commit');
         return;
       }
-      toast.success('Commit created');
       if (draftScope) clearIfMatches(draftScope, submittedMessage);
       else setLocalMessage((current) => current === submittedMessage ? '' : current);
+      let synced = false;
+      if (sync) {
+        try { await syncGitBranch(directory); synced = true; }
+        catch (error) { toast.error(`Commit created locally; sync failed: ${gitError(error)}`); }
+      }
+      if (!sync || synced) toast.success(sync ? 'Commit created and synced' : 'Commit created');
       bumpIndexRevision(directory);
       await refresh();
       publishReviewRefresh(directory, null, 'git-mutation');
-      if (sync) toast.message('Commit created — push rides with the P11 routes');
     });
   }, [directory, message, draftScope, clearIfMatches, refresh, withBusy, bumpIndexRevision]);
+
+  const syncBranch = useCallback((): void => {
+    void withBusy('sync', async () => {
+      try {
+        await syncGitBranch(directory);
+        toast.success('Branch synced');
+        await refresh();
+        publishReviewRefresh(directory, null, 'git-mutation');
+      } catch (error) { toast.error(`Sync failed: ${gitError(error)}`); }
+    });
+  }, [directory, refresh, withBusy]);
 
   if (loading || statusSnapshot?.directory !== directory) {
     return <Centered label="Checking repository..." testid="git-view-loading" />;
@@ -222,6 +237,8 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         <span className="text-xs font-medium text-foreground" data-testid="git-branch">{branch ?? 'Detached HEAD'}</span>
         <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">Current</span>
         <span className="ml-auto flex items-center gap-1">
+          <button type="button" disabled={busy !== ''} className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+            data-testid="git-sync" onClick={syncBranch}>{busy === 'sync' ? 'Syncing...' : 'Sync branch'}</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>History</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>Branches</button>
           {onOpenWalkthrough ? <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-walkthrough" onClick={onOpenWalkthrough}>Walkthrough</button> : null}
@@ -305,7 +322,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
                 className="rounded border border-border/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
                 onClick={() => commit(true)}
               >
-                {busy === 'commit' ? 'Syncing...' : 'Commit & sync'}
+                {busy === 'sync' ? 'Syncing...' : 'Commit & sync'}
               </button>
             </div>
             {staged.length === 0 ? <div className="mt-2 text-[11px] text-muted-foreground">Stage files to enable commit.</div> : null}
@@ -422,6 +439,10 @@ function FileRow({ entry, staged, selected, onOpen, onStageToggle, onRevert }: {
 
 function EmptyLine({ label }: { label: string }): ReactNode {
   return <div className="px-2 py-1 text-[11px] text-muted-foreground">{label}</div>;
+}
+
+function gitError(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : 'Git operation failed';
 }
 
 function symbolColorOf(symbol: string): string {

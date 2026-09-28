@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:18feb91e20c1a548216902c49d2ce30c9233bb6de8d59c5b28b222b2d8874984",
+  "source_digest": "sha256:117463ab980e380eef1c80483810b658e2acd2c3d009c18f03a61f07b17e5509",
   "counts": {
-    "modules": 482,
+    "modules": 483,
     "component_edges": 13
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 139
+      "module_count": 140
     },
     {
       "id": "web-entry",
@@ -3322,6 +3322,7 @@
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git-diff.ts",
+        "packages/web/src/server/routes/git-sync.ts",
         "packages/web/src/server/routes/git-walkthrough-generate.ts",
         "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
         "packages/web/src/server/routes/git-worktrees.ts",
@@ -4228,6 +4229,12 @@
       "imports": [
         "packages/web/src/server/routes/fs.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/routes/git-sync.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/routes/git-walkthrough-generate.ts",
