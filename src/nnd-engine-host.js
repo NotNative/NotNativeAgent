@@ -7,6 +7,7 @@ import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId }
 import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
+import { observeNndPhaseActivity } from './nnd-phase-activity.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
@@ -256,6 +257,7 @@ export class NndEngineHost {
       const toolsChanged = turn.activeTools.observe(record); const phaseChanged = observeNndSessionState(context, record, turn.activeTools.projection());
       if (toolsChanged && !phaseChanged) context.updatedAt = nextUpdatedAt(context);
       if (toolsChanged || phaseChanged) this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+      const phaseActivity = observeNndPhaseActivity(turn, record, sessionId, turn.requestId); if (phaseActivity) this.#publish(context, 'nnd.activity', phaseActivity);
       if (observation) {
         context.contextUsage = observation;
         this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
@@ -301,7 +303,6 @@ export class NndEngineHost {
     requirePrincipal(principal);
     return this.childSessions.resolve(sessionId, principal);
   }
-
   list(principal, options = {}) {
     requirePrincipal(principal);
     if (options.limit !== undefined && (!Number.isSafeInteger(options.limit) || options.limit < 1)) {
@@ -354,7 +355,6 @@ export class NndEngineHost {
       .slice(all ? 0 : -200)
       .map(({ item, index }) => messageProjection(context, item, index));
   }
-
   activity(sessionId, principal) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
     if (this.#contexts.has(sessionId)) return [...this.#owned(sessionId, principal).activity];

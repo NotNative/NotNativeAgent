@@ -15,7 +15,7 @@ const PATH_TARGET_TOOLS = new Set([
 const ACTIVITY_ID_LIMIT = 264; // 128-char session + ':turn:' + 128-char request.
 // 500 records can contain multibyte printable identifiers and summaries.
 const FILE_LIMIT_BYTES = 2_097_152;
-const KINDS = new Set(['turn', 'tool', 'notice']);
+const KINDS = new Set(['turn', 'tool', 'notice', 'state']);
 const STATUSES = new Set(['started', 'completed', 'attention', 'failed', 'redacted']);
 
 export function activityPath(catalogPath, sessionId) {
@@ -111,7 +111,7 @@ function sanitizeRecord(value) {
     || /[\u0000-\u001f\u007f]/u.test(value.id)
     || typeof value.sessionID !== 'string' || value.sessionID.length < 1 || value.sessionID.length > 128) return null;
   const summary = typeof value.summary === 'string' ? value.summary.replace(/[\u0000-\u001f\u007f]/gu, ' ').slice(0, 256) : '';
-  const evidenceMessageID = value.kind === 'turn' && validEvidenceMessageID(value.evidenceMessageID)
+  const evidenceMessageID = (value.kind === 'turn' || value.kind === 'state') && validEvidenceMessageID(value.evidenceMessageID)
     ? value.evidenceMessageID : undefined;
   const toolEvidence = value.kind === 'tool' ? sanitizeToolEvidence(value.toolEvidence) : null;
   return { id: value.id, sessionID: value.sessionID, time: Date.now(), kind: value.kind,
@@ -182,6 +182,6 @@ export function validActivityRecord(value, sessionId) {
     && Number.isSafeInteger(value.time) && value.time > 0 && KINDS.has(value.kind) && STATUSES.has(value.status)
     && typeof value.summary === 'string' && value.summary.length <= 256
     && !/[\u0000-\u001f\u007f]/u.test(value.summary)
-    && (value.evidenceMessageID === undefined || value.kind === 'turn' && validEvidenceMessageID(value.evidenceMessageID))
+    && (value.evidenceMessageID === undefined || (value.kind === 'turn' || value.kind === 'state') && validEvidenceMessageID(value.evidenceMessageID))
     && (value.toolEvidence === undefined || value.kind === 'tool' && validToolEvidence(value.toolEvidence));
 }

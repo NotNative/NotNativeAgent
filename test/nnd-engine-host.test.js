@@ -71,7 +71,7 @@ test('NND projects canonical work status live without publishing private work ev
   await host.shutdown();
 });
 
-test('NND projects only authored semantic turn phases and settles them to idle', async () => {
+test('NND projects bounded semantic turn phases and settles them to idle', async () => {
   const events = [];
   let output;
   let resolveTurn;
@@ -84,6 +84,7 @@ test('NND projects only authored semantic turn phases and settles them to idle',
     request_id: 'prompt_a', content: 'Do work' }, owner).accepted, true);
   output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'waiting_provider' });
   assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'waiting_provider' });
+  assert.deepEqual(host.activity('session_a', owner).filter((record) => record.kind === 'state').map((record) => record.summary), ['Waiting for model']);
   const prior = events.length;
   output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'waiting_provider' });
   output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'invented_state' });
@@ -235,6 +236,8 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   const fullOwner = { subjectId: owner.subjectId, workspaceIds: ['workspace_a', 'workspace_b'] };
   await first.create('session_a', fullOwner);
   first.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, fullOwner);
+  output({ type: 'state_status', session_id: 'session_a', semantic_state: 'waiting_provider',
+    provider_payload: 'do-not-persist' });
   output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
     tool: 'shell_run', status: 'running', arguments: { secret: 'do-not-persist' } });
   output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
@@ -242,12 +245,22 @@ test('NND activity snapshot reopens after restart and requires the complete owne
     elapsed_ms: 25, exit_code: 0, arguments: { secret: 'do-not-persist' } });
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
+  first.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_b', content: 'again' }, fullOwner);
+  output({ type: 'state_status', session_id: 'session_a', semantic_state: 'waiting_provider',
+    provider_payload: 'do-not-persist' });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
   const before = first.activity('session_a', fullOwner);
-  assert.deepEqual(before.map((record) => record.status), ['started', 'started', 'completed', 'completed']);
+  assert.deepEqual(before.filter((record) => record.kind === 'state').map((record) =>
+    [record.summary, record.evidenceMessageID]), [
+    ['Waiting for model', 'prompt_a'], ['Running tool', 'prompt_a'], ['Waiting for model', 'prompt_b'],
+  ]);
+  assert.equal(new Set(before.filter((record) => record.kind === 'state').map((record) => record.id)).size, 3);
   assert.equal(before.filter((record) => record.kind === 'tool').at(-1).status, 'completed');
   assert.deepEqual(before.filter((record) => record.kind === 'tool').at(-1).toolEvidence,
     { effect: 'read_only', elapsedMs: 25, exitCode: 0, turnRequestID: 'prompt_a' });
-  assert.equal(before.filter((record) => record.kind === 'turn').at(-1).evidenceMessageID, 'prompt_a');
+  assert.deepEqual(before.filter((record) => record.kind === 'turn' && record.status === 'completed')
+    .map((record) => record.evidenceMessageID), ['prompt_a', 'prompt_b']);
   assert.equal(before.find((record) => record.kind === 'tool').evidenceMessageID, undefined);
   assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });
   await first.shutdown();
@@ -638,6 +651,7 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   host.childSessions.observeOutput('agent_coder_1', { type: 'state_status', session_id: 'agent_coder_1',
     turn_id: 'turn_a', semantic_state: 'waiting_provider' });
   assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.turnState, { phase: 'waiting_provider' });
+  assert.deepEqual(host.activity('agent_coder_1', principal).filter((record) => record.kind === 'state').map((record) => record.summary), ['Waiting for model']);
   host.childSessions.observeOutput('agent_coder_1', { type: 'tool_status', session_id: 'agent_coder_1',
     turn_id: 'turn_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'running', arguments: { secret: 'private' } });
   assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.activeTools, { count: 1, names: ['shell_run'] });
@@ -679,7 +693,7 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   assert.equal(host.messages('agent_coder_1', principal)[1].parts[0].text, 'Hello world');
   assert.equal(host.messages('agent_coder_1', principal).some((entry) => entry.info.id === 'agent_coder_1:live'), false);
   assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status),
-    ['started', 'started', 'completed', 'completed']);
+    ['started', 'started', 'started', 'started', 'completed', 'completed']);
   await host.close('session_a', principal);
   assert.throws(() => host.activity('agent_coder_1', principal), { code: 'nnd_session_unavailable' });
   assert.deepEqual(events.slice(-2).map((event) => event.type), ['session.deleted', 'session.deleted']);
@@ -700,6 +714,8 @@ test('NND completed child transcript survives restart as read-only owned history
   ] };
   const finish = first.childSessions.register('agent_a', 'session_a', principal, child, { type: 'coder' });
   first.childSessions.observeStarted('agent_a');
+  first.childSessions.observeOutput('agent_a', { type: 'state_status', session_id: 'agent_a',
+    turn_id: 'turn_a', semantic_state: 'waiting_provider', provider_payload: 'do-not-save' });
   first.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
     tool_request_id: 'tool_a', tool: 'fs_read_text', status: 'running', arguments: 'do-not-save' });
   first.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
@@ -707,7 +723,10 @@ test('NND completed child transcript survives restart as read-only owned history
     target: 'D:/work/readme.md', elapsed_ms: 4 });
   finish('completed');
   const beforeActivity = first.activity('agent_a', principal);
-  assert.deepEqual(beforeActivity.map((row) => row.status), ['started', 'started', 'completed', 'completed']);
+  assert.deepEqual(beforeActivity.map((row) => row.status),
+    ['started', 'started', 'started', 'started', 'completed', 'completed']);
+  assert.deepEqual(beforeActivity.filter((row) => row.kind === 'state').map((row) => row.summary),
+    ['Waiting for model', 'Running tool']);
   assert.deepEqual(beforeActivity.filter((record) => record.kind === 'tool').at(-1).toolEvidence,
     { target: 'D:/work/readme.md', elapsedMs: 4 });
   await first.shutdown();
@@ -724,6 +743,8 @@ test('NND completed child transcript survives restart as read-only owned history
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.info.id),
     ['agent_a:message:0', 'agent_a:message:1']);
   assert.deepEqual(second.activity('agent_a', principal), beforeActivity);
+  assert.deepEqual(second.activity('agent_a', principal).filter((row) => row.kind === 'state').map((row) => row.summary),
+    ['Waiting for model', 'Running tool']);
   assert.throws(() => second.activity('agent_a', owner), { code: 'nnd_session_unavailable' });
   assert.deepEqual(second.statuses(principal), {});
   assert.equal((await second.resolveChildSession('agent_a', principal)).availability, 'unavailable');

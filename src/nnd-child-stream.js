@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { observeNndPhaseActivity } from './nnd-phase-activity.js';
 
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 
@@ -51,6 +52,8 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
       if (state.turnId && state.turnId !== payload.turn_id) return;
       state.turnId ??= payload.turn_id;
     }
+    const phaseActivity = observeNndPhaseActivity(state, payload, child.id);
+    if (phaseActivity) publish('nnd.activity', phaseActivity);
     if (payload.type === 'stream_delta' && typeof payload.text === 'string' && payload.text) {
       streamChildDelta(child, state, payload.text, publish);
     } else if (payload.type === 'tool_status' && typeof payload.tool === 'string' && typeof payload.status === 'string') {
