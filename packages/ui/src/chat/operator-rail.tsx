@@ -393,16 +393,19 @@ function ActivitySurface({ store, directory, onReviewPath }: {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const nnaSource = isNnaActivitySource(store);
-  const [historyAvailable, setHistoryAvailable] = useState<boolean | null>(null);
+  const historyKey = `${directory}\u0000${view.currentSessionId ?? ''}`;
+  const [history, setHistory] = useState<{ key: string; status: 'loading' | 'ready' | 'unavailable' } | null>(null);
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  const historyStatus = !view.currentSessionId || !nnaSource ? 'ready' : history?.key === historyKey ? history.status : 'loading';
   useEffect(() => {
     const sessionID = view.currentSessionId;
-    if (!nnaSource || !sessionID) { setHistoryAvailable(null); return; }
+    if (!nnaSource || !sessionID) return;
     let current = true;
-    setHistoryAvailable(null);
+    setHistory({ key: historyKey, status: 'loading' });
     void refreshActivitySnapshot(store, directory, sessionID, () => current)
-      .then((available) => { if (current) setHistoryAvailable(available); });
+      .then((available) => { if (current) setHistory({ key: historyKey, status: available ? 'ready' : 'unavailable' }); });
     return () => { current = false; };
-  }, [directory, nnaSource, store, view.currentSessionId]);
+  }, [directory, historyKey, nnaSource, refreshRevision, store, view.currentSessionId]);
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [unseen, setUnseen] = useState(0);
   const viewport = useRef<HTMLOListElement>(null);
@@ -435,7 +438,11 @@ function ActivitySurface({ store, directory, onReviewPath }: {
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-activity">
     <header className="shrink-0 border-b border-white/10 p-3 pb-2">
       <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
-      {nnaSource && historyAvailable === false ? <p role="status" className="mb-2 text-[10px] text-amber-300">Saved activity unavailable; live evidence may be incomplete.</p> : null}
+      {nnaSource && historyStatus === 'loading' && records.length > 0 ? <p role="status" className="mb-2 text-[10px] text-neutral-400">Loading saved activity; showing live evidence so far.</p> : null}
+      {nnaSource && historyStatus === 'unavailable' ? <div role="status" className="mb-2 flex items-center gap-2 text-[10px] text-amber-300">
+        <span>Saved activity unavailable; live evidence may be incomplete.</span>
+        <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>Retry</button>
+      </div> : null}
       <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
         {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
           className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
@@ -448,7 +455,12 @@ function ActivitySurface({ store, directory, onReviewPath }: {
         following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
         if (following.current) setUnseen(0);
       }}>
-      {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : filter === 'attention' ? 'No activity requiring input has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
+      {records.length === 0 ? <li className="text-[11px] text-neutral-500">{!view.currentSessionId ? 'Select a session to watch its activity.'
+        : historyStatus === 'loading' ? 'Loading saved activity…'
+        : historyStatus === 'unavailable' ? 'Saved activity could not be loaded. Live events will still appear here.'
+        : filter === 'all' ? 'No recorded activity for this session yet. Conversation messages remain in the transcript.'
+        : filter === 'attention' ? 'No activity requiring input has been received for this session.'
+        : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
         : records.map((record) => <li key={record.id} className={`rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
           {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
           {record.status === 'completed' && record.toolEvidence?.reviewPath

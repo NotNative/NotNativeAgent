@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **Activity history states and recovery.** The logs-style rail
+  now distinguishes no selected session, loading a saved NNA snapshot, a
+  genuinely empty history, and unavailable history. A failed snapshot offers
+  Retry while still displaying live evidence. Adversarial review corrected
+  filtered empty states that could otherwise falsely say there were no
+  failures or requests for attention before history had loaded.
+
 - 2026-09-27 · **GUI expanded Context overview.** The maximized Context
   surface now centers its session summary and groups NNA-governed details in
   readable cards. It distinguishes estimated NNA context from provider-reported

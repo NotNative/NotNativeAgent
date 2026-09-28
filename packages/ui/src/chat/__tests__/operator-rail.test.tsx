@@ -185,6 +185,54 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Saved turn completed');
   });
 
+  it('distinguishes unselected, loading, and genuinely empty Activity history', async () => {
+    let finish!: (value: unknown) => void;
+    vi.spyOn(harnessClient, 'listActivity').mockImplementation(() => new Promise((resolve) => { finish = resolve; }) as never);
+    const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Select a session');
+    await act(async () => useSessionViewStore.setState({ currentSessionId: 's1' }));
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Loading saved activity');
+    await act(async () => store.getState().patch({ activity: [
+      { id: 'live', sessionID: 's1', time: 5, kind: 'tool', status: 'completed', summary: 'Live tool' },
+    ] }));
+    expect(document.querySelector('[data-testid="operator-activity"]')?.textContent).toContain('showing live evidence so far');
+    await act(async () => store.getState().patch({ activity: [] }));
+    await act(async () => ([...document.querySelectorAll<HTMLButtonElement>('[data-testid="operator-activity"] button')]
+      .find((button) => button.textContent === 'Failures') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Loading saved activity');
+    await act(async () => finish({ data: [] }));
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('No failed activity evidence');
+    await act(async () => ([...document.querySelectorAll<HTMLButtonElement>('[data-testid="operator-activity"] button')]
+      .find((button) => button.textContent === 'All') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('No recorded activity for this session yet');
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('transcript');
+  });
+
+  it('lets the operator retry an unavailable saved Activity snapshot', async () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const history = vi.spyOn(harnessClient, 'listActivity')
+      .mockRejectedValueOnce(new Error('temporary disconnect'))
+      .mockResolvedValueOnce({ data: [{ id: 'saved-turn', sessionID: 's1', time: 12, kind: 'turn', status: 'completed', summary: 'Recovered turn' }] } as never);
+    const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="operator-activity"]')?.textContent).toContain('Saved activity unavailable');
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('could not be loaded');
+    await act(async () => ([...document.querySelectorAll<HTMLButtonElement>('[data-testid="operator-activity"] button')]
+      .find((button) => button.textContent === 'Failures') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('could not be loaded');
+    await act(async () => { (document.querySelector('[data-testid="operator-activity"] button:not([aria-pressed])') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(history).toHaveBeenCalledTimes(2);
+    await act(async () => ([...document.querySelectorAll<HTMLButtonElement>('[data-testid="operator-activity"] button')]
+      .find((button) => button.textContent === 'All') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-activity"]')?.textContent).toContain('Recovered turn');
+    expect(document.querySelector('[data-testid="operator-activity"]')?.textContent).not.toContain('Saved activity unavailable');
+  });
+
   it('resizes the desktop pane by keyboard and restores width per runtime and surface', () => {
     vi.stubGlobal('innerWidth', 1280);
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
