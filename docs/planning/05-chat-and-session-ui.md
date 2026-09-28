@@ -1649,10 +1649,13 @@ subtree remounts and replays the wipe.
 - Unseen/conversation count: per session from the notification store;
   rendered as a count badge; a subagent's badge renders only when the
   "notify on subtasks" setting is enabled; reading the session clears it.
-- Multi-select: header toggle or context menu ("Select sessions"); checkbox
-  per row and folder; repeated clicks add; bulk bar shows "{count} selected"
-  + Archive / Delete / Move to folder; exiting selection clears and closes
-  the bar.
+- Multi-select: header toggle ("Select sessions"); checkboxes for parent
+  session rows and folders; repeated clicks add; bulk bar shows
+  "{count} selected" + Archive / Delete / Move to folder. Child transcripts
+  follow their parent and do not expose independent lifecycle controls in
+  NNA. Bulk folder move requires one workspace and one persisted snapshot
+  write. Exiting selection clears and closes the bar; failed lifecycle
+  actions stay selected for retry.
 - Permission-required row state: individual rows show the destructive
   permission badge and keep session permission/question state subscriptions
   session-scoped (structural list updates must NOT resubscribe every row).

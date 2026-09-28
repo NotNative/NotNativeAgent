@@ -24,6 +24,7 @@ interface SessionFoldersState {
   renameFolder: (directory: string, folderId: string, name: string) => Promise<void>;
   deleteFolder: (directory: string, folderId: string) => Promise<void>;
   assignSession: (directory: string, folderId: string, sessionId: string) => Promise<void>;
+  assignManySessions: (directory: string, folderId: string, sessionIds: string[]) => Promise<boolean>;
   unassignSession: (directory: string, sessionId: string) => Promise<void>;
   toggleCollapsed: (folderId: string) => void;
 }
@@ -45,7 +46,7 @@ async function persist(
   get: () => SessionFoldersState,
   directory: string,
   localApply: (folders: SessionFolder[]) => SessionFolder[],
-): Promise<void> {
+): Promise<boolean> {
   const applied = localApply(foldersOn(get().foldersByDirectory, directory));
   set({ foldersByDirectory: mapWith(get().foldersByDirectory, directory, applied), status: 'ready' });
   const snapshot: SessionFoldersSnapshot = {
@@ -57,9 +58,13 @@ async function persist(
   const result = await saveSessionFolders(snapshot);
   if (!result.ok) {
     set({ lastError: result.error });
-    return;
+    return false;
   }
-  if (result.ignored === true) await useSessionFoldersStore.getState().load(); // older writer won LWW
+  if (result.ignored === true) {
+    await useSessionFoldersStore.getState().load(); // older writer won LWW
+    return false;
+  }
+  return true;
 }
 
 export const useSessionFoldersStore: UseBoundStore<Mutate<StoreApi<SessionFoldersState>, []>> = create<SessionFoldersState>((set, get) => ({
@@ -103,6 +108,25 @@ export const useSessionFoldersStore: UseBoundStore<Mutate<StoreApi<SessionFolder
     await persist(set, get, directory, (folders) => folders
       .map((folder) => ({ ...folder, sessionIds: folder.sessionIds.filter((id) => id !== sessionId) }))
       .map((folder) => (folder.id === folderId ? { ...folder, sessionIds: [...folder.sessionIds, sessionId] } : folder)));
+  },
+
+  assignManySessions: async (directory, folderId, sessionIds) => {
+    const ids = [...new Set(sessionIds)];
+    if (ids.length === 0 || !foldersOn(get().foldersByDirectory, directory).some((folder) => folder.id === folderId)) return false;
+    const before = foldersOn(get().foldersByDirectory, directory);
+    let optimistic: SessionFolder[] | undefined;
+    const saved = await persist(set, get, directory, (folders) => {
+      optimistic = folders
+        .map((folder) => ({ ...folder, sessionIds: folder.sessionIds.filter((id) => !ids.includes(id)) }))
+        .map((folder) => (folder.id === folderId ? { ...folder, sessionIds: [...folder.sessionIds, ...ids] } : folder));
+      return optimistic;
+    });
+    // A later folder edit may already have replaced this optimistic array.
+    // Only undo our own failed write; never discard newer local work.
+    if (!saved && get().lastError && foldersOn(get().foldersByDirectory, directory) === optimistic) {
+      set({ foldersByDirectory: mapWith(get().foldersByDirectory, directory, before) });
+    }
+    return saved;
   },
 
   unassignSession: async (directory, sessionId) => {

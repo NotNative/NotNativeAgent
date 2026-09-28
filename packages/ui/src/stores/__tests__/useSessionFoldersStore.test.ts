@@ -72,6 +72,35 @@ describe('useSessionFoldersStore (§5.22 projection)', () => {
     expect(useSessionFoldersStore.getState().foldersByDirectory['D:/work/demo']![1]!.sessionIds).toEqual([]);
   });
 
+  it('assignManySessions moves unique ids in one snapshot write and reports failed persistence', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ success: true }));
+    useSessionFoldersStore.setState({ foldersByDirectory: { 'D:/work/demo': [
+      { id: 'first', name: 'First', sessionIds: ['ses_a1'], createdAt: 1 },
+      { id: 'second', name: 'Second', sessionIds: [], createdAt: 2 },
+    ] } });
+    const state = useSessionFoldersStore.getState();
+    expect(await state.assignManySessions(DIRECTORY, 'second', ['ses_a1', 'ses_a2', 'ses_a2'])).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(useSessionFoldersStore.getState().foldersByDirectory['D:/work/demo']!.map((folder) => folder.sessionIds)).toEqual([[], ['ses_a1', 'ses_a2']]);
+    fetchMock.mockResolvedValue(jsonResponse({ error: 'write failed' }, false));
+    expect(await state.assignManySessions(DIRECTORY, 'first', ['ses_a2'])).toBe(false);
+    expect(useSessionFoldersStore.getState().foldersByDirectory['D:/work/demo']!.map((folder) => folder.sessionIds)).toEqual([[], ['ses_a1', 'ses_a2']]);
+  });
+
+  it('does not roll back a newer folder edit when a bulk move write fails', async () => {
+    let answer!: (response: Response) => void;
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => { answer = resolve; }));
+    const original = [{ id: 'first', name: 'First', sessionIds: [], createdAt: 1 }];
+    useSessionFoldersStore.setState({ foldersByDirectory: { 'D:/work/demo': original } });
+    const pending = useSessionFoldersStore.getState().assignManySessions(DIRECTORY, 'first', ['ses_a1']);
+    useSessionFoldersStore.setState({ foldersByDirectory: {
+      'D:/work/demo': [{ id: 'first', name: 'Renamed', sessionIds: ['ses_a1'], createdAt: 1 }],
+    } });
+    answer(jsonResponse({ error: 'write failed' }, false));
+    expect(await pending).toBe(false);
+    expect(useSessionFoldersStore.getState().foldersByDirectory['D:/work/demo']![0]!.name).toBe('Renamed');
+  });
+
   it('LWW ignored:true triggers a refetch so the server snapshot wins', async () => {
     const serverSnapshot = jsonResponse({ version: 1, exists: true, foldersMap: { 'D:/work/demo': [{ id: 'folder_srv', name: 'Server', sessionIds: [], createdAt: 1 }] }, collapsedFolderIds: [], updatedAt: 50 });
     fetchMock

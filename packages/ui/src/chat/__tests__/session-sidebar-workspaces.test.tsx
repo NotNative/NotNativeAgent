@@ -190,3 +190,73 @@ it('keeps unfiled descendants nested beneath a child whose parent is unavailable
   expect(rows[0]?.hasAttribute('data-child-depth')).toBe(false);
   expect(rows[1]?.getAttribute('data-child-depth')).toBe('1');
 });
+
+it('selects parent sessions for bulk archive and leaves failed rows selected', async () => {
+  useGlobalSessionsStore.setState({ active: [
+    session('parent', 'D:/work', 'Main task'),
+    { ...session('child', 'D:/work', 'Research'), parentID: 'parent' },
+    session('failed', 'D:/work', 'Other task'),
+  ] });
+  const archive = vi.fn(async (id: string) => { if (id === 'failed') throw new Error('offline'); });
+  const { node } = mount('D:/work');
+  // Replace the action through a rerender to exercise the public sidebar seam.
+  await act(async () => root!.render(<ChatSidebar engine={{} as never} currentDirectory="D:/work" currentSessionId={null}
+    actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
+      archive, restore: async () => undefined, deleteSession: async () => undefined }} />));
+  act(() => (node.querySelector('[data-testid="sidebar-select-toggle"]') as HTMLButtonElement).click());
+  expect(node.querySelector('[aria-label="Select Research"]')).toBeNull();
+  act(() => (node.querySelector('[aria-label="Select Main task"]') as HTMLInputElement).click());
+  act(() => (node.querySelector('[aria-label="Select Other task"]') as HTMLInputElement).click());
+  expect(node.querySelector('[data-testid="sidebar-bulk-actions"]')?.textContent).toContain('2 selected');
+  await act(async () => (node.querySelector('[data-testid="sidebar-bulk-actions"] button') as HTMLButtonElement).click());
+  expect(archive).toHaveBeenCalledTimes(2);
+  expect(node.querySelector('[data-testid="sidebar-bulk-actions"]')?.textContent).toContain('1 selected');
+  expect((node.querySelector('[aria-label="Select Other task"]') as HTMLInputElement).checked).toBe(true);
+});
+
+it('moves selected sessions in one folder write and exits selection without opening a session', async () => {
+  useGlobalSessionsStore.setState({ active: [session('one', 'D:/work', 'One'), session('two', 'D:/work', 'Two')] });
+  const assignManySessions = vi.fn(async () => true);
+  useSessionFoldersStore.setState({ foldersByDirectory: {
+    'D:/work': [{ id: 'folder-a', name: 'Plans', sessionIds: [], createdAt: 1 }],
+  }, assignManySessions });
+  const openSession = vi.fn();
+  const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('1');
+  const { node } = mount('D:/work');
+  await act(async () => root!.render(<ChatSidebar engine={{} as never} currentDirectory="D:/work" currentSessionId={null}
+    actions={{ openDraft: () => undefined, openSession, rename: async () => undefined,
+      archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
+  act(() => (node.querySelector('[data-testid="sidebar-select-toggle"]') as HTMLButtonElement).click());
+  act(() => (node.querySelector('[aria-label="Select One"]') as HTMLInputElement).click());
+  act(() => (node.querySelector('[aria-label="Select Two"]') as HTMLInputElement).click());
+  expect(openSession).not.toHaveBeenCalled();
+  const move = [...node.querySelectorAll('[data-testid="sidebar-bulk-actions"] button')].find((button) => button.textContent === 'Move to folder') as HTMLButtonElement;
+  await act(async () => move.click());
+  expect(assignManySessions).toHaveBeenCalledWith('D:/work', 'folder-a', expect.arrayContaining(['one', 'two']));
+  expect(node.querySelector('[data-testid="sidebar-bulk-actions"]')?.textContent).toContain('0 selected');
+  promptSpy.mockRestore();
+});
+
+it('clears known descendant pins after a successful bulk parent delete', async () => {
+  useGlobalSessionsStore.setState({ active: [
+    session('parent', 'D:/work', 'Main task'),
+    { ...session('child', 'D:/work', 'Research'), parentID: 'parent' },
+    { ...session('grandchild', 'D:/work', 'Follow-up'), parentID: 'child' },
+  ] });
+  useSessionPinnedStore.getState().toggle('D:/work', 'parent');
+  useSessionPinnedStore.getState().toggle('D:/work', 'child');
+  useSessionPinnedStore.getState().toggle('D:/work', 'grandchild');
+  const deleteSession = vi.fn(async () => undefined);
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const { node } = mount('D:/work');
+  await act(async () => root!.render(<ChatSidebar engine={{} as never} currentDirectory="D:/work" currentSessionId={null}
+    actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
+      archive: async () => undefined, restore: async () => undefined, deleteSession }} />));
+  act(() => (node.querySelector('[data-testid="sidebar-select-toggle"]') as HTMLButtonElement).click());
+  act(() => (node.querySelector('[aria-label="Select Main task"]') as HTMLInputElement).click());
+  const remove = [...node.querySelectorAll('[data-testid="sidebar-bulk-actions"] button')].find((button) => button.textContent === 'Delete') as HTMLButtonElement;
+  await act(async () => remove.click());
+  expect(deleteSession).toHaveBeenCalledExactlyOnceWith('parent', 'D:/work');
+  expect(useSessionPinnedStore.getState().pins).toEqual({});
+  confirmSpy.mockRestore();
+});
