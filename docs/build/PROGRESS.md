@@ -22,6 +22,20 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **P9-5a multi-run identities.** Added the pure title bundle
+  for group slugs, model slugs, ordinary runs, run groups, duplicate indexes,
+  worktree names, fusion titles, and mandatory parse-round-trip segmentation.
+  Adversarial review caught unusable fusion sessions because the parser
+  rejected the `fusion` suffix; it now round-trips both run and fusion titles
+  while rejecting malformed identities. Launcher/store wiring remains P9-5b.
+
+- 2026-09-28 · **Activity continuity slice sealed.** Extracted the operator
+  Activity surface to keep rail code under the 500-line gate and preserved
+  behavior plus file/last-turn filtering. Adversarial review found that
+  activity merge matched only record IDs, so a same-ID record from another
+  session could replace real evidence; the merge key now includes session ID,
+  with a collision regression test.
+
 - 2026-09-28 · **Activity file and last-turn filters.** The live session log
   now filters completed, NNA-authored file changes and the latest turn's
   explicitly correlated turn/tool evidence. Correlated tool rows can jump to

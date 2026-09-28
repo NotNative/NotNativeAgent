@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c109cc01a6d48ee14bf18d8303651e09f7caa128002b55c690e0d3c9e5755fae",
+  "source_digest": "sha256:1d1189a722d69bd6ebd7164e9a70de786495ed81bab0d41b7086a5500d7803aa",
   "counts": {
-    "modules": 489,
+    "modules": 490,
     "component_edges": 13
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 140
+      "module_count": 141
     },
     {
       "id": "ui-shell",
@@ -1913,6 +1913,12 @@
     },
     {
       "path": "packages/ui/src/lib/inline-comments.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/multirun/title.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
