@@ -7,9 +7,14 @@ import type { Session } from '../lib/nnd/types.ts';
 import type { SessionFolder } from '../lib/session-folders.ts';
 import { useGlobalSessionsStore } from '../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../stores/useSessionFoldersStore.ts';
-import { useSessionPinnedStore } from '../stores/useSessionPinnedStore.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { formatRelative } from './time-format.ts';
+import { clearKnownSessionTreePins } from './session-pin-cleanup.ts';
+
+function subscribeRuntimeKey(notify: () => void): () => void {
+  window.addEventListener('notnative:runtime-endpoint-changed', notify);
+  return () => window.removeEventListener('notnative:runtime-endpoint-changed', notify);
+}
 
 interface ArchiveViewProps {
   currentDirectory: string;
@@ -66,8 +71,10 @@ export function archiveMatches(session: Session, query: string): boolean {
 export function ArchiveView(props: ArchiveViewProps): ReactNode {
   const sessions = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const folders = useSyncExternalStore(useSessionFoldersStore.subscribe, useSessionFoldersStore.getState);
+  const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => { void useGlobalSessionsStore.getState().loadSessions(); }, [runtimeKey]);
   useEffect(() => { if (!folders.hasLoaded) void useSessionFoldersStore.getState().load(); }, [folders.hasLoaded]);
   const workspaces = archiveWorkspaces(sessions.archived, folders.foldersByDirectory, props.currentDirectory);
   const act = async (items: Session[], kind: 'restore' | 'delete'): Promise<void> => {
@@ -82,17 +89,7 @@ export function ArchiveView(props: ArchiveViewProps): ReactNode {
         if (kind === 'restore') await props.onRestore(session.id, session.directory ?? '');
         else {
           await props.onDelete(session.id, session.directory ?? '');
-          const pending = [session.id];
-          const seen = new Set<string>();
-          const known = [...sessions.active, ...sessions.archived];
-          while (pending.length > 0) {
-            const id = pending.pop()!;
-            if (seen.has(id)) continue;
-            seen.add(id);
-            const entry = known.find((candidate) => candidate.id === id);
-            useSessionPinnedStore.getState().clear(entry?.directory ?? session.directory ?? 'global', id, runtimeKey);
-            pending.push(...known.filter((candidate) => candidate.parentID === id).map((candidate) => candidate.id));
-          }
+          clearKnownSessionTreePins(session, [...sessions.active, ...sessions.archived], runtimeKey);
         }
         succeeded += 1;
       } catch { /* Keep the failed row visible; surface a count below. */ }
@@ -110,7 +107,8 @@ export function ArchiveView(props: ArchiveViewProps): ReactNode {
         <span className="text-xs text-neutral-500">{sessions.archived.length} sessions</span>
       </header>
       <input aria-label="Search archived sessions" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search archived sessions…" className="mb-5 w-full rounded-lg border border-white/10 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-white/30" />
-      {sessions.status === 'error' ? <p role="alert" className="mb-3 text-xs text-amber-300">Session list could not refresh; showing the last available archive.</p> : null}
+      {sessions.status === 'error' ? <p role="alert" className="mb-3 text-xs text-amber-300">Session list could not refresh; showing the last available archive. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button></p> : null}
+      {sessions.status === 'loading' && sessions.archived.length === 0 ? <p className="mb-3 text-xs text-neutral-500">Loading archived sessions…</p> : null}
       {workspaces.map((workspace) => <section key={workspace.directory} className="mb-7" data-testid="archive-workspace">
         <h2 className="mb-2 break-all border-b border-white/10 pb-2 text-sm font-medium" title={workspace.directory}>{workspace.directory || 'General'}</h2>
         {workspace.buckets.map((bucket) => {

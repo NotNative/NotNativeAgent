@@ -964,6 +964,9 @@ Badges/indicators:
   summary on sessions backed by PR tracking ("Merged", "Ready to merge",
   "PR open", "Merge conflicts", "Merge blocked", "Draft PR", "Closed";
   mergeable/fail counts).
+- In the NNA adapter, child transcripts do not own rename/archive/delete
+  authority. Their row opens the transcript and may retain a local pin or
+  folder placement; lifecycle actions operate on the parent and its cascade.
 
 Indicators for directory actions (see D.2). Badges fade with the hover rule
 on VS Code rows (where actions reveal over the right edge) but stay
@@ -1668,6 +1671,9 @@ Full-page surface (sidebar Archive button, key `sessions.sidebar.nav.archive`
 - Buckets per project and per archived folder; each header offers "Delete
   archived sessions" (destructive confirm) exactly for that bucket.
 - Search accepts the exact-ID rule (`ses_...`), body = archived list only.
+- Opening Archive performs an inclusive global refresh; a failed refresh
+  preserves the last visible snapshot and offers Try again. Live session
+  changes arriving during that refresh win over stale fetched records.
 - Row actions: Restore ("Restore", toast "Restored N session(s)"), Delete
   (hard delete; confirm if deletions confirm setting asks).
 - Empty state: "No archived sessions yet." per bucket.

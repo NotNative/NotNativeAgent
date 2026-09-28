@@ -20,8 +20,14 @@ import { sidebarHierarchy } from './session-sidebar-hierarchy.ts';
 import { nnaTurnPhaseFromMetadata } from './work-status.ts';
 import { pinnedSessionIds, useSessionPinnedStore } from '../stores/useSessionPinnedStore.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
+import { clearKnownSessionTreePins } from './session-pin-cleanup.ts';
 
 const AVATAR_LIMIT = 50;
+
+function subscribeRuntimeKey(notify: () => void): () => void {
+  window.addEventListener('notnative:runtime-endpoint-changed', notify);
+  return () => window.removeEventListener('notnative:runtime-endpoint-changed', notify);
+}
 
 export interface ChatSidebarProps {
   engine: SyncEngine;
@@ -45,6 +51,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [collapsedZones, setCollapsedZones] = useState<Record<string, true>>({});
+  const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const sessionsGlobal = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const folders = useSyncExternalStore(useSessionFoldersStore.subscribe, useSessionFoldersStore.getState);
   const statusById = useSyncExternalStore(useGlobalSessionStatusStore.subscribe, () => useGlobalSessionStatusStore.getState().statusById);
@@ -63,30 +70,13 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     if (bulkBusy || selected.length === 0) return;
     if (kind === 'delete' && !confirm(`Delete ${selected.length} selected sessions and their subtasks? This cannot be undone.`)) return; // eslint-disable-line no-alert
     const runtimeKey = getRuntimeKey();
-    const descendants = new Map<string, Session[]>();
-    for (const session of sessionsGlobal.active) {
-      if (!session.parentID) continue;
-      const siblings = descendants.get(session.parentID) ?? [];
-      siblings.push(session);
-      descendants.set(session.parentID, siblings);
-    }
     setBulkBusy(true);
     const succeeded: string[] = [];
     try {
       for (const session of selected) {
         try {
           await props.actions[kind === 'archive' ? 'archive' : 'deleteSession'](session.id, session.directory ?? '');
-          if (kind === 'delete') {
-            const pending = [session];
-            const seen = new Set<string>();
-            while (pending.length > 0) {
-              const entry = pending.pop()!;
-              if (seen.has(entry.id)) continue;
-              seen.add(entry.id);
-              useSessionPinnedStore.getState().clear(entry.directory ?? 'global', entry.id, runtimeKey);
-              pending.push(...(descendants.get(entry.id) ?? []));
-            }
-          }
+          if (kind === 'delete') clearKnownSessionTreePins(session, [...sessionsGlobal.active, ...sessionsGlobal.archived], runtimeKey);
           succeeded.push(session.id);
         } catch { /* Keep failed rows selected for an explicit retry. */ }
       }
@@ -116,6 +106,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   useEffect(() => { setSelectedIds((current) => new Set([...current].filter((id) => selectable.has(id)))); }, [selectable]);
 
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
+  useEffect(() => {
+    if (!useGlobalSessionsStore.getState().hasLoaded) void useGlobalSessionsStore.getState().loadSessions();
+  }, [runtimeKey]);
   useEffect(() => {
     const refresh = (): void => useSessionPinnedStore.getState().reload();
     window.addEventListener('storage', refresh);
@@ -175,6 +168,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         {query.length > 0 ? <div className="mt-1 text-[10px] text-neutral-600">{filtered.length} match{filtered.length === 1 ? '' : 'es'}</div> : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        {sessionsGlobal.status === 'error' ? <div role="alert" className="mb-2 rounded-lg border border-amber-800/50 px-2 py-2 text-[11px] text-amber-300" data-testid="sidebar-sessions-error">
+          Could not refresh sessions. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button>
+        </div> : null}
         {[...zones.entries()]
           .filter(([directory]) => filteredDirectories.has(directory))
           .sort(([left], [right]) => left === normalizeDirectory(props.currentDirectory) ? -1 : right === normalizeDirectory(props.currentDirectory) ? 1 : left.localeCompare(right))
@@ -199,6 +195,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
                 return next;
               })}
               duplicateName={(nameCounts.get(shortDirectory(directory).toLocaleLowerCase()) ?? 0) > 1}
+              sessionListStatus={sessionsGlobal.status}
               selecting={selecting}
               selectedIds={selectedIds}
               onToggleSelected={toggleSelected}
@@ -232,7 +229,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void }): ReactNode {
+function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error' }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions);
@@ -305,7 +302,7 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
         {(folders.length > 0 && (visibleUnsorted.length > 0 || orphaned.length > 0)) || folders.length > 0
           ? <li className="px-2 pt-1 text-[10px] uppercase tracking-wide text-neutral-700">Sessions</li>
           : null}
-        {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[11px] text-neutral-600" data-testid="zone-empty">No sessions in this workspace yet.</li> : null}
+        {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[11px] text-neutral-600" data-testid="zone-empty">{sessionListStatus === 'loading' ? 'Loading sessions…' : sessionListStatus === 'error' ? 'Could not refresh sessions.' : 'No sessions in this workspace yet.'}</li> : null}
         {visibleUnsorted.map((sessionID) => (
           <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} />
         ))}
@@ -352,25 +349,28 @@ function SidebarRow({ session, status, currentSessionId, actions, pinned, folder
       </button>
       {!selecting ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title || 'session'}`} className="hover:text-amber-300" onClick={() => useSessionPinnedStore.getState().toggle(session.directory ?? 'global', session.id)}>{pinned ? '◆' : '◇'}</button>
+        {!session.parentID ? <>
         <button type="button" aria-label={`Rename ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => {
           const title = prompt('Rename session', session.title ?? ''); // eslint-disable-line no-alert
           if (title !== null) void actions.rename(session.id, title);
         }}>✎</button>
-        <button type="button" aria-label={`Archive ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => void actions.archive(session.id, session.directory ?? '')}>🗄</button>
-        {session.parentID !== undefined ? null : <button type="button" aria-label={`File ${session.title || 'session'} into a folder`} data-testid="session-file-into" className="hover:text-neutral-200" onClick={() => {
+        <button type="button" aria-label={`Archive ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => void actions.archive(session.id, session.directory ?? '').catch(() => toast.error('Failed to archive the session'))}>🗄</button>
+        <button type="button" aria-label={`File ${session.title || 'session'} into a folder`} data-testid="session-file-into" className="hover:text-neutral-200" onClick={() => {
           const folders = foldersOfSession(session);
           if (folders.length === 0) { toast.message('Create a folder first (+ ▤+ in the workspace header)'); return; }
           const pick = prompt(`File into folder:\n${folders.map((folder, at) => `${at + 1}. ${folder.name}`).join('\n')}`, '1'); // eslint-disable-line no-alert
           const index = Number((pick ?? '').trim()) - 1;
           const target = Number.isInteger(index) && folders[index] ? folders[index] : null;
           if (target) void useSessionFoldersStore.getState().assignSession(session.directory ?? '', target.id, session.id);
-        }}>▤</button>}
+        }}>▤</button>
+        </> : null}
         {folderId ? <button type="button" aria-label="Unfile from folder" onClick={() => void useSessionFoldersStore.getState().unassignSession(session.directory ?? '', session.id)}>⤫</button> : null}
-        <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
+        {!session.parentID ? <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
           if (!confirm(`Delete ${session.title || 'session'} and its subtasks?`)) return; // eslint-disable-line no-alert
           const runtimeKey = getRuntimeKey();
-          void actions.deleteSession(session.id, session.directory ?? '').then(() => useSessionPinnedStore.getState().clear(session.directory ?? 'global', session.id, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
-        }}>🗑</button>
+          const known = [...useGlobalSessionsStore.getState().active, ...useGlobalSessionsStore.getState().archived];
+          void actions.deleteSession(session.id, session.directory ?? '').then(() => clearKnownSessionTreePins(session, known, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
+        }}>🗑</button> : null}
       </div> : null}
     </li>
   );
@@ -383,14 +383,15 @@ function ArchivedRow({ session, actions }: { session: Session; actions: ChatSide
         <div className="truncate text-[13px] text-neutral-500">{session.title || 'Untitled Session'}</div>
         <div className="text-[10px] text-neutral-700">archived {formatRelative(session.time.archived ?? session.time.updated)}</div>
       </button>
-      <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
-        <button type="button" aria-label={`Restore ${session.title || 'session'}`} data-testid="restore-session" className="hover:text-neutral-200" onClick={() => void actions.restore(session.id, session.directory ?? '')}>↩</button>
+      {!session.parentID ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
+        <button type="button" aria-label={`Restore ${session.title || 'session'}`} data-testid="restore-session" className="hover:text-neutral-200" onClick={() => void actions.restore(session.id, session.directory ?? '').catch(() => toast.error('Failed to restore the session'))}>↩</button>
         <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
           if (!confirm(`Delete ${session.title || 'session'} permanently?`)) return; // eslint-disable-line no-alert
           const runtimeKey = getRuntimeKey();
-          void actions.deleteSession(session.id, session.directory ?? '').then(() => useSessionPinnedStore.getState().clear(session.directory ?? 'global', session.id, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
+          const known = [...useGlobalSessionsStore.getState().active, ...useGlobalSessionsStore.getState().archived];
+          void actions.deleteSession(session.id, session.directory ?? '').then(() => clearKnownSessionTreePins(session, known, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
         }}>🗑</button>
-      </div>
+      </div> : null}
     </li>
   );
 }

@@ -8,26 +8,31 @@ import { ChatSidebar } from '../session-sidebar.tsx';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
 import { useSessionPinnedStore } from '../../stores/useSessionPinnedStore.ts';
-import { initializeRuntimeEndpoint } from '../../lib/runtime-switch.ts';
+import { initializeRuntimeEndpoint, switchRuntimeEndpoint } from '../../lib/runtime-switch.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 let originalLoad: () => Promise<void>;
+let originalSessionLoad: () => Promise<void>;
 
 beforeEach(() => {
   localStorage.clear();
   useSessionPinnedStore.setState({ pins: {} });
   originalLoad = useSessionFoldersStore.getState().load;
+  originalSessionLoad = useGlobalSessionsStore.getState().loadSessions;
   useSessionFoldersStore.setState({ load: async () => undefined, foldersByDirectory: {}, collapsedFolderIds: {} });
+  useGlobalSessionsStore.setState({ loadSessions: async () => undefined });
 });
-afterEach(() => {
+afterEach(async () => {
   act(() => root?.unmount());
+  await switchRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
   container?.remove();
   root = null;
   container = null;
   useGlobalSessionsStore.getState().reset();
+  useGlobalSessionsStore.setState({ loadSessions: originalSessionLoad });
   useSessionFoldersStore.setState({ load: originalLoad, foldersByDirectory: {}, collapsedFolderIds: {} });
 });
 
@@ -52,6 +57,29 @@ it('keeps the active workspace visible even before its first session', () => {
   expect(zone.querySelector('[data-testid="zone-empty"]')).toBeTruthy();
   act(() => (zone.querySelector('[aria-label="New draft session in D:/work/Empty"]') as HTMLButtonElement).click());
   expect(openDraft).toHaveBeenCalledWith('D:/work/Empty');
+});
+
+it('distinguishes loading from failed session refresh and offers an explicit retry', () => {
+  useGlobalSessionsStore.setState({ status: 'loading', hasLoaded: false });
+  const { node } = mount('D:/work');
+  expect(node.querySelector('[data-testid="zone-empty"]')?.textContent).toContain('Loading sessions');
+  const retry = vi.fn(async () => undefined);
+  act(() => useGlobalSessionsStore.setState({ status: 'error', hasLoaded: true, lastError: 'offline', loadSessions: retry }));
+  expect(node.querySelector('[data-testid="sidebar-sessions-error"]')?.textContent).toContain('Could not refresh sessions');
+  act(() => (node.querySelector('[data-testid="sidebar-sessions-error"] button') as HTMLButtonElement).click());
+  expect(retry).toHaveBeenCalledTimes(1);
+});
+
+it('reloads the global session projection when an in-place runtime switch resets it', async () => {
+  const loadSessions = vi.fn(async () => undefined);
+  useGlobalSessionsStore.setState({ loadSessions });
+  mount('D:/work');
+  expect(loadSessions).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    useGlobalSessionsStore.getState().reset();
+    await switchRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61777', runtimeKey: 'remote-test' });
+  });
+  expect(loadSessions).toHaveBeenCalledTimes(2);
 });
 
 it('pins a session without a directory in the displayed global workspace', () => {
@@ -160,6 +188,9 @@ it('shows a delegated child below its parent in the same folder with NNA agent i
   expect(folderNode.querySelector('[data-child-session="true"]')?.textContent).toContain('explore');
   expect(folderNode.querySelector('[data-child-session="true"] [aria-label="Unfile from folder"]')).toBeNull();
   expect(folderNode.querySelector('[data-child-session="true"]')?.getAttribute('data-child-depth')).toBe('1');
+  expect(folderNode.querySelector('[data-child-session="true"] [aria-label^="Archive"]')).toBeNull();
+  expect(folderNode.querySelector('[data-child-session="true"] [aria-label^="Rename"]')).toBeNull();
+  expect(folderNode.querySelector('[data-child-session="true"] [aria-label^="Delete"]')).toBeNull();
   expect(folderNode.querySelector('[aria-label="Unfile from folder"]')).toBeTruthy();
   expect(node.querySelector('[data-testid="workspace-zone"] > ul > [data-child-session="true"]')).toBeNull();
 });

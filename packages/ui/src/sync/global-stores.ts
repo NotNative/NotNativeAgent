@@ -80,6 +80,12 @@ interface GlobalSessionsState {
   reset: () => void;
 }
 
+// Global inclusive reads may overlap live SSE updates and per-directory boot
+// merges. Preserve records changed after the request began, including deletes.
+let sessionChangeRevision = 0;
+let sessionLoadGeneration = 0;
+const changedSessionRevision = new Map<string, number>();
+
 export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => ({
   status: 'idle',
   active: [],
@@ -88,13 +94,24 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
   hasLoaded: false,
   lastError: null,
   async loadSessions() {
+    const startRevision = sessionChangeRevision;
+    const generation = ++sessionLoadGeneration;
+    set({ status: 'loading', lastError: null });
     const result = await harnessClient.listSessions({ archived: true });
+    if (generation !== sessionLoadGeneration) return;
     if (result.error || !result.data) {
       // failure preserves the previous snapshot — never an empty success
       set({ status: 'error', lastError: result.error ?? 'session list failed' });
       return;
     }
-    const sessions = result.data.map((session) => stripSessionListDetails({ ...session }));
+    const fetched = new Map(result.data.map((session) => [session.id, stripSessionListDetails({ ...session })]));
+    const current = new Map([...get().active, ...get().archived].map((session) => [session.id, session]));
+    for (const [id, revision] of changedSessionRevision) {
+      if (revision <= startRevision) continue;
+      const live = current.get(id);
+      if (live) fetched.set(id, live); else fetched.delete(id);
+    }
+    const sessions = [...fetched.values()];
     const active: Session[] = [];
     const archived: Session[] = [];
     const directoryOf: Record<string, string> = {};
@@ -106,6 +123,7 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
     set({ status: 'ready', active, archived, directoryOf, hasLoaded: true, lastError: null });
   },
   upsertSession: (session) => {
+    changedSessionRevision.set(session.id, ++sessionChangeRevision);
     const replaceIn = (list: Session[]) => {
       const index = list.findIndex((s) => s.id === session.id);
       if (index < 0) return [...list, session];
@@ -121,11 +139,17 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
     set({ directoryOf: { ...get().directoryOf, [session.id]: session.directory ?? '' } });
   },
   removeSession: (sessionID) => {
+    changedSessionRevision.set(sessionID, ++sessionChangeRevision);
     const directoryOf = { ...get().directoryOf };
     delete directoryOf[sessionID];
     set({ active: get().active.filter((s) => s.id !== sessionID), archived: get().archived.filter((s) => s.id !== sessionID), directoryOf });
   },
-  reset: () => set({ status: 'idle', active: [], archived: [], directoryOf: {}, hasLoaded: false, lastError: null }),
+  reset: () => {
+    sessionLoadGeneration += 1;
+    sessionChangeRevision = 0;
+    changedSessionRevision.clear();
+    set({ status: 'idle', active: [], archived: [], directoryOf: {}, hasLoaded: false, lastError: null });
+  },
 }));
 
 // ── global sync store (path/projects/config readiness + reload signal) ─────

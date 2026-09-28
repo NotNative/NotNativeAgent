@@ -7,27 +7,32 @@ import type { Session } from '../../lib/nnd/types.ts';
 import { ArchiveView, archiveMatches, archiveWorkspaces } from '../archive-view.tsx';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
-import { initializeRuntimeEndpoint } from '../../lib/runtime-switch.ts';
+import { initializeRuntimeEndpoint, switchRuntimeEndpoint } from '../../lib/runtime-switch.ts';
 import { pinnedSessionIds, useSessionPinnedStore } from '../../stores/useSessionPinnedStore.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+let originalSessionLoad: () => Promise<void>;
 
 const archived = (id: string, directory: string, title: string): Session => ({ id, directory, title, time: { created: 1, updated: 2, archived: 3 } }) as Session;
 
 beforeEach(() => {
   useGlobalSessionsStore.getState().reset();
+  originalSessionLoad = useGlobalSessionsStore.getState().loadSessions;
+  useGlobalSessionsStore.setState({ loadSessions: async () => undefined });
   useSessionFoldersStore.setState({ foldersByDirectory: {}, hasLoaded: true });
   useSessionPinnedStore.setState({ pins: {} });
 });
-afterEach(() => {
+afterEach(async () => {
   act(() => root?.unmount());
+  await switchRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
   container?.remove();
   root = null;
   container = null;
   useGlobalSessionsStore.getState().reset();
+  useGlobalSessionsStore.setState({ loadSessions: originalSessionLoad });
 });
 
 function mount(overrides: Partial<Parameters<typeof ArchiveView>[0]> = {}) {
@@ -41,6 +46,18 @@ function mount(overrides: Partial<Parameters<typeof ArchiveView>[0]> = {}) {
   act(() => root!.render(<ArchiveView currentDirectory="D:/work" onRestore={onRestore} onDelete={onDelete} onClose={onClose} onOpenSession={onOpenSession} {...overrides} />));
   return { node: container, onRestore, onDelete, onClose, onOpenSession };
 }
+
+it('refreshes the archive after an in-place runtime switch', async () => {
+  const loadSessions = vi.fn(async () => undefined);
+  useGlobalSessionsStore.setState({ loadSessions });
+  mount();
+  expect(loadSessions).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    useGlobalSessionsStore.getState().reset();
+    await switchRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61777', runtimeKey: 'remote-test' });
+  });
+  expect(loadSessions).toHaveBeenCalledTimes(2);
+});
 
 it('groups archived sessions once by workspace and persisted folder, with an unfiled bucket', () => {
   const workspaces = archiveWorkspaces([
