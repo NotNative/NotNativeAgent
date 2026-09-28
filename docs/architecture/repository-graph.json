@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:46654d2e70f3490d9eda23f7e6f63d421f865dd818b12cc6b8ea831e73f6c6e1",
+  "source_digest": "sha256:da7d063de0e003a7c8eb85b93a05588292365fbd4b58bc8cbb378709dce51079",
   "counts": {
     "modules": 474,
     "component_edges": 13
@@ -106,6 +106,12 @@
       "module_count": 69
     },
     {
+      "from": "ui-shell",
+      "to": "sync-engine",
+      "import_count": 52,
+      "module_count": 20
+    },
+    {
       "from": "sync-engine",
       "to": "harness-facade",
       "import_count": 51,
@@ -113,15 +119,9 @@
     },
     {
       "from": "ui-shell",
-      "to": "sync-engine",
-      "import_count": 51,
-      "module_count": 20
-    },
-    {
-      "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 38,
-      "module_count": 35
+      "import_count": 39,
+      "module_count": 36
     },
     {
       "from": "gates",
@@ -257,8 +257,10 @@
         "packages/ui/src/chat/timeline-dialog.tsx",
         "packages/ui/src/chat/transcript.tsx",
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
         "packages/ui/src/sync/view-store.ts"

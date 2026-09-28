@@ -24,6 +24,8 @@ import { useGlobalSessionsStore } from '../sync/global-stores.ts';
 import { ChildSessionControls } from './child-session-controls.tsx';
 import { SessionGoalControls } from './session-goal-controls.tsx';
 import { useSettingsStore } from '../lib/settings/store.ts';
+import { persistLastActiveSession } from '../sync/persist-cache.ts';
+import { normalizeDirectory } from '../lib/nnd/client.ts';
 
 /** §E.3/§E.4 band: recap note + suggestion chip (chip FILLS, never sends). */
 function RecapNote({ pair }: { pair: { recap: string; suggestion: string } }): ReactNode {
@@ -162,6 +164,14 @@ export function ChatView(props: ChatViewProps): ReactNode {
   // expose a composer and let an unclassified child receive a prompt.
   const sessionMetadataLoading = shownRef.sessionID !== null && selected === null;
   const isChildSession = selected?.parentID !== undefined;
+  // Focus mode belongs to the parent composer. A child has no composer to
+  // collapse it, so keep the child transcript and operator rail accessible.
+  const focusMode = expanded && !isChildSession;
+  const parentSession = selected?.parentID
+    ? shownRef.store.getState().session.find((session) => session.id === selected.parentID)
+      ?? [...globalSessions.active, ...globalSessions.archived].find((session) => session.id === selected.parentID
+        && normalizeDirectory(session.directory ?? '') === normalizeDirectory(shownRef.directory))
+    : null;
   const globalGoalSession = shownRef.sessionID
     ? globalSessions.active.find((session) => session.id === shownRef.sessionID)
       ?? globalSessions.archived.find((session) => session.id === shownRef.sessionID)
@@ -169,20 +179,36 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const globalNnd = globalGoalSession?.metadata?.['nnd'];
   const globalGoalRevision = globalNnd && typeof globalNnd === 'object'
     ? (globalNnd as Record<string, unknown>)['goalRevision'] : undefined;
-  const draftLanding = shownRef.sessionID === null && !expanded;
+  const draftLanding = shownRef.sessionID === null && !focusMode;
   const workspaceName = shownRef.directory.replace(/[\\/]+$/u, '').split(/[\\/]/u).filter(Boolean).at(-1) ?? 'this workspace';
 
   return (
-    <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
-      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !expanded ? 'hidden lg:flex' : 'flex'}`}>
-        {!expanded ? <div className="flex justify-end border-b border-white/10 px-3 py-1 lg:hidden">
+    <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
+      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden lg:flex' : 'flex'}`}>
+        {!focusMode ? <div className="flex justify-end border-b border-white/10 px-3 py-1 lg:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
-        <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded || draftLanding ? 'hidden' : ''}`} data-chat-column>
+        {isChildSession && selected && shownRef.sessionID ? <header className="border-b border-white/10 bg-neutral-950 px-4 py-3" data-testid="child-transcript-header">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0"><span className="text-[10px] uppercase tracking-wide text-neutral-500">Subagent transcript{selected.agent ? ` · ${selected.agent}` : ''}</span>
+                <h2 className="truncate text-sm text-neutral-200">{selected.title || 'Subagent'}</h2></div>
+              {parentSession ? <button type="button" className="rounded border border-white/15 px-2 py-1 text-xs text-neutral-300 hover:border-white/30"
+                data-testid="return-to-parent" onClick={() => {
+                  persistLastActiveSession(parentSession.id, shownRef.directory);
+                  useSessionViewStore.setState({ currentSessionId: parentSession.id, activeDirectory: shownRef.directory });
+                }}>← Return to {parentSession.title || 'parent session'}</button>
+                : <span className="text-xs text-neutral-500" data-testid="parent-unavailable">Parent session unavailable</span>}
+            </div>
+            <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
+            <ChildSessionControls key={`${shownRef.directory}\n${shownRef.sessionID}`} sessionID={shownRef.sessionID} directory={shownRef.directory} />
+          </div>
+        </header> : null}
+        <div className={`min-h-0 flex-1 overflow-y-auto ${isChildSession ? 'pb-6' : 'pb-40'} ${focusMode || draftLanding ? 'hidden' : ''}`} data-chat-column>
           {!draftLanding ? <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : null}
         </div>
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
-        <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>
+        {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>
           <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full max-w-3xl`}>
           {draftLanding ? <div className="mb-7" data-testid="chat-draft-landing">
             <h1 className="text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">What should we work on in {workspaceName}?</h1>
@@ -190,15 +216,15 @@ export function ChatView(props: ChatViewProps): ReactNode {
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
-          {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
+          {!focusMode && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
             <RecapNote pair={recapFor(shownRef.store.getState(), shownRef.sessionID)!} />
           ) : null}
-          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : isChildSession && shownRef.sessionID ? <ChildSessionControls key={`${shownRef.directory}\n${shownRef.sessionID}`} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : <Composer
+          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : <Composer
             services={props.services}
             sessionID={shownRef.sessionID}
             directory={shownRef.directory}
             sessionKey={shownRef.sessionID ?? 'draft'}
-            expanded={expanded}
+            expanded={focusMode}
             onToggleExpanded={() => { setCompactSurfaceOpen(false); setExpanded((value) => !value); }}
             onRunBtw={runBtw}
             onOpenTimeline={() => setTimelineOpen(true)}
@@ -208,10 +234,10 @@ export function ChatView(props: ChatViewProps): ReactNode {
             onAddProvider={() => toast('Provider management opens with the settings pages (P5)')}
           />}
           </div>
-        </div>
+        </div> : null}
       </div>
       <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory}
-        compactOpen={compactSurfaceOpen} suppressed={expanded}
+        compactOpen={compactSurfaceOpen} suppressed={focusMode}
         onCloseCompact={() => { returnToChatFocus.current = true; setCompactSurfaceOpen(false); }} />
       {timelineOpen && shownRef.sessionID ? (
         <TimelineDialog store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} onClose={() => setTimelineOpen(false)} />

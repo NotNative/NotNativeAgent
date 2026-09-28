@@ -5,6 +5,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createDirectoryStore } from '../../sync/child-store.ts';
 import { useSessionViewStore } from '../../sync/view-store.ts';
+import { harnessClient } from '../../lib/nnd/client.ts';
+import type { Session } from '../../lib/nnd/types.ts';
 
 vi.mock('../transcript.tsx', () => ({ Transcript: () => <div data-testid="transcript-stub" />, StatusChip: () => null }));
 vi.mock('../prompt-rail.tsx', () => ({ PromptNavigatorRail: () => null }));
@@ -19,6 +21,11 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 const originalMatchMedia = window.matchMedia;
+const session = (id: string, title: string, parentID?: string): Session => ({
+  id, slug: id, projectID: 'proj', directory: '/proj', parentID, title, version: '1',
+  tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+  time: { created: 1, updated: 1 },
+});
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -31,6 +38,61 @@ afterEach(() => {
   root = null;
   container = null;
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+  vi.restoreAllMocks();
+});
+
+it('puts child steering in the transcript header and returns to its known parent', async () => {
+  vi.spyOn(harnessClient, 'childSteeringCapability').mockResolvedValue({ data: {
+    session_id: 'child', revision: 1, capabilities: { steer_subagent: true }, availability: 'granted',
+  } });
+  const store = createDirectoryStore();
+  store.getState().patch({ session: [session('parent', 'Main task'), { ...session('child', 'Research', 'parent'), agent: 'explore' }] });
+  const engine = { childStoreOf: () => store, manager: { ensureChild: () => store } } as never;
+  useSessionViewStore.setState({ activeDirectory: '/proj', currentSessionId: 'child' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => { root!.render(<ChatView services={{ engine, store: () => store, dispatch: () => undefined }} currentDirectory="/proj" />); await Promise.resolve(); });
+  const header = document.querySelector('[data-testid="child-transcript-header"]') as HTMLElement;
+  expect(header.textContent).toContain('Research');
+  expect(header.textContent).toContain('explore');
+  expect(header.querySelector('button[aria-expanded="false"]')?.textContent).toBe('Steer subagent');
+  expect(header.querySelector('textarea')).toBeNull();
+  expect(header.compareDocumentPosition(document.querySelector('[data-chat-column]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(document.querySelector('[data-composer-bound]')).toBeNull();
+  await act(async () => (header.querySelector('[data-testid="return-to-parent"]') as HTMLButtonElement).click());
+  expect(useSessionViewStore.getState().currentSessionId).toBe('parent');
+});
+
+it('does not offer a return action when the child parent is unavailable', async () => {
+  vi.spyOn(harnessClient, 'childSteeringCapability').mockResolvedValue({ data: {
+    session_id: 'child', revision: 1, capabilities: { steer_subagent: false }, availability: 'unavailable',
+  } });
+  const store = createDirectoryStore();
+  store.getState().patch({ session: [session('child', 'Research', 'missing')] });
+  const engine = { childStoreOf: () => store, manager: { ensureChild: () => store } } as never;
+  useSessionViewStore.setState({ activeDirectory: '/proj', currentSessionId: 'child' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => { root!.render(<ChatView services={{ engine, store: () => store, dispatch: () => undefined }} currentDirectory="/proj" />); await Promise.resolve(); });
+  expect(document.querySelector('[data-testid="parent-unavailable"]')?.textContent).toContain('unavailable');
+  expect(document.querySelector('[data-testid="return-to-parent"]')).toBeNull();
+});
+
+it('keeps a child transcript visible after switching away from an expanded parent composer', async () => {
+  vi.spyOn(harnessClient, 'childSteeringCapability').mockResolvedValue({ data: {
+    session_id: 'child', revision: 1, capabilities: { steer_subagent: false }, availability: 'unavailable',
+  } });
+  const store = createDirectoryStore();
+  store.getState().patch({ session: [session('parent', 'Main task'), session('child', 'Research', 'parent')], message: { parent: [], child: [] } });
+  const engine = { childStoreOf: () => store, manager: { ensureChild: () => store } } as never;
+  useSessionViewStore.setState({ activeDirectory: '/proj', currentSessionId: 'parent' });
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => root!.render(<ChatView services={{ engine, store: () => store, dispatch: () => undefined }} currentDirectory="/proj" />));
+  await act(async () => (document.querySelector('[data-testid="toggle-expanded"]') as HTMLButtonElement).click());
+  expect(document.querySelector('[data-chat-column]')?.className).toContain('hidden');
+  await act(async () => useSessionViewStore.setState({ currentSessionId: 'child' }));
+  expect(document.querySelector('[data-testid="child-transcript-header"]')).toBeTruthy();
+  expect(document.querySelector('[data-chat-column]')?.className).not.toContain('hidden');
+  expect(document.querySelector('[data-testid="operator-rail"]')?.getAttribute('data-suppressed')).toBe('false');
+  expect(document.querySelector('[data-composer-bound]')).toBeNull();
 });
 
 it('foregrounds compact operator surfaces and returns focus to chat without removing the wide chat layout', async () => {

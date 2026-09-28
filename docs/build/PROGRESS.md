@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Child transcript header.** A delegated session now shows
+  its NNA-projected title and agent identity above the transcript, with the
+  capability-gated steering toggle there instead of in a substitute bottom
+  composer. A known parent has a one-click return action; an unavailable
+  parent is labelled without a misleading link. The review preserved access
+  to the child transcript and operator rail when the parent composer was in
+  expanded focus mode.
+
 - 2026-09-28 · **Guarded Files saves.** The editor now sends its original file
   content as a write precondition. The server compares it immediately before
   replacement and returns a typed conflict if another writer changed, removed,
