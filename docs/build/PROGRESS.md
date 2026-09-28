@@ -250,6 +250,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   marked renamable until managed-root CRUD exists; agents roots, caches,
   configured paths, built-ins, ancestor traversal, CRUD, and UI wiring remain.
 
+- 2026-09-28 · **Gated agent memory stores.** Agent-owned global and project
+  homes now support panel read/patch/delete through dual-run gates. The store
+  keeps creation dedupe, per-scope capacity, newest-first capped projection,
+  atomic writes, and re-derived injection flags out of durable form. Full-store
+  errors name existing titles and an existing-title save can consolidate.
+  Tool callbacks, directory scope resolution, session delivery, and Memory UI
+  remain.
+
 - 2026-09-28 · **Guarded Files saves.** The editor now sends its original file
   content as a write precondition. The server compares it immediately before
   replacement and returns a typed conflict if another writer changed, removed,

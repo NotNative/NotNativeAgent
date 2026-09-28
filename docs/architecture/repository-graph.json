@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d3a7f39403a48c2b85c114fe284f958dde18a268e9a36d13be60a85aa6706572",
+  "source_digest": "sha256:f7ed3e9551de95e880ac3eb48eafe7ea1ff044dd110926722ef106fb02ee9a5b",
   "counts": {
-    "modules": 514,
+    "modules": 516,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 157
+      "module_count": 159
     },
     {
       "id": "web-entry",
@@ -3485,6 +3485,7 @@
         "packages/web/src/server/preview/dev-servers.ts",
         "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/queue/queue-routes.ts",
+        "packages/web/src/server/routes/agent-memory.ts",
         "packages/web/src/server/routes/auth.ts",
         "packages/web/src/server/routes/client-auth.ts",
         "packages/web/src/server/routes/fs-read.ts",
@@ -4236,6 +4237,16 @@
       ]
     },
     {
+      "path": "packages/web/src/server/project-context/agent-memory.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/scheduled/config-lock.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/project-context/context-store.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -4366,6 +4377,15 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/queue/queue-item.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/agent-memory.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/project-context/agent-memory.ts"
       ]
     },
     {

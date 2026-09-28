@@ -30,8 +30,8 @@ context test exposed the previous unhandled-rejection behavior.
 - Add notes and plan CRUD, safe markdown file ownership, shared plans, and
   attachment lifecycle.
 - Bind the UI context tabs and project todos to this canonical store; add
-  chat-owner/worktree resolution, agent-memory, MCP, and the remaining local
-  skill roots/CRUD surfaces.
+  chat-owner/worktree resolution, the agent-memory tool/session/runtime, MCP,
+  and the remaining local skill roots/CRUD surfaces.
 
 Do not label P10 complete until the planning document's contracts and
 failure paths are covered by tests and UI verification.
@@ -255,3 +255,24 @@ flags would hide it. The route still returns the external flags with list
 results. Harness configuration roots, configured extra paths, OpenCode caches,
 SDK built-ins, ancestor/worktree discovery, skill CRUD, supporting-file
 payloads, UI wiring, and restart handling remain.
+
+## P10-16: agent memory storage routes (2026-09-28)
+
+Agent memory now has isolated `global` and per-project stores, one lock per
+home, atomic temporary-file writes, and the C.1 read/PATCH/delete surface.
+Missing files are empty while malformed stores fail. Creation dedupe accepts
+an exact title or a high-confidence restatement. Full global/project stores
+reject a new entry and return the stored titles, while a save under an
+existing title can still consolidate the same store.
+
+Every threat pattern runs on save, read, and update. Flag signatures are not
+persisted and are never echoed in create results. Read projections are sorted
+newest-first and stay within the 60/200 scope caps. Entries with invalid or
+missing timestamps normalize to now or their valid `createdAt`, so a corrupt
+field cannot survive into `null` on the next round trip.
+
+The HTTP routes are dual-gated by the runtime availability flag and web
+setting. Combined-scope reads flag global/project failures separately.
+Unknown updates are 404, validation is 400, and storage failures are 500.
+Panel memory UI, scope resolution from a directory, the managed memory tool,
+session-index delivery, and change notifications remain.

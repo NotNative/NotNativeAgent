@@ -400,6 +400,10 @@
     {
       "version": "20260928-52",
       "content_sha256": "46a0a06c07a4a8cd73eaeffb74bd3fbf3429f29703e035dc3ebf065faa428fd1"
+    },
+    {
+      "version": "20260928-53",
+      "content_sha256": "d744c0297d3bc30dbe91618d3f455739434db54e8521f2e2f3c89ab1752cd7b2"
     }
   ]
 }
