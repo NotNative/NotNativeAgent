@@ -22,6 +22,7 @@ import { registerGitWalkthroughGenerateRoute } from './routes/git-walkthrough-ge
 import { registerGitRoutes } from './routes/git.ts';
 import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
+import { registerSkillRoutes } from './routes/skills.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
@@ -265,6 +266,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
     : createDevServerScanner({ ownPorts: () => [ENV.port, harnessPort] }));
   registerProbeUrlRoutes(app);
   registerSettingsRoutes(app);
+  registerSkillRoutes(app);
   registerProjectsRoutes(app);
   registerGitReadRoutes(app);
   registerFsWriteRoutes(app);

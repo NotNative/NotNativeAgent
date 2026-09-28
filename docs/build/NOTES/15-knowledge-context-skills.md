@@ -30,7 +30,8 @@ context test exposed the previous unhandled-rejection behavior.
 - Add notes and plan CRUD, safe markdown file ownership, shared plans, and
   attachment lifecycle.
 - Bind the UI context tabs and project todos to this canonical store; add
-  chat-owner/worktree resolution and memory/skills/MCP surfaces.
+  chat-owner/worktree resolution, agent-memory, MCP, and the remaining local
+  skill roots/CRUD surfaces.
 
 Do not label P10 complete until the planning document's contracts and
 failure paths are covered by tests and UI verification.
@@ -237,3 +238,20 @@ latest load, and committed transfer responses replace the stale context.
 Adversarial review added route mapping for checkout input errors and fixed
 the share-transition client accidentally issuing GET requests that the
 server had never registered.
+
+## P10-15: local skill read discovery (2026-09-28)
+
+NND now exposes `GET /api/config/skills` and `GET /api/config/skills/:name`.
+The first slice scans only user and project `.claude/skills` and
+`.agents/skills` trees. It uses the planned Claude/agents visibility flags and
+scans `.agents` after `.claude` so an agents file wins a same-name dedupe.
+Frontmatter is checked only in the opening YAML block, so prose later in a
+skill cannot rewrite its displayed name or description.
+
+Discovery stays deliberately read-only: `renamable` is false because managed
+root CRUD authority is not implemented. Listing or resolving a planned
+filesystem skill also avoids avoidable directory scans when the external
+flags would hide it. The route still returns the external flags with list
+results. Harness configuration roots, configured extra paths, OpenCode caches,
+SDK built-ins, ancestor/worktree discovery, skill CRUD, supporting-file
+payloads, UI wiring, and restart handling remain.

@@ -243,6 +243,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   to the child transcript and operator rail when the parent composer was in
   expanded focus mode.
 
+- 2026-09-28 · **Local skill read discovery.** The capability surface now has
+  read-only `.claude`/`.agents` skill list and detail APIs. The server honors
+  external/runtime disabling, dedupes colliding names in the planned scan
+  order, and parses only the opening frontmatter. Project skills are not
+  marked renamable until managed-root CRUD exists; agents roots, caches,
+  configured paths, built-ins, ancestor traversal, CRUD, and UI wiring remain.
+
 - 2026-09-28 · **Guarded Files saves.** The editor now sends its original file
   content as a write precondition. The server compares it immediately before
   replacement and returns a typed conflict if another writer changed, removed,
