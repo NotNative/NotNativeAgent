@@ -37,8 +37,8 @@ graph LR
 |---|---:|---|---|
 | Client sync and state engine | 38 | Harness SDK facade, Runtime adaptation, UI shell | Runtime adaptation, UI shell |
 | Harness SDK facade | 4 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 144 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
-| UI shell | 138 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
+| Runtime adaptation | 145 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| UI shell | 139 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 142 | Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 9 | Web server | — |
 | Quality gates | 22 | Runtime adaptation, Web server | — |
@@ -48,14 +48,14 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 189 | 77 |
-| UI shell | Client sync and state engine | 66 | 29 |
+| UI shell | Runtime adaptation | 191 | 78 |
+| UI shell | Client sync and state engine | 68 | 30 |
+| UI shell | Harness SDK facade | 52 | 45 |
 | Client sync and state engine | Harness SDK facade | 51 | 36 |
-| UI shell | Harness SDK facade | 50 | 44 |
 | Quality gates | Web server | 15 | 4 |
 | Web entrypoints | Web server | 9 | 3 |
+| Runtime adaptation | Harness SDK facade | 8 | 5 |
 | Client sync and state engine | Runtime adaptation | 7 | 6 |
-| Runtime adaptation | Harness SDK facade | 6 | 4 |
 | Web server | Harness SDK facade | 5 | 5 |
 | Harness SDK facade | Runtime adaptation | 4 | 2 |
 | Runtime adaptation | Client sync and state engine | 3 | 2 |
@@ -70,4 +70,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:42cf6fa1e8913ebc0eeac9f33d7f2212685bbf098f5374adc12c9a9632ee00ff`.
+Source fingerprint: `sha256:5a7812deb016e5348251355a1ec4d43211a8891b6babbd01d14add1e12bfaad3`.

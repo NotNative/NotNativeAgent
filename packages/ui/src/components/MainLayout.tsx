@@ -22,6 +22,7 @@ import { GitView } from './git/GitView.tsx';
 import { commitDraftScope } from '../lib/git/commit-drafts.ts';
 import { PlanView } from './plan/PlanView.tsx';
 import { WorktreesView } from './worktrees/WorktreesView.tsx';
+import { AgentManagerView } from './agent-groups/AgentManagerView.tsx';
 import { TerminalView } from './terminal/TerminalView.tsx';
 import { TerminalKeepaliveOwner } from './terminal/TerminalKeepaliveOwner.tsx';
 import { ScheduledTasksDialog } from './scheduled/scheduled-tasks-dialog.tsx';
@@ -56,7 +57,7 @@ export function MainLayout(): ReactNode {
   const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
   const [filesOpen, setFilesOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal'>('');
+  const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal' | 'agent-groups'>('');
   const [worktreesOpen, setWorktreesOpen] = useState(false);
   const [harnessDirectory, setHarnessDirectory] = useState('');
 
@@ -285,6 +286,19 @@ export function MainLayout(): ReactNode {
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="agent-groups-toggle"
+          title="Agent groups"
+          aria-label="Agent groups"
+          onClick={() => {
+            setFilesOpen(false);
+            setReviewPane(reviewPane === 'agent-groups' ? '' : 'agent-groups');
+          }}
+        >
+          ▦
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="worktrees-toggle"
           title="Worktrees"
           aria-label="Worktrees"
@@ -338,6 +352,14 @@ export function MainLayout(): ReactNode {
           <PlanView directory={activeDirectory} visible />
         ) : reviewPane === 'terminal' ? (
           <TerminalView directory={activeDirectory} visible />
+        ) : reviewPane === 'agent-groups' ? (
+          <AgentManagerView
+            projectRoot={activeDirectory}
+            currentDirectory={activeDirectory}
+            onClose={() => setReviewPane('')}
+            onOpenSession={(session) => actions.openSession(session.id, session.directory ?? '')}
+            services={services}
+          />
         ) : archiveOpen ? (
           <ArchiveView currentDirectory={activeDirectory} onClose={() => setArchiveOpen(false)}
             onOpenSession={actions.openSession} onRestore={actions.restore} onDelete={actions.deleteSession} />
