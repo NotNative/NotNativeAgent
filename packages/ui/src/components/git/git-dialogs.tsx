@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Git dialogs (doc 06 §6.8 History + branch list, READ-ONLY v1): the
+ * Git dialogs (doc 06 §6.8 History + branch list): the
  * /api/git/log + /api/git/branches read family with a maxCount selector
  * (25/50/100) + Load more and per-commit Copy SHA; checkout/rebase/reset
- * actions need the mutate routes (P6-2b+, deferred with the §6.7 family).
+ * local checkout action uses an explicit clean-worktree server preflight;
+ * remote tracking, creation, and other branch mutations remain separate.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   fetchGitBranches, fetchGitLog, type GitBranch,
 } from '../../lib/git/api';
@@ -16,14 +17,16 @@ const MAX_COUNT_STEPS = [25, 50, 100] as const;
 
 export type GitDialogKind = 'history' | 'branches' | null;
 
-export function GitDialogHost({ directory, onClose, dialog }: {
+export function GitDialogHost({ directory, onClose, dialog, onSwitchBranch, switchingDisabled = false }: {
   directory: string;
   onClose: () => void;
   dialog: GitDialogKind;
+  onSwitchBranch?: (branch: string, expectedBranch: string) => Promise<void>;
+  switchingDisabled?: boolean;
 }): ReactNode {
   if (directory.length === 0 || dialog === null) return null;
   if (dialog === 'history') return <GitHistoryDialog directory={directory} onClose={onClose} />;
-  return <GitBranchesDialog directory={directory} onClose={onClose} />;
+  return <GitBranchesDialog key={directory} directory={directory} onClose={onClose} onSwitchBranch={onSwitchBranch} switchingDisabled={switchingDisabled} />;
 }
 
 function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: () => void }): ReactNode {
@@ -104,9 +107,17 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
   );
 }
 
-function GitBranchesDialog({ directory, onClose }: { directory: string; onClose: () => void }): ReactNode {
+function GitBranchesDialog({ directory, onClose, onSwitchBranch, switchingDisabled }: {
+  directory: string; onClose: () => void; onSwitchBranch?: (branch: string, expectedBranch: string) => Promise<void>; switchingDisabled: boolean;
+}): ReactNode {
   const [branches, setBranches] = useState<GitBranch | null>(null);
   const [failed, setFailed] = useState(false);
+  const [query, setQuery] = useState('');
+  const [pending, setPending] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState('');
+  const live = useRef(true);
+
+  useEffect(() => () => { live.current = false; }, []);
 
   useEffect(() => {
     let live = true;
@@ -118,11 +129,23 @@ function GitBranchesDialog({ directory, onClose }: { directory: string; onClose:
         return;
       }
       setBranches(result);
-    });
+    }).catch(() => { if (live) setFailed(true); });
     return () => {
       live = false;
     };
   }, [directory]);
+
+  const switchTo = async (branch: string): Promise<void> => {
+    if (!branches?.current || !onSwitchBranch || pending || switchingDisabled) return;
+    setSwitchError('');
+    setPending(branch);
+    try { await onSwitchBranch(branch, branches.current); if (live.current) onClose(); }
+    catch (error) { if (live.current) setSwitchError(error instanceof Error ? error.message : 'Could not switch branch'); }
+    finally { if (live.current) setPending(null); }
+  };
+
+  const search = query.trim().toLocaleLowerCase();
+  const matches = (name: string): boolean => name.toLocaleLowerCase().includes(search);
 
   return (
     <DialogShell title="Branches" onClose={onClose} testid="git-branches-dialog">
@@ -130,16 +153,24 @@ function GitBranchesDialog({ directory, onClose }: { directory: string; onClose:
       {branches === null && !failed ? <div className="text-xs text-muted-foreground">Loading branches...</div> : null}
       {branches !== null ? (
         <div className="flex flex-col gap-2 text-xs text-foreground">
-          <BranchGroup label="Local" names={branches.local} current={branches.current} />
-          {branches.remote.length > 0 ? <BranchGroup label="Remote" names={branches.remote} current={null} /> : null}
+          <input type="search" aria-label="Search branches" placeholder="Search branches..." value={query}
+            onChange={(event) => setQuery(event.target.value)} className="rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none" />
+          {switchError ? <div role="alert" className="text-status-error" data-testid="git-branch-switch-error">{switchError}</div> : null}
+          <BranchGroup label="Local" names={branches.local.filter(matches)} current={branches.current}
+            onSwitch={branches.current ? switchTo : undefined} switchingDisabled={switchingDisabled || pending !== null} pending={pending} />
+          {branches.remote.some(matches) ? <BranchGroup label="Remote" names={branches.remote.filter(matches)} current={null} /> : null}
           {branches.local.length === 0 && branches.remote.length === 0 ? <div className="text-muted-foreground">No branches.</div> : null}
+          {search && !branches.local.some(matches) && !branches.remote.some(matches) ? <div className="text-muted-foreground">No matching branches.</div> : null}
+          {branches.current === null ? <div className="text-muted-foreground">Check out a local branch in Git before switching here.</div> : null}
         </div>
       ) : null}
     </DialogShell>
   );
 }
 
-function BranchGroup({ label, names, current }: { label: string; names: string[]; current: string | null }): ReactNode {
+function BranchGroup({ label, names, current, onSwitch, switchingDisabled = false, pending = null }: {
+  label: string; names: string[]; current: string | null; onSwitch?: (branch: string) => void; switchingDisabled?: boolean; pending?: string | null;
+}): ReactNode {
   return (
     <div data-testid={`git-branch-group-${label.toLowerCase()}`}>
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
@@ -148,6 +179,9 @@ function BranchGroup({ label, names, current }: { label: string; names: string[]
           <div key={name} className="flex items-center gap-2 rounded px-2 py-0.5 hover:bg-interactive-hover/30" data-testid="git-branch-row">
             <span className="min-w-0 flex-1 truncate font-mono">{name}</span>
             {current === name ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">Current</span> : null}
+            {onSwitch && current !== name ? <button type="button" disabled={switchingDisabled}
+              aria-label={`Switch to ${name}`} className="rounded border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+              onClick={() => onSwitch(name)}>{pending === name ? 'Switching...' : 'Switch'}</button> : null}
           </div>
         ))}
       </div>

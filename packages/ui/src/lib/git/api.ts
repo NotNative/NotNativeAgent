@@ -69,6 +69,10 @@ export async function fetchGitBranches(directory: string): Promise<GitBranch | n
   return getJson<GitBranch>(`/api/git/branches?directory=${encodeURIComponent(directory)}`);
 }
 
+export async function checkoutLocalBranch(directory: string, branch: string, expectedBranch: string): Promise<{ branch: string; switched: boolean }> {
+  return postJson(`/api/git/checkout?directory=${encodeURIComponent(directory)}`, { branch, expectedBranch });
+}
+
 export async function fetchGitLog(directory: string, maxCount = 50): Promise<{ isGitRepository?: boolean; commits: { hash: string; subject: string; author: string; date: number }[] } | null> {
   return getJson(`/api/git/log?directory=${encodeURIComponent(directory)}&maxCount=${maxCount}`);
 }

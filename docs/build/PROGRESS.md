@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Deliberate local branch switching in Changes.** The Branches
+  dialog now searches branches and can switch to an existing local branch.
+  The server requires the current branch to match the inspected view, rejects
+  dirty tracked or untracked work, serializes checkout with sync, and reports
+  the actual checked-out branch. Changes refreshes after a switch and keeps
+  remote branches read-only. Adversarial review fixed cross-workspace dialog
+  state, a status-refresh failure misreported as success, a pre-checkout poll
+  overwriting the new branch, and a branch-list request hanging on network
+  rejection. Remote tracking, branch creation, and dirty-tree commit/stash
+  workflows remain separate work.
+
 - 2026-09-28 · **Recoverable Changes status failures.** The Changes pane
   now distinguishes a failed Git status load from an indefinitely pending
   request and offers an explicit retry. When a refresh fails after a previous

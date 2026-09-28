@@ -49,6 +49,44 @@ async function sync(directory?: string): Promise<Response> {
   return app.request(`http://localhost/api/git/sync${query}`, { method: 'POST' });
 }
 
+async function checkout(directory: string, branch: string, expectedBranch = 'main'): Promise<Response> {
+  const app = new Hono();
+  registerGitSyncRoutes(app);
+  return app.request(`http://localhost/api/git/checkout?directory=${encodeURIComponent(directory)}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ branch, expectedBranch }),
+  });
+}
+
+describe('deliberate local branch checkout', () => {
+  it('switches only to an existing local branch and reports the actual branch', async () => {
+    const { local } = fixture(false);
+    git(local, 'branch', 'feature/review');
+    const response = await checkout(local, 'feature/review');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ branch: 'feature/review', switched: true });
+    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('feature/review');
+  });
+
+  it('refuses stale current-branch assumptions and missing local branches', async () => {
+    const { local } = fixture(false);
+    git(local, 'branch', 'feature/review');
+    expect((await checkout(local, 'feature/review', 'old-main')).status).toBe(409);
+    expect((await checkout(local, 'feature/missing')).status).toBe(404);
+    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+  });
+
+  it('does not switch over tracked or untracked work', async () => {
+    const { local } = fixture(false);
+    git(local, 'branch', 'feature/review');
+    writeFileSync(join(local, 'base.txt'), 'edited\n');
+    expect((await checkout(local, 'feature/review')).status).toBe(409);
+    git(local, 'restore', 'base.txt');
+    writeFileSync(join(local, 'new.txt'), 'untracked\n');
+    expect((await checkout(local, 'feature/review')).status).toBe(409);
+    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+  });
+});
+
 describe('explicit Git sync', () => {
   it('requires a directory, a repository, and a remote without mutating local commits', async () => {
     expect((await sync()).status).toBe(400);

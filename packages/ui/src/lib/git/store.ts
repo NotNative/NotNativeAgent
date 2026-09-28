@@ -114,11 +114,16 @@ export const useGitStore = create<GitState>((set, getState) => ({
     if (bucket.status !== undefined && now - bucket.status.fetchedAt < STATUS_STALE_MS) return bucket.status.status;
     const status = await fetchGitStatus(directory, mode);
     if (status === null) return null;
+    let accepted = false;
     set((state) => {
       const existing = state.buckets[key] ?? getState().bucketOf(directory);
+      // A mutation may invalidate the cache while this request is in flight.
+      // Never repopulate it with the pre-mutation branch/status snapshot.
+      if (existing.statusMutationRevision !== bucket.statusMutationRevision) return state;
+      accepted = true;
       return { buckets: { ...state.buckets, [key]: { ...existing, status: { status, fetchedAt: Date.now(), mode } } } };
     });
-    return status;
+    return accepted ? status : null;
   },
   applyStatus: (directory, status, mode) => {
     const key = keyFor(directory, getRuntimeKey());
@@ -238,9 +243,10 @@ export const useGitStore = create<GitState>((set, getState) => ({
   invalidateStatus: (directory) => {
     const key = keyFor(directory, getRuntimeKey());
     set((state) => {
-      const existing = state.buckets[key];
-      if (existing === undefined || existing.status === undefined) return state;
-      const next = { ...state.buckets, [key]: { ...existing, status: undefined } };
+      const existing = state.buckets[key] ?? getState().bucketOf(directory);
+      const next = { ...state.buckets, [key]: {
+        ...existing, status: undefined, statusMutationRevision: existing.statusMutationRevision + 1,
+      } };
       return { buckets: next };
     });
   },

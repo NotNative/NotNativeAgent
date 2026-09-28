@@ -3,7 +3,8 @@
 import { execFile } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
+import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 
 const execute = promisify(execFile);
 const SYNC_TIMEOUT_MS = 60_000;
@@ -88,6 +89,7 @@ async function firstPush(root: string, branch: string, remote: string, mergeRef:
 }
 
 export function registerGitSyncRoutes(app: Hono): void {
+  app.post('/api/git/checkout', checkoutBranchRoute);
   app.post('/api/git/sync', async (context) => {
     const directory = context.req.query('directory');
     if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
@@ -143,4 +145,42 @@ export function registerGitSyncRoutes(app: Hono): void {
       activeRoots.delete(lockKey);
     }
   });
+}
+
+async function checkoutBranchRoute(context: Context): Promise<Response> {
+  const directory = context.req.query('directory');
+  if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
+  let body: unknown;
+  try { body = await readJsonBodyBounded(context.req.raw, 4096); }
+  catch { return Response.json({ error: 'Invalid branch request' }, { status: 400 }); }
+  const request = body as { branch?: unknown; expectedBranch?: unknown } | null;
+  const branch = request?.branch;
+  const expectedBranch = request?.expectedBranch;
+  if (typeof branch !== 'string' || typeof expectedBranch !== 'string' || !branch || !expectedBranch
+    || branch.startsWith('-') || expectedBranch.startsWith('-')) {
+    return Response.json({ error: 'A local branch and expected current branch are required' }, { status: 400 });
+  }
+  let root: string;
+  try { root = await git(directory, ['rev-parse', '--show-toplevel']); }
+  catch { return Response.json({ error: 'Not a Git repository' }, { status: 400 }); }
+  const lockKey = process.platform === 'win32' ? (await realpath(root)).toLowerCase() : await realpath(root);
+  if (activeRoots.has(lockKey)) return conflict('A Git operation is already running for this repository');
+  activeRoots.add(lockKey);
+  try {
+    const current = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '');
+    if (!current || current !== expectedBranch) return conflict('The current branch changed; refresh Changes before switching');
+    if (branch === current) return Response.json({ branch, switched: false });
+    const valid = await git(root, ['check-ref-format', '--branch', branch]).catch(() => '');
+    if (valid !== branch) return Response.json({ error: 'Invalid local branch name' }, { status: 400 });
+    const exists = await git(root, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]).then(() => true, () => false);
+    if (!exists) return Response.json({ error: 'Local branch not found' }, { status: 404 });
+    if (await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])) {
+      return conflict('Commit or stash all changes before switching branches');
+    }
+    try { await git(root, ['switch', '--no-guess', '--', branch]); }
+    catch (error) { return conflict(`Could not switch branch: ${failure(error)}`); }
+    const actual = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '');
+    if (actual !== branch) return conflict('Branch changed during checkout; refresh Changes');
+    return Response.json({ branch: actual, switched: true });
+  } finally { activeRoots.delete(lockKey); }
 }

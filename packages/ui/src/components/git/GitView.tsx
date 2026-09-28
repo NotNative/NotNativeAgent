@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner';
 import { useGitStore, groupedStatusFiles, scheduleGitReconcile } from '../../lib/git/store';
 import {
-  commitChanges, discardGitFiles, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
+  checkoutLocalBranch, commitChanges, discardGitFiles, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
   statusSymbol, type GitStatus, type GitStatusFile,
 } from '../../lib/git/api';
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
@@ -19,6 +19,7 @@ import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
 import { useCommitDraftStore } from '../../lib/git/commit-drafts.ts';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
+import { BranchTracking, StatusFailure, symbolColorOf } from './git-view-chrome.tsx';
 
 type SelectedFile = { directory: string; path: string; staged: boolean };
 type ReviewRequest = { directory: string; path: string; id: number } | null;
@@ -45,7 +46,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   const clearIfMatches = useCommitDraftStore((state) => state.clearIfMatches);
   const message = draftScope ? scopedMessage : localMessage;
   const setMessage = (next: string): void => { if (draftScope) setDraft(draftScope, next); else setLocalMessage(next); };
-  const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert' | 'sync'>('');
+  const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert' | 'sync' | 'switch'>('');
   const [dialog, setDialog] = useState<GitDialogKind>(null);
   const [confirmRevert, setConfirmRevert] = useState<GitStatusFile | null>(null);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
@@ -60,6 +61,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   const restore = useGitStore((state) => state.restoreStatus);
   const statusRef = useRef<GitStatus | null>(null);
   statusRef.current = status;
+  const statusRequestRevision = useRef(0);
 
   const retryStatus = useCallback((): void => {
     // A manual retry must prove the service recovered, not accept a status
@@ -68,11 +70,12 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
     setRetryRevision((value) => value + 1);
   }, [directory, invalidateStatus]);
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     const next = await ensureStatus(directory, 'full');
     setStatus(directory, next);
     bumpIndexRevision(directory);
     scheduleGitReconcile(directory);
+    return next !== null;
   }, [directory, ensureStatus, bumpIndexRevision, setStatus]);
 
   // Reveal + §6.4 cadence: full sweep on mount/reveal, then light reconcile.
@@ -80,24 +83,26 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
     if (!visible || directory.length === 0) return undefined;
     let live = true;
     void (async () => {
+      const revision = statusRequestRevision.current;
       try {
         const light = await ensureStatus(directory, 'light');
-        if (!live) return;
+        if (!live || revision !== statusRequestRevision.current) return;
         if (light === null) setStatusFailure(directory);
         else { setStatus(directory, light); setStatusFailure(null); }
       } catch {
-        if (live) setStatusFailure(directory);
+        if (live && revision === statusRequestRevision.current) setStatusFailure(directory);
       } finally {
-        if (live) setLoading(false);
+        if (live && revision === statusRequestRevision.current) setLoading(false);
       }
     })();
     const poll = window.setInterval(() => {
       if (document.hidden) return;
+      const revision = statusRequestRevision.current;
       void ensureStatus(directory, 'light').then((next) => {
-        if (!live) return;
+        if (!live || revision !== statusRequestRevision.current) return;
         if (next === null) setStatusFailure(directory);
         else { setStatus(directory, next); setStatusFailure(null); }
-      }).catch(() => { if (live) setStatusFailure(directory); });
+      }).catch(() => { if (live && revision === statusRequestRevision.current) setStatusFailure(directory); });
     }, GIT_STATUS_POLL_INTERVAL_MS);
     return () => {
       live = false;
@@ -161,7 +166,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
     return () => { current = false; };
   }, [directory, reviewRequest, setStatus]);
 
-  const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert' | 'sync', run: () => Promise<void>): Promise<void> => {
+  const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert' | 'sync' | 'switch', run: () => Promise<void>): Promise<void> => {
     setBusy(kind);
     try {
       await run();
@@ -237,6 +242,25 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
       } catch (error) { toast.error(`Sync failed: ${gitError(error)}`); }
     });
   }, [directory, refresh, withBusy]);
+
+  const switchBranch = useCallback(async (branch: string, expectedBranch: string): Promise<void> => {
+    if (statusFailure === directory) throw new Error('Refresh Git status before switching branches');
+    await withBusy('switch', async () => {
+      await checkoutLocalBranch(directory, branch, expectedBranch);
+      statusRequestRevision.current += 1;
+      setSelectedFile(null);
+      useGitStore.getState().invalidateStatus(directory);
+      let refreshed = false;
+      try {
+        if (!await refresh()) throw new Error('Git status unavailable');
+        setStatusFailure(null);
+        refreshed = true;
+      }
+      catch { setStatusFailure(directory); toast.error('Branch switched, but Git status could not refresh. Retry in Changes.'); }
+      publishReviewRefresh(directory, null, 'git-mutation');
+      if (refreshed) toast.success(`Switched to ${branch}`);
+    });
+  }, [directory, refresh, statusFailure, withBusy]);
 
   if (directory.length === 0) {
     return <Centered label="Select a workspace to inspect its changes." testid="git-empty" />;
@@ -356,7 +380,8 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
           </div>
         </aside>
       </div>
-      <GitDialogHost directory={directory} onClose={() => setDialog(null)} dialog={dialog} />
+      <GitDialogHost directory={directory} onClose={() => setDialog(null)} dialog={dialog}
+        onSwitchBranch={switchBranch} switchingDisabled={statusStale || busy !== ''} />
       {confirmRevert !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="git-revert-dialog">
           <div className="w-80 rounded-lg border border-border/60 bg-card p-4">
@@ -382,13 +407,6 @@ function Centered({ label, testid }: { label: string; testid: string }): ReactNo
       {label}
     </div>
   );
-}
-
-function StatusFailure({ onRetry }: { onRetry: () => void }): ReactNode {
-  return <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground" data-testid="git-status-error" role="status">
-    <span>Could not load Git status for this workspace.</span>
-    <button type="button" className="rounded border border-border/60 px-3 py-1 text-xs text-foreground hover:bg-interactive-hover/30" onClick={onRetry}>Retry</button>
-  </div>;
 }
 
 function Section({
@@ -477,23 +495,6 @@ function FileRow({ entry, staged, selected, mutationDisabled, onOpen, onStageTog
 function EmptyLine({ label }: { label: string }): ReactNode {
   return <div className="px-2 py-1 text-[11px] text-muted-foreground">{label}</div>;
 }
-
-function BranchTracking({ status }: { status: GitStatus }): ReactNode {
-  if (status.upstream === undefined || status.branch === null) return null;
-  const label = status.upstream === null ? 'No upstream' : status.upstreamGone ? 'Upstream missing'
-    : status.trackingAhead === 0 && status.trackingBehind === 0 ? 'Up to date'
-    : `↑${status.trackingAhead} ↓${status.trackingBehind}`;
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] ${status.upstreamGone ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-muted-foreground'}`}
-    title={status.upstream ?? 'No upstream configured'} data-testid="git-tracking">{label}</span>;
-}
-
 function gitError(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Git operation failed';
-}
-
-function symbolColorOf(symbol: string): string {
-  if (symbol === 'A') return 'var(--status-success)';
-  if (symbol === 'D') return 'var(--status-error)';
-  if (symbol === 'M') return 'var(--status-warning)';
-  return 'var(--status-info)';
 }

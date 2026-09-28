@@ -211,6 +211,89 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(document.querySelector('[data-testid="git-file-row"]')).toBeNull();
   });
 
+  it('searches local branches and switches deliberately, refreshing the Changes header', async () => {
+    let branch = 'main';
+    fetchMock.mockImplementation(async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/api/git/status')) return jsonResponse({ ...STATUS, branch });
+      if (url.includes('/api/git/checkout')) {
+        const request = JSON.parse(String(init?.body)) as { branch: string; expectedBranch: string };
+        expect(request).toEqual({ branch: 'feature/next', expectedBranch: 'main' });
+        branch = request.branch;
+        return jsonResponse({ branch, switched: true });
+      }
+      return route(url);
+    });
+    await render();
+    await settle();
+    await act(async () => { (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click(); });
+    await settle();
+    const search = document.querySelector('[aria-label="Search branches"]') as HTMLInputElement;
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => { setValue.call(search, 'feature'); search.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(document.querySelector('[aria-label="Switch to feature/next"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Switch to main"]')).toBeNull();
+    await act(async () => { (document.querySelector('[aria-label="Switch to feature/next"]') as HTMLButtonElement).click(); });
+    await settle();
+    expect(document.querySelector('[data-testid="git-branch"]')?.textContent).toBe('feature/next');
+    expect(document.querySelector('[data-testid="git-branches-dialog"]')).toBeNull();
+  });
+
+  it('does not offer the previous workspace branches while a new branch list loads', async () => {
+    await render();
+    await settle();
+    await act(async () => { (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click(); });
+    await settle();
+    expect(document.querySelector('[aria-label="Switch to feature/next"]')).not.toBeNull();
+    let releaseBranches: ((response: Response) => void) | null = null;
+    fetchMock.mockImplementation(async (input: string) => {
+      const url = String(input);
+      if (url.includes('/api/git/branches') && url.includes('directory=%2Fother')) {
+        return new Promise<Response>((resolve) => { releaseBranches = resolve; });
+      }
+      return route(url);
+    });
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory="/other" visible /></I18nProvider>); });
+    await settle();
+    expect(releaseBranches).not.toBeNull();
+    expect(document.querySelector('[aria-label="Switch to feature/next"]')).toBeNull();
+    expect(document.querySelector('[data-testid="git-branches-dialog"]')?.textContent).toContain('Loading branches');
+    await act(async () => { releaseBranches!(jsonResponse({ current: 'main', local: ['main', 'other/feature'], remote: [] })); });
+    await settle();
+    expect(document.querySelector('[aria-label="Switch to other/feature"]')).not.toBeNull();
+  });
+
+  it('marks branch status stale when checkout succeeds but the new status fetch fails', async () => {
+    let switched = false;
+    fetchMock.mockImplementation(async (input: string) => {
+      const url = String(input);
+      if (url.includes('/api/git/checkout')) { switched = true; return jsonResponse({ branch: 'feature/next', switched: true }); }
+      if (switched && url.includes('/api/git/status')) return jsonResponse({ error: 'offline' }, false);
+      return route(url);
+    });
+    await render();
+    await settle();
+    await act(async () => { (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click(); });
+    await settle();
+    await act(async () => { (document.querySelector('[aria-label="Switch to feature/next"]') as HTMLButtonElement).click(); });
+    await settle();
+    expect(document.querySelector('[data-testid="git-status-stale"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="git-branch"]')?.textContent).toBe('main');
+  });
+
+  it('reports a branch-list transport failure instead of loading forever', async () => {
+    fetchMock.mockImplementation(async (input: string) => {
+      if (String(input).includes('/api/git/branches')) throw new Error('network unavailable');
+      return route(String(input));
+    });
+    await render();
+    await settle();
+    await act(async () => { (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click(); });
+    await settle();
+    expect(document.querySelector('[data-testid="git-branches-failed"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Switch to feature/next"]')).toBeNull();
+  });
+
   it('disables Git mutations while the visible status is stale and restores them after retry', async () => {
     vi.useFakeTimers();
     await render();

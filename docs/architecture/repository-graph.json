@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:22b507ef2e47feb2b9e1aeee6e83428eb8d016c42ac9c87011e2f428d3700979",
+  "source_digest": "sha256:67ff2c10a6c5eaa757a7bcccf50147145bd5c51f39afb5d76b17613f28cc753c",
   "counts": {
-    "modules": 483,
+    "modules": 484,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 130
+      "module_count": 131
     },
     {
       "id": "web-server",
@@ -980,12 +980,19 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/git/git-view-chrome.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/components/git/GitView.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/git/git-dialogs.tsx",
         "packages/ui/src/components/git/git-file-preview.tsx",
+        "packages/ui/src/components/git/git-view-chrome.tsx",
         "packages/ui/src/lib/files/edit-support.ts",
         "packages/ui/src/lib/git/commit-drafts.ts"
       ]
@@ -4234,7 +4241,9 @@
       "path": "packages/web/src/server/routes/git-sync.ts",
       "component": "web-server",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/routes/git-walkthrough-generate.ts",
