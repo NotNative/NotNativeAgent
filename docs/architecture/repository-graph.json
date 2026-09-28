@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:5e88a75ff81b167e5523eec6192fb8094436f42a61b26c8180b36a6515491ad7",
+  "source_digest": "sha256:1d9c0657f4ee4a1da9cbeabba8efbeacbe6a9758ce59adcfbd37538911b56973",
   "counts": {
-    "modules": 511,
+    "modules": 512,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 154
+      "module_count": 155
     },
     {
       "id": "web-entry",
@@ -4251,7 +4251,17 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/project-context/context-store.ts"
+        "packages/web/src/server/project-context/context-store.ts",
+        "packages/web/src/server/project-context/shared-plans.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/project-context/shared-plans.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/project-context/context-store.ts",
+        "packages/web/src/server/scheduled/config-lock.ts"
       ]
     },
     {

@@ -21,7 +21,8 @@ import { ContextInputError, createProjectNote, deleteProjectNote, readProjectCon
   projectTodosRevision, replaceProjectTodosChecked, updateProjectNote } from '../project-context/context-store.ts';
 import { validateProjectTodos } from '../project-context/todo-schema.ts';
 import { importWorkspaceContext } from '../project-context/workspace-import.ts';
-import { createProjectPlan, deleteProjectPlan, readProjectPlan, updateProjectPlan } from '../project-context/plan-store.ts';
+import { createProjectPlan, deleteProjectPlan, readProjectContextWithShared, readProjectPlan,
+  shareProjectPlan, unshareProjectPlan, updateProjectPlan } from '../project-context/plan-store.ts';
 
 /** Settings-patch body cap: bounded-reader posture over the wire family
  * (review P2 — an admitted guest must not be able to unbond the store). */
@@ -155,6 +156,8 @@ export function registerProjectsRoutes(app: Hono): void {
   app.post('/api/project-context/:projectId/plans', postProjectPlan);
   app.put('/api/project-context/:projectId/plans/:planId', putProjectPlan);
   app.delete('/api/project-context/:projectId/plans/:planId', deleteProjectPlanRoute);
+  app.post('/api/project-context/:projectId/plans/:planId/share', sharePlanRoute);
+  app.post('/api/project-context/:projectId/plans/:planId/unshare', unsharePlanRoute);
 }
 
 async function getProjectConfig(c: Context): Promise<Response> {
@@ -188,10 +191,15 @@ async function getProjectContext(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
   if (!PROJECT_ID.test(projectID)) return c.json({ error: 'unsupported characters in projectId' }, 400);
   try {
-    const context = await readProjectContext(projectID);
+    const checkout = c.req.query('directory');
+    const context = checkout
+      ? await readProjectContextWithShared(projectID, checkout)
+      : await readProjectContext(projectID);
     return c.json({ ...context, todosRevision: projectTodosRevision(context.todos) });
   }
-  catch { return c.json({ error: 'project context unavailable' }, 500); }
+  catch (error) { return error instanceof ContextInputError
+    ? c.json({ error: error.message }, error.status)
+    : c.json({ error: 'project context unavailable' }, 500); }
 }
 async function putProjectTodos(c: Context): Promise<Response> {
   const projectID = c.req.param('projectId') ?? '';
@@ -274,7 +282,7 @@ async function deleteProjectNoteRoute(c: Context): Promise<Response> {
 async function getProjectPlan(c: Context): Promise<Response> {
   const projectId = validProjectId(c);
   if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
-  try { return c.json(await readProjectPlan(projectId, c.req.param('planId') ?? '')); }
+  try { return c.json(await readProjectPlan(projectId, c.req.param('planId') ?? '', c.req.query('directory'))); }
   catch (error) { return contextError(c, error); }
 }
 
@@ -292,14 +300,31 @@ async function putProjectPlan(c: Context): Promise<Response> {
   if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
   const body = await readJsonBodyBounded(c.req.raw, 1024 * 1024);
   if (!body) return c.json({ error: 'plan body must be a JSON object' }, 400);
-  try { return c.json(await updateProjectPlan(projectId, c.req.param('planId') ?? '', body.raw)); }
+  try { return c.json(await updateProjectPlan(projectId, c.req.param('planId') ?? '',
+    body.raw, c.req.query('directory'))); }
   catch (error) { return contextError(c, error); }
 }
 
 async function deleteProjectPlanRoute(c: Context): Promise<Response> {
   const projectId = validProjectId(c);
   if (!projectId) return c.json({ error: 'unsupported characters in projectId' }, 400);
-  try { return c.json(await deleteProjectPlan(projectId, c.req.param('planId') ?? '')); }
+  try { return c.json(await deleteProjectPlan(projectId, c.req.param('planId') ?? '', c.req.query('directory'))); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function sharePlanRoute(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  const checkout = c.req.query('directory');
+  if (!projectId || !checkout) return c.json({ error: 'project checkout directory is required' }, 400);
+  try { return c.json(await shareProjectPlan(projectId, c.req.param('planId') ?? '', checkout)); }
+  catch (error) { return contextError(c, error); }
+}
+
+async function unsharePlanRoute(c: Context): Promise<Response> {
+  const projectId = validProjectId(c);
+  const checkout = c.req.query('directory');
+  if (!projectId || !checkout) return c.json({ error: 'project checkout directory is required' }, 400);
+  try { return c.json(await unshareProjectPlan(projectId, c.req.param('planId') ?? '', checkout)); }
   catch (error) { return contextError(c, error); }
 }
 

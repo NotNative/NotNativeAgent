@@ -384,6 +384,18 @@
     {
       "version": "20260928-48",
       "content_sha256": "cb0d35115fee492cb22cd1ddb587a2cd732e14c5863983cea22c14b9061245dd"
+    },
+    {
+      "version": "20260928-49",
+      "content_sha256": "154dc1947b61355af7e9e21840b2c50f6617c9f73b322565f3db6d34caa3f076"
+    },
+    {
+      "version": "20260928-50",
+      "content_sha256": "0c44fcdcf7c3940f9d46b88d9a7cf5109eeab1e4cfb07a2aba82304575e961d4"
+    },
+    {
+      "version": "20260928-51",
+      "content_sha256": "81c5e9284d7ce3d1000c1a42c6adee49630eaf3c3ecdb61d1bdac833a567190e"
     }
   ]
 }

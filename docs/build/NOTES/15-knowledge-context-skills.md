@@ -206,3 +206,34 @@ The user must explicitly choose the project-owned copy as the active record.
 Adversarial review bound the note identity to its source file, not its body:
 a changed source now returns 409 rather than appending a contradictory note.
 Duplicate stored note IDs also make import fail closed.
+
+## P10-14: shared project plans (2026-09-28)
+
+The project-context read accepts an absolute checkout scope. It validates the
+checkout and either the default `.openchamber/plans` folder or the `plansDir`
+named by `<repo>/.openchamber/project.json`, then appends every safe markdown
+file after personal plans. A file claimed by a manifest entry is hidden from
+the generic unclaimed list and remains available under its original ID with
+`shared: true`. Unclaimed files use `shared:<file>`.
+
+Share moves one project plan into the shared folder and retains its ID.
+Unshare moves a claimed plan back and clear its flag; reclaiming an unclaimed
+team file creates a fresh manifest ID. Collisions receive deterministic
+numeric suffixes. Raw editing and deletion go directly to the shared file.
+The server rejects missing checkout, missing plans folders, unsafe symlinks
+or markdown names, traversal, Windows reserved names, and bodies above
+512 KiB. It distinguishes missing checkout/folder/files as 400/404 rather
+than reporting every storage error as 500.
+
+Internal share/unshare, edit, and delete operations share one
+plans-directory lock and recheck the manifest/file inside each mutation.
+This prevents an edit after a delete or transfer from recreating an orphan
+file. External teams that edit the same markdown without the lock remain
+outside the application's locking contract.
+
+UI share/unshare and update requests include checkout scope and use the
+matching POST/PUT methods. The Plans context keeps only results from the
+latest load, and committed transfer responses replace the stale context.
+Adversarial review added route mapping for checkout input errors and fixed
+the share-transition client accidentally issuing GET requests that the
+server had never registered.

@@ -3,8 +3,11 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, lstat, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { projectPlanFileValid } from './shared-plans.ts';
 import { ContextInputError, mutateProjectContext, projectContextPaths,
   readProjectContext, type ProjectContext } from './context-store.ts';
+import { deleteSharedPlan, readContextWithShared, readSharedPlan, sharePlan, unclaimedFile,
+  updateSharedPlan, unsharePlan, type ProjectContextWithShared } from './shared-plans.ts';
 
 export interface PlanManifest { id: string; file: string; title: string; createdAt: number; pinned?: boolean; source?: string }
 export interface ProjectPlan extends PlanManifest { body: string; raw: string }
@@ -73,7 +76,10 @@ function validText(value: unknown, name: string, max: number): string {
   return value.trim();
 }
 
-export async function readProjectPlan(projectId: string, planId: string): Promise<ProjectPlan> {
+export async function readProjectPlan(projectId: string, planId: string, checkout?: string): Promise<ProjectPlan | Record<string, unknown>> {
+  if (await usesSharedPlan(projectId, planId, checkout)) {
+    return readSharedPlan(projectId, planId, checkout) as Promise<ProjectPlan | Record<string, unknown>>;
+  }
   const paths = projectContextPaths(projectId);
   const plan = planFor(await readProjectContext(projectId), planId);
   await checkedPlanDirectory(paths.plans);
@@ -86,6 +92,14 @@ export async function readProjectPlan(projectId: string, planId: string): Promis
     throw error;
   }
   return { ...plan, ...parsedMarkdown(raw), raw };
+}
+
+async function usesSharedPlan(projectId: string, planId: string, checkout?: string): Promise<boolean> {
+  if (unclaimedFile(planId) !== null) return true;
+  const context = await readProjectContext(projectId);
+  const plan = context.plans.find((item) => !!item && typeof item === 'object'
+    && (item as { id?: unknown }).id === planId) as Record<string, unknown> | undefined;
+  return plan?.shared === true;
 }
 
 export async function createProjectPlan(projectId: string, input: { title?: unknown; body?: unknown }): Promise<{
@@ -110,9 +124,13 @@ export async function createProjectPlan(projectId: string, input: { title?: unkn
   });
 }
 
-export async function updateProjectPlan(projectId: string, planId: string, rawValue: unknown): Promise<{
-  plan: PlanManifest; raw: string;
+export async function updateProjectPlan(projectId: string, planId: string, rawValue: unknown, checkout?: string): Promise<{
+  plan: PlanManifest | Record<string, unknown>; raw: string; sharedPlansDir?: string;
 }> {
+  if (await usesSharedPlan(projectId, planId, checkout)) {
+    return updateSharedPlan(projectId, planId, rawValue,
+      checkout) as unknown as Promise<{ plan: PlanManifest | Record<string, unknown>; raw: string }>;
+  }
   if (typeof rawValue !== 'string' || rawValue.length > 512 * 1024) {
     throw new ContextInputError('invalid plan raw markdown', 400);
   }
@@ -140,7 +158,10 @@ export async function updateProjectPlan(projectId: string, planId: string, rawVa
   });
 }
 
-export async function deleteProjectPlan(projectId: string, planId: string): Promise<ProjectContext> {
+export async function deleteProjectPlan(projectId: string, planId: string, checkout?: string): Promise<ProjectContext> {
+  if (await usesSharedPlan(projectId, planId, checkout)) {
+    return deleteSharedPlan(projectId, planId, checkout) as Promise<ProjectContext>;
+  }
   const paths = projectContextPaths(projectId);
   let file = '';
   const context = await mutateProjectContext(projectId, async (current) => {
@@ -160,4 +181,20 @@ export async function deleteProjectPlan(projectId: string, planId: string): Prom
     if ((error as { code?: string }).code !== 'ENOENT') throw error;
   });
   return context;
+}
+
+export function readProjectContextWithShared(projectId: string, checkout: string): Promise<ProjectContextWithShared> {
+  return readContextWithShared(projectId, checkout);
+}
+
+export function shareProjectPlan(projectId: string, planId: string, checkout: string): Promise<{
+  plan: Record<string, unknown>; sharedPlansDir: string; context: ProjectContextWithShared;
+}> {
+  return sharePlan(projectId, planId, checkout);
+}
+
+export function unshareProjectPlan(projectId: string, planId: string, checkout: string): Promise<{
+  plan: Record<string, unknown>; sharedPlansDir: string; context: ProjectContextWithShared;
+}> {
+  return unsharePlan(projectId, planId, checkout);
 }

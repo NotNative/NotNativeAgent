@@ -17,16 +17,18 @@ export interface ProjectContext {
   todos: unknown[];
   plans: unknown[];
   todosRevision?: string;
+  sharedPlansDir?: string;
 }
 export interface ProjectTodo { id: string; text: string; completed: boolean; createdAt: number }
 export interface ProjectPlan {
   id: string; file: string; title: string; createdAt: number;
-  pinned?: boolean; source?: string; body?: string; raw?: string;
+  pinned?: boolean; source?: string; shared?: boolean; body?: string; raw?: string;
 }
 
-function endpoint(projectId: string, suffix = ''): string {
+function endpoint(projectId: string, suffix = '', directory?: string): string {
   if (!/^[A-Za-z0-9_-]+$/u.test(projectId)) throw new Error('Invalid project ID');
-  return `/api/project-context/${encodeURIComponent(projectId)}${suffix}`;
+  const checkout = directory ? `?directory=${encodeURIComponent(directory)}` : '';
+  return `/api/project-context/${encodeURIComponent(projectId)}${suffix}${checkout}`;
 }
 
 async function request(path: string, init?: RequestInit): Promise<unknown> {
@@ -53,8 +55,8 @@ function notePath(projectId: string, noteId: string): string {
   return endpoint(projectId, `/notes/${encodeURIComponent(noteId)}`);
 }
 
-export async function getProjectContext(projectId: string): Promise<ProjectContext> {
-  return parseContext(await request(endpoint(projectId)));
+export async function getProjectContext(projectId: string, directory?: string): Promise<ProjectContext> {
+  return parseContext(await request(endpoint(projectId, '', directory)));
 }
 
 export async function createProjectNote(projectId: string, input: {
@@ -100,13 +102,13 @@ export async function replaceProjectTodos(projectId: string, todos: ProjectTodo[
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({ todos, expectedRevision }) }));
 }
 
-function planPath(projectId: string, planId: string): string {
+function planPath(projectId: string, planId: string, directory?: string): string {
   if (!planId || planId.includes('/') || planId.includes('\\')) throw new Error('Invalid plan ID');
-  return endpoint(projectId, `/plans/${encodeURIComponent(planId)}`);
+  return endpoint(projectId, `/plans/${encodeURIComponent(planId)}`, directory);
 }
 
-export async function getProjectPlan(projectId: string, planId: string): Promise<ProjectPlan> {
-  const value = await request(planPath(projectId, planId));
+export async function getProjectPlan(projectId: string, planId: string, directory?: string): Promise<ProjectPlan> {
+  const value = await request(planPath(projectId, planId, directory));
   const plan = value as ProjectPlan;
   if (!plan || typeof plan.id !== 'string' || typeof plan.raw !== 'string') throw new Error('Invalid plan response');
   return plan;
@@ -122,10 +124,10 @@ export async function createProjectPlan(projectId: string, input: { title: strin
   return { plan: payload.plan, context: parseContext(payload.context) };
 }
 
-export async function updateProjectPlan(projectId: string, planId: string, raw: string): Promise<{
+export async function updateProjectPlan(projectId: string, planId: string, raw: string, directory?: string): Promise<{
   plan: ProjectPlan; raw: string;
 }> {
-  const value = await request(planPath(projectId, planId), { method: 'PUT',
+  const value = await request(planPath(projectId, planId, directory), { method: 'PUT',
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({ raw }) });
   const payload = value as { plan?: ProjectPlan; raw?: unknown };
   if (!payload?.plan || typeof payload.plan.id !== 'string' || typeof payload.raw !== 'string') {
@@ -134,6 +136,42 @@ export async function updateProjectPlan(projectId: string, planId: string, raw: 
   return { plan: payload.plan, raw: payload.raw };
 }
 
-export async function deleteProjectPlan(projectId: string, planId: string): Promise<ProjectContext> {
-  return parseContext(await request(planPath(projectId, planId), { method: 'DELETE' }));
+export async function deleteProjectPlan(projectId: string, planId: string, directory?: string): Promise<ProjectContext> {
+  return parseContext(await request(planPath(projectId, planId, directory), { method: 'DELETE' }));
+}
+
+export async function shareProjectPlan(projectId: string, planId: string, directory: string): Promise<{
+  plan: ProjectPlan; context: ProjectContext; sharedPlansDir: string;
+}> {
+  const payload = await shareTransition(projectId, planId, directory, 'share');
+  return { plan: requirePlan(payload.plan), context: parseContext(payload.context),
+    sharedPlansDir: requireSharedDir(payload.sharedPlansDir) };
+}
+
+export async function unshareProjectPlan(projectId: string, planId: string, directory: string): Promise<{
+  plan: ProjectPlan; context: ProjectContext; sharedPlansDir: string;
+}> {
+  const payload = await shareTransition(projectId, planId, directory, 'unshare');
+  return { plan: requirePlan(payload.plan), context: parseContext(payload.context),
+    sharedPlansDir: requireSharedDir(payload.sharedPlansDir) };
+}
+
+async function shareTransition(projectId: string, planId: string, directory: string, action: 'share' | 'unshare'): Promise<Record<string, unknown>> {
+  if (!directory) throw new Error('Project checkout is required for shared plans');
+  return await request(planPath(projectId, planId, directory), { method: 'POST' }) as {
+    plan?: unknown; context?: unknown; sharedPlansDir?: unknown;
+  };
+}
+
+function requirePlan(value: unknown): ProjectPlan {
+  const plan = value as ProjectPlan;
+  if (!plan || typeof plan.id !== 'string' || typeof plan.file !== 'string' || typeof plan.title !== 'string') {
+    throw new Error('Invalid shared plan response');
+  }
+  return plan;
+}
+
+function requireSharedDir(value: unknown): string {
+  if (typeof value !== 'string' || value === '') throw new Error('Invalid shared plans directory response');
+  return value;
 }
