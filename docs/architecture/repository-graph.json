@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:92d5d858d33e86e3377f2cfff45036987137ed94bf873487b8bdb1c586e0f3a7",
+  "source_digest": "sha256:edc9a906876f11ee6adc479f946306ac201a829dfc705f3ee89973b986991957",
   "counts": {
     "modules": 470,
     "component_edges": 13
@@ -475,6 +475,7 @@
         "packages/ui/src/chat/work-status-panel.tsx",
         "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
+        "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/git/commit-drafts.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/sync/activity-log.ts",

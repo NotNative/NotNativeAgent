@@ -78,13 +78,23 @@ function worktreeCardsOf(entries: GitWorktreeEntry[] | null): WorktreeCard[] {
 
 interface WorktreesViewProps {
   projectRoot: string;
-  onClose: () => void;
+  onClose?: () => void;
+  embedded?: boolean;
+  visible?: boolean;
 }
 
-export function WorktreesView({ projectRoot, onClose }: WorktreesViewProps): ReactNode {
+export function WorktreesView({ projectRoot, onClose, embedded = false, visible = true }: WorktreesViewProps): ReactNode {
   const { t } = useI18n();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
+  const dialogContainer = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // A retained, hidden dialog must not keep keyboard focus after its pane
+    // loses the foreground (including when the dock is collapsed).
+    if (!visible && dialogContainer.current?.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement).blur();
+    }
+  }, [visible]);
   const topology = useWorktreeTopology(projectRoot);
   const removeEntry = useWorktreeRemove(projectRoot, t, topology.refresh);
 
@@ -110,11 +120,11 @@ export function WorktreesView({ projectRoot, onClose }: WorktreesViewProps): Rea
   }, [createBusy, createWorktreeOnServer]);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40" data-testid="worktrees-view">
-      <div className="flex max-h-[85vh] w-[640px] max-w-[92vw] flex-col rounded-xl border border-border/60 bg-background p-4 shadow-2xl">
+    <div className={embedded ? 'flex h-full min-h-0 flex-col' : 'fixed inset-0 z-40 flex items-center justify-center bg-black/40'} data-testid="worktrees-view">
+      <div className={embedded ? 'flex h-full min-h-0 w-full flex-col bg-background p-3' : 'flex max-h-[85vh] w-[640px] max-w-[92vw] flex-col rounded-xl border border-border/60 bg-background p-4 shadow-2xl'}>
         <header className="mb-2 flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{t('worktrees.title')}</span>
-          <button type="button" className="ml-auto rounded px-2 py-1 text-muted-foreground hover:text-foreground" onClick={onClose} data-testid="worktrees-close">X</button>
+          {!embedded && onClose ? <button type="button" className="ml-auto rounded px-2 py-1 text-muted-foreground hover:text-foreground" onClick={onClose} data-testid="worktrees-close">X</button> : null}
         </header>
         <div className="flex items-center gap-2">
           <button type="button" className="self-start rounded bg-primary/20 px-3 py-1 text-xs text-primary hover:bg-primary/30" onClick={() => setDialogOpen(true)} data-testid="worktrees-new">
@@ -125,18 +135,20 @@ export function WorktreesView({ projectRoot, onClose }: WorktreesViewProps): Rea
         <WorktreeList cards={topology.cards} entries={topology.entries} onMove={topology.onMove} onRemove={(path) => void removeEntry(path)} emptyLabel={t('worktrees.empty')} showEmpty={topology.entries !== null} />
       </div>
       {dialogOpen ? (
-        <WorktreeCreateDialog
-          title={t('worktrees.new')}
-          busyLabel={t('worktrees.creating')}
-          branchLabel={t('worktrees.branch')}
-          startLabel={t('worktrees.start')}
-          nameLabel={t('worktrees.name')}
-          submitLabel={t('worktrees.create')}
-          cancelLabel={t('comments.cancel')}
-          busy={createBusy}
-          onSubmit={(payload) => void submitCreate(payload)}
-          onCancel={() => setDialogOpen(false)}
-        />
+        <div ref={dialogContainer} hidden={!visible}>
+          <WorktreeCreateDialog
+            title={t('worktrees.new')}
+            busyLabel={t('worktrees.creating')}
+            branchLabel={t('worktrees.branch')}
+            startLabel={t('worktrees.start')}
+            nameLabel={t('worktrees.name')}
+            submitLabel={t('worktrees.create')}
+            cancelLabel={t('comments.cancel')}
+            busy={createBusy}
+            onSubmit={(payload) => void submitCreate(payload)}
+            onCancel={() => setDialogOpen(false)}
+          />
+        </div>
       ) : null}
     </div>
   );

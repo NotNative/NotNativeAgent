@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Worktrees in the operator rail.** The existing live worktree
+  manager now has a docked presentation beside chat. Its create form stays
+  mounted across rail-surface switches within the same workspace;
+  the full-screen modal entry point remains available. Existing saved rail
+  layouts discover the new icon, and hiding its form releases keyboard focus.
+
 - 2026-09-28 · **Commit draft continuity.** Changes commit text now survives
   switching workspaces and opening the full Git view during the same app run.
   Drafts stay in memory, are isolated by runtime/workspace, and a completed

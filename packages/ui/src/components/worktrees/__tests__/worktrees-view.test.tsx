@@ -152,6 +152,25 @@ async function setNativeValue(field: HTMLInputElement, value: string): Promise<v
 }
 
 describe('WorktreesView live wiring (doc 06 §7 v1)', () => {
+  it('keeps an embedded create draft mounted when another rail surface is shown', async () => {
+    await render();
+    await flush();
+    await act(async () => { rootHandle!.render(<I18nProvider><WorktreesView projectRoot={ROOT} embedded visible /></I18nProvider>); });
+    await act(async () => (document.querySelector('[data-testid="worktrees-new"]') as HTMLButtonElement).click());
+    const branchInput = document.querySelector('[data-testid="worktree-branch-input"]') as HTMLInputElement;
+    await setNativeValue(branchInput, 'feat/keep');
+    branchInput.focus();
+    expect(document.activeElement).toBe(branchInput);
+    await act(async () => { rootHandle!.render(<I18nProvider><WorktreesView projectRoot={ROOT} embedded visible={false} /></I18nProvider>); });
+    const dialog = document.querySelector('[data-testid="worktree-create-dialog"]') as HTMLElement;
+    expect(dialog).not.toBeNull();
+    expect(dialog.parentElement?.hidden).toBe(true);
+    expect(document.activeElement).not.toBe(branchInput);
+    await act(async () => { rootHandle!.render(<I18nProvider><WorktreesView projectRoot={ROOT} embedded visible /></I18nProvider>); });
+    expect((document.querySelector('[data-testid="worktree-branch-input"]') as HTMLInputElement).value).toBe('feat/keep');
+    expect(document.querySelector('[data-testid="worktrees-close"]')).toBeNull();
+  });
+
   it('renders the topology with branch chips and removes only on linked entries', async () => {
     await render();
     await flush();

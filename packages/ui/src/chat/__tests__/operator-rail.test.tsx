@@ -5,6 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createDirectoryStore } from '../../sync/child-store.ts';
 import { OperatorRail } from '../operator-rail.tsx';
+import { I18nProvider } from '../../components/I18nProvider.tsx';
 import { useSessionViewStore } from '../../sync/view-store.ts';
 import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
 import * as runtimeSwitch from '../../lib/runtime-switch.ts';
@@ -33,6 +34,41 @@ afterEach(() => {
 });
 
 describe('OperatorRail', () => {
+  it('shows a newly added Worktrees pane for complete older layouts but honors a later hide', () => {
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    const key = 'nnd.operator-rail.panels:local:nnd.operator-rail.surface:D:/work';
+    const older = ['context', 'activity', 'changes', 'walkthrough', 'notes', 'browser', 'terminal'];
+    window.localStorage.setItem(key, JSON.stringify({ order: older, visible: older.filter((id) => id !== 'notes') }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('nav button[aria-label="Worktrees"]')).not.toBeNull();
+    expect(document.querySelector('nav button[aria-label="Notes"]')).toBeNull();
+    act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
+    act(() => (document.querySelector('input[aria-label="Show Worktrees"]') as HTMLInputElement).click());
+    expect(document.querySelector('nav button[aria-label="Worktrees"]')).toBeNull();
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/other" />));
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('nav button[aria-label="Worktrees"]')).toBeNull();
+  });
+
+  it('opens Worktrees beside chat and keeps the pane across rail surface switches', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({ worktrees: [] }), {
+      headers: { 'content-type': 'application/json' },
+    }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
+    await act(async () => { (document.querySelector('button[aria-label="Worktrees"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    const view = document.querySelector('[data-testid="worktrees-view"]') as HTMLElement;
+    expect(view).not.toBeNull();
+    expect(view.className).not.toContain('fixed inset-0');
+    await act(async () => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="worktrees-view"]')).toBe(view);
+    expect(view.parentElement?.className).toContain('hidden');
+    await act(async () => (document.querySelector('button[aria-label="Worktrees"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="worktrees-view"]')).toBe(view);
+  });
+
   it('maximizes an inspection surface without losing its selected pane or saved dock width', () => {
     vi.stubGlobal('innerWidth', 1280);
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
@@ -89,7 +125,7 @@ describe('OperatorRail', () => {
     expect(document.querySelector('nav button[aria-label="Context"]')).toBeNull();
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Activity');
     expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/work')).toBe('activity');
-    for (const label of ['Changes', 'Walkthrough', 'Notes', 'Browser', 'Terminal']) {
+    for (const label of ['Changes', 'Worktrees', 'Walkthrough', 'Notes', 'Browser', 'Terminal']) {
       act(() => (document.querySelector(`input[aria-label="Show ${label}"]`) as HTMLInputElement).click());
     }
     expect((document.querySelector('input[aria-label="Show Activity"]') as HTMLInputElement).disabled).toBe(true);
@@ -112,7 +148,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
     act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
-    expect([...document.querySelectorAll('section[aria-label="Customize operator panels"] input[type="checkbox"]')]).toHaveLength(7);
+    expect([...document.querySelectorAll('section[aria-label="Customize operator panels"] input[type="checkbox"]')]).toHaveLength(8);
     expect([...document.querySelectorAll('nav[aria-label="Operator surfaces"] button[aria-pressed]')].map((button) => button.getAttribute('aria-label'))).toEqual(['Activity']);
   });
 
