@@ -259,11 +259,28 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(document.querySelector('[role="status"]')?.textContent).not.toContain('no longer');
   });
 
-  it('stacks the commit form below changes in a narrow host', async () => {
+  it('keeps Changes, the selected diff, and commit controls in separate bounded scroll regions', async () => {
     await render(true);
     await settle();
     expect(document.querySelector('[data-testid="git-view"] > div')?.className).toContain('flex-col');
-    expect(document.querySelector('[data-testid="git-view"] aside')?.className).toContain('w-full');
+    const changes = document.querySelector('[data-testid="git-changes-scroll"]') as HTMLElement;
+    const review = document.querySelector('[data-testid="git-review-scroll"]') as HTMLElement;
+    const commit = document.querySelector('[data-testid="git-commit-dock"]') as HTMLElement;
+    const aside = document.querySelector('[data-testid="git-view"] aside') as HTMLElement;
+    expect(changes.className).toContain('overflow-y-auto');
+    expect(aside.className).toContain('max-h-[55%]');
+    expect(aside.className).toContain('overflow-hidden');
+    expect(review.className).toContain('overflow-y-auto');
+    expect(commit.className).toContain('shrink-0');
+    expect(review.parentElement).toBe(aside);
+    expect(commit.parentElement).toBe(aside);
+    await act(async () => {
+      (rowOf('work.ts', 'working').querySelector('[data-testid="git-file-name"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    await settle();
+    expect(review.querySelector('[data-testid="git-file-preview"]')).not.toBeNull();
+    expect(commit.querySelector('[data-testid="git-commit"]')).not.toBeNull();
   });
 
   it('renders grouped sections and stages/unstages through the optimistic queue with hints', async () => {

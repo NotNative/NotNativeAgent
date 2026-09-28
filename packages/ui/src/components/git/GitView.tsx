@@ -228,7 +228,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         </span>
       </header>
       <div className={`flex min-h-0 flex-1 gap-3 ${compact ? 'flex-col' : ''}`}>
-        <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto" data-testid="git-changes-scroll">
           <Section
             title="Staged"
             accent
@@ -267,17 +267,19 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
             {working.length === 0 ? <EmptyLine label="No changes" /> : null}
           </Section>
         </div>
-        <aside className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto ${compact ? 'w-full' : shownFile ? 'w-[min(45vw,520px)]' : 'w-72'}`}>
-          {reviewLoading && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-neutral-400">Checking current Changes…</p> : null}
-          {reviewErrorPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
-            Could not check current Changes for {reviewErrorPath}.
-          </p> : null}
-          {missingReviewPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
-            {missingReviewPath} is no longer in current Changes.
-          </p> : null}
-          {shownFile ? <GitFilePreview key={`${directory}\u0000${shownFile.path}\u0000${shownFile.staged}`} directory={directory}
-            path={shownFile.path} staged={shownFile.staged} revision={status} onClose={() => setSelectedFile(null)} /> : null}
-          <div className="rounded-lg border border-border/60 bg-card/40 p-3">
+        <aside className={`flex min-h-0 shrink-0 flex-col overflow-hidden ${compact ? 'max-h-[55%] w-full' : shownFile ? 'w-[min(45vw,520px)]' : 'w-72'}`}>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto" data-testid="git-review-scroll">
+            {reviewLoading && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-neutral-400">Checking current Changes…</p> : null}
+            {reviewErrorPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
+              Could not check current Changes for {reviewErrorPath}.
+            </p> : null}
+            {missingReviewPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
+              {missingReviewPath} is no longer in current Changes.
+            </p> : null}
+            {shownFile ? <GitFilePreview key={`${directory}\u0000${shownFile.path}\u0000${shownFile.staged}`} directory={directory}
+              path={shownFile.path} staged={shownFile.staged} revision={status} onClose={() => setSelectedFile(null)} /> : null}
+          </div>
+          <div className="mt-3 shrink-0 rounded-lg border border-border/60 bg-card/40 p-3" data-testid="git-commit-dock">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Commit</div>
             <textarea
               className="h-20 w-full rounded border border-border/50 bg-interactive-hover/30 p-2 text-xs text-foreground outline-none"
