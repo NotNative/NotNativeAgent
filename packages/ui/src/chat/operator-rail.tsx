@@ -240,7 +240,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             </div>;
           })}
         </section> : null}
-        {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
+        {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded expanded={maximized} /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} directory={directory} onReviewPath={(path) => {
           setReviewRequest({ directory, path, id: Date.now() });
           setSelection({ key: selectionKey, surface: 'changes' });

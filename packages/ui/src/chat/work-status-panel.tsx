@@ -18,7 +18,7 @@ import { resolveComposerModel } from './composer-model-config.ts';
 
 const PANEL_WIDTH = 300;
 
-export function WorkStatusPanel({ store, engine, embedded = false }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean }): ReactNode {
+export function WorkStatusPanel({ store, engine, embedded = false, expanded = false }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
   const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
@@ -38,6 +38,9 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const contextLimit = resolveContextLimit(snapshot.provider as never, (lastAssistant as { modelID?: string } | undefined)?.modelID);
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
+  // These are different measurements. An NNA estimate without a known limit
+  // must not borrow the percentage of a provider-reported assistant message.
+  const contextPercent = nnaContext ? nnaContext.percent : context.percent;
   const turnPhase = nnaTurnPhase(snapshot, sessionID);
   const turnLabel = turnPhase ? turnPhaseLabel(turnPhase) : null;
   const governance = nnaGovernanceSummary(snapshot, sessionID);
@@ -45,6 +48,14 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
   const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
   const selectedSession = snapshot.session.find((session) => session.id === sessionID);
+  const reportedTokens = (lastAssistant as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } | undefined)?.tokens;
+  const tokenFacts = [
+    reportedToken('Input', reportedTokens?.input),
+    reportedToken('Output', reportedTokens?.output),
+    reportedToken('Reasoning', reportedTokens?.reasoning),
+    reportedToken('Cache read', reportedTokens?.cache?.read),
+    reportedToken('Cache write', reportedTokens?.cache?.write),
+  ].filter((item): item is { label: string; value: string } => item !== null);
   const todos = configuredModel.nnaConfigured || work ? [] : todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
   const cost = sessionCostRollup(snapshot, sessionID);
@@ -138,9 +149,36 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   // not evidence that the selected session has a context projection.
   const hasSessionDetails = sections.some((section) => section.id !== 'project');
   return (
-    <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col gap-3 overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
+    <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
+      <div className={`${expanded ? 'mx-auto w-full max-w-4xl' : 'w-full'} flex flex-col gap-3`}>
+      {expanded && selectedSession ? <header className="px-1 py-3" data-testid="context-session-header">
+        <h2 className="truncate text-base font-medium text-neutral-200">{selectedSession.title}</h2>
+        {routeLabel ? <p className="mt-1 truncate text-xs text-neutral-500">{routeLabel}</p> : null}
+      </header> : null}
+      {expanded && (nnaContext || context.tokens || messages.length > 0) ? <section className="rounded-lg border border-white/10 bg-neutral-900/40 p-4" aria-label="Session usage" data-testid="context-usage-summary">
+        <h3 className="text-xs font-medium text-neutral-300">Session usage</h3>
+        {nnaContext || context.tokens ? <div className="mt-3">
+          <div className="flex justify-between gap-3 text-[11px] text-neutral-500"><span>Context</span><span>{nnaContext
+            ? `${nnaContext.estimatedTokens.toLocaleString()} estimated tokens${nnaContext.limitTokens ? ` / ${nnaContext.limitTokens.toLocaleString()} limit` : ' · limit unknown'}`
+            : `${context.tokens?.total?.toLocaleString() ?? 'Usage reported'} reported tokens${context.percent === null ? ' · limit unknown' : ` · ${context.percent.toFixed(1)}% of model limit`}`}</span></div>
+          {contextPercent !== null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, contextPercent))}>
+            <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, Math.max(0, contextPercent))}%` }} />
+          </div> : null}
+        </div> : null}
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {messages.length > 0 ? <UsageFact label="Loaded messages" value={messages.length.toLocaleString()} /> : null}
+          {messages.length > 0 ? <UsageFact label="Loaded user" value={messages.filter((message) => message.role === 'user').length.toLocaleString()} /> : null}
+          {messages.length > 0 ? <UsageFact label="Loaded assistant" value={messages.filter((message) => message.role === 'assistant').length.toLocaleString()} /> : null}
+          {cost > 0 ? <UsageFact label="Recorded cost" value={`$${cost.toFixed(2)}`} /> : null}
+        </div>
+        {tokenFacts.length > 0 ? <div className="mt-4 border-t border-white/10 pt-3" data-testid="context-last-assistant-usage">
+          <h4 className="mb-2 text-[11px] text-neutral-400">Last assistant message · reported tokens</h4>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{tokenFacts.map((fact) => <UsageFact key={fact.label} {...fact} />)}</div>
+        </div> : null}
+      </section> : null}
       {!hasSessionDetails ? <div className="text-[11px] text-neutral-500">NNA context details are not available for this session yet.</div> : null}
       {visibleSections.length === 0 && hasSessionDetails ? <div className="text-[11px] text-neutral-500">All sections hidden</div> : null}
+      <div className={`${expanded ? 'grid grid-cols-1 gap-3 md:grid-cols-2' : 'flex flex-col gap-3'}`}>
       {visibleSections.map((section) => (
         <section key={section.id} className="rounded-lg border border-white/10 bg-neutral-900/40 p-2" data-testid={`ws-${section.id}`}>
           <header className="mb-1 flex items-center justify-between">
@@ -150,9 +188,11 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
           <div className="flex flex-col gap-1">{section.rows.filter(Boolean).map((row, index) => <div key={index}>{row}</div>)}</div>
         </section>
       ))}
+      </div>
       {hidden.length > 0 ? (
         <footer><button type="button" className="text-[10px] text-neutral-600 underline" onClick={() => setHidden([])}>Restore sections</button></footer>
       ) : null}
+      </div>
     </aside>
   );
 
@@ -165,6 +205,14 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
       </div>
     );
   }
+}
+
+function reportedToken(label: string, count: unknown): { label: string; value: string } | null {
+  return Number.isSafeInteger(count) && (count as number) >= 0 ? { label, value: (count as number).toLocaleString() } : null;
+}
+
+function UsageFact({ label, value }: { label: string; value: string }): ReactNode {
+  return <div className="rounded-md bg-white/[0.03] px-3 py-2"><div className="text-[10px] text-neutral-500">{label}</div><div className="mt-1 text-xs text-neutral-200">{value}</div></div>;
 }
 
 function turnPhaseLabel(phase: string): string {

@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **GUI expanded Context overview.** The maximized Context
+  surface now centers its session summary and groups NNA-governed details in
+  readable cards. It distinguishes estimated NNA context from provider-reported
+  token use, labels message counts as loaded (because transcript history can
+  be paged), and shows only available last-assistant token fields. Adversarial
+  review prevented a mixed-source percentage from appearing beside an unknown
+  NNA context limit.
+
 - 2026-09-27 · **GUI operator-pane expansion.** The right-side Context,
   Activity, Changes, Notes, Browser, and Terminal surfaces can expand over the
   chat column for focused inspection and restore to their saved dock width.
