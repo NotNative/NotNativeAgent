@@ -19,10 +19,11 @@ import { contextMessageLedger, MAX_LEDGER_ROWS } from './context-message-ledger.
 
 const PANEL_WIDTH = 300;
 
-export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void }): ReactNode {
+export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent, sessionID: scopedSessionID }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void; sessionID?: string | null }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
-  const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
+  const selectedSessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
+  const sessionID = scopedSessionID === undefined ? selectedSessionID : scopedSessionID;
   const [hidden, setHidden] = useState<string[]>([]);
   const [committed, setCommitted] = useState<{ sessionID: string; stats: PanelStats } | null>(null);
   const committedForSession = committed?.sessionID === sessionID ? committed.stats : null;

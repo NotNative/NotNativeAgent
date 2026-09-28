@@ -237,6 +237,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
         </div> : null}
       </div>
       <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory}
+        displayedSessionID={shownRef.sessionID}
         compactOpen={compactSurfaceOpen} suppressed={focusMode}
         onCloseCompact={() => { returnToChatFocus.current = true; setCompactSurfaceOpen(false); }} />
       {timelineOpen && shownRef.sessionID ? (

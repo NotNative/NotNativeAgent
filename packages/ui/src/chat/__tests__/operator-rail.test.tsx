@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createDirectoryStore } from '../../sync/child-store.ts';
@@ -20,6 +20,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
+
+beforeEach(() => { useSessionViewStore.setState({ currentSessionId: null, activeDirectory: 'D:/work' }); });
 
 afterEach(() => {
   act(() => rootHandle?.unmount());
@@ -140,7 +142,7 @@ describe('OperatorRail', () => {
     const store = createDirectoryStore();
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Select a session');
-    act(() => useSessionViewStore.setState({ currentSessionId: 's1' }));
+    act(() => useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: 'D:/work' }));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('not available for this session');
     act(() => store.getState().patch({ vcs: { branch: 'main' } }));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Branchmain');
@@ -154,6 +156,47 @@ describe('OperatorRail', () => {
     expect(panel.textContent).toContain('Latest tool event');
     expect(panel.textContent).toContain('fs_edit_text: succeeded');
     expect(panel.textContent).not.toContain('Other tool');
+  });
+
+  it('does not show a new project session against the old column during a directory switch', () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => store.getState().patch({ activity: [
+      { id: 'old-tool', sessionID: 'old', time: 1, kind: 'tool', status: 'completed', summary: 'Old project tool' },
+    ] }));
+    act(() => useSessionViewStore.setState({ currentSessionId: 'old', activeDirectory: 'D:/work' }));
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Old project tool');
+    act(() => useSessionViewStore.setState({ currentSessionId: 'new', activeDirectory: 'D:/other' }));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Select a session');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Select a session');
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).not.toContain('Old project tool');
+    expect(document.querySelector('[data-testid="operator-activity"]')?.textContent).toContain('0 events');
+  });
+
+  it('keeps Context and Activity with the displayed column until a cold switch completes', () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const oldStore = createDirectoryStore({ activity: [
+      { id: 'old-tool', sessionID: 'old', time: 1, kind: 'tool', status: 'completed', summary: 'Old column tool' },
+    ] });
+    const newStore = createDirectoryStore({ activity: [
+      { id: 'new-tool', sessionID: 'new', time: 2, kind: 'tool', status: 'completed', summary: 'New column tool' },
+    ] });
+    act(() => useSessionViewStore.setState({ currentSessionId: 'old', activeDirectory: 'D:/work' }));
+    act(() => rootHandle!.render(<OperatorRail store={oldStore} engine={{} as never}
+      directory="D:/work" displayedSessionID="old" />));
+    act(() => useSessionViewStore.setState({ currentSessionId: 'new', activeDirectory: 'D:/other' }));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Old column tool');
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).not.toContain('New column tool');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Old column tool');
+    act(() => rootHandle!.render(<OperatorRail store={newStore} engine={{} as never}
+      directory="D:/other" displayedSessionID="new" />));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('New column tool');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('New column tool');
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).not.toContain('Old column tool');
   });
 
   it('reorders and hides panels per runtime and directory while keeping one available', () => {
@@ -1021,7 +1064,7 @@ describe('OperatorRail', () => {
   });
 
   it('does not offer an old workspace review path after the session changes workspace', () => {
-    useSessionViewStore.setState({ currentSessionId: 's1' });
+    useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: 'D:/new-work' });
     const store = createDirectoryStore({ activity: [
       { id: 'old-write', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'old file written',
         toolEvidence: { reviewPath: 'src/check.js', reviewDirectory: 'D:/old-work' } },

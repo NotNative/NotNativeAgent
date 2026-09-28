@@ -48,10 +48,13 @@ const DEFAULT_PANEL_PREFERENCES: PanelPreferences = {
   order: SURFACES.map((item) => item.id), visible: SURFACES.map((item) => item.id),
 };
 
-export function OperatorRail({ store, engine, directory, compactOpen = false, suppressed = false, onCloseCompact }: {
-  store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string; compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
+export function OperatorRail({ store, engine, directory, displayedSessionID, compactOpen = false, suppressed = false, onCloseCompact }: {
+  store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string; displayedSessionID?: string | null;
+  compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
 }): ReactNode {
-  const walkthroughSessionId = useSessionViewStore((state) => state.activeDirectory === directory ? state.currentSessionId : null);
+  // Keep the rail paired with the displayed chat during a cold switch.
+  const walkthroughSessionId = useSessionViewStore((state) => displayedSessionID !== undefined
+    ? displayedSessionID : state.activeDirectory === directory ? state.currentSessionId : null);
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
   const [docked, setDocked] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1100px)').matches ?? false));
   const [maximized, setMaximized] = useState(false);
@@ -273,14 +276,14 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             </div>;
           })}
         </section> : null}
-        {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded expanded={maximized} onOpenSubagent={(sessionID) => {
+        {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded expanded={maximized} sessionID={walkthroughSessionId} onOpenSubagent={(sessionID) => {
           // The child came from this directory's live session projection.
           // Selecting it opens the read-only transcript; NNA alone grants steer.
           persistLastActiveSession(sessionID, directory);
           useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
           if (compactOpen) onCloseCompact?.();
         }} /> : null}
-        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} expanded={maximized && docked && !compactOpen} onReviewPath={(path) => {
+        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} sessionID={walkthroughSessionId} expanded={maximized && docked && !compactOpen} onReviewPath={(path) => {
           setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
@@ -387,35 +390,32 @@ function surfaceStorageKey(directory: string): string {
   return `nnd.operator-rail.surface:${normalized}`;
 }
 
-function ActivitySurface({ store, directory, expanded, onReviewPath }: {
-  store: StoreApi<DirectoryStore>; directory: string; expanded: boolean; onReviewPath: (path: string) => void;
+function ActivitySurface({ store, directory, sessionID, expanded, onReviewPath }: {
+  store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; expanded: boolean; onReviewPath: (path: string) => void;
 }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
-  const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const nnaSource = isNnaActivitySource(store);
-  const historyKey = `${directory}\u0000${view.currentSessionId ?? ''}`;
+  const historyKey = `${directory}\u0000${sessionID ?? ''}`;
   const [history, setHistory] = useState<{ key: string; status: 'loading' | 'ready' | 'unavailable' } | null>(null);
   const [refreshRevision, setRefreshRevision] = useState(0);
-  const historyStatus = !view.currentSessionId || !nnaSource ? 'ready' : history?.key === historyKey ? history.status : 'loading';
+  const historyStatus = !sessionID || !nnaSource ? 'ready' : history?.key === historyKey ? history.status : 'loading';
   useEffect(() => {
-    const sessionID = view.currentSessionId;
     if (!nnaSource || !sessionID) return;
     let current = true;
     setHistory({ key: historyKey, status: 'loading' });
     void refreshActivitySnapshot(store, directory, sessionID, () => current)
       .then((available) => { if (current) setHistory({ key: historyKey, status: available ? 'ready' : 'unavailable' }); });
     return () => { current = false; };
-  }, [directory, historyKey, nnaSource, refreshRevision, store, view.currentSessionId]);
+  }, [directory, historyKey, nnaSource, refreshRevision, store, sessionID]);
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [unseen, setUnseen] = useState(0);
   const viewport = useRef<HTMLOListElement>(null);
   const following = useRef(true);
   const previous = useRef({ key: '', ids: new Set<string>() });
-  // Preserve the harness's arrival order. The source merges corrections in
-  // place, so a redaction does not masquerade as a newly emitted row.
-  const records = useMemo(() => filterActivityRecords(snapshot.activity, view.currentSessionId, filter),
-  [snapshot.activity, view.currentSessionId, filter]);
-  const key = `${view.currentSessionId ?? ''}\u0000${filter}`;
+  // Preserve authored order; in-place corrections are not new activity.
+  const records = useMemo(() => filterActivityRecords(snapshot.activity, sessionID, filter),
+  [snapshot.activity, sessionID, filter]);
+  const key = `${sessionID ?? ''}\u0000${filter}`;
   useEffect(() => {
     const viewportNode = viewport.current;
     if (previous.current.key !== key) {
@@ -456,7 +456,7 @@ function ActivitySurface({ store, directory, expanded, onReviewPath }: {
         following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
         if (following.current) setUnseen(0);
       }}>
-      {records.length === 0 ? <li className={`${expanded ? 'mx-auto w-full max-w-5xl' : ''} text-[11px] text-neutral-500`}>{!view.currentSessionId ? 'Select a session to watch its activity.'
+      {records.length === 0 ? <li className={`${expanded ? 'mx-auto w-full max-w-5xl' : ''} text-[11px] text-neutral-500`}>{!sessionID ? 'Select a session to watch its activity.'
         : historyStatus === 'loading' ? 'Loading saved activity…'
         : historyStatus === 'unavailable' ? 'Saved activity could not be loaded. Live events will still appear here.'
         : filter === 'all' ? 'No recorded activity for this session yet. Conversation messages remain in the transcript.'
