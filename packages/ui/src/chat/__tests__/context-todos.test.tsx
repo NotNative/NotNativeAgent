@@ -9,7 +9,7 @@ vi.mock('../../lib/project-context-api.ts', async (importOriginal) => ({
   getProjectContext: vi.fn(), replaceProjectTodos: vi.fn(),
 }));
 import { getProjectContext, ProjectContextRequestError, replaceProjectTodos } from '../../lib/project-context-api.ts';
-import { ContextTodos } from '../context-todos.tsx';
+import { ContextTodos, movedTodo } from '../context-todos.tsx';
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -39,6 +39,22 @@ async function click(label: string): Promise<void> {
 }
 
 describe('project context todos panel', () => {
+  it('reorders the complete saved list and disables moves while filtered', async () => {
+    const first = { id: 'one', text: 'Alpha task', completed: false, createdAt: 1 };
+    const second = { id: 'two', text: 'Beta task', completed: false, createdAt: 2 };
+    const third = { id: 'three', text: 'Gamma task', completed: false, createdAt: 3 };
+    vi.mocked(getProjectContext).mockResolvedValue({ ...empty, todos: [first, second, third] });
+    vi.mocked(replaceProjectTodos).mockResolvedValue({ ...empty, todos: [second, first, third] });
+    const view = await render();
+    expect((view.querySelector('[aria-label="Move Alpha task up"]') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { (view.querySelector('[aria-label="Move Alpha task down"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(replaceProjectTodos).toHaveBeenCalledWith('project1', [second, first, third], revision);
+    const labels = view.querySelector('ol')!.textContent!;
+    expect(labels.indexOf('Beta task')).toBeLessThan(labels.indexOf('Alpha task'));
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible query="task" />); });
+    expect((view.querySelector('[aria-label="Move Beta task down"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(movedTodo([first, second], 'missing', 1)).toEqual([first, second]);
+  });
   it('filters displayed todos but commits against the complete list', async () => {
     const first = { id: 'one', text: 'Alpha task', completed: false, createdAt: 1 };
     const second = { id: 'two', text: 'Beta task', completed: false, createdAt: 2 };

@@ -11,6 +11,15 @@ export function usableTodo(value: unknown): value is ProjectTodo {
     && typeof todo.completed === 'boolean' && Number.isSafeInteger(todo.createdAt) && todo.createdAt >= 0;
 }
 
+export function movedTodo(todos: ProjectTodo[], id: string, direction: -1 | 1): ProjectTodo[] {
+  const index = todos.findIndex((todo) => todo.id === id);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= todos.length) return todos;
+  const reordered = [...todos];
+  [reordered[index], reordered[nextIndex]] = [reordered[nextIndex]!, reordered[index]!];
+  return reordered;
+}
+
 export function ContextTodos({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange, onAddToChat, onAddToNewChat }: {
   projectId: string; visible: boolean; query?: string; refreshToken?: number; retainedDraft?: string; onDraftChange?: (projectId: string, draft: string) => void;
   onAddToChat?: (text: string) => boolean; onAddToNewChat?: (text: string) => void;
@@ -90,11 +99,16 @@ function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit, onAddT
       onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-neutral-900/40 px-2 text-xs" />
     <button type="button" disabled={busy || !draft.trim()} onClick={add} className="text-xs">Add todo</button></div>
     {needle && !visibleTodos.length ? <p className="text-xs text-neutral-500">No matching todos.</p> : null}
+    {needle && visibleTodos.length > 1 ? <p className="text-[10px] text-neutral-500">Clear search to reorder todos.</p> : null}
     <ol className="min-h-0 overflow-y-auto">{visibleTodos.map((todo) => <li key={todo.id} className="border-b border-white/5 py-1.5 text-xs">
       <div className="flex items-start gap-2"><input aria-label={`Complete ${todo.text}`} type="checkbox" disabled={busy} checked={todo.completed}
         onChange={() => { void commit(todos.map((item) => item.id === todo.id ? { ...item, completed: !item.completed } : item)); }} />
       <span className={`min-w-0 flex-1 break-words ${todo.completed ? 'text-neutral-500 line-through' : ''}`}>{todo.text}</span></div>
       <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 pt-1">
+        <button type="button" disabled={busy || !!needle || todos[0]?.id === todo.id} aria-label={`Move ${todo.text} up`}
+          title={needle ? 'Clear search to reorder' : 'Move up'} onClick={() => { void commit(movedTodo(todos, todo.id, -1)); }}>↑</button>
+        <button type="button" disabled={busy || !!needle || todos.at(-1)?.id === todo.id} aria-label={`Move ${todo.text} down`}
+          title={needle ? 'Clear search to reorder' : 'Move down'} onClick={() => { void commit(movedTodo(todos, todo.id, 1)); }}>↓</button>
         {onAddToChat ? <button type="button" aria-label={`Add ${todo.text} to chat`} onClick={() => {
           setHandoffError(!onAddToChat(todo.text));
         }} className="text-sky-300 hover:underline">Add to chat</button> : null}
