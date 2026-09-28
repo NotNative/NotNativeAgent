@@ -11,7 +11,7 @@ import { AUTO_SAVE_DELAY, LARGE_FILE_CHAR_THRESHOLD, MAX_CONTENT_POLL_BYTES, STA
   serializeEditorContent } from '../../lib/files/edit-support.ts';
 import { effectiveSelectedPath, useFilesViewTabsStore } from '../../lib/files/tabs-store.ts';
 import { forgetDraftLease, inspectDraftLeaseOnDisk, readDraftLease, rememberDraftLease, type DraftStat } from '../../lib/files/draft-leases.ts';
-import { createDirectory, deleteEntry, readFileStat, readFileText, renameEntry, writeFileText } from '../../lib/files/api.ts';
+import { createDirectory, deleteEntry, FileWriteConflictError, readFileStat, readFileText, renameEntry, writeFileText } from '../../lib/files/api.ts';
 import { getRuntimeKey } from '../../lib/runtime-switch.ts';
 import { useKeybind } from '../../lib/shortcuts/hooks.ts';
 import { effectiveShortcutCombo } from '../../lib/shortcuts/schema.ts';
@@ -24,7 +24,6 @@ import { RecoveredDraftNotice } from './RecoveredDraftNotice.tsx';
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
 type Recovery = { path: string; stat: DraftStat | null; autoSaveEnabled: boolean; safety: 'verified' | 'changed' | 'unknown' };
-
 export function FilesView({ directory, visible, mode = 'full' }: { directory: string; visible: boolean; mode?: 'full' | 'editor-only' }): ReactNode {
   const { t } = useI18n();
   const runtimeKey = getRuntimeKey();
@@ -36,7 +35,6 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     [storeSelected, openPaths],
   );
   const treeEnabled = mode === 'full';
-
   const [paneKind, setPaneKind] = useState<PaneKind>('text');
   const [draft, setDraft] = useState('');
   const [baseline, setBaseline] = useState('');
@@ -59,10 +57,9 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
   const loadIdRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const goToLineRestoreRef = useRef(0);
+  const saveInFlightRef = useRef(false);
 
   const isDirty = draft !== baseline;
-
-  // §3.3 load pipeline (text v1 + image/binary gating).
   const loadFile = useCallback(async (path: string, discardLease = false): Promise<void> => {
     const loadId = ++loadIdRef.current;
     const previousPath = loadedRef.current;
@@ -145,9 +142,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       setFileError(error instanceof Error ? error.message : String(error));
     }
   }, [directory, runtimeKey]);
-
-  // Save dirty text to this app session before navigation unmounts FilesView.
-  // A recovered draft stays manual-save until the operator reviews it.
+  // Keep dirty drafts through unmount; recovery stays manual-save until reviewed.
   useEffect(() => {
     const scope = loadedScopeRef.current;
     if (scope === null || paneKind !== 'text' || fileLoading) return;
@@ -156,11 +151,8 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       autoSaveEnabled: recovery?.autoSaveEnabled ?? autoSaveEnabled,
     });
   }, [draft, baseline, lineEnding, paneKind, fileLoading, autoSaveEnabled, recovery]);
-
   const [viewMode, setViewMode] = useState<'view' | 'edit'>('edit');
-
-  // §10.2 v1: comment rail rides the edit textarea (source 'file'); the
-  // gutter-drag contract lands with the E20 CodeMirror swap.
+  // §10.2: comment rail rides the textarea until the E20 CodeMirror swap.
   const comments = useInlineCommentController({
     directory,
     sessionKey: useActiveSessionKey(),
@@ -177,7 +169,6 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     if (start >= end || end > draft.length) return null;
     return { start, end };
   }, [viewMode, draft]);
-
   // Selection change → load (§3.3 step 1); pending guard waits (§2.7).
   useEffect(() => {
     if (!visible || selectedPath === null) return undefined;
@@ -187,9 +178,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     void loadFile(selectedPath);
     return undefined;
   }, [selectedPath, visible, loadFile, runtimeKey, directory]);
-
-  // §2.6 stale-tab prune on mount: stat every open path; missing or
-  // non-file removals drop the tabs.
+  // §2.6: prune missing or non-file tabs on mount.
   useEffect(() => {
     void (async () => {
       for (const path of openPaths) {
@@ -203,11 +192,8 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directory, visible]);
-
-  // §3.5 stat poll every 2,000 ms for the visible selected text file.
-  // §3.5 ordering: stat baseline updates ONLY after a successful observed
-  // read; dirty → wait (statRef untouched); >200k/binary dirty-content
-  // clears loadedFilePath to force a full pipeline reload (§3.5.6/7).
+  // §3.5: poll visible text; advance stat only after read; dirty edits wait.
+  // Large/binary changes force the full load pipeline (§3.5.6/7).
   useEffect(() => {
     if (!visible || selectedPath === null || paneKind !== 'text' || fileLoading) return undefined;
     const poll = window.setInterval(() => {
@@ -240,13 +226,15 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     }, STAT_POLL_INTERVAL_MS);
     return () => window.clearInterval(poll);
   }, [visible, selectedPath, paneKind, fileLoading, isDirty, baseline, directory]);
-
-  // §3.7 save gates + write; O_TRUNC race guard.
   const saveDraft = useCallback(async (overwriteChangedFile = false): Promise<boolean> => {
+    if (saveInFlightRef.current) return false;
     const path = loadedRef.current;
     if (path === null || paneKind !== 'text' || binaryDetected || fileLoading) return false;
     const scope = loadedScopeRef.current;
     if (scope === null || scope.runtime !== runtimeKey || scope.root !== directory || scope.path !== path) return false;
+    const saveLoadId = loadIdRef.current;
+    const sameView = (): boolean => loadIdRef.current === saveLoadId
+      && loadedScopeRef.current?.runtime === runtimeKey && loadedScopeRef.current.root === directory && loadedScopeRef.current.path === path;
     if (draft === baseline) return true; // clean draft = ok no-op (§3.7.5)
     if (draft.length === 0 && baseline.length !== 0) {
       console.warn?.('[files] refused O_TRUNC-shaped save', path);
@@ -255,34 +243,49 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     const recovered = recovery?.path === path ? recovery : null;
     if (recovered !== null && !overwriteChangedFile) {
       const safety = await inspectDraftLeaseOnDisk(directory, path, { ...recovered, draft, baseline, lineEnding });
+      if (!sameView()) return false;
       if (safety !== 'verified') {
         setRecovery({ ...recovered, safety });
         return false;
       }
     }
+    if (saveInFlightRef.current || !sameView()) return false;
+    saveInFlightRef.current = true;
     setSaveStatus('saving');
     try {
-      await writeFileText(directory, path, serializeEditorContent(draft, lineEnding));
-      setBaseline(draft);
+      await writeFileText(directory, path, serializeEditorContent(draft, lineEnding),
+        overwriteChangedFile ? undefined : serializeEditorContent(baseline, lineEnding));
       forgetDraftLease(runtimeKey, directory, path, draft);
-      const stat = await readFileStat(directory, path);
-      if (stat !== null && stat.isFile) statRef.current = { size: stat.size, mtimeMs: stat.mtimeMs ?? null };
-      if (recovered !== null) {
-        setRecovery(null);
-        setAutoSaveEnabled(recovered.autoSaveEnabled);
+      const stat = await readFileStat(directory, path).catch(() => null);
+      if (sameView()) {
+        setBaseline(draft);
+        if (stat !== null && stat.isFile) statRef.current = { size: stat.size, mtimeMs: stat.mtimeMs ?? null };
+        if (recovered !== null) {
+          setRecovery(null);
+          setAutoSaveEnabled(recovered.autoSaveEnabled);
+        }
+        setSaveStatus('saved');
+        window.setTimeout(() => setSaveStatus('idle'), SAVE_STATUS_LINGER_MS);
       }
-      setSaveStatus('saved');
       publishWorkspaceHint(directory, [path], 'file-save');
-      window.setTimeout(() => setSaveStatus('idle'), SAVE_STATUS_LINGER_MS);
-      return true;
-    } catch {
+      return sameView();
+    } catch (error) {
+      if (error instanceof FileWriteConflictError) {
+        if (sameView()) {
+          setRecovery({ path, stat: statRef.current, autoSaveEnabled: recovery?.autoSaveEnabled ?? autoSaveEnabled, safety: error.safety });
+          setAutoSaveEnabled(false);
+          setSaveStatus('idle');
+        }
+        return false;
+      }
       toast.error(t('common.error'));
-      setSaveStatus('idle');
+      if (sameView()) setSaveStatus('idle');
       return false;
+    } finally {
+      saveInFlightRef.current = false;
     }
-  }, [paneKind, binaryDetected, fileLoading, draft, baseline, lineEnding, directory, runtimeKey, recovery, t]);
+  }, [paneKind, binaryDetected, fileLoading, draft, baseline, lineEnding, directory, runtimeKey, recovery, autoSaveEnabled, t]);
 
-  // §3.7 steps 3–4: 1,500 ms autosave when the schedule gate holds.
   useEffect(() => {
     const gate = autoSaveEnabled && isDirty && paneKind === 'text' && !fileLoading && !binaryDetected && loadedRef.current === selectedPath;
     if (!gate) return undefined;
@@ -292,9 +295,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     return () => window.clearTimeout(timer);
   }, [autoSaveEnabled, isDirty, paneKind, fileLoading, binaryDetected, selectedPath, draft, saveDraft]);
 
-  // Appendix B: save_file through the registry contract — the handler
-  // matches the FULL effective chord (rebind-aware, modifiers included) and
-  // fires only when the event target sits inside the editor wrapper (§3.2).
+  // Appendix B: rebind-aware save shortcut is scoped to the editor (§3.2).
   useEffect(() => {
     const onKeydown = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null;
@@ -353,6 +354,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
   }
 
   function resolveGuard(kind: 'save' | 'discard'): void {
+    if (saveInFlightRef.current && kind === 'discard') return;
     const pending = guard;
     setGuard(null);
     const jumpTo = pending?.next ?? null;

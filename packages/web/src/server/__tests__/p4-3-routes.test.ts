@@ -6,7 +6,7 @@
  * 500 strings, exists:false cold path). Same isolated-data-dir pattern as
  * p4-2-routes.test.ts.
  */
-import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -42,6 +42,47 @@ afterAll(() => {
 });
 
 describe('fs write family (§5.14 core)', () => {
+  it('rejects a guarded editor write after another writer changes the file', async () => {
+    const path = `/api/fs/write?directory=${encodeURIComponent(sandbox)}`;
+    writeFileSync(`${sandbox}${sep}file.txt`, 'external edit\n');
+    const stale = await call(path, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'file.txt', content: 'my edit\n', expectedContent: 'v1\n' }) });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toMatchObject({ reason: 'content-conflict' });
+    expect(readFileSync(`${sandbox}${sep}file.txt`, 'utf8')).toBe('external edit\n');
+    const safe = await call(path, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'file.txt', content: 'my edit\n', expectedContent: 'external edit\n' }) });
+    expect(safe.status).toBe(200);
+    expect(readFileSync(`${sandbox}${sep}file.txt`, 'utf8')).toBe('my edit\n');
+  });
+
+  it('preserves deleted and directory-replaced files as guarded conflicts and removes temporary files', async () => {
+    const path = `/api/fs/write?directory=${encodeURIComponent(sandbox)}`;
+    const guarded = (content: string): Promise<Response> => call(path, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'file.txt', content, expectedContent: 'v1\n' }) });
+    rmSync(`${sandbox}${sep}file.txt`);
+    const deleted = await guarded('my edit\n');
+    expect(deleted.status).toBe(409);
+    expect(await deleted.json()).toMatchObject({ reason: 'content-conflict', safety: 'changed' });
+    expect(existsSync(`${sandbox}${sep}file.txt`)).toBe(false);
+    mkdirSync(`${sandbox}${sep}file.txt`);
+    const directory = await guarded('my edit\n');
+    expect(directory.status).toBe(409);
+    expect(await directory.json()).toMatchObject({ reason: 'content-conflict', safety: 'changed' });
+    expect(readdirSync(sandbox).filter((name) => name.startsWith('file.txt.tmp-'))).toEqual([]);
+    rmSync(`${sandbox}${sep}file.txt`, { recursive: true });
+  });
+
+  it('serializes competing guarded writes so only the first baseline match wins', async () => {
+    const path = `/api/fs/write?directory=${encodeURIComponent(sandbox)}`;
+    const guarded = (content: string): Promise<Response> => call(path, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'file.txt', content, expectedContent: 'v1\n' }) });
+    const [first, second] = await Promise.all([guarded('first\n'), guarded('second\n')]);
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+    expect(['first\n', 'second\n']).toContain(readFileSync(`${sandbox}${sep}file.txt`, 'utf8'));
+    expect(readdirSync(sandbox).filter((name) => name.startsWith('file.txt.tmp-'))).toEqual([]);
+  });
+
   it('write creates the file atomically; traversal rejected', async () => {
     const ok = await call(`/api/fs/write?directory=${encodeURIComponent(sandbox)}`, {
       method: 'POST',

@@ -6,7 +6,8 @@
  * is rm -rf semantics with scope-root refusal, 404 on missing targets.
  */
 import { existsSync, mkdirSync, renameSync, rmSync, readFileSync, statSync } from 'node:fs';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { open, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { Hono, Context } from 'hono';
 import { resolveWithin, realpath } from './fs.ts';
@@ -20,7 +21,7 @@ function containedReal(scopeDir: string, target: string): boolean {
 }
 
 interface PathBody { path?: string; allowOutsideWorkspace?: boolean }
-interface ContentBody { path?: string; content?: string }
+interface ContentBody { path?: string; content?: string; expectedContent?: string }
 interface RenameBody { oldPath?: string; newPath?: string }
 
 async function pickBody<T extends object>(c: Context): Promise<T | null> {
@@ -61,6 +62,13 @@ function fsFailed(error: unknown): Response {
   return Response.json({ error: 'fs operation failed' }, { status: 500 });
 }
 
+function contentConflict(safety: 'changed' | 'unknown'): Response {
+  return Response.json({
+    error: safety === 'changed' ? 'File changed since it was opened' : 'File could not be verified before saving',
+    reason: 'content-conflict', safety,
+  }, { status: 409 });
+}
+
 export function registerFsWriteRoutes(app: Hono): void {
   app.post('/api/fs/mkdir', (c) => mkdirHandler(c));
   app.post('/api/fs/write', (c) => writeHandler(c));
@@ -96,26 +104,56 @@ async function writeHandler(c: Context): Promise<Response> {
   if (body.content.length > WRITE_MAX_BYTES) {
     return Response.json({ error: `Content exceeds maximum size of ${WRITE_MAX_BYTES} bytes` }, { status: 413 });
   }
+  if (body.expectedContent !== undefined && (typeof body.expectedContent !== 'string' || body.expectedContent.length > WRITE_MAX_BYTES)) {
+    return Response.json({ error: 'Invalid expected content' }, { status: 400 });
+  }
   const context = requireContext(c);
   if (!context.ok) return context.response;
   const target = resolveWithin(context.scopeDir, body.path);
   if (!target) return denied();
   if (!containedReal(context.scopeDir, dirname(target))) return denied();
-  if (existsSync(target) && statSync(target).isDirectory()) {
-    return Response.json({ error: 'Path is a directory' }, { status: 400 });
+  try {
+    if (existsSync(target) && statSync(target).isDirectory()) {
+      return body.expectedContent === undefined
+        ? Response.json({ error: 'Path is a directory' }, { status: 400 }) : contentConflict('changed');
+    }
+  } catch (error) {
+    return body.expectedContent === undefined ? fsFailed(error) : contentConflict('unknown');
   }
-  if (isContentNoOp(target, body.content)) {
+  if (body.expectedContent === undefined && isContentNoOp(target, body.content)) {
     return Response.json({ success: true, path: target, unchanged: true });
   }
+  let tmp: string | null = null;
   try {
     await mkdir(resolve(target, '..'), { recursive: true });
-    // §5.14: atomic tmp+rename (content-no-op already returned above)
-    const tmp = `${target}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(tmp, body.content, 'utf8');
+    // Compare after the only async gap. The compare and rename are synchronous
+    // in this server process, so competing NND writes cannot slip between them.
+    const tmpPath = `${target}.tmp-${process.pid}-${randomUUID()}`;
+    const handle = await open(tmpPath, 'wx');
+    tmp = tmpPath;
+    try { await handle.writeFile(body.content, 'utf8'); }
+    finally { await handle.close(); }
+    if (body.expectedContent !== undefined) {
+      let actual: Buffer;
+      try {
+        if (!statSync(target).isFile()) return contentConflict('changed');
+        actual = readFileSync(target);
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        return contentConflict(code === 'ENOENT' || code === 'ENOTDIR' || code === 'EISDIR' ? 'changed' : 'unknown');
+      }
+      if (!actual.equals(Buffer.from(body.expectedContent, 'utf8'))) return contentConflict('changed');
+      if (isContentNoOp(target, body.content)) {
+        return Response.json({ success: true, path: target, unchanged: true });
+      }
+    }
     renameSync(tmp, target);
+    tmp = null;
     return Response.json({ success: true, path: target });
   } catch (error) {
     return fsFailed(error);
+  } finally {
+    if (tmp !== null) { try { rmSync(tmp, { force: true }); } catch { /* preserve primary result */ } }
   }
 }
 

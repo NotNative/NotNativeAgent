@@ -160,8 +160,75 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
     expect(writeCall, `saw ${JSON.stringify(calls)}`).toBeDefined();
     const writeIndex = calls.findIndex((url) => url.includes('/api/fs/write'));
     const init = fetchMock.mock.calls[writeIndex]![1] as RequestInit;
-    expect(JSON.parse(init.body as string)).toEqual({ path: `${DIR}/a.ts`, content: 'hello world\n' });
+    expect(JSON.parse(init.body as string)).toEqual({ path: `${DIR}/a.ts`, content: 'hello world\n', expectedContent: 'hello\n' });
     expect(document.body.textContent).toContain('Saved');
+  });
+
+  it('keeps a normal draft and pauses autosave after a server content conflict', async () => {
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/write')
+      ? new Response(JSON.stringify({ error: 'File changed since it was opened', reason: 'content-conflict' }), { status: 409 })
+      : route(String(input)));
+    await render();
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => { setter.call(textarea, 'my edit\n'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('my edit\n');
+    expect(document.querySelector('[data-testid="files-recovered-draft"]')?.textContent).toContain('changed on disk');
+    expect(document.body.textContent).toContain('Manual save');
+    expect(readDraftLease(getRuntimeKey(), DIR, `${DIR}/a.ts`)?.draft).toBe('my edit\n');
+  });
+
+  it('reports an unverifiable guarded write without retrying autosave', async () => {
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/write')
+      ? new Response(JSON.stringify({ error: 'File could not be verified before saving', reason: 'content-conflict', safety: 'unknown' }), { status: 409 })
+      : route(String(input)));
+    await render();
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => { setter.call(textarea, 'my edit\n'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="files-recovered-draft"]')?.textContent).toContain('could not be verified');
+    expect(document.body.textContent).toContain('Manual save');
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('my edit\n');
+  });
+
+  it('does not start overlapping editor saves against one baseline', async () => {
+    let finishWrite: ((response: Response) => void) | null = null;
+    const writesBefore = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/fs/write')).length;
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/write')
+      ? await new Promise<Response>((resolve) => { finishWrite = resolve; })
+      : route(String(input)));
+    await render();
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => { setter.call(textarea, 'first edit\n'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(finishWrite).not.toBeNull();
+    await act(async () => { setter.call(textarea, 'second edit\n'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/fs/write'))).toHaveLength(writesBefore + 1);
+    await act(async () => { finishWrite!(jsonResponse({ success: true })); await Promise.resolve(); });
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('second edit\n');
+    expect(document.body.textContent).toContain('Unsaved');
+  });
+
+  it('does not apply an old save completion to a newly selected file', async () => {
+    let finishWrite: ((response: Response) => void) | null = null;
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/write')
+      ? await new Promise<Response>((resolve) => { finishWrite = resolve; })
+      : route(String(input)));
+    await render();
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => { setter.call(textarea, 'first edit\n'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(finishWrite).not.toBeNull();
+    await act(async () => { useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/b.ts`, 'local'); await Promise.resolve(); });
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('hello\n');
+    await act(async () => { finishWrite!(jsonResponse({ success: true })); await Promise.resolve(); });
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('hello\n');
+    expect(document.body.textContent).not.toContain('Unsaved');
   });
 
   it('restores a draft after Files unmounts and pauses its pending auto-save', async () => {

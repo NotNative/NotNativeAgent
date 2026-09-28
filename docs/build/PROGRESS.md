@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Guarded Files saves.** The editor now sends its original file
+  content as a write precondition. The server compares it immediately before
+  replacement and returns a typed conflict if another writer changed, removed,
+  or made the target unverifiable; the UI keeps the draft, pauses auto-save,
+  and requires review before an explicit overwrite. The adversarial audit
+  also prevented overlapping saves, temporary-file collisions, and stale
+  save completions from modifying a newly selected file. The compare/rename
+  boundary is synchronous within NND, but cannot exclude an unrelated OS
+  process writing at that exact instant.
+
 - 2026-09-28 · **Runtime switch subscriber reset.** Switching NNA endpoints now
   notifies the registered session engine, auth gate, settings, and theme
   consumers after the new endpoint is active and before the DOM view-change

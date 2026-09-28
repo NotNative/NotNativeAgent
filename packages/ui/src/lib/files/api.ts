@@ -31,6 +31,10 @@ export class FileReadError extends Error {
   constructor(message: string, readonly status: number, readonly reason?: string) { super(message); this.name = 'FileReadError'; }
 }
 
+export class FileWriteConflictError extends Error {
+  constructor(message: string, readonly safety: 'changed' | 'unknown' = 'changed') { super(message); this.name = 'FileWriteConflictError'; }
+}
+
 export async function readFileStat(directory: string, path: string, optional = false): Promise<FileStat | null> {
   const optionalFlag = optional ? '&optional=true' : '';
   const response = await runtimeFetch(`/api/fs/stat?directory=${encodeURIComponent(directory)}&path=${encodeURIComponent(path)}${optionalFlag}`);
@@ -49,13 +53,19 @@ export async function readFileText(directory: string, path: string, fresh = fals
   return await response.text();
 }
 
-export async function writeFileText(directory: string, path: string, content: string): Promise<void> {
+export async function writeFileText(directory: string, path: string, content: string, expectedContent?: string): Promise<void> {
   const response = await runtimeFetch(`/api/fs/write?directory=${encodeURIComponent(directory)}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ path, content }),
+    body: JSON.stringify({ path, content, ...(expectedContent === undefined ? {} : { expectedContent }) }),
   });
-  if (!response.ok) throw new Error(await readError(response) ?? 'Failed to write file');
+  if (!response.ok) {
+    const detail = await readErrorDetails(response);
+    if (response.status === 409 && detail.reason === 'content-conflict') {
+      throw new FileWriteConflictError(detail.error ?? 'File changed since it was opened', detail.safety === 'unknown' ? 'unknown' : 'changed');
+    }
+    throw new Error(detail.error ?? 'Failed to write file');
+  }
 }
 
 /** Binary asset URL for <img>/download (P6-1 web slice: same-origin asset). */
@@ -95,10 +105,12 @@ async function readError(response: Response): Promise<string | null> {
   return (await readErrorDetails(response)).error;
 }
 
-async function readErrorDetails(response: Response): Promise<{ error: string | null; reason?: string }> {
+async function readErrorDetails(response: Response): Promise<{ error: string | null; reason?: string; safety?: string }> {
   try {
-    const body = await response.clone().json() as { error?: string; reason?: string };
-    return { error: typeof body.error === 'string' ? body.error : null, reason: typeof body.reason === 'string' ? body.reason : undefined };
+    const body = await response.clone().json() as { error?: string; reason?: string; safety?: string };
+    return { error: typeof body.error === 'string' ? body.error : null,
+      reason: typeof body.reason === 'string' ? body.reason : undefined,
+      safety: typeof body.safety === 'string' ? body.safety : undefined };
   } catch {
     return { error: null };
   }
