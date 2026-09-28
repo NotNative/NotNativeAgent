@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Context-to-subagent handoff.** Each NNA-projected child in
+  the Context pane now opens its own transcript directly, without leaving the
+  active workspace. This uses the same session pointer as the navigator; the
+  child transcript's steer control still requires NNA authorization. Adversarial
+  review caught compact layouts retaining the foreground Context pane; the
+  handoff now returns to chat there so the transcript is actually visible.
+
 - 2026-09-28 · **Session pins.** The sidebar can pin/unpin a session with a
   visible marker; runtime/workspace-scoped pins persist locally and remain
   reachable beyond the 50-recent-session cap without disrupting lifecycle

@@ -25,6 +25,7 @@ import { resolveContextProjectId } from './operator-context-project.ts';
 import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
 import { maxRailWidth } from './operator-rail-width.ts';
 import { useOperatorRailWidth } from './use-operator-rail-width.ts';
+import { persistLastActiveSession } from '../sync/persist-cache.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'files' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
@@ -270,7 +271,13 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             </div>;
           })}
         </section> : null}
-        {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded expanded={maximized} /> : null}
+        {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded expanded={maximized} onOpenSubagent={(sessionID) => {
+          // The child came from this directory's live session projection.
+          // Selecting it opens the read-only transcript; NNA alone grants steer.
+          persistLastActiveSession(sessionID, directory);
+          useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
+          if (compactOpen) onCloseCompact?.();
+        }} /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} directory={directory} onReviewPath={(path) => {
           setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });

@@ -18,7 +18,7 @@ import { resolveComposerModel } from './composer-model-config.ts';
 
 const PANEL_WIDTH = 300;
 
-export function WorkStatusPanel({ store, engine, embedded = false, expanded = false }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean }): ReactNode {
+export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
   const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
@@ -134,7 +134,13 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     });
   }
   if (subagents.length > 0) {
-    sections.push({ id: 'subagents', label: 'Subagents', rows: subagents.map((agent) => row(agent.title, `${agent.statusPhrase}${agent.cost ? ` · $${agent.cost.toFixed(2)}` : ''}`)) });
+    sections.push({ id: 'subagents', label: 'Subagents', rows: subagents.map((agent) => onOpenSubagent
+      ? <button key={agent.sessionID} type="button" className="flex w-full items-baseline justify-between gap-2 rounded px-1 py-1 text-left text-[11px] hover:bg-white/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400"
+          aria-label={`Open ${agent.title} subagent transcript`} onClick={() => onOpenSubagent(agent.sessionID)}>
+          <span className="min-w-0 truncate text-sky-300">{agent.title}</span>
+          <span className="min-w-0 truncate text-right text-neutral-500">{agent.statusPhrase}{agent.cost ? ` · $${agent.cost.toFixed(2)}` : ''}</span>
+        </button>
+      : row(agent.title, `${agent.statusPhrase}${agent.cost ? ` · $${agent.cost.toFixed(2)}` : ''}`)) });
   }
   if (work?.tasks.length) {
     sections.push({ id: 'tasks', label: 'Tasks', rows: work.tasks.map((task) => row(task.title,

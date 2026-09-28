@@ -234,6 +234,9 @@ Tasks:
    Use child summaries for sidebar activity and demand-load each transcript only when
    opened. The real NNA adapter must supply parent/child correlation, replay cursors,
    redaction, and per-action authority. Add the child transcript's **Steer subagent**
+   **Context handoff implemented (2026-09-28):** each projected child status
+   opens its transcript from the right pane, using the normal persisted session
+   navigation path; steering remains independently gated by NNA.
    toggle only when NNA grants steering capability; it reveals a labelled steering
    composer and preserves an unsent draft when toggled off. NND must not let a parent
    session imply control over its child. Render a discoverable child whose parent is

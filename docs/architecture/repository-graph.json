@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:65f7e48f395fcd58afa7368c15edb6cda82fa086681cfbab070fea34fa58492a",
+  "source_digest": "sha256:a2bca382691e9dda0cd12f121b20226a013fb9ad83ad019f2e274f7bd78bab7f",
   "counts": {
     "modules": 477,
     "component_edges": 13
@@ -108,7 +108,7 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 52,
+      "import_count": 53,
       "module_count": 20
     },
     {
@@ -498,6 +498,7 @@
         "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
         "packages/ui/src/sync/view-store.ts"

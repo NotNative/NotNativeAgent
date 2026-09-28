@@ -886,6 +886,35 @@ describe('OperatorRail', () => {
     expect(subagents.textContent).not.toContain('No live status');
   });
 
+  it('opens a delegated transcript from the Context subagent row', () => {
+    useSessionViewStore.setState({ currentSessionId: 'parent', activeDirectory: 'D:/work' });
+    const store = createDirectoryStore({ session: [
+      { id: 'parent', title: 'Main task', time: { created: 1, updated: 1 } },
+      { id: 'child', parentID: 'parent', title: 'Explorer', time: { created: 2, updated: 2 } },
+    ] as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const open = document.querySelector('[aria-label="Open Explorer subagent transcript"]') as HTMLButtonElement;
+    expect(open).toBeTruthy();
+    expect(open.textContent).toContain('No live status');
+    act(() => open.click());
+    expect(useSessionViewStore.getState()).toMatchObject({ currentSessionId: 'child', activeDirectory: 'D:/work' });
+  });
+
+  it('returns from compact Context to chat when opening a delegated transcript', () => {
+    useSessionViewStore.setState({ currentSessionId: 'parent', activeDirectory: 'D:/work' });
+    const store = createDirectoryStore({ session: [
+      { id: 'parent', title: 'Main task', time: { created: 1, updated: 1 } },
+      { id: 'child', parentID: 'parent', title: 'Explorer', time: { created: 2, updated: 2 } },
+    ] as never });
+    const closeCompact = vi.fn();
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen onCloseCompact={closeCompact} />));
+    act(() => (document.querySelector('[aria-label="Open Explorer subagent transcript"]') as HTMLButtonElement).click());
+    expect(useSessionViewStore.getState().currentSessionId).toBe('child');
+    expect(closeCompact).toHaveBeenCalledOnce();
+  });
+
   it('renders only explicit activity evidence and offers a bounded browser preview', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [
