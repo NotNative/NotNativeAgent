@@ -36,6 +36,7 @@ export interface ChatSidebarProps {
 export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [query, setQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [collapsedZones, setCollapsedZones] = useState<Record<string, true>>({});
   const sessionsGlobal = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const folders = useSyncExternalStore(useSessionFoldersStore.subscribe, useSessionFoldersStore.getState);
   const statusById = useSyncExternalStore(useGlobalSessionStatusStore.subscribe, () => useGlobalSessionStatusStore.getState().statusById);
@@ -51,12 +52,20 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
       list.push(session);
       grouped.set(directory, list);
     }
+    const current = normalizeDirectory(props.currentDirectory);
+    if (current && !grouped.has(current)) grouped.set(current, []);
     return grouped;
-  }, [sessionsGlobal.active]);
+  }, [sessionsGlobal.active, props.currentDirectory]);
 
   const filtered = useMemo(() => filterSessions([...sessionsGlobal.active], query), [sessionsGlobal.active, query]);
   const filteredDirectories = new Set(filtered.map((session) => normalizeDirectory(session.directory ?? 'global')));
-  const archivedInDirectory = sessionsGlobal.archived.filter((session) => normalizeDirectory(session.directory ?? 'global') === props.currentDirectory);
+  if (!query.trim() && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
+  const archivedInDirectory = sessionsGlobal.archived.filter((session) => normalizeDirectory(session.directory ?? 'global') === normalizeDirectory(props.currentDirectory));
+  const nameCounts = new Map<string, number>();
+  for (const directory of zones.keys()) {
+    const name = shortDirectory(directory).toLocaleLowerCase();
+    nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+  }
 
   return (
     <aside className="flex w-72 min-w-64 flex-col border-r border-white/10 bg-neutral-950/80" data-testid="session-sidebar">
@@ -79,6 +88,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {[...zones.entries()]
           .filter(([directory]) => filteredDirectories.has(directory))
+          .sort(([left], [right]) => left === normalizeDirectory(props.currentDirectory) ? -1 : right === normalizeDirectory(props.currentDirectory) ? 1 : left.localeCompare(right))
           .map(([directory, sessions]) => (
             <Zone
               key={directory}
@@ -90,6 +100,15 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
               actions={props.actions}
               folders={folders.foldersByDirectory[directory] ?? []}
               collapsed={folders.collapsedFolderIds}
+              active={directory === normalizeDirectory(props.currentDirectory)}
+              forceOpen={query.trim().length > 0}
+              zoneCollapsed={Boolean(collapsedZones[directory])}
+              onToggleZone={() => setCollapsedZones((current) => {
+                const next = { ...current };
+                if (next[directory]) delete next[directory]; else next[directory] = true;
+                return next;
+              })}
+              duplicateName={(nameCounts.get(shortDirectory(directory).toLocaleLowerCase()) ?? 0) > 1}
             />
           ))}
       </div>
@@ -117,7 +136,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ directory, sessions, statusById, ranks, actions, currentSessionId, folders, collapsed }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true> }): ReactNode {
+function Zone({ directory, sessions, statusById, ranks, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean }): ReactNode {
+  const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions).slice(0, AVATAR_LIMIT);
   const byId = new Map(ordered.map((session) => [session.id, session]));
@@ -132,22 +152,27 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
   const createFolder = (name: string): void => { void useSessionFoldersStore.getState().createFolder(directory, name); };
 
   return (
-    <section className="mb-3">
+    <section className="mb-3" data-testid="workspace-zone" data-active={active ? 'true' : undefined}>
       <header className="mb-1 flex items-center justify-between px-2">
-        <div className="min-w-0 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
-          <span className="block truncate" title={directory}>{shortDirectory(directory)}</span>
-        </div>
+        <button type="button" aria-expanded={zoneOpen} aria-label={`${zoneOpen ? 'Collapse' : 'Expand'} ${directory || 'general'} workspace`} data-testid="workspace-zone-toggle" disabled={forceOpen}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left text-[11px] hover:text-neutral-200 ${active ? 'text-neutral-300' : 'text-neutral-500'}`}
+          onClick={onToggleZone} title={forceOpen ? 'Search results keep this workspace open' : directory}>
+          <span aria-hidden className="shrink-0 text-neutral-600">{zoneOpen ? '▾' : '▸'}</span>
+          <span className="truncate font-medium">{shortDirectory(directory)}</span>
+          {duplicateName ? <span className="truncate text-[10px] text-neutral-700">{directory}</span> : null}
+          <span className="shrink-0 text-neutral-700">{sessions.length}</span>
+        </button>
         <div className="flex items-center gap-1">
-          <button type="button" aria-label={`New folder in ${shortDirectory(directory)}`} data-testid={`folder-create-${directory.replace(/[^\w]/g, '_')}`} className="text-[11px] text-neutral-600 hover:text-neutral-300" onClick={() => {
+          <button type="button" aria-label={`New folder in ${directory || 'general'}`} data-testid={`folder-create-${directory.replace(/[^\w]/g, '_')}`} className="text-[11px] text-neutral-600 hover:text-neutral-300" onClick={() => {
             const name = prompt('New folder name', 'Folder'); // eslint-disable-line no-alert
             if (name !== null && name.trim()) createFolder(name);
           }}>▤+</button>
-          <button type="button" aria-label={`New draft session in ${shortDirectory(directory)}`} className="text-[11px] text-neutral-600 hover:text-neutral-300" onClick={() => actions.openDraft(directory)}>+</button>
+          <button type="button" aria-label={`New draft session in ${directory || 'general'}`} className="text-[11px] text-neutral-600 hover:text-neutral-300" onClick={() => actions.openDraft(directory)}>+</button>
         </div>
       </header>
-      <ul>
+      {zoneOpen ? <ul>
         {folders.map((folder) => {
-          const isCollapsed = Boolean(collapsed[folder.id]);
+          const isCollapsed = !forceOpen && Boolean(collapsed[folder.id]);
           const inside = folder.sessionIds.map((id) => byId.get(id)).filter((session): session is Session => Boolean(session));
           // §5.22 sessionIds are the record of truth: show the count even for
           // ids that belong to another workspace surface in this directory.
@@ -183,8 +208,8 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
         {orphaned.map((sessionID) => (
           <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={0} />
         ))}
-      </ul>
-      {folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
+      </ul> : null}
+      {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
     </section>
   );
 }
@@ -308,7 +333,7 @@ export function sessionAttention(session: Session): string | null {
 function shortDirectory(directory: string): string {
   const segments = directory.split('/').filter(Boolean);
   if (segments.length === 0) return directory || 'general';
-  return segments.slice(-3).join('/');
+  return segments.at(-1) ?? directory;
 }
 
 function filterSessions(sessions: Session[], query: string): Session[] {

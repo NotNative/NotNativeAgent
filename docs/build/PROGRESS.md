@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **GUI workspace navigator.** The selected workspace remains
+  visible in the sidebar before its first session. Project groups can fold
+  without losing their new-session/folder actions; search temporarily reveals
+  matching sessions in folded groups and folders without changing the saved
+  fold state. Duplicate project basenames show path context. An adversarial
+  audit corrected fold/search lifecycle and archived-directory normalization.
+
 - 2026-09-27 · **PB-8 older transcript pages.** The chat transcript now
   exposes NNA's older-message cursor through a load-more control with retry,
   retains the viewport anchor when rows prepend, and keeps pagination state

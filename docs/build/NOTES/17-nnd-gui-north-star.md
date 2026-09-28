@@ -86,6 +86,13 @@ smaller window. Desktop restoration clamps it after reserving room for the
 session sidebar, icon dock, and a readable chat column; the saved wide value
 remains available if the window grows again.
 
+The project/session navigator keeps the selected workspace visible even before
+it has any sessions. Workspace groups can fold independently without hiding
+their new-session and new-folder controls. Search may temporarily reveal a
+folded group and matching sessions inside folded folders, but must restore
+the operator's previous fold choices afterward. Identical workspace basenames
+need enough path context to remain distinguishable.
+
 | Rail surface | Operator experience | Authority and safety boundary |
 |---|---|---|
 | Context | A calm summary of the active session: authored turn state, governance mode, selected model/agent/tools, context use, task/goal/subagent state, and audited cost/usage. | NNA supplies projections and accounting. NND does not derive state or manufacture a zero/complete value when data is unavailable. |
