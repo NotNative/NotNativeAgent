@@ -16,6 +16,7 @@ import type { SyncEngine } from '../sync/sync-engine.ts';
 import type { Session, SessionStatus } from '../lib/nnd/types.ts';
 import { toast } from 'sonner';
 import { formatRelative } from './time-format.ts';
+import { sidebarHierarchy } from './session-sidebar-hierarchy.ts';
 
 const AVATAR_LIMIT = 50;
 
@@ -139,15 +140,14 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
 function Zone({ directory, sessions, statusById, ranks, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
-  const ordered = orderSessionsByLifecycleWrap(sessions).slice(0, AVATAR_LIMIT);
-  const byId = new Map(ordered.map((session) => [session.id, session]));
-  const depthById = sessionDepths(ordered);
-  const unsorted = unsortedSessionIds(directory, ordered);
-  const orphaned = unsorted.filter((id) => {
-    const session = byId.get(id);
-    return Boolean(session?.parentID && !byId.has(session.parentID));
-  });
-  const visibleUnsorted = unsorted.filter((id) => !orphaned.includes(id));
+  const ordered = orderSessionsByLifecycleWrap(sessions);
+  // Search shows only matching rows; an omitted parent is not unavailable.
+  const hierarchy = forceOpen ? null : sidebarHierarchy(ordered, folders, AVATAR_LIMIT);
+  const searchRows = forceOpen ? ordered.slice(0, AVATAR_LIMIT) : [];
+  const byId = hierarchy?.byId ?? new Map(searchRows.map((session) => [session.id, session]));
+  const depthById = hierarchy?.depth ?? sessionDepths(searchRows);
+  const visibleUnsorted = hierarchy?.unfiled ?? unsortedSessionIds(directory, searchRows);
+  const orphaned = hierarchy?.unavailableParent ?? [];
   const foldersState = useSessionFoldersStore.getState();
   const createFolder = (name: string): void => { void useSessionFoldersStore.getState().createFolder(directory, name); };
 
@@ -173,7 +173,11 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
       {zoneOpen ? <ul>
         {folders.map((folder) => {
           const isCollapsed = !forceOpen && Boolean(collapsed[folder.id]);
-          const inside = folder.sessionIds.map((id) => byId.get(id)).filter((session): session is Session => Boolean(session));
+          const inside = hierarchy
+            ? hierarchy.visible.filter((id) => hierarchy.folder.get(id) === folder.id && !orphaned.includes(id)).map((id) => byId.get(id)!)
+            : folder.sessionIds.map((id) => byId.get(id)).filter((session): session is Session => Boolean(session));
+          const folderNormal = inside.filter((session) => !hierarchy?.unavailableIds.has(session.id));
+          const folderUnavailable = inside.filter((session) => hierarchy?.unavailableIds.has(session.id));
           // §5.22 sessionIds are the record of truth: show the count even for
           // ids that belong to another workspace surface in this directory.
           return (
@@ -188,8 +192,12 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
               </div>
               {!isCollapsed ? (
                 <ul className="ml-3 border-l border-white/5">
-                  {inside.map((session) => (
-                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.id} depth={depthById.get(session.id) ?? 0} />
+                  {folderNormal.map((session) => (
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} />
+                  ))}
+                  {folderUnavailable.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
+                  {folderUnavailable.map((session) => (
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} />
                   ))}
                   {inside.length === 0 ? <li className="px-2 py-1 text-[10px] text-neutral-600">Empty folder — sessions land via the row menu.</li> : null}
                 </ul>
@@ -204,9 +212,9 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
         {visibleUnsorted.map((sessionID) => (
           <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={depthById.get(sessionID) ?? 0} />
         ))}
-        {orphaned.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Orphaned subagents</li> : null}
+        {orphaned.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
         {orphaned.map((sessionID) => (
-          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={0} />
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={depthById.get(sessionID) ?? 0} />
         ))}
       </ul> : null}
       {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
@@ -240,7 +248,7 @@ function SidebarRow({ session, status, currentSessionId, actions, folderId, dept
           {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
         </div>
-        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{attention ? <span className="text-amber-300"> · {attention}</span> : null}</div>
+        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}</div>
       </button>
       <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`Rename ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => {

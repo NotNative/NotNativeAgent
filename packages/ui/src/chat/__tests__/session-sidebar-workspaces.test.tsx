@@ -129,3 +129,50 @@ it('counts archived sessions against a normalized active directory', () => {
   const { node } = mount('D:/work/');
   expect(node.querySelector('[data-testid="sidebar-archive-toggle"]')?.textContent).toContain('Archive (1)');
 });
+
+it('shows a delegated child below its parent in the same folder with NNA agent identity', () => {
+  useGlobalSessionsStore.setState({ active: [
+    { ...session('child', 'D:/work', 'Research'), parentID: 'parent', agent: 'explore', time: { created: 2, updated: 2 } },
+    session('parent', 'D:/work', 'Main task'),
+  ] });
+  useSessionFoldersStore.setState({
+    foldersByDirectory: { 'D:/work': [{ id: 'f1', name: 'Plans', sessionIds: ['parent'], createdAt: 1 }] },
+  });
+  const { node } = mount('D:/work');
+  const folderNode = node.querySelector('[data-testid="folder-f1"]')!;
+  expect([...folderNode.querySelectorAll('[data-testid="session-row"]')].map((row) => row.textContent)).toEqual([
+    expect.stringContaining('Main task'), expect.stringContaining('Research'),
+  ]);
+  expect(folderNode.querySelector('[data-child-session="true"]')?.textContent).toContain('explore');
+  expect(folderNode.querySelector('[data-child-session="true"] [aria-label="Unfile from folder"]')).toBeNull();
+  expect(folderNode.querySelector('[data-child-session="true"]')?.getAttribute('data-child-depth')).toBe('1');
+  expect(folderNode.querySelector('[aria-label="Unfile from folder"]')).toBeTruthy();
+  expect(node.querySelector('[data-testid="workspace-zone"] > ul > [data-child-session="true"]')).toBeNull();
+});
+
+it('keeps a filed child with an unavailable parent in its folder with an actionable unfile control', () => {
+  useGlobalSessionsStore.setState({ active: [{ ...session('child', 'D:/work', 'Research'), parentID: 'missing' }] });
+  useSessionFoldersStore.setState({
+    foldersByDirectory: { 'D:/work': [{ id: 'f1', name: 'Plans', sessionIds: ['child'], createdAt: 1 }] },
+  });
+  const { node } = mount('D:/work');
+  const folderNode = node.querySelector('[data-testid="folder-f1"]')!;
+  expect(folderNode.querySelector('[data-child-session="true"]')?.textContent).toContain('Research');
+  expect(folderNode.querySelector('[aria-label="Unfile from folder"]')).toBeTruthy();
+  expect(folderNode.textContent).toContain('Parent unavailable');
+});
+
+it('keeps unfiled descendants nested beneath a child whose parent is unavailable', () => {
+  useGlobalSessionsStore.setState({ active: [
+    { ...session('grandchild', 'D:/work', 'Follow-up'), parentID: 'child', time: { created: 2, updated: 2 } },
+    { ...session('child', 'D:/work', 'Research'), parentID: 'missing' },
+  ] });
+  const { node } = mount('D:/work');
+  expect(node.textContent).toContain('Parent unavailable');
+  const rows = [...node.querySelectorAll('[data-testid="workspace-zone"] > ul > [data-child-session="true"]')];
+  expect(rows.map((row) => row.textContent)).toEqual([
+    expect.stringContaining('Research'), expect.stringContaining('Follow-up'),
+  ]);
+  expect(rows[0]?.hasAttribute('data-child-depth')).toBe(false);
+  expect(rows[1]?.getAttribute('data-child-depth')).toBe('1');
+});

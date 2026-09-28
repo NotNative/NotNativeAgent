@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Delegated-session navigator hierarchy.** Recent child
+  sessions now appear beneath their NNA-known parent even when that older
+  parent falls beyond the sidebar's recent-row cap. A child follows its
+  parent's folder for presentation without mutating folder membership; the
+  NNA-projected agent label is visible on the row. Missing-parent subtrees
+  remain discoverable in an explicit unavailable group, including within a
+  directly filed folder. Search does not mistake a filtered-out parent for a
+  missing one. Adversarial review fixed inherited Unfile controls and filed
+  missing-parent placement; tests cover nested and cyclic relationships.
+
 - 2026-09-28 · **Readable chat at the compact/docked boundary.** The operator
   rail and chat column now share a 1100-pixel breakpoint instead of docking at
   1024 pixels, where the minimum 280-pixel pane could leave less than 480
