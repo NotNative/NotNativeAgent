@@ -119,6 +119,11 @@ export async function switchRuntimeEndpoint(options: SwitchRuntimeEndpointOption
   // 4. fire-and-forget the token refresh; it rides the new credential set
   void refreshRuntimeUrlAuthToken(apiBaseUrl);
 
+  // Reset subscribed stores before DOM consumers render the new runtime.
+  // A changed-event subscriber may unmount another subscriber synchronously.
+  for (const listener of [...listeners]) {
+    try { listener(detail); } catch { /* one subscriber cannot prevent other runtime resets */ }
+  }
   dispatch('notnative:runtime-endpoint-changed', detail);
 }
 

@@ -1,9 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../runtime-url.ts', () => ({ configureRuntimeUrlResolver: vi.fn() }));
+vi.mock('../runtime-auth.ts', () => ({
+  setRuntimeBearerToken: vi.fn(),
+  setRuntimeExtraHeaders: vi.fn(),
+  refreshRuntimeUrlAuthToken: vi.fn(async () => undefined),
+}));
+vi.mock('../runtime-tunnel.ts', () => ({
+  activateRelayTunnel: vi.fn(),
+  deactivateRelayTunnel: vi.fn(),
+}));
 import {
   DEFAULT_RUNTIME_KEY,
   MOBILE_DISCONNECTED_RUNTIME_KEY,
   deriveRuntimeKey,
+  getRuntimeKey,
   isTransientRuntimeKey,
+  onRuntimeEndpointChanged,
+  switchRuntimeEndpoint,
 } from '../runtime-switch.ts';
 
 describe('runtime keys (doc 01 §11)', () => {
@@ -19,5 +33,52 @@ describe('runtime keys (doc 01 §11)', () => {
     expect(isTransientRuntimeKey(null)).toBe(true);
     expect(isTransientRuntimeKey('local')).toBe(false);
     expect(isTransientRuntimeKey('host:abc')).toBe(false);
+  });
+
+  it('notifies every subscribed runtime consumer after the new endpoint is active', async () => {
+    const first = vi.fn(() => { throw new Error('subscriber failed'); });
+    const second = vi.fn(() => getRuntimeKey());
+    const offFirst = onRuntimeEndpointChanged(first);
+    const offSecond = onRuntimeEndpointChanged(second);
+    try {
+      await switchRuntimeEndpoint({ apiBaseUrl: 'https://lab.example:3000/', runtimeKey: 'host:lab' });
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(second).toHaveReturnedWith('host:lab');
+      expect(second).toHaveBeenCalledWith(expect.objectContaining({
+        apiBaseUrl: 'https://lab.example:3000',
+        runtimeKey: 'host:lab',
+      }));
+      offSecond();
+      await switchRuntimeEndpoint({ apiBaseUrl: 'https://other.example/', runtimeKey: 'host:other' });
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(first).toHaveBeenCalledTimes(2);
+    } finally {
+      offFirst();
+      offSecond();
+    }
+  });
+
+  it('resets subscribers before a changed event can unmount them', async () => {
+    const seen: string[] = [];
+    const off = onRuntimeEndpointChanged(() => { seen.push('store reset'); });
+    vi.stubGlobal('CustomEvent', class {
+      constructor(public readonly type: string, public readonly init: { detail: unknown }) {}
+    });
+    vi.stubGlobal('window', {
+      dispatchEvent: (event: { type: string }) => {
+        if (event.type === 'notnative:runtime-endpoint-changed') {
+          seen.push('view update');
+          off();
+        }
+      },
+    });
+    try {
+      await switchRuntimeEndpoint({ apiBaseUrl: 'https://lab.example/', runtimeKey: 'host:lab' });
+      expect(seen).toEqual(['store reset', 'view update']);
+    } finally {
+      off();
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Runtime switch subscriber reset.** Switching NNA endpoints now
+  notifies the registered session engine, auth gate, settings, and theme
+  consumers after the new endpoint is active and before the DOM view-change
+  event can unmount them. One failing subscriber cannot suppress the others;
+  tests cover fan-out, unsubscribe, and ordering. This prevents stale
+  cross-runtime state when changing connected instances.
+
 - 2026-09-28 · **Files draft continuity.** Dirty editor text now has an
   in-memory lease scoped to runtime, workspace, and path, surviving navigation
   away from the full Files view and return within the same app run. Recovery
