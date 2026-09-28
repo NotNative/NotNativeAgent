@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **P9-5b multi-run creation service.** Added the headless launch
+  orchestration for group validation, project selection, git detection,
+  isolation defaults, duplicate model indexes, worktree creation and rollback,
+  per-run partial tolerance, setup-command persistence, and detached prompt
+  dispatch.
+  Adversarial review caught setup commands never being forwarded, dispatch
+  being awaited instead of fire-and-forget, the model/file/agent context
+  omitted from the dispatch call, and session-flow failure leaving the already
+  created worktree in place. A second review hardened Git-safe identity handling
+  and reserved `g1`-style group names that would otherwise round-trip as
+  run-group markers. Launcher UI wiring and fusion remain pending.
+
 - 2026-09-28 · **P9-5a multi-run identities.** Added the pure title bundle
   for group slugs, model slugs, ordinary runs, run groups, duplicate indexes,
   worktree names, fusion titles, and mandatory parse-round-trip segmentation.
