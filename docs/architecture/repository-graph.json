@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:92aa25e75e5b22ce4e1329056ba9066aacaa4a5bdad83e0d45301ec8dfb9c4aa",
+  "source_digest": "sha256:a98d14d66b0f21fef2f8b07a29598b8eae8006e77411cd94dded6494a77604d2",
   "counts": {
-    "modules": 487,
+    "modules": 488,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 134
+      "module_count": 135
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 60,
-      "module_count": 25
+      "import_count": 62,
+      "module_count": 26
     },
     {
       "from": "sync-engine",
@@ -519,6 +519,7 @@
         "packages/ui/src/chat/operator-panel-open.ts",
         "packages/ui/src/chat/operator-rail-width.ts",
         "packages/ui/src/chat/project-notes.tsx",
+        "packages/ui/src/chat/todo-chat-handoff.ts",
         "packages/ui/src/chat/use-operator-rail-width.ts",
         "packages/ui/src/chat/walkthrough-preview.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",
@@ -687,6 +688,16 @@
         "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/todo-chat-handoff.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },

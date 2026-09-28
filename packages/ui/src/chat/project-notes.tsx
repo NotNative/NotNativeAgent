@@ -30,13 +30,14 @@ function searchCounts(context: ProjectContext, query: string): { context: number
 export interface NotesDraftLease { directoryKey: string; text: string; revision: number }
 type SetDraftLease = Dispatch<SetStateAction<NotesDraftLease | null>>;
 
-export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange, planDraft, onPlanDraftChange, todoDraft, onTodoDraftChange, onAddTodoToChat }: {
+export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange, planDraft, onPlanDraftChange, todoDraft, onTodoDraftChange, onAddTodoToChat, onAddTodoToNewChat }: {
   directory: string; directoryKey: string; projectId: string | null; visible: boolean;
   draftLease: NotesDraftLease | null; setDraftLease: SetDraftLease;
   contextDraft?: ContextNotesDraft; onContextDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
   planDraft?: ContextPlanDraft; onPlanDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
   todoDraft?: string; onTodoDraftChange?: (projectId: string, draft: string) => void;
   onAddTodoToChat?: (text: string) => boolean;
+  onAddTodoToNewChat?: (text: string) => void;
 }): ReactNode {
   const [tab, setTab] = useState<Tab>(() => projectId ? 'context' : 'notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set([projectId ? 'context' : 'notes']));
@@ -112,7 +113,7 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
     {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} refreshToken={contextRefresh} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
     {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
-    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} refreshToken={contextRefresh} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} onAddToChat={onAddTodoToChat} /></div> : null}
+    {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} refreshToken={contextRefresh} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} onAddToChat={onAddTodoToChat} onAddToNewChat={onAddTodoToNewChat} /></div> : null}
   </section>;
 }
 

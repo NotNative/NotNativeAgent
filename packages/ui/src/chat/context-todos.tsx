@@ -11,9 +11,9 @@ export function usableTodo(value: unknown): value is ProjectTodo {
     && typeof todo.completed === 'boolean' && Number.isSafeInteger(todo.createdAt) && todo.createdAt >= 0;
 }
 
-export function ContextTodos({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange, onAddToChat }: {
+export function ContextTodos({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange, onAddToChat, onAddToNewChat }: {
   projectId: string; visible: boolean; query?: string; refreshToken?: number; retainedDraft?: string; onDraftChange?: (projectId: string, draft: string) => void;
-  onAddToChat?: (text: string) => boolean;
+  onAddToChat?: (text: string) => boolean; onAddToNewChat?: (text: string) => void;
 }): ReactNode {
   const [context, setContext] = useState<ProjectContext | null>(null);
   const [draft, setDraft] = useState(() => retainedDraft ?? '');
@@ -67,14 +67,14 @@ export function ContextTodos({ projectId, visible, query = '', refreshToken = 0,
     {missingRevision ? <p role="status" className="text-xs text-amber-300">Todo revision is unavailable. Refresh or update the server before editing.</p> : null}
     {!context && loading ? <p className="text-xs text-neutral-500">Loading project todos…</p> : null}
     {context ? <ContextTodoEditor todos={todos} query={query} draft={draft} setDraft={setDraft} busy={busy || loading || malformed || missingRevision || conflicted}
-      onAddToChat={onAddToChat} commit={commit} /> : null}
+      onAddToChat={onAddToChat} onAddToNewChat={onAddToNewChat} commit={commit} /> : null}
   </section>;
 }
 
-function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit, onAddToChat }: {
+function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit, onAddToChat, onAddToNewChat }: {
   todos: ProjectTodo[]; query: string; draft: string; setDraft: (value: string) => void; busy: boolean;
   commit: (next: ProjectTodo[], clearDraft?: boolean) => Promise<void>;
-  onAddToChat?: (text: string) => boolean;
+  onAddToChat?: (text: string) => boolean; onAddToNewChat?: (text: string) => void;
 }): ReactNode {
   const [handoffError, setHandoffError] = useState(false);
   const needle = query.trim().toLocaleLowerCase();
@@ -90,16 +90,21 @@ function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit, onAddT
       onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-neutral-900/40 px-2 text-xs" />
     <button type="button" disabled={busy || !draft.trim()} onClick={add} className="text-xs">Add todo</button></div>
     {needle && !visibleTodos.length ? <p className="text-xs text-neutral-500">No matching todos.</p> : null}
-    <ol className="min-h-0 overflow-y-auto">{visibleTodos.map((todo) => <li key={todo.id} className="flex items-center gap-2 py-1 text-xs">
-      <input aria-label={`Complete ${todo.text}`} type="checkbox" disabled={busy} checked={todo.completed}
+    <ol className="min-h-0 overflow-y-auto">{visibleTodos.map((todo) => <li key={todo.id} className="border-b border-white/5 py-1.5 text-xs">
+      <div className="flex items-start gap-2"><input aria-label={`Complete ${todo.text}`} type="checkbox" disabled={busy} checked={todo.completed}
         onChange={() => { void commit(todos.map((item) => item.id === todo.id ? { ...item, completed: !item.completed } : item)); }} />
-      <span className={`min-w-0 flex-1 break-words ${todo.completed ? 'text-neutral-500 line-through' : ''}`}>{todo.text}</span>
-      {onAddToChat ? <button type="button" aria-label={`Add ${todo.text} to chat`} onClick={() => {
-        setHandoffError(!onAddToChat(todo.text));
-      }} className="text-sky-300 hover:underline">Add to chat</button> : null}
-      <button type="button" disabled={busy} aria-label={`Delete ${todo.text}`} onClick={() => {
-        void commit(todos.filter((item) => item.id !== todo.id));
-      }}>Delete</button>
+      <span className={`min-w-0 flex-1 break-words ${todo.completed ? 'text-neutral-500 line-through' : ''}`}>{todo.text}</span></div>
+      <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 pt-1">
+        {onAddToChat ? <button type="button" aria-label={`Add ${todo.text} to chat`} onClick={() => {
+          setHandoffError(!onAddToChat(todo.text));
+        }} className="text-sky-300 hover:underline">Add to chat</button> : null}
+        {onAddToNewChat ? <button type="button" aria-label={`Start new chat with ${todo.text}`} onClick={() => {
+          setHandoffError(false); onAddToNewChat(todo.text);
+        }} className="text-sky-300 hover:underline">New chat</button> : null}
+        <button type="button" disabled={busy} aria-label={`Delete ${todo.text}`} onClick={() => {
+          void commit(todos.filter((item) => item.id !== todo.id));
+        }}>Delete</button>
+      </div>
     </li>)}</ol>
   </>;
 }

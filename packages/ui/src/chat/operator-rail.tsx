@@ -12,6 +12,7 @@ import { WorktreesView } from '../components/worktrees/WorktreesView.tsx';
 import { OperatorFiles } from './operator-files.tsx';
 import { commitDraftScope } from '../lib/git/commit-drafts.ts';
 import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
+import { addTodoToCurrentChat, stageTodoInNewChat } from './todo-chat-handoff.ts';
 import type { ContextPlanDraft } from './context-plans.tsx';
 import type { ContextNotesDraft } from './context-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
@@ -303,14 +304,14 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
               planDraft={projectId ? planDrafts[projectId] : undefined} onPlanDraftChange={retainPlanDraft}
               todoDraft={projectId ? todoDrafts[projectId] : undefined} onTodoDraftChange={retainTodoDraft}
               onAddTodoToChat={(text) => {
-                let accepted = false;
-                window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: {
-                  text: `Todo: ${text}`, append: true, directory, sessionKey: walkthroughSessionId ?? 'draft',
-                  accept: () => { accepted = true; },
-                } }));
+                const accepted = addTodoToCurrentChat(directory, walkthroughSessionId ?? 'draft', text);
                 if (accepted && compactOpen) onCloseCompact?.();
                 return accepted;
               }}
+              onAddTodoToNewChat={walkthroughSessionId ? (text) => {
+                stageTodoInNewChat(directory, text);
+                if (compactOpen) onCloseCompact?.();
+              } : undefined}
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}

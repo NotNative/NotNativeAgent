@@ -68,6 +68,17 @@ describe('project context todos panel', () => {
     await click('Add to chat');
     expect(view.textContent).not.toContain('Chat input is not available');
   });
+  it('offers a separate new-chat handoff without changing the saved todo', async () => {
+    const item = { id: 'one', text: 'Ship MVP', completed: false, createdAt: 1 };
+    vi.mocked(getProjectContext).mockResolvedValue({ ...empty, todos: [item] });
+    const stage = vi.fn();
+    const view = await render();
+    await act(async () => { root!.render(<ContextTodos projectId="project1" visible onAddToNewChat={stage} />); });
+    await click('New chat');
+    expect(stage).toHaveBeenCalledWith('Ship MVP');
+    expect(replaceProjectTodos).not.toHaveBeenCalled();
+    expect(view.textContent).toContain('Ship MVP');
+  });
   it('adds and adopts committed server truth, then toggles and deletes', async () => {
     const view = await render();
     typeTodo('Ship MVP');
