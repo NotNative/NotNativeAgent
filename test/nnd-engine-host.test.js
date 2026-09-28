@@ -103,7 +103,7 @@ test('NND projects only authored semantic turn phases and settles them to idle',
   output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'running',
     tool: 'fs.write', tool_request_id: 'tool_a' });
   assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'running_tool' });
-  assert.ok(events.some((event) => event.type === 'nnd.activity' && event.properties.id === 'session_a:tool:tool_a'),
+  assert.ok(events.some((event) => event.type === 'nnd.activity' && event.properties.id === 'session_a:ts:tool_a'),
     'phase updates must not swallow tool activity');
   const runningStamp = host.get('session_a', owner).time.updated;
   resolveTurn({ accepted: true });
@@ -170,11 +170,11 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   const before = first.activity('session_a', fullOwner);
-  assert.equal(before.length, 2);
-  assert.equal(before.find((record) => record.kind === 'tool').status, 'completed');
-  assert.deepEqual(before.find((record) => record.kind === 'tool').toolEvidence,
+  assert.deepEqual(before.map((record) => record.status), ['started', 'started', 'completed', 'completed']);
+  assert.equal(before.filter((record) => record.kind === 'tool').at(-1).status, 'completed');
+  assert.deepEqual(before.filter((record) => record.kind === 'tool').at(-1).toolEvidence,
     { effect: 'read_only', elapsedMs: 25, exitCode: 0 });
-  assert.equal(before.find((record) => record.kind === 'turn').evidenceMessageID, 'prompt_a');
+  assert.equal(before.filter((record) => record.kind === 'turn').at(-1).evidenceMessageID, 'prompt_a');
   assert.equal(before.find((record) => record.kind === 'tool').evidenceMessageID, undefined);
   assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });
   await first.shutdown();
@@ -318,7 +318,7 @@ test('NND live Activity matches sanitized snapshots and drops invalid frames', a
   try {
     output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'running' });
     output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded' });
-    const rootSaved = host.activity('session_a', owner).find((record) => record.kind === 'tool');
+    const rootSaved = host.activity('session_a', owner).filter((record) => record.kind === 'tool').at(-1);
     const rootLive = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'tool').at(-1).properties;
     assert.deepEqual(rootLive, rootSaved);
     const rootEvents = events.length;
@@ -590,7 +590,7 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   assert.equal(events.at(-1).type, 'session.updated');
   assert.equal(host.messages('agent_coder_1', principal)[1].parts[0].text, 'Hello world');
   assert.equal(host.messages('agent_coder_1', principal).some((entry) => entry.info.id === 'agent_coder_1:live'), false);
-  assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status), ['completed']);
+  assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status), ['started', 'completed']);
   await host.close('session_a', principal);
   assert.throws(() => host.activity('agent_coder_1', principal), { code: 'nnd_session_unavailable' });
   assert.deepEqual(events.slice(-2).map((event) => event.type), ['session.deleted', 'session.deleted']);
@@ -612,12 +612,14 @@ test('NND completed child transcript survives restart as read-only owned history
   const finish = first.childSessions.register('agent_a', 'session_a', principal, child, { type: 'coder' });
   first.childSessions.observeStarted('agent_a');
   first.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
+    tool_request_id: 'tool_a', tool: 'fs_read_text', status: 'running', arguments: 'do-not-save' });
+  first.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
     tool_request_id: 'tool_a', tool: 'fs_read_text', status: 'succeeded', arguments: 'do-not-save',
     target: 'D:/work/readme.md', elapsed_ms: 4 });
   finish('completed');
   const beforeActivity = first.activity('agent_a', principal);
-  assert.deepEqual(beforeActivity.map((row) => row.status), ['completed', 'completed']);
-  assert.deepEqual(beforeActivity.find((record) => record.kind === 'tool').toolEvidence,
+  assert.deepEqual(beforeActivity.map((row) => row.status), ['started', 'started', 'completed', 'completed']);
+  assert.deepEqual(beforeActivity.filter((record) => record.kind === 'tool').at(-1).toolEvidence,
     { target: 'D:/work/readme.md', elapsedMs: 4 });
   await first.shutdown();
   const path = childSnapshotPath(catalogPath, 'agent_a');
@@ -1045,7 +1047,7 @@ test('NND activity marks a governed needs-input outcome for operator attention',
   const terminal = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties;
   assert.equal(terminal.status, 'attention');
   assert.equal(terminal.summary, 'Turn needs input');
-  assert.equal(host.activity('session_a', owner).find((record) => record.kind === 'turn').status, 'attention');
+  assert.equal(host.activity('session_a', owner).filter((record) => record.kind === 'turn').at(-1).status, 'attention');
   assert.deepEqual(host.get('session_a', owner).metadata.nnd.attention, { kind: 'needs_input' });
   await host.shutdown();
   let releaseNext;

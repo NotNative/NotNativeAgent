@@ -42,7 +42,7 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
     publish('session.created', { info: child }, true);
   } else if (type === 'started') {
     publish('session.status', { sessionID: child.id, status: { type: 'busy' } });
-    publish('nnd.activity', { id: `${child.id}:turn`, sessionID: child.id,
+    publish('nnd.activity', { id: `${child.id}:turn:start`, sessionID: child.id,
       kind: 'turn', status: 'started', summary: 'Subagent turn started', time: Date.now() });
   } else if (type === 'phase') {
     publish('session.updated', { sessionID: child.id, info: child }, true);
@@ -56,7 +56,8 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
     } else if (payload.type === 'tool_status' && typeof payload.tool === 'string' && typeof payload.status === 'string') {
       const toolId = payload.tool_request_id ?? payload.provider_call_id;
       if (typeof toolId === 'string' && toolId) publish('nnd.activity', {
-        id: `${child.id}:tool:${toolId}`, sessionID: child.id, kind: 'tool', status: activityStatus(payload.status),
+        id: activityStatus(payload.status) === 'started' ? `${child.id}:ts:${toolId}` : `${child.id}:tool:${toolId}`,
+        sessionID: child.id, kind: 'tool', status: activityStatus(payload.status),
         summary: `${payload.tool}: ${payload.status}`, time: Date.now(), toolEvidence: payload,
       });
     } else if (payload.type === 'turn_result') state.outcome = payload.outcome;

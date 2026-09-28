@@ -233,7 +233,7 @@ export class NndEngineHost {
     // Why: callers receive the acknowledgement promptly; the engine remains
     // the single owner of turn completion and transcript publication.
     this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
-    this.#activity(context, turn.activityId, 'turn', 'started', 'Turn started', command.request_id);
+    this.#activity(context, `${sessionId}:start:${command.request_id}`, 'turn', 'started', 'Turn started', command.request_id);
     this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     void started.operation.then(
       (result) => this.#publishCompletion(context, turn, result?.accepted === false),
@@ -286,7 +286,8 @@ export class NndEngineHost {
         const toolId = record.tool_request_id ?? record.provider_call_id;
         if (typeof toolId === 'string' && toolId) {
           const status = activityStatus(record.status);
-          this.#activity(context, `${sessionId}:tool:${toolId}`, 'tool', status, `${record.tool}: ${record.status}`, undefined, record);
+          this.#activity(context, `${sessionId}:${status === 'started' ? 'ts' : 'tool'}:${toolId}`,
+            'tool', status, `${record.tool}: ${record.status}`, undefined, record);
         }
       } else if (record.type === 'turn_result') {
         turn.outcome = record.outcome;
@@ -295,7 +296,6 @@ export class NndEngineHost {
       }
     } catch { /* Display output is observational, never a reason to fail an engine turn. */ }
   }
-
   async resolveChildSession(sessionId, principal) {
     requirePrincipal(principal);
     return this.childSessions.resolve(sessionId, principal);

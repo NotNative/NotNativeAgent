@@ -127,6 +127,15 @@ child session. Live phase changes update that child description without
 borrowing the parent's turn state. A completed child settles to idle; its
 restored display-only snapshot retains that idle fact without a live-work claim.
 
+The NNA-authored Activity projection retains separate start and terminal
+milestones for parent turns, delegated turns, and tool calls. A terminal
+correction keeps its own stable evidence ID, while the earlier start remains
+an historical log entry rather than being overwritten by completion. These
+owner-scoped, bounded snapshots contain classified summaries and tool
+evidence only; prompt text, tool arguments, and tool output never enter the
+Activity record. NND can therefore replay a readable sequence after restart
+without treating a past start row as the current session status.
+
 The opt-in `POST /v1/nnd/sessions/:id/walkthrough` route is a separate,
 model-only inference seam for NND's diff walkthrough. It requires
 `nnd.walkthrough.generate` and ownership of the NND session. The caller sends
