@@ -24,3 +24,7 @@ export function symbolColorOf(symbol: string): string {
   if (symbol === 'M') return 'var(--status-warning)';
   return 'var(--status-info)';
 }
+
+export function gitError(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : 'Git operation failed';
+}

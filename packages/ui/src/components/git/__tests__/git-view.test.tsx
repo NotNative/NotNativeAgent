@@ -239,6 +239,32 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(document.querySelector('[data-testid="git-branches-dialog"]')).toBeNull();
   });
 
+  it('creates a named local branch from the Branches dialog and refreshes Changes', async () => {
+    let branch = 'main';
+    fetchMock.mockImplementation(async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/api/git/status')) return jsonResponse({ ...STATUS, branch });
+      if (url.includes('/api/git/branches') && init?.method === 'POST') {
+        const request = JSON.parse(String(init.body)) as { name: string; expectedBranch: string };
+        expect(request).toEqual({ name: 'feature/fresh', expectedBranch: 'main' });
+        branch = request.name;
+        return jsonResponse({ branch, created: true });
+      }
+      return route(url);
+    });
+    await render();
+    await settle();
+    await act(async () => { (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click(); });
+    await settle();
+    const input = document.querySelector('[aria-label="New local branch name"]') as HTMLInputElement;
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => { setValue.call(input, 'feature/fresh'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { (document.querySelector('[data-testid="git-create-branch"]') as HTMLButtonElement).click(); });
+    await settle();
+    expect(document.querySelector('[data-testid="git-branch"]')?.textContent).toBe('feature/fresh');
+    expect(document.querySelector('[data-testid="git-branches-dialog"]')).toBeNull();
+  });
+
   it('does not offer the previous workspace branches while a new branch list loads', async () => {
     await render();
     await settle();

@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Local branch creation in Changes.** The Branches dialog now
+  offers a named Create & switch action from the current branch. The server
+  validates the name, refuses an existing branch, stale current-branch view,
+  or dirty tracked/untracked work, and shares the repository lock with sync
+  and checkout. Adversarial review caught a concurrent-HEAD race: creation
+  now pins the inspected commit as its start point and rechecks HEAD before
+  the switch. An unborn repository remains supported. Remote tracking and
+  alternative start points are still separate workflows.
+
 - 2026-09-28 · **Deliberate local branch switching in Changes.** The Branches
   dialog now searches branches and can switch to an existing local branch.
   The server requires the current branch to match the inspected view, rejects

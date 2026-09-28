@@ -57,6 +57,14 @@ async function checkout(directory: string, branch: string, expectedBranch = 'mai
   });
 }
 
+async function createBranch(directory: string, name: string, expectedBranch = 'main'): Promise<Response> {
+  const app = new Hono();
+  registerGitSyncRoutes(app);
+  return app.request(`http://localhost/api/git/branches?directory=${encodeURIComponent(directory)}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, expectedBranch }),
+  });
+}
+
 describe('deliberate local branch checkout', () => {
   it('switches only to an existing local branch and reports the actual branch', async () => {
     const { local } = fixture(false);
@@ -83,6 +91,38 @@ describe('deliberate local branch checkout', () => {
     git(local, 'restore', 'base.txt');
     writeFileSync(join(local, 'new.txt'), 'untracked\n');
     expect((await checkout(local, 'feature/review')).status).toBe(409);
+    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+  });
+});
+
+describe('local branch creation', () => {
+  it('allows creating a branch before the first commit', async () => {
+    sandbox = mkdtempSync(join(tmpdir(), 'nnd-git-unborn-'));
+    const local = join(sandbox, 'local');
+    execFileSync('git', ['init', '-q', '-b', 'main', local]);
+    const response = await createBranch(local, 'feature/first');
+    expect(response.status).toBe(200);
+    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('feature/first');
+  });
+
+  it('creates and checks out a new local branch from the inspected HEAD', async () => {
+    const { local } = fixture(false);
+    const before = git(local, 'rev-parse', 'HEAD');
+    const response = await createBranch(local, 'feature/new');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ branch: 'feature/new', created: true });
+    expect(git(local, 'rev-parse', 'HEAD')).toBe(before);
+    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('feature/new');
+  });
+
+  it('refuses duplicate names, stale current branch, and dirty work without switching', async () => {
+    const { local } = fixture(false);
+    git(local, 'branch', 'existing');
+    expect((await createBranch(local, 'existing')).status).toBe(409);
+    expect((await createBranch(local, 'fresh', 'old-main')).status).toBe(409);
+    writeFileSync(join(local, 'untracked.txt'), 'draft\n');
+    expect((await createBranch(local, 'fresh')).status).toBe(409);
+    expect(git(local, 'branch', '--list', 'fresh')).toBe('');
     expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
   });
 });

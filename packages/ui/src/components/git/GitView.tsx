@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner';
 import { useGitStore, groupedStatusFiles, scheduleGitReconcile } from '../../lib/git/store';
 import {
-  checkoutLocalBranch, commitChanges, discardGitFiles, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
+  checkoutLocalBranch, commitChanges, createLocalBranch, discardGitFiles, fetchGitStatus, stageGitFiles, syncGitBranch, unstageGitFiles,
   statusSymbol, type GitStatus, type GitStatusFile,
 } from '../../lib/git/api';
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
@@ -19,7 +19,7 @@ import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
 import { useCommitDraftStore } from '../../lib/git/commit-drafts.ts';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
-import { BranchTracking, StatusFailure, symbolColorOf } from './git-view-chrome.tsx';
+import { BranchTracking, StatusFailure, gitError, symbolColorOf } from './git-view-chrome.tsx';
 
 type SelectedFile = { directory: string; path: string; staged: boolean };
 type ReviewRequest = { directory: string; path: string; id: number } | null;
@@ -243,10 +243,11 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
     });
   }, [directory, refresh, withBusy]);
 
-  const switchBranch = useCallback(async (branch: string, expectedBranch: string): Promise<void> => {
-    if (statusFailure === directory) throw new Error('Refresh Git status before switching branches');
+  const changeBranch = useCallback(async (branch: string, expectedBranch: string, create = false): Promise<void> => {
+    if (statusFailure === directory) throw new Error('Refresh Git status before changing branches');
     await withBusy('switch', async () => {
-      await checkoutLocalBranch(directory, branch, expectedBranch);
+      if (create) await createLocalBranch(directory, branch, expectedBranch);
+      else await checkoutLocalBranch(directory, branch, expectedBranch);
       statusRequestRevision.current += 1;
       setSelectedFile(null);
       useGitStore.getState().invalidateStatus(directory);
@@ -256,9 +257,9 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         setStatusFailure(null);
         refreshed = true;
       }
-      catch { setStatusFailure(directory); toast.error('Branch switched, but Git status could not refresh. Retry in Changes.'); }
+      catch { setStatusFailure(directory); toast.error('Branch changed, but Git status could not refresh. Retry in Changes.'); }
       publishReviewRefresh(directory, null, 'git-mutation');
-      if (refreshed) toast.success(`Switched to ${branch}`);
+      if (refreshed) toast.success(create ? `Created and switched to ${branch}` : `Switched to ${branch}`);
     });
   }, [directory, refresh, statusFailure, withBusy]);
 
@@ -381,7 +382,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         </aside>
       </div>
       <GitDialogHost directory={directory} onClose={() => setDialog(null)} dialog={dialog}
-        onSwitchBranch={switchBranch} switchingDisabled={statusStale || busy !== ''} />
+        onSwitchBranch={changeBranch} switchingDisabled={statusStale || busy !== ''} />
       {confirmRevert !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="git-revert-dialog">
           <div className="w-80 rounded-lg border border-border/60 bg-card p-4">
@@ -494,7 +495,4 @@ function FileRow({ entry, staged, selected, mutationDisabled, onOpen, onStageTog
 
 function EmptyLine({ label }: { label: string }): ReactNode {
   return <div className="px-2 py-1 text-[11px] text-muted-foreground">{label}</div>;
-}
-function gitError(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : 'Git operation failed';
 }

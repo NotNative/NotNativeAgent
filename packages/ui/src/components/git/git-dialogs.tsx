@@ -21,7 +21,7 @@ export function GitDialogHost({ directory, onClose, dialog, onSwitchBranch, swit
   directory: string;
   onClose: () => void;
   dialog: GitDialogKind;
-  onSwitchBranch?: (branch: string, expectedBranch: string) => Promise<void>;
+  onSwitchBranch?: (branch: string, expectedBranch: string, create?: boolean) => Promise<void>;
   switchingDisabled?: boolean;
 }): ReactNode {
   if (directory.length === 0 || dialog === null) return null;
@@ -108,11 +108,12 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
 }
 
 function GitBranchesDialog({ directory, onClose, onSwitchBranch, switchingDisabled }: {
-  directory: string; onClose: () => void; onSwitchBranch?: (branch: string, expectedBranch: string) => Promise<void>; switchingDisabled: boolean;
+  directory: string; onClose: () => void; onSwitchBranch?: (branch: string, expectedBranch: string, create?: boolean) => Promise<void>; switchingDisabled: boolean;
 }): ReactNode {
   const [branches, setBranches] = useState<GitBranch | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
+  const [newBranch, setNewBranch] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const [switchError, setSwitchError] = useState('');
   const live = useRef(true);
@@ -135,12 +136,12 @@ function GitBranchesDialog({ directory, onClose, onSwitchBranch, switchingDisabl
     };
   }, [directory]);
 
-  const switchTo = async (branch: string): Promise<void> => {
+  const runBranchAction = async (branch: string, create = false): Promise<void> => {
     if (!branches?.current || !onSwitchBranch || pending || switchingDisabled) return;
     setSwitchError('');
     setPending(branch);
-    try { await onSwitchBranch(branch, branches.current); if (live.current) onClose(); }
-    catch (error) { if (live.current) setSwitchError(error instanceof Error ? error.message : 'Could not switch branch'); }
+    try { await onSwitchBranch(branch, branches.current, create); if (live.current) onClose(); }
+    catch (error) { if (live.current) setSwitchError(error instanceof Error ? error.message : 'Could not change branch'); }
     finally { if (live.current) setPending(null); }
   };
 
@@ -157,11 +158,23 @@ function GitBranchesDialog({ directory, onClose, onSwitchBranch, switchingDisabl
             onChange={(event) => setQuery(event.target.value)} className="rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none" />
           {switchError ? <div role="alert" className="text-status-error" data-testid="git-branch-switch-error">{switchError}</div> : null}
           <BranchGroup label="Local" names={branches.local.filter(matches)} current={branches.current}
-            onSwitch={branches.current ? switchTo : undefined} switchingDisabled={switchingDisabled || pending !== null} pending={pending} />
+            onSwitch={branches.current ? (branch) => { void runBranchAction(branch); } : undefined} switchingDisabled={switchingDisabled || pending !== null} pending={pending} />
           {branches.remote.some(matches) ? <BranchGroup label="Remote" names={branches.remote.filter(matches)} current={null} /> : null}
           {branches.local.length === 0 && branches.remote.length === 0 ? <div className="text-muted-foreground">No branches.</div> : null}
           {search && !branches.local.some(matches) && !branches.remote.some(matches) ? <div className="text-muted-foreground">No matching branches.</div> : null}
           {branches.current === null ? <div className="text-muted-foreground">Check out a local branch in Git before switching here.</div> : null}
+          {branches.current !== null && onSwitchBranch ? <form className="mt-2 flex gap-2 border-t border-border/60 pt-3" onSubmit={(event) => {
+            event.preventDefault();
+            const name = newBranch.trim();
+            if (name) void runBranchAction(name, true);
+          }}>
+            <input type="text" aria-label="New local branch name" placeholder="Create new branch..." value={newBranch} maxLength={200}
+              onChange={(event) => setNewBranch(event.target.value)} className="min-w-0 flex-1 rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none" />
+            <button type="submit" disabled={switchingDisabled || pending !== null || newBranch.trim().length === 0}
+              className="rounded border border-border/60 px-2 py-1 text-xs disabled:opacity-40" data-testid="git-create-branch">
+              {pending === newBranch.trim() ? 'Creating...' : 'Create & switch'}
+            </button>
+          </form> : null}
         </div>
       ) : null}
     </DialogShell>

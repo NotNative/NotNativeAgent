@@ -90,6 +90,7 @@ async function firstPush(root: string, branch: string, remote: string, mergeRef:
 
 export function registerGitSyncRoutes(app: Hono): void {
   app.post('/api/git/checkout', checkoutBranchRoute);
+  app.post('/api/git/branches', createBranchRoute);
   app.post('/api/git/sync', async (context) => {
     const directory = context.req.query('directory');
     if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
@@ -182,5 +183,53 @@ async function checkoutBranchRoute(context: Context): Promise<Response> {
     const actual = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '');
     if (actual !== branch) return conflict('Branch changed during checkout; refresh Changes');
     return Response.json({ branch: actual, switched: true });
+  } finally { activeRoots.delete(lockKey); }
+}
+
+async function createBranchRoute(context: Context): Promise<Response> {
+  const directory = context.req.query('directory');
+  if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
+  let body: unknown;
+  try { body = await readJsonBodyBounded(context.req.raw, 4096); }
+  catch { return Response.json({ error: 'Invalid branch request' }, { status: 400 }); }
+  const request = body as { name?: unknown; expectedBranch?: unknown } | null;
+  const name = request?.name;
+  const expectedBranch = request?.expectedBranch;
+  if (typeof name !== 'string' || typeof expectedBranch !== 'string' || !name || !expectedBranch
+    || name.startsWith('-') || expectedBranch.startsWith('-')) {
+    return Response.json({ error: 'A new branch name and expected current branch are required' }, { status: 400 });
+  }
+  let root: string;
+  try { root = await git(directory, ['rev-parse', '--show-toplevel']); }
+  catch { return Response.json({ error: 'Not a Git repository' }, { status: 400 }); }
+  const lockKey = process.platform === 'win32' ? (await realpath(root)).toLowerCase() : await realpath(root);
+  if (activeRoots.has(lockKey)) return conflict('A Git operation is already running for this repository');
+  activeRoots.add(lockKey);
+  try {
+    const current = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '');
+    if (!current || current !== expectedBranch) return conflict('The current branch changed; refresh Changes before creating a branch');
+    // An NNA agent or another Git client can move HEAD while the clean-tree
+    // preflight runs. Pin the start point so a late checkout cannot create the
+    // named branch from a different branch's commit.
+    const startCommit = await git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).catch(() => '');
+    const valid = await git(root, ['check-ref-format', '--branch', name]).catch(() => '');
+    if (valid !== name) return Response.json({ error: 'Invalid local branch name' }, { status: 400 });
+    const exists = await git(root, ['show-ref', '--verify', '--quiet', `refs/heads/${name}`]).then(() => true, () => false);
+    if (exists) return conflict('A local branch with this name already exists');
+    if (await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])) {
+      return conflict('Commit or stash all changes before creating and switching branches');
+    }
+    if (!await stillOnBranch(root, expectedBranch)
+      || await git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).catch(() => '') !== startCommit) {
+      return conflict('The current branch changed during creation; refresh Changes before retrying');
+    }
+    // An unborn repository has no commit to pin but can still create its first
+    // branch; keep that valid Git workflow available.
+    try { await git(root, startCommit ? ['switch', '-c', name, startCommit] : ['switch', '-c', name]); }
+    catch (error) { return conflict(`Could not create branch: ${failure(error)}`); }
+    const actual = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '');
+    const actualCommit = await git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).catch(() => '');
+    if (actual !== name || actualCommit !== startCommit) return conflict('Branch changed during creation; refresh Changes');
+    return Response.json({ branch: actual, created: true });
   } finally { activeRoots.delete(lockKey); }
 }
