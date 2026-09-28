@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:8434824283129aa316d00b8eba53ca52ed217008d49a6c597dce872d007112aa",
+  "source_digest": "sha256:8f936b6f9cbad32031de16ff078477f8214fd66a273bd3c4352df07dc21b8da7",
   "counts": {
-    "modules": 491,
-    "component_edges": 13
+    "modules": 493,
+    "component_edges": 14
   },
   "components": [
     {
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 142
+      "module_count": 143
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 136
+      "module_count": 137
     },
     {
       "id": "web-server",
@@ -102,14 +102,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 181,
-      "module_count": 75
+      "import_count": 184,
+      "module_count": 76
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 63,
-      "module_count": 27
+      "import_count": 64,
+      "module_count": 28
     },
     {
       "from": "sync-engine",
@@ -120,8 +120,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 46,
-      "module_count": 42
+      "import_count": 47,
+      "module_count": 43
     },
     {
       "from": "gates",
@@ -156,18 +156,24 @@
     {
       "from": "runtime-io",
       "to": "harness-facade",
+      "import_count": 4,
+      "module_count": 3
+    },
+    {
+      "from": "runtime-io",
+      "to": "sync-engine",
+      "import_count": 2,
+      "module_count": 1
+    },
+    {
+      "from": "runtime-io",
+      "to": "ui-shell",
       "import_count": 2,
       "module_count": 2
     },
     {
       "from": "gates",
       "to": "runtime-io",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "runtime-io",
-      "to": "ui-shell",
       "import_count": 1,
       "module_count": 1
     },
@@ -453,6 +459,21 @@
       "imports": [
         "packages/ui/src/chat/model-catalog.ts",
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/multirun-launcher.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/composer-model-config.ts",
+        "packages/ui/src/chat/composer.tsx",
+        "packages/ui/src/chat/model-picker.tsx",
+        "packages/ui/src/lib/multirun/create.ts",
+        "packages/ui/src/lib/multirun/ui-services.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/sync/sync-engine.ts"
       ]
     },
     {
@@ -1068,6 +1089,7 @@
         "packages/ui/src/chat/archive-view.tsx",
         "packages/ui/src/chat/chat-view.tsx",
         "packages/ui/src/chat/composer.tsx",
+        "packages/ui/src/chat/multirun-launcher.tsx",
         "packages/ui/src/chat/session-sidebar.tsx",
         "packages/ui/src/chat/session-tabs.tsx",
         "packages/ui/src/components/ShellShortcuts.tsx",
@@ -1931,6 +1953,21 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/multirun/ui-services.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/prompt-language.ts",
+        "packages/ui/src/lib/multirun/create.ts",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/server-api.ts",
+        "packages/ui/src/lib/snippets-source.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/nnd/client.ts",

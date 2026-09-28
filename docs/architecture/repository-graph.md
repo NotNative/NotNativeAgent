@@ -35,10 +35,10 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Client sync and state engine | 38 | Harness SDK facade, Runtime adaptation, UI shell | UI shell |
+| Client sync and state engine | 38 | Harness SDK facade, Runtime adaptation, UI shell | Runtime adaptation, UI shell |
 | Harness SDK facade | 4 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 142 | Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
-| UI shell | 136 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
+| Runtime adaptation | 143 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| UI shell | 137 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 140 | Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 9 | Web server | — |
 | Quality gates | 22 | Runtime adaptation, Web server | — |
@@ -48,18 +48,19 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 181 | 75 |
-| UI shell | Client sync and state engine | 63 | 27 |
+| UI shell | Runtime adaptation | 184 | 76 |
+| UI shell | Client sync and state engine | 64 | 28 |
 | Client sync and state engine | Harness SDK facade | 51 | 36 |
-| UI shell | Harness SDK facade | 46 | 42 |
+| UI shell | Harness SDK facade | 47 | 43 |
 | Quality gates | Web server | 15 | 4 |
 | Web entrypoints | Web server | 9 | 3 |
 | Client sync and state engine | Runtime adaptation | 7 | 6 |
 | Web server | Harness SDK facade | 5 | 5 |
 | Harness SDK facade | Runtime adaptation | 4 | 2 |
-| Runtime adaptation | Harness SDK facade | 2 | 2 |
+| Runtime adaptation | Harness SDK facade | 4 | 3 |
+| Runtime adaptation | Client sync and state engine | 2 | 1 |
+| Runtime adaptation | UI shell | 2 | 2 |
 | Quality gates | Runtime adaptation | 1 | 1 |
-| Runtime adaptation | UI shell | 1 | 1 |
 | Client sync and state engine | UI shell | 1 | 1 |
 
 ## Process entry points
@@ -69,4 +70,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:8434824283129aa316d00b8eba53ca52ed217008d49a6c597dce872d007112aa`.
+Source fingerprint: `sha256:8f936b6f9cbad32031de16ff078477f8214fd66a273bd3c4352df07dc21b8da7`.

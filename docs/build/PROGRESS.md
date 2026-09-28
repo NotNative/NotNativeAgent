@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **P9-5c multi-run launcher integration.** Wired a real UI
+  launcher and service adapter through git detection, worktree creation and
+  rollback, model catalog selection, optimistic dispatch, and the SyncEngine
+  session registry. Adversarial review fixed worktree metadata being written to
+  the project-root store instead of the worktree child store, stale post-launch
+  directory routing, project/source metadata, missing model variants, model
+  picker positioning, and launcher guards for unavailable NNA routes and expired
+  auth. Mid-launch dismissal controls are disabled. Setup commands, bootstrap
+  waiting, settings persistence, fusion, and grouped-run review surfaces remain
+  pending.
+
 - 2026-09-28 · **P9-5b multi-run creation service.** Added the headless launch
   orchestration for group validation, project selection, git detection,
   isolation defaults, duplicate model indexes, worktree creation and rollback,
@@ -32,7 +43,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   omitted from the dispatch call, and session-flow failure leaving the already
   created worktree in place. A second review hardened Git-safe identity handling
   and reserved `g1`-style group names that would otherwise round-trip as
-  run-group markers. Launcher UI wiring and fusion remain pending.
+  run-group markers. Launcher wiring landed in P9-5c; fusion remains pending.
 
 - 2026-09-28 · **P9-5a multi-run identities.** Added the pure title bundle
   for group slugs, model slugs, ordinary runs, run groups, duplicate indexes,

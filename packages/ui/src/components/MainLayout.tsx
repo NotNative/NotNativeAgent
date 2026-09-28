@@ -25,6 +25,7 @@ import { WorktreesView } from './worktrees/WorktreesView.tsx';
 import { TerminalView } from './terminal/TerminalView.tsx';
 import { TerminalKeepaliveOwner } from './terminal/TerminalKeepaliveOwner.tsx';
 import { ScheduledTasksDialog } from './scheduled/scheduled-tasks-dialog.tsx';
+import { launchedSessionDirectory, MultiRunLauncher } from '../chat/multirun-launcher.tsx';
 import { useScheduledShellWiring } from './scheduled/scheduled-shell-wiring.tsx';
 import { useFilesViewTabsStore } from '../lib/files/tabs-store.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
@@ -59,8 +60,10 @@ export function MainLayout(): ReactNode {
   const closeSettings = useCallback(() => setSettingsPage(null), []);
   const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
   const [scheduledOpen, setScheduledOpen] = useState(false);
+  const [multiRunOpen, setMultiRunOpen] = useState(false);
   const openScheduled = useCallback(() => setScheduledOpen(true), []);
   const closeScheduled = useCallback(() => setScheduledOpen(false), []);
+  const closeMultiRun = useCallback(() => setMultiRunOpen(false), []);
   const openEditorFile = useCallback((directory: string, path: string) => {
     setReviewPane('');
     setFilesOpen(true);
@@ -83,9 +86,9 @@ export function MainLayout(): ReactNode {
   }, [openSettings]);
   const [services] = useState<ComposerServices>(() => ({
     engine,
-    store: () => {
-      const current = useSessionViewStore.getState().activeDirectory;
-      return engine.childStoreOf(current || '/') ?? engine.manager.ensureChild(current || '/');
+    store: (requestedDirectory) => {
+      const current = requestedDirectory || useSessionViewStore.getState().activeDirectory || '/';
+      return engine.childStoreOf(current) ?? engine.manager.ensureChild(current);
     },
     dispatch: (command) => {
       const live = useSessionViewStore.getState();
@@ -282,6 +285,16 @@ export function MainLayout(): ReactNode {
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="multirun-toggle"
+          title="Multi-run"
+          aria-label="Multi-run"
+          onClick={() => setMultiRunOpen(true)}
+        >
+          ⧉
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="files-toggle"
           title="Files"
           aria-label="Files"
@@ -333,6 +346,14 @@ export function MainLayout(): ReactNode {
       ) : null}
       {scheduledOpen ? (
         <ScheduledTasksDialog directory={activeDirectory} onClose={closeScheduled} services={services} />
+      ) : null}
+      {multiRunOpen ? (
+        <MultiRunLauncher directory={activeDirectory} services={services} onClose={closeMultiRun}
+          onLaunched={(result, directory) => {
+            const firstSessionDirectory = launchedSessionDirectory(engine, result, directory);
+            if (result.firstSessionId === null || firstSessionDirectory === null) return;
+            actions.openSession(result.firstSessionId, firstSessionDirectory);
+          }} />
       ) : null}
       <Toaster position="bottom-right" />
     </div>

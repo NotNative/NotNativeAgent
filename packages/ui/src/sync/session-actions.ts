@@ -91,7 +91,7 @@ export async function optimisticSend(
     sessionID: string;
     delivery?: 'steer' | 'queue';
     parts: Array<{ type: 'text'; text: string } | { type: 'file'; url?: string; mime?: string; filename?: string }>;
-    model: { providerID: string; modelID: string };
+    model: { providerID: string; modelID: string; variant?: string };
     agent?: string;
   },
 ): Promise<void> {
@@ -123,7 +123,11 @@ function addOptimisticDraft(
     role: 'user',
     time: { created },
     agent: input.agent ?? 'build',
-    model: { providerID: input.model.providerID, modelID: input.model.modelID },
+    model: {
+      providerID: input.model.providerID,
+      modelID: input.model.modelID,
+      ...(input.model.variant === undefined ? {} : { variant: input.model.variant }),
+    },
   } as Message;
   const optimisticParts: Part[] = input.parts.map((part) =>
     part.type === 'text'
@@ -149,7 +153,11 @@ async function dispatchPrompt(
     input.sessionID,
     {
       messageID,
-      model: input.model,
+      model: {
+        providerID: input.model.providerID,
+        modelID: input.model.modelID,
+        ...(input.model.variant === undefined ? {} : { variant: input.model.variant }),
+      },
       ...(input.agent ? { agent: input.agent } : {}),
       ...(input.delivery ? { delivery: input.delivery } : {}),
       parts: input.parts.map((part) =>
