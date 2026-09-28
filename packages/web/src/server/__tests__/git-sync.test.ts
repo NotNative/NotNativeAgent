@@ -50,14 +50,114 @@ async function sync(directory?: string): Promise<Response> {
 }
 
 describe('explicit Git sync', () => {
-  it('requires a directory, a repository, and an upstream without mutating local commits', async () => {
+  it('requires a directory, a repository, and a remote without mutating local commits', async () => {
     expect((await sync()).status).toBe(400);
     const { local } = fixture(false);
     const before = git(local, 'rev-parse', 'HEAD');
     const response = await sync(local);
     expect(response.status).toBe(409);
-    expect((await response.json() as { error: string }).error).toContain('upstream');
+    expect((await response.json() as { error: string }).error).toContain('remote');
     expect(git(local, 'rev-parse', 'HEAD')).toBe(before);
+  });
+
+  it('publishes a new branch to origin and installs tracking for later syncs', async () => {
+    const { local, remote } = fixture();
+    git(local, 'switch', '-q', '-c', 'feature/new');
+    writeFileSync(join(local, 'feature.txt'), 'feature\n');
+    git(local, 'add', '-A');
+    git(local, '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'feature');
+    const response = await sync(local);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ synced: true, pushed: true, createdUpstream: true });
+    expect(git(remote, 'rev-parse', 'refs/heads/feature/new')).toBe(git(local, 'rev-parse', 'HEAD'));
+    expect(git(local, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')).toBe('origin/feature/new');
+    expect(await (await sync(local)).json()).toMatchObject({ synced: true, pushed: false });
+  });
+
+  it('does not guess origin when multiple remotes are available, and honors an explicit push default', async () => {
+    const { local, remote } = fixture();
+    const fork = join(sandbox!, 'fork.git');
+    execFileSync('git', ['init', '-q', '--bare', fork]);
+    git(local, 'remote', 'add', 'fork', fork);
+    git(local, 'switch', '-q', '-c', 'feature');
+    const ambiguous = await sync(local);
+    expect(ambiguous.status).toBe(409);
+    expect((await ambiguous.json() as { error: string }).error).toContain('Choose an upstream remote');
+    expect(git(remote, 'branch', '--list', 'feature')).toBe('');
+    git(local, 'config', 'remote.pushDefault', 'fork');
+    const selected = await sync(local);
+    expect(selected.status).toBe(200);
+    expect(await selected.json()).toMatchObject({ createdUpstream: true });
+    expect(git(fork, 'rev-parse', 'refs/heads/feature')).toBe(git(local, 'rev-parse', 'HEAD'));
+    expect(git(remote, 'branch', '--list', 'feature')).toBe('');
+    expect(git(local, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')).toBe('fork/feature');
+  });
+
+  it('refuses a missing configured remote or an unavailable configured upstream', async () => {
+    const { local, remote } = fixture();
+    git(local, 'switch', '-q', '-c', 'feature');
+    git(local, 'config', 'branch.feature.remote', 'missing');
+    const missing = await sync(local);
+    expect(missing.status).toBe(409);
+    expect((await missing.json() as { error: string }).error).toContain('unavailable');
+    git(local, 'config', 'branch.feature.remote', 'origin');
+    git(local, 'config', 'branch.feature.merge', 'refs/heads/feature');
+    const stale = await sync(local);
+    expect(stale.status).toBe(409);
+    expect((await stale.json() as { error: string }).error).toContain('configured but unavailable upstream');
+    expect(git(remote, 'branch', '--list', 'feature')).toBe('');
+  });
+
+  it('refuses to adopt an existing remote branch when the local branch has no upstream', async () => {
+    const { local, remote, peer } = fixture();
+    git(peer, 'switch', '-q', '-c', 'feature');
+    writeFileSync(join(peer, 'peer-feature.txt'), 'peer\n');
+    git(peer, 'add', '-A');
+    git(peer, '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'peer feature');
+    git(peer, 'push', '-q', '-u', 'origin', 'feature');
+    const remoteBefore = git(remote, 'rev-parse', 'refs/heads/feature');
+    git(local, 'switch', '-q', '-c', 'feature');
+    const response = await sync(local);
+    expect(response.status).toBe(409);
+    expect((await response.json() as { error: string }).error).toContain('already exists');
+    expect(git(remote, 'rev-parse', 'refs/heads/feature')).toBe(remoteBefore);
+    expect(() => git(local, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')).toThrow();
+  });
+
+  it('pushes only the inspected commit when the branch advances during first push', async () => {
+    const { local, remote } = fixture();
+    git(local, 'switch', '-q', '-c', 'feature');
+    const inspectedCommit = git(local, 'rev-parse', 'HEAD');
+    git(local, 'config', 'core.hooksPath', '.git/hooks');
+    writeFileSync(join(local, '.git', 'hooks', 'pre-push'), [
+      '#!/bin/sh',
+      "printf 'later\\n' > concurrent.txt",
+      'git add concurrent.txt',
+      "git -c commit.gpgsign=false commit -q -m 'concurrent local commit'",
+      '',
+    ].join('\n'));
+    const response = await sync(local);
+    expect(response.status).toBe(409);
+    expect((await response.json() as { error: string }).error).toContain('inspected commit was pushed');
+    expect(git(remote, 'rev-parse', 'refs/heads/feature')).toBe(inspectedCommit);
+    expect(git(local, 'rev-parse', 'HEAD')).not.toBe(inspectedCommit);
+  });
+
+  it('does not adopt a remote branch created during first push', async () => {
+    const { local, remote, peer } = fixture();
+    git(local, 'switch', '-q', '-c', 'feature');
+    git(peer, 'switch', '-q', '-c', 'feature');
+    writeFileSync(join(peer, 'peer-feature.txt'), 'peer\n');
+    git(peer, 'add', '-A');
+    git(peer, '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'peer feature');
+    const peerCommit = git(peer, 'rev-parse', 'HEAD');
+    git(local, 'config', 'core.hooksPath', '.git/hooks');
+    writeFileSync(join(local, '.git', 'hooks', 'pre-push'), '#!/bin/sh\ngit -C ../peer push -q origin feature\n');
+    const response = await sync(local);
+    expect(response.status).toBe(502);
+    expect((await response.json() as { error: string }).error).toContain('Push failed');
+    expect(git(remote, 'rev-parse', 'refs/heads/feature')).toBe(peerCommit);
+    expect(() => git(local, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')).toThrow();
   });
 
   it('pushes local commits to the configured upstream', async () => {

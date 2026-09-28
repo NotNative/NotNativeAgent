@@ -30,16 +30,61 @@ async function stillOnBranch(root: string, branch: string): Promise<boolean> {
   return await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '') === branch;
 }
 
-async function upstreamConfig(root: string, branch: string): Promise<{ remote: string; mergeRef: string } | Response> {
+type UpstreamConfig = { remote: string; mergeRef: string; firstPush: boolean };
+
+async function upstreamConfig(root: string, branch: string): Promise<UpstreamConfig | Response> {
   const upstream = await git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']).catch(() => '');
-  if (!upstream) return conflict('Configure an upstream branch before syncing');
+  if (!upstream) {
+    const remotes = (await git(root, ['remote'])).split(/\r?\n/u).filter(Boolean);
+    if (remotes.length === 0) return conflict('Add a Git remote before syncing');
+    const configuredMerge = await git(root, ['config', '--get', `branch.${branch}.merge`]).catch(() => '');
+    if (configuredMerge) return conflict('The branch has a configured but unavailable upstream; repair its tracking configuration before syncing');
+    const branchPushRemote = await git(root, ['config', '--get', `branch.${branch}.pushRemote`]).catch(() => '');
+    const defaultPushRemote = await git(root, ['config', '--get', 'remote.pushDefault']).catch(() => '');
+    const branchRemote = await git(root, ['config', '--get', `branch.${branch}.remote`]).catch(() => '');
+    const remote = branchPushRemote || defaultPushRemote || branchRemote || (remotes.length === 1 ? remotes[0]! : '');
+    if (!remote) return conflict('Choose an upstream remote before syncing');
+    if (!remotes.includes(remote)) return conflict(`Configured push remote ${remote} is unavailable`);
+    return { remote, mergeRef: `refs/heads/${branch}`, firstPush: true };
+  }
   const remote = await git(root, ['config', '--get', `branch.${branch}.remote`]).catch(() => '');
   if (!remote || remote.startsWith('-')) return conflict('The branch has no usable upstream remote');
   const mergeRef = await git(root, ['config', '--get', `branch.${branch}.merge`]).catch(() => '');
   if (!mergeRef.startsWith('refs/heads/') || mergeRef === 'refs/heads/') {
     return conflict('The branch has no usable upstream branch');
   }
-  return { remote, mergeRef };
+  return { remote, mergeRef, firstPush: false };
+}
+
+async function firstPush(root: string, branch: string, remote: string, mergeRef: string): Promise<Response> {
+  // A branch with no upstream may be new, or may be an existing remote branch
+  // with unrelated history. Never silently adopt or overwrite the latter.
+  try {
+    await git(root, ['ls-remote', '--exit-code', '--heads', '--', remote, mergeRef]);
+    return conflict('A remote branch with this name already exists; configure its upstream before syncing');
+  } catch (error) {
+    if ((error as { code?: number }).code !== 2) {
+      return Response.json({ error: `Remote branch check failed: ${failure(error)}` }, { status: 502 });
+    }
+  }
+  if (!await stillOnBranch(root, branch)) return conflict('The current branch changed during sync; retry on the intended branch');
+  // A concurrent agent can advance the local branch after the clean-worktree
+  // check. Push exactly the commit we inspected, not a moving branch ref.
+  const branchCommit = await git(root, ['rev-parse', '--verify', `refs/heads/${branch}^{commit}`]);
+  try {
+    // The branch may be created between ls-remote and push. The empty lease
+    // requires it to remain absent, even if our commit could fast-forward it.
+    await git(root, ['push', `--force-with-lease=${mergeRef}:`, '--no-follow-tags', '--recurse-submodules=no', '--', remote, `${branchCommit}:${mergeRef}`]);
+  } catch (error) { return Response.json({ error: `Push failed: ${failure(error)}` }, { status: 502 }); }
+  try { await git(root, ['branch', `--set-upstream-to=${remote}/${branch}`, branch]); }
+  catch (error) {
+    return Response.json({ error: `Push succeeded, but branch tracking setup failed: ${failure(error)}` }, { status: 502 });
+  }
+  const currentCommit = await git(root, ['rev-parse', '--verify', `refs/heads/${branch}^{commit}`]).catch(() => '');
+  if (currentCommit !== branchCommit) {
+    return conflict('The branch changed while publishing. The inspected commit was pushed; sync again to publish newer local commits');
+  }
+  return Response.json({ synced: true, branch, pulled: false, pushed: true, createdUpstream: true });
 }
 
 export function registerGitSyncRoutes(app: Hono): void {
@@ -57,12 +102,13 @@ export function registerGitSyncRoutes(app: Hono): void {
     try {
       const branch = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => '');
       if (!branch) return conflict('Check out a branch before syncing');
-      const upstream = await upstreamConfig(root, branch);
-      if (upstream instanceof Response) return upstream;
-      const { remote, mergeRef } = upstream;
       if (await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])) {
         return conflict('Commit or stash all changes before syncing');
       }
+      const upstream = await upstreamConfig(root, branch);
+      if (upstream instanceof Response) return upstream;
+      const { remote, mergeRef } = upstream;
+      if (upstream.firstPush) return await firstPush(root, branch, remote, mergeRef);
       try { await git(root, ['fetch', '--no-tags', '--', remote]); }
       catch (error) { return Response.json({ error: `Fetch failed: ${failure(error)}` }, { status: 502 }); }
       if (!await stillOnBranch(root, branch)) return conflict('The current branch changed during sync; retry on the intended branch');

@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Safe first-push sync.** A new local branch without tracking
+  can now use Sync branch or Commit & sync when one remote is available, or
+  when the branch/repository explicitly selects a push remote. NND probes the
+  target ref, refuses an existing branch, and requires it to stay absent
+  through the push before installing tracking. Missing or ambiguous remotes
+  remain actionable errors. Adversarial review also caught a stale configured
+  upstream and concurrent local-branch advancement; neither can be reported
+  as a fully synced first push.
+
 - 2026-09-28 · **Real Git branch sync from Changes.** `Commit & sync` now
   commits locally, then invokes an explicit server-owned sync: require a
   configured upstream and clean worktree, fetch, rebase behind commits, and

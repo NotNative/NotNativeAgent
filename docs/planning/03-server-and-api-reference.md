@@ -571,7 +571,7 @@ Identity profiles persist in `~/.config/openchamber/git-identities.json` (src: `
 | 30 | POST `/api/git/apply-hunk` | `?directory`; body `{ path, patch, action: 'stage'\|'unstage'\|'discard' }` | `{ success:true }`; patch must exactly match one 3-line-context hunk; `git apply --check` first |
 | 31 | POST `/api/git/pull` | `?directory`; body passthrough | pull result |
 | 32 | POST `/api/git/push` | `?directory`; body passthrough (auto-sets upstream if needed) | push result |
-| 32a | POST `/api/git/sync` (NND implementation) | `?directory`; explicit user action, clean worktree and configured upstream required | fetch upstream remote, rebase behind commits, push only the current branch to its upstream; `{ synced, branch, pulled, pushed }`, or actionable 409/502 error |
+| 32a | POST `/api/git/sync` (NND implementation) | `?directory`; explicit user action and clean worktree required; existing upstream or unambiguous remote for a new branch | fetch upstream remote, rebase behind commits, push only the current branch; a first push creates upstream tracking only when no same-named remote branch exists; `{ synced, branch, pulled, pushed, createdUpstream? }`, or actionable 409/502 error |
 | 33 | GET `/api/git/stashes` | `?directory` | `{ stashes: [ { ref, message, time, hash } ] }` |
 | 34 | POST `/api/git/stashes/file-counts` | `?directory`; body `{ refs: [...] }` | `{ counts }` |
 | 35 | POST `/api/git/stash` | `?directory`; body options (message) | stash result — always includes untracked |
