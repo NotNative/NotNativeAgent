@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-27 · **GUI operator-pane expansion.** The right-side Context,
+  Activity, Changes, Notes, Browser, and Terminal surfaces can expand over the
+  chat column for focused inspection and restore to their saved dock width.
+  The surface stays selected and mounted across expansion. Adversarial review
+  corrected a selected-icon click that could otherwise leave an opaque
+  maximized icon strip over the chat.
+
 - 2026-09-27 · **GUI workspace navigator.** The selected workspace remains
   visible in the sidebar before its first session. Project groups can fold
   without losing their new-session/folder actions; search temporarily reveals

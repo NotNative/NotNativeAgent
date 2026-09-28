@@ -33,6 +33,28 @@ afterEach(() => {
 });
 
 describe('OperatorRail', () => {
+  it('maximizes an inspection surface without losing its selected pane or saved dock width', () => {
+    vi.stubGlobal('innerWidth', 1280);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    const dockWidth = rail.style.width;
+    act(() => (document.querySelector('button[aria-label="Maximize operator panel"]') as HTMLButtonElement).click());
+    expect(rail.className).toContain('absolute inset-0');
+    expect(rail.style.width).toBe('');
+    expect((document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement).className).toContain('hidden');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Activity');
+    expect(rail.className).toContain('absolute inset-0');
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.className).not.toContain('hidden');
+    expect(document.querySelector('button[aria-label="Restore operator panel"]')).not.toBeNull();
+    act(() => (document.querySelector('button[aria-label="Restore operator panel"]') as HTMLButtonElement).click());
+    expect(rail.className).not.toContain('absolute inset-0');
+    expect(rail.style.width).toBe(dockWidth);
+  });
+
   it('explains absent Context projections and summarizes the latest authored tool event', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();

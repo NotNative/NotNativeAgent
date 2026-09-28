@@ -42,6 +42,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
   const [docked, setDocked] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1024px)').matches ?? false));
   const [panelOpen, setPanelOpen] = useState(wide);
+  const [maximized, setMaximized] = useState(false);
   useEffect(() => {
     const query = window.matchMedia?.('(min-width: 1280px)');
     if (!query) return;
@@ -63,6 +64,9 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     // ChatView simultaneously restores the chat column at this breakpoint.
     if (docked && compactOpen) setPanelOpen(true);
   }, [compactOpen, docked]);
+  useEffect(() => {
+    if (!docked || compactOpen || suppressed) setMaximized(false);
+  }, [compactOpen, docked, suppressed]);
   const paneVisible = !suppressed && (compactOpen || (docked && panelOpen));
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const projectId = resolveContextProjectId(directory, global.projects);
@@ -155,9 +159,9 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   // border pixel makes the document itself scroll in both directions.
   const dockWidth = 41;
   return (
-    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={docked && !compactOpen ? { width: panelOpen ? width + dockWidth : dockWidth } : undefined} data-testid="operator-rail">
+    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} ${maximized && docked && !compactOpen ? 'absolute inset-0 z-30 w-full' : `relative shrink-0 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} min-w-0 flex-col border-l border-white/10 bg-neutral-950`} style={docked && !compactOpen && !maximized ? { width: panelOpen ? width + dockWidth : dockWidth } : undefined} data-testid="operator-rail">
       <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
-        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen ? 'hidden' : 'hidden lg:block'}`}
+        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen || maximized ? 'hidden' : 'hidden lg:block'}`}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           dragCleanup.current?.();
@@ -186,7 +190,11 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
       </div> : null}
       <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300`} data-testid="operator-surface-title">
         {SURFACES.find((item) => item.id === surface)?.label}
-        {docked && !compactOpen ? <button type="button" aria-label="Close operator panel" className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => { setPanelOpen(false); selectedButton.current?.focus(); }}>×</button> : null}
+        {docked && !compactOpen ? <div className="flex items-center gap-2">
+          <button type="button" aria-label={maximized ? 'Restore operator panel' : 'Maximize operator panel'} aria-pressed={maximized}
+            className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => setMaximized((value) => !value)}>{maximized ? '↙' : '⛶'}</button>
+          <button type="button" aria-label="Close operator panel" className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => { setMaximized(false); setPanelOpen(false); selectedButton.current?.focus(); }}>×</button>
+        </div> : null}
       </div>
       <div className="flex min-h-0 flex-1">
       <nav className="order-2 flex w-10 shrink-0 flex-col border-l border-white/10 py-2" aria-label="Operator surfaces">
@@ -199,7 +207,9 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               if (item.id === 'notes') setNotesOpenedKey(storageKey);
-              if (docked && !compactOpen) setPanelOpen(item.id !== surface || !panelOpen);
+              // A maximized surface must not collapse into an opaque, full-chat
+              // icon strip when its already selected icon is clicked.
+              if (docked && !compactOpen) setPanelOpen(maximized || item.id !== surface || !panelOpen);
               setSelection({ key: selectionKey, surface: item.id });
             }}><OperatorIcon surface={item.id} /></button>
           );
