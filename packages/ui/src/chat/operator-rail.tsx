@@ -278,7 +278,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
           useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
           if (compactOpen) onCloseCompact?.();
         }} /> : null}
-        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} onReviewPath={(path) => {
+        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} expanded={maximized && docked && !compactOpen} onReviewPath={(path) => {
           setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
@@ -381,8 +381,8 @@ const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
   { id: 'notice', label: 'Notices' }, { id: 'attention', label: 'Needs input' }, { id: 'failed', label: 'Failures' },
 ];
 
-function ActivitySurface({ store, directory, onReviewPath }: {
-  store: StoreApi<DirectoryStore>; directory: string; onReviewPath: (path: string) => void;
+function ActivitySurface({ store, directory, expanded, onReviewPath }: {
+  store: StoreApi<DirectoryStore>; directory: string; expanded: boolean; onReviewPath: (path: string) => void;
 }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
@@ -431,16 +431,18 @@ function ActivitySurface({ store, directory, onReviewPath }: {
   }, [key, records]);
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-activity">
     <header className="shrink-0 border-b border-white/10 p-3 pb-2">
-      <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
-      {nnaSource && historyStatus === 'loading' && records.length > 0 ? <p role="status" className="mb-2 text-[10px] text-neutral-400">Loading saved activity; showing live evidence so far.</p> : null}
-      {nnaSource && historyStatus === 'unavailable' ? <div role="status" className="mb-2 flex items-center gap-2 text-[10px] text-amber-300">
-        <span>Saved activity unavailable; live evidence may be incomplete.</span>
-        <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>Retry</button>
-      </div> : null}
-      <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
-        {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
-          className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
-          onClick={() => setFilter(option.id)}>{option.label}</button>)}
+      <div className={expanded ? 'mx-auto w-full max-w-5xl' : 'w-full'} data-testid="activity-reading-column">
+        <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
+        {nnaSource && historyStatus === 'loading' && records.length > 0 ? <p role="status" className="mb-2 text-[10px] text-neutral-400">Loading saved activity; showing live evidence so far.</p> : null}
+        {nnaSource && historyStatus === 'unavailable' ? <div role="status" className="mb-2 flex items-center gap-2 text-[10px] text-amber-300">
+          <span>Saved activity unavailable; live evidence may be incomplete.</span>
+          <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>Retry</button>
+        </div> : null}
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
+          {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
+            className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
+            onClick={() => setFilter(option.id)}>{option.label}</button>)}
+        </div>
       </div>
     </header>
     <ol ref={viewport} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" data-testid="activity-rows"
@@ -449,13 +451,13 @@ function ActivitySurface({ store, directory, onReviewPath }: {
         following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
         if (following.current) setUnseen(0);
       }}>
-      {records.length === 0 ? <li className="text-[11px] text-neutral-500">{!view.currentSessionId ? 'Select a session to watch its activity.'
+      {records.length === 0 ? <li className={`${expanded ? 'mx-auto w-full max-w-5xl' : ''} text-[11px] text-neutral-500`}>{!view.currentSessionId ? 'Select a session to watch its activity.'
         : historyStatus === 'loading' ? 'Loading saved activity…'
         : historyStatus === 'unavailable' ? 'Saved activity could not be loaded. Live events will still appear here.'
         : filter === 'all' ? 'No recorded activity for this session yet. Conversation messages remain in the transcript.'
         : filter === 'attention' ? 'No activity requiring input has been received for this session.'
         : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
-        : records.map((record) => <li key={record.id} className={`rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
+        : records.map((record) => <li key={record.id} className={`${expanded ? 'mx-auto w-full max-w-5xl ' : ''}rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
           {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
           {record.status === 'completed' && record.toolEvidence?.reviewPath
             && record.toolEvidence.reviewDirectory === directory ? <button type="button"
@@ -469,7 +471,7 @@ function ActivitySurface({ store, directory, onReviewPath }: {
               document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
             }}>View prompt</button> : null}</li>)}
     </ol>
-    {unseen > 0 ? <button type="button" className="m-2 shrink-0 rounded border border-white/15 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200" data-testid="activity-jump-live"
+    {unseen > 0 ? <button type="button" className={`m-2 shrink-0 rounded border border-white/15 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 ${expanded ? 'self-center' : ''}`} data-testid="activity-jump-live"
       onClick={() => { following.current = true; if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight; setUnseen(0); }}>↓ {unseen} new {unseen === 1 ? 'event' : 'events'} · Jump to live</button> : null}
   </section>;
 }

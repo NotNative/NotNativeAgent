@@ -123,12 +123,16 @@ describe('OperatorRail', () => {
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Activity');
     expect(rail.className).toContain('absolute inset-0');
+    expect(document.querySelector('[data-testid="activity-reading-column"]')?.className).toContain('max-w-5xl');
+    expect(document.querySelector('[data-testid="activity-rows"] li')?.className).toContain('max-w-5xl');
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.className).not.toContain('hidden');
     expect(document.querySelector('button[aria-label="Restore operator panel"]')).not.toBeNull();
     act(() => (document.querySelector('button[aria-label="Restore operator panel"]') as HTMLButtonElement).click());
     expect(rail.className).not.toContain('absolute inset-0');
     expect(rail.style.width).toBe(dockWidth);
+    expect(document.querySelector('[data-testid="activity-reading-column"]')?.className).not.toContain('max-w-5xl');
+    expect(document.querySelector('[data-testid="activity-rows"] li')?.className).not.toContain('max-w-5xl');
   });
 
   it('explains absent Context projections and summarizes the latest authored tool event', () => {
@@ -1053,6 +1057,7 @@ describe('OperatorRail', () => {
   });
 
   it('filters authored categories and follows the live tail only while the reader is at the bottom', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [
       { id: 'turn-1', sessionID: 's1', time: 1, kind: 'turn', status: 'started', summary: 'Started work' },
@@ -1083,6 +1088,10 @@ describe('OperatorRail', () => {
     ] }));
     expect(rows.scrollTop).toBe(0);
     expect((document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).textContent).toContain('1 new event');
+    act(() => (document.querySelector('button[aria-label="Maximize operator panel"]') as HTMLButtonElement).click());
+    expect((document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).className).toContain('self-center');
+    act(() => (document.querySelector('button[aria-label="Restore operator panel"]') as HTMLButtonElement).click());
+    expect((document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).className).not.toContain('self-center');
     act(() => (document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).click());
     expect(rows.scrollTop).toBe(300);
     expect(document.querySelector('[data-testid="activity-jump-live"]')).toBeNull();

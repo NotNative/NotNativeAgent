@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Readable maximized Activity.** The installed desktop GUI
+  showed log events spanning an ultrawide monitor. Maximized Activity now
+  centers its header, event rows, empty state, and live-tail control in a
+  bounded reading column; the docked pane retains its full usable width.
+  Adversarial review caught the live-tail control before release.
+
 - 2026-09-28 · **Expanded Context message ledger.** Maximized Context now
   presents the newest 100 loaded messages in reverse order with role, part
   kinds, reported input/output tokens, and timestamp. It labels the loaded
