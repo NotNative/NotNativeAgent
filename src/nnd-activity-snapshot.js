@@ -132,12 +132,14 @@ function sanitizeToolEvidence(source) {
   const reasonCode = bounded(source.reason_code ?? source.reasonCode, 80);
   const elapsed = source.elapsed_ms ?? source.elapsedMs;
   const exit = source.exit_code ?? source.exitCode;
+  const turnRequestID = validEvidenceMessageID(source.turnRequestID) ? source.turnRequestID : '';
   const evidence = {
     ...(target ? { target } : {}), ...(reviewPath ? { reviewPath, reviewDirectory: source.review_workspace } : {}),
     ...(effect ? { effect } : {}),
     ...(reasonCode ? { reasonCode } : {}),
     ...(Number.isSafeInteger(elapsed) && elapsed >= 0 && elapsed <= 604_800_000 ? { elapsedMs: elapsed } : {}),
     ...(Number.isSafeInteger(exit) && Math.abs(exit) <= 2_147_483_647 ? { exitCode: exit } : {}),
+    ...(turnRequestID ? { turnRequestID } : {}),
   };
   return Object.keys(evidence).length ? evidence : null;
 }
@@ -145,13 +147,14 @@ function sanitizeToolEvidence(source) {
 function validToolEvidence(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const keys = Object.keys(value);
-  if (!keys.length || keys.some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return false;
+  if (!keys.length || keys.some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode', 'turnRequestID'].includes(key))) return false;
   const validText = (text, max) => text === undefined || typeof text === 'string' && text.length > 0
     && text.length <= max && !/[\u0000-\u001f\u007f]/u.test(text);
   return validText(value.target, 180)
     && (value.reviewPath === undefined && value.reviewDirectory === undefined
       || validReviewPath(value.reviewPath) && validReviewDirectory(value.reviewDirectory))
     && validText(value.effect, 48) && validText(value.reasonCode, 80)
+    && (value.turnRequestID === undefined || validEvidenceMessageID(value.turnRequestID))
     && (value.elapsedMs === undefined || Number.isSafeInteger(value.elapsedMs) && value.elapsedMs >= 0 && value.elapsedMs <= 604_800_000)
     && (value.exitCode === undefined || Number.isSafeInteger(value.exitCode) && Math.abs(value.exitCode) <= 2_147_483_647);
 }

@@ -230,7 +230,7 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   assert.deepEqual(before.map((record) => record.status), ['started', 'started', 'completed', 'completed']);
   assert.equal(before.filter((record) => record.kind === 'tool').at(-1).status, 'completed');
   assert.deepEqual(before.filter((record) => record.kind === 'tool').at(-1).toolEvidence,
-    { effect: 'read_only', elapsedMs: 25, exitCode: 0 });
+    { effect: 'read_only', elapsedMs: 25, exitCode: 0, turnRequestID: 'prompt_a' });
   assert.equal(before.filter((record) => record.kind === 'turn').at(-1).evidenceMessageID, 'prompt_a');
   assert.equal(before.find((record) => record.kind === 'tool').evidenceMessageID, undefined);
   assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });

@@ -135,6 +135,11 @@ owner-scoped, bounded snapshots contain classified summaries and tool
 evidence only; prompt text, tool arguments, and tool output never enter the
 Activity record. NND can therefore replay a readable sequence after restart
 without treating a past start row as the current session status.
+Parent tool evidence also carries the host-authored prompt request ID. NND
+can match completed file mutations to the latest turn without inferring
+ownership from timestamps; older records without this correlation remain
+session-level evidence. This is provenance for the tool event, not a claim
+that a current Git diff contains only that turn's edits.
 
 The Context rail's numeric token estimate is also an NNA-authored projection.
 NNA saves only its bounded estimated-token count, optional positive limit,

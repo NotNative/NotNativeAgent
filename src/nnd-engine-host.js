@@ -287,7 +287,8 @@ export class NndEngineHost {
         if (typeof toolId === 'string' && toolId) {
           const status = activityStatus(record.status);
           this.#activity(context, `${sessionId}:${status === 'started' ? 'ts' : 'tool'}:${toolId}`,
-            'tool', status, `${record.tool}: ${record.status}`, undefined, record);
+            'tool', status, `${record.tool}: ${record.status}`, undefined,
+            { ...record, turnRequestID: turn.requestId });
         }
       } else if (record.type === 'turn_result') {
         turn.outcome = record.outcome;
