@@ -1,28 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-/**
- * FilesView (doc 06 §2/§3, first-party v1): open-file tabs + a
- * textarea-backed editor host carrying the documented surrounding
- * contracts — load pipeline (§3.3), line-ending discipline, binary sniff,
- * autosave 1,500 ms with the §3.7 gates + O_TRUNC guard, 2 s stat poll with
- * the double-read confirm swap (§3.5), unsaved guard (§2.7), go-to-line
- * (§3.9), image/unsupported panes (§4.1/§12.1), tab pruning (§2.6), and
- * mod+s/alt+g through the shortcut registry reading the EFFECTIVE combo.
- * CodeMirror/shiki land with the E20 swap; markdown/html/json/drawio panes
- * with P6-3 previews.
- */
+/** Files editor host (doc 06 §2/§3): tabs, guarded edits, autosave, stat
+ * reconciliation, and in-memory recovery when navigation unmounts the view. */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { FileTree } from './FileTree.tsx';
-import { EditorGoToLine, FileDialog, TabRow, UnsavedChangesGuard, type FileDialogMode } from './file-dialogs.tsx';
+import { EditorGoToLine, FileDialog, TabRow, UnsavedChangesGuard } from './file-dialogs.tsx';
 import { EditorStage, type PaneKind } from './editor-stage.tsx';
-import {
-  AUTO_SAVE_DELAY, LARGE_FILE_CHAR_THRESHOLD, MAX_CONTENT_POLL_BYTES, STAT_POLL_INTERVAL_MS, SAVE_STATUS_LINGER_MS,
+import { AUTO_SAVE_DELAY, LARGE_FILE_CHAR_THRESHOLD, MAX_CONTENT_POLL_BYTES, STAT_POLL_INTERVAL_MS, SAVE_STATUS_LINGER_MS,
   hasFileStatChanged, isBinaryFile, isImageFile, isPdfFile, looksLikeBinaryText, prepareFileEditorContent,
-  serializeEditorContent,
-} from '../../lib/files/edit-support.ts';
+  serializeEditorContent } from '../../lib/files/edit-support.ts';
 import { effectiveSelectedPath, useFilesViewTabsStore } from '../../lib/files/tabs-store.ts';
-import { workspaceRelativePath } from '../../lib/files/workspace-paths.ts';
-import { publishReviewRefresh } from '../../lib/git/refresh-hints';
+import { forgetDraftLease, inspectDraftLeaseOnDisk, readDraftLease, rememberDraftLease, type DraftStat } from '../../lib/files/draft-leases.ts';
 import { createDirectory, deleteEntry, readFileStat, readFileText, renameEntry, writeFileText } from '../../lib/files/api.ts';
 import { getRuntimeKey } from '../../lib/runtime-switch.ts';
 import { useKeybind } from '../../lib/shortcuts/hooks.ts';
@@ -31,24 +19,11 @@ import { useI18n } from '../I18nProvider.tsx';
 import { beginCommentFromSelection, InlineComments } from '../comments/InlineComments.tsx';
 import { useInlineCommentController } from '../comments/controller.ts';
 import { useActiveSessionKey } from '../comments/useActiveSessionKey.ts';
+import { joinPath, parentDirOf, publishWorkspaceHint, saveShortcutDisplay, type DialogSpec } from './file-editor-utils.ts';
+import { RecoveredDraftNotice } from './RecoveredDraftNotice.tsx';
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
-
-/** doc 06 §2.4/§3.7.7 tail: mutations broadcast a refresh hint for the
- * touched paths so the tree/git/diff surfaces refresh off the same signal. */
-function publishWorkspaceHint(root: string, paths: string[], reason: string): void {
-  if (root.length === 0) return;
-  const relative = paths
-    .map((path) => workspaceRelativePath(root, path))
-    .filter((entry): entry is string => entry !== null);
-  publishReviewRefresh(root, relative.length > 0 ? relative : null, reason);
-}
-
-interface DialogSpec {
-  mode: FileDialogMode;
-  parent: string;
-  path?: string;
-}
+type Recovery = { path: string; stat: DraftStat | null; autoSaveEnabled: boolean; safety: 'verified' | 'changed' | 'unknown' };
 
 export function FilesView({ directory, visible, mode = 'full' }: { directory: string; visible: boolean; mode?: 'full' | 'editor-only' }): ReactNode {
   const { t } = useI18n();
@@ -73,10 +48,12 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
   const [guard, setGuard] = useState<{ next: string | null } | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileLoading, setLoading] = useState(false);
+  const [recovery, setRecovery] = useState<Recovery | null>(null);
   const [wrapLines, setWrapLines] = useState(true);
   const [showGoToLine, setShowGoToLine] = useState(false);
   const statRef = useRef<{ size: number; mtimeMs: number | null } | null>(null);
   const loadedRef = useRef<string | null>(null);
+  const loadedScopeRef = useRef<{ runtime: string; root: string; path: string } | null>(null);
   const nextGuardRef = useRef(false);
   const guardPendingRef = useRef<string | null>(null);
   const loadIdRef = useRef(0);
@@ -86,53 +63,99 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
   const isDirty = draft !== baseline;
 
   // §3.3 load pipeline (text v1 + image/binary gating).
-  const loadFile = useCallback(async (path: string): Promise<void> => {
+  const loadFile = useCallback(async (path: string, discardLease = false): Promise<void> => {
     const loadId = ++loadIdRef.current;
+    const previousPath = loadedRef.current;
+    const previousScope = loadedScopeRef.current;
+    const previousStat = statRef.current;
     setLoading(true);
     setFileError(null);
-        statRef.current = null;
+    if (!discardLease) setRecovery(null);
+    statRef.current = null;
     setBinaryDetected(false);
     loadedRef.current = null;
+    loadedScopeRef.current = null;
     try {
+      const lease = discardLease ? null : readDraftLease(runtimeKey, directory, path);
+      if (lease !== null) {
+        const safety = await inspectDraftLeaseOnDisk(directory, path, lease);
+        if (loadId !== loadIdRef.current || getRuntimeKey() !== runtimeKey) return;
+        setPaneKind('text');
+        setLineEnding(lease.lineEnding);
+        setDraft(lease.draft);
+        setBaseline(lease.baseline);
+        setAutoSaveEnabled(false);
+        setViewMode('edit');
+        statRef.current = lease.stat;
+        loadedRef.current = path;
+        loadedScopeRef.current = { runtime: runtimeKey, root: directory, path };
+        setRecovery({ path, stat: lease.stat, autoSaveEnabled: lease.autoSaveEnabled, safety });
+        setLoading(false);
+        return;
+      }
       if (isImageFile(path) && !path.toLowerCase().endsWith('.svg')) {
         setPaneKind('image');
         loadedRef.current = path;
+        if (discardLease) { forgetDraftLease(runtimeKey, directory, path); setRecovery(null); }
         setLoading(false);
         return;
       }
       if (isBinaryFile(path) || isPdfFile(path)) {
         setPaneKind('binary');
         loadedRef.current = path;
+        if (discardLease) { forgetDraftLease(runtimeKey, directory, path); setRecovery(null); }
         setLoading(false);
         return;
       }
-      const content = await readFileText(directory, path);
+      const content = await readFileText(directory, path, discardLease);
       if (loadId !== loadIdRef.current || getRuntimeKey() !== runtimeKey) return;
       if (looksLikeBinaryText(content)) {
         setBinaryDetected(true);
         setPaneKind('binary');
         loadedRef.current = path;
+        if (discardLease) { forgetDraftLease(runtimeKey, directory, path); setRecovery(null); }
         setLoading(false);
         return;
       }
       const prepared = prepareFileEditorContent(content);
+      const stat = await readFileStat(directory, path);
+      if (loadId !== loadIdRef.current || getRuntimeKey() !== runtimeKey) return;
       setPaneKind('text');
       setLineEnding(prepared.lineEnding);
       setDraft(prepared.draft);
       setBaseline(prepared.draft);
       loadedRef.current = path;
-      const stat = await readFileStat(directory, path);
-      if (loadId !== loadIdRef.current) return;
+      loadedScopeRef.current = { runtime: runtimeKey, root: directory, path };
       if (stat !== null && stat.isFile) statRef.current = { size: stat.size, mtimeMs: stat.mtimeMs ?? null };
       const initialPreview = content.length > LARGE_FILE_CHAR_THRESHOLD;
       setViewMode(initialPreview ? 'view' : 'edit');
+      if (discardLease) { forgetDraftLease(runtimeKey, directory, path); setRecovery(null); }
       setLoading(false);
     } catch (error) {
-      if (loadId !== loadIdRef.current) return;
+      if (loadId !== loadIdRef.current || getRuntimeKey() !== runtimeKey) return;
+      if (discardLease) {
+        loadedRef.current = previousPath;
+        loadedScopeRef.current = previousScope;
+        statRef.current = previousStat;
+        setLoading(false);
+        toast.error(error instanceof Error ? error.message : String(error));
+        return;
+      }
       setLoading(false);
       setFileError(error instanceof Error ? error.message : String(error));
     }
   }, [directory, runtimeKey]);
+
+  // Save dirty text to this app session before navigation unmounts FilesView.
+  // A recovered draft stays manual-save until the operator reviews it.
+  useEffect(() => {
+    const scope = loadedScopeRef.current;
+    if (scope === null || paneKind !== 'text' || fileLoading) return;
+    rememberDraftLease(scope.runtime, scope.root, scope.path, {
+      draft, baseline, lineEnding, stat: statRef.current,
+      autoSaveEnabled: recovery?.autoSaveEnabled ?? autoSaveEnabled,
+    });
+  }, [draft, baseline, lineEnding, paneKind, fileLoading, autoSaveEnabled, recovery]);
 
   const [viewMode, setViewMode] = useState<'view' | 'edit'>('edit');
 
@@ -159,10 +182,11 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
   useEffect(() => {
     if (!visible || selectedPath === null) return undefined;
     if (guardPendingRef.current !== null) return undefined;
-    if (loadedRef.current === selectedPath) return undefined;
+    if (loadedRef.current === selectedPath && loadedScopeRef.current?.runtime === runtimeKey
+      && loadedScopeRef.current.root === directory) return undefined;
     void loadFile(selectedPath);
     return undefined;
-  }, [selectedPath, visible, loadFile]);
+  }, [selectedPath, visible, loadFile, runtimeKey, directory]);
 
   // §2.6 stale-tab prune on mount: stat every open path; missing or
   // non-file removals drop the tabs.
@@ -171,7 +195,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       for (const path of openPaths) {
         try {
           const stat = await readFileStat(directory, path);
-          if (stat === null || stat.exists === false || !stat.isFile) {
+          if ((stat === null || stat.exists === false || !stat.isFile) && readDraftLease(runtimeKey, directory, path) === null) {
             useFilesViewTabsStore.getState().removeOpenPath(directory, path);
           }
         } catch { /* keep the tab on stat failure */ }
@@ -218,20 +242,35 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
   }, [visible, selectedPath, paneKind, fileLoading, isDirty, baseline, directory]);
 
   // §3.7 save gates + write; O_TRUNC race guard.
-  const saveDraft = useCallback(async (): Promise<boolean> => {
+  const saveDraft = useCallback(async (overwriteChangedFile = false): Promise<boolean> => {
     const path = loadedRef.current;
     if (path === null || paneKind !== 'text' || binaryDetected || fileLoading) return false;
+    const scope = loadedScopeRef.current;
+    if (scope === null || scope.runtime !== runtimeKey || scope.root !== directory || scope.path !== path) return false;
     if (draft === baseline) return true; // clean draft = ok no-op (§3.7.5)
     if (draft.length === 0 && baseline.length !== 0) {
       console.warn?.('[files] refused O_TRUNC-shaped save', path);
       return false;
     }
+    const recovered = recovery?.path === path ? recovery : null;
+    if (recovered !== null && !overwriteChangedFile) {
+      const safety = await inspectDraftLeaseOnDisk(directory, path, { ...recovered, draft, baseline, lineEnding });
+      if (safety !== 'verified') {
+        setRecovery({ ...recovered, safety });
+        return false;
+      }
+    }
     setSaveStatus('saving');
     try {
       await writeFileText(directory, path, serializeEditorContent(draft, lineEnding));
       setBaseline(draft);
+      forgetDraftLease(runtimeKey, directory, path, draft);
       const stat = await readFileStat(directory, path);
       if (stat !== null && stat.isFile) statRef.current = { size: stat.size, mtimeMs: stat.mtimeMs ?? null };
+      if (recovered !== null) {
+        setRecovery(null);
+        setAutoSaveEnabled(recovered.autoSaveEnabled);
+      }
       setSaveStatus('saved');
       publishWorkspaceHint(directory, [path], 'file-save');
       window.setTimeout(() => setSaveStatus('idle'), SAVE_STATUS_LINGER_MS);
@@ -241,7 +280,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       setSaveStatus('idle');
       return false;
     }
-  }, [paneKind, binaryDetected, fileLoading, draft, baseline, lineEnding, directory, t]);
+  }, [paneKind, binaryDetected, fileLoading, draft, baseline, lineEnding, directory, runtimeKey, recovery, t]);
 
   // §3.7 steps 3–4: 1,500 ms autosave when the schedule gate holds.
   useEffect(() => {
@@ -280,12 +319,6 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     return () => window.removeEventListener('keydown', onKeydown);
   }, [saveDraft]);
   useKeybind('open_go_to_line', () => setShowGoToLine(true));
-
-  function offsetOfLine(text: string, line: number): number {
-    const lines = text.split('\n');
-    const target = Math.max(1, Math.min(lines.length, line));
-    return lines.slice(0, target - 1).reduce((sum, row) => sum + row.length + 1, 0);
-  }
 
   function openFile(path: string): void {
     if (isDirty && !nextGuardRef.current) {
@@ -330,6 +363,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
         else return; // failed save keeps everything in place next time
       } else {
         setDraft(baseline); // §2.7: revert to the loaded content
+        if (loadedRef.current !== null) forgetDraftLease(runtimeKey, directory, loadedRef.current);
         nextGuardRef.current = true;
       }
       guardPendingRef.current = null;
@@ -371,17 +405,6 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
     }
   }
 
-  function joinPath(parent: string, name: string): string {
-    if (parent === '' || parent === '.') return name;
-    const separator = parent.includes('\\') || isWindowsLikeDrivePath(parent) ? '\\' :
-      parent.endsWith('/') ? '' : parent.endsWith('\\') ? '' : '/';
-    return parent.endsWith('/') || parent.endsWith('\\') ? `${parent}${name}` : `${parent}${separator}${name}`;
-  }
-
-  function isWindowsLikeDrivePath(parent: string): boolean {
-    return /^[a-zA-Z]:$/u.test(parent);
-  }
-
   return (
     <div className="flex h-full min-h-0 gap-3 px-3 pb-3 pt-2" data-testid="files-view">
       {treeEnabled ? (
@@ -400,6 +423,9 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-border/60 bg-card/40" data-editor-host="">
         <TabRow openPaths={openPaths} selected={selectedPath} onSelect={openFile} onClose={closeTab} />
+        {recovery !== null && recovery.path === selectedPath ? <RecoveredDraftNotice key={recovery.path}
+          safety={recovery.safety} draft={draft} onDiscard={() => void loadFile(recovery.path, true)}
+          onOverwrite={() => void saveDraft(true)} /> : null}
         <EditorStage
           directory={directory}
           selectedPath={selectedPath}
@@ -438,7 +464,10 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
           <button type="button" className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setWrapLines(!wrapLines)}>
             {wrapLines ? 'Wrap: on' : 'Wrap: off'}
           </button>
-          <button type="button" className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}>
+          <button type="button" className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => {
+            setAutoSaveEnabled(!autoSaveEnabled);
+            setRecovery((current) => current === null ? null : { ...current, autoSaveEnabled: !autoSaveEnabled });
+          }}>
             {autoSaveEnabled ? 'Auto-save on' : 'Manual save'}
           </button>
           {showGoToLine && viewMode === 'edit' ? (
@@ -464,16 +493,4 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       ) : null}
     </div>
   );
-}
-
-
-function parentDirOf(path: string): string {
-  const index = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  return index > 0 ? path.slice(0, index) : path;
-}
-function saveShortcutDisplay(): string {
-  const combo = effectiveShortcutCombo('save_file');
-  return combo.chords
-    .map((chord) => `${[...chord.mods].sort().join('+')}${chord.mods.size > 0 ? '+' : ''}${chord.key === 'comma' ? ',' : chord.key.toUpperCase()}`)
-    .join(' + ');
 }

@@ -19,6 +19,8 @@ import { FilesView } from '../FilesView.tsx';
 import { FileTree } from '../FileTree.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { useFilesViewTabsStore } from '../../../lib/files/tabs-store.ts';
+import { __resetDraftLeasesForTests, readDraftLease } from '../../../lib/files/draft-leases.ts';
+import { getRuntimeKey } from '../../../lib/runtime-switch.ts';
 import { __resetDraftsForTests, draftKeyFor, useInlineCommentDrafts } from '../../../lib/comments/drafts.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
 import { FOCUS_EVENT_NAME } from '../../comments/focus-chat.ts';
@@ -56,6 +58,7 @@ beforeEach(() => {
   fetchMock.mockImplementation(async (input: string) => route(String(input)));
   window.__NOTNATIVE_RUNTIME_KEY__ = undefined;
   useFilesViewTabsStore.getState().__resetForTests();
+  __resetDraftLeasesForTests();
   useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/a.ts`, 'local');
   window.localStorage.clear();
   document.body.innerHTML = '';
@@ -161,6 +164,88 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
     expect(document.body.textContent).toContain('Saved');
   });
 
+  it('restores a draft after Files unmounts and pauses its pending auto-save', async () => {
+    await render();
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(textarea, 'kept draft\n');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { rootHandle!.unmount(); });
+    rootHandle = createRoot(container!);
+    await act(async () => { rootHandle!.render(<I18nProvider><FilesView directory={DIR} visible /></I18nProvider>); await Promise.resolve(); });
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('kept draft\n');
+    expect(document.querySelector('[data-testid="files-recovered-draft"]')?.textContent).toContain('Unsaved edits restored');
+    fetchMock.mockClear();
+    await act(async () => { await new Promise((done) => setTimeout(done, 1_700)); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/write'))).toBe(false);
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/write'))).toBe(true);
+  });
+
+  it('blocks a recovered draft from overwriting a changed disk file until explicit confirmation', async () => {
+    await render();
+    await act(async () => { ([...document.querySelectorAll('button')].find((button) => button.textContent === 'Auto-save on') as HTMLButtonElement).click(); });
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(textarea, 'my draft\n');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { rootHandle!.unmount(); });
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/stat')
+      ? jsonResponse({ path: `${DIR}/a.ts`, isFile: true, exists: true, size: 10, mtimeMs: 200 }) : route(String(input)));
+    rootHandle = createRoot(container!);
+    await act(async () => { rootHandle!.render(<I18nProvider><FilesView directory={DIR} visible /></I18nProvider>); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="files-recovered-draft"]')?.textContent).toContain('changed on disk');
+    fetchMock.mockClear();
+    await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/write'))).toBe(false);
+    await act(async () => { ([...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Overwrite disk with draft')) as HTMLButtonElement).click(); });
+    await act(async () => {
+      const field = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+      setter.call(field, 'my revised draft\n');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect([...document.querySelectorAll('button')].some((button) => button.textContent === 'Confirm overwrite')).toBe(false);
+    await act(async () => { ([...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Overwrite disk with draft')) as HTMLButtonElement).click(); });
+    await act(async () => { ([...document.querySelectorAll('button')].find((button) => button.textContent === 'Confirm overwrite') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/write'))).toBe(true);
+  });
+
+  it('keeps a recovered draft when discard-and-reload fails, then discards after a successful read', async () => {
+    await render();
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+      setter.call(textarea, 'draft to keep\n');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { rootHandle!.unmount(); });
+    rootHandle = createRoot(container!);
+    await act(async () => { rootHandle!.render(<I18nProvider><FilesView directory={DIR} visible /></I18nProvider>); await Promise.resolve(); });
+    expect(readDraftLease(getRuntimeKey(), DIR, `${DIR}/a.ts`)?.draft).toBe('draft to keep\n');
+
+    let failRead = true;
+    fetchMock.mockImplementation(async (input: string) => {
+      if (failRead && String(input).includes('/api/fs/read')) return new Response(JSON.stringify({ error: 'temporarily offline' }), { status: 503 });
+      return route(String(input));
+    });
+    const discard = (): void => {
+      ([...document.querySelectorAll('button')].find((button) => button.textContent === 'Discard draft & reload') as HTMLButtonElement).click();
+    };
+    await act(async () => { discard(); await Promise.resolve(); });
+    expect(readDraftLease(getRuntimeKey(), DIR, `${DIR}/a.ts`)?.draft).toBe('draft to keep\n');
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('draft to keep\n');
+    expect(document.querySelector('[data-testid="files-recovered-draft"]')).not.toBeNull();
+
+    failRead = false;
+    await act(async () => { discard(); await Promise.resolve(); });
+    expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('hello\n');
+    expect(readDraftLease(getRuntimeKey(), DIR, `${DIR}/a.ts`)).toBeNull();
+  });
+
   it('closing a DIRTY tab opens the no-cancel guard; discard reverts and closes', async () => {
     await render();
     const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
@@ -226,4 +311,3 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
     window.removeEventListener(FOCUS_EVENT_NAME, onFocus);
   });
 });
-

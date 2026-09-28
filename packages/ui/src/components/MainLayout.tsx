@@ -33,12 +33,18 @@ import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
 
+function subscribeRuntimeKey(notify: () => void): () => void {
+  window.addEventListener('notnative:runtime-endpoint-changed', notify);
+  return () => window.removeEventListener('notnative:runtime-endpoint-changed', notify);
+}
+
 /** MainLayout (doc 01 13.1) with the P3a chat product, the P5-6
  * SettingsWindow (gear / mod+, / ?settings=<slug>) and the P6-1 FilesView
  * (Files button; full surface with the tree over the chat column). */
 export function MainLayout(): ReactNode {
   const engine = mountEngine();
   const { t } = useI18n();
+  const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
@@ -193,7 +199,7 @@ export function MainLayout(): ReactNode {
       <ShellShortcuts />
       <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
-        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={getRuntimeKey()} />
+        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
         <SessionTabs engine={engine} directory={activeDirectory} />
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
           {connected ? 'connected' : 'reconnecting'}
@@ -297,11 +303,11 @@ export function MainLayout(): ReactNode {
       <AuthExpiredBanner />
       <div className="flex min-h-0 flex-1">
         {filesOpen ? (
-          <FilesView directory={activeDirectory} visible />
+          <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />
         ) : reviewPane === 'diff' ? (
           <DiffView directory={activeDirectory} visible />
         ) : reviewPane === 'git' ? (
-          <GitView directory={activeDirectory} draftScope={commitDraftScope(getRuntimeKey(), activeDirectory)} />
+          <GitView directory={activeDirectory} draftScope={commitDraftScope(runtimeKey, activeDirectory)} />
         ) : reviewPane === 'plan' ? (
           <PlanView directory={activeDirectory} visible />
         ) : reviewPane === 'terminal' ? (

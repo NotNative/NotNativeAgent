@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:788432e2eca4e814eebe97ac88e5e71ac6a1e8094b53321cd9dd578788efb13b",
+  "source_digest": "sha256:c77c91b2c5cbdc1424aef014f732372637ab00c2ea8ca2be7909948891c183b9",
   "counts": {
-    "modules": 471,
+    "modules": 474,
     "component_edges": 13
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 139
+      "module_count": 140
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 120
+      "module_count": 122
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 170,
-      "module_count": 68
+      "import_count": 173,
+      "module_count": 69
     },
     {
       "from": "sync-engine",
@@ -829,6 +829,17 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/files/file-editor-utils.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/files/file-dialogs.tsx",
+        "packages/ui/src/lib/files/workspace-paths.ts",
+        "packages/ui/src/lib/git/refresh-hints.ts",
+        "packages/ui/src/lib/shortcuts/schema.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/files/file-tree-git-status.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -849,12 +860,14 @@
         "packages/ui/src/components/comments/controller.ts",
         "packages/ui/src/components/comments/useActiveSessionKey.ts",
         "packages/ui/src/components/files/FileTree.tsx",
+        "packages/ui/src/components/files/RecoveredDraftNotice.tsx",
         "packages/ui/src/components/files/editor-stage.tsx",
         "packages/ui/src/components/files/file-dialogs.tsx",
+        "packages/ui/src/components/files/file-editor-utils.ts",
         "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/files/draft-leases.ts",
         "packages/ui/src/lib/files/edit-support.ts",
         "packages/ui/src/lib/files/tabs-store.ts",
-        "packages/ui/src/lib/files/workspace-paths.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/shortcuts/hooks.ts",
         "packages/ui/src/lib/shortcuts/schema.ts"
@@ -874,6 +887,12 @@
         "packages/ui/src/lib/files/workspace-paths.ts",
         "packages/ui/src/lib/git/file-tree-status.ts"
       ]
+    },
+    {
+      "path": "packages/ui/src/components/files/RecoveredDraftNotice.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/ui/src/components/git/git-dialogs.tsx",
@@ -1607,6 +1626,15 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/files/draft-leases.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/files/edit-support.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/files/edit-support.ts",

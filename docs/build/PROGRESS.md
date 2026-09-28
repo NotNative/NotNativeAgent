@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Files draft continuity.** Dirty editor text now has an
+  in-memory lease scoped to runtime, workspace, and path, surviving navigation
+  away from the full Files view and return within the same app run. Recovery
+  pauses auto-save, verifies both file metadata and fresh baseline content,
+  and requires an explicit two-step overwrite when the disk cannot be proven
+  unchanged. Failed discard/reload preserves the draft; runtime/workspace
+  switches remount the editor instead of reusing another scope's text. This
+  does not persist drafts across app restarts or make filesystem writes atomic
+  against simultaneous external writers.
+
 - 2026-09-28 · **Installed NNA startup recovery.** A first-launch NNA child
   exit was observed after install while a subsequent launch succeeded. The
   managed desktop now makes one bounded retry only for exit-before-readiness,
