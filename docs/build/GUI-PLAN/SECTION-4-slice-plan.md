@@ -148,7 +148,12 @@ Tasks:
    (current `time.archived` split already in globalSessions store);
    rename = real `updateSession` (mock PATCH works, main.tsx toast text is
    stale — MainLayout.tsx:136–139); local, runtime-scoped pins implemented
-   2026-09-28 (including retention beyond the 50-row cap); multi-select later.
+   2026-09-28 (including retention beyond the 50-row cap). Parent-session
+   multi-select now offers archive/delete/folder move with failure-aware retry;
+   children follow parent lifecycle authority. A full archive surface now
+   groups by workspace and persisted folder, supports exact-ID search,
+   restore, and confirmed bucket deletion; the sidebar retains its quick
+   per-workspace archive list.
 3. **Permission/question flow completeness**: reply routes under /api +
    v2 surface exist in the mock; align card UI to doc 05 §F (incl.
    send-while-blocked rule) and server-side auto-accept policy persistence

@@ -5,6 +5,7 @@ import { useI18n } from '../lib/i18n/context.tsx';
 import { mountEngine } from '../chat/app-engine.ts';
 import { ChatView } from '../chat/chat-view.tsx';
 import { ChatSidebar } from '../chat/session-sidebar.tsx';
+import { ArchiveView } from '../chat/archive-view.tsx';
 import { SessionTabs } from '../chat/session-tabs.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
@@ -50,6 +51,7 @@ export function MainLayout(): ReactNode {
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
   const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
   const [filesOpen, setFilesOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal'>('');
   const [worktreesOpen, setWorktreesOpen] = useState(false);
   const [harnessDirectory, setHarnessDirectory] = useState('');
@@ -169,6 +171,7 @@ export function MainLayout(): ReactNode {
       // of the send path and the explicit card buttons only.
       persistLastActiveSession(sessionID, directory); // remember for next boot
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
+      setArchiveOpen(false);
     },
     rename: (sessionID: string, title: string): Promise<void> => {
       const trimmed = title.trim();
@@ -312,9 +315,12 @@ export function MainLayout(): ReactNode {
           <PlanView directory={activeDirectory} visible />
         ) : reviewPane === 'terminal' ? (
           <TerminalView directory={activeDirectory} visible />
+        ) : archiveOpen ? (
+          <ArchiveView currentDirectory={activeDirectory} onClose={() => setArchiveOpen(false)}
+            onOpenSession={actions.openSession} onRestore={actions.restore} onDelete={actions.deleteSession} />
         ) : (
           <>
-            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} />
+            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} />
             <ChatView services={services} currentDirectory={activeDirectory} />
           </>
         )}

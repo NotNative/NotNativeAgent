@@ -27,6 +27,7 @@ export interface ChatSidebarProps {
   engine: SyncEngine;
   currentDirectory: string;
   currentSessionId: string | null;
+  onOpenArchive?: () => void;
   actions: {
     openDraft: (directory: string) => void;
     openSession: (sessionID: string, directory: string) => void;
@@ -205,6 +206,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           ))}
       </div>
       <div className="border-t border-white/10 px-2 py-2" data-testid="sidebar-archive">
+        {props.onOpenArchive ? <button type="button" data-testid="sidebar-archive-view" className="w-full rounded px-2 py-1 text-left text-[11px] text-neutral-400 hover:bg-white/5 hover:text-neutral-100" onClick={props.onOpenArchive}>
+          View all archived sessions ({sessionsGlobal.archived.length})
+        </button> : null}
         <button
           type="button"
           data-testid="sidebar-archive-toggle"
