@@ -21,9 +21,13 @@ export function clampRailWidth(width: number, viewportWidth: number): number {
   return Math.min(maxRailWidth(viewportWidth), Math.max(280, Math.round(width)));
 }
 
+export function preferredRailWidth(surface: string, viewportWidth: number): number {
+  return viewportWidth >= 1600 ? Math.min(1200, Math.round(viewportWidth * 0.36)) : surface === 'browser' ? 600 : 300;
+}
+
 export function readWidth(key: string | null, surface: string): number {
   const viewport = typeof window === 'undefined' ? 1280 : window.innerWidth;
-  const fallback = viewport >= 1600 ? Math.min(1200, Math.round(viewport * 0.36)) : surface === 'browser' ? 600 : 300;
+  const fallback = preferredRailWidth(surface, viewport);
   if (key === null) return fallback;
   try {
     const raw = localStorage.getItem(key);

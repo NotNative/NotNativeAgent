@@ -425,6 +425,22 @@ describe('OperatorRail', () => {
     act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen />));
     expect(rail.style.width).toBe('');
   });
+  it('tracks a pointer drag back to its starting width', () => {
+    vi.stubGlobal('innerWidth', 1280);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
+    act(() => separator.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 500, bubbles: true })));
+    act(() => window.dispatchEvent(new MouseEvent('pointermove', { clientX: 460 })));
+    expect(rail.style.width).toBe('381px');
+    act(() => window.dispatchEvent(new MouseEvent('pointermove', { clientX: 500 })));
+    act(() => window.dispatchEvent(new MouseEvent('pointerup')));
+    expect(rail.style.width).toBe('341px');
+    expect(window.localStorage.getItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/work:context')).toBe('300');
+  });
   it('keeps an icon dock visible at the installed desktop width and opens panels on demand', () => {
     vi.stubGlobal('innerWidth', 1265);
     vi.stubGlobal('matchMedia', (query: string) => ({
@@ -513,13 +529,59 @@ describe('OperatorRail', () => {
     vi.stubGlobal('innerWidth', 1100);
     act(() => window.dispatchEvent(new Event('resize')));
     expect(rail.style.width).toBe('332px');
-    expect(window.localStorage.getItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/wide:context')).toBe('1200');
+    expect(window.localStorage.getItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/wide:context')).toBeNull();
     vi.stubGlobal('innerWidth', 3440);
     act(() => window.dispatchEvent(new Event('resize')));
     expect(rail.style.width).toBe('1241px');
     window.localStorage.setItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/narrow:context', '300');
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/narrow" />));
     expect(rail.style.width).toBe('341px');
+  });
+  it('lets an older narrow preference return to responsive fitting without replacing widths in other workspaces', () => {
+    vi.stubGlobal('innerWidth', 3440);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    const narrowKey = 'nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/work:context';
+    const otherKey = 'nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/other:context';
+    window.localStorage.setItem(narrowKey, '300');
+    window.localStorage.setItem(otherKey, '420');
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.style.width).toBe('341px');
+    act(() => (document.querySelector('button[aria-label="Fit operator panel to window"]') as HTMLButtonElement).click());
+    expect(rail.style.width).toBe('1241px');
+    expect(window.localStorage.getItem(narrowKey)).toBeNull();
+    expect(window.localStorage.getItem(otherKey)).toBe('420');
+    vi.stubGlobal('innerWidth', 1100);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('332px');
+    vi.stubGlobal('innerWidth', 3440);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('1241px');
+    expect(window.localStorage.getItem(narrowKey)).toBeNull();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/other" />));
+    expect(rail.style.width).toBe('461px');
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(rail.style.width).toBe('1241px');
+  });
+  it('does not pin the viewport cap when Fit is used in a narrow desktop window', () => {
+    vi.stubGlobal('innerWidth', 1100);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    const key = 'nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/work:context';
+    window.localStorage.setItem(key, '500');
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    expect(rail.style.width).toBe('332px');
+    act(() => (document.querySelector('button[aria-label="Fit operator panel to window"]') as HTMLButtonElement).click());
+    expect(window.localStorage.getItem(key)).toBeNull();
+    vi.stubGlobal('innerWidth', 3440);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('1241px');
+    expect(window.localStorage.getItem(key)).toBeNull();
   });
   it('restores an ultrawide panel without crushing chat on a normal desktop', () => {
     vi.stubGlobal('innerWidth', 1265);

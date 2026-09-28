@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:da7d063de0e003a7c8eb85b93a05588292365fbd4b58bc8cbb378709dce51079",
+  "source_digest": "sha256:f34bb2e302e93e91661bf3f0100d61ad16bc28169189ccec5cbcc0059c583dd8",
   "counts": {
-    "modules": 474,
+    "modules": 475,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 122
+      "module_count": 123
     },
     {
       "id": "web-server",
@@ -487,6 +487,7 @@
         "packages/ui/src/chat/operator-panel-open.ts",
         "packages/ui/src/chat/operator-rail-width.ts",
         "packages/ui/src/chat/project-notes.tsx",
+        "packages/ui/src/chat/use-operator-rail-width.ts",
         "packages/ui/src/chat/walkthrough-preview.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",
         "packages/ui/src/components/git/GitView.tsx",
@@ -657,6 +658,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/use-operator-rail-width.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/operator-rail-width.ts"
       ]
     },
     {

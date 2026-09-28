@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Responsive operator panel width.** Installed desktop
+  inspection found a previously saved 300-pixel Context pane cramping NNA
+  route and governance rows on an ultrawide display. Untouched pane widths
+  now follow the viewport without being saved as deliberate preferences, and
+  the title bar has a Fit control that clears only the current pane's override.
+  Manual resize remains per runtime/workspace/surface. Adversarial review
+  fixed Fit-after-narrow-window restoration and a drag-back-to-start miss.
+  The 1024–1088px docked breakpoint still needs coordinated chat-width work.
+
 - 2026-09-28 · **Child transcript header.** A delegated session now shows
   its NNA-projected title and agent identity above the transcript, with the
   capability-gated steering toggle there instead of in a substitute bottom

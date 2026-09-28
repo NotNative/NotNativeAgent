@@ -23,7 +23,8 @@ import type { ToolEvidence } from '../sync/activity-log.ts';
 import { OperatorIcon } from './operator-icons.tsx';
 import { resolveContextProjectId } from './operator-context-project.ts';
 import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
-import { clampRailWidth, maxRailWidth, readWidth, surfaceWidthStorageKey } from './operator-rail-width.ts';
+import { maxRailWidth } from './operator-rail-width.ts';
+import { useOperatorRailWidth } from './use-operator-rail-width.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'files' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
@@ -125,31 +126,10 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   // stored selection has been read.
   const selectedSurface = selection.key === selectionKey ? selection.surface : readSurface(selectionKey);
   const surface = panels.visible.includes(selectedSurface) ? selectedSurface : panels.order.find((id) => panels.visible.includes(id))!;
-  const widthKey = surfaceWidthStorageKey(storageKey, surface);
-  const [savedWidth, setSavedWidth] = useState(() => ({ key: widthKey, value: readWidth(widthKey, surface) }));
-  const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
-  const width = clampRailWidth(savedWidth.key === widthKey ? savedWidth.value : readWidth(widthKey, surface), viewportWidth);
+  const { width, viewportWidth, resize, fit } = useOperatorRailWidth(storageKey, surface);
   const dragCleanup = useRef<(() => void) | null>(null);
   const selectedButton = useRef<HTMLButtonElement | null>(null);
   useEffect(() => () => dragCleanup.current?.(), []);
-  useEffect(() => {
-    const updateViewport = (): void => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', updateViewport);
-    return () => window.removeEventListener('resize', updateViewport);
-  }, []);
-  useEffect(() => {
-    if (savedWidth.key !== widthKey) setSavedWidth({ key: widthKey, value: readWidth(widthKey, surface) });
-  }, [savedWidth.key, surface, widthKey]);
-  useEffect(() => {
-    if (savedWidth.key !== widthKey || widthKey === null) return;
-    try { localStorage.setItem(widthKey, String(savedWidth.value)); } catch { /* optional device preference */ }
-  }, [savedWidth.key, savedWidth.value, widthKey]);
-  const resize = (next: number): void => {
-    const resized = clampRailWidth(next, viewportWidth);
-    // A no-op at the viewport limit is not a new width preference. Keep an
-    // ultrawide saved width for when this window is widened again.
-    if (resized !== width) setSavedWidth({ key: widthKey, value: resized });
-  };
   useEffect(() => {
     if (selection.key !== selectionKey) setSelection({ key: selectionKey, surface: readSurface(selectionKey) });
   }, [selection.key, selectionKey]);
@@ -235,6 +215,9 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
       <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300`} data-testid="operator-surface-title">
         {SURFACES.find((item) => item.id === surface)?.label}
         {docked && !compactOpen ? <div className="flex items-center gap-2">
+          {!maximized ? <button type="button" aria-label="Fit operator panel to window" title="Fit panel to window"
+            className="rounded px-1 text-neutral-500 hover:text-neutral-200"
+            onClick={fit}>↔</button> : null}
           <button type="button" aria-label={maximized ? 'Restore operator panel' : 'Maximize operator panel'} aria-pressed={maximized}
             className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => setMaximized((value) => !value)}>{maximized ? '↙' : '⛶'}</button>
           <button type="button" aria-label="Close operator panel" className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => { setMaximized(false); setPanelOpen(false); selectedButton.current?.focus(); }}>×</button>
