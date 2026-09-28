@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:edc9a906876f11ee6adc479f946306ac201a829dfc705f3ee89973b986991957",
+  "source_digest": "sha256:9fefe1ab83b01c2ef8596ed6a7d539e7dbb52c886e59fddbcaf4880b2f7aa1a8",
   "counts": {
-    "modules": 470,
+    "modules": 471,
     "component_edges": 13
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 119
+      "module_count": 120
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 166,
-      "module_count": 67
+      "import_count": 170,
+      "module_count": 68
     },
     {
       "from": "sync-engine",
@@ -437,6 +437,19 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/chat/operator-files.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/files/FileTree.tsx",
+        "packages/ui/src/components/scheduled/scheduled-tasks-dialog.tsx",
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/files/edit-support.ts",
+        "packages/ui/src/lib/git/refresh-hints.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/operator-icons.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -467,6 +480,7 @@
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
         "packages/ui/src/chat/operator-context-project.ts",
+        "packages/ui/src/chat/operator-files.tsx",
         "packages/ui/src/chat/operator-icons.tsx",
         "packages/ui/src/chat/operator-panel-open.ts",
         "packages/ui/src/chat/operator-rail-width.ts",

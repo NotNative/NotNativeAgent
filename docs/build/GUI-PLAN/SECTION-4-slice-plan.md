@@ -206,6 +206,10 @@ Tasks:
    **Worktrees rail implemented (2026-09-28):** the live worktree manager can
    stay beside chat and retains an in-progress creation form while another
    operator pane is foregrounded; the existing modal remains available.
+   **Files inspection rail implemented (2026-09-28):** a read-only tree and
+   bounded text preview stay beside chat; an explicit handoff opens the
+   existing full editor. Editing in the rail remains future work, contingent
+   on sharing unsaved editor state with the full Files workspace.
 4. Add the Notes surface as project-owned general notes, todos, and plans. Keep agent
    memory source-labelled and behind the later NNA knowledge contract. A plan opens in
    the panel with an explicit project owner.

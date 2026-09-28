@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-28 · **Files inspection beside chat.** Added a read-only Files
+  operator pane with searchable tree, bounded text preview, binary/oversize
+  fallback, and an explicit handoff to the full editor. The pane retains its
+  selection across surface switches and defers file reads and pending search
+  while hidden. A successful root-list retry now clears its stale error.
+  User confirmed typing works in the installed v20260928-3 desktop composer.
+
 - 2026-09-28 · **Worktrees in the operator rail.** The existing live worktree
   manager now has a docked presentation beside chat. Its create form stays
   mounted across rail-surface switches within the same workspace;

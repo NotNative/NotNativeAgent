@@ -64,7 +64,7 @@ export function useGitTreeStatus(
 
   // Refresh hints: restat for scope changes; fs mutations additionally
   // refresh ONLY the affected parent directories in place (§2.1 step 10).
-  useReviewRefreshHints(root, true, (hint: ReviewRefreshHint): void => {
+  useReviewRefreshHints(root, visible, (hint: ReviewRefreshHint): void => {
     restat();
     if (hint.reasons.includes('file-save') && !hint.reasons.includes('fs-mutation')) return;
     const parents = parentDirsForHint(hint, root, dirKeysRef.current);

@@ -43,6 +43,7 @@ function useFileTreeModel(root: string, runtimeKey: string, visible: boolean, ex
 
   // §2.3: search debounce 200 ms → /api/fs/search.
   useEffect(() => {
+    if (!visible) return undefined;
     if (searchQuery.trim().length === 0) {
       setResults(null);
       return undefined;
@@ -54,7 +55,7 @@ function useFileTreeModel(root: string, runtimeKey: string, visible: boolean, ex
       });
     }, TREE_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [searchQuery, root, inScope]);
+  }, [searchQuery, root, inScope, visible]);
 
   useTreeScopeEffects({ root, runtimeKey, visible, expanded, scopeRef, loadDirRef, setChildrenByDir, setRootError });
 
@@ -116,6 +117,7 @@ function useTreeLoaders(deps: TreeLoadersDeps): TreeLoaders {
       const entries = await requests.run(`${runtimeKey}::${root}::${dir}`, () => listDirectory(root, dir, false), force);
       if (live.root !== root || live.runtimeKey !== runtimeKey) return null;
       applyChildren(dir, toNodes(root, entries));
+      if (dir === '.') setRootError(null);
       return entries;
     } catch (error) {
       if (live.root !== root || live.runtimeKey !== runtimeKey) return null;
@@ -201,7 +203,7 @@ function toNodes(root: string, entries: FsEntry[]): FileNode[] {
     .sort((a, b) => a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1);
 }
 
-export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onNewFolder, onRename, onDelete }: {
+export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onNewFolder, onRename, onDelete, readOnly = false }: {
   root: string;
   runtimeKey: string;
   visible: boolean;
@@ -210,9 +212,10 @@ export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onN
   onNewFolder: (parentDir: string) => void;
   onRename: (path: string) => void;
   onDelete: (path: string) => void;
+  readOnly?: boolean;
 }): ReactNode {
   const { t } = useI18n();
-  const expanded = useFilesViewTabsStore((state) => state.byRoot[root]?.expandedPaths ?? []);
+  const expanded = useFilesViewTabsStore((state) => state.byRoot[root]?.expandedPaths ?? EMPTY_EXPANDED_PATHS);
   const openPathsRaw = useFilesViewTabsStore((state) => state.byRoot[root]?.openPaths ?? EMPTY_OPEN_PATHS);
   const toggleExpandedPath = useFilesViewTabsStore((state) => state.toggleExpandedPath);
   const collapseAllExpandedPaths = useFilesViewTabsStore((state) => state.collapseAllExpandedPaths);
@@ -222,7 +225,7 @@ export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onN
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="files-tree">
-      <TreeToolbar searchQuery={model.searchQuery} setSearchQuery={model.setSearchQuery} onNewFile={() => onNewFile(root)} onNewFolder={() => onNewFolder(root)} onRefresh={model.refreshAll} onCollapseAll={() => collapseAllExpandedPaths(root)} />
+      <TreeToolbar searchQuery={model.searchQuery} setSearchQuery={model.setSearchQuery} onNewFile={() => onNewFile(root)} onNewFolder={() => onNewFolder(root)} onRefresh={model.refreshAll} onCollapseAll={() => collapseAllExpandedPaths(root)} readOnly={readOnly} />
       <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1">
         {model.rootError !== null ? (
           <div className="rounded border border-status-error/40 p-2 text-xs text-status-error">
@@ -234,7 +237,7 @@ export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onN
           <TreeSearchResults nodes={model.searchResults} onOpenFile={onOpenFile} />
         ) : null}
         {model.searchResults === null ? (
-          <TreeRows root={root} nodes={model.childrenByDir['.']?.nodes ?? []} error={viewError} expanded={expanded} childrenByDir={model.childrenByDir} status={model.status} openPaths={openPaths} onToggle={toggleExpandedPath} onRefreshDir={model.loadDir} onOpenFile={onOpenFile} onNewFile={onNewFile} onNewFolder={onNewFolder} onRename={onRename} onDelete={onDelete} />
+          <TreeRows root={root} nodes={model.childrenByDir['.']?.nodes ?? []} error={viewError} expanded={expanded} childrenByDir={model.childrenByDir} status={model.status} openPaths={openPaths} onToggle={toggleExpandedPath} onRefreshDir={model.loadDir} onOpenFile={onOpenFile} onNewFile={onNewFile} onNewFolder={onNewFolder} onRename={onRename} onDelete={onDelete} readOnly={readOnly} />
         ) : null}
       </div>
     </div>
@@ -242,9 +245,10 @@ export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onN
 }
 
 const EMPTY_OPEN_PATHS: string[] = [];
+const EMPTY_EXPANDED_PATHS: string[] = [];
 
 function TreeToolbar({
-  searchQuery, setSearchQuery, onNewFile, onNewFolder, onRefresh, onCollapseAll,
+  searchQuery, setSearchQuery, onNewFile, onNewFolder, onRefresh, onCollapseAll, readOnly,
 }: {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -252,6 +256,7 @@ function TreeToolbar({
   onNewFolder: () => void;
   onRefresh: () => void;
   onCollapseAll: () => void;
+  readOnly: boolean;
 }): ReactNode {
   const { t } = useI18n();
   return (
@@ -263,8 +268,8 @@ function TreeToolbar({
         onChange={(event) => setSearchQuery(event.target.value)}
         aria-label={t('filesView.tree.search.placeholder')}
       />
-      <button type="button" title={t('filesView.tree.actions.newFile')} aria-label={t('filesView.tree.actions.newFile')} className="rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground" onClick={onNewFile}>＋</button>
-      <button type="button" title={t('filesView.tree.actions.newFolder')} aria-label={t('filesView.tree.actions.newFolder')} className="rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground" onClick={onNewFolder}>＋□</button>
+      {!readOnly ? <button type="button" title={t('filesView.tree.actions.newFile')} aria-label={t('filesView.tree.actions.newFile')} className="rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground" onClick={onNewFile}>＋</button> : null}
+      {!readOnly ? <button type="button" title={t('filesView.tree.actions.newFolder')} aria-label={t('filesView.tree.actions.newFolder')} className="rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground" onClick={onNewFolder}>＋□</button> : null}
       <button type="button" title={t('filesView.tree.actions.refresh')} aria-label={t('filesView.tree.actions.refresh')} className="rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground" onClick={onRefresh}>↻</button>
       <button type="button" title="Collapse all folders" aria-label="Collapse all folders" className="rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground" onClick={onCollapseAll}>⊟</button>
     </div>
@@ -307,6 +312,7 @@ interface TreeRowsProps {
   onNewFolder: (parentDir: string) => void;
   onRename: (path: string) => void;
   onDelete: (path: string) => void;
+  readOnly: boolean;
 }
 
 function TreeRows(props: TreeRowsProps): ReactNode {
@@ -330,7 +336,7 @@ function DirNodeList(props: TreeRowsProps & { depth: number; walkDir: string }):
   return (
     <>
       {nodes.map((node) => (
-        <TreeRow props={props} node={node} depth={props.depth} />
+        <TreeRow key={node.path} props={props} node={node} depth={props.depth} />
       ))}
     </>
   );
@@ -386,7 +392,7 @@ function TreeRow({ props, node, depth }: { props: TreeRowsProps; node: FileNode;
             aria-label={`${node.name} status: ${dot.status}`}
           />
         ) : null}
-        <RowMenu props={props} node={node} />
+        {!props.readOnly ? <RowMenu props={props} node={node} /> : null}
       </div>
       {node.isDirectory && isExpanded ? <DirNodeList {...props} depth={depth + 1} walkDir={node.path} /> : null}
     </div>

@@ -9,6 +9,7 @@ import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
 import { WorktreesView } from '../components/worktrees/WorktreesView.tsx';
+import { OperatorFiles } from './operator-files.tsx';
 import { commitDraftScope } from '../lib/git/commit-drafts.ts';
 import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
 import type { ContextPlanDraft } from './context-plans.tsx';
@@ -25,11 +26,12 @@ import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
 import { clampRailWidth, maxRailWidth, readWidth, surfaceWidthStorageKey } from './operator-rail-width.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
-type Surface = 'context' | 'activity' | 'changes' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
+type Surface = 'context' | 'activity' | 'changes' | 'files' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'context', label: 'Context' },
   { id: 'activity', label: 'Activity' },
   { id: 'changes', label: 'Changes' },
+  { id: 'files', label: 'Files' },
   { id: 'worktrees', label: 'Worktrees' },
   { id: 'walkthrough', label: 'Walkthrough' },
   { id: 'notes', label: 'Notes' },
@@ -164,6 +166,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const [browserOpenedKey, setBrowserOpenedKey] = useState<string | null>(() => selection.surface === 'browser' ? storageKey : null);
   const [notesOpenedKey, setNotesOpenedKey] = useState<string | null>(() => selection.surface === 'notes' ? storageKey : null);
   const [changesOpenedKey, setChangesOpenedKey] = useState<string | null>(() => selection.surface === 'changes' ? changesIdentity : null);
+  const [filesOpenedKey, setFilesOpenedKey] = useState<string | null>(() => selection.surface === 'files' ? changesIdentity : null);
   const [worktreesOpenedKey, setWorktreesOpenedKey] = useState<string | null>(() => selection.surface === 'worktrees' ? changesIdentity : null);
   // Exactly one unsaved General Notes draft may cross project mounts. The
   // Notes pane locks other projects until this lease is saved or discarded.
@@ -192,6 +195,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'changes') setChangesOpenedKey(changesIdentity);
   }, [changesIdentity, selection.key, selectionKey, surface]);
+  useEffect(() => { if (selection.key === selectionKey && surface === 'files') setFilesOpenedKey(changesIdentity); }, [changesIdentity, selection.key, selectionKey, surface]);
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'worktrees') setWorktreesOpenedKey(changesIdentity);
   }, [changesIdentity, selection.key, selectionKey, surface]);
@@ -248,6 +252,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               if (item.id === 'notes') setNotesOpenedKey(storageKey);
               if (item.id === 'changes') setChangesOpenedKey(changesIdentity);
+              if (item.id === 'files') setFilesOpenedKey(changesIdentity);
               if (item.id === 'worktrees') setWorktreesOpenedKey(changesIdentity);
               // A maximized surface must not collapse into an opaque, full-chat
               // icon strip when its already selected icon is clicked.
@@ -294,6 +299,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             setSelection({ key: selectionKey, surface: 'walkthrough' });
           }} />
         </div> : null}
+        {filesOpenedKey === changesIdentity || surface === 'files' ? <div className={surface === 'files' ? 'h-full min-h-0' : 'hidden'}><OperatorFiles key={changesIdentity} directory={directory} visible={surface === 'files' && paneVisible} /></div> : null}
         {worktreesOpenedKey === changesIdentity || surface === 'worktrees' ? <div className={surface === 'worktrees' ? 'h-full min-h-0' : 'hidden'}>
           <WorktreesView key={changesIdentity} projectRoot={directory} embedded visible={surface === 'worktrees' && paneVisible} />
         </div> : null}
@@ -354,8 +360,10 @@ function readPanelPreferences(key: string | null): PanelPreferences {
     const uniqueVisible = [...new Set(visible)];
     // A complete pre-Worktrees layout could not have hidden the new pane.
     // Keep deliberate hides in layouts that already know about Worktrees.
-    const preWorktrees = DEFAULT_PANEL_PREFERENCES.order.filter((id) => id !== 'worktrees');
-    if (uniqueVisible.length > 0 && order.length === preWorktrees.length && preWorktrees.every((id) => order.includes(id)) && !uniqueVisible.includes('worktrees')) uniqueVisible.push('worktrees');
+    const preWorktrees = DEFAULT_PANEL_PREFERENCES.order.filter((id) => id !== 'worktrees' && id !== 'files');
+    const preFiles = DEFAULT_PANEL_PREFERENCES.order.filter((id) => id !== 'files');
+    if (uniqueVisible.length > 0 && order.length === preWorktrees.length && preWorktrees.every((id) => order.includes(id))) uniqueVisible.push('worktrees', 'files');
+    else if (uniqueVisible.length > 0 && order.length === preFiles.length && preFiles.every((id) => order.includes(id)) && !uniqueVisible.includes('files')) uniqueVisible.push('files');
     return { order: uniqueOrder, visible: uniqueVisible.length > 0 ? uniqueVisible : DEFAULT_PANEL_PREFERENCES.visible };
   } catch { return DEFAULT_PANEL_PREFERENCES; }
 }

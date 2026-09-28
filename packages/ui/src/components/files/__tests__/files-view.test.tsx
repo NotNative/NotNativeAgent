@@ -16,6 +16,7 @@ vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { FilesView } from '../FilesView.tsx';
+import { FileTree } from '../FileTree.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { useFilesViewTabsStore } from '../../../lib/files/tabs-store.ts';
 import { __resetDraftsForTests, draftKeyFor, useInlineCommentDrafts } from '../../../lib/comments/drafts.ts';
@@ -88,6 +89,56 @@ async function render(): Promise<void> {
 }
 
 describe('FilesView flow (doc 06 §2/§3 v1)', () => {
+  it('can render a read-only tree without creation or mutation controls', async () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<I18nProvider><FileTree root={DIR} runtimeKey="local" visible
+      onOpenFile={() => undefined} onNewFile={() => undefined} onNewFolder={() => undefined}
+      onRename={() => undefined} onDelete={() => undefined} readOnly /></I18nProvider>); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="files-tree"]')).not.toBeNull();
+    expect(document.querySelector('button[title="/repo/a.ts"]')).not.toBeNull();
+    expect(document.querySelector('button[aria-label="a.ts"]')).toBeNull();
+    expect(document.querySelector('button[aria-label="New file"]')).toBeNull();
+    expect(document.querySelector('button[aria-label="New folder"]')).toBeNull();
+  });
+
+  it('does not run a pending search while hidden, then searches when revealed', async () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const tree = (visible: boolean) => <I18nProvider><FileTree root={DIR} runtimeKey="local" visible={visible}
+      onOpenFile={() => undefined} onNewFile={() => undefined} onNewFolder={() => undefined}
+      onRename={() => undefined} onDelete={() => undefined} readOnly /></I18nProvider>;
+    await act(async () => { rootHandle!.render(tree(true)); await Promise.resolve(); });
+    const input = document.querySelector('input[aria-label]') as HTMLInputElement;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(input, 'needle');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { rootHandle!.render(tree(false)); });
+    await act(async () => { await new Promise((done) => setTimeout(done, 250)); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/search'))).toBe(false);
+    await act(async () => { rootHandle!.render(tree(true)); });
+    await act(async () => { await new Promise((done) => setTimeout(done, 250)); });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/search'))).toBe(true);
+  });
+
+  it('clears a root-list error after a successful retry', async () => {
+    let fail = true;
+    fetchMock.mockImplementation(async (input: string) => {
+      if (String(input).includes('/api/fs/list') && fail) return new Response(JSON.stringify({ error: 'offline' }), { status: 500 });
+      return route(String(input));
+    });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<I18nProvider><FileTree root={DIR} runtimeKey="local" visible
+      onOpenFile={() => undefined} onNewFile={() => undefined} onNewFolder={() => undefined}
+      onRename={() => undefined} onDelete={() => undefined} readOnly /></I18nProvider>); });
+    await act(async () => { await new Promise((done) => setTimeout(done, 10)); });
+    expect(container.textContent).toContain('offline');
+    fail = false;
+    await act(async () => { ([...container!.querySelectorAll('button')].find((button) => button.textContent === 'Retry') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(container.textContent).not.toContain('offline');
+    expect(container.querySelector('button[title="/repo/a.ts"]')).not.toBeNull();
+  });
+
   it('loads the selected file into the editor and autosaves the edit after 1.5 s', async () => {
     await render();
     const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
