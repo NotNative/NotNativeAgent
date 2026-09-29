@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:dd20dbfc8ee8ed09be991c6b73b67a1c3b177d1a1dbe7361f7035f76ebc9f4c6",
+  "source_digest": "sha256:1c2446a6b25b2fad8008aac456693d08af4023a61f5e3976e70058fd9f9a1b52",
   "counts": {
     "modules": 547,
     "component_edges": 14
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 70,
-      "module_count": 32
+      "import_count": 71,
+      "module_count": 33
     },
     {
       "from": "ui-shell",
@@ -396,7 +396,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
-        "packages/ui/src/lib/nnd/types.ts"
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {
@@ -784,6 +785,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/blocking-cards.tsx",
+        "packages/ui/src/chat/context-message-pins.ts",
         "packages/ui/src/chat/markdown-lite.tsx",
         "packages/ui/src/chat/time-format.ts",
         "packages/ui/src/chat/tool-cards.tsx",

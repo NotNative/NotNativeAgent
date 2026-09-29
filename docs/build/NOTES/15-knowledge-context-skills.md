@@ -162,6 +162,26 @@ file reselection.
 Do not label P10 complete until the planning document's contracts and
 failure paths are covered by tests and UI verification.
 
+## P10-50: chat-row context pins (2026-09-29)
+
+Transcript user and assistant rows can now pin or unpin the represented
+message with the bounded `openchamber.context_obligatory_messages` metadata
+channel. Actions read the current session, merge a valid user/assistant
+record, PATCH the generic metadata, and verify the committed session/workspace
+identity. The local store commits only authoritative response metadata, so an
+unrelated field is not discarded.
+
+Rows show pressed state for saved pins and bounded busy state while their
+action is pending. Failures leave local metadata unchanged and surface one
+error toast. If the control unmounts before completion, stale failures do not
+touch the detached row or emit a toast. Cross-process metadata writes remain
+last-writer-wins because the session PATCH contract has no compare-and-swap.
+
+The adversarial audit found no additional concrete defect in serialized
+same-session writes, targeting/metadata validation, pin-limit handling, stale
+row ownership, or post-unmount lifecycle. Truth: UI typecheck green; focused
+chat/session pin regression suites 8/8.
+
 ## P10-2: note lifecycle API (2026-09-26)
 
 The isolated context store now has note create, patch, and delete operations

@@ -2,6 +2,8 @@
 /** Durable context pins ride the generic session-metadata PATCH channel. */
 import { harnessClient, normalizeDirectory, type HarnessSession } from '../lib/nnd/client.ts';
 import type { Message } from '../lib/nnd/types.ts';
+import type { DirectoryStore } from '../sync/types.ts';
+import type { StoreApi } from 'zustand/vanilla';
 
 export const SESSION_PIN_NAMESPACE = 'openchamber';
 export const SESSION_PIN_MESSAGES_KEY = 'context_obligatory_messages';
@@ -59,6 +61,19 @@ export function sessionMessagePinIDs(session: { metadata?: Record<string, unknow
 }
 
 export type SessionPinClient = typeof harnessClient;
+
+/** Commit the authoritative metadata only; preserve other session fields. */
+export function applySessionMessagePinMetadata(
+  store: StoreApi<DirectoryStore>, sessionID: string, metadata: Record<string, unknown> | undefined,
+): boolean {
+  const sessions = store.getState().session;
+  if (!sessions.some((session) => session.id === sessionID)) return false;
+  store.setState({
+    session: sessions.map((session) => session.id === sessionID
+      ? { ...session, metadata } : session),
+  });
+  return true;
+}
 
 const pinWriteQueues = new Map<string, Promise<unknown>>();
 

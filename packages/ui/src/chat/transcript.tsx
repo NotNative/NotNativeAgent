@@ -12,21 +12,27 @@ import type { SessionMessageLoadState } from '../sync/session-message-loader.ts'
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import { isNnaActivitySource } from '../sync/activity-snapshot.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
+import { toast } from 'sonner';
 import { projectTurns, streamingTail, turnSettled, assistantLiveStatus, toolPhrase, workingPhrase, type PartLite, type ChatTurn } from './turns.ts';
 import { renderMarkdown } from './markdown-lite.tsx';
 import { ToolCard } from './tool-cards.tsx';
 import { BlockingCardsColumn } from './blocking-cards.tsx';
 import { formatDuration, formatRelative, formatRetryCountdown } from './time-format.ts';
+import {
+  applySessionMessagePinMetadata, sessionMessagePinIDs, setSessionMessagePinned,
+  type SessionPinClient,
+} from './context-message-pins.ts';
 
 export interface TranscriptProps {
   store: StoreApi<DirectoryStore>;
   engine: SyncEngine;
   sessionID: string | null;
   directory: string;
+  pinClient?: SessionPinClient;
 }
 
 export function Transcript(props: TranscriptProps): ReactNode {
-  const { store, engine, sessionID, directory } = props;
+  const { store, engine, sessionID, directory, pinClient } = props;
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const [retry, setRetry] = useState<{ key: string; count: number }>({ key: '', count: 0 });
   const [failedKey, setFailedKey] = useState<string | null>(null);
@@ -128,9 +134,10 @@ export function Transcript(props: TranscriptProps): ReactNode {
           data-testid="load-older-messages">{olderBusyKey === loadKey ? 'Loading older messages…' : 'Load older messages'}</button>
         {olderFailedKey === loadKey ? <span role="alert" className="text-rose-400">Could not load older messages. Retry above.</span> : null}
       </div> : null}
-      {turns.map((turn, index) => (
-        <TurnRow key={turn.userMessage.id} turn={turn} store={store} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} />
-      ))}
+      {turns.map((turn, index) => {
+        const pin = { store, sessionID, directory, ...(pinClient ? { pinClient } : {}) };
+        return <TurnRow key={turn.userMessage.id} turn={turn} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} pin={pin} />;
+      })}
       {tail ? <StreamingTailRow key={tail.id} parts={(snapshot.part[tail.id] ?? []) as PartLite[]} messageID={tail.id} /> : null}
       {permissionsOf(snapshot, sessionID).length > 0 || questionsOf(snapshot, sessionID).length > 0
         ? <BlockingCardsColumn store={store} engine={engine} sessionID={sessionID} />
@@ -146,6 +153,49 @@ function questionsOf(snapshot: import('../sync/types.ts').DirectoryStore, sessio
   return snapshot.question[sessionID] ?? [];
 }
 
+function ContextPinButton({ pin, message, variant }: {
+  pin: ContextPinTarget;
+  message: ContextPinMessage;
+  variant: 'user' | 'assistant';
+}): ReactNode {
+  const [busy, setBusy] = useState(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
+  const snapshot = useSyncExternalStore(pin.store.subscribe, pin.store.getState);
+  const pinned = sessionMessagePinIDs(snapshot.session.find((session) => session.id === pin.sessionID)).has(message.id);
+  const toggle = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const committed = await setSessionMessagePinned({
+        sessionID: pin.sessionID, directory: pin.directory, message, pinned: !pinned,
+        ...(pin.pinClient ? { client: pin.pinClient } : {}),
+      });
+      if (committed) applySessionMessagePinMetadata(pin.store, pin.sessionID, committed.metadata);
+    } catch {
+      if (active.current) toast.error('Could not update the context pin');
+    } finally {
+      if (active.current) setBusy(false);
+    }
+  };
+  return (
+    <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-400 hover:bg-white/10 hover:text-neutral-200 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+      aria-pressed={pinned} disabled={busy} data-testid={`chat-context-pin-${message.id}`}
+      onClick={() => void toggle()}>
+      {pinned ? `${variant === 'user' ? 'Unpin message' : 'Unpin'}` : `${variant === 'user' ? 'Pin message' : 'Pin'}`}
+    </button>
+  );
+}
+
+type ContextPinMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  time: { created: number; completed?: number };
+};
+
 function Skeleton(): ReactNode {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-6" data-chat-hydration-skeleton>
@@ -159,21 +209,30 @@ function Skeleton(): ReactNode {
   );
 }
 
-function TurnRow({ turn, store, engine, tailID }: { turn: ChatTurn; store: StoreApi<DirectoryStore>; engine: SyncEngine; tailID: string | undefined }): ReactNode {
+type ContextPinTarget = {
+  store: StoreApi<DirectoryStore>;
+  sessionID: string;
+  directory: string;
+  pinClient?: SessionPinClient;
+};
+
+function TurnRow({ turn, engine, tailID, pin }: { turn: ChatTurn; engine: SyncEngine; tailID: string | undefined; pin: ContextPinTarget }): ReactNode {
   const [open, setOpen] = useState(true);
+  const store = pin.store;
   const partsOf = (id: string): PartLite[] => (store.getState().part[id] ?? []) as PartLite[];
   const settled = turnSettled(turn);
   const inline = tailID ? turn.assistant.filter((message) => message.id !== tailID) : turn.assistant;
   return (
     <section className="flex flex-col gap-3" data-testid="chat-turn">
-      <UserBubble parts={partsOf(turn.userMessage.id)} anchorID={turn.userMessage.id} />
+      <UserBubble parts={partsOf(turn.userMessage.id)} anchorID={turn.userMessage.id}
+        message={turn.userMessage as unknown as ContextPinMessage} pin={pin} />
       {settled && inline.length > 1 ? (
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="self-start rounded-full bg-white/5 px-3 py-1 text-[11px] text-neutral-400 hover:text-neutral-200">
           Activity ({inline.length}) {open ? 'âˆ’' : '+'}
         </button>
       ) : null}
       {open ? inline.map((message) => (
-        <AssistantRow key={message.id} message={message} parts={partsOf(message.id)} anchorID={message.id} live={tailID === message.id ? false : message.time.completed === undefined} />
+        <AssistantRow key={message.id} message={message} parts={partsOf(message.id)} anchorID={message.id} live={tailID === message.id ? false : message.time.completed === undefined} pin={pin} />
       )) : null}
     </section>
   );
@@ -183,7 +242,8 @@ function presentationOf(message: import('../lib/nnd/types.ts').Message): import(
   return message as unknown as import('../lib/nnd/types.ts').PresentationMessage;
 }
 
-function UserBubble({ parts, anchorID }: { parts: PartLite[]; anchorID: string }): ReactNode {
+function UserBubble({ parts, anchorID, message, pin }: { parts: PartLite[]; anchorID: string;
+  message: ContextPinMessage; pin: ContextPinTarget }): ReactNode {
   const text = parts.filter((part) => part.type === 'text' && !part.synthetic && !part.ignored).map((part) => part.text ?? '').join('');
   return (
     <div id={`message-${anchorID}`} className="flex scroll-mt-16 justify-end">
@@ -191,11 +251,12 @@ function UserBubble({ parts, anchorID }: { parts: PartLite[]; anchorID: string }
         {text.startsWith('!') ? <span aria-hidden className="mr-1 text-amber-300">$</span> : null}
         {text || '[No text content]'}
       </div>
+      <ContextPinButton pin={pin} message={message} variant="user" />
     </div>
   );
 }
 
-function AssistantRow({ message, parts, live, anchorID }: { message: import('../lib/nnd/types.ts').PresentationMessage; parts: PartLite[]; live: boolean; anchorID?: string }): ReactNode {
+function AssistantRow({ message, parts, live, anchorID, pin }: { message: import('../lib/nnd/types.ts').PresentationMessage; parts: PartLite[]; live: boolean; anchorID?: string; pin: ContextPinTarget }): ReactNode {
   const visible = parts.filter((part) => !SKIP_KIND.has(part.type) && !part.synthetic && !part.ignored);
   return (
     <article id={anchorID ? `message-${anchorID}` : undefined} className="flex flex-col gap-1 scroll-mt-16" data-testid="chat-assistant-row">
@@ -206,6 +267,7 @@ function AssistantRow({ message, parts, live, anchorID }: { message: import('../
         <span>{formatDuration(message.time.created, message.time.completed)}</span>
         <span>{formatRelative(message.time.completed ?? message.time.created)}</span>
         {live ? <span className="text-amber-500/70">{workingPhrase(message.id)}…</span> : null}
+        <ContextPinButton pin={pin} message={message as unknown as ContextPinMessage} variant="assistant" />
       </footer>
     </article>
   );
