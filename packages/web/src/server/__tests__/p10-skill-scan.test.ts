@@ -51,6 +51,20 @@ describe('P10 skill discovery', () => {
     }
   });
 
+  it('returns supported skill catalog sources without a checkout', async () => {
+    const response = await app().request('/api/skills/catalog/sources');
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      sources: [
+        { id: 'anthropic', label: 'Anthropic', source: 'anthropics/skills', defaultSubpath: 'skills' },
+        { id: 'openai', label: 'OpenAI', source: 'openai/skills', defaultSubpath: 'skills/.curated' },
+        { id: 'cursor', label: 'Cursor', source: 'cursor/plugins', defaultSubpath: 'pstack/skills' },
+        { id: 'mattpocock', label: 'Matt Pocock', source: 'mattpocock/skills', defaultSubpath: null },
+      ],
+    });
+  });
+
   it('keeps ancestor skills when Windows path case differs from the Git root', () => {
     const repo = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-case-'));
     const nested = join(repo, 'Nested', 'Checkout');

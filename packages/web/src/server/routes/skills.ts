@@ -34,6 +34,13 @@ interface ValidatedSkillPatch {
   description: string; instructions: string;
 }
 
+const SKILL_SOURCES = [
+  { id: 'anthropic', label: 'Anthropic', source: 'anthropics/skills', defaultSubpath: 'skills' },
+  { id: 'openai', label: 'OpenAI', source: 'openai/skills', defaultSubpath: 'skills/.curated' },
+  { id: 'cursor', label: 'Cursor', source: 'cursor/plugins', defaultSubpath: 'pstack/skills' },
+  { id: 'mattpocock', label: 'Matt Pocock', source: 'mattpocock/skills', defaultSubpath: null },
+] as const;
+
 function parseBoundedSkillBody(encodedBody: string): SkillCreateShape | null {
   try {
     const body = JSON.parse(encodedBody) as unknown;
@@ -280,6 +287,7 @@ function registerSkillListRoutes(app: Hono): void {
       });
     } catch { return c.json({ error: 'project checkout directory is required' }, 400); }
   });
+  app.get('/api/skills/catalog/sources', (c) => c.json({ sources: SKILL_SOURCES }));
   app.get('/api/config/skills/:name', (c) => {
     try {
       const skill = scanLocalSkills(c.req.query('directory') ?? '')

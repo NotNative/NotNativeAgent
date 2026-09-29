@@ -416,6 +416,22 @@ frontmatter overwrite, mixed-body confusion, and checkout validation. Update
 and rename responses return the same restart deferral. Delete and
 supporting-file routes remain pending.
 
+## P10-29: skill catalog source inventory (2026-09-29)
+
+The server now exposes an additive read-only diagnostics route,
+`GET /api/skills/catalog/sources`, with the four curated source identities
+from the planned catalog: Anthropic, OpenAI, Cursor, and Matt Pocock. Each
+entry uses the planned `id`, `label`, `source`, and nullable
+`defaultSubpath` fields, so later catalog and install code can key on stable
+contract names rather than a different inventory shape. The adversarial
+review corrected a missing OpenAI entry and three metadata-shape
+inconsistencies before the focused regression.
+
+This route intentionally does not claim the E.4
+`/api/config/skills/catalog` contract. Enrichment, customconfigured
+catalog sources, item scanning, repository auth, conflict resolution, and
+installation remain pending.
+
 ## P10-28: managed skill supporting files (2026-09-29)
 
 `GET`, `PUT`, and `DELETE /api/config/skills/:name/files/*filePath` now edit

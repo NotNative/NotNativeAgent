@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-29 skill catalog source inventory.** The server now
+  exposes the four curated source identities planned for the skills catalog:
+  Anthropic, OpenAI, Cursor, and Matt Pocock. This read-only diagnostic is an
+  additive source inventory, not yet the full E.4 catalog route; enrichment,
+  custom sources, item scanning, and installation remain pending. A focused
+  source-shape regression passed after the audit corrected missing OpenAI and
+  contract metadata.
+
 - 2026-09-29 · **P10-28 managed skill supporting files.** Managed skill
   directories now expose bounded read/write/delete support for `files/*`,
   including nested paths. Guards reject traversal, absolute paths,
