@@ -761,10 +761,10 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
     yield { type: 'terminal' };
   } };
   const router = {
-    resolve: (role) => ({
+    candidates: (role) => [{
       role, model: 'reviewer-model', maxOutputTokens: 8192, reasoningEffort: 'low',
       enableThinking: undefined, profile: { id: 'shared-primary' },
-    }),
+    }],
     provider: () => provider,
   };
   const reviewer = new RoutedSemanticReviewer(router, {
@@ -827,7 +827,7 @@ test('reviewer omits reasoning controls when its route has no verified setting',
     yield { type: 'terminal' };
   } };
   const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
-  const reviewer = new RoutedSemanticReviewer({ resolve: () => route, provider: () => provider });
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
   await reviewer.review({ request: {}, authenticatedIntent: [] }, new AbortController().signal);
   assert.equal(Object.hasOwn(captured, 'reasoningMode'), false);
   assert.equal(Object.hasOwn(captured, 'reasoningEffort'), false);
@@ -848,7 +848,7 @@ test('semantic reviewer makes one bounded schema-repair attempt with separate ev
     yield { type: 'terminal' };
   } };
   const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
-  const reviewer = new RoutedSemanticReviewer({ resolve: () => route, provider: () => provider }, {
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider }, {
     telemetry: { record(event, status) { telemetry.push({ event, status }); } },
     recordTokenReceipt: async (receipt) => receipts.push(receipt),
   });
@@ -875,7 +875,7 @@ test('semantic reviewer fails closed after the one schema-repair attempt', async
     yield { type: 'terminal' };
   } };
   const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
-  const reviewer = new RoutedSemanticReviewer({ resolve: () => route, provider: () => provider });
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
 
   await assert.rejects(
     reviewer.review({ request: {}, authenticatedIntent: [] }, new AbortController().signal),

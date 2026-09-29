@@ -24,37 +24,58 @@ export class RoutedSemanticReviewer {
   }
 
   async review(input, signal, correlation = {}) {
-    const route = this.router.resolve('reviewer', { requiredCapabilities: ['structured_output'] });
-    const provider = this.router.provider(route);
-    const profileId = route.profile?.id ?? route.providerId ?? 'unknown-provider';
-    const logicalRequestId = newId('reviewer_route');
-    const capacityInfo = this.modelRuntime
-      ? await this.modelRuntime.resolve(this.router, route, signal) : null;
-    const release = this.scheduler
-      ? await this.scheduler.acquire(
-        profileId, this.sessionId, signal, () => undefined, capacityInfo?.parallelCapacity ?? null,
-      )
-      : () => undefined;
-    try {
-      let invalidOutput = null;
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const request = reviewerRequest(route, input, invalidOutput);
-        try {
-          return await this.#runAttempt({
-            provider, request, signal, route, profileId, logicalRequestId, correlation,
-          });
-        } catch (error) {
-          if (attempt === 0 && error?.code === 'reviewer_output_malformed') {
-            invalidOutput = error.reviewerOutput ?? '';
-            continue;
-          }
-          throw error;
-        }
-      }
-      throw new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
-    } finally {
-      release();
+    // Why: a structured-output transport failure on the inherited Primary route must
+    // advance through the configured Reviewer fallback graph instead of failing closed.
+    const routes = this.router.candidates('reviewer', { requiredCapabilities: ['structured_output'] });
+    if (routes.length === 0) {
+      throw new ContractError('route_capability_unavailable', 'no trust-compatible reviewer route supports structured output');
     }
+    const logicalRequestId = newId('reviewer_route');
+    let invalidOutput = null;
+    let lastError = null;
+    for (let index = 0; index < routes.length; index += 1) {
+      const route = routes[index];
+      const profileId = route.profile?.id ?? route.providerId ?? 'unknown-provider';
+      let capacityInfo = null;
+      let provider = null;
+      let release = () => undefined;
+      try {
+        capacityInfo = this.modelRuntime
+          ? await this.modelRuntime.resolve(this.router, route, signal) : null;
+        provider = this.router.provider(route);
+        release = this.scheduler
+          ? await this.scheduler.acquire(
+            profileId, this.sessionId, signal, () => undefined, capacityInfo?.parallelCapacity ?? null,
+          )
+          : release;
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        if (!isRouteSetupReviewerError(error)) throw error;
+        lastError = routeProviderUnavailableError(error);
+        continue;
+      }
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const request = reviewerRequest(route, input, invalidOutput);
+          try {
+            return await this.#runAttempt({
+              provider, request, signal, route, profileId, logicalRequestId, correlation,
+            });
+          } catch (error) {
+            lastError = error;
+            if (attempt === 0 && error?.code === 'reviewer_output_malformed') {
+              invalidOutput = error.reviewerOutput ?? '';
+              continue;
+            }
+            break;
+          }
+        }
+        if (!retryableReviewerError(lastError)) break;
+      } finally {
+        release();
+      }
+    }
+    throw lastError ?? new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
   }
 
   async #runAttempt({ provider, request, signal, route, profileId, logicalRequestId, correlation }) {
@@ -162,6 +183,21 @@ function reviewerResponseFormat() {
       },
     },
   };
+}
+
+function retryableReviewerError(error) {
+  return error?.retryable === true;
+}
+
+// Why: setup failures are candidate-route failures, unlike policy or malformed reviewer decisions.
+function isRouteSetupReviewerError(error) {
+  return error?.code === 'route_provider_invalid' || error?.code === 'model_runtime_route_invalid';
+}
+
+function routeProviderUnavailableError(error) {
+  return Object.assign(new ContractError(
+    'route_provider_unavailable', 'reviewer route setup failed', true, { cause: error },
+  ), { routeSetupCode: error?.code ?? null });
 }
 
 function reviewerPolicy() {
