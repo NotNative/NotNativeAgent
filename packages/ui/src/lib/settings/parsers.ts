@@ -126,6 +126,42 @@ export function pHex(): ParserFn<string> {
   return (v) => (isHexColor(v) ? v : null);
 }
 
+const GIT_IDENTITY_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
+const SSH_KEY_PATH = /^(?:[A-Za-z]:\/|\/)(?:[A-Za-z0-9._ -]+\/)*[A-Za-z0-9._ -]+$/u;
+
+/** Credential-free identity profiles: a display name and an absolute local
+ * SSH key path; the server controls the generated `core.sshCommand`. */
+function pGitIdentityProfile(): ParserFn<{ id: string; name: string; sshKeyPath: string }> {
+  return (v) => {
+    if (!isObj(v)) return null;
+    const id = v.id;
+    const name = v.name;
+    const sshKeyPath = v.sshKeyPath;
+    if (typeof id !== 'string' || id.length > 64 || !GIT_IDENTITY_ID.test(id)) return null;
+    if (typeof name !== 'string' || name.length > 120 || name.trim() !== name || name === '') return null;
+    if (typeof sshKeyPath !== 'string' || sshKeyPath.length > 512 || sshKeyPath.includes('\\')
+      || !SSH_KEY_PATH.test(sshKeyPath)) return null;
+    if (sshKeyPath.split('/').some((segment) => segment.length === 0 || segment === '.' || segment === '..'
+      || segment !== segment.trim())) return null;
+    return { id, name, sshKeyPath };
+  };
+}
+
+export function pGitIdentityProfiles(): ParserFn<Array<{ id: string; name: string; sshKeyPath: string }>> {
+  return (v) => {
+    if (!Array.isArray(v) || v.length > 32) return null;
+    const output: Array<{ id: string; name: string; sshKeyPath: string }> = [];
+    const seen = new Set<string>();
+    for (const entry of v) {
+      const parsed = pGitIdentityProfile()(entry);
+      if (parsed === null || seen.has(parsed.id)) return null;
+      seen.add(parsed.id);
+      output.push(parsed);
+    }
+    return output;
+  };
+}
+
 /** §F.5 permissionAutoAccept: `{sessions: Record<id,bool>, revision: int>=0}`. */
 export function pPermissionAccept(): ParserFn<{ sessions: Record<string, boolean>; revision: number }> {
   return (v) => {

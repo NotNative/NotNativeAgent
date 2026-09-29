@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { ENV } from '../../env.ts';
 import { scanLocalSkills } from './skill-scan.ts';
 import { scanCatalogSource, type CatalogScanItem, type CatalogScanRequest } from './skill-catalog-scan.ts';
+import { gitIdentityCacheToken, resolveGitIdentityProfile } from './git-identity.ts';
 
 const CACHE_FILE = 'skills-catalog-cache.json';
 const TTL_MS = 3 * 60 * 60 * 1000;
@@ -40,14 +41,21 @@ function normalizedRepository(source: string): string {
     const url = new URL(source);
     const repository = `${decodeURIComponent(url.pathname).replace(/\/+$/u, '')}`
       .replace(/\.git$/iu, '');
-    return `${url.protocol}//${url.hostname.toLowerCase()}/${repository}`;
+    const userinfo = url.username ? `${url.username}@` : '';
+    const port = url.port ? `:${url.port}` : '';
+    return `${url.protocol}//${userinfo}${url.hostname.toLowerCase()}${port}/${repository}`;
   } catch { return source; }
 }
 
 function cacheKey(request: CatalogScanRequest): string | null {
   const repository = normalizedRepository(request.source);
   if (repository === '') return null;
-  const identity = request.gitIdentityId === undefined || request.gitIdentityId === null ? '' : request.gitIdentityId;
+  const identityProfile = request.gitIdentityId === undefined || request.gitIdentityId === null
+    || request.gitIdentityId === '' ? null : resolveGitIdentityProfile(request.gitIdentityId);
+  const identity = identityProfile === null
+    ? (request.gitIdentityId === null || request.gitIdentityId === undefined || request.gitIdentityId === ''
+      ? '' : `unknown\n${String(request.gitIdentityId)}`)
+    : gitIdentityCacheToken(identityProfile);
   const key = [repository, request.subpath ?? '', identity].join('\n');
   return createHash('sha256').update(key, 'utf8').digest('hex');
 }

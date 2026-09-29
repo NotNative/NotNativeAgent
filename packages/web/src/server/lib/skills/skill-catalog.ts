@@ -46,6 +46,9 @@ function usableRepositorySource(value: string): boolean {
   if (OWNER_REPOSITORY.test(value)) return true;
   try {
     const url = new URL(value);
+    if (url.protocol === 'ssh:' && url.password.length === 0
+      && url.search === '' && url.hash === ''
+      && url.hostname.length > 0 && url.pathname.length > 1) return true;
     return url.protocol === 'https:' && url.username.length === 0 && url.password.length === 0
       && url.hostname.length > 0 && url.pathname.length > 1;
   } catch { return false; }

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:dcee0bf837d3deaf0cd27c2a55624c882db86694d6698157be8006e5d68728ba",
+  "source_digest": "sha256:49c3754e8a6b918b60c0c7717bae806d51dce5826ba5b3d7e55552d18a59e839",
   "counts": {
-    "modules": 536,
+    "modules": 537,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 172
+      "module_count": 173
     },
     {
       "id": "web-entry",
@@ -4150,11 +4150,20 @@
       ]
     },
     {
+      "path": "packages/web/src/server/lib/skills/git-identity.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/settings-store.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/skills/skill-catalog-cache.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/skills/git-identity.ts",
         "packages/web/src/server/lib/skills/skill-catalog-scan.ts",
         "packages/web/src/server/lib/skills/skill-scan.ts"
       ]
@@ -4164,6 +4173,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/skills/git-identity.ts",
         "packages/web/src/server/lib/skills/skill-scan.ts"
       ]
     },
@@ -4172,6 +4182,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/skills/git-identity.ts",
         "packages/web/src/server/lib/skills/skill-scan.ts"
       ]
     },
@@ -4723,6 +4734,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/skills/git-identity.ts",
         "packages/web/src/server/lib/skills/skill-catalog-scan.ts",
         "packages/web/src/server/routes/skill-support.ts"
       ]
@@ -4732,6 +4744,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/skills/git-identity.ts",
         "packages/web/src/server/lib/skills/skill-catalog-installer.ts",
         "packages/web/src/server/routes/skill-catalog-common.ts",
         "packages/web/src/server/routes/skills.ts"

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Context } from 'hono';
 import { SkillInstallError, catalogConflicts, installSelectedSkills } from '../lib/skills/skill-catalog-installer.ts';
+import { gitIdentitySummaries } from '../lib/skills/git-identity.ts';
 import { catalogScanBody, validateSkillInstall, type ValidatedSkillInstall } from './skill-catalog-common.ts';
 import { canonicalProjectCheckout } from './skills.ts';
 
@@ -9,7 +10,7 @@ function installFailure(context: Context, error: unknown): Response {
     const status = error.kind === 'invalidSource' ? 400
       : error.kind === 'authRequired' ? 401
         : error.kind === 'networkError' ? 502 : 500;
-    const identities = error.kind === 'authRequired' ? [] : undefined;
+    const identities = error.kind === 'authRequired' ? gitIdentitySummaries() : undefined;
     return context.json({ error: { kind: error.kind, message: error.message, identities } }, status);
   }
   return context.json({ error: { kind: 'unknown', message: 'skill installation failed' } }, 500);
@@ -57,7 +58,7 @@ async function installCatalogSkills(context: Context, checkout: string | null,
     const skills = await installSelectedSkills(
       {
         source: request.source, subpath: request.subpath, selectedNames: selected,
-        overwriteNames,
+        overwriteNames, gitIdentityId: request.gitIdentityId,
       },
       { scope: request.scope, targetSource: request.targetSource, checkout },
     );
@@ -76,11 +77,6 @@ export async function installCatalog(context: Context, requestedDirectory: strin
   const validated = validateSkillInstall(body);
   if ('error' in validated) {
     return context.json({ error: { kind: 'invalidSource', message: validated.error } }, 400);
-  }
-  if (validated.gitIdentityId !== null) {
-    return context.json({
-      error: { kind: 'invalidSource', message: 'Git identity installing is not yet configured' },
-    }, 400);
   }
   let checkout: string | null = null;
   if (validated.scope === 'project') {

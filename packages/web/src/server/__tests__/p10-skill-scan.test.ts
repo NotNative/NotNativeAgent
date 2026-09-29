@@ -8,6 +8,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import './helpers/env-boot.ts';
 import { registerSkillRoutes } from '../routes/skills.ts';
 import { flushCatalogScanCache, resetCatalogScanCache } from '../lib/skills/skill-catalog-cache.ts';
+import { gitCloneArguments, readGitIdentityProfiles } from '../lib/skills/git-identity.ts';
+import { CatalogScanError } from '../lib/skills/skill-catalog-scan.ts';
+import { catalogScanFailure } from '../routes/skill-catalog-common.ts';
 import { writeSettingsPatch } from '../lib/settings-store.ts';
 import type { CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
 import { externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
@@ -253,11 +256,118 @@ describe('P10 skill discovery', () => {
       error: { kind: 'invalidSource', message: 'invalid Git subpath' },
     });
     expect((await unsupportedIdentity.json()) as { error: Record<string, unknown> }).toEqual({
-      error: { kind: 'invalidSource', message: 'Git identity scanning is not yet configured' },
+      error: { kind: 'invalidSource', message: 'unknown Git identity' },
     });
     expect(unreachable.status).toBe(502);
     expect(((await unreachable.json()) as { error: Record<string, string> }).error.kind).toBe('networkError');
     expect(invalidBody.status).toBe(400);
+  });
+
+  it('resolves configured Git identity profiles for ad-hoc scans', async () => {
+    const repository = catalogRepository();
+    const keyDirectory = mkdtempSync(join(tmpdir(), 'nnd-p10-git-identity-key-'));
+    const keyPath = join(keyDirectory, 'id_ed25519').replaceAll('\\', '/');
+    writeSettingsPatch({
+      skillCatalogs: [],
+      gitIdentityProfiles: [
+        { id: 'payload-key', name: 'Payload key', sshKeyPath: keyPath },
+        { id: 'duplicate-key', name: 'Duplicate key', sshKeyPath: `${keyDirectory}.ssh/id` },
+        { id: 'payload-key', name: 'Duplicate ID', sshKeyPath: `${keyDirectory}.ssh/other` },
+        { id: 'INVALID', name: 'Bad ID', sshKeyPath: keyPath },
+        { id: 'bad-path', name: 'Bad path', sshKeyPath: 'relative/key' },
+        { id: 'bad-drive', name: 'Bad drive', sshKeyPath: 'D:' },
+      ],
+    }, 'web');
+    expect(readGitIdentityProfiles()).toEqual([
+      { id: 'payload-key', name: 'Payload key', sshKeyPath: keyPath },
+    ]);
+    const profile = readGitIdentityProfiles()[0]!;
+    expect(gitCloneArguments(profile)).toEqual([
+      '-c',
+      `core.sshCommand=ssh -i ${JSON.stringify(keyPath)} -o IdentitiesOnly=yes`,
+    ]);
+
+    const scanned = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, subpath: 'skills', gitIdentityId: 'payload-key' }),
+    });
+    const missing = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, subpath: 'skills', gitIdentityId: 'absent' }),
+    });
+    expect(scanned.status).toBe(200);
+    expect(((await scanned.json()) as { items: Array<{ skillName: string }> }).items.map((item) => item.skillName))
+      .toContain('source-good');
+    expect(missing.status).toBe(400);
+    expect(((await missing.json()) as { error: Record<string, string> }).error).toEqual({
+      kind: 'invalidSource', message: 'unknown Git identity',
+    });
+  });
+
+  it('installs through a configured identity and rejects unknown identities', async () => {
+    const repository = catalogRepository();
+    const keyDirectory = mkdtempSync(join(tmpdir(), 'nnd-p10-git-install-key-'));
+    const keyPath = join(keyDirectory, 'id_ed25519').replaceAll('\\', '/');
+    writeSettingsPatch({
+      skillCatalogs: [],
+      gitIdentityProfiles: [{ id: 'install-key', name: 'Install key', sshKeyPath: keyPath }],
+    }, 'web');
+    const checkout = mkdtempSync(join(tmpdir(), 'nnd-p10-git-install-'));
+    const installed = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: 'install-key',
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    const unknown = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: 'absent',
+        scope: 'user', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    expect(installed.status).toBe(200);
+    expect(((await installed.json()) as { installed: Array<{ skillName: string }> }).installed)
+      .toEqual([{ skillName: 'source-good', scope: 'project', source: 'opencode' }]);
+    expect(unknown.status).toBe(400);
+    expect(((await unknown.json()) as { error: { kind: string; message: string } }).error).toEqual({
+      kind: 'invalidSource', message: 'unknown Git identity',
+    });
+  });
+
+  it('returns configured identity candidates only for authentication failures', async () => {
+    writeSettingsPatch({
+      gitIdentityProfiles: [
+        { id: 'provider-key', name: 'Provider key', sshKeyPath: 'C:/Users/tester/.ssh/id_ed25519' },
+        { id: 'backup-key', name: 'Backup key', sshKeyPath: 'C:/Users/tester/.ssh/backup' },
+      ],
+    }, 'web');
+    const route = new Hono();
+    route.post('/auth', (context) => catalogScanFailure(
+      context,
+      new CatalogScanError('authRequired', 'Git authentication is required'),
+    ));
+    route.post('/server', (context) => catalogScanFailure(
+      context,
+      new CatalogScanError('invalidSource', 'not an authentication failure'),
+    ));
+    const auth = await route.request('/auth', { method: 'POST' });
+    const server = await route.request('/server', { method: 'POST' });
+    expect(auth.status).toBe(401);
+    expect((await auth.json()) as { error: { kind: string; identities: Array<{ id: string }> } })
+      .toEqual({
+        error: {
+          kind: 'authRequired',
+          message: 'Git authentication is required',
+          identities: [
+            { id: 'provider-key', name: 'Provider key' },
+            { id: 'backup-key', name: 'Backup key' },
+          ],
+        },
+      });
+    expect((await server.json()) as { error: { kind: string; identities?: unknown[] } })
+      .toEqual({ error: { kind: 'invalidSource', message: 'not an authentication failure' } });
   });
 
   it('classifies a missing clone subpath as an invalid source', async () => {

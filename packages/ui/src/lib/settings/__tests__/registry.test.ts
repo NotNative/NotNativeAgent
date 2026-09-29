@@ -92,6 +92,16 @@ describe('parseSettingsDocument (§F.3: invalid == absent)', () => {
     expect(kept({ globalBehaviorPrompt: 'prompt' })).toContain('globalBehaviorPrompt');
   });
 
+  it('rejects duplicate Git identities and preserves spaced SSH key paths', () => {
+    const kept = (patch: Record<string, unknown>): string[] =>
+      Object.keys(parseSettingsDocument(patch)).filter((key) => key in patch);
+    const profile = { id: 'work-key', name: 'Work', sshKeyPath: 'C:/Users/Tester/.ssh/work key' };
+    expect(kept({ gitIdentityProfiles: [profile] })).toContain('gitIdentityProfiles');
+    expect(kept({ gitIdentityProfiles: [profile, profile] })).not.toContain('gitIdentityProfiles');
+    expect(kept({ gitIdentityProfiles: [{ ...profile, sshKeyPath: 'relative/key' }] }))
+      .not.toContain('gitIdentityProfiles');
+  });
+
   it('exposes field lookup used by the engine', () => {
     expect(getSettingsField('fontSize')?.perSurface).toBe(true);
     expect(getSettingsField('nope')).toBeNull();

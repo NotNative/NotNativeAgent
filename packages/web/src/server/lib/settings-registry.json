@@ -115,6 +115,9 @@
     "defaultGitIdentityId": {
       "scope": "instance"
     },
+    "gitIdentityProfiles": {
+      "scope": "instance"
+    },
     "permissionAutoAccept": {
       "scope": "instance"
     },

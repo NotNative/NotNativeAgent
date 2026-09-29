@@ -538,6 +538,30 @@ The idle Settings catalog route now renders the configured merged catalog throug
 
 The audit was interrupted once for a compact report after its runtime exceeded the normal window. It then confirmed three defects and hardened the seam: item caches are keyed by source and workspace, overlapping reads keep only the latest response, and the engine runtime-reset path clears the catalog with an advanced runtime epoch so late transport promises cannot repopulate it. The slice is deliberately read-only. It does not expose selection, conflict decisions, Git identities, or installation actions, and it does not add an install cancellation signal. Focused page regressions pin loading, workspace-keyed selection, cache-bypass refresh, prior-data retention, and catalog-source notices.
 
+## P10-43: configured Git identities (2026-09-29)
+
+The skills server reads instance-scoped `gitIdentityProfiles` records of
+`{ id, name, sshKeyPath }`. Profiles are bounded to 32 unique IDs and contain
+no secret values. A profile is used only with a nonempty `gitIdentityId`; an
+unmatched ID returns 400 `unknown Git identity` before cloning. Paths must be
+absolute, forward-slash-only, traversal-free, contain no backslashes, and use
+only conservative local-path characters including safe spaces.
+
+Both scan and install pass
+`core.sshCommand=ssh -i "<path>" -o IdentitiesOnly=yes`; the resolver does not
+build arbitrary commands. Catalog sources now accept bounded `ssh://` URLs
+without query/hash or embedded password, while HTTPS and local-file source
+rules remain unchanged. Scan caches are keyed by resolved profile ID and key
+path, and separate SSH userinfo or endpoint ports cannot collide.
+
+Genuine 401 `authRequired` responses expose profile summaries as
+`{ id, name }` candidates for the existing picker. A configured source
+identity remains available for ordinary retries.
+
+Regressions cover profile parsing, traversal and bare-drive rejection, spaced
+local paths, duplicate rejection in the settings parser, scan/install misses
+and hits, SSH cache normalization, and candidate routing for non-auth errors.
+
 ## P10-42: install cancellation (2026-09-29)
 
 Each one-skill catalog install creates an `AbortController`, passes its signal
@@ -576,10 +600,8 @@ ordinary retries instead of forcing it to null, and prevent non-auth errors
 from exposing identity choices. Capture-state, runtime-reset, duplicate,
 pending, workspace, conflict, and stale-response behavior remain pinned.
 
-This slice intentionally stops at the request contract: the server has no
-credential-bearing Git-identity profile implementation or SSH resolver, so
-configured identity scanning/install and profile-backed retry remain future
-work. API-level install cancellation also remains pending.
+This slice intentionally stops at the request contract; the server-side
+profile resolver and SSH command surface are documented as P10-43. API-level install cancellation also remains pending.
 
 ## P10-40: catalog conflict resolution (2026-09-29)
 
@@ -604,7 +626,8 @@ made the route treat unrelated conflicts as unresolved during retry, and the
 transport had accepted malformed conflict objects that could render an
 undefined target path. Regressions cover individual retries, captured global
 policies, target filtering, malformed metadata, and cross-target installs.
-Git identity selection and API-level install cancellation remain pending.
+Git identity selection arrived in P10-41; API-level cancellation landed in
+P10-42.
 
 ## P10-39: per-skill install controls (2026-09-29)
 

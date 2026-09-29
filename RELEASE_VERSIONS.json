@@ -524,6 +524,14 @@
     {
       "version": "20260929-19",
       "content_sha256": "406335abb0e180af75cd1cbc35d3279feab08810beb024417d3b08ce0573e3e0"
+    },
+    {
+      "version": "20260929-20",
+      "content_sha256": "548174cc8781471354621acde4fb32e71c294507e102ea8b9530e0272927141b"
+    },
+    {
+      "version": "20260929-21",
+      "content_sha256": "059e6193e9a2f15ceaf88f2d10276ce6420e38da014752b478b63a9522c9ee98"
     }
   ]
 }

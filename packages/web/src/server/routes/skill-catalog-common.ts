@@ -2,6 +2,7 @@
 import type { Context } from 'hono';
 import { readBoundedSkillBody } from './skill-support.ts';
 import { CatalogScanError, scanCatalogSource } from '../lib/skills/skill-catalog-scan.ts';
+import { gitIdentitySummaries } from '../lib/skills/git-identity.ts';
 
 export const SKILL_NAME = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/u;
 
@@ -39,7 +40,7 @@ export function catalogScanFailure(context: Context, error: unknown): Response {
   const status = error.kind === 'invalidSource' ? 400
     : error.kind === 'authRequired' ? 401
       : error.kind === 'networkError' ? 502 : 500;
-  const identities = error.kind === 'authRequired' ? [] : undefined;
+  const identities = error.kind === 'authRequired' ? gitIdentitySummaries() : undefined;
   return context.json({ error: { kind: error.kind, message: error.message, identities } }, status);
 }
 
@@ -127,7 +128,8 @@ export async function scanAdHocCatalog(context: Context, directory: string | und
       source: String(body.source ?? ''),
       subpath: typeof body.subpath === 'string' ? body.subpath : null,
       directory,
-      gitIdentityId: requestedIdentity === undefined || requestedIdentity === null ? null : requestedIdentity,
+      gitIdentityId: requestedIdentity === undefined || requestedIdentity === null
+        || requestedIdentity === '' ? null : requestedIdentity,
     });
     return context.json({ ok: true, items });
   } catch (error) { return catalogScanFailure(context, error); }

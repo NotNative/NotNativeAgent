@@ -967,8 +967,12 @@ Two source families, `sources = [...curated, ...custom]`:
   GitHub `stars`/`repoUpdatedAt`, null on failure), itemsBySource: {} }`.
 - `GET /api/config/skills/catalog/source?directory&sourceId&refresh` → scans
   one git source. Pipeline: parse → clone (depth-1, `--filter=blob:none`
-  fallback, `GIT_TERMINAL_PROMPT=0`, SSH identity via `core.sshCommand` from
-  the referenced git-identity profile; `identityId` joins the cache key) →
+  fallback, `GIT_TERMINAL_PROMPT=0`, SSH identity via `core.sshCommand=ssh -i "<path>" -o
+  IdentitiesOnly=yes` from the credential-free
+  `gitIdentityProfiles: [{ id, name, sshKeyPath }]` instance setting;
+  profile paths are absolute local paths without traversal; `identityId`
+  plus the resolved profile joins the cache key; unmatched IDs fail closed
+  as invalid sources) →
   walk SKILL.md files → items `{ repoSource, repoSubpath, skillDir, skillName,
   frontmatterName, description, installable, warnings }` (invalid names → not
   installable + warnings), enriched with

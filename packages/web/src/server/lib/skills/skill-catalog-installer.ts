@@ -8,6 +8,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { directAbsolute, scanLocalSkills, type DiscoveredSkill } from './skill-scan.ts';
+import { gitCloneArguments, resolveGitIdentityProfile } from './git-identity.ts';
 
 const CLONE_TIMEOUT_MS = 30_000;
 const MAX_FILE_BYTES = 512 * 1024;
@@ -20,23 +21,26 @@ export interface SkillInstallRequest {
   subpath: string | null;
   selectedNames: string[];
   overwriteNames: string[];
+  gitIdentityId?: string | null;
 }
 
 interface ClonedRepository { scratch: string; repository: string; }
 
-async function cloneRepository(cloneUrl: string): Promise<ClonedRepository> {
+async function cloneRepository(cloneUrl: string, gitArguments: string[]): Promise<ClonedRepository> {
   const scratch = mkdtempSync(join(tmpdir(), 'nnd-skill-install-'));
   const repository = join(scratch, 'repository');
   const currentEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
   try {
     try {
-      await execute('git', ['clone', '--depth', '1', '--filter=blob:none', '--no-checkout', '--', cloneUrl, repository], {
+      await execute('git', [...gitArguments, 'clone', '--depth', '1', '--filter=blob:none',
+        '--no-checkout', '--', cloneUrl, repository], {
         timeout: CLONE_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: currentEnv,
       });
     } catch (filteredError) {
       rmSync(repository, { recursive: true, force: true });
       try {
-        await execute('git', ['clone', '--depth', '1', '--no-checkout', '--', cloneUrl, repository], {
+        await execute('git', [...gitArguments, 'clone', '--depth', '1', '--no-checkout', '--',
+          cloneUrl, repository], {
           timeout: CLONE_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: currentEnv,
         });
       } catch { throw diagnostic(filteredError); }
@@ -107,6 +111,8 @@ function repositoryUrl(source: string): string | null {
   try {
     const url = new URL(source);
     if (url.protocol === 'file:' && url.username.length === 0 && url.password.length === 0) return source;
+    if (url.protocol === 'ssh:' && url.password.length === 0
+      && url.hostname.length > 0 && url.pathname.length > 1) return url.toString();
     if (url.protocol !== 'https:' || url.username.length > 0 || url.password.length > 0
       || url.search !== '' || url.hash !== '' || url.hostname.length === 0 || url.pathname.length <= 1) return null;
     return url.toString();
@@ -264,11 +270,19 @@ function projectSkillRoot(target: { scope: 'user' | 'project'; checkout: string 
   }
 }
 
+function requiredIdentity(identityId: string | null | undefined) {
+  if (identityId === undefined || identityId === null || identityId === '') return null;
+  const profile = resolveGitIdentityProfile(identityId);
+  if (profile === null) throw new SkillInstallError('invalidSource', 'unknown Git identity');
+  return profile;
+}
+
 export async function installSelectedSkills(request: SkillInstallRequest,
   target: { scope: 'user' | 'project'; targetSource: 'opencode' | 'agents'; checkout: string | null }): Promise<InstalledSkill[]> {
   const cloneUrl = repositoryUrl(request.source);
   if (!cloneUrl) throw new SkillInstallError('invalidSource', 'invalid Git source');
-  const { scratch, repository } = await cloneRepository(cloneUrl);
+  const identity = requiredIdentity(request.gitIdentityId);
+  const { scratch, repository } = await cloneRepository(cloneUrl, gitCloneArguments(identity));
   try {
     const selectedPaths = await selectedRepositoryPaths(repository, request);
     const selectedNames = selectedPaths.map(skillNameOf);

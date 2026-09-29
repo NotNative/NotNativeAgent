@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { scanLocalSkills } from './skill-scan.ts';
+import { gitCloneArguments, resolveGitIdentityProfile } from './git-identity.ts';
 
 const MAX_ITEMS = 200;
 const MAX_SKILL_FILE_BYTES = 512 * 1024;
@@ -19,6 +20,7 @@ export interface CatalogScanRequest {
   subpath: string | null;
   directory?: string;
   gitIdentityId?: string | null;
+  gitIdentityToken?: string | null;
 }
 
 export interface CatalogScanItem {
@@ -59,6 +61,8 @@ function repositoryUrl(source: string): string | null {
   try {
     const url = new URL(source);
     if (url.protocol === 'file:' && url.username.length === 0 && url.password.length === 0) return source;
+    if (url.protocol === 'ssh:' && url.password.length === 0
+      && url.hostname.length > 0 && url.pathname.length > 1) return url.toString();
     if (url.protocol !== 'https:' || url.username.length > 0 || url.password.length > 0
       || url.search !== '' || url.hash !== '' || url.hostname.length === 0 || url.pathname.length <= 1) return null;
     return url.toString();
@@ -152,14 +156,16 @@ function diagnostic(error: unknown): CatalogScanError {
 }
 
 export async function scanCatalogSource(request: CatalogScanRequest): Promise<CatalogScanItem[]> {
-  if (request.gitIdentityId !== undefined && request.gitIdentityId !== null && request.gitIdentityId !== '') {
-    throw new CatalogScanError('invalidSource', 'Git identity scanning is not yet configured');
-  }
   if (!isText(request.source, 512) || /\s/u.test(request.source) || request.source.startsWith('-')) {
     throw new CatalogScanError('invalidSource', 'invalid Git source');
   }
   const cloneUrl = repositoryUrl(request.source);
   if (!cloneUrl) throw new CatalogScanError('invalidSource', 'invalid Git source');
+  const identity = resolveGitIdentityProfile(request.gitIdentityId);
+  if (request.gitIdentityId !== undefined && request.gitIdentityId !== null
+    && request.gitIdentityId !== '' && identity === null) {
+    throw new CatalogScanError('invalidSource', 'unknown Git identity');
+  }
   const subpath = request.subpath;
   if (subpath !== null && subpath !== undefined
     && (!isText(subpath, 256) || !usableSubpath(subpath))) {
@@ -169,14 +175,16 @@ export async function scanCatalogSource(request: CatalogScanRequest): Promise<Ca
   const repository = join(scratch, 'repository');
   try {
     try {
-      await execute('git', ['clone', '--depth', '1', '--filter=blob:none', '--', cloneUrl, repository], {
+      await execute('git', [...gitCloneArguments(identity),
+        'clone', '--depth', '1', '--filter=blob:none', '--', cloneUrl, repository], {
         timeout: CLONE_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
       });
     } catch {
       rmSync(repository, { recursive: true, force: true });
       try {
-        await execute('git', ['clone', '--depth', '1', '--', cloneUrl, repository], {
+        await execute('git', [...gitCloneArguments(identity),
+          'clone', '--depth', '1', '--', cloneUrl, repository], {
           timeout: CLONE_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true,
           env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
         });
