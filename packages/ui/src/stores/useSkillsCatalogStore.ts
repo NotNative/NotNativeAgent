@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import {
   installSkills, loadSkillCatalog, loadSkillCatalogSource,
-  type SkillCatalogScanItem, type SkillScope, type SkillSource,
+  type SkillCatalogScanItem, type SkillConflict, type SkillScope, type SkillSource,
   type SkillTargetSource,
 } from '../lib/skills-api.ts';
 
@@ -18,7 +18,7 @@ const sourceRequestSerials: Record<string, number> = {};
 
 export type SkillInstallOutcome =
   | { kind: 'success'; message: string; installed: number }
-  | { kind: 'error'; message: string; conflicts?: unknown[]; identities?: unknown[] };
+  | { kind: 'error'; message: string; conflicts?: SkillConflict[]; identities?: unknown[] };
 
 interface SkillsCatalogState {
   sources: SkillSource[] | null;
@@ -147,7 +147,7 @@ export const useSkillsCatalogStore = create<SkillsCatalogState>((set, get) => ({
       set((state) => ({ installOutcomes: { ...state.installOutcomes, [key]: outcome } }));
       return outcome;
     } catch (error) {
-      const failure = error as { kind?: unknown; message?: unknown; conflicts?: unknown[]; identities?: unknown[] };
+      const failure = error as { kind?: unknown; message?: unknown; conflicts?: SkillConflict[]; identities?: unknown[] };
       const outcome: SkillInstallOutcome = {
         kind: 'error', message: typeof failure.message === 'string' ? failure.message : 'Skill installation failed.',
         conflicts: Array.isArray(failure.conflicts) ? failure.conflicts : undefined,

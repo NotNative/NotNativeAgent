@@ -22,18 +22,16 @@ async function installCatalogSkills(context: Context, checkout: string | null,
     scope: request.scope, targetSource: request.targetSource, checkout,
     selectedNames: request.selections,
   });
-  const unresolved = allConflicts.filter((conflict) => {
-    if (request.conflictPolicy === 'skipAll') return false;
-    if (request.conflictPolicy === 'overwriteAll') return false;
-    return decisions[conflict.skillName] !== 'skip' && decisions[conflict.skillName] !== 'overwrite';
-  });
+  const targetConflicts = allConflicts.filter((conflict) =>
+    conflict.scope === request.scope && conflict.source === request.targetSource);
+  const unresolved = targetConflicts.filter((conflict) =>
+    request.conflictPolicy !== 'skipAll' && request.conflictPolicy !== 'overwriteAll'
+    && decisions[conflict.skillName] !== 'skip' && decisions[conflict.skillName] !== 'overwrite');
   if (unresolved.length > 0) {
     return context.json({
       error: { kind: 'conflicts', message: 'skills already exist', conflicts: allConflicts },
     }, 409);
   }
-  const targetConflicts = allConflicts.filter((conflict) =>
-    conflict.scope === request.scope && conflict.source === request.targetSource);
   const skipped = targetConflicts
     .filter((conflict) =>
       request.conflictPolicy === 'skipAll' || decisions[conflict.skillName] === 'skip')

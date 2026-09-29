@@ -188,7 +188,102 @@ describe('skills catalog settings page', () => {
     expect(sourceMock).toHaveBeenLastCalledWith('anthropic', { directory: 'D:/workspace', refresh: true });
   });
 
-  it('keeps an install visible after conflict rejection without offering a decision', async () => {
+  it('prompts a captured target conflict and retries one skill individually', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce({
+      kind: 'conflicts', message: 'One skill already exists',
+      conflicts: [
+        { skillName: 'review', path: 'D:/workspace/.agents/skills/review', scope: 'user', source: 'opencode' },
+        { skillName: 'review', path: 'C:/Users/test/.claude/skills/review', scope: 'user', source: 'claude' },
+      ],
+    });
+    installMock.mockResolvedValueOnce({
+      ok: true, installed: [{ skillName: 'review', scope: 'user', source: 'opencode' }],
+      skipped: [], requiresReload: true, message: 'Installed one skill',
+    });
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    const conflict = document.querySelector('[data-testid="skill-catalog-conflict"]');
+    expect(conflict?.textContent).toContain('review');
+    expect(conflict?.textContent).toContain('D:/workspace/.agents/skills/review');
+    expect(conflict?.textContent).not.toContain('C:/Users/test/.claude/skills/review');
+    clickText('Skip');
+    await settle();
+
+    expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      scope: 'user', targetSource: 'opencode', selections: ['review'],
+      conflictPolicy: undefined, conflictDecisions: { review: 'skip' },
+    }), 'D:/workspace');
+    expect(document.querySelector('[data-testid="skill-catalog-conflict"]')).toBeNull();
+    expect(sourceMock.mock.calls.at(-1)?.[0]).toBe('anthropic');
+    expect(sourceMock.mock.calls.at(-1)?.[1]?.refresh).toBe(true);
+  });
+  it('exports a captured conflict with overwrite-all', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce({
+      kind: 'conflicts', message: 'One skill already exists',
+      conflicts: [{ skillName: 'review', path: 'D:/workspace/.agents/skills/review', scope: 'user', source: 'opencode' }],
+    });
+    installMock.mockResolvedValueOnce({ ok: true, installed: [], skipped: [], requiresReload: true, message: 'Installed' });
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    clickText('Overwrite all');
+    await settle();
+    expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      scope: 'user', targetSource: 'opencode', selections: ['review'],
+      conflictPolicy: 'overwriteAll', conflictDecisions: undefined,
+    }), 'D:/workspace');
+  });
+  it('exports a captured conflict with skip-all', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce({
+      kind: 'conflicts', message: 'One skill already exists',
+      conflicts: [{ skillName: 'review', path: 'D:/workspace/.agents/skills/review', scope: 'user', source: 'opencode' }],
+    });
+    installMock.mockResolvedValueOnce({ ok: true, installed: [], skipped: [], requiresReload: true, message: 'Skipped' });
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    clickText('Skip all');
+    await settle();
+    expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      scope: 'user', targetSource: 'opencode', selections: ['review'],
+      conflictPolicy: 'skipAll', conflictDecisions: undefined,
+    }), 'D:/workspace');
+  });
+  it('hides decisions for a cross-target conflict', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce({
+      kind: 'conflicts', message: 'One skill already exists',
+      conflicts: [{ skillName: 'review', path: 'D:/workspace/.agents/other/review', scope: 'user', source: 'agents' }],
+    });
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    expect(document.querySelector('[data-testid="skill-catalog-conflict"]')).toBeNull();
+    expect([...document.querySelectorAll('button')].some((button) => button.textContent === 'Skip all')).toBe(false);
+    expect(sourceMock.mock.calls.filter(([, options]) => options?.refresh === true)).toHaveLength(0);
+  });
+
+  it('treats malformed conflict metadata as a non-conflict failure', async () => {
     const anthropic = source('anthropic', 'Anthropic');
     catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
     sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
@@ -202,7 +297,7 @@ describe('skills catalog settings page', () => {
     await settle();
 
     expect(document.body.textContent).toContain('One skill already exists');
-    expect(document.querySelector('[data-testid="install-skill-review"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="skill-catalog-conflict"]')).toBeNull();
     expect(sourceMock.mock.calls.filter(([, options]) => options?.refresh === true)).toHaveLength(0);
   });
 

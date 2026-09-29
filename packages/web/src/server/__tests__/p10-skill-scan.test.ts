@@ -456,6 +456,28 @@ describe('P10 skill discovery', () => {
     expect(payload.error.conflicts[0]).toMatchObject({ source: 'agents', scope: 'project' });
   });
 
+  it('installs to a target without blocking on a cross-target conflict', async () => {
+    const repository = catalogRepository();
+    const existing = join(checkout, '.agents', 'skills', 'source-good');
+    mkdirSync(existing, { recursive: true });
+    writeFileSync(join(existing, 'SKILL.md'),
+      '---\nname: source-good\ndescription: Existing agents skill\n---\nExisting.');
+    const response = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    const payload = await response.json() as {
+      ok: boolean; installed: Array<{ skillName: string; source: string }>;
+    };
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      ok: true, installed: [{ skillName: 'source-good', source: 'opencode' }],
+    });
+  });
+
   it('rejects oversized and control-character catalog request boundaries', async () => {
     const oversizedSource = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },

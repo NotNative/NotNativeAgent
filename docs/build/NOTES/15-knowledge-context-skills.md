@@ -538,6 +538,31 @@ The idle Settings catalog route now renders the configured merged catalog throug
 
 The audit was interrupted once for a compact report after its runtime exceeded the normal window. It then confirmed three defects and hardened the seam: item caches are keyed by source and workspace, overlapping reads keep only the latest response, and the engine runtime-reset path clears the catalog with an advanced runtime epoch so late transport promises cannot repopulate it. The slice is deliberately read-only. It does not expose selection, conflict decisions, Git identities, or installation actions, and it does not add an install cancellation signal. Focused page regressions pin loading, workspace-keyed selection, cache-bypass refresh, prior-data retention, and catalog-source notices.
 
+## P10-40: catalog conflict resolution (2026-09-29)
+
+When a one-skill install returns a structured 409, the Settings catalog page
+captures the exact source, workspace, scope, managed target, skill name, and
+conflict path. It shows the decision card only when the reported `scope` and
+`source` match that captured request. Decision controls are therefore hidden
+for cross-scope, cross-target, malformed, or otherwise irrelevant conflict
+entries.
+
+The card offers per-conflict `Skip` and `Overwrite` plus global `Skip all` and
+`Overwrite all`. Any retry is replayed against the captured domain context, so
+later scope, target, workspace, or source-picker changes cannot mutate the
+request. On success the card clears and the selected source refreshes beyond
+its cache. On non-conflict failure the prior decision surface is dropped and
+the transport message remains.
+
+Runtime switches continue to invalidate request state; pending source and
+per-skill guards continue to prevent overlapping requests. The adversarial
+audit confirmed and fixed two defects: cross-scope/cross-target conflicts had
+made the route treat unrelated conflicts as unresolved during retry, and the
+transport had accepted malformed conflict objects that could render an
+undefined target path. Regressions cover individual retries, captured global
+policies, target filtering, malformed metadata, and cross-target installs.
+Git identity selection and API-level install cancellation remain pending.
+
 ## P10-39: per-skill install controls (2026-09-29)
 
 The Skills Catalog page now exposes one-skill installation defaults. A reader can

@@ -2,7 +2,7 @@
 /** Configured skill source browsing backed by the P10-37 catalog store. */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
-import type { SkillTargetSource } from '../../../lib/skills-api.ts';
+import type { SkillConflict, SkillTargetSource } from '../../../lib/skills-api.ts';
 import { useSkillsCatalogStore } from '../../../stores/useSkillsCatalogStore.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
 import { SettingsChipGroup, SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
@@ -15,6 +15,10 @@ export function SkillsCatalogPage(): ReactNode {
   const [installStatus, setInstallStatus] = useState<{
     sourceId: string; directory?: string; scope: 'user' | 'project';
     target: SkillTargetSource; message: string;
+  } | null>(null);
+  const [conflictState, setConflictState] = useState<{
+    sourceId: string; directory?: string; scope: 'user' | 'project';
+    target: SkillTargetSource; skillName: string; path: string;
   } | null>(null);
   const [runtimeRevision, setRuntimeRevision] = useState(0);
   const runtimeRevisionRef = useRef(runtimeRevision);
@@ -38,6 +42,12 @@ export function SkillsCatalogPage(): ReactNode {
     && installStatus.directory === (activeDirectory || undefined)
     && installStatus.scope === installScope
     && installStatus.target === targetSource;
+  const conflictStateVisible = conflictState !== null
+    && conflictState.sourceId === selectedSourceId
+    && conflictState.directory === (activeDirectory || undefined)
+    && conflictState.scope === installScope
+    && conflictState.target === targetSource;
+  const conflictPending = selectedSourceId !== null && installingSourceIds.includes(selectedSourceId);
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog, catalogRevision, runtimeRevision]);
 
@@ -47,6 +57,7 @@ export function SkillsCatalogPage(): ReactNode {
       setRuntimeRevision(runtimeRevisionRef.current);
       setSelectedSourceId(null);
       setInstallStatus(null);
+      setConflictState(null);
     });
     return () => { off(); };
   }, []);
@@ -63,34 +74,76 @@ export function SkillsCatalogPage(): ReactNode {
     void loadSource(selectedSourceId, { directory: activeDirectory || undefined });
   }, [selectedSourceId, activeDirectory, loadSource, catalogRevision]);
 
-  const installSkill = useCallback(async (name: string): Promise<void> => {
-    if (selectedSourceId === null || installingSourceIds.includes(selectedSourceId)
-      || activeInstallRef.current.has(`${selectedSourceId}|${name}`)) return;
+  type InstallRequest = {
+    sourceId: string; skillName: string; directory?: string;
+    scope: 'user' | 'project'; target: SkillTargetSource;
+  };
+  const sendInstallRequest = useCallback(async (request: InstallRequest, override: {
+    conflictPolicy?: 'skipAll' | 'overwriteAll';
+    conflictDecision?: 'skip' | 'overwrite';
+  } = {}): Promise<void> => {
+    const requestKey = `${request.sourceId}|${request.skillName}`;
+    if (installingSourceIds.includes(request.sourceId) || activeInstallRef.current.has(requestKey)) return;
     const requestRuntimeRevision = runtimeRevisionRef.current;
-    const requestDirectory = activeDirectory || undefined;
-    const requestScope = installScope;
-    const requestTarget = targetSource;
-    activeInstallRef.current.add(`${selectedSourceId}|${name}`);
+    activeInstallRef.current.add(requestKey);
     setInstallStatus(null);
     try {
-    const outcome = await installSource(selectedSourceId, {
-      directory: requestDirectory,
-      scope: requestScope,
-      targetSource: requestTarget,
-      selections: [name],
-    });
-    if (runtimeRevisionRef.current !== requestRuntimeRevision) return;
-    setInstallStatus({
-      sourceId: selectedSourceId, directory: requestDirectory,
-      scope: requestScope, target: requestTarget, message: outcome.message,
-    });
-    if (outcome.kind === 'success') {
-      void loadSource(selectedSourceId, { directory: requestDirectory, refresh: true });
-    }
+      const outcome = await installSource(request.sourceId, {
+        directory: request.directory,
+        scope: request.scope,
+        targetSource: request.target,
+        selections: [request.skillName],
+        conflictPolicy: override.conflictPolicy,
+        conflictDecisions: override.conflictDecision === undefined
+          ? undefined
+          : { [request.skillName]: override.conflictDecision },
+      });
+      if (runtimeRevisionRef.current !== requestRuntimeRevision) return;
+      if (outcome.kind === 'success') {
+        setConflictState(null);
+        setInstallStatus({
+          sourceId: request.sourceId, directory: request.directory,
+          scope: request.scope, target: request.target, message: outcome.message,
+        });
+        void loadSource(request.sourceId, { directory: request.directory, refresh: true });
+        return;
+      }
+      const relevantConflict = outcome.conflicts?.find((conflict) =>
+        typeof conflict.skillName === 'string' && conflict.skillName === request.skillName
+        && typeof conflict.path === 'string' && conflict.path !== ''
+        && (conflict.scope === 'user' || conflict.scope === 'project') && conflict.scope === request.scope
+        && typeof conflict.source === 'string' && conflict.source === request.target);
+      setConflictState(relevantConflict === undefined ? null : {
+        sourceId: request.sourceId, directory: request.directory,
+        scope: request.scope, target: request.target,
+        skillName: request.skillName, path: relevantConflict.path,
+      });
+      setInstallStatus({
+        sourceId: request.sourceId, directory: request.directory,
+        scope: request.scope, target: request.target, message: outcome.message,
+      });
     } finally {
-      activeInstallRef.current.delete(`${selectedSourceId}|${name}`);
+      activeInstallRef.current.delete(requestKey);
     }
-  }, [selectedSourceId, activeDirectory, installingSourceIds, installScope, targetSource, installSource, loadSource]);
+  }, [installingSourceIds, installSource, loadSource]);
+
+  const installSkill = useCallback((name: string): void => {
+    if (selectedSourceId === null) return;
+    void sendInstallRequest({
+      sourceId: selectedSourceId, skillName: name, directory: activeDirectory || undefined,
+      scope: installScope, target: targetSource,
+    });
+  }, [selectedSourceId, activeDirectory, installScope, targetSource, sendInstallRequest]);
+
+  const resolveConflict = useCallback((action: 'skip' | 'overwrite' | 'skipAll' | 'overwriteAll'): void => {
+    if (conflictState === null) return;
+    void sendInstallRequest({
+      sourceId: conflictState.sourceId, skillName: conflictState.skillName,
+      directory: conflictState.directory, scope: conflictState.scope, target: conflictState.target,
+    }, action === 'skip' || action === 'overwrite'
+      ? { conflictDecision: action }
+      : { conflictPolicy: action });
+  }, [conflictState, sendInstallRequest]);
 
   const refresh = useCallback(() => {
     setCatalogRevision((current) => current + 1);
@@ -128,6 +181,18 @@ export function SkillsCatalogPage(): ReactNode {
       {activeDirectory ? <p className="mt-2 text-xs text-muted-foreground">Workspace: {activeDirectory}</p> : null}
       {lastScanError ? <p role="alert" className="mt-2 text-xs text-destructive">{lastScanError}</p> : null}
       {installStatusVisible ? <p role="status" className="mt-2 text-xs text-muted-foreground">{installStatus.message}</p> : null}
+      {conflictStateVisible && conflictState !== null ? (
+        <div className="mt-2 rounded-md border border-border/60 p-3" data-testid="skill-catalog-conflict">
+          <div className="text-xs font-medium text-foreground">Skill already exists</div>
+          <div className="mt-1 text-xs text-muted-foreground">{conflictState.skillName} · {conflictState.path}</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip" disabled={conflictPending} onClick={() => resolveConflict('skip')}>Skip</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite" disabled={conflictPending} onClick={() => resolveConflict('overwrite')}>Overwrite</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip-all" disabled={conflictPending} onClick={() => resolveConflict('skipAll')}>Skip all</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite-all" disabled={conflictPending} onClick={() => resolveConflict('overwriteAll')}>Overwrite all</button>
+          </div>
+        </div>
+      ) : null}
       <div className="mt-2 flex flex-col gap-2 lg:flex-row">
         <SettingsChipGroup item="skills.catalog.scope" value={installScope} onChange={(value) => setInstallScope(value === 'project' ? 'project' : 'user')}
           options={[

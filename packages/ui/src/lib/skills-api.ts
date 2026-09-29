@@ -103,18 +103,30 @@ function directoryQuery(directory: string | undefined, extra: Record<string, str
   return text === '' ? '' : `?${text}`;
 }
 
+function isSkillConflict(value: unknown): value is SkillConflict {
+  if (!value || typeof value !== 'object') return false;
+  const conflict = value as SkillConflict;
+  return typeof conflict.skillName === 'string' && conflict.skillName !== ''
+    && typeof conflict.path === 'string' && conflict.path !== ''
+    && (conflict.scope === 'user' || conflict.scope === 'project')
+    && typeof conflict.source === 'string' && conflict.source !== '';
+}
+
 function errorDetail(value: unknown, status: number): SkillApiError {
   type ErrorDetailBody = { kind?: unknown; message?: unknown; identities?: unknown; conflicts?: unknown };
   const record = value as { error?: unknown } | null;
   const detail = record?.error as ErrorDetailBody | string | null | undefined;
   if (typeof detail === 'string') return new SkillApiError(status, 'unknown', detail);
+  const conflicts = Array.isArray(detail?.conflicts)
+    ? detail.conflicts.filter((entry): entry is SkillConflict => isSkillConflict(entry))
+    : undefined;
   const kind = detail?.kind as SkillApiErrorKind | undefined;
   const known = kind === 'authRequired' || kind === 'conflicts' || kind === 'invalidSource'
     || kind === 'networkError' || kind === 'unknown';
   return new SkillApiError(status, known ? kind : 'unknown',
     typeof detail?.message === 'string' ? detail.message : `skills request failed (${status})`,
     Array.isArray(detail?.identities) ? detail.identities : undefined,
-    Array.isArray(detail?.conflicts) ? detail.conflicts : undefined);
+    conflicts?.length ? conflicts : undefined);
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
