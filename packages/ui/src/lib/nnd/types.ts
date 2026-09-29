@@ -329,3 +329,25 @@ export interface PresentationMessage {
   tokens?: { total?: number; input: number; output: number; reasoning: number; cache: { read: number; write: number } };
   cost?: number;
 }
+
+/* MCP runtime statuses (doc 02 §6.9; doc 15 F.3). */
+export type McpStatus =
+  | { status: 'connected' }
+  | { status: 'disabled' }
+  | { status: 'failed'; error: string }
+  | { status: 'needs_auth' }
+  | { status: 'needs_client_registration'; error: string };
+
+export type McpStatusMap = Record<string, McpStatus>;
+
+export interface McpLocalConfig {
+  type: 'local'; command: string[]; environment?: Record<string, string>; enabled?: boolean;
+}
+
+export interface McpRemoteConfig {
+  type: 'remote'; url: string; headers?: Record<string, string>;
+  environment?: Record<string, string>;
+  oauth?: Record<string, string> | false; timeout?: number; enabled?: boolean;
+}
+
+export type McpConfig = McpLocalConfig | McpRemoteConfig;

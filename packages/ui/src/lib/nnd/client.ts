@@ -246,6 +246,27 @@ export const harnessClient = {
   async getMcp(opts?: DirOption): Promise<HarnessResult<unknown>> {
     return request('getMcp', '/mcp', undefined, undefined, opts?.directory);
   },
+  async addMcp(name: string, config: unknown, opts?: DirOption & { scope?: 'user' | 'project' }): Promise<HarnessResult<unknown>> {
+    return request('addMcp', '/mcp', post({ name, config, scope: opts?.scope }), undefined, opts?.directory);
+  },
+  async connectMcp(name: string, opts?: DirOption): Promise<HarnessResult<unknown>> {
+    return request('connectMcp', `/mcp/${encodeURIComponent(name)}/connect`, post({}), undefined, opts?.directory);
+  },
+  async disconnectMcp(name: string, opts?: DirOption): Promise<HarnessResult<unknown>> {
+    return request('disconnectMcp', `/mcp/${encodeURIComponent(name)}/disconnect`, post({}), undefined, opts?.directory);
+  },
+  async startMcpAuth(name: string, opts?: DirOption): Promise<HarnessResult<{ authorizationUrl?: string }>> {
+    return request('startMcpAuth', `/mcp/${encodeURIComponent(name)}/auth`, post({}), undefined, opts?.directory);
+  },
+  async mcpAuthCallback(name: string, code: string, opts?: DirOption): Promise<HarnessResult<unknown>> {
+    return request('mcpAuthCallback', `/mcp/${encodeURIComponent(name)}/auth/callback`, post({ code }), undefined, opts?.directory);
+  },
+  async authenticateMcp(name: string, opts?: DirOption): Promise<HarnessResult<unknown>> {
+    return request('authenticateMcp', `/mcp/${encodeURIComponent(name)}/auth/authenticate`, post({}), 15 * 60_000, opts?.directory);
+  },
+  async removeMcpAuth(name: string, opts?: DirOption): Promise<HarnessResult<unknown>> {
+    return request('removeMcpAuth', `/mcp/${encodeURIComponent(name)}/auth`, { method: 'DELETE' }, undefined, opts?.directory);
+  },
   async getLsp(opts?: DirOption): Promise<HarnessResult<unknown[]>> {
     return request('getLsp', '/lsp', undefined, undefined, opts?.directory);
   },
