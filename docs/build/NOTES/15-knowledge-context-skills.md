@@ -318,3 +318,16 @@ signatures, so the next send refreshes the title index. This is the
 `sessionMemoryContent` delivery seam only: harness-side `openchamber_memory`
 plugin injection and the broader pinned note/plan session-knowledge routes
 remain pending.
+
+## P10-19: memory callback launch contract (2026-09-28)
+
+NND now gives a managed NNA child the private memory callback contract
+through two server-only environment values. The callback URL must be an
+exact loopback path, the bearer token must be forwardable, inherited values
+are cleared, and a fresh token is generated only when memory is enabled at
+managed boot. Attach mode receives no launch secret; externally owned
+processes do not inherit NND authority.
+
+The NND callback remains Bearer-token protected. NNA consumption and the
+`openchamber_memory` tool definition remain pending, so this commit is the
+launch ownership contract rather than a complete managed-tool integration.

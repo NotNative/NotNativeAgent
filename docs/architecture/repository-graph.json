@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:991b562be5ecc527b37cbab56da77f0a7d8620f7f0175c26ac23d242103c354f",
+  "source_digest": "sha256:3e89d081d58117188d174fa9e927fdc9e42c38c48354d1e70a7d9b6b25cc552a",
   "counts": {
     "modules": 526,
     "component_edges": 14
@@ -3825,6 +3825,7 @@
         "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
         "packages/web/src/server/preview/browser-control-broker.ts",
+        "packages/web/src/server/project-context/agent-memory.ts",
         "packages/web/src/server/queue/queue-runtime.ts",
         "packages/web/src/server/scheduled/scheduled-service.ts",
         "packages/web/src/server/terminal/bootstrap.ts",

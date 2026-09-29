@@ -96,6 +96,28 @@ describe('managed local NNA launcher', () => {
     expect(spawnChild).toHaveBeenCalledOnce();
   });
 
+  it('passes only a valid managed memory callback and expires earlier credentials', async () => {
+    const launched = child();
+    const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => launched);
+    const url = 'http://127.0.0.1:4173/api/agent-tool/callback';
+    process.env.NNA_NND_AGENT_TOOL_URL = 'http://127.0.0.1:1/api/agent-tool/callback';
+    process.env.NNA_NND_AGENT_TOOL_TOKEN = 'stale';
+    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local',
+      agentToolCallback: { url, token }, spawnChild });
+    const childEnv = (spawnChild.mock.calls[0]?.[2] as { env: NodeJS.ProcessEnv }).env;
+    expect(childEnv.NNA_NND_AGENT_TOOL_URL).toBe(url);
+    expect(childEnv.NNA_NND_AGENT_TOOL_TOKEN).toBe(token);
+    launched.stdout.write(ready());
+    (await promise).dispose();
+  });
+
+  it('rejects a non-loopback memory callback', async () => {
+    const spawnChild = vi.fn(() => child());
+    await expect(startLocalNnaHarness({ command: 'nna', workspaceId: 'local',
+      agentToolCallback: { url: 'http://evil.example/api/agent-tool/callback', token }, spawnChild }))
+      .rejects.toThrow(/agent tool callback/u);
+  });
+
   it('does not inherit a stale browser callback when this launch has no bridge', async () => {
     const previousUrl = process.env.NNA_NND_BROWSER_URL;
     const previousToken = process.env.NNA_NND_BROWSER_TOKEN;

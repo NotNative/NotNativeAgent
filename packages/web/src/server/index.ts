@@ -23,6 +23,7 @@ import { runGoalAuditExchange } from './goals/nna-goal-auditor.ts';
 import { createNnaGoalAuditPorts } from './goals/nna-goal-safety-ports.ts';
 import { onSettingsWrite, readMergedSettings } from './lib/settings-store.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { agentMemoryEnabled } from './project-context/agent-memory.ts';
 import { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
@@ -34,11 +35,14 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
     url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
   };
   const agentToolCallbackSecret = randomBytes(32).toString('base64url');
+  const agentToolCallback = agentMemoryEnabled() ? {
+    url: `http://127.0.0.1:${ENV.port}/api/agent-tool/callback`, token: agentToolCallbackSecret,
+  } : undefined;
   let localNna: LocalNnaHarness | undefined;
   try {
-    localNna = await configureHarness(browserCallback);
+    localNna = await configureHarness(browserCallback, agentToolCallback);
     return await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
-      agentToolCallbackSecret);
+      agentToolCallback ? agentToolCallbackSecret : undefined);
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.
@@ -49,13 +53,13 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
 }
 
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
-  browserCallbackSecret: string | undefined, agentToolCallbackSecret: string):
+  browserCallbackSecret: string | undefined, agentToolCallbackSecret: string | undefined):
   Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
-    agentToolCallbackSecret: agentToolCallbackSecret });
+    ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
   // error event. Wait here so the caller can stop its already-owned NNA child.
@@ -144,7 +148,8 @@ function awaitServerListening(server: HttpServer): Promise<void> {
   });
 }
 
-async function configureHarness(browserCallback: { url: string; token: string } | undefined): Promise<LocalNnaHarness | undefined> {
+async function configureHarness(browserCallback: { url: string; token: string } | undefined,
+  agentToolCallback?: { url: string; token: string }): Promise<LocalNnaHarness | undefined> {
   if (ENV.harness !== 'nna') {
     registerHarnessAdapter(mockHarness);
     return undefined;
@@ -158,7 +163,7 @@ async function configureHarness(browserCallback: { url: string; token: string } 
   const launch = await resolveNnaCommand({ command: ENV.nnaCommand });
   const local = await startLocalNnaHarnessWithRetry({
     command: launch.command, commandArguments: launch.arguments, dataRoot: launch.dataRoot, workspaceId: ENV.nnaWorkspaceId,
-    browserCallback,
+    browserCallback, agentToolCallback,
   });
   registerHarnessAdapter(guardLocalNnaHarness(createNnaHarnessAdapter({
     endpoint: local.endpoint, token: local.token, principal: local.principal,

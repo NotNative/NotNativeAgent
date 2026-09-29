@@ -20,6 +20,7 @@ export interface LocalNnaLaunchOptions {
   dataRoot?: string;
   workspaceId: string;
   browserCallback?: { url: string; token: string };
+  agentToolCallback?: { url: string; token: string };
   startupTimeoutMs?: number;
   spawnChild?: (command: string, args: string[], options: Parameters<typeof spawn>[2]) => ChildProcessWithoutNullStreams;
 }
@@ -99,24 +100,35 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
   if (!options.command.trim()) return Promise.reject(new Error('NNA command is required'));
   if (!/^[A-Za-z0-9_.-]{1,128}$/u.test(options.workspaceId)) return Promise.reject(new Error('NNA workspace id is invalid'));
   if (options.browserCallback && !validBrowserCallback(options.browserCallback)) return Promise.reject(new Error('NNA browser callback is invalid'));
+  if (options.agentToolCallback && !validAgentToolCallback(options.agentToolCallback)) {
+    return Promise.reject(new Error('NNA agent tool callback is invalid'));
+  }
   let child: ChildProcessWithoutNullStreams;
   try {
     child = spawnNnaChild(options);
   } catch {
     return Promise.reject(new Error('NNA local harness could not start'));
   }
-  let running = true;
-  let settled = false;
-  child.once('exit', () => { running = false; });
+  const lifetime = { running: true };
+  // Premature exit, errors, and explicit disposal share this one state.
+  child.once('exit', () => { lifetime.running = false; });
   // NNA CLI failures emit `nna: <code>`. Keep only that bounded identifier;
   // raw stderr may contain credentials and must never reach browser/log errors.
   const diagnostic = createNnaDiagnosticCapture();
+  const stop = (): void => { if (lifetime.running) { lifetime.running = false; child.kill(); } };
+  return awaitNnaReady(options, child, diagnostic, lifetime, stop);
+}
+
+function awaitNnaReady(options: LocalNnaLaunchOptions, child: ChildProcessWithoutNullStreams,
+  diagnostic: ReturnType<typeof createNnaDiagnosticCapture>, lifetime: { running: boolean },
+  stop: () => void): Promise<LocalNnaHarness> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => fail('NNA local harness did not become ready'), options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS);
     let buffered = '';
+    let settled = false;
     // Keep this listener after readiness too. ChildProcess may emit `error`
     // if a later kill fails; without a listener that would crash the host.
-    const onError = (): void => { running = false; fail('NNA local harness could not start'); };
+    const onError = (): void => { lifetime.running = false; fail('NNA local harness could not start'); };
     const onPrematureExit = (code: number | null): void => fail(new EarlyNnaExitError(code, diagnostic.finish()));
     const onData = (part: Buffer | string): void => {
       if (settled) return;
@@ -134,7 +146,7 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
       // NNA's stdout is protocol-only, but continue draining it after the
       // readiness frame so an accidental diagnostic cannot stall its child.
       child.stdout.resume();
-      resolve({ endpoint: ready.endpoint, token: ready.token, isRunning: () => running, dispose: stop,
+      resolve({ endpoint: ready.endpoint, token: ready.token, isRunning: () => lifetime.running, dispose: stop,
         principal: () => mintLocalPrincipal(options.workspaceId) });
     };
     const clean = (): void => {
@@ -144,7 +156,6 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
       child.stderr.resume();
       child.off('exit', onPrematureExit);
     };
-    const stop = (): void => { if (running) { running = false; child.kill(); } };
     const fail = (reason: string | Error): void => {
       if (settled) return;
       settled = true; clean(); stop(); reject(typeof reason === 'string' ? new Error(reason) : reason);
@@ -191,15 +202,25 @@ function localChildEnvironment(options: LocalNnaLaunchOptions): NodeJS.ProcessEn
   const environment: NodeJS.ProcessEnv = { ...process.env, ...(options.dataRoot ? { NNA_HOME: options.dataRoot } : {}) };
   delete environment.NNA_NND_BROWSER_URL;
   delete environment.NNA_NND_BROWSER_TOKEN;
+  delete environment.NNA_NND_AGENT_TOOL_URL;
+  delete environment.NNA_NND_AGENT_TOOL_TOKEN;
   if (options.browserCallback) {
     environment.NNA_NND_BROWSER_URL = options.browserCallback.url;
     environment.NNA_NND_BROWSER_TOKEN = options.browserCallback.token;
+  }
+  if (options.agentToolCallback) {
+    environment.NNA_NND_AGENT_TOOL_URL = options.agentToolCallback.url;
+    environment.NNA_NND_AGENT_TOOL_TOKEN = options.agentToolCallback.token;
   }
   return environment;
 }
 
 function validBrowserCallback(callback: { url: string; token: string }): boolean {
   return /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}\/api\/browser-control\/request$/u.test(callback.url) && TOKEN.test(callback.token);
+}
+
+function validAgentToolCallback(callback: { url: string; token: string }): boolean {
+  return /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}\/api\/agent-tool\/callback$/u.test(callback.url) && TOKEN.test(callback.token);
 }
 
 /** Wrapper gives an explicit harness-down result rather than an empty projection. */
