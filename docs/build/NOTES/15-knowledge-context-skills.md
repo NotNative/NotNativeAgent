@@ -464,6 +464,29 @@ This is the metadata-only catalog shell. SKILL.md item scanning, persisted
 scan cache, SSH identity handling, installation, and managed conflicts remain
 planned E.4 work.
 
+## P10-32: ad-hoc Git skill scanner (2026-09-29)
+
+`POST /api/config/skills/scan` accepts bounded `{source, subpath?,
+gitIdentityId?}` with an optional `directory` query and returns
+`{ok, items}`. It accepts HTTPS and owner/repository sources for planned Git
+scans, plus absolute local Git repositories for private source testing. Clones
+are depth-one with a blob-filter fallback, `GIT_TERMINAL_PROMPT=0`, a bounded
+buffer, and temporary directories removed in `finally`.
+
+The scanner inspects only ordinary directories and regular `SKILL.md` files,
+rejects symlink entries, caps files at 512 KiB and items at 200, and reads
+paths after canonical containment checks. Each item reports `repoSource`,
+`repoSubpath`, `skillDir`, `skillName`, `frontmatterName`, description,
+warnings, `installable`, and installed skill state. Invalid directory names or
+missing frontmatter remain visible but are not installable. Failures return
+`authRequired` with an initially empty identity selector, `invalidSource`,
+`networkError`, or `unknown`.
+
+Git identity profiles are not yet available, so any nonempty selection is
+rejected as unsupported. The scan is one-shot; no persisted result cache,
+refresh key, concurrency cap, install path, conflict logic, or clone-based
+source route is implemented yet.
+
 ## P10-28: managed skill supporting files (2026-09-29)
 
 `GET`, `PUT`, and `DELETE /api/config/skills/:name/files/*filePath` now edit

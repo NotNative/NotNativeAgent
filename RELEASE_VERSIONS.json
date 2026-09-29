@@ -468,6 +468,10 @@
     {
       "version": "20260929-5",
       "content_sha256": "85a9dcca2f780c08c9e22ad4b94a016f5f850690da8b9e0c112d2826a38d8870"
+    },
+    {
+      "version": "20260929-6",
+      "content_sha256": "b9fc04f54ed2034a7d1c350181b151d18a762f6d51ab20be19a63b49b2d2ac04"
     }
   ]
 }

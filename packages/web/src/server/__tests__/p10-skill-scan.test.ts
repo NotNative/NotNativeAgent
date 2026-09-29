@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import './helpers/env-boot.ts';
 import { registerSkillRoutes } from '../routes/skills.ts';
 import { writeSettingsPatch } from '../lib/settings-store.ts';
+import type { CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
 import { externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-'));
@@ -28,6 +29,24 @@ function app(): Hono {
   const instance = new Hono();
   registerSkillRoutes(instance);
   return instance;
+}
+
+function catalogRepository(): string {
+  const repository = mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-source-'));
+  const valid = join(repository, 'skills', 'source-good');
+  const invalid = join(repository, 'skills', 'Invalid Name');
+  mkdirSync(valid, { recursive: true });
+  mkdirSync(invalid, { recursive: true });
+  writeFileSync(join(valid, 'SKILL.md'),
+    '---\nname: source-good\ndescription: Repository source skill\n---\nReady.');
+  writeFileSync(join(invalid, 'SKILL.md'),
+    '---\ndescription: Invalid but still visible\n---\nInspect.');
+  execFileSync('git', ['-c', 'init.defaultBranch=main', 'init'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['config', 'user.email', 'catalog@nnd.test'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['config', 'user.name', 'NND Catalog'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['add', '-A'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['commit', '-q', '-m', 'catalog source'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+  return repository;
 }
 
 describe('P10 skill discovery', () => {
@@ -127,6 +146,89 @@ describe('P10 skill discovery', () => {
     } finally {
       (globalThis as { fetch: unknown }).fetch = savedFetch;
     }
+  });
+
+  it('scans one ad-hoc Git repository and marks matching installed skills', async () => {
+    const repository = catalogRepository();
+    const checkout = mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-installed-'));
+    const installed = join(checkout, '.agents', 'skills', 'source-good');
+    mkdirSync(installed, { recursive: true });
+    writeFileSync(join(installed, 'SKILL.md'),
+      '---\nname: source-good\ndescription: Installed source skill\n---\nExisting.');
+    const response = await app().request(`/api/config/skills/scan?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, subpath: 'skills', gitIdentityId: null }),
+    });
+    const payload = await response.json() as { ok: boolean; items: CatalogScanItem[] };
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    const good = payload.items.find((item) => item.skillName === 'source-good');
+    const invalid = payload.items.find((item) => item.skillName === 'Invalid Name');
+    expect(good).toMatchObject({
+      repoSource: repository,
+      repoSubpath: 'skills',
+      skillDir: 'skills/source-good',
+      skillName: 'source-good',
+      frontmatterName: 'source-good',
+      description: 'Repository source skill',
+      installable: true,
+      warnings: [],
+      installed: { isInstalled: true, scope: 'project', source: 'agents' },
+    });
+    expect(invalid).toMatchObject({
+      repoSource: repository,
+      repoSubpath: 'skills',
+      skillDir: 'skills/Invalid Name',
+      skillName: 'Invalid Name',
+      frontmatterName: 'Invalid Name',
+      description: 'Invalid but still visible',
+      installable: false,
+      warnings: ['name:invalid'],
+      installed: { isInstalled: false, scope: null, source: null },
+    });
+    expect(payload.items).toHaveLength(2);
+  });
+
+  it('rejects malformed or unsupported ad-hoc scans and reports unreachable sources', async () => {
+    const repository = catalogRepository();
+    const missing = join(mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-missing-source-')), 'absent');
+    const invalidSubpath = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, subpath: '../escape' }),
+    });
+    const unsupportedIdentity = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, subpath: 'skills', gitIdentityId: 'profile-one' }),
+    });
+    const unreachable = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: missing }),
+    });
+    const invalidBody = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: 'bad',
+    });
+    expect((await invalidSubpath.json()) as { error: Record<string, unknown> }).toEqual({
+      error: { kind: 'invalidSource', message: 'invalid Git subpath' },
+    });
+    expect((await unsupportedIdentity.json()) as { error: Record<string, unknown> }).toEqual({
+      error: { kind: 'invalidSource', message: 'Git identity scanning is not yet configured' },
+    });
+    expect(unreachable.status).toBe(502);
+    expect(((await unreachable.json()) as { error: Record<string, string> }).error.kind).toBe('networkError');
+    expect(invalidBody.status).toBe(400);
+  });
+
+  it('classifies a missing clone subpath as an invalid source', async () => {
+    const repository = catalogRepository();
+    const response = await app().request('/api/config/skills/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, subpath: 'skills/missing' }),
+    });
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: Record<string, string> }).error).toEqual({
+      kind: 'invalidSource', message: 'invalid Git subpath',
+    });
   });
 
   it('merges valid custom catalog sources without curated-ID collisions', async () => {

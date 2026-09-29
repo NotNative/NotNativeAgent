@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-32 ad-hoc Git skill scanner.** POST
+  `/api/config/skills/scan` clones one HTTPS/owner-repository or local Git
+  source at depth one with the planned blob filter fallback and scans bounded
+  SKILL.md files without following symlinks. Items expose repository identity,
+  frontmatter, warnings, installability, and installed state. Unreachable,
+  auth-required, invalid, and unknown failures return structured kinds. Identity
+  selection and persisted scanning cache remain pending.
+
 - 2026-09-29 · **P10-31 skill catalog contract shell.** New
   `/api/config/skills/catalog` exposes the merged curated/custom source list,
   exactly one `itemsBySource: {}` map, and best-effort GitHub stars and push
