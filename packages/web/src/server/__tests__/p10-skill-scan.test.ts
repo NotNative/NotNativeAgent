@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Hono } from 'hono';
@@ -27,6 +28,46 @@ function app(): Hono {
 }
 
 describe('P10 skill discovery', () => {
+  it('scans ancestor roots through the Git worktree boundary', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-git-'));
+    const nested = join(repo, 'nested', 'checkout');
+    execFileSync('git', ['-C', repo, 'init'], { stdio: 'ignore', windowsHide: true });
+    mkdirSync(join(repo, '.claude', 'skills', 'worktree-root'), { recursive: true });
+    mkdirSync(join(nested, '.agents', 'skills', 'nested-skill'), { recursive: true });
+    writeFileSync(join(repo, '.claude', 'skills', 'worktree-root', 'SKILL.md'),
+      '---\nname: worktree-root\ndescription: Root checklist\n---');
+    writeFileSync(join(nested, '.agents', 'skills', 'nested-skill', 'SKILL.md'),
+      '---\nname: nested-skill\ndescription: Nested checklist\n---');
+    try {
+      const nestedNames = scanLocalSkills(nested).map((skill) => skill.name);
+      const rootNames = scanLocalSkills(repo).map((skill) => skill.name);
+      expect(nestedNames).toContain('worktree-root');
+      expect(nestedNames).toContain('nested-skill');
+      expect(rootNames).toContain('worktree-root');
+      expect(rootNames).not.toContain('nested-skill');
+    } finally {
+      process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS = undefined;
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps ancestor skills when Windows path case differs from the Git root', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-case-'));
+    const nested = join(repo, 'Nested', 'Checkout');
+    execFileSync('git', ['-C', repo, 'init'], { stdio: 'ignore', windowsHide: true });
+    mkdirSync(join(repo, '.claude', 'skills', 'case-root'), { recursive: true });
+    writeFileSync(join(repo, '.claude', 'skills', 'case-root', 'SKILL.md'),
+      '---\nname: case-root\ndescription: Case-safe root\n---');
+    try {
+      const requested = realpathSync(repo).slice(0, 1).toLowerCase()
+        + realpathSync(repo).slice(1).toUpperCase();
+      expect(scanLocalSkills(requested).map((skill) => skill.name)).toContain('case-root');
+    } finally {
+      process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS = undefined;
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it('requires a checkout scope and reports project skills with external flags', async () => {
     const missing = await app().request('/api/config/skills');
     expect(missing.status).toBe(400);

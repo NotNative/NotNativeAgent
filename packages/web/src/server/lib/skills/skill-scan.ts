@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Read-only harness-equivalent scan for local SKILL.md folders. */
-import { readdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 export interface DiscoveredSkill {
   name: string; path: string; scope: 'user' | 'project';
@@ -86,6 +87,39 @@ function visible(source: DiscoveredSkill['source'], flags: ReturnType<typeof ext
   return !flags.claudeDisabled || source !== 'claude';
 }
 
+function worktreeRootOf(directory: string): string | null {
+  try {
+    const root = execFileSync('git', ['-C', directory, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8', timeout: 2_000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const trimmed = root.trim();
+    return trimmed.length > 0 && isAbsolute(trimmed) ? realpathSync(trimmed) : null;
+  } catch { return null; }
+}
+
+function insideWorktree(root: string, directory: string): boolean {
+  return relative(root, directory) === '' || !relative(root, directory).startsWith('..')
+    && !isAbsolute(relative(root, directory));
+}
+
+function projectSkillRoots(directory: string): string[] {
+  let requested;
+  try { requested = realpathSync(directory); } catch { return []; }
+  if (!isAbsolute(requested)) return [];
+  const root = worktreeRootOf(requested);
+  if (!root || !insideWorktree(root, requested)) return [requested];
+  const roots: string[] = [];
+  let current = requested;
+  while (true) {
+    roots.unshift(current);
+    if (relative(root, current) === '') break;
+    const parent = dirname(current);
+    if (parent === current || !insideWorktree(root, parent)) return [requested];
+    current = parent;
+  }
+  return roots;
+}
+
 export function scanLocalSkills(directory: string): DiscoveredSkill[] {
   if (!isAbsolute(directory) || directory.trim() === '') {
     throw new Error('project checkout directory is required');
@@ -98,11 +132,13 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
   if (visible('agents', flags)) {
     scanDirectory(join(homedir(), '.agents', 'skills'), 'user', 'agents', output);
   }
-  if (visible('claude', flags)) {
-    scanDirectory(join(directory, '.claude', 'skills'), 'project', 'claude', output);
-  }
-  if (visible('agents', flags)) {
-    scanDirectory(join(directory, '.agents', 'skills'), 'project', 'agents', output);
+  for (const root of projectSkillRoots(directory)) {
+    if (visible('claude', flags)) {
+      scanDirectory(join(root, '.claude', 'skills'), 'project', 'claude', output);
+    }
+    if (visible('agents', flags)) {
+      scanDirectory(join(root, '.agents', 'skills'), 'project', 'agents', output);
+    }
   }
   const unique = new Map<string, DiscoveredSkill>();
   for (const skill of output) unique.set(skill.name, skill);

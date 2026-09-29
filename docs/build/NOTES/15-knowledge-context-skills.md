@@ -253,8 +253,8 @@ root CRUD authority is not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
 results. Harness configuration roots, configured extra paths, OpenCode caches,
-SDK built-ins, ancestor/worktree discovery, skill CRUD, supporting-file
-payloads, UI wiring, and restart handling remain.
+SDK built-ins, skill CRUD, supporting-file payloads, UI wiring, and restart
+handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
 
@@ -334,3 +334,19 @@ bounds requests and replies, maps terminal status errors, and carries only the
 current workspace as ownership context. The tool is registered only for root
 NND engines, so delegated engines receive neither the callback nor extended
 authority. Skills/MCP integration remains pending.
+
+## P10-21: bounded ancestor skill discovery (2026-09-28)
+
+`scanLocalSkills` now resolves the requested project through its real path,
+asks bounded Git `rev-parse --show-toplevel` for the containing worktree, and
+scans `.claude/skills` then `.agents/skills` at every ancestor from the
+requested checkout up to that worktree root. If Git does not report a root or
+the response is not contained in the canonicalized checkout tree, discovery
+falls back to only the requested directory. Relative containment is checked
+with normalized paths, including Windows drive-letter case differences. The
+Git command is bounded to two seconds, no stderr or stdin is exposed, and the
+result remains filesystem contained; there is no recursion into sibling
+worktrees. User roots still run first, each root still preserves
+`.claude` before `.agents`, automatic dedupe still favors the later source,
+and the 200-item scan bound remains accepted. Worktree-specific skill
+conflicts and managed-server cache/CRUD behavior are not part of this slice.
