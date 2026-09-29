@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Shared curated/custom skill-catalog source and developer metadata parsing. */
 import { readMergedSettings } from '../settings-store.ts';
+import { isAbsolute } from 'node:path';
 
 export const SKILL_SOURCES = [
   { id: 'anthropic', label: 'Anthropic', source: 'anthropics/skills', defaultSubpath: 'skills' },
@@ -40,6 +41,7 @@ function isText(value: unknown, maxLength: number): value is string {
 }
 
 function usableRepositorySource(value: string): boolean {
+  if (isAbsolute(value) || /^([A-Za-z]:)[\\/]/u.test(value)) return true;
   if (!value.trim() || value.trim() !== value || value.length > 512 || value.startsWith('-')) return false;
   if (OWNER_REPOSITORY.test(value)) return true;
   try {

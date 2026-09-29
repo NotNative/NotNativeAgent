@@ -298,6 +298,14 @@ function registerSkillListRoutes(app: Hono): void {
     ok: true,
     ...(await catalogDocument()),
   }));
+  app.get('/api/config/skills/catalog/source', async (c) => {
+    const refresh = c.req.query('refresh');
+    if (refresh !== undefined && refresh !== 'true') {
+      return c.json({ error: { kind: 'invalidSource', message: 'invalid refresh flag' } }, 400);
+    }
+    const directory = c.req.query('directory') ?? '';
+    return scanCatalogSourceById(c, directory === '' ? undefined : directory, c.req.query('sourceId') ?? '');
+  });
   app.get('/api/config/skills/:name', (c) => {
     try {
       const skill = scanLocalSkills(c.req.query('directory') ?? '')
@@ -312,6 +320,24 @@ async function catalogScanBody(request: Request): Promise<SkillCreateShape | nul
   const encoded = await readBoundedSkillBody(request);
   if (encoded === null) return null;
   return parseBoundedSkillBody(encoded);
+}
+
+async function scanCatalogSourceById(context: Context, directory: string | undefined,
+  sourceId: string): Promise<Response> {
+  const source = catalogSources().find((entry) => entry.id === sourceId);
+  if (!source) {
+    return context.json({ error: { kind: 'invalidSource', message: 'unknown skill catalog source' } }, 400);
+  }
+  try {
+    const curated = 'defaultSubpath' in source;
+    const items = await scanCatalogSource({
+      source: source.source,
+      subpath: curated ? source.defaultSubpath : source.subpath,
+      directory,
+      gitIdentityId: curated ? null : source.gitIdentityId,
+    });
+    return context.json({ ok: true, source, sourceId, items });
+  } catch (error) { return catalogScanFailure(context, error); }
 }
 
 async function scanAdHocCatalog(context: Context, directory: string | undefined): Promise<Response> {

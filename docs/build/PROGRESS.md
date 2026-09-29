@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-33 configured source scan route.**
+  `/api/config/skills/catalog/source` resolves a curated or custom `sourceId`,
+  applies its default/custom subpath and identity, and reuses the bounded
+  one-shot Git scanner. Unknown IDs, malformed refresh flags, and scanner
+  failures return structured errors. Persisted cache and refresh bypass remain
+  pending.
+
 - 2026-09-29 · **P10-32 ad-hoc Git skill scanner.** POST
   `/api/config/skills/scan` clones one HTTPS/owner-repository or local Git
   source at depth one with the planned blob filter fallback and scans bounded

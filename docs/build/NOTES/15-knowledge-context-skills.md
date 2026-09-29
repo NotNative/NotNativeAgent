@@ -436,9 +436,9 @@ auth, conflict resolution, and installation remain pending.
 The same additive route now appends sanitized entries from the registered
 `skillCatalogs` instance setting. Custom records preserve their `id`, `label`,
 `source`, `subpath`, and `gitIdentityId` names; unset subpath and identity
-values become `null`. HTTPS repository URLs and case-insensitive
-owner/repository references are accepted, while command-leading values,
-whitespace, literals, HTTPS credentials, absolute or traversal-like subpaths,
+values become `null`. HTTPS repository URLs, case-insensitive absolute Git
+paths, and owner/repository references are accepted, while command-leading,
+whitespace, literal, HTTPS-credential, absolute or traversal-like subpaths,
 and control characters are not. Only the
 first 32 valid entries are exposed; entries are deduplicated, cannot shadow a
 curated ID, and malformed or corrupt settings cannot remove the curated four.
@@ -486,6 +486,20 @@ Git identity profiles are not yet available, so any nonempty selection is
 rejected as unsupported. The scan is one-shot; no persisted result cache,
 refresh key, concurrency cap, install path, conflict logic, or clone-based
 source route is implemented yet.
+
+## P10-33: configured source scan route (2026-09-29)
+
+`GET /api/config/skills/catalog/source` accepts `sourceId`, optional
+`directory`, and optional `refresh=true` only. It resolves a source from the
+merged curated/custom list, passes curated `defaultSubpath` or custom
+`subpath`, and reuses the bounded one-shot Git scanner. Responses provide the
+selected source,
+stable `sourceId`, scanned items, and installed-state enrichment.
+
+Unknown source IDs, malformed refresh flags, and invalid references respond as
+`invalidSource`; scanner auth/network failures retain their structured shapes.
+`refresh` is validated now but does not bypass a cache, because the persisted
+source cache is still pending.
 
 ## P10-28: managed skill supporting files (2026-09-29)
 

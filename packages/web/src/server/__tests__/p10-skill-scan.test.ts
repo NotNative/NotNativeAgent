@@ -190,6 +190,45 @@ describe('P10 skill discovery', () => {
     expect(payload.items).toHaveLength(2);
   });
 
+  it('scans a configured catalog source by stable ID', async () => {
+    const repository = catalogRepository();
+    writeSettingsPatch({
+      skillCatalogs: [{
+        id: 'configured-local',
+        label: 'Configured local',
+        source: repository,
+        subpath: 'skills',
+        gitIdentityId: null,
+      }],
+    }, 'web');
+    const checkout = mkdtempSync(join(tmpdir(), 'nnd-p10-configured-source-'));
+    const installed = join(checkout, '.agents', 'skills', 'source-good');
+    mkdirSync(installed, { recursive: true });
+    writeFileSync(join(installed, 'SKILL.md'),
+      '---\nname: source-good\ndescription: Configured installed\n---\nExisting.');
+    const response = await app().request(
+      `/api/config/skills/catalog/source?sourceId=configured-local&directory=${encodeURIComponent(checkout)}`);
+    const payload = await response.json() as {
+      ok: boolean; source: Record<string, unknown>; sourceId: string; items: CatalogScanItem[];
+    };
+    expect(response.status).toBe(200);
+    expect(payload.sourceId).toBe('configured-local');
+    expect(payload.source).toMatchObject({ id: 'configured-local', subpath: 'skills', gitIdentityId: null });
+    expect(payload.items.find((item) => item.skillName === 'source-good')).toMatchObject({
+      repoSource: repository, repoSubpath: 'skills', installed: { isInstalled: true, scope: 'project', source: 'agents' },
+    });
+    const unknown = await app().request('/api/config/skills/catalog/source?sourceId=absent');
+    expect(unknown.status).toBe(400);
+    expect(((await unknown.json()) as { error: Record<string, string> }).error.kind).toBe('invalidSource');
+    const validRefresh = await app().request('/api/config/skills/catalog/source?sourceId=configured-local&refresh=true');
+    expect(validRefresh.status).toBe(200);
+    for (const invalidRefresh of ['', '=maybe']) {
+      const response = await app().request(
+        `/api/config/skills/catalog/source?sourceId=configured-local&refresh${invalidRefresh}`);
+      expect(response.status).toBe(400);
+    }
+  });
+
   it('rejects malformed or unsupported ad-hoc scans and reports unreachable sources', async () => {
     const repository = catalogRepository();
     const missing = join(mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-missing-source-')), 'absent');
