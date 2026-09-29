@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
 import './helpers/env-boot.ts';
 import { registerSkillRoutes } from '../routes/skills.ts';
+import { flushCatalogScanCache, resetCatalogScanCache } from '../lib/skills/skill-catalog-cache.ts';
 import { writeSettingsPatch } from '../lib/settings-store.ts';
 import type { CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
 import { externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
@@ -15,6 +16,7 @@ const base = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-'));
 let checkout = '';
 
 beforeEach(() => {
+  resetCatalogScanCache();
   checkout = mkdtempSync(join(base, 'checkout-'));
   const nested = join(checkout, '.agents', 'skills', 'review-flow', 'steps');
   mkdirSync(nested, { recursive: true });
@@ -268,6 +270,70 @@ describe('P10 skill discovery', () => {
     expect(((await response.json()) as { error: Record<string, string> }).error).toEqual({
       kind: 'invalidSource', message: 'invalid Git subpath',
     });
+  });
+
+  it('caches configured scans without retaining per-checkout install state', async () => {
+    const repository = catalogRepository();
+    writeSettingsPatch({
+      skillCatalogs: [{
+        id: 'cached-local', label: 'Cached local', source: repository,
+        subpath: 'skills', gitIdentityId: null,
+      }],
+    }, 'web');
+    const installedCheckout = mkdtempSync(join(tmpdir(), 'nnd-p10-cached-installed-'));
+    const installed = join(installedCheckout, '.agents', 'skills', 'source-good');
+    mkdirSync(installed, { recursive: true });
+    writeFileSync(join(installed, 'SKILL.md'),
+      '---\nname: source-good\ndescription: Cached installed\n---\nExisting.');
+    const dataDirectory = process.env.NOTNATIVE_DATA_DIR ?? '';
+    mkdirSync(dataDirectory, { recursive: true });
+    writeFileSync(join(dataDirectory, 'skills-catalog-cache.json'), JSON.stringify({
+      version: 1,
+      entries: {
+        wrong: { updatedAt: new Date().toISOString(), items: [{ repoSource: { command: 'pwsh' } }] },
+      },
+    }));
+    const first = await app().request(
+      `/api/config/skills/catalog/source?sourceId=cached-local&directory=${encodeURIComponent(installedCheckout)}`);
+    const firstPayload = await first.json() as {
+      ok: boolean; items: Array<{ installed: { isInstalled: boolean } }>;
+    };
+    await flushCatalogScanCache();
+    const file = JSON.parse(readFileSync(
+      join(process.env.NOTNATIVE_DATA_DIR ?? '', 'skills-catalog-cache.json'), 'utf8')) as {
+      version: number; entries: Record<string, unknown>;
+    };
+    expect(first.status).toBe(200);
+    expect(firstPayload.ok).toBe(true);
+    expect(firstPayload.items.some((item) => item.installed.isInstalled)).toBe(true);
+    expect(file.version).toBe(1);
+    expect(Object.keys(file.entries)).toHaveLength(1);
+    expect(JSON.stringify(file.entries)).not.toContain('"installed"');
+
+    const added = join(repository, 'skills', 'changed-good');
+    mkdirSync(added, { recursive: true });
+    writeFileSync(join(added, 'SKILL.md'),
+      '---\nname: changed-good\ndescription: Added after cache\n---\nLater.');
+    execFileSync('git', ['add', '-A'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['commit', '-q', '--amend', '--no-edit'], { cwd: repository, stdio: 'ignore', windowsHide: true });
+    const cached = await app().request('/api/config/skills/catalog/source?sourceId=cached-local');
+    const cachedPayload = await cached.json() as {
+      ok: boolean; items: Array<{ skillName: string; installed: { isInstalled: boolean } }>;
+    };
+    expect(cached.status).toBe(200);
+    expect(cachedPayload.ok).toBe(true);
+    expect(cachedPayload.items).toHaveLength(2);
+    expect(cachedPayload.items.some((item) => item.skillName === 'changed-good')).toBe(false);
+    expect(cachedPayload.items.some((item) => item.installed.isInstalled)).toBe(false);
+
+    await flushCatalogScanCache();
+    const refreshed = await app().request('/api/config/skills/catalog/source?sourceId=cached-local&refresh=true');
+    const refreshedPayload = await refreshed.json() as {
+      ok: boolean; items: Array<{ skillName: string }>;
+    };
+    expect(refreshed.status).toBe(200);
+    expect(refreshedPayload.ok).toBe(true);
+    expect(refreshedPayload.items.some((item) => item.skillName === 'changed-good')).toBe(true);
   });
 
   it('merges valid custom catalog sources without curated-ID collisions', async () => {

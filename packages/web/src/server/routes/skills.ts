@@ -6,6 +6,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { catalogDocument, catalogSources } from '../lib/skills/skill-catalog.ts';
+import { scanCatalogSourceCached } from '../lib/skills/skill-catalog-cache.ts';
 import { CatalogScanError, scanCatalogSource, type CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
 import { directAbsolute, externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
 
@@ -330,12 +331,12 @@ async function scanCatalogSourceById(context: Context, directory: string | undef
   }
   try {
     const curated = 'defaultSubpath' in source;
-    const items = await scanCatalogSource({
+    const items = await scanCatalogSourceCached({
       source: source.source,
       subpath: curated ? source.defaultSubpath : source.subpath,
       directory,
       gitIdentityId: curated ? null : source.gitIdentityId,
-    });
+    }, context.req.query('refresh') === 'true');
     return context.json({ ok: true, source, sourceId, items });
   } catch (error) { return catalogScanFailure(context, error); }
 }

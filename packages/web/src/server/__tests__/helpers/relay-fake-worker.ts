@@ -162,6 +162,7 @@ export function createFakeWorker(): Promise<FakeWorker> {
       return new Promise((resolve) => {
         setTimeout(() => { // reaped late arrivals cannot keep the server open
           terminateAll();
+          httpServer.closeAllConnections?.();
           httpServer.close(() => resolve());
         }, 25);
       });

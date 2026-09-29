@@ -487,6 +487,22 @@ rejected as unsupported. The scan is one-shot; no persisted result cache,
 refresh key, concurrency cap, install path, conflict logic, or clone-based
 source route is implemented yet.
 
+## P10-34: configured source scan cache (2026-09-29)
+
+Configured catalog scans now use a persisted 3-hour success cache. The cache
+key is a SHA-256 digest of the canonicalized local/Git repository, subpath, and
+Git identity, not the source label or ID. Successful scans are debounced
+atomically to `NOTNATIVE_DATA_DIR/skills-catalog-cache.json`; failures are not
+cached. Requests for the same key share one in-flight clone, and source scans
+are globally capped at two.
+
+The persisted payload deliberately omits per-checkout installed state. Cache
+hits, including payloads restored from disk, recompute installed skills against
+the current request directory, so one checkout cannot inherit stale install
+ownership from another. `refresh=true` bypasses an existing cache, rescans Git
+HEAD, and overwrites the same key. The cache holds at most 64 sources and 200
+items per source; unreadable or malformed cache data is treated as cold.
+
 ## P10-33: configured source scan route (2026-09-29)
 
 `GET /api/config/skills/catalog/source` accepts `sourceId`, optional
@@ -498,8 +514,6 @@ stable `sourceId`, scanned items, and installed-state enrichment.
 
 Unknown source IDs, malformed refresh flags, and invalid references respond as
 `invalidSource`; scanner auth/network failures retain their structured shapes.
-`refresh` is validated now but does not bypass a cache, because the persisted
-source cache is still pending.
 
 ## P10-28: managed skill supporting files (2026-09-29)
 
