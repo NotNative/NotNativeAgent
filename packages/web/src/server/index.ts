@@ -22,6 +22,8 @@ import { guardGoalAuditExchangePorts, NnaGoalSafetyRuntime } from './goals/nna-g
 import { runGoalAuditExchange } from './goals/nna-goal-auditor.ts';
 import { createNnaGoalAuditPorts } from './goals/nna-goal-safety-ports.ts';
 import { onSettingsWrite, readMergedSettings } from './lib/settings-store.ts';
+import { createNnaContextRestorationPorts } from './context/nna-context-obligatory-ports.ts';
+import { ContextObligatoryRuntime } from './context/context-obligatory-runtime.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { agentMemoryEnabled } from './project-context/agent-memory.ts';
 import { BrowserControlBroker } from './preview/browser-control-broker.ts';
@@ -189,7 +191,29 @@ function bootMessageQueue(): void {
 function bootAutomation(): { dispose(): void } | null {
   bootMessageQueue();
   bootScheduledTasks();
-  return bootGoalSafety();
+  const disposers = [bootContextObligatory(), bootGoalSafety()].filter((disposer): disposer is {
+    dispose(): void;
+  } => disposer !== null);
+  if (disposers.length === 0) return null;
+  return {
+    dispose() {
+      for (const disposer of [...disposers].reverse()) disposer.dispose();
+    },
+  };
+}
+
+/** Re-apply pinned messages and pending project knowledge after compaction. */
+function bootContextObligatory(): { dispose(): void } | null {
+  try {
+    const ports = createNnaContextRestorationPorts();
+    const runtime = new ContextObligatoryRuntime(getMessageQueueRuntime().feed, ports,
+      (sessionId, directory) => ports.recordKnowledgeDelivered(sessionId, directory));
+    runtime.start();
+    return { dispose() { runtime.dispose(); ports.dispose(); } };
+  } catch (error) {
+    console.warn(`context restoration boot failed: ${String(error)}`);
+    return null;
+  }
 }
 
 /** Real-harness clients; the goal exchange may dispatch a bounded continuation prompt. */

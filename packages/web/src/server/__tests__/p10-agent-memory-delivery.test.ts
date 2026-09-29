@@ -42,6 +42,8 @@ describe('P10 agent memory delivery', () => {
 
       provider.recordDelivered('session-1', directory);
       expect(await provider.resolve('session-1', directory)).toBeNull();
+      provider.resetSession('session-1', directory);
+      expect(await provider.resolve('session-1', directory)).toBe(first);
 
       announceAgentMemoryChange({ scope: 'project', projectId: 'alpha' });
       expect(await provider.resolve('session-1', directory)).toBe(first);

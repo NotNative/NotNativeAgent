@@ -96,6 +96,28 @@ Invalid names, non-object values, and transport failures are reported by
 server name; accepted entries continue rather than hiding failures behind an
 all-or-nothing claim, and the list is force-refetched afterward.
 
+## P10-48: server compaction restoration (2026-09-29)
+
+The server now owns the §G.2 restoration runtime. It parses bounded
+`openchamber.context_obligatory_messages`, watches only `session.compacted`,
+de-duplicates per session/directory, skips child sessions, and skips a replay
+whose summary already owns the stored cursor. Preparation resets the memory
+delivery sign so post-compaction knowledge can be re-resolved, fetches each
+pinned message independently, preserves pin-created order, and drops an
+unreadable pin without discarding its peers.
+
+The synthetic turn reuses the newest completed pre-compaction assistant model
+(including the legacy `mode` fallback), sends pending knowledge and pins in one
+bounded prompt, and only then writes the fresh session metadata cursor/signature.
+The adapter is explicit about NNA message, prompt, and generic metadata PATCH
+seams. Cursor writing rereads current metadata so concurrent metadata edits are
+not overwritten.
+
+The adversarial audit closed child-session, wrong-key, bounded-pin-window,
+stale-memory-signature, and missing-`mode` paths, and restored the exact
+restoration instruction text. Truth: web typecheck green; context and memory
+focused suites 10/10.
+
 The Settings page accepts one `.json` file, reports created/updated counts,
 lists skipped entries, and states the OpenCode restart requirement. Even an
 empty accepted selection is described as no changes rather than a misleading

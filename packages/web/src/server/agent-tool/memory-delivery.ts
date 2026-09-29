@@ -12,7 +12,10 @@ export interface AgentKnowledgeOptions {
   projects?: () => Promise<readonly unknown[] | unknown[] | readonly OwnershipProject[] | OwnershipProject[]>;
 }
 
-export type AgentMemoryKnowledgeProvider = ProjectKnowledgeProvider & { dispose: () => void };
+export type AgentMemoryKnowledgeProvider = ProjectKnowledgeProvider & {
+  dispose: () => void;
+  resetSession: (sessionId: string, directory: string) => void;
+};
 
 const PROJECT_READ_TIMEOUT_MS = 8_000;
 
@@ -67,6 +70,11 @@ export function createAgentMemoryKnowledgeProvider(options: AgentKnowledgeOption
         pending.delete(key);
         delivered.set(key, signature);
       }
+    },
+    resetSession: (sessionId: string, directory: string): void => {
+      const key = `${sessionId}${directory}`;
+      pending.delete(key);
+      delivered.delete(key);
     },
     dispose: unsubscribe,
   };

@@ -14,13 +14,24 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
-| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, opt-in legacy note/todo copy, bounded legacy plan-link migration, shared project plans, server-owned memory prompt delivery, managed memory callback launch, bounded ancestor/worktree skill discovery, OpenCode config-root, cache, configured-path discovery, managed skill delete API, configured catalog scanner/cache/installer, NNA callback consumption, typed skills/catalog client transport, and skills catalog store, Settings catalog page, one-skill install controls, catalog conflict resolution, captured identity-selection contracts, bounded credential-free Git identity profiles, SSH-catalog clone support, install cancellation, MCP config-layer storage/CRUD, MCP runtime/status/config stores, workspace MCP Settings CRUD/health/OAuth callback wiring, and JSON share import delivered 2026-09-29; obligatory context, BTW, assist, grants/guards, and remaining context/skill surfaces remain |
+| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, opt-in legacy note/todo copy, bounded legacy plan-link migration, shared project plans, server-owned memory prompt delivery, managed memory callback launch, bounded ancestor/worktree skill discovery, OpenCode config-root, cache, configured-path discovery, managed skill delete API, configured catalog scanner/cache/installer, NNA callback consumption, typed skills/catalog client transport, and skills catalog store, Settings catalog page, one-skill install controls, catalog conflict resolution, captured identity-selection contracts, bounded credential-free Git identity profiles, SSH-catalog clone support, install cancellation, MCP config-layer storage/CRUD, MCP runtime/status/config stores, workspace MCP Settings CRUD/health/OAuth callback wiring, JSON share import, and server compaction restoration delivered 2026-09-29; obligatory-context session pin mutation/UI, BTW, assist, grants/guards, and remaining context/skill surfaces remain |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, and explicit NNA model explanation delivered 2026-09-26; tunnels and full walkthrough lifecycle pending |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-29 · **P10-48 compaction restoration.**
+  The server now runs the obligatory-context runtime on `session.compacted`:
+  it validates bounded pin metadata, skips child/replayed/already-cursor
+  events, fetches pinned messages independently, combines pending knowledge
+  with restorable pins, reuses the pre-compaction model, and records the
+  cursor with a fresh metadata read. Adversarial review corrected child
+  sessions, metadata keys, pins outside the latest-window, stale memory
+  delivery state, and legacy model mode. Truth: typecheck green; context and
+  memory focused suites 10/10; full web 1,158/1,158 and UI 1,333/1,333;
+  graph current. Release-quality gates and hash sealing follow in this slice.
 
 - 2026-09-29 · **P10-47 MCP share import.**
   Settings can now import a JSON object map of MCP definitions through the

@@ -548,6 +548,10 @@
     {
       "version": "20260929-25",
       "content_sha256": "9a1678178956d8234af6a293ec2b7a58672a5edd11f6fba5c540cf08bc9bc645"
+    },
+    {
+      "version": "20260929-26",
+      "content_sha256": "9cb72b1cf2373d880c0722c8647681658d592e6c9663855f9a35b50e7b4c4f1a"
     }
   ]
 }

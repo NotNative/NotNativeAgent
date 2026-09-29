@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:556cc66afbe5b6ffc93e95f0e19ca72c0b2c9ad5a0d4b47c6e7f757d409ab7c5",
+  "source_digest": "sha256:e0746e7bee81764b4b92be87d64a5f07449fb60940ffb6b707a04f7f524199fc",
   "counts": {
-    "modules": 543,
+    "modules": 546,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 176
+      "module_count": 179
     },
     {
       "id": "web-entry",
@@ -3646,6 +3646,32 @@
       ]
     },
     {
+      "path": "packages/web/src/server/context/context-obligatory-runtime.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/context/obligatory-messages.ts",
+        "packages/web/src/server/queue/queue-feed.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/context/nna-context-obligatory-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/agent-tool/memory-delivery.ts",
+        "packages/web/src/server/context/context-obligatory-runtime.ts",
+        "packages/web/src/server/context/obligatory-messages.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/context/obligatory-messages.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/web/src/server/env.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -3883,6 +3909,8 @@
       "entrypoint": true,
       "imports": [
         "packages/web/src/server/app.ts",
+        "packages/web/src/server/context/context-obligatory-runtime.ts",
+        "packages/web/src/server/context/nna-context-obligatory-ports.ts",
         "packages/web/src/server/env.ts",
         "packages/web/src/server/goals/nna-goal-auditor.ts",
         "packages/web/src/server/goals/nna-goal-runtime.ts",
