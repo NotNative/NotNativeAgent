@@ -1117,6 +1117,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   disagreeing with the payload's budget range). Next: P9-3d loop files
   + routes/SSE + manual-run 400/409 mapping + the settings-route
   `scheduledTasks` clobber fix.
+- 2026-09-29 · **P9-3e scheduler clock-edge proof.**
+  Timezone work and timer recursion are now documented and pinned: schedule
+  occurrences use the selected IANA zone and absolute Epoch; spring gaps skip;
+  fall-back repeats fold to their first instant; cron offsets follow
+  cron-parser; long waits re-arm at the setTimeout cap without firing early;
+  and startup skips a daily slot already missed instead of running it late.
+
 - 2026-09-25 · **P9 scheduled-task runtime, claiming, completion.** The
   execution machine over the P9-3a store now actually runs tasks: the
   injected-pipeline runtime (`scheduled-ports` contracts, `scheduled-state`

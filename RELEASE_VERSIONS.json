@@ -480,6 +480,10 @@
     {
       "version": "20260929-8",
       "content_sha256": "7d81225a540fb82f0e8951058b210a1de763bd5962684837bab28e1b4077e1f8"
+    },
+    {
+      "version": "20260929-9",
+      "content_sha256": "8107b2089c8b6aefedaaadaf5ed9b5edea8a78196d4f9f1e82366b905bbbebfb"
     }
   ]
 }

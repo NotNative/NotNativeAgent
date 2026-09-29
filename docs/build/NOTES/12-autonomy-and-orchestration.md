@@ -314,6 +314,17 @@ waits — the server row ships first so a closed tab can never strand a queue.
   winner's task into memory). NOT in: the harness pipeline
   adapter (P9-3c), loop files, routes/SSE, UI, and the per-project
   settings-route `scheduledTasks` clobber fix (P9-3d).
+- **P9-3e (scheduler clock-edge proof — delivered this slice)** — the
+  undocumented P9-3a/P9-3b clock boundary is now pinned: next-run math uses
+  the schedule's IANA zone and absolute Epoch throughout; spring-gaps skip
+  to the next valid daily slot, fall-back repeats resolve to the first
+  instant, cron leaves offset choices to cron-parser plus the chosen zone,
+  >24.85-day waits recurse through the setTimeout cap without firing early,
+  and a slot already missed before startup is skipped rather than run late
+  (the first occurrence is the next future occurrence). Tests:
+  `p9-3a-scheduled-storage.test.ts` (gap/fold and cron-tz), and
+  `p9-3b-scheduled-runtime.test.ts` (fresh overdue/no-catch-up cap recursion
+  regression).
 - **P9-3c (scheduled run pipeline on NNA — delivered this slice)** — the
   C.6/C.10 harness side, injected behind the runtime's `runPipeline` port
   (the runtime still never imports the harness): `scheduled-pipeline.ts`

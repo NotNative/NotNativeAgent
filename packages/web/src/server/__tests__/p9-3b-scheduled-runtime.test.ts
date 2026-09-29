@@ -169,6 +169,16 @@ describe('arming and due fire (C.4)', () => {
     expect(store.pipelineCalls).toHaveLength(0);
   });
 
+  it('skips a daily slot already missed before startup and arms its next occurrence', async () => {
+    const store = makeStore();
+    seed(store, 'proj', taskDoc({ schedule: { kind: 'daily', times: ['09:00'], timezone: 'UTC' } }));
+    const runtime = makeRuntime(store, {}, { now: () => DUE + 60_000 });
+    await runtime.start();
+    expect(runtime.internals.timers.get('proj:task-1')?.dueAt).toBe(NEXT);
+    expect(runtime.internals.queue).toHaveLength(0);
+    expect(store.pipelineCalls).toHaveLength(0);
+  });
+
   it('does not re-enqueue a task already running', async () => {
     const store = makeStore();
     seed(store, 'proj', taskDoc());
