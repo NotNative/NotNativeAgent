@@ -252,9 +252,8 @@ Discovery stays deliberately read-only: `renamable` is false because managed
 root CRUD authority is not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
-results. Harness configuration roots, configured extra paths, OpenCode caches,
-SDK built-ins, skill CRUD, supporting-file payloads, UI wiring, and restart
-handling remain.
+results. Configured extra paths, OpenCode caches, SDK built-ins, skill CRUD,
+supporting-file payloads, UI wiring, and restart handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
 
@@ -350,3 +349,16 @@ worktrees. User roots still run first, each root still preserves
 `.claude` before `.agents`, automatic dedupe still favors the later source,
 and the 200-item scan bound remains accepted. Worktree-specific skill
 conflicts and managed-server cache/CRUD behavior are not part of this slice.
+
+## P10-22: OpenCode config-root discovery (2026-09-28)
+
+Local skills now include the OpenCode read-only roots. The absolute
+`OPENCODE_CONFIG_DIR` and `~/.opencode` root are scanned at user scope;
+each canonical project/worktree-ancestor root is scanned at project scope
+under `.opencode`. Both the harness legacy singular `skill` and the current
+plural `skills` layouts are honored, with legacy scanned first so a current
+same-name definition wins the existing last-write dedupe. The OpenCode
+source remains visible even when external Claude/agents skills are disabled.
+The 200-item bound, ancestor containment, and read-only behavior are
+unchanged. Configured extra paths, local cache roots, harness SDK built-ins,
+and managed skill CRUD remain outside this bounded step.

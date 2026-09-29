@@ -428,6 +428,10 @@
     {
       "version": "20260928-59",
       "content_sha256": "7a7afe2f1df8c039ee2bbb1f7327a368c6194867012f74a9fc535819a8e06cbc"
+    },
+    {
+      "version": "20260928-60",
+      "content_sha256": "2e79b078e23a1cb76ae054ef6353dbbb141e6c162df862d785ada97a69c2eb01"
     }
   ]
 }

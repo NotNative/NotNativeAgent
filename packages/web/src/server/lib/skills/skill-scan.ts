@@ -60,7 +60,7 @@ function skillGroup(path: string): string | undefined {
   return marker >= 0 && parts.length - marker >= 3 ? parts[marker + 1] : undefined;
 }
 
-function scanDirectory(path: string, scope: 'user' | 'project', source: 'claude' | 'agents',
+function scanDirectory(path: string, scope: 'user' | 'project', source: 'claude' | 'agents' | 'opencode',
   output: DiscoveredSkill[]): void {
   if (output.length >= SCAN_LIMIT) return;
   let entries;
@@ -126,11 +126,17 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
   }
   const output: DiscoveredSkill[] = [];
   const flags = externalSkillFlags();
+  const openCodeConfigRoots = [process.env.OPENCODE_CONFIG_DIR, join(homedir(), '.opencode')]
+    .filter((candidate): candidate is string => typeof candidate === 'string' && isAbsolute(candidate));
   if (visible('claude', flags)) {
     scanDirectory(join(homedir(), '.claude', 'skills'), 'user', 'claude', output);
   }
   if (visible('agents', flags)) {
     scanDirectory(join(homedir(), '.agents', 'skills'), 'user', 'agents', output);
+  }
+  for (const root of openCodeConfigRoots) {
+    scanDirectory(join(root, 'skill'), 'user', 'opencode', output);
+    scanDirectory(join(root, 'skills'), 'user', 'opencode', output);
   }
   for (const root of projectSkillRoots(directory)) {
     if (visible('claude', flags)) {
@@ -138,6 +144,9 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
     }
     if (visible('agents', flags)) {
       scanDirectory(join(root, '.agents', 'skills'), 'project', 'agents', output);
+    }
+    for (const layout of ['skill', 'skills'] as const) {
+      scanDirectory(join(root, '.opencode', layout), 'project', 'opencode', output);
     }
   }
   const unique = new Map<string, DiscoveredSkill>();

@@ -68,6 +68,39 @@ describe('P10 skill discovery', () => {
     }
   });
 
+  it('scans OpenCode config roots and legacy plus plural layouts', () => {
+    const config = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-opencode-'));
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-openproject-'));
+    const directories = [
+      join(config, 'skill', 'user-legacy'),
+      join(config, 'skills', 'user-current'),
+      join(project, '.opencode', 'skill', 'project-legacy'),
+      join(project, '.opencode', 'skills', 'project-current'),
+    ];
+    const names = ['user-legacy', 'user-current', 'project-legacy', 'project-current'];
+    names.forEach((name, index) => {
+      mkdirSync(directories[index]!, { recursive: true });
+      writeFileSync(join(directories[index]!, 'SKILL.md'),
+        `---\nname: ${name}\ndescription: ${name} checked\n---`);
+    });
+    process.env.OPENCODE_CONFIG_DIR = config;
+    try {
+      const skills = scanLocalSkills(project);
+      const byName = new Map(skills.map((skill) => [skill.name, skill]));
+      expect([...byName.keys()]).toEqual(expect.arrayContaining(names));
+      expect(byName.get('user-current')).toMatchObject({
+        scope: 'user', source: 'opencode', description: 'user-current checked',
+      });
+      expect(byName.get('project-current')).toMatchObject({
+        scope: 'project', source: 'opencode', description: 'project-current checked',
+      });
+    } finally {
+      delete process.env.OPENCODE_CONFIG_DIR;
+      rmSync(config, { recursive: true, force: true });
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
   it('requires a checkout scope and reports project skills with external flags', async () => {
     const missing = await app().request('/api/config/skills');
     expect(missing.status).toBe(400);
