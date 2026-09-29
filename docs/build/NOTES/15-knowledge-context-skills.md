@@ -252,7 +252,7 @@ Discovery stays deliberately read-only: `renamable` is false because managed
 root CRUD authority is not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
-results. Configured extra paths, OpenCode caches, SDK built-ins, skill CRUD,
+results. Configured extra paths, harness SDK built-ins, skill CRUD,
 supporting-file payloads, UI wiring, and restart handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
@@ -362,3 +362,14 @@ source remains visible even when external Claude/agents skills are disabled.
 The 200-item bound, ancestor containment, and read-only behavior are
 unchanged. Configured extra paths, local cache roots, harness SDK built-ins,
 and managed skill CRUD remain outside this bounded step.
+
+## P10-23: OpenCode cache discovery (2026-09-28)
+
+Local skill scan now adds the specified OpenCode cache roots at user
+scope after config roots and before project roots: `$XDG_CACHE_HOME
+/opencode/skills`, `~/.cache/opencode/skills`, and
+`~/Library/Caches/opencode/skills`. `XDG_CACHE_HOME` is tested for
+absoluteness before path joining, preventing drive-relative Windows values
+such as `C:` from being silently transformed into drive-root paths. Exact
+duplicate cache roots are scanned once; the 200-item bound and read-only
+behavior remain unchanged.

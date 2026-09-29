@@ -138,6 +138,16 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
     scanDirectory(join(root, 'skill'), 'user', 'opencode', output);
     scanDirectory(join(root, 'skills'), 'user', 'opencode', output);
   }
+  const cacheHome = process.env.XDG_CACHE_HOME;
+  const cacheRoots = [
+    cacheHome !== undefined && isAbsolute(cacheHome)
+      ? join(cacheHome, 'opencode', 'skills') : null,
+    join(homedir(), '.cache', 'opencode', 'skills'),
+    join(homedir(), 'Library', 'Caches', 'opencode', 'skills'),
+  ].filter((root): root is string => root !== null && isAbsolute(root));
+  for (const root of new Set(cacheRoots)) {
+    scanDirectory(root, 'user', 'opencode', output);
+  }
   for (const root of projectSkillRoots(directory)) {
     if (visible('claude', flags)) {
       scanDirectory(join(root, '.claude', 'skills'), 'project', 'claude', output);

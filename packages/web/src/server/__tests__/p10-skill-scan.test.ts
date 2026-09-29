@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { registerSkillRoutes } from '../routes/skills.ts';
@@ -98,6 +98,23 @@ describe('P10 skill discovery', () => {
       delete process.env.OPENCODE_CONFIG_DIR;
       rmSync(config, { recursive: true, force: true });
       rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('scans OpenCode cache roots when the cache home is absolute', () => {
+    const cache = mkdtempSync(join(process.cwd(), '.tmp-nnd-p10-skills-cache-'));
+    const skill = join(cache, 'opencode', 'skills', 'cached-flow');
+    mkdirSync(skill, { recursive: true });
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: cached-flow\ndescription: cached flow checked\n---');
+    try {
+      process.env.XDG_CACHE_HOME = relative(process.cwd(), cache);
+      expect(scanLocalSkills(checkout).find((entry) => entry.name === 'cached-flow')).toBeUndefined();
+      process.env.XDG_CACHE_HOME = cache;
+      expect(scanLocalSkills(checkout).find((entry) => entry.name === 'cached-flow'))
+        .toMatchObject({ scope: 'user', source: 'opencode', description: 'cached flow checked' });
+    } finally {
+      delete process.env.XDG_CACHE_HOME;
+      rmSync(cache, { recursive: true, force: true });
     }
   });
 
