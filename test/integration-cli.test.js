@@ -217,6 +217,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   ].join('\n'));
   const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot }, {
     nndBrowserCallback: { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) },
+    nndAgentToolCallback: { url: 'http://127.0.0.1:4173/api/agent-tool/callback', token: 'a'.repeat(43) },
   });
   assert.equal(host.workspaceRoot, root);
   assert.deepEqual(host.nndModel, { providerID: 'primary', modelID: 'test' });
@@ -230,6 +231,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   assert.equal(context.engine.emitContextStatus, true);
   assert.equal(context.engine.surface, 'nnd');
   assert.equal(context.engine.tools.definition('nnd_browser')?.scope, 'browser');
+  assert.equal(context.engine.tools.definition('openchamber_memory')?.scope, 'memory');
   assert.equal(context.engine.tools.definition('web_browse'), undefined);
   assert.ok(context.engine.skills.catalog().some((skill) => skill.id === 'nnd-review'));
   await writeFile(join(skillRoot, 'review', 'SKILL.md'), [

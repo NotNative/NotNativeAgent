@@ -127,7 +127,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     webSearchConfigPath: options.webSearchConfigPath ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
     webFetchConfigPath: options.webFetchConfigPath ?? userDataPaths().webFetchConfig,
-    ...browserToolOptions(engine, options, imageObserver), nndBrowserCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndBrowserCallback : null,
+    ...browserToolOptions(engine, options, imageObserver), nndBrowserCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndBrowserCallback : null, nndAgentToolCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndAgentToolCallback : null,
     lspConfigPath: options.lspConfigPath,
     lspSpawnProcess: options.lspSpawnProcess,
     skillRegistry: engine.skills,

@@ -13,6 +13,17 @@ Standalone TUI/headless NNA retains `web_browse` and its separately managed
 Playwright runtime, even when an NND package is installed. Package registration
 does not change the active surface or select a browser backend.
 
+## Managed memory
+
+When NND enables agent memory for a managed child launch, it supplies an exact
+loopback memory callback and bearer token. NNA registers `openchamber_memory`
+only for root NND-owned sessions, consumes and removes the launch variables, and
+never propagates the credential to standalone TUI/headless surfaces or delegated
+engines. A callback request carries the current workspace, the selected action,
+and bounded parameters. The desktop server continues to own memory identity,
+authorization, storage, and updates; NNA only presents its bounded action result
+to the model.
+
 `nna nnd package activate ROOT` records an installed NND GUI package in
 `config/nnd-package.json` after verifying its `nna-integration/nnd-local/integration.json`
 identity, protocol `1.0`, version agreement with `package.json`, and built web and

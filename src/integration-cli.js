@@ -19,6 +19,7 @@ import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { consumeNndBrowserCallbackFromEnvironment } from './nnd-browser-tool.js';
+import { consumeNndAgentToolCallbackFromEnvironment } from './nnd-memory-tool.js';
 import { assertRegisteredNndPackage, runNndPackageCommand } from './nnd-package.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
@@ -63,6 +64,7 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     // operator uses the unscoped NNA realm and may share the TUI binding.
     secretBroker: owner === 'nnd' ? broker : undefined,
     nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
+    nndAgentToolCallback: owner === 'nnd' ? consumeNndAgentToolCallbackFromEnvironment(environment) : null,
   });
   let service;
   try {
@@ -121,6 +123,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
       secretBroker: options.secretBroker,
       mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
+      nndAgentToolCallback: options.nndAgentToolCallback,
       hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
       skillRoots,
       emitContextStatus: true,

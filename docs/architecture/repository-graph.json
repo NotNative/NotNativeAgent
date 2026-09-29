@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:93e0668606147a4f724c8c8b535048bae59968ff581e585adf6503cb4f629433",
+  "source_digest": "sha256:2d994fa0b5213c4b979339700337314081fa3d1113b79e5946ac07fc11523fa5",
   "counts": {
-    "modules": 385,
+    "modules": 386,
     "component_edges": 79
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 47
+      "module_count": 48
     },
     {
       "id": "guidance",
@@ -132,8 +132,8 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 59,
-      "module_count": 38
+      "import_count": 61,
+      "module_count": 39
     },
     {
       "from": "tools",
@@ -466,6 +466,12 @@
       "module_count": 2
     },
     {
+      "from": "integrations",
+      "to": "tools",
+      "import_count": 2,
+      "module_count": 1
+    },
+    {
       "from": "persistence",
       "to": "reliability-engine",
       "import_count": 2,
@@ -552,12 +558,6 @@
     {
       "from": "integrations",
       "to": "persistence",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "integrations",
-      "to": "tools",
       "import_count": 1,
       "module_count": 1
     },
@@ -1776,6 +1776,7 @@
         "src/nnd-browser-tool.js",
         "src/nnd-engine-host.js",
         "src/nnd-mcp-inventory.js",
+        "src/nnd-memory-tool.js",
         "src/nnd-package.js",
         "src/nnd-skills-inventory.js",
         "src/nno-integration-activation.js",
@@ -2005,6 +2006,15 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/nnd-memory-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/memory.js"
+      ]
     },
     {
       "path": "src/nnd-operator-routes.js",

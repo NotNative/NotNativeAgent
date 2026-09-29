@@ -142,7 +142,7 @@ function boundedQuery(text) {
   return redactSecrets(String(text)).slice(0, MAX_MEMORY_QUERY_CHARS);
 }
 
-function containsSecret(text) {
+export function containsSecret(text) {
   return /(?:bearer\s+[A-Za-z0-9._-]{16,}|basic\s+[A-Za-z0-9+/=]{16,}|api[_-]?key\s*[=:]\s*\S+|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN [A-Z ]+PRIVATE KEY-----)/iu.test(text);
 }
 
