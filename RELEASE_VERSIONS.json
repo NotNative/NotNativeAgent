@@ -452,6 +452,10 @@
     {
       "version": "20260929-1",
       "content_sha256": "aa815f911975f28bde33c41c521c8e383b9e4fbd55be44df0a71dbc6edc96c68"
+    },
+    {
+      "version": "20260929-2",
+      "content_sha256": "8557f1cc7d568c426c25a86da0655fe082d426fdbb98c3e022b4a127982620c9"
     }
   ]
 }

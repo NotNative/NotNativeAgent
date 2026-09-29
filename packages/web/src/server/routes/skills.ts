@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Context, Hono } from 'hono';
+import { deleteSkillSupportingFile, readBoundedSkillBody, readSkillSupportingFile, writeSkillSupportingFile } from './skill-support.ts';
 import { linkSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { directAbsolute, externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
 
@@ -13,6 +14,8 @@ const MAX_SKILL_BODY_BYTES = 2 * 1024 * 1024;
 function skillNameValid(value: string): boolean {
   return SKILL_NAME.test(value) && value.length > 0 && value.length < 65;
 }
+
+type DiscoveredSkill = ReturnType<typeof scanLocalSkills>[number];
 
 function absoluteLike(value: string): boolean {
   return /^([A-Za-z]:)?[\\/]/u.test(value);
@@ -29,25 +32,6 @@ interface ValidatedSkillCreate {
 
 interface ValidatedSkillPatch {
   description: string; instructions: string;
-}
-
-async function readBoundedSkillBody(raw: Request): Promise<string | null> {
-  const reader = raw.body?.getReader();
-  if (reader === undefined) return null;
-  const chunks: Uint8Array[] = [];
-  let byteLength = 0;
-  let next = await reader.read();
-  while (!next.done) {
-    const chunk = next.value ?? new Uint8Array(0);
-    chunks.push(chunk);
-    byteLength += chunk.byteLength;
-    if (byteLength > MAX_SKILL_BODY_BYTES) {
-      await reader.cancel().catch(() => undefined);
-      return null;
-    }
-    next = await reader.read();
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))));
 }
 
 function parseBoundedSkillBody(encodedBody: string): SkillCreateShape | null {
@@ -258,6 +242,13 @@ async function deleteSkillInScope(context: Context, name: string,
   }
 }
 
+function resolveManagedSkill(name: string, requestedDirectory: string): DiscoveredSkill | undefined {
+  const scope = requestedDirectory === '' ? 'user' : 'project';
+  const searchDirectory = requestedDirectory === '' ? homedir() : requestedDirectory;
+  return scanLocalSkills(searchDirectory)
+    .find((entry) => entry.name === name && entry.scope === scope);
+}
+
 async function createManagedSkill(context: Context, name: string, body: SkillCreateShape,
   requestedDirectory: string): Promise<Response> {
   const validated = validateSkillCreate(body);
@@ -279,7 +270,7 @@ async function createManagedSkill(context: Context, name: string, body: SkillCre
   }, 201);
 }
 
-export function registerSkillRoutes(app: Hono): void {
+function registerSkillListRoutes(app: Hono): void {
   app.get('/api/config/skills', (c) => {
     try {
       const externalSkills = externalSkillFlags();
@@ -289,6 +280,17 @@ export function registerSkillRoutes(app: Hono): void {
       });
     } catch { return c.json({ error: 'project checkout directory is required' }, 400); }
   });
+  app.get('/api/config/skills/:name', (c) => {
+    try {
+      const skill = scanLocalSkills(c.req.query('directory') ?? '')
+        .find((entry) => entry.name === c.req.param('name'));
+      if (!skill) return c.json({ error: 'skill not found' }, 404);
+      return c.json(skill);
+    } catch { return c.json({ error: 'project checkout directory is required' }, 400); }
+  });
+}
+
+function registerManagedSkillRoutes(app: Hono): void {
   app.post('/api/config/skills/:name', async (c) => {
     const name = c.req.param('name');
     if (!skillNameValid(name)) {
@@ -325,12 +327,38 @@ export function registerSkillRoutes(app: Hono): void {
     }
     return deleteSkillInScope(c, name, requestedDirectory);
   });
-  app.get('/api/config/skills/:name', (c) => {
-    try {
-      const skill = scanLocalSkills(c.req.query('directory') ?? '')
-        .find((entry) => entry.name === c.req.param('name'));
-      if (!skill) return c.json({ error: 'skill not found' }, 404);
-      return c.json(skill);
-    } catch { return c.json({ error: 'project checkout directory is required' }, 400); }
+}
+
+function registerSkillSupportRoutes(app: Hono): void {
+  app.get('/api/config/skills/:name/files/*', (c) => {
+    const requestedDirectory = c.req.query('directory') ?? '';
+    if (requestedDirectory !== '' && !absoluteLike(requestedDirectory)) {
+      return c.json({ error: 'project checkout directory is required' }, 400);
+    }
+    return readSkillSupportingFile(c, c.req.param('name') ?? '', requestedDirectory);
   });
+
+  app.put('/api/config/skills/:name/files/*', async (c) => {
+    const requestedDirectory = c.req.query('directory') ?? '';
+    if (requestedDirectory !== '' && !absoluteLike(requestedDirectory)) {
+      return c.json({ error: 'project checkout directory is required' }, 400);
+    }
+    const content = await readBoundedSkillBody(c.req.raw);
+    if (content === null) return c.json({ error: 'invalid supporting file body' }, 400);
+    return writeSkillSupportingFile(c, c.req.param('name') ?? '', content, requestedDirectory);
+  });
+
+  app.delete('/api/config/skills/:name/files/*', (c) => {
+    const requestedDirectory = c.req.query('directory') ?? '';
+    if (requestedDirectory !== '' && !absoluteLike(requestedDirectory)) {
+      return c.json({ error: 'project checkout directory is required' }, 400);
+    }
+    return deleteSkillSupportingFile(c, c.req.param('name') ?? '', requestedDirectory);
+  });
+}
+
+export function registerSkillRoutes(app: Hono): void {
+  registerSkillListRoutes(app);
+  registerManagedSkillRoutes(app);
+  registerSkillSupportRoutes(app);
 }

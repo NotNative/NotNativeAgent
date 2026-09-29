@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { Hono } from 'hono';
@@ -249,6 +249,46 @@ describe('P10 skill discovery', () => {
     }
   });
 
+  it('rejects supporting files through symlinks before mutating storage', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-file-symlink-'));
+    const skill = join(project, '.opencode', 'skills', 'linked-flow');
+    const directory = encodeURIComponent(project);
+    const previousAllDisabled = process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS;
+    const previousClaudeSkills = process.env.OPENCODE_DISABLE_CLAUDE_SKILLS;
+    const previousClaudeCode = process.env.OPENCODE_DISABLE_CLAUDE_CODE;
+    process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS = '1';
+    mkdirSync(join(skill, '..'), { recursive: true });
+    mkdirSync(join(project, 'source'), { recursive: true });
+    mkdirSync(join(skill, 'asset', 'linked'), { recursive: true });
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: linked-flow\ndescription: Linked\n---');
+    rmSync(join(skill, 'asset', 'linked'), { recursive: true, force: true });
+    symlinkSync(join(project, 'source'), join(skill, 'asset', 'linked'), 'junction');
+    try {
+      const response = await app().request(
+        `/api/config/skills/linked-flow/files/asset/linked/inside.txt?directory=${directory}`, {
+          method: 'PUT', body: 'outside',
+        });
+      expect(response.status).toBe(400);
+      expect(existsSync(join(project, 'source', 'inside.txt'))).toBe(false);
+      expect(existsSync(join(project, 'inside.txt'))).toBe(false);
+      const nestedResponse = await app().request(
+        `/api/config/skills/linked-flow/files/asset/linked/nested/inside.txt?directory=${directory}`, {
+          method: 'PUT', body: 'outside',
+        });
+      expect(nestedResponse.status).toBe(400);
+      expect(existsSync(join(project, 'source', 'nested'))).toBe(false);
+    } finally {
+      unlinkSync(join(skill, 'asset', 'linked'));
+      if (previousAllDisabled === undefined) delete process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS;
+      else process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS = previousAllDisabled;
+      if (previousClaudeSkills === undefined) delete process.env.OPENCODE_DISABLE_CLAUDE_SKILLS;
+      else process.env.OPENCODE_DISABLE_CLAUDE_SKILLS = previousClaudeSkills;
+      if (previousClaudeCode === undefined) delete process.env.OPENCODE_DISABLE_CLAUDE_CODE;
+      else process.env.OPENCODE_DISABLE_CLAUDE_CODE = previousClaudeCode;
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
   it('rejects create payloads with unsupported supporting files', async () => {
     const response = await app().request('/api/config/skills/unsupported-files?directory=/', {
       method: 'POST',
@@ -258,6 +298,57 @@ describe('P10 skill discovery', () => {
     });
     expect(response.status).toBe(400);
     expect(existsSync(join('/', '.opencode', 'skills', 'unsupported-files', 'SKILL.md'))).toBe(false);
+  });
+
+  it('reads, writes, and deletes managed supporting files', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-files-'));
+    const skill = join(project, '.opencode', 'skills', 'supported-flow');
+    const path = `/api/config/skills/supported-flow/files/support.txt?directory=${encodeURIComponent(project)}`;
+    await app().request('/api/config/skills/supported-flow?directory=' + encodeURIComponent(project), {
+      method: 'POST', body: JSON.stringify({ description: 'Supported', instructions: 'Supported.' }),
+    });
+    const created = await app().request(path, {
+      method: 'PUT', body: 'supporting content',
+    });
+    expect(created.status).toBe(201);
+    expect(readFileSync(join(skill, 'support.txt'), 'utf8')).toBe('supporting content');
+    const read = await app().request(path);
+    expect(read.status).toBe(200);
+    expect(await read.json()).toEqual({ path: 'support.txt', content: 'supporting content' });
+    const deleted = await app().request(path, { method: 'DELETE' });
+    expect(deleted.status).toBe(201);
+    expect(existsSync(join(skill, 'support.txt'))).toBe(false);
+    rmSync(skill, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('allows nested supporting paths and rejects protected or escaping paths', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-file-guards-'));
+    const skill = join(project, '.opencode', 'skills', 'guarded-flow');
+    const directory = encodeURIComponent(project);
+    await app().request(`/api/config/skills/guarded-flow?directory=${directory}`, {
+      method: 'POST', body: JSON.stringify({ description: 'Guarded', instructions: 'Guarded.' }),
+    });
+    const nestedResponse = await app().request(
+      `/api/config/skills/guarded-flow/files/nested%2Fcheck.txt?directory=${directory}`, {
+        method: 'PUT', body: 'nested content',
+      });
+    expect(nestedResponse.status).toBe(201);
+    expect(readFileSync(join(skill, 'nested', 'check.txt'), 'utf8')).toBe('nested content');
+    for (const filePath of [
+      'SKILL.md',
+      'nested/SKILL.md',
+      'C:%5Coutside.txt',
+    ]) {
+      const response = await app().request(
+        `/api/config/skills/guarded-flow/files/${filePath}?directory=${directory}`, {
+          method: 'PUT', body: 'forbidden',
+        });
+      expect(response.status).toBe(400);
+    }
+    expect(existsSync(join(skill, 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(skill, 'nested', 'check.txt'))).toBe(true);
+    rmSync(project, { recursive: true, force: true });
   });
 
   it('rejects create requests beyond the bounded wire body', async () => {

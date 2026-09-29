@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-28 managed skill supporting files.** Managed skill
+  directories now expose bounded read/write/delete support for `files/*`,
+  including nested paths. Guards reject traversal, absolute paths,
+  SKILL.md contents, and every link segment; writes stabilize the eventual
+  parent against the canonical skill root before mutation. The audit added
+  lstat checks and a nested-junction regression for read/write/delete
+  boundaries. Twenty-eight focused tests and web typechecks passed.
+
 - 2026-09-29 · **P10-27 managed skill delete.** DELETE now resolves exact
   user/project scope, allows only managed OpenCode roots, and removes the
   whole skill directory with restart deferral. A second delete is 404.

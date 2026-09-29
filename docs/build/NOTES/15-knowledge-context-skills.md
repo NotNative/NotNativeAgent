@@ -416,6 +416,26 @@ frontmatter overwrite, mixed-body confusion, and checkout validation. Update
 and rename responses return the same restart deferral. Delete and
 supporting-file routes remain pending.
 
+## P10-28: managed skill supporting files (2026-09-29)
+
+`GET`, `PUT`, and `DELETE /api/config/skills/:name/files/*filePath` now edit
+supporting files inside managed OpenCode skills after exact name-and-scope
+resolution. Request and response bodies stay within the existing 2 MiB
+wire cap. Paths reject empty, dot, traversal, absolute, Windows drive,
+misencoded values, and every `SKILL.md` target. Every segment from the
+canonical managed root through the resolved target is checked with `lstat`,
+so a nested junction cannot spill reads, writes, or deletes outside the
+skill directory. This closes an adversarial review case where a link in a
+deeper asset path escaped for a nested write.
+
+Writes create missing directories only after canonicalizing and validating
+the eventual parent, publish through an exclusive temporary plus hard link,
+and clean failed temporaries. Successful mutations return the same
+deferred-restart payload. Storage failures map EACCES/EPERM to 403,
+ENOENT/ENOTDIR to 404, oversized reads to 413, and other failures to 500.
+Three focused HTTP cases, including a nested-junction boundary regression,
+plus web typechecks passed.
+
 ## P10-27: managed skill delete (2026-09-29)
 
 DELETE now removes only a managed OpenCode skill after exact name-and-scope
