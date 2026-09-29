@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Read-only harness-equivalent scan for local SKILL.md folders. */
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export interface DiscoveredSkill {
   name: string; path: string; scope: 'user' | 'project';
@@ -12,6 +12,7 @@ export interface DiscoveredSkill {
 }
 
 const SCAN_LIMIT = 200;
+const MAX_CONFIG_FILE_BYTES = 1_048_576;
 
 function disableFlag(value: string | undefined): boolean {
   if (value === '' || value === undefined || value === null) return false;
@@ -102,6 +103,42 @@ function insideWorktree(root: string, directory: string): boolean {
     && !isAbsolute(relative(root, directory));
 }
 
+function directAbsolute(candidate: string | undefined): string | null {
+  if (!candidate || candidate.trim() === '' || !isAbsolute(candidate)) return null;
+  return resolve(candidate) === candidate ? candidate : null;
+}
+
+function readConfigSkillPaths(path: string): string[] {
+  let parsed;
+  try {
+    const metadata = statSync(path, { throwIfNoEntry: false });
+    if (!metadata?.isFile() || metadata.size > MAX_CONFIG_FILE_BYTES) return [];
+    const descriptor = openSync(path, 'r');
+    try {
+      const file = fstatSync(descriptor);
+      if (!file.isFile() || file.size > MAX_CONFIG_FILE_BYTES) return [];
+      const bytes = Buffer.allocUnsafe(file.size);
+      let offset = 0;
+      while (offset < bytes.length) {
+        const count = readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+        if (count === 0) break;
+        offset += count;
+      }
+      if (offset !== bytes.length) throw new Error('config changed while reading');
+      parsed = JSON.parse(bytes.toString('utf8')) as unknown;
+    } finally { closeSync(descriptor); }
+  }
+  catch { return []; }
+  const raw = (parsed as { skills?: { paths?: unknown } } | undefined)?.skills?.paths;
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry): string[] => {
+    if (typeof entry !== 'string' || entry.trim() === '') return [];
+    const expanded = entry.startsWith('~/') || entry.startsWith('~\\')
+      ? join(homedir(), entry.slice(2)) : entry;
+    return directAbsolute(expanded) === null ? [] : [expanded];
+  });
+}
+
 function projectSkillRoots(directory: string): string[] {
   let requested;
   try { requested = realpathSync(directory); } catch { return []; }
@@ -126,29 +163,44 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
   }
   const output: DiscoveredSkill[] = [];
   const flags = externalSkillFlags();
-  const openCodeConfigRoots = [process.env.OPENCODE_CONFIG_DIR, join(homedir(), '.opencode')]
-    .filter((candidate): candidate is string => typeof candidate === 'string' && isAbsolute(candidate));
+  const xdgConfigHomeRoot = directAbsolute(process.env.XDG_CONFIG_HOME);
+  const openCodeConfigRoots = [
+    directAbsolute(process.env.OPENCODE_CONFIG_DIR),
+    directAbsolute(join(homedir(), '.opencode')),
+    directAbsolute(join(homedir(), '.config', 'opencode')),
+    directAbsolute(xdgConfigHomeRoot ? join(xdgConfigHomeRoot, 'opencode') : undefined),
+  ].filter((root): root is string => root !== null);
+  const uniqueOpenCodeConfigRoots = [...new Set(openCodeConfigRoots)];
+  const projectRoots = projectSkillRoots(directory);
+  const configSkillRoots = [
+    process.env.OPENCODE_CONFIG,
+    ...uniqueOpenCodeConfigRoots.map((root) => join(root, 'opencode.json')),
+    ...projectRoots.map((root) => join(root, '.opencode', 'opencode.json')),
+  ].flatMap((path): string[] => typeof path === 'string' ? readConfigSkillPaths(path) : []);
   if (visible('claude', flags)) {
     scanDirectory(join(homedir(), '.claude', 'skills'), 'user', 'claude', output);
   }
   if (visible('agents', flags)) {
     scanDirectory(join(homedir(), '.agents', 'skills'), 'user', 'agents', output);
   }
-  for (const root of openCodeConfigRoots) {
+  for (const root of uniqueOpenCodeConfigRoots) {
     scanDirectory(join(root, 'skill'), 'user', 'opencode', output);
     scanDirectory(join(root, 'skills'), 'user', 'opencode', output);
   }
   const cacheHome = process.env.XDG_CACHE_HOME;
+  const cacheHomeRoot = directAbsolute(cacheHome);
   const cacheRoots = [
-    cacheHome !== undefined && isAbsolute(cacheHome)
-      ? join(cacheHome, 'opencode', 'skills') : null,
+    cacheHomeRoot ? join(cacheHomeRoot, 'opencode', 'skills') : null,
     join(homedir(), '.cache', 'opencode', 'skills'),
     join(homedir(), 'Library', 'Caches', 'opencode', 'skills'),
   ].filter((root): root is string => root !== null && isAbsolute(root));
   for (const root of new Set(cacheRoots)) {
     scanDirectory(root, 'user', 'opencode', output);
   }
-  for (const root of projectSkillRoots(directory)) {
+  for (const root of new Set(configSkillRoots)) {
+    scanDirectory(root, 'project', 'opencode', output);
+  }
+  for (const root of projectRoots) {
     if (visible('claude', flags)) {
       scanDirectory(join(root, '.claude', 'skills'), 'project', 'claude', output);
     }

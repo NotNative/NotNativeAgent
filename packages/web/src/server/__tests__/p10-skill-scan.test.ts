@@ -118,6 +118,80 @@ describe('P10 skill discovery', () => {
     }
   });
 
+  it('adds configured skills.paths outside the project and ignores unsafe values', () => {
+    const extra = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-config-path-'));
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-config-proj-'));
+    const skill = join(extra, 'extra-flow');
+    mkdirSync(skill, { recursive: true });
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: extra-flow\ndescription: extra flow checked\n---');
+    mkdirSync(join(project, '.opencode'), { recursive: true });
+    writeFileSync(join(project, '.opencode', 'opencode.json'), JSON.stringify({
+      skills: { paths: [extra, 'relative-skill', 'C:'] },
+    }));
+    try {
+      const found = scanLocalSkills(project).find((entry) => entry.name === 'extra-flow');
+      expect(found).toMatchObject({
+        scope: 'project', source: 'opencode', description: 'extra flow checked',
+      });
+      expect(found?.path.startsWith(extra)).toBe(true);
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('deduplicates exact config roots before the item cap', () => {
+    const home = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-home-'));
+    const configRoot = join(home, 'shared', 'opencode');
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-dedupe-proj-'));
+    const duplicatedSkillRoot = join(configRoot, 'skill');
+    mkdirSync(project, { recursive: true });
+    mkdirSync(duplicatedSkillRoot, { recursive: true });
+    Array.from({ length: 198 }, (_, index) => {
+      const skill = join(duplicatedSkillRoot, `duplicate-${index}`);
+      mkdirSync(skill, { recursive: true });
+      writeFileSync(join(skill, 'SKILL.md'), `---\nname: duplicate-${index}\ndescription: duplicate\n---`);
+    });
+    const projectSkill = join(project, '.opencode', 'skills', 'project-final');
+    mkdirSync(projectSkill, { recursive: true });
+    writeFileSync(join(projectSkill, 'SKILL.md'), '---\nname: project-final\ndescription: final checked\n---');
+    const previousHome = process.env.HOME;
+    const previousUserHome = process.env.USERPROFILE;
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    process.env.OPENCODE_CONFIG_DIR = configRoot;
+    process.env.XDG_CONFIG_HOME = join(home, 'shared');
+    try {
+      expect(scanLocalSkills(project).some((entry) => entry.name === 'project-final')).toBe(true);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousUserHome === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = previousUserHome;
+      delete process.env.OPENCODE_CONFIG_DIR;
+      delete process.env.XDG_CONFIG_HOME;
+      rmSync(home, { recursive: true, force: true });
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores an oversized project skill config', () => {
+    const extra = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-large-config-extra-'));
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-large-config-proj-'));
+    const skill = join(extra, 'oversize-flow');
+    mkdirSync(skill, { recursive: true });
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: oversize-flow\ndescription: oversize\n---');
+    mkdirSync(join(project, '.opencode'), { recursive: true });
+    writeFileSync(join(project, '.opencode', 'opencode.json'),
+      `${JSON.stringify({ skills: { paths: [extra] } })}${' '.repeat(1_048_577)}`);
+    try {
+      expect(scanLocalSkills(project).some((entry) => entry.name === 'oversize-flow')).toBe(false);
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
   it('requires a checkout scope and reports project skills with external flags', async () => {
     const missing = await app().request('/api/config/skills');
     expect(missing.status).toBe(400);

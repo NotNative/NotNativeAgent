@@ -252,8 +252,8 @@ Discovery stays deliberately read-only: `renamable` is false because managed
 root CRUD authority is not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
-results. Configured extra paths, harness SDK built-ins, skill CRUD,
-supporting-file payloads, UI wiring, and restart handling remain.
+results. Harness SDK built-ins, skill CRUD, supporting-file payloads, UI
+wiring, and restart handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
 
@@ -362,6 +362,23 @@ source remains visible even when external Claude/agents skills are disabled.
 The 200-item bound, ancestor containment, and read-only behavior are
 unchanged. Configured extra paths, local cache roots, harness SDK built-ins,
 and managed skill CRUD remain outside this bounded step.
+
+## P10-24: configured OpenCode skills.paths (2026-09-28)
+
+The scanner now reads `skills.paths` through bounded OpenCode JSON config
+layers: `OPENCODE_CONFIG`, per-user config roots, and
+`.opencode/opencode.json` at each canonical worktree ancestor. It accepts an
+array of strings, expands `~/`, and scans accepted paths before project
+`.claude`, `.agents`, and `.opencode` roots with `project` scope. Missing,
+malformed, oversized, non-command `paths`, and drive-relative or relative
+path values are ignored.
+
+Adversarial audit added a 1 MiB regular-file read cap, deduplicated config
+roots and matching paths, reused a Git worktree resolution, and validated
+`XDG_CONFIG_HOME` before joining. This avoids drive-relative values such as
+`C:` becoming an unintended root or consuming otherwise available scan
+budget. The 200-item bound and read-only behavior remain unchanged. SDK
+built-ins remain pending.
 
 ## P10-23: OpenCode cache discovery (2026-09-28)
 
