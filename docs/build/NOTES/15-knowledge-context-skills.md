@@ -290,7 +290,15 @@ containment by a truthiness seam.
 The Context rail adds a Memory tab over both scopes. The server owns reads,
 edits, deletion, and missing-entry responses; the panel separates project and
 global lists, flags unavailable scopes, keeps a failed draft, refreshes with a
-state revision, and has no agent-owned create route. If a server sends
-`Session-Memory-Content`, the client transparently reads the old `flagged`
-field so already-deployed runtime members can stream without a coordinated
-restart.
+state revision, and has no agent-owned create route. Server edits now announce
+`notnative:agent-memory-changed`; the panel maps global and same-project
+notifications to its revision refresh.
+
+A private `/api/agent-tool/callback` now dispatches the four memory actions.
+It accepts flattened or explicit `parameters`, maps legacy action aliases,
+rejects on missing callback credentials, and resolves the context directory
+through the canonical ownership mapper. Results use the planned tool shape:
+summaries never repeat bodies, only `memory.read` returns a body, and
+`sessionMemoryContent` projects safe title index lines for both scopes while
+omitting a failed scope. The NNA plugin launch and session-knowledge route
+remain separate integration steps.

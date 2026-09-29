@@ -265,6 +265,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   user edit/forget, including failed-scope and injection warning states;
   agent-created memory still waits on the managed tool.
 
+- 2026-09-28 · **Memory callback and change stream.** A token-protected
+  private callback dispatches four memory actions through the canonical
+  owner mapper; title-only session projection and
+  `notnative:agent-memory-changed` are available. NNA plugin launch and
+  session-knowledge delivery remain.
+
 - 2026-09-28 · **Guarded Files saves.** The editor now sends its original file
   content as a write precondition. The server compares it immediately before
   replacement and returns a typed conflict if another writer changed, removed,

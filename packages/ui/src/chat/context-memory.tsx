@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Scoped display/edit surface for agent-owned memory; creates belong to the tool. */
-import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useCallback, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { deleteAgentMemory, listAgentMemory, updateAgentMemory, AgentMemoryDisabledError, AgentMemoryRequestError,
   usableMemory as usableMemoryEntry, type AgentMemoryEntry, type AgentMemoryOverview, type AgentMemoryScope,
   type AgentMemoryType } from '../lib/agent-memory-api.ts';
+import { useAgentMemoryChange } from './use-agent-memory-events.ts';
 
 export interface ContextMemoryDraft {
   scope: AgentMemoryScope; memoryId: string; title: string; body: string; type: AgentMemoryType;
@@ -21,9 +22,13 @@ export function ContextMemory({ projectId, visible, query = '', retainedDraft, o
   const [draft, setDraft] = useState<ContextMemoryDraft>(
     () => retainedDraft ?? { scope: 'project', memoryId: '', title: '', body: '', type: 'fact' });
   const [revision, setRevision] = useState(0);
-
+  const onMemoryChange = useCallback((change: { scope: 'global' | 'project'; projectId?: string }) => {
+    if (change.scope === 'global' || change.projectId === projectId) refresh();
+  }, [projectId, refresh]);
+  const eventRevision = useAgentMemoryChange(projectId, visible, onMemoryChange);
   useEffect(() => { onDraftChange?.(projectId, draft); }, [draft, onDraftChange, projectId]);
   function refresh(): void { setRevision((current) => current + 1); }
+  useEffect(() => { if (eventRevision > 0) refresh(); }, [eventRevision, refresh]);
   useEffect(() => {
     if (!visible) return;
     let active = true;
