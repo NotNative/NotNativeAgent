@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:00730b961108cdc2d2e07bbe774b088a89968f11c854764e6bd27d8f3231d06e",
+  "source_digest": "sha256:4bca2e09167578176b753fea503883d5c92e28325e7f8467157f2756665d0ea8",
   "counts": {
-    "modules": 533,
+    "modules": 534,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 147
+      "module_count": 148
     },
     {
       "id": "ui-shell",
@@ -2588,6 +2588,14 @@
       "imports": [
         "packages/ui/src/lib/shortcuts/bindings.ts",
         "packages/ui/src/lib/shortcuts/config.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/skills-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {

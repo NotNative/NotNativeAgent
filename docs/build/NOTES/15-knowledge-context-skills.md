@@ -487,6 +487,25 @@ rejected as unsupported. The scan is one-shot; no persisted result cache,
 refresh key, concurrency cap, install path, conflict logic, or clone-based
 source route is implemented yet.
 
+## P10-36: skills catalog client transport (2026-09-29)
+
+The UI now has a typed NND-origin transport for the delivered skill and
+catalog APIs. Calls use the shared `runtimeFetch` path, preserve structured
+server errors as `SkillApiError`, and expose auth identities plus conflict
+payloads for the future dialog/store clients. Endpoints cover installed-skill
+listing, merged catalog sources, configured-source scans with per-checkout
+enrichment, ad-hoc scans, and installation.
+
+URL construction encodes source IDs and checkout directories once, emits
+`refresh=true` only on explicit request, and rejects source IDs containing
+path, query, fragment, or control separators. Project installation requires a
+nonempty directory before transport config-family coalescing. Scan and install
+bodies contain only the documented fields and are serialized as JSON.
+
+Focused transport tests pin the four endpoint forms, structured 401/409 error
+payloads, project-directory guards, source-ID guards, and POST bodies. No store
+or page UI is wired yet; this is the bounded client seam for that next slice.
+
 ## P10-35: selected skill catalog installer (2026-09-29)
 
 `POST /api/config/skills/install` now installs one bounded sparse checkout per
