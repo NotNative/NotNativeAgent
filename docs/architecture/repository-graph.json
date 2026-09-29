@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4bca2e09167578176b753fea503883d5c92e28325e7f8467157f2756665d0ea8",
+  "source_digest": "sha256:95871dfc9208284b44a2cece4c109cb1183d268cb005fd60ecc9e6bd4002c668",
   "counts": {
-    "modules": 534,
+    "modules": 535,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 141
+      "module_count": 142
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 193,
-      "module_count": 80
+      "import_count": 194,
+      "module_count": 81
     },
     {
       "from": "ui-shell",
@@ -2976,6 +2976,14 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/stores/useSkillsCatalogStore.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/skills-api.ts"
       ]
     },
     {

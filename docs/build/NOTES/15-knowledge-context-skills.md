@@ -506,6 +506,32 @@ Focused transport tests pin the four endpoint forms, structured 401/409 error
 payloads, project-directory guards, source-ID guards, and POST bodies. No store
 or page UI is wired yet; this is the bounded client seam for that next slice.
 
+## P10-37: skills catalog store (2026-09-29)
+
+The skills catalog store now owns the E.5 client boundary for configured
+sources. It remains active for a whole runtime instance and must not be
+recreated or reset casually. `loadCatalog` fetches only merged source metadata
+and forbids persisted source rows from claiming installed state;
+`loadSource` fills a per-source three-hour cache, keyed by the current
+runtime-less store instance and explicit directory so one workspace's
+installed payload cannot be reused by another.
+
+Source scans never erase prior data or turn failures into empty items. Instead,
+the store records the last scan error while retaining the previous source list
+and eligible material. Install actions check source availability and project
+directory readiness before transport, preserve structured conflict and auth
+representations, and keep the latest outcome for the source/scope/workspace
+boundary. Runtime switching clears caches, loaders, outcomes, and stale catalog
+errors; an atomic generation token prevents an earlier instance's response from
+writing into the replacement store after reset.
+
+The store deliberately does not abort an already-transmitted installation when
+runtime switches. The HTTP request and server transaction run to completion;
+plumbing an API-level `AbortSignal` remains future work. Focused tests cover
+the catalog contract, TTL and refresh bypass, failure retention, project
+readiness, install payloads, conflict/auth preservation, reset, late-response
+isolation, and the timing race.
+
 ## P10-35: selected skill catalog installer (2026-09-29)
 
 `POST /api/config/skills/install` now installs one bounded sparse checkout per
