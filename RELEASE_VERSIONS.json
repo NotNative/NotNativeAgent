@@ -484,6 +484,14 @@
     {
       "version": "20260929-9",
       "content_sha256": "8107b2089c8b6aefedaaadaf5ed9b5edea8a78196d4f9f1e82366b905bbbebfb"
+    },
+    {
+      "version": "20260929-10",
+      "content_sha256": "f89479017d8be3ddba892533d6d47396085b1fd4ecd324b59c765d655fecf57d"
+    },
+    {
+      "version": "20260929-11",
+      "content_sha256": "88c53cae071862e98d434342d44f78105ee155b1bee7a057a1450bc89955250b"
     }
   ]
 }

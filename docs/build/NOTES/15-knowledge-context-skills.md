@@ -487,6 +487,54 @@ rejected as unsupported. The scan is one-shot; no persisted result cache,
 refresh key, concurrency cap, install path, conflict logic, or clone-based
 source route is implemented yet.
 
+## P10-35: selected skill catalog installer (2026-09-29)
+
+`POST /api/config/skills/install` now installs one bounded sparse checkout per
+request. The route accepts HTTPS, owner/repository, or absolute `file:` sources,
+a Git-request subpath, user/project scope, and `opencode`/`agents` targets.
+Body validation enforces 1-200 unique names, the documented field set, conflict
+policies, and per-name conflict decisions. A project request must resolve to a
+canonical checkout directory; Git identities remain intentionally unavailable
+and return 400.
+
+Conflict state is checked before cloning: selection names are checked in the
+requested managed target and against other skill roots discovered in the same
+scope. The route supports prompt, skip-all, overwrite-all, and per-skill
+overrides for irrelevant and relevant conflicts; only true target conflicts are
+skipped or overwritten. If no selections remain, the response succeeds with an
+empty `installed` list. A conflict that changes after the preflight is rejected
+rather than silently replaced.
+
+Installation clones once into a unique temporary root with depth one, a
+blob-filter first attempt with an unfiltered fallback, `GIT_TERMINAL_PROMPT=0`,
+bounded buffers, and timeout controls. `git ls-tree` supplies the candidate
+paths. Parsing is conservative: only `/`-separated repository paths whose
+segments are nonempty and neither `.` nor `..` are accepted. Subpaths are
+repo-relative prefixes and never interpreted as absolute paths. Every selected
+name must find a matching `SKILL.md`; a sparse cone checkout captures its
+skill directory, with a full checkout fallback.
+
+Before copying, each selected directory and `SKILL.md` is re-canonicalized
+inside the real repository root. Symlinks are rejected, individual files are
+capped at 512 KiB, each skill is capped at 8 MiB, and frontmatter `name` must
+match the selected name. Project targets are rebuilt through canonical real-path
+components and must remain inside the checkout. Targets and their file tree are
+bounds- and type-checked without following symlinks. Existing non-symlink
+targets are deleted only after their original overwrite decision is reconfirmed.
+Temporary roots are removed even on failure.
+
+Batch installation is deliberately fail-fast: if a later skill becomes
+invalid, earlier skills in the same request may remain installed, and no
+cross-skill rollback is attempted. Names are resolved within the single
+requested clone, so one request cannot choose among multiple candidate
+repositories or install two same-name skills. A target directory was not
+discoverable during preflight when it lacked a regular `SKILL.md`, but is still
+refused as a changed conflict during install. The first clone with a blob filter
+still permits the resource-unbounded unfiltered fallback required for local
+compatibility, and Git path-list parsing stays confined and conservative.
+Focused regressions now cover reachable cross-target conflicts, oversized
+sources, and control-character subpaths.
+
 ## P10-34: configured source scan cache (2026-09-29)
 
 Configured catalog scans now use a persisted 3-hour success cache. The cache

@@ -336,6 +336,148 @@ describe('P10 skill discovery', () => {
     expect(refreshedPayload.items.some((item) => item.skillName === 'changed-good')).toBe(true);
   });
 
+  it('installs selected catalog skills and resolves conflicts by policy', async () => {
+    const repository = catalogRepository();
+    const checkout = mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-install-'));
+    const clean = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    const cleanPayload = await clean.json() as {
+      ok: boolean; installed: Array<{ skillName: string; scope: string; source: string }>;
+      requiresReload: boolean;
+    };
+    expect(clean.status).toBe(200);
+    expect(cleanPayload).toMatchObject({
+      ok: true, installed: [{ skillName: 'source-good', scope: 'project', source: 'opencode' }],
+      requiresReload: true,
+    });
+    expect(readFileSync(join(checkout, '.opencode', 'skills', 'source-good', 'SKILL.md'), 'utf8'))
+      .toContain('description: Repository source skill');
+
+    const conflict = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    const conflictPayload = await conflict.json() as {
+      error: { kind: string; conflicts: Array<{ skillName: string; path: string }> };
+    };
+    expect(conflict.status).toBe(409);
+    expect(conflictPayload.error.kind).toBe('conflicts');
+    expect(conflictPayload.error.conflicts[0]?.path).toContain(join(checkout, '.opencode', 'skills'));
+
+    const overwritten = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+        conflictPolicy: 'overwriteAll',
+      }),
+    });
+    expect(overwritten.status).toBe(200);
+    const skippedOnly = await app().request('/api/config/skills/install?directory=absent', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'agents', selections: ['source-good'],
+        conflictPolicy: 'skipAll',
+      }),
+    });
+    expect(skippedOnly.status).toBe(400);
+  });
+
+  it('skips all conflicts without cloning and rejects unsupported install inputs', async () => {
+    const repository = catalogRepository();
+    const checkout = mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-skip-'));
+    await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    const skipped = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+        conflictPolicy: 'skipAll',
+      }),
+    });
+    const skippedPayload = await skipped.json() as {
+      ok: boolean; installed: unknown[]; skipped: Array<{ skillName: string; reason: string }>;
+    };
+    expect(skipped.status).toBe(200);
+    expect(skippedPayload).toMatchObject({ ok: true, installed: [], skipped: [{ skillName: 'source-good', reason: 'conflict' }] });
+
+    const missing = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: repository, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['absent-skill'],
+        conflictPolicy: 'overwriteAll',
+      }),
+    });
+    const missingPayload = await missing.json() as { error: { kind: string; message: string } };
+    expect(missing.status).toBe(400);
+    expect(missingPayload.error.kind).toBe('invalidSource');
+
+    const sandboxed = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: repository, selections: ['source-good'] }),
+    });
+    expect(sandboxed.status).toBe(400);
+    expect(((await sandboxed.json()) as { error: { kind: string } }).error.kind).toBe('invalidSource');
+  });
+
+  it('acknowledges reachable cross-target skill conflicts before cloning', async () => {
+    const existing = join(checkout, '.agents', 'skills', 'source-good');
+    mkdirSync(existing, { recursive: true });
+    writeFileSync(join(existing, 'SKILL.md'),
+      '---\nname: source-good\ndescription: Existing agents skill\n---\nExisting.');
+    const conflict = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: join(tmpdir(), 'not-required-for-preflight'), subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'agents', selections: ['source-good'],
+      }),
+    });
+    const payload = await conflict.json() as {
+      error: { kind: string; conflicts: Array<{ path: string; source: string; scope: string }> };
+    };
+    expect(conflict.status).toBe(409);
+    expect(payload.error.kind).toBe('conflicts');
+    expect(payload.error.conflicts[0]).toMatchObject({ source: 'agents', scope: 'project' });
+  });
+
+  it('rejects oversized and control-character catalog request boundaries', async () => {
+    const oversizedSource = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: `a${'repo-name'.repeat(200)}`, subpath: 'skills', gitIdentityId: null,
+        scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    expect(oversizedSource.status).toBe(400);
+    expect(((await oversizedSource.json()) as { error: { kind: string } }).error.kind).toBe('invalidSource');
+
+    const controlSubpath = await app().request(`/api/config/skills/install?directory=${encodeURIComponent(checkout)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: join(tmpdir(), 'not-required-for-validation'), subpath: `good${String.fromCharCode(1)}bad`,
+        gitIdentityId: null, scope: 'project', targetSource: 'opencode', selections: ['source-good'],
+      }),
+    });
+    expect(controlSubpath.status).toBe(400);
+    expect(((await controlSubpath.json()) as { error: { kind: string } }).error.kind).toBe('invalidSource');
+  });
+
   it('merges valid custom catalog sources without curated-ID collisions', async () => {
     writeSettingsPatch({
       skillCatalogs: [

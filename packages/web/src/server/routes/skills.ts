@@ -7,26 +7,22 @@ import { isAbsolute, join, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { catalogDocument, catalogSources } from '../lib/skills/skill-catalog.ts';
 import { scanCatalogSourceCached } from '../lib/skills/skill-catalog-cache.ts';
-import { CatalogScanError, scanCatalogSource, type CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
+import { SkillInstallError, catalogConflicts, installSelectedSkills } from '../lib/skills/skill-catalog-installer.ts';
+import type { CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
 import { directAbsolute, externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
+import {
+  catalogScanBody, catalogScanFailure, parseBoundedSkillBody, scanAdHocCatalog, skillNameValid, SKILL_NAME,
+  type SkillCreateShape,
+} from './skill-catalog-common.ts';
+import { installCatalog } from './skill-catalog-install-route.ts';
 
-const SKILL_NAME = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/u;
 const MAX_INSTRUCTIONS_BYTES = 512 * 1024;
 const MAX_SKILL_BODY_BYTES = 2 * 1024 * 1024;
-
-function skillNameValid(value: string): boolean {
-  return SKILL_NAME.test(value) && value.length > 0 && value.length < 65;
-}
 
 type DiscoveredSkill = ReturnType<typeof scanLocalSkills>[number];
 
 function absoluteLike(value: string): boolean {
   return /^([A-Za-z]:)?[\\/]/u.test(value);
-}
-
-interface SkillCreateShape {
-  description?: unknown; instructions?: unknown; source?: unknown; scope?: unknown;
-  [key: string]: unknown;
 }
 
 interface ValidatedSkillCreate {
@@ -37,23 +33,15 @@ interface ValidatedSkillPatch {
   description: string; instructions: string;
 }
 
-function parseBoundedSkillBody(encodedBody: string): SkillCreateShape | null {
-  try {
-    const body = JSON.parse(encodedBody) as unknown;
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
-    return body as SkillCreateShape;
-  } catch { return null; }
-}
+type ConflictPolicy = 'prompt' | 'skipAll' | 'overwriteAll';
 
-function catalogScanFailure(context: Context, error: unknown): Response {
-  if (!(error instanceof CatalogScanError)) {
-    return context.json({ error: { kind: 'unknown', message: 'Git source scan failed' } }, 500);
-  }
-  const status = error.kind === 'invalidSource' ? 400
-    : error.kind === 'authRequired' ? 401
-      : error.kind === 'networkError' ? 502 : 500;
-  const identities = error.kind === 'authRequired' ? [] : undefined;
-  return context.json({ error: { kind: error.kind, message: error.message, identities } }, status);
+type TargetSource = 'opencode' | 'agents';
+
+interface ValidatedSkillInstall {
+  source: string; subpath: string | null; gitIdentityId: string | null;
+  scope: 'user' | 'project'; targetSource: TargetSource;
+  selections: string[]; conflictPolicy: ConflictPolicy;
+  conflictDecisions: Record<string, 'skip' | 'overwrite'>;
 }
 
 function validateSkillCreate(body: SkillCreateShape): { error: string } | ValidatedSkillCreate {
@@ -80,7 +68,7 @@ function validateSkillCreate(body: SkillCreateShape): { error: string } | Valida
   return { description, instructions, scope };
 }
 
-function canonicalProjectCheckout(raw: string): string | null {
+export function canonicalProjectCheckout(raw: string): string | null {
   try {
     const checkout = realpathSync(raw);
     if (!statSync(checkout, { throwIfNoEntry: false })?.isDirectory()) return null;
@@ -317,12 +305,6 @@ function registerSkillListRoutes(app: Hono): void {
   });
 }
 
-async function catalogScanBody(request: Request): Promise<SkillCreateShape | null> {
-  const encoded = await readBoundedSkillBody(request);
-  if (encoded === null) return null;
-  return parseBoundedSkillBody(encoded);
-}
-
 async function scanCatalogSourceById(context: Context, directory: string | undefined,
   sourceId: string): Promise<Response> {
   const source = catalogSources().find((entry) => entry.id === sourceId);
@@ -341,29 +323,13 @@ async function scanCatalogSourceById(context: Context, directory: string | undef
   } catch (error) { return catalogScanFailure(context, error); }
 }
 
-async function scanAdHocCatalog(context: Context, directory: string | undefined): Promise<Response> {
-  const body = await catalogScanBody(context.req.raw);
-  if (!body) return context.json({ error: { kind: 'invalidSource', message: 'invalid scan body' } }, 400);
-  const requestedIdentity = body.gitIdentityId;
-  if (requestedIdentity !== undefined && requestedIdentity !== null
-    && typeof requestedIdentity !== 'string') {
-    return context.json({ error: { kind: 'invalidSource', message: 'invalid Git identity reference' } }, 400);
-  }
-  try {
-    const items = await scanCatalogSource({
-      source: String(body.source ?? ''),
-      subpath: typeof body.subpath === 'string' ? body.subpath : null,
-      directory,
-      gitIdentityId: requestedIdentity === undefined || requestedIdentity === null ? null : requestedIdentity,
-    });
-    return context.json({ ok: true, items });
-  } catch (error) { return catalogScanFailure(context, error); }
-}
-
 function registerManagedSkillRoutes(app: Hono): void {
   app.post('/api/config/skills/scan', async (c) => {
     const directory = c.req.query('directory') ?? '';
     return scanAdHocCatalog(c, directory === '' ? undefined : directory);
+  });
+  app.post('/api/config/skills/install', async (c) => {
+    return installCatalog(c, c.req.query('directory') ?? '');
   });
   app.post('/api/config/skills/:name', async (c) => {
     const name = c.req.param('name');
