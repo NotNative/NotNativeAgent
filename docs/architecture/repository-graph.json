@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:987c54cf237862db0925b9fa7fdc0121953b42e3f909e42d7563db47e3403f4a",
+  "source_digest": "sha256:12c7431e35e3a87cddc739b5e9162ae7333a06a2761e3199ae1ef43bbe6c0136",
   "counts": {
     "modules": 543,
     "component_edges": 14
@@ -102,14 +102,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 197,
-      "module_count": 83
+      "import_count": 198,
+      "module_count": 84
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 69,
-      "module_count": 31
+      "import_count": 70,
+      "module_count": 32
     },
     {
       "from": "ui-shell",
@@ -1410,7 +1410,11 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/settings/primitives.tsx",
-        "packages/ui/src/lib/nnd/client.ts"
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/stores/useMcpConfigStore.ts",
+        "packages/ui/src/stores/useMcpStore.ts",
+        "packages/ui/src/sync/view-store.ts"
       ]
     },
     {

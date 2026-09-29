@@ -56,9 +56,35 @@ remove all headers retained stale values because an empty headers object was
 treated as absent. The route/mock directory handling and these store paths
 now have focused regressions.
 
-Still owed in P10: MCP settings configuration/health wiring, OAuth/import
-flows, complete/restart affordances, obligatory context, the memory
+Still owed in P10: MCP import flows, obligatory context, the memory
 tool/session/runtime, and the remaining context tabs and skill roots/CRUD.
+
+## P10-46: MCP settings workspace page (2026-09-29)
+
+The Settings MCP section now owns two clearly separated faces. The workspace
+configuration face reads and writes P10-44 records through the P10-45 config
+store, keyed by the active checkout. It lists name/scope/transport/enabled
+state, creates and edits bounded local/remote drafts, adds/removes environment
+and header rows, controls enablement, and offers a two-step deletion. Successful
+create/patch/delete close the draft, force-refetch the layer, and state that
+OpenCode restart remains required; server refusals keep the draft and surface
+the error.
+
+The same page displays runtime connection status separately from durable
+configuration and offers Connect, Test, Disconnect, protected authorize, and
+authorization-code completion for the supported statuses. Test connection uses
+the store's documented cleanup and warning/error faces. Runtime endpoint
+switches reset both stores, close scoped drafts, clear pending OAuth/delete
+state, and invalidate local action epochs before refetching.
+
+An adversarial audit traced five hidden consequences: failed connect/disconnect
+results were silently swallowed; an in-flight draft or action could target a
+new workspace; switching directories left stale busy state; an authorization
+start without a URL showed success; and authorization links trusted non-HTTP(S)
+destinations. The page now surfaces action errors, invalidates/cleans scoped
+state on directory change, requires a usable authorization URL, and renders
+external links only for HTTP(S). The read-only NNA inventory remains separate
+and still hides destinations and commands.
 
 - Finish legacy plan-file migration and durable legacy-key cleanup.
 - Add notes and plan CRUD, safe markdown file ownership, shared plans, and
