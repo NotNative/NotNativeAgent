@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e0746e7bee81764b4b92be87d64a5f07449fb60940ffb6b707a04f7f524199fc",
+  "source_digest": "sha256:dd20dbfc8ee8ed09be991c6b73b67a1c3b177d1a1dbe7361f7035f76ebc9f4c6",
   "counts": {
-    "modules": 546,
+    "modules": 547,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 145
+      "module_count": 146
     },
     {
       "id": "web-server",
@@ -114,8 +114,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 55,
-      "module_count": 47
+      "import_count": 57,
+      "module_count": 48
     },
     {
       "from": "sync-engine",
@@ -387,6 +387,15 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/context-message-pins.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts"
       ]
     },
@@ -827,6 +836,7 @@
       "imports": [
         "packages/ui/src/chat/composer-model-config.ts",
         "packages/ui/src/chat/context-message-ledger.ts",
+        "packages/ui/src/chat/context-message-pins.ts",
         "packages/ui/src/chat/panel-gate.ts",
         "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/nnd/types.ts",

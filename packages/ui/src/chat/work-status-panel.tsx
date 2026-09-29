@@ -5,7 +5,7 @@
  * query at the layout layer). Rows read warm caches only; no aggregate
  * endpoints.
  */
-import { useEffect, useSyncExternalStore, useState, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, useRef, useState, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
@@ -16,21 +16,33 @@ import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
 import { contextMessageLedger, MAX_LEDGER_ROWS } from './context-message-ledger.ts';
+import { sessionMessagePinIDs, setSessionMessagePinned, type SessionPinClient } from './context-message-pins.ts';
 
 const PANEL_WIDTH = 300;
 
-export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent, sessionID: scopedSessionID }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void; sessionID?: string | null }): ReactNode {
+type PinAction = { sessionID: string; messageID: string; token: number };
+
+export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent, sessionID: scopedSessionID, pinClient }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void; sessionID?: string | null; pinClient?: SessionPinClient }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
   const selectedSessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
   const sessionID = scopedSessionID === undefined ? selectedSessionID : scopedSessionID;
   const [hidden, setHidden] = useState<string[]>([]);
   const [committed, setCommitted] = useState<{ sessionID: string; stats: PanelStats } | null>(null);
+  const [pinAction, setPinAction] = useState<PinAction | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const currentSessionIDRef = useRef<string | null | undefined>(sessionID);
+  const pinActionRef = useRef<PinAction | null>(null);
+  const pinActionTokenRef = useRef(0);
   const committedForSession = committed?.sessionID === sessionID ? committed.stats : null;
   const stats = sessionID ? panelStatsIfNeeded(snapshot, sessionID, committedForSession) : null;
   useEffect(() => {
     if (sessionID && stats && stats !== committedForSession) setCommitted({ sessionID, stats });
   }, [committedForSession, sessionID, stats]);
+  useEffect(() => {
+    currentSessionIDRef.current = sessionID;
+    setPinError(null);
+  }, [sessionID]);
   if (!sessionID) return <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} p-3 text-xs text-neutral-500`}
     data-testid="work-status-panel">Select a session to inspect its NNA context.</aside>;
 
@@ -58,6 +70,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
   const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
   const selectedSession = snapshot.session.find((session) => session.id === sessionID);
+  const messagePinIDs = sessionMessagePinIDs(selectedSession);
   const reportedTokens = (lastAssistant as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } | undefined)?.tokens;
   const tokenFacts = [
     reportedToken('Input', reportedTokens?.input),
@@ -161,11 +174,48 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   } else if (todos.length > 0) {
     sections.push({ id: 'tasks', label: 'Tasks', rows: todos.map((todo) => row(todo.content, todo.status, todo.status === 'completed' ? 'line-through' : '')) });
   }
+  if (messagePinIDs.size > 0) sections.push({ id: 'pins', label: 'Context pins', rows: [
+    row('Saved messages', String(messagePinIDs.size)),
+  ] });
 
   const visibleSections = sections.filter((section) => !hidden.includes(section.id));
   // The project branch is useful ambient workspace information, but it is
   // not evidence that the selected session has a context projection.
   const hasSessionDetails = sections.some((section) => section.id !== 'project') || (expanded && ledger.length > 0);
+
+  async function toggleMessagePin(messageID: string, pinned: boolean): Promise<void> {
+    if (typeof sessionID !== 'string' || !selectedSession || pinAction !== null) return;
+    const message = messages.find((candidate) => candidate.id === messageID);
+    if (!message) return;
+    const action = { sessionID, messageID, token: ++pinActionTokenRef.current };
+    pinActionRef.current = action;
+    setPinAction(action);
+    setPinError(null);
+    try {
+      const committed = await setSessionMessagePinned({
+        sessionID, directory: selectedSession.directory, message, pinned, ...(pinClient ? { client: pinClient } : {}),
+      });
+      const nextSession = committed ?? null;
+      if (nextSession) {
+        const sessions = store.getState().session;
+        if (sessions.some((candidate) => candidate.id === sessionID)) {
+          store.setState({
+            session: sessions.map((candidate) => candidate.id === sessionID
+              ? { ...candidate, metadata: nextSession.metadata }
+              : candidate),
+          });
+        }
+      }
+    } catch {
+      if (currentSessionIDRef.current === sessionID) setPinError('Could not update the context pin');
+    } finally {
+      if (pinActionRef.current === action) {
+        pinActionRef.current = null;
+        setPinAction(null);
+      }
+    }
+  }
+
   return (
     <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3" data-testid="context-reading-column">
@@ -199,11 +249,19 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
           <h3 className="font-medium text-neutral-300">Message ledger</h3>
           <span className="text-neutral-500">{messages.length > MAX_LEDGER_ROWS ? `Newest ${MAX_LEDGER_ROWS} of ${messages.length} loaded` : `${messages.length} loaded`}</span>
         </header>
+        {messagePinIDs.size > 0 ? <div className="mb-2 text-[11px] text-neutral-400" data-testid="context-pin-count">{messagePinIDs.size} saved context {messagePinIDs.size === 1 ? 'pin' : 'pins'}</div> : null}
+        {pinError ? <p className="mb-2 text-[10px] text-amber-400" data-testid="context-pin-error">{pinError}</p> : null}
         <p className="mb-2 text-[10px] text-neutral-600">Part kinds and reported tokens only; message content is not shown here.</p>
         <ol className="space-y-1" aria-label="Loaded messages, newest first">{ledger.map((item) => <li key={item.id} className="flex items-center gap-2 rounded bg-white/[0.03] px-2 py-1.5 text-[10px] text-neutral-400">
           <span className="min-w-0 flex-1 truncate" title={`${item.role} · ${item.kinds}`}>{item.role} · {item.kinds}</span>
           {item.input !== null || item.output !== null ? <span className="shrink-0 tabular-nums text-neutral-500" aria-label="Reported input and output tokens">{item.input === null ? '—' : item.input.toLocaleString()} / {item.output === null ? '—' : item.output.toLocaleString()}</span> : null}
           {item.created !== null ? <time className="shrink-0 text-neutral-600" dateTime={new Date(item.created).toISOString()}>{new Date(item.created).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time> : null}
+          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+            aria-pressed={messagePinIDs.has(item.id)}
+            disabled={pinAction?.sessionID === sessionID && pinAction.messageID === item.id}
+            onClick={() => void toggleMessagePin(item.id, !messagePinIDs.has(item.id))}>
+            {messagePinIDs.has(item.id) ? 'Unpin' : 'Pin'}
+          </button>
         </li>)}</ol>
       </section> : null}
       {!hasSessionDetails ? <div className="text-[11px] text-neutral-500">NNA context details are not available for this session yet.</div> : null}

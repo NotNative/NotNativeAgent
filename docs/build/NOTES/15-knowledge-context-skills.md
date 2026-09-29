@@ -118,6 +118,27 @@ stale-memory-signature, and missing-`mode` paths, and restored the exact
 restoration instruction text. Truth: web typecheck green; context and memory
 focused suites 10/10.
 
+## P10-49: work-status context pins (2026-09-29)
+
+The Context rail now creates and removes bounded session metadata pins. Pin
+metadata is parsed defensively, de-duplicated, and limited to 64 valid
+user/assistant rows. A pin action performs a fresh session read, merges only
+the pin array, patches generic session metadata, and verifies that both the
+source and committed records target the same normalized workspace/session.
+
+Work status reports the saved-pin count and offers Pin/Unpin on the loaded
+message ledger without exposing message text. Actions are scoped to the active
+session and message token; stale completions cannot clear a newer action or
+show its failure under another session. Same-session writes are serialized so
+the second action reads the first committed metadata. Concurrent writes from
+another browser or process can still lose a write because the documented
+metadata channel has no compare-and-swap primitive.
+
+The adversarial audit added targeting validation, serialized writes, stale
+completion and session-change guards, authoritative metadata-only commits, and
+regressions for concurrency and cross-session failures. Truth: UI typecheck
+green; context-pin suite 5/5.
+
 The Settings page accepts one `.json` file, reports created/updated counts,
 lists skipped entries, and states the OpenCode restart requirement. Even an
 empty accepted selection is described as no changes rather than a misleading
