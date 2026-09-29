@@ -448,6 +448,10 @@
     {
       "version": "20260928-64",
       "content_sha256": "535d0f9787716aaffd1301b3e5fa34deba70f552648ea20b0a81b40ac73b53b7"
+    },
+    {
+      "version": "20260929-1",
+      "content_sha256": "aa815f911975f28bde33c41c521c8e383b9e4fbd55be44df0a71dbc6edc96c68"
     }
   ]
 }

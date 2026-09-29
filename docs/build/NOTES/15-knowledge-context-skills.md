@@ -252,8 +252,8 @@ Discovery initially stayed deliberately read-only because managed root CRUD
 authority was not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
-results. Harness SDK built-ins, delete, supporting-file payloads, UI wiring,
-and restart handling remain.
+results. Harness SDK built-ins, supporting-file payloads, UI wiring, and
+restart handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
 
@@ -415,6 +415,15 @@ return 400. Adversarial audit fixed cross-scope mutation, regex-based
 frontmatter overwrite, mixed-body confusion, and checkout validation. Update
 and rename responses return the same restart deferral. Delete and
 supporting-file routes remain pending.
+
+## P10-27: managed skill delete (2026-09-29)
+
+DELETE now removes only a managed OpenCode skill after exact name-and-scope
+resolution. An empty directory means user scope and every requested project
+directory must be absolute; otherwise DELETE returns 400 instead of leaking
+a scanner exception. A managed skill is removed with its whole directory and
+the same restart-deferral response; after a successful delete the next call
+is 404. Nonmanaged skills remain 403 and storage failures remain 500.
 
 ## P10-23: OpenCode cache discovery (2026-09-28)
 

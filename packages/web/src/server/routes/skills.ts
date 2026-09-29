@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Context, Hono } from 'hono';
-import { linkSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { linkSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -240,6 +240,24 @@ async function renameManagedSkill(context: Context, source: string, rename: stri
   finally { try { unlinkSync(temporary); } catch { /* response already resolved */ } }
 }
 
+async function deleteSkillInScope(context: Context, name: string,
+  requestedDirectory: string): Promise<Response> {
+  const scope = requestedDirectory === '' ? 'user' : 'project';
+  const searchDirectory = requestedDirectory === '' ? homedir() : requestedDirectory;
+  const skill = scanLocalSkills(searchDirectory)
+    .find((entry) => entry.name === name && entry.scope === scope);
+  if (!skill) return context.json({ error: 'skill not found' }, 404);
+  if (!skillEditable(skill)) return context.json({ error: 'skill is not managed here' }, 403);
+  try {
+    rmSync(join(skill.path, '..'), { recursive: true, force: false });
+    return context.json({
+      requiresReload: true, message: 'skill deleted; reload before use', reloadDelayMs: 500,
+    }, 201);
+  } catch {
+    return context.json({ error: 'managed skill storage failed' }, 500);
+  }
+}
+
 async function createManagedSkill(context: Context, name: string, body: SkillCreateShape,
   requestedDirectory: string): Promise<Response> {
   const validated = validateSkillCreate(body);
@@ -297,6 +315,15 @@ export function registerSkillRoutes(app: Hono): void {
       return c.json({ error: 'project checkout directory is required' }, 400);
     }
     return applySkillPatch(c, name, parse, requestedDirectory, request);
+  });
+  app.delete('/api/config/skills/:name', async (c) => {
+    const name = c.req.param('name');
+    if (!skillNameValid(name)) return c.json({ error: 'invalid skill name' }, 400);
+    const requestedDirectory = c.req.query('directory') ?? '';
+    if (requestedDirectory !== '' && !absoluteLike(requestedDirectory)) {
+      return c.json({ error: 'project checkout directory is required' }, 400);
+    }
+    return deleteSkillInScope(c, name, requestedDirectory);
   });
   app.get('/api/config/skills/:name', (c) => {
     try {

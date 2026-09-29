@@ -388,6 +388,13 @@ describe('P10 skill discovery', () => {
     expect(response.status).toBe(400);
   });
 
+  it('rejects a relative project checkout for deleting', async () => {
+    const response = await app().request('/api/config/skills/relative-checkout?directory=relative', {
+      method: 'DELETE',
+    });
+    expect(response.status).toBe(400);
+  });
+
   it('renames only the opening frontmatter name', async () => {
     const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-frontmatter-'));
     const directory = join(project, '.opencode', 'skills', 'frontmatter-flow');
@@ -402,6 +409,27 @@ describe('P10 skill discovery', () => {
     const content = readFileSync(join(project, '.opencode', 'skills', 'renamed-frontmatter', 'SKILL.md'), 'utf8');
     expect(content).toContain('name: renamed-frontmatter');
     expect(content).toContain('name: body-name');
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('deletes a managed project skill once', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-delete-'));
+    await app().request(`/api/config/skills/removable-flow?directory=${encodeURIComponent(project)}`, {
+      method: 'POST',
+      body: JSON.stringify({ description: 'Removable flow', instructions: 'Then remove.' }),
+    });
+    const deleted = await app().request(`/api/config/skills/removable-flow?directory=${encodeURIComponent(project)}`, {
+      method: 'DELETE',
+    });
+    expect(deleted.status).toBe(201);
+    expect(await deleted.json()).toEqual({
+      requiresReload: true, message: 'skill deleted; reload before use', reloadDelayMs: 500,
+    });
+    expect(scanLocalSkills(project).some((skill) => skill.name === 'removable-flow')).toBe(false);
+    const again = await app().request(`/api/config/skills/removable-flow?directory=${encodeURIComponent(project)}`, {
+      method: 'DELETE',
+    });
+    expect(again.status).toBe(404);
     rmSync(project, { recursive: true, force: true });
   });
 
