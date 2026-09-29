@@ -103,13 +103,13 @@ describe('MCP settings page', () => {
     renderPage();
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     await clickButton('New');
-    const name = inputByPlaceholder('');
+    const name = document.querySelector<HTMLInputElement>('[data-testid="mcp-draft-name"]')!;
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       setter.call(name, 'beta');
       name.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const command = [...document.querySelectorAll<HTMLInputElement>('input')].find(node => node.value === '') as HTMLInputElement;
+    const command = document.querySelector<HTMLInputElement>('[data-testid="mcp-draft-command"]')!;
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       setter.call(command, 'demo');
@@ -140,6 +140,23 @@ describe('MCP settings page', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     await clickButton('Connect');
     expect(document.body.textContent).toContain('connect denied');
+  });
+
+  it('allows the same import file to be selected again', async () => {
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    const input = document.querySelector<HTMLInputElement>('[data-testid="mcp-import-input"]')!;
+    await act(async () => {
+      Object.defineProperty(input, 'files', {
+        value: [{ text: async () => '[]' } as File],
+      });
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('MCP share must be an object map');
+    expect(input.value).toBe('');
   });
 
   it('closes a scoped draft when the active directory changes', async () => {

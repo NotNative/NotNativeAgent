@@ -163,6 +163,12 @@ function writeSelected(name: string): void {
 
 export type McpMutation = { ok: true } | { ok: false; error: string };
 
+export interface McpImportResult {
+  created: number;
+  updated: number;
+  skipped: Array<{ name: string; error: string }>;
+}
+
 export interface McpConfigStoreState {
   configsByDirectory: Record<string, Record<string, McpConfigRecord>>;
   expiresAtKeys: Record<string, number>;
@@ -178,11 +184,13 @@ export interface McpConfigStoreState {
   createEntry(name: string, draft: McpDraft, directory?: string): Promise<McpMutation>;
   patchEntry(name: string, draft: McpDraft, directory?: string): Promise<McpMutation>;
   deleteEntry(name: string, directory?: string): Promise<McpMutation>;
+  importEntries(payload: unknown, directory?: string): Promise<McpImportResult | { ok: false; error: string }>;
   resetForRuntimeSwitch(): void;
 }
 
 const inFlightLoad = new Map<string, Promise<void>>();
 let configGeneration = 0;
+let runtimeGeneration = 0;
 
 export const useMcpConfigStore = create<McpConfigStoreState>()((set, get) => ({
   configsByDirectory: {},
@@ -290,8 +298,65 @@ export const useMcpConfigStore = create<McpConfigStoreState>()((set, get) => ({
     return { ok: true };
   },
 
+  async importEntries(payload, directory) {
+    let share: Record<string, unknown>;
+    try {
+      const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { ok: false, error: 'MCP share must be an object map' };
+      }
+      share = parsed as Record<string, unknown>;
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'invalid MCP share JSON' };
+    }
+
+    const key = directoryKey(directory);
+    const token = configGeneration;
+    const runtimeToken = runtimeGeneration;
+    await get().load({ directory, force: true });
+    const state = get();
+    if (token !== configGeneration || runtimeToken !== runtimeGeneration) {
+      return { created: 0, updated: 0, skipped: [] };
+    }
+    const loadError = state.lastErrorKeys[key];
+    if (loadError !== undefined) return { ok: false, error: loadError };
+    const known: Record<string, McpConfigRecord> = { ...(state.configsByDirectory[key] ?? {}) };
+    const result: McpImportResult = { created: 0, updated: 0, skipped: [] };
+    for (const [name, raw] of Object.entries(share)) {
+      if (!MCP_NAME_RULE.test(name)) {
+        result.skipped.push({ name, error: 'invalid server name' });
+        continue;
+      }
+      const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+      if (source === null) {
+        result.skipped.push({ name, error: 'server definition must be an object' });
+        continue;
+      }
+      const scope = source.scope === 'project' ? 'project' : 'user';
+      const entry = { ...source, scope };
+      const existing = known[name];
+      const updateExisting = existing !== undefined && existing.scope === scope;
+      const mutation = updateExisting
+        ? await patchMcpConfig(name, entry, directory)
+        : await createMcpConfig(name, entry, directory);
+      if (!mutation.ok) {
+        result.skipped.push({ name, error: mutation.error });
+        continue;
+      }
+      if (updateExisting) result.updated += 1; else result.created += 1;
+      known[name] = {
+        ...(source as unknown as McpConfigRecord),
+        name, scope, type: source.type === 'remote' ? 'remote' : 'local',
+        enabled: source.enabled !== false,
+      };
+    }
+    await get().load({ directory, force: true });
+    return result;
+  },
+
   resetForRuntimeSwitch() {
     configGeneration += 1;
+    runtimeGeneration += 1;
     inFlightLoad.clear();
     set({
       configsByDirectory: {}, expiresAtKeys: {}, loadingKeys: {},

@@ -73,6 +73,7 @@ function WorkspaceMcpConfig(): ReactNode {
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const actionEpoch = useRef(0);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { void loadConfigs({ directory: activeDirectory, force: true }); },
     [activeDirectory, loadConfigs, revision, runtimeRevision]);
@@ -184,6 +185,28 @@ function WorkspaceMcpConfig(): ReactNode {
     }
   }, [activeDirectory, authCodeByName, startAction]);
 
+  const importShare = useCallback(async (file: File) => {
+    let text: string;
+    try { text = await file.text(); }
+    catch { setActionError('MCP share file could not be read'); return; }
+    const { result, stale } = await startAction('share', () =>
+      useMcpConfigStore.getState().importEntries(text, activeDirectory));
+    if (stale || result === null) return;
+    if (!('created' in result && 'updated' in result)) {
+      setActionError('error' in result ? result.error : 'MCP share import failed');
+      return;
+    }
+    const failures = result.skipped.map(({ name, error }) => `${name}: ${error}`);
+    if (failures.length > 0) setActionError(failures.join('; '));
+    else setActionError(null);
+    const summary = [
+      result.created > 0 ? `created ${result.created}` : null,
+      result.updated > 0 ? `updated ${result.updated}` : null,
+    ].filter(Boolean).join(', ') || 'no changes';
+    setNotice(`MCP share import: ${summary}. Restart OpenCode to apply.`);
+    setRevision((value) => value + 1);
+  }, [activeDirectory, startAction]);
+
   const records = configs ? Object.values(configs).sort((left, right) => left.name.localeCompare(right.name)) : undefined;
   const candidateName = typeof draft?.name === 'string' ? draft.name : '';
   const canSaveDraft = draft !== null && McpName.isName(candidateName);
@@ -197,6 +220,15 @@ function WorkspaceMcpConfig(): ReactNode {
             onClick={() => setRevision((value) => value + 1)}>Refresh</button>
           <button type="button" className={ACTION_BUTTON_CLASS + ' bg-primary/15 text-primary'} disabled={draft !== null}
             onClick={() => openDraft(newDraft())}>New</button>
+          <input type="file" ref={importFileRef} accept=".json,application/json" className="hidden" data-testid="mcp-import-input"
+            disabled={configLoading || statusLoading || draft !== null}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (importFileRef.current) importFileRef.current.value = '';
+              if (file) void importShare(file);
+            }} />
+          <button type="button" className={ACTION_BUTTON_CLASS} disabled={configLoading || statusLoading || draft !== null || pendingName !== null}
+            onClick={() => importFileRef.current?.click()}>Import JSON</button>
         </div>
       </div>
       <p className="mb-2 text-xs text-muted-foreground">
@@ -308,7 +340,7 @@ function WorkspaceMcpConfig(): ReactNode {
           {draft.scope === 'project' && activeDirectory === ''
             ? <p className="mt-1 text-xs text-destructive">A project workspace is required for project scope.</p> : null}
           <SettingsFieldRow label="Server name" item="mcp.draft.name" helper={draft.isNew ? 'lowercase letters, digits, hyphen, underscore' : 'locked'}>
-            <input type="text" className={TEXT_INPUT_CLASS} value={draft.name} disabled={!draft.isNew}
+            <input type="text" data-testid="mcp-draft-name" className={TEXT_INPUT_CLASS} value={draft.name} disabled={!draft.isNew}
               onChange={(event) => patchDraft({ name: event.target.value.toLowerCase() })} />
           </SettingsFieldRow>
           <SettingsChipGroup item="mcp.draft.transport" value={draft.type}
@@ -316,7 +348,7 @@ function WorkspaceMcpConfig(): ReactNode {
             onChange={(value) => patchDraft({ type: value as 'local' | 'remote' })} />
           {draft.type === 'local' ? (
             <SettingsFieldRow label="Command" item="mcp.draft.command" helper="quoted words are preserved">
-              <input type="text" className={TEXT_INPUT_CLASS} value={draft.command}
+              <input type="text" data-testid="mcp-draft-command" className={TEXT_INPUT_CLASS} value={draft.command}
                 onChange={(event) => patchDraft({ command: event.target.value })} />
             </SettingsFieldRow>
           ) : (

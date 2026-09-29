@@ -333,6 +333,94 @@ describe('MCP config store', () => {
     expect(listMock).toHaveBeenCalledTimes(1);
   });
 
+  it('imports new share entries and updates duplicates without rolling back', async () => {
+    listMock.mockResolvedValue({
+      ok: true,
+      mcp: { alpha: record('alpha', { type: 'remote', url: 'https://mcp.test/current' }) },
+    });
+    createMock.mockResolvedValue({
+      ok: true, requiresReload: false, requiresRestart: true, restartDeferred: true, message: 'created',
+    });
+    patchMock.mockResolvedValue({
+      ok: true, requiresReload: false, requiresRestart: true, restartDeferred: true, message: 'updated',
+    });
+    const outcome = await useMcpConfigStore.getState().importEntries({
+      alpha: { type: 'remote', url: 'https://mcp.test/updated', timeout: 1000 },
+      beta: { type: 'local', command: ['demo'], scope: 'user' },
+      'Bad Name': { type: 'local', command: ['demo'] },
+      not_object: 'nope',
+    }, 'C:/ws');
+    expect(outcome).toEqual({
+      created: 1, updated: 1,
+      skipped: [
+        { name: 'Bad Name', error: 'invalid server name' },
+        { name: 'not_object', error: 'server definition must be an object' },
+      ],
+    });
+    expect(patchMock).toHaveBeenCalledWith('alpha', expect.objectContaining({
+      type: 'remote', url: 'https://mcp.test/updated', scope: 'user', timeout: 1000,
+    }), 'C:/ws');
+    expect(createMock).toHaveBeenCalledWith('beta', expect.objectContaining({
+      type: 'local', command: ['demo'], scope: 'user',
+    }), 'C:/ws');
+    expect(listMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects malformed MCP shares before mutating configs', async () => {
+    const outcome = await useMcpConfigStore.getState().importEntries('[]');
+    expect(outcome).toEqual({ ok: false, error: 'MCP share must be an object map' });
+    expect(createMock).not.toHaveBeenCalled();
+    expect(patchMock).not.toHaveBeenCalled();
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it('creates a cross-scope duplicate instead of patching the wrong layer', async () => {
+    listMock.mockResolvedValue({
+      ok: true,
+      mcp: { alpha: record('alpha', { type: 'remote', url: 'https://mcp.test/project', scope: 'project' }) },
+    });
+    createMock.mockResolvedValue({
+      ok: true, requiresReload: false, requiresRestart: true, restartDeferred: true, message: 'created',
+    });
+    const outcome = await useMcpConfigStore.getState().importEntries({
+      alpha: { type: 'remote', url: 'https://mcp.test/user', scope: 'user' },
+    }, 'C:/ws');
+    expect(outcome).toEqual({ created: 1, updated: 0, skipped: [] });
+    expect(patchMock).not.toHaveBeenCalled();
+    expect(createMock).toHaveBeenCalledWith('alpha', expect.objectContaining({
+      scope: 'user', url: 'https://mcp.test/user',
+    }), 'C:/ws');
+  });
+
+  it('refuses import when the fresh config-list read fails', async () => {
+    listMock.mockRejectedValue(new Error('list unavailable'));
+    const outcome = await useMcpConfigStore.getState().importEntries({
+      alpha: { type: 'local', command: ['demo'] },
+    }, 'C:/ws');
+    expect(outcome).toEqual({ ok: false, error: 'Error: list unavailable' });
+    expect(createMock).not.toHaveBeenCalled();
+    expect(patchMock).not.toHaveBeenCalled();
+  });
+
+  it('stops importing after a runtime switch', async () => {
+    let resolveCreate: (value: unknown) => void = () => undefined;
+    createMock.mockReturnValue(new Promise((resolve) => {
+      resolveCreate = resolve as typeof resolveCreate;
+    }));
+    const pending = useMcpConfigStore.getState().importEntries({
+      alpha: { type: 'local', command: ['demo'] },
+    }, 'C:/ws');
+    await Promise.resolve();
+    await Promise.resolve();
+    useMcpConfigStore.getState().resetForRuntimeSwitch();
+    resolveCreate({
+      ok: true, requiresReload: false, requiresRestart: true, restartDeferred: true, message: 'created',
+    });
+    const outcome = await pending;
+    expect(outcome).toEqual({ created: 0, updated: 0, skipped: [] });
+    expect(listMock).toHaveBeenCalledTimes(1);
+  });
+
   it('patches the draft in place and remembers the selection', () => {
     useMcpConfigStore.getState().openDraft(newDraft());
     useMcpConfigStore.getState().patchDraft({ command: 'npx demo' });

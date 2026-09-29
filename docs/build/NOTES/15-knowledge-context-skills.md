@@ -56,8 +56,8 @@ remove all headers retained stale values because an empty headers object was
 treated as absent. The route/mock directory handling and these store paths
 now have focused regressions.
 
-Still owed in P10: MCP import flows, obligatory context, the memory
-tool/session/runtime, and the remaining context tabs and skill roots/CRUD.
+Still owed in P10: obligatory context, the memory tool/session/runtime, and
+the remaining context tabs and skill roots/CRUD.
 
 ## P10-46: MCP settings workspace page (2026-09-29)
 
@@ -85,6 +85,29 @@ destinations. The page now surfaces action errors, invalidates/cleans scoped
 state on directory change, requires a usable authorization URL, and renders
 external links only for HTTP(S). The read-only NNA inventory remains separate
 and still hides destinations and commands.
+
+## P10-47: MCP JSON share import (2026-09-29)
+
+The MCP config store can now import a bounded JSON object map through the
+existing layer-aware create/patch routes. Each valid name becomes either a new
+record or an update when the loaded source-layer scope already holds that
+name, honoring the share entry's user/project scope after a fresh list read.
+Invalid names, non-object values, and transport failures are reported by
+server name; accepted entries continue rather than hiding failures behind an
+all-or-nothing claim, and the list is force-refetched afterward.
+
+The Settings page accepts one `.json` file, reports created/updated counts,
+lists skipped entries, and states the OpenCode restart requirement. Even an
+empty accepted selection is described as no changes rather than a misleading
+success count.
+
+The adversarial audit confirmed four hazards and closed them: an imported
+user-scoped definition can no longer patch through a dominating project-layer
+preview of the same name; a failed fresh list read aborts before any writes;
+a runtime endpoint switch aborts an in-flight import; and selecting the same
+share file after editing it succeeds via a post-read input reset. Regressions
+pin cross-scope creation, list-failure abort, runtime-switch abort, and
+file reselection.
 
 - Finish legacy plan-file migration and durable legacy-key cleanup.
 - Add notes and plan CRUD, safe markdown file ownership, shared plans, and
