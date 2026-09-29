@@ -68,6 +68,67 @@ describe('P10 skill discovery', () => {
     });
   });
 
+  it('returns the catalog shell with best-effort GitHub repository metadata', async () => {
+    writeSettingsPatch({
+      skillCatalogs: [{
+        id: 'custom-in-editor',
+        label: 'In-editor skills',
+        source: 'https://github.com/example-org/editor-skills',
+        subpath: 'packages/skills',
+        gitIdentityId: 'profile-one',
+      }],
+    }, 'web');
+    const savedFetch = globalThis.fetch;
+    const requests: string[] = [];
+    (globalThis as { fetch: unknown }).fetch = (async (input: URL | Request) => {
+      const url = String(input);
+      requests.push(url);
+      if (url.endsWith('anthropics/skills')) return new Response(JSON.stringify({
+        stargazers_count: 12,
+        pushed_at: '2026-09-28T01:02:03Z',
+      }), { status: 200 });
+      if (url.endsWith('openai/skills')) return new Response(JSON.stringify({
+        stargazers_count: 0,
+      }), { status: 200 });
+      if (url.endsWith('cursor/plugins')) throw new Error('unavailable');
+      if (url.endsWith('example-org/editor-skills')) return new Response('[malformed', { status: 200 });
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch;
+    try {
+      const response = await app().request('/api/config/skills/catalog');
+      const payload = await response.json() as {
+        ok: boolean;
+        sources: Array<Record<string, unknown>>;
+        itemsBySource: Record<string, never>;
+      };
+      expect(response.status).toBe(200);
+      expect(payload).toEqual({
+        ok: true,
+        sources: [
+          { id: 'anthropic', label: 'Anthropic', source: 'anthropics/skills', defaultSubpath: 'skills', stars: 12, repoUpdatedAt: '2026-09-28T01:02:03Z' },
+          { id: 'openai', label: 'OpenAI', source: 'openai/skills', defaultSubpath: 'skills/.curated', stars: 0, repoUpdatedAt: null },
+          { id: 'cursor', label: 'Cursor', source: 'cursor/plugins', defaultSubpath: 'pstack/skills', stars: null, repoUpdatedAt: null },
+          { id: 'mattpocock', label: 'Matt Pocock', source: 'mattpocock/skills', defaultSubpath: null, stars: null, repoUpdatedAt: null },
+          { id: 'custom-in-editor', label: 'In-editor skills', source: 'https://github.com/example-org/editor-skills', subpath: 'packages/skills', gitIdentityId: 'profile-one', stars: null, repoUpdatedAt: null },
+        ],
+        itemsBySource: {},
+      });
+      expect(requests.map((request) => new URL(request).pathname)).toEqual([
+        '/repos/anthropics/skills',
+        '/repos/openai/skills',
+        '/repos/cursor/plugins',
+        '/repos/mattpocock/skills',
+        '/repos/example-org/editor-skills',
+      ]);
+      requests.map((request) => new URL(request)).forEach(({ hostname, search }) => {
+        expect(hostname).toBe('api.github.com');
+        expect(search).toBe('');
+      });
+    } finally {
+      (globalThis as { fetch: unknown }).fetch = savedFetch;
+    }
+  });
+
   it('merges valid custom catalog sources without curated-ID collisions', async () => {
     writeSettingsPatch({
       skillCatalogs: [
@@ -127,6 +188,86 @@ describe('P10 skill discovery', () => {
         gitIdentityId: null,
       },
     ]);
+  });
+
+  it('rejects malformed GitHub metadata fields without replacing values', async () => {
+    writeSettingsPatch({
+      skillCatalogs: [{
+        id: 'malformed-meta',
+        label: 'Malformed metadata',
+        source: 'malformed/meta-source',
+      }],
+    }, 'web');
+    const savedFetch = globalThis.fetch;
+    (globalThis as { fetch: unknown }).fetch = (async () => new Response(JSON.stringify({
+      stargazers_count: '3',
+      pushed_at: '2026-1',
+    }), { status: 200 })) as typeof fetch;
+    try {
+      const response = await app().request('/api/config/skills/catalog');
+      const payload = await response.json() as { sources: Array<{ id: string; stars: unknown; repoUpdatedAt: unknown }> };
+      const source = payload.sources.find((entry) => entry.id === 'malformed-meta');
+      expect(source).toMatchObject({ stars: null, repoUpdatedAt: null });
+    } finally {
+      (globalThis as { fetch: unknown }).fetch = savedFetch;
+    }
+  });
+
+  it('ignores encoded GitHub path joins instead of enriching a different repository', async () => {
+    writeSettingsPatch({
+      skillCatalogs: [{
+        id: 'encoded-join',
+        label: 'Encoded join',
+        source: 'https://github.com/encoded%2Frepo',
+      }],
+    }, 'web');
+    const savedFetch = globalThis.fetch;
+    const requests: string[] = [];
+    (globalThis as { fetch: unknown }).fetch = (async (input: URL | Request) => {
+      requests.push(String(input));
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+    try {
+      const response = await app().request('/api/config/skills/catalog');
+      const payload = await response.json() as { sources: Array<{ id: string; stars: unknown; repoUpdatedAt: unknown }> };
+      expect(payload.sources.find((entry) => entry.id === 'encoded-join')).toMatchObject({
+        stars: null,
+        repoUpdatedAt: null,
+      });
+      expect(requests).toHaveLength(0);
+    } finally {
+      (globalThis as { fetch: unknown }).fetch = savedFetch;
+    }
+  });
+
+  it('deduplicates concurrent requests for one repository', async () => {
+    writeSettingsPatch({
+      skillCatalogs: [
+        { id: 'duplicate-first', label: 'First', source: 'duplicate-meta/source' },
+        { id: 'duplicate-second', label: 'Second', source: 'duplicate-meta/source' },
+      ],
+    }, 'web');
+    const savedFetch = globalThis.fetch;
+    const requests: string[] = [];
+    (globalThis as { fetch: unknown }).fetch = (async (input: URL | Request) => {
+      const url = String(input);
+      requests.push(url);
+      return new Response(JSON.stringify({ stargazers_count: 3 }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const response = await app().request('/api/config/skills/catalog');
+      const payload = await response.json() as {
+        sources: Array<{ id: string; source: string; stars: unknown }>;
+      };
+      expect(payload.sources.filter((entry) => entry.source === 'duplicate-meta/source'))
+        .toEqual(expect.arrayContaining([
+          expect.objectContaining({ stars: 3, repoUpdatedAt: null }),
+        ]));
+      expect(payload.sources.filter((entry) => entry.source === 'duplicate-meta/source')).toHaveLength(2);
+      expect(requests).toHaveLength(1);
+    } finally {
+      (globalThis as { fetch: unknown }).fetch = savedFetch;
+    }
   });
 
   it('caps configured custom catalog sources at 32', async () => {

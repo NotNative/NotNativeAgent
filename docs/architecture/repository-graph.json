@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:84b13af558e40b2ad575ca64cb2c7b1ddc943763ea53d8a7986d408ffdfa6dbd",
+  "source_digest": "sha256:18fa4dd3f76e15f25687675988f12b794cc986f0902c69e71e8a9a1cb495971f",
   "counts": {
-    "modules": 527,
+    "modules": 528,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 166
+      "module_count": 167
     },
     {
       "id": "web-entry",
@@ -4120,6 +4120,14 @@
       ]
     },
     {
+      "path": "packages/web/src/server/lib/skills/skill-catalog.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/settings-store.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/skills/skill-scan.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -4667,7 +4675,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/lib/skills/skill-catalog.ts",
         "packages/web/src/server/lib/skills/skill-scan.ts",
         "packages/web/src/server/routes/skill-support.ts"
       ]

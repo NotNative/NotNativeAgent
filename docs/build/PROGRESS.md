@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-31 skill catalog contract shell.** New
+  `/api/config/skills/catalog` exposes the merged curated/custom source list,
+  exactly one `itemsBySource: {}` map, and best-effort GitHub stars and push
+  time. Requests are bounded to APIv3, authenticated OAuth-free HTTPS, a 2.5 s
+  timeout, two at a time, only GitHub targets, and a five-minute in-memory
+  cache with per-repository dedupe. Star counts and timestamps are independently
+  rejected when malformed; host paths are decoded after split validation. Git
+  item scanning remains pending.
+
 - 2026-09-29 · **P10-30 configured custom skill source inventory.** The
   additive source inventory now merges sanitized `skillCatalogs` settings
   after the four curated identities. Records point to HTTPS or owner/repository

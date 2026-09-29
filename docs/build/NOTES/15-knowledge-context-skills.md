@@ -447,6 +447,23 @@ This remains source configuration only. Catalog enrichment, source scanning,
 cache and identity handling, conflicts, and installation are still E.4
 backlog work.
 
+## P10-31: skill catalog contract shell (2026-09-29)
+
+`GET /api/config/skills/catalog` now returns the planned `ok`, merged
+`sources`, and empty `itemsBySource` shape. GitHub owner/repository and
+HTTPS GitHub URLs receive best-effort `stars` and `repoUpdatedAt`; every other
+source, timeout, non-2xx response, malformed body, and unusable field becomes
+`null`. Metadata requests use APIv3, reject embedded userinfo and query/fragment
+handling, run two at a time, obey a 2.5 s abort, preserve the original source
+string, and cache a repository result for five minutes. Concurrent catalog
+responses reuse one in-flight repository request. Encoded path joins are
+rejected before decoding; a valid ISO `pushed_at` and an integer star count are
+validated independently.
+
+This is the metadata-only catalog shell. SKILL.md item scanning, persisted
+scan cache, SSH identity handling, installation, and managed conflicts remain
+planned E.4 work.
+
 ## P10-28: managed skill supporting files (2026-09-29)
 
 `GET`, `PUT`, and `DELETE /api/config/skills/:name/files/*filePath` now edit

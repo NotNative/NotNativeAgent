@@ -5,7 +5,7 @@ import { linkSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, st
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { readMergedSettings } from '../lib/settings-store.ts';
+import { catalogDocument, catalogSources } from '../lib/skills/skill-catalog.ts';
 import { directAbsolute, externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
 
 const SKILL_NAME = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/u;
@@ -33,86 +33,6 @@ interface ValidatedSkillCreate {
 
 interface ValidatedSkillPatch {
   description: string; instructions: string;
-}
-
-const SKILL_SOURCES = [
-  { id: 'anthropic', label: 'Anthropic', source: 'anthropics/skills', defaultSubpath: 'skills' },
-  { id: 'openai', label: 'OpenAI', source: 'openai/skills', defaultSubpath: 'skills/.curated' },
-  { id: 'cursor', label: 'Cursor', source: 'cursor/plugins', defaultSubpath: 'pstack/skills' },
-  { id: 'mattpocock', label: 'Matt Pocock', source: 'mattpocock/skills', defaultSubpath: null },
-] as const;
-
-interface CustomSkillSource {
-  id: string;
-  label: string;
-  source: string;
-  subpath: string | null;
-  gitIdentityId: string | null;
-}
-
-const MAX_CUSTOM_SOURCES = 32;
-const SOURCE_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
-const OWNER_REPOSITORY = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?\/[a-z0-9._-]{1,199}(?:\.git)?$/iu;
-
-function isText(value: unknown, maxLength: number): value is string {
-  return typeof value === 'string' && value.length <= maxLength && !/\p{Control}/u.test(value);
-}
-
-function usableRepositorySource(value: string): boolean {
-  if (!value.trim() || value.trim() !== value || value.length > 512 || value.startsWith('-')) return false;
-  if (OWNER_REPOSITORY.test(value)) return true;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.username.length === 0 && url.password.length === 0
-      && url.hostname.length > 0 && url.pathname.length > 1;
-  } catch { return false; }
-}
-
-function usableSubpath(value: string): boolean {
-  if (/^([A-Za-z]:)?[\\/]/u.test(value)) return false;
-  if (value.includes('\\') || value.length > 256) return false;
-  return value.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
-}
-
-function customSkillSource(raw: unknown): CustomSkillSource | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const record = raw as Record<string, unknown>;
-  const id = record.id;
-  const label = record.label;
-  const repositorySource = record.source;
-  if (!isText(id, 64) || !SOURCE_ID.test(id)) return null;
-  if (!isText(label, 120) || label.trim() === '' || label.trim() !== label) return null;
-  if (!isText(repositorySource, 512)
-    || /\s/u.test(repositorySource)
-    || !usableRepositorySource(repositorySource)) return null;
-
-  const rawSubpath = record.subpath;
-  if (rawSubpath !== undefined && rawSubpath !== null
-    && (!isText(rawSubpath, 256) || !usableSubpath(rawSubpath))) return null;
-  const rawIdentity = record.gitIdentityId;
-  if (rawIdentity !== undefined && rawIdentity !== null
-    && (!isText(rawIdentity, 128) || !SOURCE_ID.test(rawIdentity))) return null;
-  return {
-    id,
-    label,
-    source: repositorySource,
-    subpath: rawSubpath === undefined || rawSubpath === null ? null : rawSubpath,
-    gitIdentityId: rawIdentity === undefined || rawIdentity === null ? null : rawIdentity,
-  };
-}
-
-function readonlyCatalogSources(): Array<CustomSkillSource> {
-  const configured = readMergedSettings('web').skillCatalogs;
-  if (!Array.isArray(configured)) return [];
-  const entries: Array<CustomSkillSource> = [];
-  const reserved = new Set<string>(SKILL_SOURCES.map((source) => source.id));
-  for (const raw of configured) {
-    const entry = customSkillSource(raw);
-    if (!entry || reserved.has(entry.id) || entries.some((existing) => existing.id === entry.id)) continue;
-    entries.push(entry);
-    if (entries.length === MAX_CUSTOM_SOURCES) break;
-  }
-  return entries;
 }
 
 function parseBoundedSkillBody(encodedBody: string): SkillCreateShape | null {
@@ -361,7 +281,11 @@ function registerSkillListRoutes(app: Hono): void {
       });
     } catch { return c.json({ error: 'project checkout directory is required' }, 400); }
   });
-  app.get('/api/skills/catalog/sources', (c) => c.json({ sources: [...SKILL_SOURCES, ...readonlyCatalogSources()] }));
+  app.get('/api/skills/catalog/sources', (c) => c.json({ sources: catalogSources() }));
+  app.get('/api/config/skills/catalog', async (c) => c.json({
+    ok: true,
+    ...(await catalogDocument()),
+  }));
   app.get('/api/config/skills/:name', (c) => {
     try {
       const skill = scanLocalSkills(c.req.query('directory') ?? '')
