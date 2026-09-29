@@ -2,7 +2,7 @@
 /** Configured skill source browsing backed by the P10-37 catalog store. */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
-import type { SkillConflict, SkillTargetSource } from '../../../lib/skills-api.ts';
+import type { SkillConflict, SkillIdentity, SkillTargetSource } from '../../../lib/skills-api.ts';
 import { useSkillsCatalogStore } from '../../../stores/useSkillsCatalogStore.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
 import { SettingsChipGroup, SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
@@ -19,6 +19,10 @@ export function SkillsCatalogPage(): ReactNode {
   const [conflictState, setConflictState] = useState<{
     sourceId: string; directory?: string; scope: 'user' | 'project';
     target: SkillTargetSource; skillName: string; path: string;
+  } | null>(null);
+  const [identityState, setIdentityState] = useState<{
+    sourceId: string; directory?: string; scope: 'user' | 'project';
+    target: SkillTargetSource; skillName: string; identities: SkillIdentity[];
   } | null>(null);
   const [runtimeRevision, setRuntimeRevision] = useState(0);
   const runtimeRevisionRef = useRef(runtimeRevision);
@@ -48,6 +52,11 @@ export function SkillsCatalogPage(): ReactNode {
     && conflictState.scope === installScope
     && conflictState.target === targetSource;
   const conflictPending = selectedSourceId !== null && installingSourceIds.includes(selectedSourceId);
+  const identityStateVisible = identityState !== null
+    && identityState.sourceId === selectedSourceId
+    && identityState.directory === (activeDirectory || undefined)
+    && identityState.scope === installScope
+    && identityState.target === targetSource;
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog, catalogRevision, runtimeRevision]);
 
@@ -58,6 +67,7 @@ export function SkillsCatalogPage(): ReactNode {
       setSelectedSourceId(null);
       setInstallStatus(null);
       setConflictState(null);
+      setIdentityState(null);
     });
     return () => { off(); };
   }, []);
@@ -81,6 +91,7 @@ export function SkillsCatalogPage(): ReactNode {
   const sendInstallRequest = useCallback(async (request: InstallRequest, override: {
     conflictPolicy?: 'skipAll' | 'overwriteAll';
     conflictDecision?: 'skip' | 'overwrite';
+    gitIdentityId?: string;
   } = {}): Promise<void> => {
     const requestKey = `${request.sourceId}|${request.skillName}`;
     if (installingSourceIds.includes(request.sourceId) || activeInstallRef.current.has(requestKey)) return;
@@ -97,10 +108,12 @@ export function SkillsCatalogPage(): ReactNode {
         conflictDecisions: override.conflictDecision === undefined
           ? undefined
           : { [request.skillName]: override.conflictDecision },
+        gitIdentityId: override.gitIdentityId,
       });
       if (runtimeRevisionRef.current !== requestRuntimeRevision) return;
       if (outcome.kind === 'success') {
         setConflictState(null);
+        setIdentityState(null);
         setInstallStatus({
           sourceId: request.sourceId, directory: request.directory,
           scope: request.scope, target: request.target, message: outcome.message,
@@ -113,6 +126,16 @@ export function SkillsCatalogPage(): ReactNode {
         && typeof conflict.path === 'string' && conflict.path !== ''
         && (conflict.scope === 'user' || conflict.scope === 'project') && conflict.scope === request.scope
         && typeof conflict.source === 'string' && conflict.source === request.target);
+      const relevantIdentities = outcome.identities?.filter((identity) => identity.id !== ''
+        && identity.name !== '') ?? [];
+      if (relevantIdentities.length > 0) {
+        setConflictState(null);
+        setIdentityState({
+          sourceId: request.sourceId, directory: request.directory,
+          scope: request.scope, target: request.target,
+          skillName: request.skillName, identities: relevantIdentities,
+        });
+      } else setIdentityState(null);
       setConflictState(relevantConflict === undefined ? null : {
         sourceId: request.sourceId, directory: request.directory,
         scope: request.scope, target: request.target,
@@ -144,6 +167,14 @@ export function SkillsCatalogPage(): ReactNode {
       ? { conflictDecision: action }
       : { conflictPolicy: action });
   }, [conflictState, sendInstallRequest]);
+
+  const chooseIdentity = useCallback((identityId: string): void => {
+    if (identityState === null) return;
+    void sendInstallRequest({
+      sourceId: identityState.sourceId, skillName: identityState.skillName,
+      directory: identityState.directory, scope: identityState.scope, target: identityState.target,
+    }, { gitIdentityId: identityId });
+  }, [identityState, sendInstallRequest]);
 
   const refresh = useCallback(() => {
     setCatalogRevision((current) => current + 1);
@@ -190,6 +221,20 @@ export function SkillsCatalogPage(): ReactNode {
             <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite" disabled={conflictPending} onClick={() => resolveConflict('overwrite')}>Overwrite</button>
             <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip-all" disabled={conflictPending} onClick={() => resolveConflict('skipAll')}>Skip all</button>
             <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite-all" disabled={conflictPending} onClick={() => resolveConflict('overwriteAll')}>Overwrite all</button>
+          </div>
+        </div>
+      ) : null}
+      {identityStateVisible && identityState !== null ? (
+        <div className="mt-2 rounded-md border border-border/60 p-3" data-testid="skill-catalog-identity">
+          <div className="text-xs font-medium text-foreground">Git authentication is required</div>
+          <div className="mt-1 text-xs text-muted-foreground">Choose a Git identity for {identityState.skillName}.</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {identityState.identities.map((identity) => (
+              <button key={identity.id} type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50"
+                data-testid={`choose-skill-identity-${identity.id}`}
+                disabled={installingSourceIds.includes(identityState.sourceId)}
+                onClick={() => chooseIdentity(identity.id)}>{identity.name}</button>
+            ))}
           </div>
         </div>
       ) : null}

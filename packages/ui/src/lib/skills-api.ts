@@ -103,6 +103,13 @@ function directoryQuery(directory: string | undefined, extra: Record<string, str
   return text === '' ? '' : `?${text}`;
 }
 
+function isSkillIdentity(value: unknown): value is SkillIdentity {
+  if (!value || typeof value !== 'object') return false;
+  const identity = value as SkillIdentity;
+  return typeof identity.id === 'string' && identity.id.trim() !== ''
+    && typeof identity.name === 'string' && identity.name.trim() !== '';
+}
+
 function isSkillConflict(value: unknown): value is SkillConflict {
   if (!value || typeof value !== 'object') return false;
   const conflict = value as SkillConflict;
@@ -123,9 +130,12 @@ function errorDetail(value: unknown, status: number): SkillApiError {
   const kind = detail?.kind as SkillApiErrorKind | undefined;
   const known = kind === 'authRequired' || kind === 'conflicts' || kind === 'invalidSource'
     || kind === 'networkError' || kind === 'unknown';
+  const identities = kind === 'authRequired' && status === 401 && Array.isArray(detail?.identities)
+    ? detail.identities.filter((entry): entry is SkillIdentity => isSkillIdentity(entry))
+    : undefined;
   return new SkillApiError(status, known ? kind : 'unknown',
     typeof detail?.message === 'string' ? detail.message : `skills request failed (${status})`,
-    Array.isArray(detail?.identities) ? detail.identities : undefined,
+    identities?.length ? identities : undefined,
     conflicts?.length ? conflicts : undefined);
 }
 

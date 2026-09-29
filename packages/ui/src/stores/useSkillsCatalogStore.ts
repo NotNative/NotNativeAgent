@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import {
   installSkills, loadSkillCatalog, loadSkillCatalogSource,
-  type SkillCatalogScanItem, type SkillConflict, type SkillScope, type SkillSource,
+  type SkillCatalogScanItem, type SkillConflict, type SkillIdentity, type SkillScope, type SkillSource,
   type SkillTargetSource,
 } from '../lib/skills-api.ts';
 
@@ -18,7 +18,15 @@ const sourceRequestSerials: Record<string, number> = {};
 
 export type SkillInstallOutcome =
   | { kind: 'success'; message: string; installed: number }
-  | { kind: 'error'; message: string; conflicts?: SkillConflict[]; identities?: unknown[] };
+  | { kind: 'error'; message: string; conflicts?: SkillConflict[]; identities?: SkillIdentity[] };
+
+function skillIdentity(value: unknown): SkillIdentity | null {
+  if (!value || typeof value !== 'object') return null;
+  const identity = value as SkillIdentity;
+  return typeof identity.id === 'string' && identity.id.trim() !== ''
+    && typeof identity.name === 'string' && identity.name.trim() !== ''
+    ? identity : null;
+}
 
 interface SkillsCatalogState {
   sources: SkillSource[] | null;
@@ -38,6 +46,7 @@ interface SkillsCatalogState {
     directory?: string; scope: SkillScope; targetSource?: SkillTargetSource;
     selections: string[]; conflictPolicy?: 'prompt' | 'skipAll' | 'overwriteAll';
     conflictDecisions?: Record<string, 'skip' | 'overwrite'>;
+    gitIdentityId?: string | null;
   }) => Promise<SkillInstallOutcome>;
   resetForRuntimeSwitch: () => void;
 }
@@ -136,8 +145,9 @@ export const useSkillsCatalogStore = create<SkillsCatalogState>((set, get) => ({
     try {
       const result = await installSkills({
         source: source.source, subpath: source.subpath ?? null,
-        gitIdentityId: source.gitIdentityId ?? null, scope: input.scope,
+        scope: input.scope,
         targetSource: input.targetSource ?? 'opencode', selections: input.selections,
+        gitIdentityId: input.gitIdentityId === undefined ? (source.gitIdentityId ?? null) : input.gitIdentityId,
         conflictPolicy: input.conflictPolicy, conflictDecisions: input.conflictDecisions,
       }, input.directory);
       const outcome: SkillInstallOutcome = {
@@ -148,10 +158,13 @@ export const useSkillsCatalogStore = create<SkillsCatalogState>((set, get) => ({
       return outcome;
     } catch (error) {
       const failure = error as { kind?: unknown; message?: unknown; conflicts?: SkillConflict[]; identities?: unknown[] };
+      const identities = Array.isArray(failure.identities)
+        ? failure.identities.map(skillIdentity).filter((entry): entry is SkillIdentity => entry !== null)
+        : undefined;
       const outcome: SkillInstallOutcome = {
         kind: 'error', message: typeof failure.message === 'string' ? failure.message : 'Skill installation failed.',
         conflicts: Array.isArray(failure.conflicts) ? failure.conflicts : undefined,
-        identities: Array.isArray(failure.identities) ? failure.identities : undefined,
+        identities: identities?.length ? identities : undefined,
       };
       if (!isCurrentRuntime(epoch)) return outcome;
       set((state) => ({ installOutcomes: { ...state.installOutcomes, [key]: outcome } }));

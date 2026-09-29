@@ -301,6 +301,65 @@ describe('skills catalog settings page', () => {
     expect(sourceMock.mock.calls.filter(([, options]) => options?.refresh === true)).toHaveLength(0);
   });
 
+  it('shows captured auth identities and retries with the chosen profile', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce({
+      kind: 'authRequired', message: 'Git authentication is required',
+      identities: [{ id: 'work-key', name: 'Work key' }, { id: 'home-key', name: 'Home key' }],
+    });
+    installMock.mockResolvedValueOnce({ ok: true, installed: [], skipped: [], requiresReload: true, message: 'Installed with identity' });
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    const picker = document.querySelector('[data-testid="skill-catalog-identity"]');
+    expect(picker?.textContent).toContain('Work key');
+    expect(picker?.textContent).toContain('Home key');
+    clickText('Home key');
+    await settle();
+
+    expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      scope: 'user', targetSource: 'opencode', selections: ['review'],
+      gitIdentityId: 'home-key', conflictPolicy: undefined, conflictDecisions: undefined,
+    }), 'D:/workspace');
+    expect(document.querySelector('[data-testid="skill-catalog-identity"]')).toBeNull();
+  });
+
+  it('retains a configured source identity when no profile is chosen', async () => {
+    const anthropic = { ...source('anthropic', 'Anthropic'), gitIdentityId: 'default-key' };
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce(new Error('identity is not configured'));
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    expect(installMock).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'anthropic-repo', subpath: 'skills', gitIdentityId: 'default-key',
+    }), 'D:/workspace');
+  });
+
+  it('shows no identity picker when a 401 supplies only malformed profiles', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    installMock.mockRejectedValueOnce({
+      kind: 'authRequired', message: 'Git authentication is required',
+      identities: [null, 'work-key', { id: '', name: 'Bad' }, { id: ' ', name: 'Bad' },
+        { id: 'bad', name: '' }, { id: 'bad', name: ' ' }],
+    });
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    expect(document.querySelector('[data-testid="skill-catalog-identity"]')).toBeNull();
+    expect(document.body.textContent).toContain('Git authentication is required');
+  });
   it('prevents another install while a source install is pending', async () => {
     const anthropic = source('anthropic', 'Anthropic');
     catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });

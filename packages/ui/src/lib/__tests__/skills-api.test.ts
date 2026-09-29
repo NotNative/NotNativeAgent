@@ -70,6 +70,14 @@ describe('skills catalog API transport', () => {
       status: 401, kind: 'authRequired', message: 'Authentication required',
     } satisfies Partial<SkillApiError>);
 
+    native.mockResolvedValueOnce(json(401, {
+      error: { kind: 'authRequired', message: 'Authentication required',
+        identities: [null, { id: 'work-key', name: 'Work' }, { id: ' ', name: 'Bad' }] },
+    }));
+    await expect(loadSkillCatalogSource('anthropic')).rejects.toMatchObject({
+      status: 401, kind: 'authRequired', identities: [{ id: 'work-key', name: 'Work' }],
+    } satisfies Partial<SkillApiError>);
+
     native.mockResolvedValueOnce(json(409, {
       error: {
         kind: 'conflicts', message: 'skills already exist',

@@ -538,6 +538,28 @@ The idle Settings catalog route now renders the configured merged catalog throug
 
 The audit was interrupted once for a compact report after its runtime exceeded the normal window. It then confirmed three defects and hardened the seam: item caches are keyed by source and workspace, overlapping reads keep only the latest response, and the engine runtime-reset path clears the catalog with an advanced runtime epoch so late transport promises cannot repopulate it. The slice is deliberately read-only. It does not expose selection, conflict decisions, Git identities, or installation actions, and it does not add an install cancellation signal. Focused page regressions pin loading, workspace-keyed selection, cache-bypass refresh, prior-data retention, and catalog-source notices.
 
+## P10-41: captured identity picker (2026-09-29)
+
+A `401 authRequired` response may supply Git-identity candidates parsed as
+nonempty `{ id, name }` pairs. The catalog page stores those candidates with
+the exact source ID, workspace, scope, managed target, and selected skill.
+The picker is visible only when that captured request matches the current
+page selection, so changing any dimension hides and detaches the offer. A
+profile click replays the same captured request with only that explicit
+`gitIdentityId` override.
+
+Transport hardening accepts identity lists only from genuine 401 cases and
+drops empty or whitespace-only IDs/names. The catalog store defense filters
+malformed entries. Audit fixes preserve the configured source identity for
+ordinary retries instead of forcing it to null, and prevent non-auth errors
+from exposing identity choices. Capture-state, runtime-reset, duplicate,
+pending, workspace, conflict, and stale-response behavior remain pinned.
+
+This slice intentionally stops at the request contract: the server has no
+credential-bearing Git-identity profile implementation or SSH resolver, so
+configured identity scanning/install and profile-backed retry remain future
+work. API-level install cancellation also remains pending.
+
 ## P10-40: catalog conflict resolution (2026-09-29)
 
 When a one-skill install returns a structured 409, the Settings catalog page
