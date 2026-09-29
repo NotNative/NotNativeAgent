@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:1c2446a6b25b2fad8008aac456693d08af4023a61f5e3976e70058fd9f9a1b52",
+  "source_digest": "sha256:727ab2b2ed394fa54808a2f82a0f127c51f38e8d72cb606014279d6c9fe0d15b",
   "counts": {
-    "modules": 547,
+    "modules": 549,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 146
+      "module_count": 148
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 71,
-      "module_count": 33
+      "import_count": 72,
+      "module_count": 34
     },
     {
       "from": "ui-shell",
@@ -160,6 +160,12 @@
       "module_count": 2
     },
     {
+      "from": "sync-engine",
+      "to": "ui-shell",
+      "import_count": 4,
+      "module_count": 3
+    },
+    {
       "from": "runtime-io",
       "to": "sync-engine",
       "import_count": 3,
@@ -170,12 +176,6 @@
       "to": "ui-shell",
       "import_count": 2,
       "module_count": 2
-    },
-    {
-      "from": "sync-engine",
-      "to": "ui-shell",
-      "import_count": 2,
-      "module_count": 1
     },
     {
       "from": "gates",
@@ -324,6 +324,17 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/composer-draft-pins.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/composer-model-config.ts",
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/chat/project-context-pins.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/composer-model-config.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -351,6 +362,7 @@
         "packages/ui/src/chat/composer-annotation.ts",
         "packages/ui/src/chat/composer-attachments.ts",
         "packages/ui/src/chat/composer-bits.tsx",
+        "packages/ui/src/chat/composer-draft-pins.ts",
         "packages/ui/src/chat/composer-model-config.ts",
         "packages/ui/src/chat/composer-queue.ts",
         "packages/ui/src/chat/drafts.ts",
@@ -405,6 +417,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/project-context-pins.ts",
         "packages/ui/src/lib/project-context-api.ts"
       ]
     },
@@ -613,6 +626,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/project-context-pins.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/chat/project-notes.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -621,6 +640,8 @@
         "packages/ui/src/chat/context-notes.tsx",
         "packages/ui/src/chat/context-plans.tsx",
         "packages/ui/src/chat/context-todos.tsx",
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/chat/project-context-pins.ts",
         "packages/ui/src/chat/workspace-context-import.tsx",
         "packages/ui/src/components/plan/PlanView.tsx",
         "packages/ui/src/lib/files/api.ts",
@@ -3146,6 +3167,7 @@
       "component": "sync-engine",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/project-context-pins.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/session-actions.ts",
         "packages/ui/src/sync/session-lifecycle.ts",
@@ -3416,6 +3438,7 @@
       "component": "sync-engine",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/project-context-pins.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/session-actions.ts",

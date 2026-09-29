@@ -317,6 +317,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
                 stageTodoInNewChat(directory, text);
                 if (compactOpen) onCloseCompact?.();
               } : undefined}
+              draftPinSessionId={walkthroughSessionId}
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}

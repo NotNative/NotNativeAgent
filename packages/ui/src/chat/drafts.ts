@@ -32,10 +32,12 @@ export interface DraftRecord {
   attachments: DraftAttachment[];
   autoAccept: boolean;
   queue: QueuedMessage[];
+  projectContextPins: { notes: string[]; plans: string[] };
   updatedAt: number;
 }
 
-const EMPTY: DraftRecord = { text: '', attachments: [], autoAccept: false, queue: [], updatedAt: 0 };
+const EMPTY: DraftRecord = { text: '', attachments: [], autoAccept: false, queue: [],
+  projectContextPins: { notes: [], plans: [] }, updatedAt: 0 };
 
 type DraftStore = Record<string, DraftRecord | { tombstone: true }>;
 
@@ -71,9 +73,15 @@ export function readDraft(directory: string, sessionKey: DraftSessionKey): Draft
   return { ...EMPTY, ...value };
 }
 
-export function saveDraft(directory: string, sessionKey: DraftSessionKey, record: Omit<DraftRecord, 'updatedAt'>): void {
+export function saveDraft(directory: string, sessionKey: DraftSessionKey,
+  partial: Omit<DraftRecord, 'updatedAt' | 'projectContextPins'> & { projectContextPins?: DraftRecord['projectContextPins'] }): void {
+  const record = partial as Omit<DraftRecord, 'updatedAt'>;
   const store = readStore();
-  store[draftKey(directory, sessionKey)] = { ...record, updatedAt: Date.now() };
+  store[draftKey(directory, sessionKey)] = {
+    ...record,
+    projectContextPins: record.projectContextPins ?? readDraft(directory, sessionKey).projectContextPins,
+    updatedAt: Date.now(),
+  };
   if (pendingTimer) {
     clearTimeout(pendingTimer);
     pendingTimer = null;

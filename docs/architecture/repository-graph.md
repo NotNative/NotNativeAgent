@@ -38,7 +38,7 @@ graph LR
 | Client sync and state engine | 38 | Harness SDK facade, Runtime adaptation, UI shell | Runtime adaptation, UI shell |
 | Harness SDK facade | 4 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
 | Runtime adaptation | 149 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
-| UI shell | 146 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
+| UI shell | 148 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 179 | Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 9 | Web server | — |
 | Quality gates | 22 | Runtime adaptation, Web server | — |
@@ -49,7 +49,7 @@ graph LR
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
 | UI shell | Runtime adaptation | 198 | 84 |
-| UI shell | Client sync and state engine | 71 | 33 |
+| UI shell | Client sync and state engine | 72 | 34 |
 | UI shell | Harness SDK facade | 57 | 48 |
 | Client sync and state engine | Harness SDK facade | 51 | 36 |
 | Quality gates | Web server | 15 | 4 |
@@ -58,9 +58,9 @@ graph LR
 | Runtime adaptation | Harness SDK facade | 8 | 5 |
 | Client sync and state engine | Runtime adaptation | 7 | 6 |
 | Harness SDK facade | Runtime adaptation | 4 | 2 |
+| Client sync and state engine | UI shell | 4 | 3 |
 | Runtime adaptation | Client sync and state engine | 3 | 2 |
 | Runtime adaptation | UI shell | 2 | 2 |
-| Client sync and state engine | UI shell | 2 | 1 |
 | Quality gates | Runtime adaptation | 1 | 1 |
 
 ## Process entry points
@@ -70,4 +70,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:1c2446a6b25b2fad8008aac456693d08af4023a61f5e3976e70058fd9f9a1b52`.
+Source fingerprint: `sha256:727ab2b2ed394fa54808a2f82a0f127c51f38e8d72cb606014279d6c9fe0d15b`.

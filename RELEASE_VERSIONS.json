@@ -560,6 +560,14 @@
     {
       "version": "20260929-28",
       "content_sha256": "99f1037bea6d8d32b51a5dd45aa02eda70b757a6eee016b423ad8acbe2000336"
+    },
+    {
+      "version": "20260929-29",
+      "content_sha256": "e836b89bc86fba6f5fd8abd30709f5544261fb86433f3b8c0c40c8c6182c186b"
+    },
+    {
+      "version": "20260929-30",
+      "content_sha256": "d33a6e7784d7398b4171859012dfe275713d445cbbcf105f5081274645b4a278"
     }
   ]
 }

@@ -9,6 +9,7 @@ import type { Message, Part, PermissionRequest, QuestionRequest, Session, Sessio
 import type { DirectoryStore, MaterializationRequest } from './types.ts';
 import type { SessionMessageLoader } from './session-message-loader.ts';
 import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
+import { metadataWithProjectContextPins, type ProjectContextPinTargets } from '../chat/project-context-pins.ts';
 import { isNotFound } from './session-actions.ts';
 
 export interface EngineServices {
@@ -33,7 +34,8 @@ export interface EngineServices {
 }
 
 /** §F.1 createSession: routing pre-register, child insert, loader claim, select. */
-export async function createSession(engine: EngineServices, input: { directory: string; title?: string; parentID?: string }): Promise<Session> {
+export async function createSession(engine: EngineServices, input: { directory: string; title?: string; parentID?: string;
+  projectContextPins?: ProjectContextPinTargets }): Promise<Session> {
   const requested = normalizeDirectory(input.directory);
   const result = await harnessClient.createSession({ title: input.title, directory: requested, ...(input.parentID ? { parentID: input.parentID } : {}) });
   if (result.error || !result.data) throw new Error(result.error ?? 'createSession failed');
@@ -41,6 +43,22 @@ export async function createSession(engine: EngineServices, input: { directory: 
   // SERVER-AUTHORITATIVE directory, not the requested one
   const sessionDirectory = normalizeDirectory(session.directory ?? requested);
   session.directory = sessionDirectory;
+  const metadata = metadataWithProjectContextPins(session.metadata, input.projectContextPins ?? { notes: [], plans: [] });
+  if (metadata) {
+    const current = await harnessClient.getSession(session.id, { directory: sessionDirectory });
+    if (current.error || !current.data) throw new Error(current.error ?? 'Could not read the new session for context pins');
+    if (current.data.id !== session.id || normalizeDirectory(current.data.directory ?? sessionDirectory) !== sessionDirectory) {
+      throw new Error('Could not read the new session for context pins');
+    }
+    const merged = metadataWithProjectContextPins(current.data.metadata, input.projectContextPins ?? { notes: [], plans: [] });
+    if (!merged) throw new Error('Could not merge project context pins');
+    const committed = await harnessClient.updateSession(session.id, { metadata: merged }, { directory: sessionDirectory });
+    if (committed.error || !committed.data) throw new Error(committed.error ?? 'Could not transfer project context pins');
+    if (committed.data.id !== session.id || normalizeDirectory(committed.data.directory ?? sessionDirectory) !== sessionDirectory) {
+      throw new Error('Could not transfer project context pins');
+    }
+    session.metadata = committed.data.metadata;
+  }
   const store = engine.ensureChild(sessionDirectory);
   engine.registerSessionRoute(session.id, sessionDirectory);
   insertCreatedSession(store, session);

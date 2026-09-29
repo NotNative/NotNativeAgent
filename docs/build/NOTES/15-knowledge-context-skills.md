@@ -182,6 +182,26 @@ same-session writes, targeting/metadata validation, pin-limit handling, stale
 row ownership, or post-unmount lifecycle. Truth: UI typecheck green; focused
 chat/session pin regression suites 8/8.
 
+## P10-51: draft project-context pins (2026-09-29)
+
+While a new-session draft is active, project notes can carry bounded
+`{ notes, plans }` context-pin targets in the durable composer draft. The
+reader drops malformed records, de-duplicates IDs, and caps each collection at
+50. The first send passes those targets to session creation, which reads the
+new session fresh, merges only `openchamber.project_context_pins`, PATCHes
+generic metadata, and verifies the response identity before delivery.
+
+A materializing failure at creation, fresh read, merge, PATCH, or delivery
+keeps the pins on the draft for retry. Successful delivery clears the draft
+targets. Live-session targets do not expose this draft-only control because
+the session-knowledge pin route remains a later P10 surface.
+
+The adversarial audit fixed pin-state rerender, malformed stored-pin
+normalization, and an unused duplicate import. The later gate-driven split
+extracted draft delivery and project-note actions without behavior change.
+Truth: UI typecheck green; focused pin suites 14/14; full UI 1,347/1,347 and
+web 1,158/1,158; graph current at 549 modules.
+
 ## P10-2: note lifecycle API (2026-09-26)
 
 The isolated context store now has note create, patch, and delete operations

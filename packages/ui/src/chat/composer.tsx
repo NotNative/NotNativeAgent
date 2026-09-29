@@ -26,6 +26,7 @@ import { refreshSnippets, snippetMap, snippetSubscribe } from '../lib/snippets-s
 import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
+import { deliverToNewSession } from './composer-draft-pins.ts';
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
 const MAX_LINES = 8;
 
@@ -353,11 +354,8 @@ export function Composer(props: ComposerProps): ReactNode {
       await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model, agent: sendAgent, ...(delivery ? { delivery } : {}) });
       return;
     }
-    const created = await services.engine.actions.createSession({ directory });
-    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts,
-      model: modelForCreatedSession(created.metadata, nnaConfigured, model), agent: sendAgent });
-    useSessionViewStore.getState().setCurrentSession(created.id);
-    useSessionViewStore.getState().setActiveDirectory(directory);
+    await deliverToNewSession({ directory, sourceKey: sessionKey, outgoing: payloadParts,
+      delivery, model, sendAgent, nnaConfigured, services });
   }
 
   function skillMentionFrom(tokens: PromptToken[]): string | null {

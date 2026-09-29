@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Project-owned notes; legacy repo notes stay accessible separately. */
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type ReactNode, type SetStateAction } from 'react';
+import { type ProjectContextPinTargets } from './project-context-pins.ts';
 import { createProjectNote, deleteProjectNote, getProjectContext, updateProjectNote,
   type ProjectContext, type ProjectNote } from '../lib/project-context-api.ts';
 
@@ -21,25 +22,35 @@ function useContextLoad(projectId: string, visible: boolean, refreshToken: numbe
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const requestSequence = useRef(0);
-  useEffect(() => {
-    if (!visible) return;
-    let active = true;
-    const sequence = ++requestSequence.current;
-    setLoading(true);
-    void getProjectContext(projectId).then((value) => {
-      if (active && sequence === requestSequence.current) { setContext(value); setError(''); setLoading(false); }
-    }).catch(() => { if (active && sequence === requestSequence.current) {
-      setError('Context could not be loaded. Existing notes were left untouched.'); setLoading(false);
-    } });
-    return () => { active = false; };
-  }, [projectId, revision, visible, refreshToken]);
+  useEffect(() => loadContextOnce({ projectId, visible, revision, refreshToken,
+    sequence: requestSequence, setContext, setError, setLoading }),
+  [projectId, revision, visible, refreshToken, setError, setLoading, setContext]);
   return { context, setContext, loading, error, setError,
     refresh: () => setRevision((value) => value + 1), requestSequence };
 }
 
-export function ContextNotes({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange }: {
+function loadContextOnce(input: { projectId: string; visible: boolean; revision: number; refreshToken: number;
+  sequence: MutableRefObject<number>; setContext: Dispatch<SetStateAction<ProjectContext | null>>;
+  setError: Dispatch<SetStateAction<string>>; setLoading: Dispatch<SetStateAction<boolean>>;
+}): () => void {
+  if (!input.visible) return () => undefined;
+  let active = true;
+  const sequence = ++input.sequence.current;
+  input.setLoading(true);
+  void getProjectContext(input.projectId).then((value) => {
+    if (active && sequence === input.sequence.current) { input.setContext(value); input.setError(''); input.setLoading(false); }
+  }).catch(() => { if (active && sequence === input.sequence.current) {
+    input.setError('Context could not be loaded. Existing notes were left untouched.'); input.setLoading(false);
+  } });
+  return () => { active = false; };
+}
+
+export function ContextNotes({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange,
+  draftPins, onToggleNotePin }: {
   projectId: string; visible: boolean; query?: string; refreshToken?: number; retainedDraft?: ContextNotesDraft;
   onDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
+  draftPins?: ProjectContextPinTargets;
+  onToggleNotePin?: (noteID: string, pinned: boolean) => void;
 }): ReactNode {
   const { context, setContext, loading, error, setError, refresh, requestSequence } = useContextLoad(projectId, visible, refreshToken);
   const [draftState, setDraftState] = useState<ContextNotesDraft>(() => retainedDraft ?? { draft: '', editing: null, editBody: '' });
@@ -49,40 +60,11 @@ export function ContextNotes({ projectId, visible, query = '', refreshToken = 0,
   const setEditBody = (value: string): void => setDraftState((current) => ({ ...current, editBody: value }));
   const [busy, setBusy] = useState(false);
   useEffect(() => { onDraftChange?.(projectId, draftState); }, [draftState, onDraftChange, projectId]);
-  async function saveNew(): Promise<void> {
-    const body = draft.trim();
-    if (!body || busy) return;
-    ++requestSequence.current;
-    setBusy(true); setError('');
-    try {
-      const committed = await createProjectNote(projectId, { body });
-      ++requestSequence.current;
-      setContext(committed.context); setDraft('');
-    } catch { setError('Note could not be saved. The draft is still here.'); }
-    finally { setBusy(false); }
-  }
-  async function saveEdit(): Promise<void> {
-    if (!editing || !editBody.trim() || busy) return;
-    ++requestSequence.current;
-    setBusy(true); setError('');
-    try {
-      const note = await updateProjectNote(projectId, editing, { body: editBody });
-      ++requestSequence.current;
-      setContext((current) => current ? { ...current,
-        notes: current.notes.map((item) => item.id === note.id ? note : item) } : current);
-      setEditing(null);
-    } catch { setError('Note edit failed. Your draft is still here.'); }
-    finally { setBusy(false); }
-  }
-
-  async function remove(noteId: string): Promise<void> {
-    if (busy) return;
-    ++requestSequence.current;
-    setBusy(true); setError('');
-    try { const committed = await deleteProjectNote(projectId, noteId); ++requestSequence.current; setContext(committed); }
-    catch { setError('Note could not be deleted.'); }
-    finally { setBusy(false); }
-  }
+  const actions = useProjectNoteActions({ projectId, draft, editing, editBody, busy, setBusy,
+    setContext, setError, setEditing, setDraft, requestSequence });
+  const saveNew = actions.saveNew;
+  const saveEdit = actions.saveEdit;
+  const remove = actions.remove;
 
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-notes">
     <ContextNotesHeader busy={busy} refresh={refresh} />
@@ -93,7 +75,8 @@ export function ContextNotes({ projectId, visible, query = '', refreshToken = 0,
       <button type="button" disabled={busy || !draft.trim()} onClick={() => { void saveNew(); }}
         className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50">Add note</button>
       <ContextNoteList notes={context.notes} query={query} editing={editing} editBody={editBody} busy={busy}
-        setEditing={setEditing} setEditBody={setEditBody} saveEdit={saveEdit} remove={remove} />
+        setEditing={setEditing} setEditBody={setEditBody} saveEdit={saveEdit} remove={remove}
+        pinnedIDs={new Set(draftPins?.notes ?? [])} onTogglePin={onToggleNotePin} />
     </>}
   </section>;
 }
@@ -105,10 +88,52 @@ function ContextNotesHeader({ busy, refresh }: { busy: boolean; refresh: () => v
   </header>;
 }
 
-function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, setEditBody, saveEdit, remove }: {
+function useProjectNoteActions(input: { projectId: string; draft: string; editing: string | null;
+  editBody: string; busy: boolean; setBusy: Dispatch<SetStateAction<boolean>>;
+  setContext: Dispatch<SetStateAction<ProjectContext | null>>; setError: Dispatch<SetStateAction<string>>;
+  setEditing: (value: string | null) => void; setDraft: (value: string) => void;
+  requestSequence: MutableRefObject<number>;
+}): { saveNew: () => Promise<void>; saveEdit: () => Promise<void>; remove: (id: string) => Promise<void> } {
+  async function saveNew(): Promise<void> {
+    const body = input.draft.trim();
+    if (!body || input.busy) return;
+    ++input.requestSequence.current; input.setBusy(true); input.setError('');
+    try {
+      const committed = await createProjectNote(input.projectId, { body });
+      ++input.requestSequence.current; input.setContext(committed.context); input.setDraft('');
+    } catch { input.setError('Note could not be saved. The draft is still here.'); }
+    finally { input.setBusy(false); }
+  }
+  async function saveEdit(): Promise<void> {
+    if (!input.editing || !input.editBody.trim() || input.busy) return;
+    ++input.requestSequence.current; input.setBusy(true); input.setError('');
+    try {
+      const note = await updateProjectNote(input.projectId, input.editing, { body: input.editBody });
+      ++input.requestSequence.current;
+      input.setContext((current) => current ? { ...current,
+        notes: current.notes.map((item) => item.id === note.id ? note : item) } : current);
+      input.setEditing(null);
+    } catch { input.setError('Note edit failed. Your draft is still here.'); }
+    finally { input.setBusy(false); }
+  }
+  async function remove(noteId: string): Promise<void> {
+    if (input.busy) return;
+    ++input.requestSequence.current; input.setBusy(true); input.setError('');
+    try { const committed = await deleteProjectNote(input.projectId, noteId);
+      ++input.requestSequence.current; input.setContext(committed); }
+    catch { input.setError('Note could not be deleted.'); }
+    finally { input.setBusy(false); }
+  }
+  return { saveNew, saveEdit, remove };
+}
+
+function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, setEditBody, saveEdit, remove,
+  pinnedIDs, onTogglePin }: {
   notes: ProjectNote[]; query: string; editing: string | null; editBody: string; busy: boolean;
   setEditing: (value: string | null) => void; setEditBody: (value: string) => void;
   saveEdit: () => Promise<void>; remove: (id: string) => Promise<void>;
+  pinnedIDs: Set<string>;
+  onTogglePin?: (noteID: string, pinned: boolean) => void;
 }): ReactNode {
   const needle = query.trim().toLocaleLowerCase();
   const visibleNotes = notes.filter(usableNote).filter((note) => !needle || note.body.toLocaleLowerCase().includes(needle));
@@ -124,7 +149,12 @@ function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, se
         <button type="button" disabled={busy} className="ml-2" onClick={() => setEditing(null)}>Cancel</button>
       </> : <>
         <p className="whitespace-pre-wrap break-words">{note.body}</p>
-        <button type="button" disabled={busy} className="mt-2 text-sky-300" onClick={() => {
+        <button type="button" disabled={busy || !onTogglePin} className="mt-2 text-amber-300"
+          aria-label={`Pin ${note.id} to the new-session draft`}
+          aria-pressed={pinnedIDs.has(note.id)} onClick={() => onTogglePin?.(note.id, !pinnedIDs.has(note.id))}>
+          {pinnedIDs.has(note.id) ? 'Pinned' : 'Pin to draft'}
+        </button>
+        <button type="button" disabled={busy} className="mt-2 ml-2 text-sky-300" onClick={() => {
           setEditing(note.id); setEditBody(note.body);
         }}>Edit</button>
         <button type="button" disabled={busy} className="ml-2 text-amber-300" onClick={() => { void remove(note.id); }}>Delete</button>

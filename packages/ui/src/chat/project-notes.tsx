@@ -8,6 +8,8 @@ import { ContextMemory, type ContextMemoryDraft } from './context-memory.tsx';
 import { ContextPlans, type ContextPlanDraft } from './context-plans.tsx';
 import { ContextTodos, usableTodo } from './context-todos.tsx';
 import { getProjectContext, type ProjectContext } from '../lib/project-context-api.ts';
+import { readDraft, saveDraft } from './drafts.ts';
+import { mergeProjectContextPin, parseProjectContextPins } from './project-context-pins.ts';
 import { WorkspaceContextImport } from './workspace-context-import.tsx';
 
 type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos' | 'memory';
@@ -31,7 +33,7 @@ function searchCounts(context: ProjectContext, query: string): { context: number
 export interface NotesDraftLease { directoryKey: string; text: string; revision: number }
 type SetDraftLease = Dispatch<SetStateAction<NotesDraftLease | null>>;
 
-export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange, planDraft, onPlanDraftChange, todoDraft, onTodoDraftChange, onAddTodoToChat, onAddTodoToNewChat }: {
+export function ProjectNotes({ directory, directoryKey, projectId, visible, draftLease, setDraftLease, contextDraft, onContextDraftChange, planDraft, onPlanDraftChange, todoDraft, onTodoDraftChange, onAddTodoToChat, onAddTodoToNewChat, draftPinSessionId }: {
   directory: string; directoryKey: string; projectId: string | null; visible: boolean;
   draftLease: NotesDraftLease | null; setDraftLease: SetDraftLease;
   contextDraft?: ContextNotesDraft; onContextDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
@@ -39,6 +41,7 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
   todoDraft?: string; onTodoDraftChange?: (projectId: string, draft: string) => void;
   onAddTodoToChat?: (text: string) => boolean;
   onAddTodoToNewChat?: (text: string) => void;
+  draftPinSessionId?: string | null;
 }): ReactNode {
   const [tab, setTab] = useState<Tab>(() => projectId ? 'context' : 'notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set([projectId ? 'context' : 'notes']));
@@ -63,6 +66,23 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     return () => { active = false; };
   }, [projectId, visible, searchEnabled, searchRevision]);
   const counts = searchEnabled && searchSnapshot?.projectId === projectId ? searchCounts(searchSnapshot.context, query) : null;
+  const draftPinRecord = draftPinSessionId === null && projectId !== null ? readDraft(directory, 'draft') : null;
+  const draftPinSource = draftPinRecord ? parseProjectContextPins({
+    project_context_pins: draftPinRecord.projectContextPins,
+  }) : null;
+  const [draftPinRevision, setDraftPinRevision] = useState(0);
+  void draftPinRevision;
+  const toggleNotePin = draftPinSessionId === null && projectId !== null ? (noteID: string, pinned: boolean): void => {
+    const record = readDraft(directory, 'draft');
+    const pins = parseProjectContextPins({
+      project_context_pins: record.projectContextPins,
+    });
+    saveDraft(directory, 'draft', {
+      ...record,
+      projectContextPins: mergeProjectContextPin(pins, 'note', noteID, pinned),
+    });
+    setDraftPinRevision((revision) => revision + 1);
+  } : undefined;
   const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos' || tab === 'memory') ? 'notes'
     : projectId && !workspaceFilesOpen && (tab === 'notes' || tab === 'todos' || tab === 'plans') ? 'context' : tab;
   const primaryTabs: { id: Tab; label: string }[] = projectId
@@ -112,7 +132,8 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     {opened.has('notes') || activeTab === 'notes' ? <div className={activeTab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div> : null}
     {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
-    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} refreshToken={contextRefresh} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange} /></div> : null}
+    {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} refreshToken={contextRefresh} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange}
+      draftPins={draftPinSource ?? undefined} onToggleNotePin={toggleNotePin} /></div> : null}
     {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} directory={directory} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
     {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} refreshToken={contextRefresh} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} onAddToChat={onAddTodoToChat} onAddToNewChat={onAddTodoToNewChat} /></div> : null}
     {projectId && (opened.has('memory') || activeTab === 'memory') ? <div className={activeTab === 'memory' ? 'min-h-0 flex-1' : 'hidden'}><ContextMemory key={projectId} projectId={projectId} visible={visible && activeTab === 'memory'} query={query} /></div> : null}
