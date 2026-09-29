@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:2b1e123ee86668c1cc809da0d22e02c8d25eff990c09e9cdf65640833b761120",
+  "source_digest": "sha256:93e0668606147a4f724c8c8b535048bae59968ff581e585adf6503cb4f629433",
   "counts": {
-    "modules": 384,
+    "modules": 385,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 108
+      "module_count": 109
     }
   ],
   "entrypoints": [
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 193,
+      "import_count": 194,
       "module_count": 87
     },
     {
@@ -1952,6 +1952,7 @@
         "src/nnd-goal-audit.js",
         "src/nnd-goal-evidence.js",
         "src/nnd-goal.js",
+        "src/nnd-parent-child-activity.js",
         "src/nnd-phase-activity.js",
         "src/nnd-session-description.js",
         "src/nnd-session-helpers.js",
@@ -2022,6 +2023,12 @@
       "imports": [
         "src/ids.js"
       ]
+    },
+    {
+      "path": "src/nnd-parent-child-activity.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/nnd-phase-activity.js",

@@ -243,6 +243,9 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
     tool: 'shell_run', status: 'succeeded', target: 'powershell: Invoke-Task private-command-123', effect: 'read_only',
     elapsed_ms: 25, exit_code: 0, arguments: { secret: 'do-not-persist' } });
+  const finishChild = first.childSessions.register('agent_a', 'session_a', fullOwner, fakeEngine());
+  first.childSessions.observeStarted('agent_a');
+  finishChild('completed');
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   first.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_b', content: 'again' }, fullOwner);
@@ -262,6 +265,8 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   assert.deepEqual(before.filter((record) => record.kind === 'turn' && record.status === 'completed')
     .map((record) => record.evidenceMessageID), ['prompt_a', 'prompt_b']);
   assert.equal(before.find((record) => record.kind === 'tool').evidenceMessageID, undefined);
+  assert.deepEqual(before.filter((record) => record.kind === 'subagent').map((record) => record.evidenceMessageID),
+    ['prompt_a', 'prompt_a', 'prompt_a']);
   assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });
   await first.shutdown();
   const stored = await readFile(activityPath(catalogPath, 'session_a'), 'utf8');
@@ -584,6 +589,23 @@ test('NND engine host requires the entire original workspace grant', async () =>
   );
 });
 
+test('NND child callbacks cannot attach a different owner grant to a parent Activity snapshot', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-scope-'));
+  const catalogPath = join(root, 'catalog.json');
+  const fullOwner = { subjectId: 'user_a', workspaceIds: ['workspace_a', 'workspace_b'] };
+  const first = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await first.create('session_a', fullOwner);
+  first.childSessions.register('agent_wrong', 'session_a',
+    { subjectId: 'user_a', workspaceIds: ['workspace_a'] }, fakeEngine())('completed');
+  assert.deepEqual(first.activity('session_a', fullOwner), []);
+  await first.shutdown();
+  const second = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await second.initialize();
+  assert.deepEqual(second.activity('session_a', fullOwner), []);
+  assert.deepEqual(second.listChildren('session_a', fullOwner), []);
+  await second.shutdown();
+});
+
 test('NND engine host lists child sessions and projects their retained transcripts', async () => {
   const host = new NndEngineHost({ createEngine: async () => fakeEngine() });
   await host.create('session_a', owner);
@@ -689,7 +711,9 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   const removed = events.findIndex((event) => event.type === 'message.removed');
   const canonical = events.findIndex((event, index) => index > removed && event.type === 'message.updated' && event.properties.info.id === 'agent_coder_1:message:1');
   assert.ok(removed > 0 && canonical > removed);
-  assert.equal(events.at(-1).type, 'session.updated');
+  assert.equal(events.at(-1).type, 'nnd.activity');
+  assert.deepEqual(host.activity('session_a', principal).filter((record) => record.kind === 'subagent')
+    .map((record) => record.summary), ['Subagent created', 'Subagent working', 'Subagent completed']);
   assert.equal(host.messages('agent_coder_1', principal)[1].parts[0].text, 'Hello world');
   assert.equal(host.messages('agent_coder_1', principal).some((entry) => entry.info.id === 'agent_coder_1:live'), false);
   assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status),
@@ -723,6 +747,10 @@ test('NND completed child transcript survives restart as read-only owned history
     target: 'D:/work/readme.md', elapsed_ms: 4 });
   finish('completed');
   const beforeActivity = first.activity('agent_a', principal);
+  const parentActivity = first.activity('session_a', principal).filter((row) => row.kind === 'subagent');
+  assert.deepEqual(parentActivity.map((row) => [row.summary, row.childSessionID]), [
+    ['Subagent created', 'agent_a'], ['Subagent working', 'agent_a'], ['Subagent completed', 'agent_a'],
+  ]);
   assert.deepEqual(beforeActivity.map((row) => row.status),
     ['started', 'started', 'started', 'started', 'completed', 'completed']);
   assert.deepEqual(beforeActivity.filter((row) => row.kind === 'state').map((row) => row.summary),
@@ -743,6 +771,7 @@ test('NND completed child transcript survives restart as read-only owned history
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.info.id),
     ['agent_a:message:0', 'agent_a:message:1']);
   assert.deepEqual(second.activity('agent_a', principal), beforeActivity);
+  assert.deepEqual(second.activity('session_a', principal).filter((row) => row.kind === 'subagent'), parentActivity);
   assert.deepEqual(second.activity('agent_a', principal).filter((row) => row.kind === 'state').map((row) => row.summary),
     ['Waiting for model', 'Running tool']);
   assert.throws(() => second.activity('agent_a', owner), { code: 'nnd_session_unavailable' });
@@ -835,7 +864,8 @@ test('NND restart reconciles a child snapshot left by interrupted cache eviction
 
 test('NND child snapshot write failure does not fail delegated work', async () => {
   let writes = 0;
-  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-write-'));
+  const host = new NndEngineHost({ catalogPath: join(root, 'catalog.json'), createEngine: async () => fakeEngine(),
     persistCatalog: async () => {}, persistChildSnapshot: async () => {
       writes += 1;
       throw new Error('disk full');

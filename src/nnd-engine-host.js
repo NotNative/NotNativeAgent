@@ -8,6 +8,7 @@ import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
 import { observeNndPhaseActivity } from './nnd-phase-activity.js';
+import { parentChildActivity } from './nnd-parent-child-activity.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
@@ -363,7 +364,6 @@ export class NndEngineHost {
     }
     return [...(this.#childActivity.get(sessionId) ?? [])];
   }
-
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
     context.closing = true;
@@ -451,14 +451,15 @@ export class NndEngineHost {
   }
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);
-    if (!parent) return;
+    if (!parent || (type === 'registered' ? !this.childSessions.belongsToParent(child.id, parent)
+      : !this.#childActivity.has(child.id))) return;
     try {
       observeChildLifecycle({ type, child, payload, streams: this.#childStreams, activity: this.#childActivity,
         publish: (eventType, properties, mirror) => this.#publishChild(parent, child, eventType, properties, mirror),
         messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }) });
+      const activity = parentChildActivity(type, child, parent.sessionId, payload, parent.liveTurn?.requestId); if (activity) this.#publish(parent, 'nnd.activity', activity);
     } finally { this.childSnapshotStore.observe(type, child, parent, this.childSessions, this.#childActivity.get(child.id) ?? []); }
   }
-
   #publishChild(parent, child, type, properties, mirror = false) {
     if (type === 'nnd.activity') {
       if (properties?.sessionID !== child.id) return;
@@ -475,7 +476,6 @@ export class NndEngineHost {
         code: error?.code ?? 'event_delivery_failed' }); } catch { /* Observational diagnostics cannot fail delegated work. */ }
     }
   }
-
   #publish(context, type, properties, mirror = false) {
     if (type === 'nnd.activity') {
       if (properties?.sessionID !== context.sessionId) return;

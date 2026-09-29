@@ -15,7 +15,7 @@ const PATH_TARGET_TOOLS = new Set([
 const ACTIVITY_ID_LIMIT = 264; // 128-char session + ':turn:' + 128-char request.
 // 500 records can contain multibyte printable identifiers and summaries.
 const FILE_LIMIT_BYTES = 2_097_152;
-const KINDS = new Set(['turn', 'tool', 'notice', 'state']);
+const KINDS = new Set(['turn', 'tool', 'notice', 'state', 'subagent']);
 const STATUSES = new Set(['started', 'completed', 'attention', 'failed', 'redacted']);
 
 export function activityPath(catalogPath, sessionId) {
@@ -48,6 +48,7 @@ export async function loadActivity(catalogPath, sessionId, createdAt) {
     status: record.status, summary: record.summary,
     ...(record.evidenceMessageID ? { evidenceMessageID: record.evidenceMessageID } : {}),
     ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}),
+    ...(record.childSessionID ? { childSessionID: record.childSessionID } : {}),
   })) : [];
 }
 
@@ -111,12 +112,13 @@ function sanitizeRecord(value) {
     || /[\u0000-\u001f\u007f]/u.test(value.id)
     || typeof value.sessionID !== 'string' || value.sessionID.length < 1 || value.sessionID.length > 128) return null;
   const summary = typeof value.summary === 'string' ? value.summary.replace(/[\u0000-\u001f\u007f]/gu, ' ').slice(0, 256) : '';
-  const evidenceMessageID = (value.kind === 'turn' || value.kind === 'state') && validEvidenceMessageID(value.evidenceMessageID)
+  const evidenceMessageID = (value.kind === 'turn' || value.kind === 'state' || value.kind === 'subagent') && validEvidenceMessageID(value.evidenceMessageID)
     ? value.evidenceMessageID : undefined;
   const toolEvidence = value.kind === 'tool' ? sanitizeToolEvidence(value.toolEvidence) : null;
+  const childSessionID = value.kind === 'subagent' && validChildSessionID(value.childSessionID) ? value.childSessionID : undefined;
   return { id: value.id, sessionID: value.sessionID, time: Date.now(), kind: value.kind,
     status: value.status, summary, ...(evidenceMessageID ? { evidenceMessageID } : {}),
-    ...(toolEvidence ? { toolEvidence } : {}) };
+    ...(toolEvidence ? { toolEvidence } : {}), ...(childSessionID ? { childSessionID } : {}) };
 }
 
 /** Only NNA-authored, display-classified fields survive; never persist args or output. */
@@ -176,12 +178,18 @@ function validEvidenceMessageID(value) {
     && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
+function validChildSessionID(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 128
+    && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
 export function validActivityRecord(value, sessionId) {
   return value && typeof value === 'object' && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= ACTIVITY_ID_LIMIT
     && !/[\u0000-\u001f\u007f]/u.test(value.id) && value.sessionID === sessionId
     && Number.isSafeInteger(value.time) && value.time > 0 && KINDS.has(value.kind) && STATUSES.has(value.status)
     && typeof value.summary === 'string' && value.summary.length <= 256
     && !/[\u0000-\u001f\u007f]/u.test(value.summary)
-    && (value.evidenceMessageID === undefined || (value.kind === 'turn' || value.kind === 'state') && validEvidenceMessageID(value.evidenceMessageID))
-    && (value.toolEvidence === undefined || value.kind === 'tool' && validToolEvidence(value.toolEvidence));
+    && (value.evidenceMessageID === undefined || (value.kind === 'turn' || value.kind === 'state' || value.kind === 'subagent') && validEvidenceMessageID(value.evidenceMessageID))
+    && (value.toolEvidence === undefined || value.kind === 'tool' && validToolEvidence(value.toolEvidence))
+    && (value.childSessionID === undefined || value.kind === 'subagent' && validChildSessionID(value.childSessionID));
 }

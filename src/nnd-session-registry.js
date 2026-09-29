@@ -148,6 +148,13 @@ export class NndSessionRegistry {
     return record && samePrincipal(record, principal) ? describeChild(record) : null;
   }
 
+  belongsToParent(sessionId, parent) {
+    const record = this.#sessions.get(sessionId);
+    return Boolean(record && record.parentId === parent.sessionId && record.subjectId === parent.subjectId
+      && record.workspaceIds.size === parent.workspaceIds.size
+      && [...record.workspaceIds].every((id) => parent.workspaceIds.has(id)));
+  }
+
   messages(sessionId, principal) {
     const record = this.#sessions.get(sessionId);
     if (!record || !samePrincipal(record, principal)) return null;
