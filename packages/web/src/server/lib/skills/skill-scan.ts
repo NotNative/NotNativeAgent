@@ -62,7 +62,7 @@ function skillGroup(path: string): string | undefined {
 }
 
 function scanDirectory(path: string, scope: 'user' | 'project', source: 'claude' | 'agents' | 'opencode',
-  output: DiscoveredSkill[]): void {
+  output: DiscoveredSkill[], managed = false): void {
   if (output.length >= SCAN_LIMIT) return;
   let entries;
   try { entries = readdirSync(path, { withFileTypes: true }); }
@@ -75,11 +75,12 @@ function scanDirectory(path: string, scope: 'user' | 'project', source: 'claude'
         const parsed = frontmatter(readFileSync(child, 'utf8'), skillName(child));
         output.push({
           name: parsed.name, path: child, scope, source, description: parsed.description,
-          group: skillGroup(child), renamable: false,
+          group: skillGroup(child),
+          renamable: managed,
           sources: { md: { path: child, exists: true } },
         });
       } catch { /* unreadable skill files are omitted from the display list */ }
-    } else if (entry.isDirectory()) scanDirectory(child, scope, source, output);
+    } else if (entry.isDirectory()) scanDirectory(child, scope, source, output, managed);
   }
 }
 
@@ -103,7 +104,7 @@ function insideWorktree(root: string, directory: string): boolean {
     && !isAbsolute(relative(root, directory));
 }
 
-function directAbsolute(candidate: string | undefined): string | null {
+export function directAbsolute(candidate: string | undefined): string | null {
   if (!candidate || candidate.trim() === '' || !isAbsolute(candidate)) return null;
   return resolve(candidate) === candidate ? candidate : null;
 }
@@ -184,8 +185,8 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
     scanDirectory(join(homedir(), '.agents', 'skills'), 'user', 'agents', output);
   }
   for (const root of uniqueOpenCodeConfigRoots) {
-    scanDirectory(join(root, 'skill'), 'user', 'opencode', output);
-    scanDirectory(join(root, 'skills'), 'user', 'opencode', output);
+    scanDirectory(join(root, 'skill'), 'user', 'opencode', output, true);
+    scanDirectory(join(root, 'skills'), 'user', 'opencode', output, true);
   }
   const cacheHome = process.env.XDG_CACHE_HOME;
   const cacheHomeRoot = directAbsolute(cacheHome);
@@ -208,7 +209,7 @@ export function scanLocalSkills(directory: string): DiscoveredSkill[] {
       scanDirectory(join(root, '.agents', 'skills'), 'project', 'agents', output);
     }
     for (const layout of ['skill', 'skills'] as const) {
-      scanDirectory(join(root, '.opencode', layout), 'project', 'opencode', output);
+      scanDirectory(join(root, '.opencode', layout), 'project', 'opencode', output, true);
     }
   }
   const unique = new Map<string, DiscoveredSkill>();

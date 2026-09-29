@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -189,6 +189,126 @@ describe('P10 skill discovery', () => {
     } finally {
       rmSync(extra, { recursive: true, force: true });
       rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('creates a managed project skill at the OpenCode roots and returns restart deference', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-create-'));
+    const create = await app().request(`/api/config/skills/drafted-flow?directory=${encodeURIComponent(project)}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        description: 'Drafted flow',
+        instructions: 'Run drafted checks.',
+      }),
+    });
+    expect(create.status).toBe(201);
+    expect(await create.json()).toEqual({
+      requiresReload: true,
+      message: 'skill created; reload before use',
+      reloadDelayMs: 500,
+    });
+    const skill = scanLocalSkills(project).find((entry) => entry.name === 'drafted-flow');
+    expect(skill).toMatchObject({
+      name: 'drafted-flow', description: 'Drafted flow', scope: 'project',
+      source: 'opencode', renamable: true,
+    });
+    const duplicate = await app().request(`/api/config/skills/drafted-flow?directory=${encodeURIComponent(project)}`, {
+      method: 'POST',
+        body: JSON.stringify({ description: 'again', instructions: 'again' }),
+    });
+    expect(duplicate.status).toBe(409);
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('rejects empty instructions and frontmatter-rewriting descriptions', async () => {
+    for (const body of [
+      { description: 'Ready', instructions: '' },
+      { description: 'Line\nname: hostile' },
+    ]) {
+      const response = await app().request('/api/config/skills/rejected-flow?directory=/', {
+        method: 'POST', body: JSON.stringify(body),
+      });
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it('rejects a project checkout that resolves to a file', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-file-checkout-'));
+    const file = join(project, 'checkout');
+    writeFileSync(file, 'not a checkout');
+    try {
+      const response = await app().request(
+        `/api/config/skills/file-checkout?directory=${encodeURIComponent(file)}`, {
+          method: 'POST',
+          body: JSON.stringify({ description: 'file', instructions: 'file' }),
+        });
+      expect(response.status).toBe(400);
+      expect(existsSync(join(project, '.opencode', 'skills', 'file-checkout', 'SKILL.md'))).toBe(false);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects create payloads with unsupported supporting files', async () => {
+    const response = await app().request('/api/config/skills/unsupported-files?directory=/', {
+      method: 'POST',
+      body: JSON.stringify({
+        description: 'unsupported', instructions: 'unsupported', supportingFiles: [],
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(existsSync(join('/', '.opencode', 'skills', 'unsupported-files', 'SKILL.md'))).toBe(false);
+  });
+
+  it('rejects create requests beyond the bounded wire body', async () => {
+    const response = await app().request('/api/config/skills/wire-bound?directory=/', {
+      method: 'POST', body: 'x'.repeat(2 * 1024 * 1024 + 1),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it('uses the fallback OpenCode config root for drive-relative user roots', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-user-root-'));
+    const previousHome = process.env.HOME;
+    const previousUserHome = process.env.USERPROFILE;
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    process.env.OPENCODE_CONFIG_DIR = 'C:';
+    try {
+      const create = await app().request('/api/config/skills/drive-relative-user', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scope: 'user', description: 'fallback', instructions: 'fallback' }),
+      });
+      expect(create.status).toBe(201);
+      expect(existsSync(join(home, '.opencode', 'skills', 'drive-relative-user', 'SKILL.md'))).toBe(true);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousUserHome === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = previousUserHome;
+      delete process.env.OPENCODE_CONFIG_DIR;
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('creates a managed user skill in the configured OpenCode root', async () => {
+    const config = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-user-'));
+    process.env.OPENCODE_CONFIG_DIR = config;
+    try {
+      const create = await app().request('/api/config/skills/user-flow', {
+        method: 'POST',
+      headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          scope: 'user', description: 'user flow', instructions: 'Keep it clear.',
+        }),
+      });
+      expect(create.status).toBe(201);
+      expect(scanLocalSkills(homedir()).find((entry) => entry.name === 'user-flow'))
+        .toMatchObject({ scope: 'user', source: 'opencode', renamable: true });
+    } finally {
+      delete process.env.OPENCODE_CONFIG_DIR;
+      rmSync(config, { recursive: true, force: true });
     }
   });
 

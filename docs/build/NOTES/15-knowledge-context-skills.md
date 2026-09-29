@@ -248,12 +248,12 @@ scans `.agents` after `.claude` so an agents file wins a same-name dedupe.
 Frontmatter is checked only in the opening YAML block, so prose later in a
 skill cannot rewrite its displayed name or description.
 
-Discovery stays deliberately read-only: `renamable` is false because managed
-root CRUD authority is not implemented. Listing or resolving a planned
+Discovery initially stayed deliberately read-only because managed root CRUD
+authority was not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
-results. Harness SDK built-ins, skill CRUD, supporting-file payloads, UI
-wiring, and restart handling remain.
+results. Harness SDK built-ins, update/rename/delete, supporting-file
+payloads, UI wiring, and restart handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
 
@@ -377,8 +377,27 @@ Adversarial audit added a 1 MiB regular-file read cap, deduplicated config
 roots and matching paths, reused a Git worktree resolution, and validated
 `XDG_CONFIG_HOME` before joining. This avoids drive-relative values such as
 `C:` becoming an unintended root or consuming otherwise available scan
-budget. The 200-item bound and read-only behavior remain unchanged. SDK
-built-ins remain pending.
+budget. The 200-item bound remains unchanged. SDK built-ins and skill
+mutation routes remain pending after this bounded scan step.
+
+## P10-25: managed skill create API (2026-09-28)
+
+`POST /api/config/skills/:name` now creates only OpenCode-managed skills.
+It validates the planned lowercase/hyphen name, exact request shape,
+one-line 1-500 description, nonempty instruction body within 512 KiB,
+`opencode` source, and user/project scope. Project scope must resolve to a
+real directory; user scope writes under `OPENCODE_CONFIG_DIR/skills` or
+`~/.opencode/skills`; project scope writes under
+`<canonical checkout>/.opencode/skills`.
+
+A 2 MiB request wire cap precedes JSON parsing. An existing same-name scan
+or target returns 409 before mutation. Creation writes an exclusive
+temporary file and commits it with a hard link, mapping `EEXIST` to 409 so
+a same-name race cannot overwrite Windows targets; failed attempts remove
+the temporary. Responses always return the planned deferred-restart payload.
+Discovery labels both managed user and project OpenCode roots as
+`renamable: true`, while cache and configured-extra roots remain external.
+Update, rename, delete, and supporting-file routes remain pending.
 
 ## P10-23: OpenCode cache discovery (2026-09-28)
 

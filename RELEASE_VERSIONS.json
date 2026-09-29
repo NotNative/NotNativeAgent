@@ -440,6 +440,10 @@
     {
       "version": "20260928-62",
       "content_sha256": "f1ac8db0bf61674f8b42c72fbe7d39af1e5091e37fc29c90a55f51256135cea9"
+    },
+    {
+      "version": "20260928-63",
+      "content_sha256": "e057e6f934746b0aa239dac27a84d545f343c080b5824a094e67399c0f827c29"
     }
   ]
 }
