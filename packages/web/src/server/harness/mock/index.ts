@@ -33,6 +33,7 @@ import {
   todos,
 } from './store.ts';
 import { buildUserEntry, runTurn, settleIdle, sleep, userTextOf } from './sim.ts';
+import { mcpRoute } from './mcp.ts';
 import type { PromptAsyncBody, Session } from '../../../../../ui/src/lib/nnd/types.ts';
 
 const json = (data: unknown, status = 200): Response =>
@@ -148,7 +149,10 @@ async function route(request: Request): Promise<Response> {
   if (method === 'GET' && path === '/skill') return json([]);
   if (method === 'GET' && path === '/experimental/tool/ids') return json(TOOL_IDS);
   if (method === 'GET' && path === '/experimental/tool') return json(TOOL_IDS.map((id) => ({ id, description: `mock tool ${id}` })));
-  if (method === 'GET' && path === '/mcp') return json({});
+  if (path === '/mcp' || path.startsWith('/mcp/')) {
+    const mcpResponse = await mcpRoute(request, path, directory);
+    if (mcpResponse) return mcpResponse;
+  }
   if (method === 'GET' && path === '/lsp') return json([]);
   if (method === 'GET' && path === '/vcs') return json({ branch: 'main', default_branch: 'main' });
   if (method === 'GET' && path === '/project/current') return json(PROJECT);
