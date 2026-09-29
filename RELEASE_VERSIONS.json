@@ -420,6 +420,10 @@
     {
       "version": "20260928-57",
       "content_sha256": "84b9c25ea805518f7caa0a7a45dcaa44eb58816fa2eb9441ff85f17011a1cd89"
+    },
+    {
+      "version": "20260928-58",
+      "content_sha256": "780b0bbcf45472ae2ef898afd1c63159e33e3da9efad79affcf7cefa2252d964"
     }
   ]
 }

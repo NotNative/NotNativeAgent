@@ -328,6 +328,9 @@ are cleared, and a fresh token is generated only when memory is enabled at
 managed boot. Attach mode receives no launch secret; externally owned
 processes do not inherit NND authority.
 
-The NND callback remains Bearer-token protected. NNA consumption and the
-`openchamber_memory` tool definition remain pending, so this commit is the
-launch ownership contract rather than a complete managed-tool integration.
+The NND callback remains Bearer-token protected. NNA `20260928-9` consumes the
+contract through `openchamber_memory`, validates its schema and callback URL,
+bounds requests and replies, maps terminal status errors, and carries only the
+current workspace as ownership context. The tool is registered only for root
+NND engines, so delegated engines receive neither the callback nor extended
+authority. Skills/MCP integration remains pending.
