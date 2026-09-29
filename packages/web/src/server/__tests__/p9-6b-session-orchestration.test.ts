@@ -75,6 +75,14 @@ function harness(deps: Partial<D> = {}): D {
       state.goals.push(body);
       return true;
     },
+    patchSession: async (sessionId, __, body) => {
+      const session = state.sessions.find((entry) => entry.id === sessionId);
+      if (session === undefined) throw new Error('unknown session');
+      if (body.metadata && typeof body.metadata === 'object') {
+        session.metadata = { ...(session.metadata ?? {}) as Record<string, unknown>, ...(body.metadata as Record<string, unknown>) };
+      }
+      return session;
+    },
   };
   void call;
   return {

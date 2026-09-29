@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2bc4d34535483f61a170674270151cebb11b187b7f85fae52ce511dab77061ac",
+  "source_digest": "sha256:a217b23b7f4021493b8e08844f5428169b780587d68b0170ec7b8da04784aae8",
   "counts": {
-    "modules": 552,
+    "modules": 556,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 149
+      "module_count": 150
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 179
+      "module_count": 182
     },
     {
       "id": "web-entry",
@@ -2511,6 +2511,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/session-knowledge-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/sessionAuthGateState.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -3710,6 +3718,7 @@
         "packages/web/src/server/routes/skills.ts",
         "packages/web/src/server/routes/snippets.ts",
         "packages/web/src/server/routes/tunnel.ts",
+        "packages/web/src/server/session-knowledge/session-knowledge-routes.ts",
         "packages/web/src/server/session-orchestration/openchamber-sessions.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/routes.ts",
@@ -5118,6 +5127,35 @@
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/scheduled/next-run.ts",
         "packages/web/src/server/scheduled/scheduled-constants.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-knowledge/knowledge-runtime.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/project-context/agent-memory-ownership.ts",
+        "packages/web/src/server/project-context/agent-memory.ts",
+        "packages/web/src/server/project-context/context-store.ts",
+        "packages/web/src/server/project-context/plan-store.ts",
+        "packages/web/src/server/session-knowledge/metadata.ts",
+        "packages/web/src/server/session-orchestration/session-harness-ports.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-knowledge/metadata.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/session-knowledge/session-knowledge-routes.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/session-knowledge/knowledge-runtime.ts",
+        "packages/web/src/server/session-knowledge/metadata.ts"
       ]
     },
     {

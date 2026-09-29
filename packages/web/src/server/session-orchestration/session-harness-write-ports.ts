@@ -13,6 +13,7 @@ export function createSessionWritePorts(): {
   writeGoal: (sessionId: string, directory: string, body: {
     goal: GoalPayload; expected_id: string | null; expected_revision: number;
   }) => Promise<boolean>;
+  patchSession: (sessionId: string, directory: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
   projects?: () => Promise<unknown[]>;
 } {
   return {
@@ -59,5 +60,22 @@ export function createSessionWritePorts(): {
       const value = await response.json().catch(() => null);
       return Array.isArray(value) ? value : [];
     }),
+    patchSession: (sessionId, directory, body) => patchHarnessSession(sessionId, directory, body),
   };
+}
+
+async function patchHarnessSession(sessionId: string, directory: string,
+  body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const response = await callHarness(harnessRequest(`/session/${idOf(sessionId)}`, directory, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+  }));
+  if (!response.ok) throw new Error(`session patch rejected with ${response.status}`);
+  const record = await response.json().catch(() => null);
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+    throw new Error('invalid session patch record');
+  }
+  return record as Record<string, unknown>;
 }

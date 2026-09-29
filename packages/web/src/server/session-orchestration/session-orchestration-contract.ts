@@ -44,6 +44,7 @@ export interface SessionHarnessPorts {
   writeGoal: (sessionId: string, directory: string, body: {
     goal: GoalPayload; expected_id: string | null; expected_revision: number;
   }) => Promise<boolean>;
+  patchSession: (sessionId: string, directory: string, body: RecordObject) => Promise<RecordObject>;
   projects?: () => Promise<unknown[]>;
 }
 
