@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:95871dfc9208284b44a2cece4c109cb1183d268cb005fd60ecc9e6bd4002c668",
+  "source_digest": "sha256:48cacd1941a60242d297bb5282772b92a796be24fa9dccf84a2ae0103a75d684",
   "counts": {
-    "modules": 535,
+    "modules": 536,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 142
+      "module_count": 143
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 68,
-      "module_count": 30
+      "import_count": 69,
+      "module_count": 31
     },
     {
       "from": "ui-shell",
@@ -172,14 +172,14 @@
       "module_count": 2
     },
     {
-      "from": "gates",
-      "to": "runtime-io",
-      "import_count": 1,
+      "from": "sync-engine",
+      "to": "ui-shell",
+      "import_count": 2,
       "module_count": 1
     },
     {
-      "from": "sync-engine",
-      "to": "ui-shell",
+      "from": "gates",
+      "to": "runtime-io",
       "import_count": 1,
       "module_count": 1
     }
@@ -1495,6 +1495,16 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/skills-catalog.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/stores/useSkillsCatalogStore.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/skills.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -1565,6 +1575,7 @@
         "packages/ui/src/components/settings/pages/providers.tsx",
         "packages/ui/src/components/settings/pages/sessions.tsx",
         "packages/ui/src/components/settings/pages/shortcuts.tsx",
+        "packages/ui/src/components/settings/pages/skills-catalog.tsx",
         "packages/ui/src/components/settings/pages/skills.tsx",
         "packages/ui/src/components/settings/pages/snippets.tsx",
         "packages/ui/src/components/settings/search.ts",
@@ -3107,6 +3118,7 @@
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/stores/useConfigStore.ts",
+        "packages/ui/src/stores/useSkillsCatalogStore.ts",
         "packages/ui/src/sync/activity-streaming.ts",
         "packages/ui/src/sync/boot-open-readiness.ts",
         "packages/ui/src/sync/bootstrap-directory.ts",

@@ -13,6 +13,8 @@ import {
 const CATALOG_TTL_MS = 3 * 60 * 60 * 1000;
 let runtimeEpoch = 0;
 const isCurrentRuntime = (epoch: number) => epoch === runtimeEpoch;
+let catalogRequestSerial = 0;
+const sourceRequestSerials: Record<string, number> = {};
 
 export type SkillInstallOutcome =
   | { kind: 'success'; message: string; installed: number }
@@ -81,14 +83,15 @@ export const useSkillsCatalogStore = create<SkillsCatalogState>((set, get) => ({
 
   async loadCatalog() {
     const epoch = runtimeEpoch;
+    const requestSerial = ++catalogRequestSerial;
     try {
       const value = asRecord(await loadSkillCatalog());
-      if (!isCurrentRuntime(epoch)) return;
+      if (!isCurrentRuntime(epoch) || catalogRequestSerial !== requestSerial) return;
       if (!isValid(value)) throw new Error('invalid catalog response');
       set({ sources: value.sources, lastCatalogError: null });
     } catch (error) {
       console.error('skills catalog load failed', error);
-      if (!isCurrentRuntime(epoch)) return;
+      if (!isCurrentRuntime(epoch) || catalogRequestSerial !== requestSerial) return;
       set({ lastCatalogError: String(error) });
     }
   },
@@ -96,26 +99,27 @@ export const useSkillsCatalogStore = create<SkillsCatalogState>((set, get) => ({
   async loadSource(sourceId, options) {
     const epoch = runtimeEpoch;
     const key = `${sourceId}|${options.directory ?? ''}`;
+    const requestSerial = sourceRequestSerials[sourceId] = (sourceRequestSerials[sourceId] ?? 0) + 1;
     const now = Date.now();
     if (!options.refresh && now - (get().refreshedAt[key] ?? 0) < CATALOG_TTL_MS
-      && get().itemsBySource[sourceId] !== undefined) return;
+      && get().itemsBySource[key] !== undefined) return;
     set((state) => ({
       loadingSourceIds: state.loadingSourceIds.includes(sourceId) ? state.loadingSourceIds : [...state.loadingSourceIds, sourceId],
     }));
     try {
       const value = asRecord(await loadSkillCatalogSource(sourceId, options));
-      if (!isCurrentRuntime(epoch)) return;
+      if (!isCurrentRuntime(epoch) || sourceRequestSerials[sourceId] !== requestSerial) return;
       const payload = value as { source?: unknown; items?: unknown[] };
       const items = Array.isArray(payload.items) ? payload.items.map(item).filter((entry): entry is SkillCatalogScanItem => entry !== null) : [];
-      set((state) => ({ itemsBySource: { ...state.itemsBySource, [sourceId]: items },
+      set((state) => ({ itemsBySource: { ...state.itemsBySource, [key]: items },
         refreshedAt: { ...state.refreshedAt, [key]: Date.now() }, lastScanError: null }));
     } catch (error) {
       console.error('skills catalog source load failed', error);
       const failure = error as { message?: unknown };
-      if (!isCurrentRuntime(epoch)) return;
+      if (!isCurrentRuntime(epoch) || sourceRequestSerials[sourceId] !== requestSerial) return;
       set({ lastScanError: typeof failure?.message === 'string' ? failure.message : 'Skill catalog scan failed.' });
     } finally {
-      if (isCurrentRuntime(epoch)) {
+      if (isCurrentRuntime(epoch) && sourceRequestSerials[sourceId] === requestSerial) {
         set((state) => ({ loadingSourceIds: state.loadingSourceIds.filter((entry) => entry !== sourceId) }));
       }
     }
@@ -160,6 +164,7 @@ export const useSkillsCatalogStore = create<SkillsCatalogState>((set, get) => ({
   },
 
   resetForRuntimeSwitch() {
+    runtimeEpoch += 1;
     set({
       sources: [], itemsBySource: {}, refreshedAt: {}, loadingSourceIds: [],
       installingSourceIds: [], lastCatalogError: null, lastScanError: null, installOutcomes: {},

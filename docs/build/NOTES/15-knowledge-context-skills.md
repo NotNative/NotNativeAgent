@@ -512,9 +512,9 @@ The skills catalog store now owns the E.5 client boundary for configured
 sources. It remains active for a whole runtime instance and must not be
 recreated or reset casually. `loadCatalog` fetches only merged source metadata
 and forbids persisted source rows from claiming installed state;
-`loadSource` fills a per-source three-hour cache, keyed by the current
-runtime-less store instance and explicit directory so one workspace's
-installed payload cannot be reused by another.
+`loadSource` fills a three-hour cache keyed by source and explicit directory
+so one workspace's installed payload cannot be reused by another. Overlapping
+requests keep only the latest response.
 
 Source scans never erase prior data or turn failures into empty items. Instead,
 the store records the last scan error while retaining the previous source list
@@ -531,6 +531,12 @@ plumbing an API-level `AbortSignal` remains future work. Focused tests cover
 the catalog contract, TTL and refresh bypass, failure retention, project
 readiness, install payloads, conflict/auth preservation, reset, late-response
 isolation, and the timing race.
+
+## P10-38: skills catalog browse page (2026-09-29)
+
+The idle Settings catalog route now renders the configured merged catalog through the delivered store. The page selects the first returned source when none is selected, passes the layout-owned workspace directory to each scan, preserves source data on catalog or scan failure, and shows installed scope only from the server enrichment. Refresh re-reads source metadata and bypasses the selected source's three-hour cache.
+
+The audit was interrupted once for a compact report after its runtime exceeded the normal window. It then confirmed three defects and hardened the seam: item caches are keyed by source and workspace, overlapping reads keep only the latest response, and the engine runtime-reset path clears the catalog with an advanced runtime epoch so late transport promises cannot repopulate it. The slice is deliberately read-only. It does not expose selection, conflict decisions, Git identities, or installation actions, and it does not add an install cancellation signal. Focused page regressions pin loading, workspace-keyed selection, cache-bypass refresh, prior-data retention, and catalog-source notices.
 
 ## P10-35: selected skill catalog installer (2026-09-29)
 

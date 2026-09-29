@@ -49,6 +49,7 @@ export const BUILT_PAGE_SLUGS: readonly SettingsPageSlug[] = [
   'providers',
   'agents',
   'mcp',
+  'skills.catalog',
   'skills.installed',
 ];
 
@@ -123,6 +124,8 @@ export const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
   { id: 'general.tools', page: 'general', titleKey: 'settings.search.agentTools', keywords: 'agent tools, control, web, memory' },
   { id: 'general.harness', page: 'general', titleKey: 'settings.search.harnessBinary', keywords: 'binary, cli, restart' },
   { id: 'general.telemetry', page: 'general', titleKey: 'settings.search.reportUsage', keywords: 'usage, telemetry, privacy' },
+  { id: 'skills.inventory', page: 'skills.installed', titleKey: 'settings.page.skills.title', keywords: 'skills, inventory, nna' },
+  { id: 'skills.catalog', page: 'skills.catalog', titleKey: 'settings.page.skillsCatalog.title', keywords: 'skills, catalog, install' },
 ];
 
 /** The search index covers ONLY the built pages this slice; the rest join

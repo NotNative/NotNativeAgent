@@ -30,6 +30,7 @@ import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore
 import { useSessionOrderingStore } from './session-ordering.ts';
 import { installPersistLifecycleFlush, writeCachedSessions, readLastActiveSession, persistLastActiveSession } from './persist-cache.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
+import { useSkillsCatalogStore } from '../stores/useSkillsCatalogStore.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { defaultHarnessDirectory, recoverInterruptedTurnAfterMessageLoad, reconcileStreaming } from './engine-support.ts';
 import { awaitAuthoritativeList } from './boot-open-readiness.ts';
@@ -278,6 +279,7 @@ function partsResetAll(ctx: EngineCtx): void {
   useGlobalSessionStatusStore.getState().reset();
   useGlobalSessionsStore.getState().reset();
   useGlobalSyncStore.getState().reset();
+  useSkillsCatalogStore.getState().resetForRuntimeSwitch();
   useSessionOrderingStore.getState().reset();
   useStreamingStore.getState().reset();
   resetActivityTiming();

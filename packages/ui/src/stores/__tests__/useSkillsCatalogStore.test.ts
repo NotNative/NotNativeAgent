@@ -45,6 +45,10 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   return { promise, resolve };
 }
 
+function sourceArray(...ids: string[]): SkillSource[] {
+  return ids.map((id) => ({ ...source, id, label: id }));
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   useSkillsCatalogStore.getState().resetForRuntimeSwitch();
@@ -63,7 +67,7 @@ describe('skills catalog store', () => {
     expect(useSkillsCatalogStore.getState().sources?.[0]?.id).toBe('anthropic');
     expect(useSkillsCatalogStore.getState().sources?.[0]?.stars).toBeUndefined();
     await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
-    const first = useSkillsCatalogStore.getState().itemsBySource.anthropic;
+    const first = useSkillsCatalogStore.getState().itemsBySource['anthropic|D:/new'];
     await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
     expect(sourceMock).toHaveBeenCalledOnce();
     expect(first).toEqual([sample]);
@@ -81,7 +85,7 @@ describe('skills catalog store', () => {
   it('keeps prior data and reports failed catalog scans', async () => {
     sourceMock.mockRejectedValueOnce({ kind: 'authRequired', message: 'Authentication is required' });
     await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
-    expect(useSkillsCatalogStore.getState().itemsBySource.anthropic).toBeUndefined();
+    expect(useSkillsCatalogStore.getState().itemsBySource['anthropic|D:/new']).toBeUndefined();
     expect(useSkillsCatalogStore.getState().lastScanError).toContain('Authentication is required');
   });
 
@@ -115,6 +119,87 @@ describe('skills catalog store', () => {
     expect(state.loadingSourceIds).toEqual([]);
     expect(state.installingSourceIds).toEqual([]);
     expect(state.installOutcomes).toEqual({});
+  });
+
+  it('caches scans separately by workspace', async () => {
+    sourceMock.mockResolvedValueOnce(sourcePayload(false));
+    sourceMock.mockResolvedValueOnce({ ...sourcePayload(false),
+      items: [{ ...sample, skillName: 'other-workspace-skill' }] });
+
+    await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
+    await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/old' });
+
+    expect(sourceMock).toHaveBeenCalledTimes(2);
+    expect(useSkillsCatalogStore.getState().itemsBySource['anthropic|D:/new']?.[0]?.skillName).toBe('review-flow');
+    expect(useSkillsCatalogStore.getState().itemsBySource['anthropic|D:/old']?.[0]?.skillName).toBe('other-workspace-skill');
+  });
+
+  it('keeps only the latest requested source result when scans overlap', async () => {
+    const oldScan = deferred<{ ok: true; source: SkillSource; sourceId: string; items: SkillCatalogScanItem[] }>();
+    const newScan = deferred<{ ok: true; source: SkillSource; sourceId: string; items: SkillCatalogScanItem[] }>();
+    sourceMock.mockReturnValueOnce(oldScan.promise);
+    sourceMock.mockReturnValueOnce(newScan.promise);
+
+    const oldRequest = useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/old' });
+    const newRequest = useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
+    newScan.resolve(sourcePayload(false));
+    await newRequest;
+    oldScan.resolve(sourcePayload(false));
+    await oldRequest;
+
+    const state = useSkillsCatalogStore.getState();
+    expect(state.itemsBySource['anthropic|D:/new']?.[0]?.skillName).toBe('review-flow');
+    expect(state.itemsBySource['anthropic|D:/old']).toBeUndefined();
+    expect(state.loadingSourceIds).toEqual([]);
+  });
+
+  it('keeps the latest requested catalog response when reads overlap', async () => {
+    const oldCatalog = deferred<{ ok: true; sources: SkillSource[]; itemsBySource: Record<string, SkillCatalogScanItem[]> }>();
+    const newCatalog = deferred<{ ok: true; sources: SkillSource[]; itemsBySource: Record<string, SkillCatalogScanItem[]> }>();
+    catalogMock.mockReturnValueOnce(oldCatalog.promise);
+    catalogMock.mockReturnValueOnce(newCatalog.promise);
+
+    const oldRequest = useSkillsCatalogStore.getState().loadCatalog();
+    const newRequest = useSkillsCatalogStore.getState().loadCatalog();
+    newCatalog.resolve({ ok: true, sources: sourceArray('new'), itemsBySource: {} });
+    await newRequest;
+    oldCatalog.resolve({ ok: true, sources: sourceArray('old'), itemsBySource: {} });
+    await oldRequest;
+
+    expect(useSkillsCatalogStore.getState().sources?.map(({ id }) => id)).toEqual(['new']);
+    expect(useSkillsCatalogStore.getState().lastCatalogError).toBeNull();
+  });
+
+  it('caches scans separately by workspace', async () => {
+    sourceMock.mockResolvedValueOnce(sourcePayload(false));
+    sourceMock.mockResolvedValueOnce({ ...sourcePayload(false),
+      items: [{ ...sample, skillName: 'other-workspace-skill' }] });
+
+    await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
+    await useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/old' });
+
+    expect(sourceMock).toHaveBeenCalledTimes(2);
+    expect(useSkillsCatalogStore.getState().itemsBySource['anthropic|D:/new']?.[0]?.skillName).toBe('review-flow');
+    expect(useSkillsCatalogStore.getState().itemsBySource['anthropic|D:/old']?.[0]?.skillName).toBe('other-workspace-skill');
+  });
+
+  it('keeps only the latest requested source result when scans overlap', async () => {
+    const oldScan = deferred<{ ok: true; source: SkillSource; sourceId: string; items: SkillCatalogScanItem[] }>();
+    const newScan = deferred<{ ok: true; source: SkillSource; sourceId: string; items: SkillCatalogScanItem[] }>();
+    sourceMock.mockReturnValueOnce(oldScan.promise);
+    sourceMock.mockReturnValueOnce(newScan.promise);
+
+    const oldRequest = useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/old' });
+    const newRequest = useSkillsCatalogStore.getState().loadSource('anthropic', { directory: 'D:/new' });
+    newScan.resolve(sourcePayload(false));
+    await newRequest;
+    oldScan.resolve(sourcePayload(false));
+    await oldRequest;
+
+    const state = useSkillsCatalogStore.getState();
+    expect(state.itemsBySource['anthropic|D:/new']?.[0]?.skillName).toBe('review-flow');
+    expect(state.itemsBySource['anthropic|D:/old']).toBeUndefined();
+    expect(state.loadingSourceIds).toEqual([]);
   });
 
   it('blocks project installation before transport without a workspace', async () => {
