@@ -562,6 +562,35 @@ Regressions cover profile parsing, traversal and bare-drive rejection, spaced
 local paths, duplicate rejection in the settings parser, scan/install misses
 and hits, SSH cache normalization, and candidate routing for non-auth errors.
 
+## P10-44: MCP config layer (2026-09-29)
+
+The private `/api/config/mcp` routes now provide layer-aware MCP configuration
+before the harness proxy. GET merges user and project `mcp` maps, records the
+scope that supplied each visible entry, and lets project values shadow user
+values with the same server name. Single reads and PATCH/DELETE resolve the
+source layer; project selection canonicalizes an existing checkout before
+forming its lock and write path. POST defaults to user scope and requires an
+absolute existing project directory for project scope. Each mutation writes
+its map immediately and answers the deferred-restart envelope instead of
+touching the live harness.
+
+Sanitization keeps only documented record fields. Local records require a
+bounded nonempty command; remote records require a bounded HTTP/HTTPS URL.
+Environment/header maps are bounded flat string records and blank values are
+dropped; `timeout` is stored only when positive and finite, `enabled` defaults
+to true, and `type` is forced to `local`/`remote`. OAuth accepts explicit
+`false`, populated four-field objects, discovery-only `{}`, and
+`oauthEnabled`; unknown UI fields are not persisted.
+
+Audits confirmed and fixed three concrete cases: an explicit null `scope`
+previously fell through to user scope, all-whitespace OAuth field values could
+leave an empty object in config, and spelling/symlink aliases for the same
+project could acquire separate locks and diverge. Cross-scope same-name
+records remain deliberate layer overrides. Seven focused tests cover the
+layer merge, source-layer patch/delete, storage preservation, OAuth
+normalization/disable, invalid bodies, duplicate in-scope names, unknown
+names, and map cleanup.
+
 ## P10-42: install cancellation (2026-09-29)
 
 Each one-skill catalog install creates an `AbortController`, passes its signal
