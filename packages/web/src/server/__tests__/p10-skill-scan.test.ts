@@ -5,7 +5,9 @@ import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
+import './helpers/env-boot.ts';
 import { registerSkillRoutes } from '../routes/skills.ts';
+import { writeSettingsPatch } from '../lib/settings-store.ts';
 import { externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-'));
@@ -19,6 +21,7 @@ beforeEach(() => {
   delete process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS;
   delete process.env.OPENCODE_DISABLE_CLAUDE_SKILLS;
   delete process.env.OPENCODE_DISABLE_CLAUDE_CODE;
+  writeSettingsPatch({ skillCatalogs: [] }, 'web');
 });
 
 function app(): Hono {
@@ -63,6 +66,106 @@ describe('P10 skill discovery', () => {
         { id: 'mattpocock', label: 'Matt Pocock', source: 'mattpocock/skills', defaultSubpath: null },
       ],
     });
+  });
+
+  it('merges valid custom catalog sources without curated-ID collisions', async () => {
+    writeSettingsPatch({
+      skillCatalogs: [
+        {
+          id: 'custom-in-editor',
+          label: 'In-editor skills',
+          source: 'example-org/editor-skills',
+          subpath: 'packages/skills',
+          gitIdentityId: 'profile-one',
+        },
+        {
+          id: 'custom-in-mirror',
+          label: 'Mirrored skills',
+          source: 'https://github.example.example/mirror/skills.git',
+          subpath: null,
+          gitIdentityId: null,
+        },
+        {
+          id: 'untrusted-origin',
+          label: 'Credential URL',
+          source: 'https://token@github.example/private/skills',
+        },
+        { id: 'anthropic', label: 'An override', source: 'anthropics/skills' },
+        { id: 'duplicate', label: 'First', source: 'one/skills' },
+        { id: 'duplicate', label: 'Second', source: 'two/skills' },
+        { id: 'spaces', label: 'Spaces', source: ' https://github.example/org/skills ' },
+        { id: 'dotted-source', label: 'Dash source', source: '--upload-pack=evil/skills' },
+        { id: 'escaping', label: 'Escaping', source: 'one/skills', subpath: '../outside' },
+        { id: 'bad-identity', label: 'Bad identity', source: 'one/skills', gitIdentityId: 7 },
+        'not an entry',
+      ],
+    }, 'web');
+    const response = await app().request('/api/skills/catalog/sources');
+    const { sources } = await response.json() as { sources: unknown[] };
+    const custom = sources.slice(4);
+    expect(sources).toHaveLength(7);
+    expect(custom).toEqual([
+      {
+        id: 'custom-in-editor',
+        label: 'In-editor skills',
+        source: 'example-org/editor-skills',
+        subpath: 'packages/skills',
+        gitIdentityId: 'profile-one',
+      },
+      {
+        id: 'custom-in-mirror',
+        label: 'Mirrored skills',
+        source: 'https://github.example.example/mirror/skills.git',
+        subpath: null,
+        gitIdentityId: null,
+      },
+      {
+        id: 'duplicate',
+        label: 'First',
+        source: 'one/skills',
+        subpath: null,
+        gitIdentityId: null,
+      },
+    ]);
+  });
+
+  it('caps configured custom catalog sources at 32', async () => {
+    writeSettingsPatch({
+      skillCatalogs: Array.from({ length: 33 }, (_, index) => ({
+        id: `custom-in-${index.toString().padStart(2, '0')}`,
+        label: `Catalog ${index}`,
+        source: `catalog-${index.toString().padStart(2, '0')}/skills`,
+      })),
+    }, 'web');
+    const { sources } = await (await app().request('/api/skills/catalog/sources')).json() as {
+      sources: Array<{ id: string }>;
+    };
+    expect(sources).toHaveLength(36);
+    expect(sources.slice(4)).toHaveLength(32);
+    expect(sources.at(-1)).toMatchObject({ id: 'custom-in-31' });
+  });
+
+  it('does not let malformed entries displace valid sources under the cap', async () => {
+    writeSettingsPatch({
+      skillCatalogs: [
+        {
+          id: 'leading-valid',
+          label: 'Leading source',
+          source: 'leading/skills',
+        },
+        ...Array.from({ length: 30 }, () => null),
+        ...Array.from({ length: 31 }, (_, index) => ({
+          id: `trailing-${index.toString().padStart(2, '0')}`,
+          label: `Trailing ${index}`,
+          source: `trailing-${index.toString().padStart(2, '0')}/skills`,
+        })),
+      ],
+    }, 'web');
+    const { sources } = await (await app().request('/api/skills/catalog/sources')).json() as {
+      sources: Array<{ id: string }>;
+    };
+    expect(sources).toHaveLength(36);
+    expect(sources.at(-1)?.id).toBe('trailing-30');
   });
 
   it('keeps ancestor skills when Windows path case differs from the Git root', () => {

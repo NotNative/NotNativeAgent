@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-30 configured custom skill source inventory.** The
+  additive source inventory now merges sanitized `skillCatalogs` settings
+  after the four curated identities. Records point to HTTPS or owner/repository
+  sources, carry safe relative subpaths and optional Git identity references,
+  deduplicate IDs, never override curated IDs, skip malformed values, and cap
+  custom sources at 32. Full E.4 scanning and installation remain pending.
+
 - 2026-09-29 · **P10-29 skill catalog source inventory.** The server now
   exposes the four curated source identities planned for the skills catalog:
   Anthropic, OpenAI, Cursor, and Matt Pocock. This read-only diagnostic is an

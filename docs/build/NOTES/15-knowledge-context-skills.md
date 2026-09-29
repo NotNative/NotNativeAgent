@@ -428,9 +428,24 @@ review corrected a missing OpenAI entry and three metadata-shape
 inconsistencies before the focused regression.
 
 This route intentionally does not claim the E.4
-`/api/config/skills/catalog` contract. Enrichment, customconfigured
-catalog sources, item scanning, repository auth, conflict resolution, and
-installation remain pending.
+`/api/config/skills/catalog` contract. Enrichment, item scanning, repository
+auth, conflict resolution, and installation remain pending.
+
+## P10-30: configured custom skill source inventory (2026-09-29)
+
+The same additive route now appends sanitized entries from the registered
+`skillCatalogs` instance setting. Custom records preserve their `id`, `label`,
+`source`, `subpath`, and `gitIdentityId` names; unset subpath and identity
+values become `null`. HTTPS repository URLs and case-insensitive
+owner/repository references are accepted, while command-leading values,
+whitespace, literals, HTTPS credentials, absolute or traversal-like subpaths,
+and control characters are not. Only the
+first 32 valid entries are exposed; entries are deduplicated, cannot shadow a
+curated ID, and malformed or corrupt settings cannot remove the curated four.
+
+This remains source configuration only. Catalog enrichment, source scanning,
+cache and identity handling, conflicts, and installation are still E.4
+backlog work.
 
 ## P10-28: managed skill supporting files (2026-09-29)
 

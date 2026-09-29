@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4ecf30b5e678b5aacf59ab85e7eba09eea44b753bb03aad0957e1e159992d2b0",
+  "source_digest": "sha256:84b13af558e40b2ad575ca64cb2c7b1ddc943763ea53d8a7986d408ffdfa6dbd",
   "counts": {
     "modules": 527,
     "component_edges": 14
@@ -4667,6 +4667,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/skills/skill-scan.ts",
         "packages/web/src/server/routes/skill-support.ts"
       ]
