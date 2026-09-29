@@ -34,6 +34,12 @@ export function projectIdForPath(directory: string): string {
   return id;
 }
 
+function ownerIdForPathsDirectory(directory: string, projects: readonly OwnershipProject[]):
+  string | undefined {
+  return projects.find((project) => isAbsolute(project.worktree) &&
+    samePathOrWithin(directory, project.worktree))?.id;
+}
+
 export function resolveMemoryOwnership(args: OwnershipInputs): string {
   if (args.containsPath !== undefined) {
     throw new Error('containsPath is not supported; use canonical filesystem containment');
@@ -51,11 +57,8 @@ export function resolveMemoryOwnership(args: OwnershipInputs): string {
   }
   const directory = normalizeOwnerPath(args.directory);
   if (directory === undefined) throw new Error('workspace directory is required');
-  const containsPath = args.containsPath;
-  for (const project of args.projects ?? []) {
-    const root = normalizeOwnerPath(project.worktree);
-    if (root !== undefined && samePathOrWithin(directory, root)) return project.id;
-  }
+  const declaredOwner = ownerIdForPathsDirectory(directory, args.projects ?? []);
+  if (declaredOwner !== undefined) return declaredOwner;
   if (args.managedChatsRoot !== undefined) {
     const root = normalizeOwnerPath(args.managedChatsRoot);
     if (root !== undefined && samePathOrWithin(directory, root)) return MANAGED;

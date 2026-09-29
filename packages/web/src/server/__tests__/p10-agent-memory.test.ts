@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Hono } from 'hono';
@@ -12,6 +12,7 @@ import { createMemoryEntry, memoryAvailabilityFlag, readMemoryStore } from '../p
 import { writeSettingsPatch } from '../lib/settings-store.ts';
 import { ENV } from '../env.ts';
 
+mkdirSync(ENV.dataDir, { recursive: true });
 afterAll(() => rmSync(ENV.dataDir, { recursive: true, force: true }));
 
 beforeEach(() => {

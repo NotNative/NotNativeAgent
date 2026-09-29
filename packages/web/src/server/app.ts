@@ -23,6 +23,7 @@ import { registerGitRoutes } from './routes/git.ts';
 import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerAgentMemoryRoutes } from './routes/agent-memory.ts';
+import { registerAgentToolCallback } from './routes/agent-tool.ts';
 import { registerSkillRoutes } from './routes/skills.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
@@ -155,7 +156,15 @@ function registerHarnessProxy(app: Hono): void {
 }
 
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
-  browserControl?: BrowserControlBroker; browserCallbackSecret?: string }) {
+  browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
+  agentToolCallbackSecret?: string }) {
+  const app = createBackendApp(options);
+  return app;
+}
+
+function createBackendApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
+  browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
+  agentToolCallbackSecret?: string }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
 
@@ -163,6 +172,30 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
 
   app.use('*', browserWriteGate);
 
+  registerHealth(app);
+
+  app.route('/', createAuthRoutes());
+  // The anonymous pairing redeem (doc 08 §5.5) rides BEFORE the /api gate:
+  // an unauthenticated device pairs exactly once and the /api gate would
+  // otherwise 401 it before the rate limiter even sees a body.
+  app.route('/', createClientAuthPublicRoutes());
+  // Security: this private NNA-child token is independent of browser UI auth.
+  if (options?.browserControl && options.browserCallbackSecret) registerBrowserControlCallback(app, options.browserControl, options.browserCallbackSecret);
+  if (options?.agentToolCallbackSecret) registerAgentToolCallback(app, options.agentToolCallbackSecret);
+  // Global /api gate (doc 08 §2.2 requireAuth): cookie session, client
+  // bearer, or allowlisted URL token. Registered after the /auth routes so
+  // their bespoke headers (login/reset) run un-wrapped; every later /api
+  // surface + the harness proxy rides behind it.
+  app.use('/api/*', apiAuthGate);
+  registerApiSurfaces(app, terminal, options?.harnessPort);
+
+  registerHarnessProxy(app);
+
+  registerStaticResponses(app);
+  return app;
+}
+
+function registerHealth(app: Hono): void {
   app.get('/health', async (c) =>
     c.json({
       ok: true,
@@ -176,23 +209,9 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
       serverId: await peekRelayServerId(),
     }),
   );
+}
 
-  app.route('/', createAuthRoutes());
-  // The anonymous pairing redeem (doc 08 §5.5) rides BEFORE the /api gate:
-  // an unauthenticated device pairs exactly once and the /api gate would
-  // otherwise 401 it before the rate limiter even sees a body.
-  app.route('/', createClientAuthPublicRoutes());
-  // Security: this private NNA-child token is independent of browser UI auth.
-  if (options?.browserControl && options.browserCallbackSecret) registerBrowserControlCallback(app, options.browserControl, options.browserCallbackSecret);
-  // Global /api gate (doc 08 §2.2 requireAuth): cookie session, client
-  // bearer, or allowlisted URL token. Registered after the /auth routes so
-  // their bespoke headers (login/reset) run un-wrapped; every later /api
-  // surface + the harness proxy rides behind it.
-  app.use('/api/*', apiAuthGate);
-  registerApiSurfaces(app, terminal, options?.harnessPort);
-
-  registerHarnessProxy(app);
-
+function registerStaticResponses(app: Hono): void {
   // Static UI (production builds; dev is served by Vite)
   const serveStatic = createStaticHandler(DIST_DIR);
   app.all('*', async (c, next) => {
@@ -211,8 +230,6 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // is try/catch-guarded today, this belt keeps a future unguarded route
   // from re-opening the hole).
   app.onError(errorHygiene);
-
-  return app;
 }
 
 /** A sandboxed preview has an opaque Origin but can still issue simple

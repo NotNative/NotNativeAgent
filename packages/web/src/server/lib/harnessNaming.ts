@@ -28,6 +28,8 @@ export const CONTROL_EVENTS = {
   scheduledTaskRan: 'notnative:scheduled-task-ran',
   // P9-6b orchestration fanout
   sessionCreated: 'notnative:session-created',
+  // Agent memory storage changed through the managed tool or panel routes.
+  agentMemoryChanged: 'notnative:agent-memory-changed',
 } as const;
 
 /**

@@ -3,6 +3,7 @@
 import type { Context, Hono } from 'hono';
 import { agentMemoryEnabled, deleteMemoryEntry, readMemoryStore, updateMemoryEntry,
   type AgentMemoryScope } from '../project-context/agent-memory.ts';
+import { announceAgentMemoryChange } from '../agent-tool/memory-events.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 
 const AGENT_MEMORY_BODY_MAX = 64 * 1024;
@@ -46,8 +47,11 @@ export function registerAgentMemoryRoutes(app: Hono): void {
       return c.json({ error: 'agent memory patch must be a JSON object' }, 400);
     }
     try {
-      return c.json(await updateMemoryEntry(selected.projectId, c.req.param('memoryId') ?? '',
-        { scope: selected.scope, ...body as Record<string, unknown> }));
+      const touched = await updateMemoryEntry(selected.projectId, c.req.param('memoryId') ?? '',
+        { scope: selected.scope, ...body as Record<string, unknown> });
+      announceAgentMemoryChange({ scope: selected.scope,
+        ...(selected.projectId ? { projectId: selected.projectId } : {}) });
+      return c.json(touched);
     } catch (error) {
       const status = error instanceof Error && error.message === 'memory entry not found' ? 404
         : error instanceof Error && error.message.startsWith('invalid agent memory') ? 400 : 500;
@@ -63,6 +67,8 @@ export function registerAgentMemoryRoutes(app: Hono): void {
       if (!await deleteMemoryEntry(selected.projectId, selected.scope, memoryId)) {
         return c.json({ error: 'memory entry not found' }, 404);
       }
+      announceAgentMemoryChange({ scope: selected.scope,
+        ...(selected.projectId ? { projectId: selected.projectId } : {}) });
       return c.json({ deleted: true, memoryId });
     } catch { return c.json({ error: 'agent memory delete failed' }, 500); }
   });

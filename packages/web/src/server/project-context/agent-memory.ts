@@ -110,6 +110,10 @@ export async function readMemoryStore(scope: AgentMemoryScope, projectId?: strin
   }).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
+export function sanitizeMemoryEntry(entry: AgentMemoryEntry): AgentMemoryEntry {
+  return { ...entry };
+}
+
 function patternSignature(pattern: RegExp): string {
   return pattern.toString().slice(0, 80);
 }

@@ -33,10 +33,12 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
   const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
     url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
   };
+  const agentToolCallbackSecret = randomBytes(32).toString('base64url');
   let localNna: LocalNnaHarness | undefined;
   try {
     localNna = await configureHarness(browserCallback);
-    return await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined);
+    return await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
+      agentToolCallbackSecret);
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.
@@ -47,11 +49,13 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
 }
 
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
-  browserCallbackSecret: string | undefined): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
+  browserCallbackSecret: string | undefined, agentToolCallbackSecret: string):
+  Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
-    ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}) });
+    ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
+    agentToolCallbackSecret: agentToolCallbackSecret });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
   // error event. Wait here so the caller can stop its already-owned NNA child.
