@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Hono } from 'hono';
-import { linkSync, mkdirSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import type { Context, Hono } from 'hono';
+import { linkSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +10,14 @@ const SKILL_NAME = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/u;
 const MAX_INSTRUCTIONS_BYTES = 512 * 1024;
 const MAX_SKILL_BODY_BYTES = 2 * 1024 * 1024;
 
+function skillNameValid(value: string): boolean {
+  return SKILL_NAME.test(value) && value.length > 0 && value.length < 65;
+}
+
+function absoluteLike(value: string): boolean {
+  return /^([A-Za-z]:)?[\\/]/u.test(value);
+}
+
 interface SkillCreateShape {
   description?: unknown; instructions?: unknown; source?: unknown; scope?: unknown;
   [key: string]: unknown;
@@ -17,6 +25,10 @@ interface SkillCreateShape {
 
 interface ValidatedSkillCreate {
   description: string; instructions: string; scope: 'user' | 'project';
+}
+
+interface ValidatedSkillPatch {
+  description: string; instructions: string;
 }
 
 async function readBoundedSkillBody(raw: Request): Promise<string | null> {
@@ -85,6 +97,75 @@ function managedSkillRoot(scope: 'user' | 'project', projectCheckout: string | n
     : join(projectCheckout ?? '', '.opencode', 'skills');
 }
 
+function validateSkillPatch(body: SkillCreateShape): { error: string } | ValidatedSkillPatch {
+  const allowed = ['description', 'instructions', 'renameTo'];
+  if (Object.keys(body).some((field) => !allowed.includes(field))) {
+    return { error: 'unsupported skill patch field' };
+  }
+  if (body.description === undefined && body.instructions === undefined) {
+    return { error: 'description or instructions is required' };
+  }
+  const description = body.description === undefined ? '' : body.description;
+  if (typeof description !== 'string' || description.trim() === ''
+    || description.trim().length > 500 || /\r?\n/u.test(description.trim())) {
+    return { error: 'a one-line description of 1-500 characters is required' };
+  }
+  const instructions = body.instructions === undefined ? '' : body.instructions;
+  if (typeof instructions !== 'string' || instructions.length === 0
+    || Buffer.byteLength(instructions, 'utf8') > MAX_INSTRUCTIONS_BYTES) {
+    return { error: 'nonempty instructions within 512 KiB are required' };
+  }
+  return { description: description.trim(), instructions };
+}
+
+function renameSkillFrontmatter(content: string, target: string): string | null {
+  const opening = /^(?:\ufeff)?---\r?\n/u.exec(content);
+  if (!opening) return null;
+  const body = content.slice(opening[0].length);
+  const closing = /\r?\n---(?:\r?\n|$)/u.exec(body);
+  if (!closing) return null;
+  const metadata = body.slice(0, closing.index).replace(/^name:\s*(.+)$/mu, `name: ${target}`);
+  if (!/^name:\s*/u.test(metadata)) return null;
+  const rest = body.slice(closing.index);
+  return `${opening[0]}${metadata}${rest}`;
+}
+
+function skillEditable(skill: ReturnType<typeof scanLocalSkills>[number] | undefined): boolean {
+  return skill?.renamable === true && skill.source === 'opencode';
+}
+
+function renameSkillFile(source: string, target: string): 'renamed' | 'conflict' | 'failed' {
+  try {
+    mkdirSync(join(target, '..'), { recursive: true });
+    try { linkSync(source, target); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException | null)?.code !== 'EEXIST') return 'failed';
+      return 'conflict';
+    }
+    unlinkSync(source);
+    return 'renamed';
+  } catch { return 'failed'; }
+}
+
+function replaceSkillFile(target: string, content: string): 'committed' | 'conflict' | 'failed' {
+  let temporary: string | null = null;
+  try {
+    temporary = join(target, '..', `SKILL.tmp-${randomUUID()}`);
+    writeFileSync(temporary, content, { encoding: 'utf8', flag: 'wx' });
+    try {
+      unlinkSync(target);
+      linkSync(temporary, target);
+      return 'committed';
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | null)?.code === 'EEXIST') return 'conflict';
+      throw error;
+    }
+  } catch { return 'failed'; }
+  finally {
+    if (temporary) { try { unlinkSync(temporary); } catch { /* response already resolved */ } }
+  }
+}
+
 function writeManagedSkill(target: string, content: string): 'created' | 'exists' | 'failed' {
   let temporary: string | null = null;
   try {
@@ -105,6 +186,81 @@ function writeManagedSkill(target: string, content: string): 'created' | 'exists
   }
 }
 
+type SkillPatchRequest = { error: string } | { rename: string | null };
+
+function readSkillPatch(parse: SkillCreateShape, name: string): SkillPatchRequest {
+  const rename = typeof parse.renameTo === 'string' ? parse.renameTo : null;
+  if (parse.renameTo === undefined)
+    return { rename: null };
+  if (rename === null || !SKILL_NAME.test(rename) || rename.length > 64)
+    return { error: 'invalid rename target' };
+  if (!Object.keys(parse).every((field) => field === 'renameTo'))
+    return { error: 'renameTo must be the only patch field' };
+  if (rename === name)
+    return { error: 'rename target matches current name' };
+  return { rename };
+}
+
+async function applySkillPatch(context: Context, name: string, parse: SkillCreateShape,
+  requestedDirectory: string, request: { rename: string | null }): Promise<Response> {
+  const searchDirectory = requestedDirectory === '' ? homedir() : requestedDirectory;
+  const scope = requestedDirectory === '' ? 'user' : 'project';
+  const skill = scanLocalSkills(searchDirectory)
+    .find((entry) => entry.name === name && entry.scope === scope);
+  if (!skill) return context.json({ error: 'skill not found' }, 404);
+  if (!skillEditable(skill)) return context.json({ error: 'skill is not managed here' }, 403);
+  if (request.rename !== null) return renameManagedSkill(context, skill.path, request.rename);
+  const validated = validateSkillPatch(parse);
+  if ('error' in validated) return context.json({ error: validated.error }, 400);
+  const content = `---\nname: ${name}\ndescription: ${validated.description}\n---\n\n${validated.instructions}`;
+  if (replaceSkillFile(skill.path, content) === 'failed') {
+    return context.json({ error: 'managed skill storage failed' }, 500);
+  }
+  return context.json({
+    requiresReload: true, message: 'skill updated; reload before use', reloadDelayMs: 500,
+  }, 201);
+}
+
+async function renameManagedSkill(context: Context, source: string, rename: string): Promise<Response> {
+  const directory = join(source, '..');
+  const renamedContent = renameSkillFrontmatter(readFileSync(source, 'utf8'), rename);
+  if (renamedContent === null) return context.json({ error: 'managed skill rename failed' }, 500);
+  const target = join(directory, '..', rename, 'SKILL.md');
+  const temporary = join(directory, `SKILL.tmp-${randomUUID()}`);
+  try {
+    writeFileSync(temporary, renamedContent, { encoding: 'utf8', flag: 'wx' });
+    const renamed = renameSkillFile(temporary, target);
+    if (renamed === 'failed') return context.json({ error: 'managed skill storage failed' }, 500);
+    if (renamed === 'conflict') return context.json({ error: 'skill already exists' }, 409);
+    unlinkSync(source);
+    return context.json({
+      requiresReload: true, message: 'skill renamed; reload before use', reloadDelayMs: 500,
+    }, 201);
+  } catch { return context.json({ error: 'managed skill storage failed' }, 500); }
+  finally { try { unlinkSync(temporary); } catch { /* response already resolved */ } }
+}
+
+async function createManagedSkill(context: Context, name: string, body: SkillCreateShape,
+  requestedDirectory: string): Promise<Response> {
+  const validated = validateSkillCreate(body);
+  if ('error' in validated) return context.json({ error: validated.error }, 400);
+  const checkout = canonicalProjectCheckout(requestedDirectory);
+  if (validated.scope === 'project' && checkout === null) {
+    return context.json({ error: 'project checkout directory is required' }, 400);
+  }
+  const target = join(managedSkillRoot(validated.scope, checkout), name, 'SKILL.md');
+  const conflictDirectory = validated.scope === 'user' ? homedir() : requestedDirectory;
+  const exists = scanLocalSkills(conflictDirectory).some((skill) => skill.name === name);
+  if (exists) return context.json({ error: 'a different skill already owns this name' }, 409);
+  const content = `---\nname: ${name}\ndescription: ${validated.description}\n---\n\n${validated.instructions}`;
+  const outcome = writeManagedSkill(target, content);
+  if (outcome === 'exists') return context.json({ error: 'skill already exists' }, 409);
+  if (outcome === 'failed') return context.json({ error: 'managed skill storage failed' }, 500);
+  return context.json({
+    requiresReload: true, message: 'skill created; reload before use', reloadDelayMs: 500,
+  }, 201);
+}
+
 export function registerSkillRoutes(app: Hono): void {
   app.get('/api/config/skills', (c) => {
     try {
@@ -117,38 +273,30 @@ export function registerSkillRoutes(app: Hono): void {
   });
   app.post('/api/config/skills/:name', async (c) => {
     const name = c.req.param('name');
-    if (!SKILL_NAME.test(name) || name.length > 64) {
+    if (!skillNameValid(name)) {
       return c.json({ error: 'invalid skill name' }, 400);
     }
     const encodedBody = await readBoundedSkillBody(c.req.raw);
     if (encodedBody === null) return c.json({ error: 'invalid skill body' }, 400);
     const body = parseBoundedSkillBody(encodedBody);
     if (!body) return c.json({ error: 'invalid skill body' }, 400);
-    const validated = validateSkillCreate(body);
-    if ('error' in validated) return c.json({ error: validated.error }, 400);
     const requestedDirectory = c.req.query('directory') ?? '';
-    if ((validated.scope === 'project' || requestedDirectory !== '')
-      && !/^([A-Za-z]:)?[\\/]/u.test(requestedDirectory)) {
-      return c.json({ error: 'a project checkout directory is required' }, 400);
-    }
-    const checkout = canonicalProjectCheckout(requestedDirectory);
-    if (validated.scope === 'project' && checkout === null) {
+    return createManagedSkill(c, name, body, requestedDirectory);
+  });
+  app.patch('/api/config/skills/:name', async (c) => {
+    const name = c.req.param('name');
+    if (!skillNameValid(name)) return c.json({ error: 'invalid skill name' }, 400);
+    const encodedBody = await readBoundedSkillBody(c.req.raw);
+    if (encodedBody === null) return c.json({ error: 'invalid skill body' }, 400);
+    const parse = parseBoundedSkillBody(encodedBody);
+    if (!parse) return c.json({ error: 'invalid skill body' }, 400);
+    const request = readSkillPatch(parse, name);
+    if ('error' in request) return c.json({ error: request.error }, 400);
+    const requestedDirectory = c.req.query('directory') ?? '';
+    if (requestedDirectory !== '' && !absoluteLike(requestedDirectory)) {
       return c.json({ error: 'project checkout directory is required' }, 400);
     }
-    const managedRoot = managedSkillRoot(validated.scope, checkout);
-    const target = join(managedRoot, name, 'SKILL.md');
-    const conflictDirectory = validated.scope === 'user' ? homedir() : requestedDirectory;
-    const existing = scanLocalSkills(conflictDirectory).find((skill) => skill.name === name);
-    if (existing) return c.json({ error: 'a different skill already owns this name' }, 409);
-    const content = `---\nname: ${name}\ndescription: ${validated.description}\n---\n\n${validated.instructions}`;
-    const outcome = writeManagedSkill(target, content);
-    if (outcome === 'exists') return c.json({ error: 'skill already exists' }, 409);
-    if (outcome === 'failed') return c.json({ error: 'managed skill storage failed' }, 500);
-    return c.json({
-      requiresReload: true,
-      message: 'skill created; reload before use',
-      reloadDelayMs: 500,
-    }, 201);
+    return applySkillPatch(c, name, parse, requestedDirectory, request);
   });
   app.get('/api/config/skills/:name', (c) => {
     try {

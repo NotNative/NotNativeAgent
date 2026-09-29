@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { Hono } from 'hono';
@@ -310,6 +310,99 @@ describe('P10 skill discovery', () => {
       delete process.env.OPENCODE_CONFIG_DIR;
       rmSync(config, { recursive: true, force: true });
     }
+  });
+
+  it('updates and renames a managed OpenCode skill', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-patch-'));
+    const name = 'drafted-flow';
+    await app().request(`/api/config/skills/${name}?directory=${encodeURIComponent(project)}`, {
+      method: 'POST',
+      body: JSON.stringify({ description: 'Drafted flow', instructions: 'Run drafted checks.' }),
+    });
+    const update = await app().request(`/api/config/skills/${name}?directory=${encodeURIComponent(project)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ description: 'Revised flow', instructions: 'Run revised checks.' }),
+    });
+    expect(update.status).toBe(201);
+    expect(await update.json()).toEqual({
+      requiresReload: true, message: 'skill updated; reload before use', reloadDelayMs: 500,
+    });
+    const skill = scanLocalSkills(project).find((entry) => entry.name === name);
+    expect(skill).toMatchObject({ description: 'Revised flow', renamable: true });
+    const rename = await app().request(`/api/config/skills/${name}?directory=${encodeURIComponent(project)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ renameTo: 'revised-flow' }),
+    });
+    expect(rename.status).toBe(201);
+    expect(await rename.json()).toMatchObject({ requiresReload: true, message: 'skill renamed; reload before use' });
+    const names = scanLocalSkills(project).map((entry) => entry.name);
+    expect(names).toContain('revised-flow');
+    expect(names).not.toContain(name);
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('keeps project routes scoped to the requested checkout', async () => {
+    const config = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-cross-'));
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-project-'));
+    const userDirectory = join(config, 'skills', 'cross-scope');
+    mkdirSync(userDirectory, { recursive: true });
+    writeFileSync(join(userDirectory, 'SKILL.md'),
+      '---\nname: cross-scope\ndescription: User skill\n---');
+    process.env.OPENCODE_CONFIG_DIR = config;
+    try {
+      const response = await app().request(`/api/config/skills/cross-scope?directory=${encodeURIComponent(project)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ description: 'Project', instructions: 'Boom.' }),
+      });
+      expect(response.status).toBe(404);
+      expect(readFileSync(join(userDirectory, 'SKILL.md'), 'utf8')).toContain('User skill');
+      expect(existsSync(join(project, '.opencode', 'skills'))).toBe(false);
+    } finally {
+      delete process.env.OPENCODE_CONFIG_DIR;
+      rmSync(config, { recursive: true, force: true });
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a rename mixed with content edits', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-mixed-'));
+    const directory = join(project, '.opencode', 'skills', 'mixed-patch');
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'SKILL.md'),
+      '---\nname: mixed-patch\ndescription: Original\n---');
+    const response = await app().request(`/api/config/skills/mixed-patch?directory=${encodeURIComponent(project)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ renameTo: 'renamed-patch', description: 'Later', instructions: 'Boom.' }),
+    });
+    expect(response.status).toBe(400);
+    expect(existsSync(join(directory, 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(project, '.opencode', 'skills', 'renamed-patch'))).toBe(false);
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('rejects a relative project checkout for patching', async () => {
+    const response = await app().request('/api/config/skills/relative-checkout?directory=relative', {
+      method: 'PATCH',
+      body: JSON.stringify({ renameTo: 'renamed-checkout' }),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it('renames only the opening frontmatter name', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'nnd-p10-skill-frontmatter-'));
+    const directory = join(project, '.opencode', 'skills', 'frontmatter-flow');
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'SKILL.md'),
+      '---\nname: frontmatter-flow\ndescription: Original\n---\n\nname: body-name\n');
+    const response = await app().request(`/api/config/skills/frontmatter-flow?directory=${encodeURIComponent(project)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ renameTo: 'renamed-frontmatter' }),
+    });
+    expect(response.status).toBe(201);
+    const content = readFileSync(join(project, '.opencode', 'skills', 'renamed-frontmatter', 'SKILL.md'), 'utf8');
+    expect(content).toContain('name: renamed-frontmatter');
+    expect(content).toContain('name: body-name');
+    rmSync(project, { recursive: true, force: true });
   });
 
   it('requires a checkout scope and reports project skills with external flags', async () => {

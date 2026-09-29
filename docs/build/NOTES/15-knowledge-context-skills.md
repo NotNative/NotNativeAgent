@@ -252,8 +252,8 @@ Discovery initially stayed deliberately read-only because managed root CRUD
 authority was not implemented. Listing or resolving a planned
 filesystem skill also avoids avoidable directory scans when the external
 flags would hide it. The route still returns the external flags with list
-results. Harness SDK built-ins, update/rename/delete, supporting-file
-payloads, UI wiring, and restart handling remain.
+results. Harness SDK built-ins, delete, supporting-file payloads, UI wiring,
+and restart handling remain.
 
 ## P10-16: agent memory storage routes (2026-09-28)
 
@@ -397,7 +397,24 @@ a same-name race cannot overwrite Windows targets; failed attempts remove
 the temporary. Responses always return the planned deferred-restart payload.
 Discovery labels both managed user and project OpenCode roots as
 `renamable: true`, while cache and configured-extra roots remain external.
-Update, rename, delete, and supporting-file routes remain pending.
+
+## P10-26: managed skill update and rename (2026-09-28)
+
+PATCH now supports either a pure `{ renameTo }` request or bounded content
+update. It resolves only a managed OpenCode skill in the exact requested
+scope, validates the 2 MiB wire body, and accepts planned fields only. A
+content patch replaces the opening SKILL.md through an exclusive temporary
+plus unlink/hard-link publication; failures clean the temporary. Pure rename
+copies content, rewrites only the `name` line in the opening frontmatter
+block, publishes the new directory target by hard link, and removes the old
+file only after the target exists.
+
+Conflicts on existing names/targets return 409; missing and nonmanaged skills
+return 404/403. Mixed rename/content bodies and nonabsolute project scopes
+return 400. Adversarial audit fixed cross-scope mutation, regex-based
+frontmatter overwrite, mixed-body confusion, and checkout validation. Update
+and rename responses return the same restart deferral. Delete and
+supporting-file routes remain pending.
 
 ## P10-23: OpenCode cache discovery (2026-09-28)
 
