@@ -520,6 +520,10 @@
     {
       "version": "20260929-18",
       "content_sha256": "4060add9981c7accbee6e328c510078c46a7e29dbcd3e8e00d12dc446139364b"
+    },
+    {
+      "version": "20260929-19",
+      "content_sha256": "406335abb0e180af75cd1cbc35d3279feab08810beb024417d3b08ce0573e3e0"
     }
   ]
 }

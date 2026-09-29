@@ -420,16 +420,20 @@ class RelayTunnelClientImpl implements RelayTunnelClient, TunnelClientCore {
       return await this.queueFetchDuringConnect(input, init);
     }
     if (this.state !== 'connected') throw this.notConnectedError(this.state);
-    const attempt = startRelayFetch(this, normalizeRelayRequest(input, init), abortSignalOf(input, init));
+    const signal = abortSignalOf(input, init);
+    if (signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
+    const attempt = startRelayFetch(this, normalizeRelayRequest(input, init), signal);
     return attempt.promise;
   }
 
   private queueFetchDuringConnect(input: string | URL | Request, init?: RequestInit): Promise<Response> {
     return new Promise<Response>((resolve, reject) => {
+      const signal = abortSignalOf(input, init);
+      if (signal?.aborted) { reject(new DOMException('The operation was aborted.', 'AbortError')); return; }
       this.queuedFetches.push({
         run: () => {
           if (this.state !== 'connected' || this.session === null) { reject(this.notConnectedError(this.state)); return; }
-          const attempt = startRelayFetch(this, normalizeRelayRequest(input, init), abortSignalOf(input, init));
+          const attempt = startRelayFetch(this, normalizeRelayRequest(input, init), signal);
           attempt.promise.then(resolve, reject);
         },
         reject: (error: Error) => { reject(error); },

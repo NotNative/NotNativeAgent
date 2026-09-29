@@ -69,10 +69,13 @@ function clickText(label: string): void {
   click(button);
 }
 
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+function deferred<T>(): {
+  promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void;
+} {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((settle) => { resolve = settle; });
-  return { promise, resolve };
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((settle, fail) => { resolve = settle; reject = fail; });
+  return { promise, resolve, reject };
 }
 
 afterEach(() => {
@@ -183,7 +186,7 @@ describe('skills catalog settings page', () => {
       source: 'anthropic-repo', subpath: 'skills', gitIdentityId: null,
       scope: 'user', targetSource: 'opencode', selections: ['review'],
       conflictPolicy: undefined, conflictDecisions: undefined,
-    }, 'D:/workspace');
+    }, 'D:/workspace', { signal: expect.anything() });
     expect(document.body.textContent).toContain('Installed one skill');
     expect(sourceMock).toHaveBeenLastCalledWith('anthropic', { directory: 'D:/workspace', refresh: true });
   });
@@ -218,7 +221,7 @@ describe('skills catalog settings page', () => {
     expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       scope: 'user', targetSource: 'opencode', selections: ['review'],
       conflictPolicy: undefined, conflictDecisions: { review: 'skip' },
-    }), 'D:/workspace');
+    }), 'D:/workspace', expect.objectContaining({ signal: expect.anything() }));
     expect(document.querySelector('[data-testid="skill-catalog-conflict"]')).toBeNull();
     expect(sourceMock.mock.calls.at(-1)?.[0]).toBe('anthropic');
     expect(sourceMock.mock.calls.at(-1)?.[1]?.refresh).toBe(true);
@@ -242,7 +245,7 @@ describe('skills catalog settings page', () => {
     expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       scope: 'user', targetSource: 'opencode', selections: ['review'],
       conflictPolicy: 'overwriteAll', conflictDecisions: undefined,
-    }), 'D:/workspace');
+    }), 'D:/workspace', expect.objectContaining({ signal: expect.anything() }));
   });
   it('exports a captured conflict with skip-all', async () => {
     const anthropic = source('anthropic', 'Anthropic');
@@ -263,7 +266,7 @@ describe('skills catalog settings page', () => {
     expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       scope: 'user', targetSource: 'opencode', selections: ['review'],
       conflictPolicy: 'skipAll', conflictDecisions: undefined,
-    }), 'D:/workspace');
+    }), 'D:/workspace', expect.objectContaining({ signal: expect.anything() }));
   });
   it('hides decisions for a cross-target conflict', async () => {
     const anthropic = source('anthropic', 'Anthropic');
@@ -324,7 +327,7 @@ describe('skills catalog settings page', () => {
     expect(installMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       scope: 'user', targetSource: 'opencode', selections: ['review'],
       gitIdentityId: 'home-key', conflictPolicy: undefined, conflictDecisions: undefined,
-    }), 'D:/workspace');
+    }), 'D:/workspace', expect.objectContaining({ signal: expect.anything() }));
     expect(document.querySelector('[data-testid="skill-catalog-identity"]')).toBeNull();
   });
 
@@ -340,7 +343,7 @@ describe('skills catalog settings page', () => {
 
     expect(installMock).toHaveBeenCalledWith(expect.objectContaining({
       source: 'anthropic-repo', subpath: 'skills', gitIdentityId: 'default-key',
-    }), 'D:/workspace');
+    }), 'D:/workspace', expect.objectContaining({ signal: expect.anything() }));
   });
 
   it('shows no identity picker when a 401 supplies only malformed profiles', async () => {
@@ -376,6 +379,68 @@ describe('skills catalog settings page', () => {
     install.resolve({ ok: true, installed: [], skipped: [], requiresReload: true, message: 'installed' });
     await settle();
     expect((document.querySelector('[data-testid="install-skill-review"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('cancels the visible pending skill and shows the cancellation outcome', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValue({ ok: true, source: anthropic, sourceId: 'anthropic', items: [item('review')] });
+    const install = deferred<Awaited<ReturnType<typeof installSkills>>>();
+    installMock.mockReturnValueOnce(install.promise);
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    expect(document.querySelector('[data-testid="cancel-install-review"]')).not.toBeNull();
+    click(document.querySelector('[data-testid="cancel-install-review"]')!);
+    const signal = (installMock.mock.calls[0]![2] as { signal: AbortSignal }).signal;
+    expect(signal.aborted).toBe(true);
+    await act(async () => {
+      install.reject(new DOMException('aborted', 'AbortError'));
+      await install.promise.catch(() => undefined);
+    });
+    await settle();
+
+    expect(document.querySelector('[data-testid="cancel-install-review"]')).toBeNull();
+    expect(document.body.textContent).toContain('Skill installation was cancelled.');
+  });
+
+  it('does not offer cancellation after another workspace replacement appears', async () => {
+    const anthropic = source('anthropic', 'Anthropic');
+    catalogMock.mockResolvedValue({ ok: true, sources: [anthropic], itemsBySource: {} });
+    sourceMock.mockResolvedValueOnce({
+      ok: true, source: anthropic, sourceId: 'anthropic',
+      items: [{ ...item('review'), installed: { isInstalled: false, scope: null, source: null } }],
+    });
+    const install = deferred<Awaited<ReturnType<typeof installSkills>>>();
+    installMock.mockReturnValueOnce(install.promise);
+    mount();
+    await settle();
+    click(document.querySelector('[data-testid="install-skill-review"]')!);
+    await settle();
+
+    sourceMock.mockResolvedValueOnce({
+      ok: true, source: anthropic, sourceId: 'anthropic',
+      items: [{ ...item('review'), installed: { isInstalled: false, scope: null, source: null } }],
+    });
+    await act(async () => {
+      useSessionViewStore.setState({ activeDirectory: 'D:/other' });
+      await Promise.resolve();
+    });
+    await settle();
+    expect(document.querySelector('[data-testid="cancel-install-review"]')).toBeNull();
+
+    await act(async () => {
+      useSessionViewStore.setState({ activeDirectory: 'D:/workspace' });
+      await Promise.resolve();
+    });
+    await settle();
+    expect(document.querySelector('[data-testid="cancel-install-review"]')).not.toBeNull();
+    click(document.querySelector('[data-testid="cancel-install-review"]')!);
+    install.reject(new DOMException('aborted', 'AbortError'));
+    expect((installMock.mock.calls[0]![2] as { signal: AbortSignal }).signal.aborted).toBe(true);
+    await install.promise.catch(() => undefined);
   });
 
   it('reloads the catalog and ignores a successful install after a runtime switch', async () => {
@@ -429,7 +494,7 @@ describe('skills catalog settings page', () => {
     expect(document.body.textContent).not.toContain('stale install result');
     expect(installMock).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'user', targetSource: 'opencode', selections: ['review'],
-    }), 'D:/workspace');
+    }), 'D:/workspace', expect.objectContaining({ signal: expect.anything() }));
   });
 
   it('shows catalog failure and configured-source notices without rows', async () => {

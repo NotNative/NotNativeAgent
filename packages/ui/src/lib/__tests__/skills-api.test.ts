@@ -94,6 +94,12 @@ describe('skills catalog API transport', () => {
     } satisfies Partial<SkillApiError>);
   });
 
+  it('forwards an install abort signal without coalescing', async () => {
+    native.mockResolvedValueOnce(json(200, { ok: true, installed: [], skipped: [], requiresReload: true, message: 'done' }));
+    const signal = new AbortController().signal;
+    await installSkills({ source: 'demo', scope: 'user', selections: ['demo-flow'] }, 'D:/repo', { signal });
+    expect(native.mock.calls[0]![1]).toMatchObject({ method: 'POST', signal });
+  });
   it('requires a directory for project installs and rejects source-id injection', () => {
     expect(() => installSkills({
       source: 'demo', scope: 'project', selections: ['demo'],

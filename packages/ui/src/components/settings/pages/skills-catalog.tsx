@@ -25,8 +25,12 @@ export function SkillsCatalogPage(): ReactNode {
     target: SkillTargetSource; skillName: string; identities: SkillIdentity[];
   } | null>(null);
   const [runtimeRevision, setRuntimeRevision] = useState(0);
+  const [pendingInstalls, setPendingInstalls] = useState<Array<{
+    sourceId: string; skillName: string; directory?: string;
+    scope: 'user' | 'project'; target: SkillTargetSource;
+  }>>([]);
   const runtimeRevisionRef = useRef(runtimeRevision);
-  const activeInstallRef = useRef(new Set<string>());
+  const activeInstallRef = useRef(new Map<string, AbortController>());
   const sources = useSkillsCatalogStore((state) => state.sources);
   const itemsBySource = useSkillsCatalogStore((state) => state.itemsBySource);
   const loadingSourceIds = useSkillsCatalogStore((state) => state.loadingSourceIds);
@@ -68,6 +72,8 @@ export function SkillsCatalogPage(): ReactNode {
       setInstallStatus(null);
       setConflictState(null);
       setIdentityState(null);
+      for (const controller of activeInstallRef.current.values()) controller.abort();
+      setPendingInstalls([]);
     });
     return () => { off(); };
   }, []);
@@ -96,7 +102,11 @@ export function SkillsCatalogPage(): ReactNode {
     const requestKey = `${request.sourceId}|${request.skillName}`;
     if (installingSourceIds.includes(request.sourceId) || activeInstallRef.current.has(requestKey)) return;
     const requestRuntimeRevision = runtimeRevisionRef.current;
-    activeInstallRef.current.add(requestKey);
+    const abortController = new AbortController();
+    activeInstallRef.current.set(requestKey, abortController);
+    setPendingInstalls((current) => current.some((entry) =>
+      `${entry.sourceId}|${entry.skillName}` === requestKey
+    ) ? current : [...current, request]);
     setInstallStatus(null);
     try {
       const outcome = await installSource(request.sourceId, {
@@ -109,8 +119,18 @@ export function SkillsCatalogPage(): ReactNode {
           ? undefined
           : { [request.skillName]: override.conflictDecision },
         gitIdentityId: override.gitIdentityId,
+        signal: abortController.signal,
       });
       if (runtimeRevisionRef.current !== requestRuntimeRevision) return;
+      if (outcome.kind === 'cancelled') {
+        setConflictState(null);
+        setIdentityState(null);
+        setInstallStatus({
+          sourceId: request.sourceId, directory: request.directory,
+          scope: request.scope, target: request.target, message: outcome.message,
+        });
+        return;
+      }
       if (outcome.kind === 'success') {
         setConflictState(null);
         setIdentityState(null);
@@ -147,6 +167,9 @@ export function SkillsCatalogPage(): ReactNode {
       });
     } finally {
       activeInstallRef.current.delete(requestKey);
+      setPendingInstalls((current) => current.filter((entry) =>
+        `${entry.sourceId}|${entry.skillName}` !== requestKey
+      ));
     }
   }, [installingSourceIds, installSource, loadSource]);
 
@@ -167,6 +190,11 @@ export function SkillsCatalogPage(): ReactNode {
       ? { conflictDecision: action }
       : { conflictPolicy: action });
   }, [conflictState, sendInstallRequest]);
+
+  const cancelInstall = useCallback((skillName: string): void => {
+    if (selectedSourceId === null) return;
+    activeInstallRef.current.get(`${selectedSourceId}|${skillName}`)?.abort();
+  }, [selectedSourceId]);
 
   const chooseIdentity = useCallback((identityId: string): void => {
     if (identityState === null) return;
@@ -279,6 +307,13 @@ export function SkillsCatalogPage(): ReactNode {
                       Install
                     </button>
                   ) : null}
+                  {!item.installed.isInstalled && pendingInstalls.some((entry) => entry.sourceId === selectedSourceId
+                    && entry.skillName === item.skillName
+                    && entry.directory === (activeDirectory || undefined)) ? (
+                      <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover"
+                        data-testid={`cancel-install-${item.skillName}`}
+                        onClick={() => cancelInstall(item.skillName)}>Cancel</button>
+                    ) : null}
                 </div>
             </div>
           ))}

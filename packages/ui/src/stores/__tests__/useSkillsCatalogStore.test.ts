@@ -243,6 +243,18 @@ describe('skills catalog store', () => {
     });
   });
 
+  it('reports transport cancellation as an explicit non-error outcome', async () => {
+    const controller = new AbortController();
+    installMock.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'));
+    const outcome = await useSkillsCatalogStore.getState().installSource('anthropic', {
+      directory: 'D:/new', scope: 'project', selections: ['review-flow'], signal: controller.signal,
+    });
+    expect(outcome).toEqual({
+      kind: 'cancelled', message: 'Skill installation was cancelled.',
+    });
+    expect(installMock).toHaveBeenCalledWith(expect.objectContaining({ selections: ['review-flow'] }),
+      'D:/new', expect.objectContaining({ signal: controller.signal }));
+  });
   it('deletes runtime data exactly', () => {
     useSkillsCatalogStore.getState().resetForRuntimeSwitch();
     const state = useSkillsCatalogStore.getState();

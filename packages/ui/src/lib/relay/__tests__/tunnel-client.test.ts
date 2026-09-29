@@ -233,6 +233,29 @@ describe('relay tunnel client over a fake broker', () => {
     rig.client.close();
   });
 
+  it('rejects pre-aborted HTTP fetches without allocating a relay stream', async () => {
+    const rig = makeRig(await makeHostKeys());
+    const broker = await readyBroker(rig);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(rig.client.fetch('/api/config?pre-aborted=1', { signal: controller.signal }))
+      .rejects.toMatchObject({ name: 'AbortError' });
+    expect(broker.host.requests).toHaveLength(0);
+    rig.client.close();
+  });
+
+  it('rejects requests pre-aborted while queued behind a connect without sending later', async () => {
+    const rig = makeRig(await makeHostKeys());
+    const controller = new AbortController();
+    controller.abort();
+    const queued = rig.client.fetch('/api/config?queued-abort=1', { signal: controller.signal });
+    await expect(queued).rejects.toMatchObject({ name: 'AbortError' });
+    const entry = rig.brokers[0] as Entry;
+    await until(() => entry.broker.host.established);
+    await until(() => rig.client.getStatus().state === 'connected');
+    expect(entry.broker.host.requests).toHaveLength(0);
+    rig.client.close();
+  });
   it('reconnect backoff starts at the base delay and doubles per completed cycle (§3.11)', async () => {
     const rig = makeRig(await makeHostKeys(), { reconnectBaseDelayMs: 100, reconnectMaxDelayMs: 300 });
     await readyBroker(rig);

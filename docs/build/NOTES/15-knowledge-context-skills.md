@@ -538,6 +538,27 @@ The idle Settings catalog route now renders the configured merged catalog throug
 
 The audit was interrupted once for a compact report after its runtime exceeded the normal window. It then confirmed three defects and hardened the seam: item caches are keyed by source and workspace, overlapping reads keep only the latest response, and the engine runtime-reset path clears the catalog with an advanced runtime epoch so late transport promises cannot repopulate it. The slice is deliberately read-only. It does not expose selection, conflict decisions, Git identities, or installation actions, and it does not add an install cancellation signal. Focused page regressions pin loading, workspace-keyed selection, cache-bypass refresh, prior-data retention, and catalog-source notices.
 
+## P10-42: install cancellation (2026-09-29)
+
+Each one-skill catalog install creates an `AbortController`, passes its signal
+through `installSkills` and `runtimeFetch` to the active HTTP/tunnel
+transport, and records the captured request while pending. A visible
+`Cancel` control only appears when the selected source, workspace directory,
+and skill match the pending capture. Cancellation returns a distinct
+`kind: cancelled` outcome, clears conflict/identity decision surfaces, and
+shows the cancellation message without treating it as a server failure.
+
+Runtime endpoint switches abort every page-owned install signal and clear
+pending state. Existing runtime revisions suppress late responses. The
+pending source/skill guards still prevent overlapping work, while
+double-aborts are idempotent. Relay behavior was hardened on the same path:
+an already-aborted direct or connect-queued request rejects before allocating
+a stream, writing a request head, or racing the completed handshake.
+
+Focused regressions cover transport signal forwarding, explicit cancelled
+store outcomes, workspace-scoped cancellation, runtime-switch invalidation,
+and both relay pre-abort paths.
+
 ## P10-41: captured identity picker (2026-09-29)
 
 A `401 authRequired` response may supply Git-identity candidates parsed as

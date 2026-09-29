@@ -170,7 +170,10 @@ export function scanSkills(requestBody: {
   return request('/api/config/skills/scan', jsonBody('POST', requestBody));
 }
 
-export function installSkills(requestBody: SkillInstallRequest, directory?: string): Promise<SkillInstallResult> {
+export function installSkills(requestBody: SkillInstallRequest, directory?: string,
+  options: { signal?: AbortSignal | null } = {}): Promise<SkillInstallResult> {
   if (requestBody.scope === 'project' && !directory) throw new SkillApiError(400, 'invalidSource', 'Project checkout directory is required');
-  return request(`/api/config/skills/install${directoryQuery(directory)}`, jsonBody('POST', requestBody));
+  const requestInit = jsonBody('POST', requestBody);
+  if (options.signal !== undefined) requestInit.signal = options.signal;
+  return request(`/api/config/skills/install${directoryQuery(directory)}`, requestInit);
 }
