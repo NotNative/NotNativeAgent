@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:6ef6b84ce78874f596022ac29dfe8daff9c684308083cb0d1d844633306fb83f",
+  "source_digest": "sha256:a01ecad126ec859b5beeec1ef1fe04508697e8595c25054dfe18c15c60a1af5a",
   "counts": {
-    "modules": 519,
+    "modules": 525,
     "component_edges": 14
   },
   "components": [
@@ -24,19 +24,19 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 146
+      "module_count": 147
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 140
+      "module_count": 141
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 160
+      "module_count": 164
     },
     {
       "id": "web-entry",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 192,
-      "module_count": 79
+      "import_count": 193,
+      "module_count": 80
     },
     {
       "from": "ui-shell",
@@ -114,8 +114,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 52,
-      "module_count": 45
+      "import_count": 53,
+      "module_count": 46
     },
     {
       "from": "sync-engine",
@@ -378,6 +378,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/use-agent-memory-events.ts",
         "packages/ui/src/lib/agent-memory-api.ts"
       ]
     },
@@ -792,6 +793,15 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/use-agent-memory-events.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/agent-memory-events.ts",
+        "packages/ui/src/lib/nnd/events.ts"
       ]
     },
     {
@@ -1665,6 +1675,12 @@
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts"
       ]
+    },
+    {
+      "path": "packages/ui/src/lib/agent-memory-events.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/ui/src/lib/api/registry.ts",
@@ -3485,6 +3501,31 @@
       ]
     },
     {
+      "path": "packages/web/src/server/agent-tool/memory-actions.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/project-context/agent-memory-ownership.ts",
+        "packages/web/src/server/project-context/agent-memory.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/agent-tool/memory-events.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/bus.ts",
+        "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/project-context/agent-memory.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/agent-tool/memory-render.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/web/src/server/app.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -3503,6 +3544,7 @@
         "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/queue/queue-routes.ts",
         "packages/web/src/server/routes/agent-memory.ts",
+        "packages/web/src/server/routes/agent-tool.ts",
         "packages/web/src/server/routes/auth.ts",
         "packages/web/src/server/routes/client-auth.ts",
         "packages/web/src/server/routes/fs-read.ts",
@@ -4407,7 +4449,21 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/agent-tool/memory-events.ts",
         "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/project-context/agent-memory.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/agent-tool.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/agent-tool/memory-actions.ts",
+        "packages/web/src/server/agent-tool/memory-events.ts",
+        "packages/web/src/server/agent-tool/memory-render.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/project-context/agent-memory-ownership.ts",
         "packages/web/src/server/project-context/agent-memory.ts"
       ]
     },
