@@ -168,19 +168,37 @@ export const useMcpStore = create<McpStoreState>()((set, get) => ({
 
   async testConnection(name, directory) {
     const key = directoryKey(directory);
+    await get().refresh({ directory, silent: true });
+    if (get().lastErrorKeys[key] !== undefined) {
+      return { status: 'unknown', error: get().lastErrorKeys[key] };
+    }
     const before = get().byDirectory[key] ?? {};
     const wasConnected = before[name]?.status === 'connected';
     const connectResult = await harnessClient.connectMcp(name, { directory });
     await get().refresh({ directory, silent: true });
     const after = get().byDirectory[key] ?? {};
+    const readbackError = get().lastErrorKeys[key];
     if (connectResult.error) {
       return { status: 'failed', error: connectResult.error };
     }
     const status = after[name]?.status ?? 'unknown';
-    if (!wasConnected && status === 'connected') {
+    let cleanedUp = wasConnected;
+    const shouldCleanUp = !wasConnected && (status === 'connected'
+      || (readbackError !== undefined && status === 'unknown'));
+    if (shouldCleanUp) {
       const cleanup = await harnessClient.disconnectMcp(name, { directory });
       await get().refresh({ directory, silent: true });
-      if (cleanup.error) return { status, warning: cleanup.error };
+      cleanedUp = !cleanup.error;
+      if (cleanup.error) {
+        return { status, warning: cleanup.error, ...(readbackError ? { error: readbackError } : {}) };
+      }
+    }
+    if (readbackError !== undefined) {
+      return {
+        status,
+        error: readbackError,
+      ...(cleanedUp ? {} : { warning: 'MCP connection could not be cleaned up' }),
+      };
     }
     return { status };
   },
@@ -207,9 +225,9 @@ export const useMcpStore = create<McpStoreState>()((set, get) => ({
   async clearAuth(name, directory) {
     const result = await harnessClient.removeMcpAuth(name, { directory });
     if (result.error) return result.error;
-    await harnessClient.disconnectMcp(name, { directory });
+    const disconnect = await harnessClient.disconnectMcp(name, { directory });
     await get().refresh({ directory, silent: true });
-    return undefined;
+    return disconnect.error;
   },
 
   setDiagnostic(directory, name, error) {

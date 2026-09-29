@@ -43,8 +43,10 @@ export function registerMcpConfigRoutes(app: Hono): void {
     const name = context.req.param('name');
     const body = await readJsonBodyBounded(context.req.raw, MCP_BODY_MAX);
     if (body === null) return context.json({ error: 'MCP record must be a JSON object' }, 400);
+    const directory = context.req.query('directory')
+      ?? (typeof body.directory === 'string' ? body.directory : undefined);
     try {
-      await createMcpConfig(name, body);
+      await createMcpConfig(name, { ...body, ...(directory ? { directory } : {}) });
       return context.json(mutation(name, 'created'));
     } catch (error) {
       const mapped = errorResponse(error);

@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-29 · **P10-45 MCP stores.**
+  The UI gained runtime status keyed by workspace, health aggregation,
+  in-flight/TTL refresh control, diagnostics, runtime resets, and honest
+  connect/disconnect/test/auth outcomes. The config store gained directory
+  maps, TTL force reload, deferred-restart mutation results, draft/body
+  builders, and persistence for selected server. Adversarial review fixed
+  project-directory creation in both private and mock layers, stale remote
+  headers when clearing headers, and cleanup/readback failures that could
+  leak or falsely report an authenticated connection. Truth: typecheck green;
+  26 focused UI store tests, 18 focused MCP web tests, full UI/web suites,
+  quality gates, and production build pending the final seal.
+
 - 2026-09-29 · **P10-44 MCP config layer.**
   The server now reads/writes bounded `mcp` records in user and project
   OpenCode config files, preserves unknown config fields, exposes scope

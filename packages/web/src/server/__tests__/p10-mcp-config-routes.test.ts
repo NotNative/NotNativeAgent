@@ -87,6 +87,17 @@ describe('MCP config-layer routes (P10-44)', () => {
     });
   });
 
+  it('creates project records from the request query directory', async () => {
+    const created = await send('/api/config/mcp/query-directory?directory=' +
+      encodeURIComponent(PROJECT), 'POST', {
+      scope: 'project', type: 'local', command: ['npx', '-y', 'demo-server'],
+    });
+    expect(created.status).toBe(200);
+    expect(readProject().mcp).toHaveProperty('query-directory');
+    await send('/api/config/mcp/query-directory?directory=' +
+      encodeURIComponent(PROJECT), 'DELETE', undefined);
+  });
+
   it('reads by name and preserves unknown config hashes', async () => {
     const record = await (await call('/api/config/mcp/shared-name?directory=' +
       encodeURIComponent(PROJECT))).json();

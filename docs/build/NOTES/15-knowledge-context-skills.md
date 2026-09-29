@@ -24,7 +24,41 @@ The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed
 context test exposed the previous unhandled-rejection behavior.
 
-## Remaining P10 slices
+## P10-45: MCP runtime/status and config stores (2026-09-29)
+
+The UI now has a runtime-status store keyed by normalized workspace directory
+(or a global bucket) over the harness `GET /mcp` seam. It validates status
+payloads without discarding good maps, coalesces in-flight refreshes, supports
+TTL `ensureFresh`, tracks diagnostics and errors, and drops in-flight state on
+runtime switches. Connection helpers end with a silent status refresh; the
+test-connection path refreshes first, records whether the server was already
+connected, disconnects a test-only connection, and surfaces failures from the
+connect action, readback, or cleanup instead of pretending success. Clearing
+authentication reports disconnect cleanup failure rather than silently
+leaving an authenticated live session.
+
+The configuration store merges the private `/api/config/mcp` list by
+normalized directory, carries a short TTL plus in-flight dedupe, preserves
+the prior list on malformed records or failures, and force-refetches after
+create/patch/delete. Draft helpers build bounded bodies matching the server
+contract: parsed local commands, flat nonblank environment/header rows,
+remote URL and timed-out OAuth handling, and positive optional timeout.
+Drafts remain open on transport errors; successful mutations return a
+deferred-restart outcome to the page. Selected name persists, while config
+state is directory-scoped and runtime-switched.
+
+An adversarial audit traced five concrete consequences: project-scoped POST
+could not reach its checkout in the private route or mock add path; a cleanup
+disconnect failure after clearing auth could report success; a failed status
+readback during test-connection could leave a test-only connection running; a
+cleanup failure did not reach the caller; and patching a remote record to
+remove all headers retained stale values because an empty headers object was
+treated as absent. The route/mock directory handling and these store paths
+now have focused regressions.
+
+Still owed in P10: MCP settings configuration/health wiring, OAuth/import
+flows, complete/restart affordances, obligatory context, the memory
+tool/session/runtime, and the remaining context tabs and skill roots/CRUD.
 
 - Finish legacy plan-file migration and durable legacy-key cleanup.
 - Add notes and plan CRUD, safe markdown file ownership, shared plans, and

@@ -97,7 +97,7 @@ async function handleAdd(request: Request, directory: string): Promise<Response>
   const name = typeof body.name === 'string' ? body.name : '';
   if (!mcpNameOk(name)) return harnessError('MCP server name is invalid', 400);
   try {
-    await createMcpConfig(name, body.config ?? body);
+    await createMcpConfig(name, { ...(body.config ?? body), directory });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'MCP add failed';
     return harnessError(message, /exists|duplicate/iu.test(message) ? 500 : 400);
