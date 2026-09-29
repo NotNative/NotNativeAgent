@@ -538,6 +538,20 @@ The idle Settings catalog route now renders the configured merged catalog throug
 
 The audit was interrupted once for a compact report after its runtime exceeded the normal window. It then confirmed three defects and hardened the seam: item caches are keyed by source and workspace, overlapping reads keep only the latest response, and the engine runtime-reset path clears the catalog with an advanced runtime epoch so late transport promises cannot repopulate it. The slice is deliberately read-only. It does not expose selection, conflict decisions, Git identities, or installation actions, and it does not add an install cancellation signal. Focused page regressions pin loading, workspace-keyed selection, cache-bypass refresh, prior-data retention, and catalog-source notices.
 
+## P10-39: per-skill install controls (2026-09-29)
+
+The Skills Catalog page now exposes one-skill installation defaults. A reader can
+choose user or project scope and choose the OpenCode or agents managed target;
+unknown selections stay typed. Uninstalled, installable rows show Install. User
+scope sends the selected workspace when it exists, and project scope is disabled
+without one. A successful one-skill request sets status, refreshes the scanned
+source beyond its cache, and lets server-enriched state replace the optimistic
+outcome.
+
+The audit was interrupted once for a compact report after its runtime exceeded the normal window. It confirmed duplicate-click and stale-status failures. The page now blocks repeat requests by source/skill, advances runtime revision on endpoint change, clears stale status, reloads the bounded catalog, and hides a captured outcome after its scope or target changes. Failed requests retain the row and transport message, but this slice does not choose skip or overwrite policies, per-skill decisions, Git identities, or API-level install cancellation. Focused regressions pin install bodies, workspace directory passing,
+disk/cache refresh, conflict retention, and installed rows without an Install
+control.
+
 ## P10-35: selected skill catalog installer (2026-09-29)
 
 `POST /api/config/skills/install` now installs one bounded sparse checkout per

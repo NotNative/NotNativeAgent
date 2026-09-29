@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:48cacd1941a60242d297bb5282772b92a796be24fa9dccf84a2ae0103a75d684",
+  "source_digest": "sha256:7fc0d79182a969275b8878bb618df1534d18ea93b1969cdda5b8d728eac94d3b",
   "counts": {
     "modules": 536,
     "component_edges": 14
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 194,
-      "module_count": 81
+      "import_count": 196,
+      "module_count": 82
     },
     {
       "from": "ui-shell",
@@ -1500,6 +1500,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/skills-api.ts",
         "packages/ui/src/stores/useSkillsCatalogStore.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
