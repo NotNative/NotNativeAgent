@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { ENV } from '../env.ts';
 import { publishControlEvent } from '../lib/bus.ts';
 import { CONTROL_EVENTS } from '../lib/harnessNaming.ts';
-import { NULL_KNOWLEDGE_PROVIDER } from '../queue/queue-hooks.ts';
+import { createAgentMemoryKnowledgeProvider } from '../agent-tool/memory-delivery.ts';
 import { ObjectiveStore } from '../goals/objective-store.ts';
 import { serverZone } from './next-run.ts';
 import { createHarnessReadyPoll, createNnaScheduledHarnessPorts } from './nna-scheduled-ports.ts';
@@ -92,7 +92,7 @@ export function createScheduledPipelineDeps(
 ): ScheduledPipelineDeps {
   return {
     harness,
-    knowledge: NULL_KNOWLEDGE_PROVIDER,
+    knowledge: createAgentMemoryKnowledgeProvider(),
     emitRunning: (event) => emitTaskRunEvent({ ...event, status: 'running' }),
     waitForReady: createHarnessReadyPoll(),
     expandPrompt: async (text) => text,

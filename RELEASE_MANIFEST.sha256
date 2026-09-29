@@ -5,8 +5,8 @@ ff3cf819a5ddf0e551d608142584439011c70a96bdf0add899261b1662e1467e *docs/architect
 368cf30b7dfbdccfcb5bf09a1de0d2d559b0296273c569d5877eaa51d54575ab *docs/architecture/dependency-registry.json
 659969cd5574bb4edd2e388f72674b51283b24621b820ea8c98532b8a137f4bf *docs/architecture/nnd-terminology.json
 7bb44f94e22e9189926f336474ba8d6b2c4d7b29d799b31da7360503328c9159 *docs/architecture/README.md
-727d49dc7cc1fa4e9f57525c34746cf2b3c67934113757c17f5f41996b5b2c55 *docs/architecture/repository-graph.json
-2e6616b0cc7b125d2410e44dc3dd42410fc4d9f94cce31b2e81977b54ad541d7 *docs/architecture/repository-graph.md
+14f7d6d9d1f5888fa6db8ed7891b4522e1a3f7b2bd20b945766b9b24eae679eb *docs/architecture/repository-graph.json
+52d106fdec15758f8636adc05dc852ed8e67422f799ba766c1f2a390ee031490 *docs/architecture/repository-graph.md
 e405bb1cf362a38c1ca46b7d6da474e9da565cf5edc873fc15305bd56ad723b0 *docs/build/DECISIONS.md
 2b50f9a61f4f4a034e84744b209d91b66e56771780c1f571bd9adff0f537a553 *docs/build/EVALUATION.md
 addd4ffa70f5047445950803c63235ec90eaf3f6c1614b39bb6e4591b8acef7f *docs/build/GUI-PLAN.md
@@ -26,7 +26,7 @@ f6a394ef52dd9ec92d8a54edc805040e70134232f8b177963f55ff32700ec6e7 *docs/build/NOT
 cf39c0e24a578ef208ebb0a937b01d83d05ec886dd81526c2888a3a623baadc7 *docs/build/NOTES/12-autonomy-and-orchestration.md
 aaadf6c38d2e3773078ee5fb517c9888ed6422f7bc40f4eba960f9f1dc6608b3 *docs/build/NOTES/13-preview-and-inspection.md
 e45d41550d2525357292e74d53a16caedb72a8ea583efbe3c62e5a0aa45b9f88 *docs/build/NOTES/14-theme-settings-system.md
-d6b8e7abdb3b87d9cb393544f21edd19f446f028c0943b7a5f7cde23e22c305a *docs/build/NOTES/15-knowledge-context-skills.md
+2747fcca8dd28a2a59ff5131080ad5a77a7c02e4f25974e8b2f6bdd98c924825 *docs/build/NOTES/15-knowledge-context-skills.md
 d4037fd45284dad5f6fd367476f87855c9625b8e68ee99318db7eb3fb3f6b970 *docs/build/NOTES/16-architecture-and-upstream-alignment.md
 3be43c0445383f65740d93a2904785b291aa6169e93e79b31c16dbbf7dc9b49a *docs/build/NOTES/17-nnd-gui-north-star.md
 6184e78ca775ff13d3e32901c7ca299d5308d8497175fba96a3d1052ff83c7ef *docs/build/NOTES/18-nna-operator-surface-contract.md
@@ -34,7 +34,7 @@ f5f82e48610e230a866efac231db09de7e82231a9cb408c824c4bef7e9dde054 *docs/build/NOT
 777552b12440de2f77328fe2408f93b8e92c806950a73c5808554c1fd140e4af *docs/build/NOTES/p12b-review-band-notes.md
 41aa66c05bf5a154db57c5928532ff28de17a0172420c5395fca71c770577bad *docs/build/NOTES/p12b-session-product-notes.md
 d9b1a430d4dcf82ed3f30e77bbd1336c63738946b985ff66221c6eef02c69e5f *docs/build/PLAN.md
-9efcd593f1f9635363b76892bb272e2cabff33905da9787b5da3be3a78b824a8 *docs/build/PROGRESS.md
+1d965ad09c1ca4cfb15ff1418ca10031c8771d649f72e818acf36300c3ecc936 *docs/build/PROGRESS.md
 fdcdc1ac8a3a519a85d9ba9e8f8ebb3d350f22c3a1c8899a546ee7030a962dfb *docs/planning/00-INDEX.md
 247db0e602d1fa55c9a1f6b03f68d164f9d62377ed122c54845262abb1f02ce4 *docs/planning/01-architecture-and-app-shell.md
 95b41b6649e3fb113530679c7b205549dd9e32cfc6bdd91d401b041904dfd75e *docs/planning/02-opencode-harness-contract.md
@@ -51,7 +51,7 @@ af0ca86fb619203dde2e97bb15838bf2bac1dc31a61fd74bd17f7bc7566256e0 *docs/planning/
 0bad0612a9010dbcf1a4026ad8b2621f9d99b2edc762f3f4a1788c0f59a88eed *docs/planning/13-preview-and-inspection.md
 a4c51e68981b876ca247023291f9ddec1f2bb45ed95e9f875005e80d70b2551a *docs/planning/14-theme-settings-system.md
 2d51a28e4608eb15c30c20e98ff8ff5b6a07b24497de31f54ef3745ce8df40e2 *docs/planning/15-knowledge-context-skills.md
-1af40584d8a03fc571fe5004c6290d93a018440b8d169c4c8a75677a97aac46e *package.json
+2c3e71ae45bed35de43d93f985e34ab221d97fdfe713b98173aa170403dbf1e6 *package.json
 ccf889e33708d72789a05b803725d95765ed793a28e6f1d971acd8c012057d18 *packages/ui/src/App.tsx
 4f8ba3e404c817fef847b47c58f606e0c9aedf84b36989481443def2fe1beccf *packages/ui/src/chat/__tests__/archive-view.test.tsx
 e57c318e9e6cd92e0b022f7a7108dc0612abc3c951b015678536ccd5ea638697 *packages/ui/src/chat/__tests__/blocking-cards.test.tsx
@@ -63,7 +63,7 @@ eb0264192a865da132a8c3d9a190a5eaeceb3b115c7901c961f63e71c976bf71 *packages/ui/sr
 0ca4f197b6e9e019214e7eef2d863d9294e6300e2ed4464b55dce6dd20990dae *packages/ui/src/chat/__tests__/composer-nna-model.test.tsx
 e0b6c719a489f47c28c48aa89dfdab34c8257e574eb1a60b0c465ab2c88b8f31 *packages/ui/src/chat/__tests__/composer-policy.test.ts
 6c0d6c7f674438e67c95b78213198496172dc15db56ffb5fba2652126b2845fc *packages/ui/src/chat/__tests__/composer-snippets.test.tsx
-b6353bfb942f5ab8df6363b3dfbfa67faf564de19fbf6fbd0d5e29c607185bb1 *packages/ui/src/chat/__tests__/context-memory.test.tsx
+62971f95567c679c266608beb62b1a10026d5e53d81be3b71e66920b3fe64322 *packages/ui/src/chat/__tests__/context-memory.test.tsx
 00eb6bbafffe07b30fc1fe9d400b713a7527178d42b728d6938b627247291842 *packages/ui/src/chat/__tests__/context-message-ledger.test.ts
 4ac099a16dc1c2615b3656734d1bf24f7b17792e729aaffc5b0bf8019b96d745 *packages/ui/src/chat/__tests__/context-notes.test.tsx
 d53bbe42a84fb3a51531c76b702cd376ab80cc1b2ac0c199119efe56d65844fc *packages/ui/src/chat/__tests__/context-plans.test.tsx
@@ -103,7 +103,7 @@ a64c2c3a6a82a852cb99b64573d56af454f35e7d46f17011cc4722b004ddc495 *packages/ui/sr
 91b657cc4e9e0f6775beb21d8453f78a4c901df823c1c9bf946c912b5d730386 *packages/ui/src/chat/composer-model-config.ts
 6741ffce04ab0d578b442b4c79598008a8030f24684c1119b70853646326b57a *packages/ui/src/chat/composer-queue.ts
 f84989491b31b33d68bc2f298bc06872f94e4f96e43f1afedca4411bc4fda365 *packages/ui/src/chat/composer.tsx
-e26d645d7dd605a8404c9d305a6552af9cff24561b9e74260240b3320c2a7dc5 *packages/ui/src/chat/context-memory.tsx
+c7cee88843d25972b4edae49f1bc7dd53c9cb15b154aac1fd0de21226237b34f *packages/ui/src/chat/context-memory.tsx
 bd88973e05d8fb3f888565107e7504cfdf9f58c716e509073b15ca5d81f20527 *packages/ui/src/chat/context-message-ledger.ts
 6ae427dbd1875f19cddbfe12c842192d38737c958ab65d41f5eb009260327b3c *packages/ui/src/chat/context-notes.tsx
 f6bb2c4fc1c0cb85d47767a8e0d9c69d56912e1b29927ca9c0ea33d55d70bca4 *packages/ui/src/chat/context-plans.tsx
@@ -556,10 +556,11 @@ bb0a0598c1ac7489a56721dcb11d4aad709428f5cc4865e767652162accfdb27 *packages/web/s
 004d8821497ff756d35b40b6113139a29ced2a434b4be8fc89e3c639ab33207e *packages/web/src/server/__tests__/helpers/tunnel-fakes.ts
 7f2cd5a9035209561a27aad7edcb9f7475f6dc0c574cf12999c5f2b0dc9f8538 *packages/web/src/server/__tests__/helpers/tunnel-service-kit.ts
 a1f482ad006caf382f1e888ffc546f68ba51c4b769a4bd742066c468987f195f *packages/web/src/server/__tests__/managed-startup.test.ts
+58008e59871bfaf57e8720ebf4951ad75bf830c28f3d019d658c6efa39a194cc *packages/web/src/server/__tests__/p10-agent-memory-delivery.test.ts
 8e7d4938a1737880c55cf8df804538886770bcacc3b9864f31307306e835efbd *packages/web/src/server/__tests__/p10-agent-memory-ownership.test.ts
-d7918e09f6afb9ee60e17ed8193c241eccbc5ef930178a439cc7c078b7b4ba67 *packages/web/src/server/__tests__/p10-agent-memory-session.test.ts
-79b07ae73a0414a2cdaf2e7aa0fb4ac162a2c1fd2b41a1a35f24b6d2744fae57 *packages/web/src/server/__tests__/p10-agent-memory-tool.test.ts
-33caf11e86c29fd4aefb600d7376211ac004430e43731f0801684b55b22d5dec *packages/web/src/server/__tests__/p10-agent-memory.test.ts
+af2c20cab3413bc0763d6c72a6e8580ae21eef560da92d078e4b021974038f48 *packages/web/src/server/__tests__/p10-agent-memory-session.test.ts
+03925c133d583827b24469993ac63a38c06966bbf574cad952de82a552f04d5b *packages/web/src/server/__tests__/p10-agent-memory-tool.test.ts
+b1ee44c35ca44d77a0de99e842baf226320284630d011ea47e8cfb54d4c543cb *packages/web/src/server/__tests__/p10-agent-memory.test.ts
 83cdd81869efce54645c84ece584e7208ca04a23cfd0e10b411dc2fc166655a8 *packages/web/src/server/__tests__/p10-context-store.test.ts
 f89fa8de8fea5f793130abb4c1010e5b025826b0ede279cdf70e3c41d6e6c50d *packages/web/src/server/__tests__/p10-legacy-plan-migration.test.ts
 dddb52b14f318a155d65f3a67cc35b99765c8b12430863844794693e95cd507e *packages/web/src/server/__tests__/p10-plan-store.test.ts
@@ -637,10 +638,11 @@ a192694a72e7b7c04b43999bd08f3e69c1bef88729c33031bfcbd8d3b607b127 *packages/web/s
 b5ccdb38409b9a3081f71742df20644269fa1abd512388b12e13c5e4a31d8e74 *packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts
 29e9eb8d7f6cc2a41b8e0bf8de8261ace55c9aed286fbe5f07e9364139f220c8 *packages/web/src/server/__tests__/preview-frame-guard.test.ts
 ba8d748dc8d18e0af3537bdcb7a75a85b87d0927db004a37b6105cfe7c73158a *packages/web/src/server/__tests__/vite-proxy-origin.test.ts
-d9f9fc98500643d62533b6728ffd1fbbed5255aca4816e3516d3e2d3e97c18ae *packages/web/src/server/agent-tool/memory-actions.ts
+8f1d949063b2958acc0a580e0084429fda25dddc5da7466be91d28b7d5544213 *packages/web/src/server/agent-tool/memory-actions.ts
+feab14c32422177f49befa66e5640ced806d4b535aa92cdcd5b1939d04baa922 *packages/web/src/server/agent-tool/memory-delivery.ts
 a418b6a0c0b2e020b436afd9f6dbe0c91bcff5d5181909a9d3b0ef62189c85fa *packages/web/src/server/agent-tool/memory-events.ts
 7b0ebe617e1d6d9dbb4083d2f2873ae62d0d4c2b2e090e664c6917656b6a280d *packages/web/src/server/agent-tool/memory-render.ts
-7f7ef4f82cef327aa54b28cf39d7998da6f992443699100b05e5c3b13c22eb58 *packages/web/src/server/app.ts
+71c6c79eb6abd364fe824cbc5c49682a497b0921cea0116b6263171d96073971 *packages/web/src/server/app.ts
 a2765217d3347108fe801b0b6cfb90d7aa285658bd9cee80546ab7dcdb1124ab *packages/web/src/server/env.ts
 0f906bb4f43123fa20aa10a2c91a040fd2b705969e8bb7a7364d0798800e4368 *packages/web/src/server/goals/goal-audit.ts
 583fc43b7d53cf68bd5c2511cf181060256dcda012610933a0a615c326368866 *packages/web/src/server/goals/goal-constants.ts
@@ -725,7 +727,7 @@ cd4ba0ea80a951bf9029a770a422d4cf43815f9ed701a75560da7a9da2766cd9 *packages/web/s
 58dca5c4da7f00dad711d012c48b2501504a7679df0efbc32d81c76cc674762e *packages/web/src/server/preview/browser-control-callback.ts
 506c6b5fe5192676eb0a9f328ebe76845361da5f7d55ae13b5cb4974d2e30e04 *packages/web/src/server/preview/dev-servers.ts
 f4bfda62aa6e312acc6a74b9c865c755867bcb1b88ae53bf9f2b1e00800e735b *packages/web/src/server/preview/probe-url.ts
-0c1bd12c0144cad09b94c35ce13950ea4ae5684b8029cd4a46eac5e3d8276ac8 *packages/web/src/server/project-context/agent-memory-ownership.ts
+ba249f03decdef88e1d366a8ff50bcd5b2846bae83ae175165d7c2c86a26cdf2 *packages/web/src/server/project-context/agent-memory-ownership.ts
 cc752e4070fbf515a739360ca079ffb00fd6067a6a51043e95b2daac7f143642 *packages/web/src/server/project-context/agent-memory.ts
 68538b049ee5bbb156f837c5371cfadcb231f4a6a353eccbde6fb24fe2e09f8c *packages/web/src/server/project-context/context-store.ts
 4a73aee1b80655fea9f461922a695c8e3b1f80a55d617728765619abb280d23c *packages/web/src/server/project-context/legacy-plan-migration.ts
@@ -740,10 +742,10 @@ c6c42a32eb73a30543f507006f94b0dec0e422877e5ee496c34bc6a036fbf2ef *packages/web/s
 488967d21a92457ff4d89b78ae730dcf601f7601cdc8ea5ba76c6868a6c873be *packages/web/src/server/queue/queue-hooks.ts
 a73fdc2566cee6083149b80a17ce0abe9c6346e51e5268fcbe8116577b67ab31 *packages/web/src/server/queue/queue-item.ts
 ead87960fdea6961bc94b32c143d6d99888f289c32ea0bed9ab3ed9cce697f83 *packages/web/src/server/queue/queue-routes.ts
-9ba8617629f7bb80c4ccbd5398bd800917692fb9a5d34c25a0231e854a416edf *packages/web/src/server/queue/queue-runtime.ts
+71616bf48eed21231c8beb428eaa8c5c9907240debbfa40ae2eef502f45520ba *packages/web/src/server/queue/queue-runtime.ts
 2d8f4fe293d6d4e23d62643ecc6a72c141f8ce4327b1f9fd0434ca9b7d26aed4 *packages/web/src/server/queue/queue-store.ts
 bc0219efc9703a48816d703d65d3f01d532685902b3e3a83d6304b8db77eda88 *packages/web/src/server/routes/agent-memory.ts
-05c7e19f5d7f44a65c8b83628da78167d7f0327c5f33900e21c03f45e31fcac8 *packages/web/src/server/routes/agent-tool.ts
+7b110128e6b7f5b62159ebff7cba86365294526884c1cb339b35453ce13a8007 *packages/web/src/server/routes/agent-tool.ts
 d3a64fe58b3be929fb14d7a1b0fd1c50a7dba74b4b581ac7863200cbf71fdadc *packages/web/src/server/routes/auth.ts
 4b99937e115d92a984ffd0a89f1d3a05a3ff75e41d7514ffa8f1daa8b070d7c3 *packages/web/src/server/routes/client-auth.ts
 a1284f1ff98f610ea92faaa07e879e8672f79f8d015ff544c5b64ae35522288e *packages/web/src/server/routes/fs-read.ts
@@ -774,12 +776,12 @@ adffaf383807107092f937b1586fc310fe93a6f060d9e6c05564405bc89fa9d0 *packages/web/s
 fcf46c510904fce7a9e3ebbc92b1349121bd4020b381709c8da5eefb1aaf68b1 *packages/web/src/server/scheduled/scheduled-ports.ts
 096e3b1c7b673fce8eb1c9d6c90c0c26e3b9a19e3cd7954fc49c38924da9cc5a *packages/web/src/server/scheduled/scheduled-run.ts
 63c1225b09f7fcd9f11bc455c338c7f412f3b0b5393bd8ff89ade7a032bf2558 *packages/web/src/server/scheduled/scheduled-runtime.ts
-3dad69c3785da715d55c74d7a3e86bfd0a48370c2e68d7ba96c559640d1ed894 *packages/web/src/server/scheduled/scheduled-service.ts
+45ac0d2b6dddb7fa204c3723fdf235439db7051a66ac1b35a50baaed3083ed14 *packages/web/src/server/scheduled/scheduled-service.ts
 b70cbca99e9bf5ccf3eda4a7257562dab072869784484af820cc2c3d11126e89 *packages/web/src/server/scheduled/scheduled-state.ts
 b697420041b3f3afc5fa676e2b5c2cb5a6f60bc740a89d6563fd3951000a294a *packages/web/src/server/scheduled/scheduled-util.ts
 3f66c687daa123cbbda0c0c1c96501975f598e06fce2b51a5d3340ad783a998f *packages/web/src/server/scheduled/task-config.ts
 5901989b2b9e038a80c040bf4409edecac732737cf6fc910b6863ae79cc7c892 *packages/web/src/server/scheduled/task-schema.ts
-5736bde623c81f1f6543745ad4d73426009a0a5f80c2f6db7e415c4afeecd76a *packages/web/src/server/session-orchestration/openchamber-sessions.ts
+fa5c01800b6e87d5ebcce2574da8f86b486e6bd41a6bc8a1dd681e4fc8946bb5 *packages/web/src/server/session-orchestration/openchamber-sessions.ts
 02755fb92839c3180f87e43a4b033dc248eb4fc2c54d3bc763445aaca5249719 *packages/web/src/server/session-orchestration/session-harness-port-seams.ts
 031e4a874568f707a6eba7e5ee60af816c57fbad7fb48d4e2f8cf08b998fee89 *packages/web/src/server/session-orchestration/session-harness-port-timeouts.ts
 e473b6fd547005ab2b7f4b251db60fa3e2c59f7001c2f8328edd271e093e1b2d *packages/web/src/server/session-orchestration/session-harness-ports.ts
@@ -834,4 +836,4 @@ e5e91435f0cd1c16919a0303ed5deb028ff7dda2ddf7d6fb8d0ec8cc6dfcb5a7 *scripts/smoke-
 7d1a741bbc75a1eb040f655b3fe3ad9f05f064039325720c308f71c100b44b9b *scripts/web-css-gate.mjs
 9dc68711721df6346e5d1e1ab33e131fa1acaf8fb4391e723d275f7571afb2cf *scripts/web-serve.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-307f50e23cfffce8ae7ddea2db1984a34458c01b8728f0bfe5988568b6960d10 *VERSION
+899f3639e2ba11c586ce41c08d43aedaeea56a7fb283b0c02152f0a9e452ad4a *VERSION

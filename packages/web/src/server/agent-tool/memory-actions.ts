@@ -64,12 +64,47 @@ export async function executeMemoryTool(
   const parameters = parametersOf(input);
 
   if (action === 'memory.save') return await saveMemory(projectId, parameters);
-
   if (action === 'memory.list') return await listMemory(projectId, parameters);
+  if (action === 'memory.read') {
+    const title = typeof parameters.title === 'string' ? parameters.title : '';
+    const memoryId = typeof parameters.memoryId === 'string' ? parameters.memoryId : '';
+    if (!title && !memoryId) {
+      return { status: 400, value: { error: 'agent memory title or memoryId is required' } };
+    }
+    const requested = parameters.scope as string | undefined;
+    if (requested !== undefined && requested !== 'global' && requested !== 'project') {
+      return { status: 400, value: { error: 'invalid agent memory scope' } };
+    }
+    const scopes: AgentMemoryScope[] = requested === 'global' ? ['global']
+      : requested === 'project' ? ['project'] : ['project', 'global'];
+    const loaded = await Promise.all(scopes.map(async (scope) => ({
+      scope, stores: await readScope(scope, scope === 'project' ? projectId : undefined),
+    })));
+    const match = loaded.flatMap((current) => current.stores.entries
+      .map((entry) => ({ scope: current.scope, entry })))
+      .find(({ entry }) => (memoryId === '' || entry.id === memoryId)
+        && (title === '' || entry.title === title));
+    const unavailable = loaded.filter((current) => current.stores.failed).map((current) => current.scope);
+    if (unavailable.length > 0) {
+      return { status: 503, value: { error: UNAVAILABLE, unavailableScope: unavailable } };
+    }
+    if (!match) return { status: 404, value: { error: 'memory entry not found' } };
+    const entry = sanitizeMemoryEntry(match.entry);
+    return { status: 200, value: { ...summary(match.scope)(entry), body: entry.body } };
+  }
 
-  if (action === 'memory.read') return await readMemory(projectId, parameters);
-
-  return await deleteMemory(projectId, parameters);
+  const memoryId = typeof parameters.memoryId === 'string' ? parameters.memoryId : '';
+  const scope = parameters.scope;
+  if (!memoryId || (scope !== 'global' && scope !== 'project')) {
+    return { status: 400, value: { error: 'agent memory delete requires memoryId and scope' } };
+  }
+  try {
+    const deleted = await deleteMemoryEntry(projectId, scope, memoryId);
+    if (!deleted) return { status: 404, value: { error: 'memory entry not found' } };
+    return { status: 200, value: { deleted: true, memoryId, scope } };
+  } catch {
+    return { status: 503, value: { error: UNAVAILABLE, unavailableScope: [scope] } };
+  }
 }
 
 async function saveMemory(projectId: string | undefined, parameters: Record<string, unknown>):
@@ -78,14 +113,13 @@ async function saveMemory(projectId: string | undefined, parameters: Record<stri
   if (parameters.scope !== undefined && parameters.scope !== 'global' && parameters.scope !== 'project') {
     return { status: 400, value: { error: 'invalid agent memory scope' } };
   }
-  const title: string = typeof parameters.title === 'string' && parameters.title.trim() !== '' ?
-    parameters.title : '';
-  const body: string = typeof parameters.body === 'string' && parameters.body.trim() !== '' ?
-    parameters.body : '';
+  const title: string = typeof parameters.title === 'string' && parameters.title.trim() !== '' ? parameters.title : '';
+  const body: string = typeof parameters.body === 'string' && parameters.body.trim() !== '' ? parameters.body : '';
   if (title === '' || body === '') {
     return { status: 400, value: { error: 'agent memory title and body are required' } };
   }
-  if (parameters.type !== undefined && !TYPES.has(String(parameters.type))) {
+  if (parameters.type !== undefined &&
+    (typeof parameters.type !== 'string' || !TYPES.has(parameters.type))) {
     return { status: 400, value: { error: 'invalid agent memory type' } };
   }
   try {
@@ -109,7 +143,7 @@ async function listMemory(projectId: string | undefined, parameters: Record<stri
   const loaded = await Promise.all(scopes.map(async (selected) => ({
     selected, stores: await readScope(selected, selected === 'project' ? projectId : undefined),
   })));
-  const unavailable = loaded.filter((scope) => scope.stores.failed).map((scope) => scope.selected);
+  const unavailable = loaded.filter((current) => current.stores.failed).map((current) => current.selected);
   const memory = loaded.flatMap((current) => current.stores.entries.map(summary(current.selected)));
   return {
     status: unavailable.length > 0 ? 503 : 200,
@@ -117,50 +151,7 @@ async function listMemory(projectId: string | undefined, parameters: Record<stri
   };
 }
 
-async function readMemory(projectId: string | undefined, parameters: Record<string, unknown>):
-  Promise<MemoryToolResult> {
-  const title = typeof parameters.title === 'string' ? parameters.title : '';
-  const memoryId = typeof parameters.memoryId === 'string' ? parameters.memoryId : '';
-  if (!title && !memoryId) {
-    return { status: 400, value: { error: 'agent memory title or memoryId is required' } };
-  }
-  const requested = parameters.scope as string | undefined;
-  if (requested !== undefined && requested !== 'global' && requested !== 'project') {
-    return { status: 400, value: { error: 'invalid agent memory scope' } };
-  }
-  const scopes: AgentMemoryScope[] = requested === 'global' ? ['global'] :
-    requested === 'project' ? ['project'] : ['project', 'global'];
-  const loaded = await Promise.all(scopes.map(async (scope) => ({
-    scope, stores: await readScope(scope, scope === 'project' ? projectId : undefined),
-  })));
-  if (loaded.every((current) => current.stores.failed)) {
-    return { status: 503, value: { error: UNAVAILABLE, unavailableScope: scopes } };
-  }
-  const match = loaded.flatMap((current) => current.stores.entries
-    .map((entry) => ({ scope: current.scope, entry })))
-    .find(({ entry }) => (memoryId === '' || entry.id === memoryId)
-      && (title === '' || entry.title === title));
-  if (!match) return { status: 404, value: { error: 'memory entry not found' } };
-  const entry = sanitizeMemoryEntry(match.entry);
-  return { status: 200, value: { ...summary(match.scope)(entry), body: entry.body } };
-}
-
-async function deleteMemory(projectId: string | undefined, parameters: Record<string, unknown>):
-  Promise<MemoryToolResult> {
-  const memoryId = typeof parameters.memoryId === 'string' ? parameters.memoryId : '';
-  const scope = parameters.scope;
-  if (!memoryId || (scope !== 'global' && scope !== 'project')) {
-    return { status: 400, value: { error: 'agent memory delete requires memoryId and scope' } };
-  }
-  try {
-    const deleted = await deleteMemoryEntry(projectId, scope, memoryId);
-    if (!deleted) return { status: 404, value: { error: 'memory entry not found' } };
-    return { status: 200, value: { deleted: true, memoryId, scope } };
-  } catch {
-    return { status: 503, value: { error: UNAVAILABLE, unavailableScope: [scope] } };
-  }
-}
-
+/** Safe session title index. Bodies remain read-only behind memory.read. */
 export async function sessionMemoryContent(input: {
   contextDirectory: string; projects?: readonly { id: string; worktree: string }[];
   managedChatsRoot?: string;
@@ -171,9 +162,9 @@ export async function sessionMemoryContent(input: {
     'You have stored memory from earlier sessions. Only the titles are listed below.',
     'A title is an abbreviation, not the memory. Read the entry with the',
     'openchamber_memory tool before you act on it: titles routinely leave out',
-    'the conditions, exceptions and reasons that decide how the memory applies,',
-    'and a title that looks self-explanatory is the most likely to be hiding',
-    'them. Read every title that could bear on the task at hand; you need not',
+    'the conditions, exceptions and reasons that decide how the memory',
+    'applies, and a title that looks self-explanatory is the most likely to',
+    'be hiding them. Read every title that could bear on the task at hand; you need not',
     'read the ones unrelated to what you are doing.',
     '',
     'Memory records what was true when it was written. Verify anything it says',
@@ -186,12 +177,10 @@ export async function sessionMemoryContent(input: {
   if (!globalEntries.length && !projectEntries.length) return { content: undefined, projectId: owner };
   const sections: string[] = [];
   if (globalEntries.length) {
-    sections.push(['### About the user',
-      ...globalEntries.map(projectLine)].join('\n'));
+    sections.push(['### About the user', ...globalEntries.map(projectLine)].join('\n'));
   }
   if (projectEntries.length) {
-    sections.push(['### About this project',
-      ...projectEntries.map(projectLine)].join('\n'));
+    sections.push(['### About this project', ...projectEntries.map(projectLine)].join('\n'));
   }
   return { content: [expected, ...sections].join('\n\n'), projectId: owner };
 }

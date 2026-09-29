@@ -9,6 +9,7 @@ import {
   type SessionOrchestrationResponse, type WorktreeRequest,
 } from './session-orchestration-contract.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { createAgentMemoryKnowledgeProvider } from '../agent-tool/memory-delivery.ts';
 import { readMergedSettings } from '../lib/settings-store.ts';
 import { ObjectiveStore } from '../goals/objective-store.ts';
 import { createHarnessReadyPoll, createNnaSessionHarnessPorts } from './session-harness-ports.ts';
@@ -42,10 +43,7 @@ export function createOpenChamberSessionDeps(): OrchestratorDeps {
   const harness = createNnaSessionHarnessPorts();
   return {
     harness,
-    knowledge: {
-      resolve: async () => '',
-      recordDelivered: () => undefined,
-    },
+    knowledge: createAgentMemoryKnowledgeProvider(),
     directoryExists: safeDirectory,
     projectDirectory: async (projectId) => {
       const projects = await harness.projects?.() ?? [];

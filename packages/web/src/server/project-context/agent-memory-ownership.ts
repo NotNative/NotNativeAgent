@@ -14,7 +14,7 @@ const PATH_ID = /^[A-Za-z0-9_-]+$/u;
 
 function samePathOrWithin(directory: string, root: string): boolean {
   if (relative(root, directory) === '') return true;
-  const child = relative(root, directory);
+  const child = relative(resolve(root), resolve(directory));
   return child !== '' && !child.startsWith('..') && !isAbsolute(child);
 }
 
@@ -34,12 +34,6 @@ export function projectIdForPath(directory: string): string {
   return id;
 }
 
-function ownerIdForPathsDirectory(directory: string, projects: readonly OwnershipProject[]):
-  string | undefined {
-  return projects.find((project) => isAbsolute(project.worktree) &&
-    samePathOrWithin(directory, project.worktree))?.id;
-}
-
 export function resolveMemoryOwnership(args: OwnershipInputs): string {
   if (args.containsPath !== undefined) {
     throw new Error('containsPath is not supported; use canonical filesystem containment');
@@ -57,8 +51,10 @@ export function resolveMemoryOwnership(args: OwnershipInputs): string {
   }
   const directory = normalizeOwnerPath(args.directory);
   if (directory === undefined) throw new Error('workspace directory is required');
-  const declaredOwner = ownerIdForPathsDirectory(directory, args.projects ?? []);
-  if (declaredOwner !== undefined) return declaredOwner;
+  for (const project of args.projects ?? []) {
+    const worktree = normalizeOwnerPath(project.worktree);
+    if (worktree !== undefined && samePathOrWithin(directory, worktree)) return project.id;
+  }
   if (args.managedChatsRoot !== undefined) {
     const root = normalizeOwnerPath(args.managedChatsRoot);
     if (root !== undefined && samePathOrWithin(directory, root)) return MANAGED;

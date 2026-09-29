@@ -158,13 +158,6 @@ function registerHarnessProxy(app: Hono): void {
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
   browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
   agentToolCallbackSecret?: string }) {
-  const app = createBackendApp(options);
-  return app;
-}
-
-function createBackendApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
-  browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
-  agentToolCallbackSecret?: string }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
 
@@ -172,7 +165,7 @@ function createBackendApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
 
   app.use('*', browserWriteGate);
 
-  registerHealth(app);
+  registerHealthRoute(app);
 
   app.route('/', createAuthRoutes());
   // The anonymous pairing redeem (doc 08 §5.5) rides BEFORE the /api gate:
@@ -191,27 +184,6 @@ function createBackendApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
 
   registerHarnessProxy(app);
 
-  registerStaticResponses(app);
-  return app;
-}
-
-function registerHealth(app: Hono): void {
-  app.get('/health', async (c) =>
-    c.json({
-      ok: true,
-      name: ENV.appName,
-      version: ENV.version,
-      runtime: process.env?.NOTNATIVE_RUNTIME ?? 'web',
-      // HP-9: keep the field name — the UI feature-flag wiring depends on it
-      planModeExperimentalEnabled: ENV.planModeExperimentalEnabled,
-      // E-08-2: serverId greets with the relay identity once the host keys
-      // exist; clients identity-gate learned addresses against it (§3.13)
-      serverId: await peekRelayServerId(),
-    }),
-  );
-}
-
-function registerStaticResponses(app: Hono): void {
   // Static UI (production builds; dev is served by Vite)
   const serveStatic = createStaticHandler(DIST_DIR);
   app.all('*', async (c, next) => {
@@ -230,6 +202,23 @@ function registerStaticResponses(app: Hono): void {
   // is try/catch-guarded today, this belt keeps a future unguarded route
   // from re-opening the hole).
   app.onError(errorHygiene);
+  return app;
+}
+
+function registerHealthRoute(app: Hono): void {
+  app.get('/health', async (c) =>
+    c.json({
+      ok: true,
+      name: ENV.appName,
+      version: ENV.version,
+      runtime: process.env?.NOTNATIVE_RUNTIME ?? 'web',
+      // HP-9: keep the field name — the UI feature-flag wiring depends on it
+      planModeExperimentalEnabled: ENV.planModeExperimentalEnabled,
+      // E-08-2: serverId greets with the relay identity once the host keys
+      // exist; clients identity-gate learned addresses against it (§3.13)
+      serverId: await peekRelayServerId(),
+    }),
+  );
 }
 
 /** A sandboxed preview has an opaque Origin but can still issue simple

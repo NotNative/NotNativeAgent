@@ -22,13 +22,12 @@ export function ContextMemory({ projectId, visible, query = '', retainedDraft, o
   const [draft, setDraft] = useState<ContextMemoryDraft>(
     () => retainedDraft ?? { scope: 'project', memoryId: '', title: '', body: '', type: 'fact' });
   const [revision, setRevision] = useState(0);
+  const refresh = useCallback(() => setRevision((current) => current + 1), []);
   const onMemoryChange = useCallback((change: { scope: 'global' | 'project'; projectId?: string }) => {
     if (change.scope === 'global' || change.projectId === projectId) refresh();
   }, [projectId, refresh]);
-  const eventRevision = useAgentMemoryChange(projectId, visible, onMemoryChange);
+  useAgentMemoryChange(projectId, visible, onMemoryChange);
   useEffect(() => { onDraftChange?.(projectId, draft); }, [draft, onDraftChange, projectId]);
-  function refresh(): void { setRevision((current) => current + 1); }
-  useEffect(() => { if (eventRevision > 0) refresh(); }, [eventRevision, refresh]);
   useEffect(() => {
     if (!visible) return;
     let active = true;

@@ -20,6 +20,7 @@ import { harnessRequest, callHarnessJson } from './queue-adapter-calls.ts';
 import { deliverHead, type DeliveryOutcome } from './queue-dispatch.ts';
 import { AdapterQueueFeed, type QueueEnvelope, type QueueFeed } from './queue-feed.ts';
 import { NULL_KNOWLEDGE_PROVIDER, notifyPromptSent, type ProjectKnowledgeProvider } from './queue-hooks.ts';
+import { createAgentMemoryKnowledgeProvider } from '../agent-tool/memory-delivery.ts';
 import { QUEUE_FILE_NAME, MessageQueueStore } from './queue-store.ts';
 import { parseQueuedItemInput, type QueueItem } from './queue-item.ts';
 
@@ -483,7 +484,7 @@ export function getMessageQueueRuntime(): MessageQueueRuntime {
   if (!defaultRuntime) {
     const store = new MessageQueueStore(joinPath(ENV.dataDir, QUEUE_FILE_NAME));
     const feed = new AdapterQueueFeed();
-    const runtime = new MessageQueueRuntime(store, feed);
+    const runtime = new MessageQueueRuntime(store, feed, createAgentMemoryKnowledgeProvider());
     runtime.start();
     defaultRuntime = runtime;
   }

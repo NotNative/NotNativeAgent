@@ -302,3 +302,19 @@ summaries never repeat bodies, only `memory.read` returns a body, and
 `sessionMemoryContent` projects safe title index lines for both scopes while
 omitting a failed scope. The NNA plugin launch and session-knowledge route
 remain separate integration steps.
+
+## P10-18: memory prompt delivery (2026-09-28)
+
+Server-owned prompt senders now share one agent-memory knowledge provider.
+The queued, scheduled, and dispatched session paths resolve a canonical
+owner from the target directory, deliver only the safe title index, and
+record that exact signature after a send is accepted. A blank or already
+delivered index carries no synthetic part; send failures do not record
+delivery, so memory is carried again. Project list reads are bounded to
+eight seconds rather than stalling prompt dispatch.
+
+The provider subscribes to memory-change events and clears delivered
+signatures, so the next send refreshes the title index. This is the
+`sessionMemoryContent` delivery seam only: harness-side `openchamber_memory`
+plugin injection and the broader pinned note/plan session-knowledge routes
+remain pending.

@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { Hono } from 'hono';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-// Set the data directory before the first server import: ENV and settings
-// paths are boot snapshots, not per-call process.env reads.
-process.env.NOTNATIVE_DATA_DIR = mkdtempSync(join(tmpdir(), 'nnd-p10-memory-boot-'));
+import './helpers/env-boot.ts';
 import { registerAgentMemoryRoutes } from '../routes/agent-memory.ts';
 import { createMemoryEntry, memoryAvailabilityFlag, readMemoryStore } from '../project-context/agent-memory.ts';
 import { writeSettingsPatch } from '../lib/settings-store.ts';

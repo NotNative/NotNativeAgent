@@ -1,21 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-process.env.NOTNATIVE_DATA_DIR = mkdtempSync(join(tmpdir(), 'nnd-p10-memory-session-boot-'));
+import './helpers/env-boot.ts';
 import { createMemoryEntry } from '../project-context/agent-memory.ts';
 import { sessionMemoryContent } from '../agent-tool/memory-actions.ts';
 import { writeSettingsPatch } from '../lib/settings-store.ts';
 import { ENV } from '../env.ts';
 
-let dataDirectoryInUse = '';
-
-afterAll(() => rmSync(dataDirectoryInUse, { recursive: true, force: true }));
+afterAll(() => rmSync(ENV.dataDir, { recursive: true, force: true }));
 
 beforeEach(() => {
-  dataDirectoryInUse = mkdtempSync(join(tmpdir(), 'nnd-p10-memory-session-boot-'));
-  process.env.NOTNATIVE_DATA_DIR = dataDirectoryInUse;
   rmSync(join(ENV.dataDir, 'memory.json'), { force: true });
   rmSync(join(ENV.dataDir, 'projects'), { recursive: true, force: true });
   process.env.OPENCHAMBER_MEMORY_ENABLE = 'true';

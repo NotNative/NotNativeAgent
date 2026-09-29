@@ -8,23 +8,35 @@ vi.mock('../../lib/agent-memory-api.ts', async () => {
   const module = await vi.importActual('../../lib/agent-memory-api.ts');
   return { ...module, listAgentMemory: vi.fn(), updateAgentMemory: vi.fn(), deleteAgentMemory: vi.fn() };
 });
+vi.mock('../../lib/nnd/events.ts', async () => {
+  const module = await vi.importActual('../../lib/nnd/events.ts');
+  return { ...module, subscribeControlEvents: vi.fn() };
+});
 import { deleteAgentMemory, listAgentMemory, updateAgentMemory } from '../../lib/agent-memory-api.ts';
+import { AGENT_MEMORY_CHANGED } from '../../lib/agent-memory-events.ts';
+import { subscribeControlEvents } from '../../lib/nnd/events.ts';
 import { ContextMemory } from '../context-memory.tsx';
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+let emitControlEvent: (event: { type: string; properties: Record<string, unknown> }) => void;
 
 const entry = { id: 'm1', title: 'Boundary', body: 'Store memory in NND.', type: 'fact' as const,
   createdAt: 1, updatedAt: 2 };
 const overview = { global: [], project: [entry], globalFailed: false, projectFailed: false };
 
 beforeEach(() => {
+  vi.stubGlobal('EventSource', class EventSourceStub {});
   vi.stubGlobal('confirm', vi.fn(() => true));
   vi.mocked(listAgentMemory).mockReset().mockResolvedValue(overview);
   vi.mocked(updateAgentMemory).mockReset();
   vi.mocked(deleteAgentMemory).mockReset();
+  vi.mocked(subscribeControlEvents).mockReset().mockImplementation((listener) => {
+    emitControlEvent = listener;
+    return Promise.resolve(() => {});
+  });
 });
 
 afterEach(() => {
@@ -104,5 +116,24 @@ describe('agent memory panel', () => {
     expect(title.value).toBe('Selected');
     expect(body.value).toBe('Selected body.');
     expect(view.querySelector('[aria-current="true"]')).toBeTruthy();
+  });
+
+  it('refreshes on a valid control event and ignores an invalid payload', async () => {
+    const view = await render();
+    const initialCalls = vi.mocked(listAgentMemory).mock.calls.length;
+    expect(initialCalls).toBeGreaterThan(0);
+    await act(async () => {
+      emitControlEvent({
+        type: AGENT_MEMORY_CHANGED, properties: { scope: 'project', projectId: 'alpha' },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(vi.mocked(listAgentMemory)).toHaveBeenCalledTimes(initialCalls + 1);
+
+    await act(async () => {
+      emitControlEvent({ type: AGENT_MEMORY_CHANGED, properties: { scope: 'session' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(vi.mocked(listAgentMemory)).toHaveBeenCalledTimes(initialCalls + 1);
   });
 });
