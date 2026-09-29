@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:727ab2b2ed394fa54808a2f82a0f127c51f38e8d72cb606014279d6c9fe0d15b",
+  "source_digest": "sha256:2bc4d34535483f61a170674270151cebb11b187b7f85fae52ce511dab77061ac",
   "counts": {
-    "modules": 549,
+    "modules": 552,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 148
+      "module_count": 151
     },
     {
       "id": "web-server",
@@ -108,14 +108,14 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 72,
-      "module_count": 34
+      "import_count": 74,
+      "module_count": 36
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 57,
-      "module_count": 48
+      "import_count": 62,
+      "module_count": 51
     },
     {
       "from": "sync-engine",
@@ -264,10 +264,43 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/btw-actions.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/btw-context.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/btw-panel.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/sync-engine.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/chat-view.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/btw-actions.ts",
+        "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/chat/btw-panel.tsx",
         "packages/ui/src/chat/child-session-controls.tsx",
         "packages/ui/src/chat/composer.tsx",
         "packages/ui/src/chat/model-picker.tsx",
@@ -319,6 +352,7 @@
       "imports": [
         "packages/ui/src/chat/drafts.ts",
         "packages/ui/src/chat/prompt-language.ts",
+        "packages/ui/src/chat/starters.ts",
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/stores/useMessageQueueStore.ts"
       ]
@@ -359,6 +393,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/btw-context.ts",
         "packages/ui/src/chat/composer-annotation.ts",
         "packages/ui/src/chat/composer-attachments.ts",
         "packages/ui/src/chat/composer-bits.tsx",
@@ -806,6 +841,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/blocking-cards.tsx",
+        "packages/ui/src/chat/btw-context.ts",
         "packages/ui/src/chat/context-message-pins.ts",
         "packages/ui/src/chat/markdown-lite.tsx",
         "packages/ui/src/chat/time-format.ts",

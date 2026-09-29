@@ -18,10 +18,12 @@ import { renderMarkdown } from './markdown-lite.tsx';
 import { ToolCard } from './tool-cards.tsx';
 import { BlockingCardsColumn } from './blocking-cards.tsx';
 import { formatDuration, formatRelative, formatRetryCountdown } from './time-format.ts';
+import { filterBtwTailMessages } from './btw-context.ts';
 import {
   applySessionMessagePinMetadata, sessionMessagePinIDs, setSessionMessagePinned,
   type SessionPinClient,
 } from './context-message-pins.ts';
+import { btwRiderFor, parseBtwMetadata } from './btw-context.ts';
 
 export interface TranscriptProps {
   store: StoreApi<DirectoryStore>;
@@ -92,7 +94,12 @@ export function Transcript(props: TranscriptProps): ReactNode {
   if ((snapshot.message[sessionID]?.length ?? 0) === 0) {
     return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-600" data-testid="chat-empty">Session is open, nothing has been sent yet.</div>;
   }
-  const turns = projectTurns(snapshot.message[sessionID] ?? []);
+  const btwMetadata = parseBtwMetadata(snapshot.session.find((session) => session.id === sessionID)?.metadata);
+  const sourceMessages: Parameters<typeof projectTurns>[0] = filterBtwTailMessages(
+    snapshot.message[sessionID] ?? [],
+    btwMetadata.active || btwMetadata.promoted ? btwMetadata.boundaryMessageID : null,
+  ) as Parameters<typeof projectTurns>[0];
+  const turns = projectTurns(sourceMessages);
   const tail = streamingTail(turns);
   const lastIndex = turns.length - 1;
   const currentLoad = loadState?.key === loadKey ? loadState.state : null;

@@ -8,18 +8,17 @@ import type { SyncEngine } from '../sync/sync-engine.ts';
 import type { ReactNode } from 'react';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import { toast } from 'sonner';
-import { activeTrigger, commandRegistry, replaceTriggerToken, tokenizePrompt, type AutocompleteTrigger, type PromptToken } from './prompt-language.ts';
+import { activeTrigger, commandRegistry, replaceTriggerToken, skillInstructionFrom, tokenizePrompt, type AutocompleteTrigger, type PromptToken } from './prompt-language.ts';
 import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
 import { draftKey, readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
 import { planSend, type PlannedSend } from './send-planner.ts';
 import { useAuthSessionStore, authSessionBlocksSend } from '../lib/runtime-auth-expiry.ts';
-import { ComposerFooter, AttachmentChips, PickerPopup, QueueChipsRow } from './composer-bits.tsx';
+import { ComposerFooter, AttachmentChips, DraftStarterChips, PickerPopup, QueueChipsRow } from './composer-bits.tsx';
 import { describeSendFailure, dedupeNames, fileToDataUrl } from './composer-attachments.ts';
 import { createAnnotationHandler } from './composer-annotation.ts';
 import { handleQueuedTarget } from './composer-queue.ts';
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
-import { starterInsertText, type Starter } from './starters.ts';
 import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
 import { refreshSnippets, snippetMap, snippetSubscribe } from '../lib/snippets-source.ts';
@@ -28,6 +27,7 @@ import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
 import { deliverToNewSession } from './composer-draft-pins.ts';
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
+import { btwRiderFor } from './btw-context.ts';
 const MAX_LINES = 8;
 
 export interface ComposerServices {
@@ -36,6 +36,9 @@ export interface ComposerServices {
   dispatch: (command: 'undo' | 'redo' | 'timeline' | 'compact') => void;
 }
 
+export type BtwInvocation = { question: string; agent?: string;
+  model: { providerID: string; modelID: string }; sendAgent: string };
+
 export interface ComposerProps {
   services: ComposerServices;
   sessionID: string | null;
@@ -43,7 +46,7 @@ export interface ComposerProps {
   sessionKey: string; // real id | 'draft'
   expanded?: boolean; // focus mode (§B.2): unbounded editor, transcript hidden
   onToggleExpanded?: () => void;
-  onRunBtw?: (parentSessionID: string) => void;
+  onRunBtw?: (parentSessionID: string, input: BtwInvocation) => void;
   onOpenTimeline?: () => void;
   starters?: import('./starters.ts').Starter[];
   providers?: import('../lib/nnd/types.ts').Provider[];
@@ -63,7 +66,6 @@ export function Composer(props: ComposerProps): ReactNode {
   const [shell, setShell] = useState(false);
   const [queueChips, setQueueChips] = useState<QueuedMessage[]>([]);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [starterMenu, setStarterMenu] = useState(false);
   const [picker, setPicker] = useState<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const restoringRef = useRef(false);
@@ -236,19 +238,17 @@ export function Composer(props: ComposerProps): ReactNode {
     if (caret !== undefined) requestAnimationFrame(() => editorRef.current?.setSelectionRange(caret, caret));
   }
 
-  function applyStarter(starter: Starter): void {
-    const next = starterInsertText(starter, text);
-    setStarterMenu(false);
-    updateText(next, next.length);
+  const applyDraftStarter = (nextText: string): void => {
+    updateText(nextText, nextText.length);
     editorRef.current?.focus();
-  }
+  };
 
   const submit = async (): Promise<void> => {
     const composed = shell ? text.trim() : text.trim();
     if (!composed || sendBlocked) return;
     restoreSnapshot.current = { text, attachments };
     const tokens = tokenizePrompt(shell ? `!${text}` : text, { commands: commandSet, skills: skillSet, snippets, agents: new Set(agentNames) });
-    const skillInstruction = skillMentionFrom(tokens);
+    const skillInstruction = skillInstructionFrom(tokens);
     const followUp = settingsValue('followUpBehavior') === 'steer' ? 'steer' : 'queue'; // §D.7 default queue
     const plan = planSend({
       text: composed,
@@ -272,7 +272,7 @@ export function Composer(props: ComposerProps): ReactNode {
       persist('', attachments, autoAccept);
       if (plan.localCommand.name === 'btw') {
         if (sessionID && props.onRunBtw) {
-          props.onRunBtw(sessionID);
+          props.onRunBtw(sessionID, { question: composed.replace(/^\/btw\b\s*/iu, ''), model, sendAgent });
         } else {
           toast.message('btw needs an open session');
         }
@@ -292,6 +292,7 @@ export function Composer(props: ComposerProps): ReactNode {
       }
     }
     if (plan.queueTarget) {
+      const { rider, panelActive } = btwSendState();
       await handleQueuedTarget({
         directory,
         sessionID,
@@ -308,16 +309,21 @@ export function Composer(props: ComposerProps): ReactNode {
       return;
     }
     if (!plan.deliverable) return;
+    const { rider: btwRider, panelActive: btwPanelActive } = btwSendState();
     const outgoing: OutgoingPart[] = [
       { type: 'text' as const, text: plan.deliverable.text },
       ...(skillInstruction ? [{ type: 'text' as const, text: skillInstruction, synthetic: true }] : []),
     ];
-    for (const attachment of attachments) {
-      outgoing.push({ type: 'file', url: attachment.dataUrl, filename: attachment.name, mime: attachment.mime });
+    if (btwRider) outgoing.unshift({ ...btwRider, type: 'text' as const });
+    if (!btwPanelActive) {
+      for (const attachment of attachments) {
+        outgoing.push({ type: 'file', url: attachment.dataUrl, filename: attachment.name, mime: attachment.mime });
+      }
     }
     try {
       await deliver(outgoing, plan.delivery);
-      recordSend({ directory, sessionID, text: composed, attachments, scope: 'session', attachmentTarget: 'scoped' });
+      recordSend({ directory, sessionID, text: composed,
+        attachments: btwPanelActive ? [] : attachments, scope: 'session', attachmentTarget: 'scoped' });
       setText('');
       setAttachments([]);
       persist('', [], autoAccept);
@@ -358,10 +364,17 @@ export function Composer(props: ComposerProps): ReactNode {
       delivery, model, sendAgent, nnaConfigured, services });
   }
 
-  function skillMentionFrom(tokens: PromptToken[]): string | null {
-    const names = [...new Set(tokens.filter((token) => token.kind === 'skill').map((token) => token.name))];
-    if (names.length === 0) return null;
-    return `The user explicitly mentioned these skills in their message: ${names.map((n) => `/${n}`).join(', ')}. Use the corresponding skill tool when it is relevant to accomplishing the user's request.`;
+  function btwSendState(): { rider: ReturnType<typeof btwRiderFor>; panelActive: boolean } {
+    const sessionMetadata = sessionID
+      ? store.getState().session.find((entry) => entry.id === sessionID)?.metadata
+      : undefined;
+    return {
+      rider: btwRiderFor(sessionMetadata),
+      panelActive: Boolean(sessionMetadata && typeof sessionMetadata === 'object'
+        && !Array.isArray(sessionMetadata)
+        && typeof (sessionMetadata as Record<string, unknown>).openchamber === 'object'
+        && (sessionMetadata as { openchamber?: Record<string, unknown> }).openchamber?.btwSessionID),
+    };
   }
 
   function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
@@ -480,18 +493,7 @@ export function Composer(props: ComposerProps): ReactNode {
         onFiles={(files) => attachFiles({ target: { files, value: '' } } as never)}
       />
     </form>
-    {sessionKey === 'draft' && starterList.length > 0 ? (
-      <div className="mt-4 flex flex-wrap justify-center gap-2" data-testid="starter-chips">
-        {starterList.map((starter) => (
-          <span key={starter.id} className="group inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-neutral-400 hover:border-white/20 hover:text-neutral-200">
-            <button type="button" onClick={() => applyStarter(starter)}>{starter.label}</button>
-            <button type="button" aria-label={`Remove ${starter.label}`} className="ml-2 hidden text-neutral-600 group-hover:inline" onClick={() => {
-              import('./starters.ts').then(({ removeStarter }) => removeStarter(starter.id, directory)).catch(() => undefined);
-            }}>×</button>
-          </span>
-        ))}
-      </div>
-    ) : null}
+    {sessionKey === 'draft' ? <DraftStarterChips directory={directory} currentText={text} starters={starterList} onApply={applyDraftStarter} /> : null}
   </>);
 }
 

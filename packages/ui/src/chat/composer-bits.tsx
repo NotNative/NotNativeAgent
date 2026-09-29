@@ -11,6 +11,7 @@ import type { DraftAttachment } from './drafts.ts';
 import { useMessageQueueStore, queueKey } from '../stores/useMessageQueueStore.ts';
 import { setSettingsField, useSettingsStore } from '../lib/settings/store.ts';
 import { toast } from 'sonner';
+import { starterInsertText, removeStarter, type Starter } from './starters.ts';
 
 export function AttachmentChips({ attachments, onRemove }: { attachments: DraftAttachment[]; onRemove: (next: DraftAttachment[]) => void }): ReactNode {
   if (attachments.length === 0) return null;
@@ -36,6 +37,27 @@ export function PickerPopup({ picker }: { picker: { trigger: AutocompleteTrigger
               {item}
             </button>
           ))}
+    </div>
+  );
+}
+
+export function DraftStarterChips({ directory, currentText, starters, onApply }: {
+  directory: string;
+  currentText: string;
+  starters: Starter[];
+  onApply: (nextText: string) => void;
+}): ReactNode {
+  if (starters.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap justify-center gap-2" data-testid="starter-chips">
+      {starters.map((starter) => (
+        <span key={starter.id} className="group inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-neutral-400 hover:border-white/20 hover:text-neutral-200">
+          <button type="button" onClick={() => onApply(starterInsertText(starter, currentText))}>{starter.label}</button>
+          <button type="button" aria-label={`Remove ${starter.label}`} className="ml-2 hidden text-neutral-600 group-hover:inline" onClick={() => {
+            removeStarter(starter.id, directory);
+          }}>×</button>
+        </span>
+      ))}
     </div>
   );
 }

@@ -63,6 +63,12 @@ export function activeTrigger(document: string, caret: number): AutocompleteTrig
 
 export const TRIGGER_ORDER = Object.keys(TRIGGER_PRECEDENCE);
 
+export function skillInstructionFrom(tokens: PromptToken[]): string | null {
+  const names = [...new Set(tokens.filter((token) => token.kind === 'skill').map((token) => token.name))];
+  if (names.length === 0) return null;
+  return `The user explicitly mentioned these skills in their message: ${names.map((name) => `/${name}`).join(', ')}. Use the corresponding skill tool when it is relevant to accomplishing the user's request.`;
+}
+
 /** Shell-mode transitions (§B.3): `!` at caret 0 enters; empty backspace or
  * Escape exits; the `!` is auto-normalized away in the stored document. */
 export function shellEnterCandidate(document: string, caret: number, typed: string): boolean {

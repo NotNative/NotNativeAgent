@@ -9,9 +9,12 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore, SessionListSource } from '../sync/types.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
+import { createBtwSession } from './btw-actions.ts';
+import { parseBtwMetadata } from './btw-context.ts';
+import { BtwPanel } from './btw-panel.tsx';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useMemo } from 'react';
-import { Composer, type ComposerServices } from './composer.tsx';
+import { Composer, type BtwInvocation, type ComposerServices } from './composer.tsx';
 import { Transcript, StatusChip } from './transcript.tsx';
 import { TimelineDialog } from './timeline-dialog.tsx';
 import { PromptNavigatorRail } from './prompt-rail.tsx';
@@ -142,13 +145,23 @@ export function ChatView(props: ChatViewProps): ReactNode {
     };
   }, [view.currentSessionId, view.activeDirectory, props.services.engine, shown]);
 
-  const runBtw = (parentSessionID: string): void => {
-    void props.services.engine.actions
-      .fork(parentSessionID, undefined)
-      .then((childID) => {
-        useSessionViewStore.getState().setCurrentSession(childID);
-      })
-      .catch(() => toast.error('Failed to start the fork session'));
+  const runBtw = (parentSessionID: string, input: BtwInvocation): void => {
+    const current = shown;
+    if (!current) return;
+    const runtimeKey = `${current.directory}\n${parentSessionID}`;
+    const isCurrent = (value: string): boolean => value === runtimeKey;
+    const store = props.services.store(current.directory);
+    void createBtwSession({
+      parent: { sessionID: parentSessionID, directory: current.directory, runtimeKey },
+      question: input.question,
+      model: input.model,
+      agent: input.sendAgent,
+      store,
+      engine: props.services.engine,
+      isCurrent,
+    }).then((child) => {
+      useSessionViewStore.setState({ currentSessionId: child.id, activeDirectory: current.directory });
+    }).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Failed to start the fork session'));
   };
 
   const shownRef = shown;
@@ -181,6 +194,15 @@ export function ChatView(props: ChatViewProps): ReactNode {
     ? (globalNnd as Record<string, unknown>)['goalRevision'] : undefined;
   const draftLanding = shownRef.sessionID === null && !focusMode;
   const workspaceName = shownRef.directory.replace(/[\\/]+$/u, '').split(/[\\/]/u).filter(Boolean).at(-1) ?? 'this workspace';
+  const btwChildSessionID = (() => {
+    const openchamber = selected?.metadata?.openchamber;
+    if (!openchamber || typeof openchamber !== 'object' || Array.isArray(openchamber)) return undefined;
+    const value = (openchamber as Record<string, unknown>).btwSessionID;
+    return typeof value === 'string' && value !== '' ? value : undefined;
+  })();
+  const btwChildSession = btwChildSessionID
+    ? shownRef.store.getState().session.find((session) => session.id === btwChildSessionID)
+    : undefined;
 
   return (
     <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
@@ -204,6 +226,13 @@ export function ChatView(props: ChatViewProps): ReactNode {
             <ChildSessionControls key={`${shownRef.directory}\n${shownRef.sessionID}`} sessionID={shownRef.sessionID} directory={shownRef.directory} />
           </div>
         </header> : null}
+        {btwChildSession && btwChildSessionID ? <div className="mx-auto w-full max-w-3xl px-4 pt-3">
+          <BtwPanel store={shownRef.store} engine={props.services.engine}
+            parentSessionID={shownRef.sessionID!} childSessionID={btwChildSessionID}
+            session={btwChildSession}
+            directory={shownRef.directory}
+            onSelectSession={(sessionID) => useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: shownRef.directory })} />
+        </div> : null}
         <div className={`min-h-0 flex-1 overflow-y-auto ${isChildSession ? 'pb-6' : 'pb-40'} ${focusMode || draftLanding ? 'hidden' : ''}`} data-chat-column>
           {!draftLanding ? <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : null}
         </div>
