@@ -67,15 +67,30 @@ scheduled-task writers. Missing context is empty; malformed context is an
 error and is never replaced with an empty document.
 
 When the new context file is absent, the read path accepts legacy `notes`,
-`projectNotes`, `todos`, `projectTodos`, and `plans` values in the config file.
-It keeps the old file intact and seeds the new file on the first todo write.
-Ambiguous aliases or a nonempty `projectPlanFiles` list fail closed to avoid
-hiding content. This is intentionally less than the full D.5 migration in
-planning document 15: plan-file copy-in, removal of legacy keys after a
-durable migration, and convergence across multiple processes are still owed.
-Config PUT preserves these legacy keys before seeding and rejects attempted
-changes through the wrong route. Once a valid context file exists, config PUT
-can remove its now-redundant legacy keys.
+`projectNotes`, `todos`, `projectTodos`, `plans`, and `projectPlanFiles`
+values in the config file. P10-64 completed §D.5: normal projected reads do
+not consume the config; an explicit context adoption/mutation or plan-link
+migration writes `context.json` atomically first, then removes only the
+bounded legacy keys and leaves unrelated config fields alone. Malformed or
+conflicting legacy values fail before handoff. Repeated and concurrent
+projected reads converge under the project config lock. Config PUT rejects
+changed context-owned keys through the wrong route after it has durably
+seeded the context.
+
+## P10-64: durable legacy migration (2026-09-30)
+
+`readProjectContext` now serializes every legacy conversion through the same
+per-project config lock used by context mutations and project config writers.
+It rereads state inside that lock, projects legacy note/todos, runs the
+existing bounded plan-link migration, commits the complete v2 context with a
+rename, then cleans the legacy keys from a separate bounded config write.
+Listeners observe the first durable context conversion rather than a
+transient projection. An adversarial audit traced lock ordering, malformed
+input atomicity, alias conflicts, stale concurrent config writes, and cleanup
+explicitly, and corrected one grammar: a same-value legacy field could pass
+config-PUT validation against the pre-migration snapshot and then disappear
+under the new owner; validation now treats that field as context-owned once
+context owns it.
 
 The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed

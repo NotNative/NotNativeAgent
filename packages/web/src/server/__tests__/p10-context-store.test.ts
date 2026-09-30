@@ -119,7 +119,10 @@ describe('P10 separate project context store', () => {
     await expect(readProjectContext('legacy')).resolves.toMatchObject({ notes: config.notes, plans: config.plans });
     const committed = await replaceProjectTodos('legacy', [{ id: 'new' }]);
     expect(committed).toMatchObject({ version: 2, notes: config.notes, plans: config.plans, todos: [{ id: 'new' }] });
-    expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual(config);
+    expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({
+      actions: config.actions, notes: config.notes, todos: config.todos, plans: config.plans,
+      scheduledTasks: config.scheduledTasks,
+    });
     expect(JSON.parse(readFileSync(join(folder, 'legacy', 'context.json'), 'utf8'))).toEqual(committed);
     await expect(readProjectContext('legacy')).resolves.toEqual(committed);
   });
@@ -190,6 +193,8 @@ describe('P10 separate project context store', () => {
     await replaceProjectTodos('config-migration', [{ id: 'new' }]);
     expect((await put({ actions: ['after-seed'] })).status).toBe(200);
     expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({ actions: ['after-seed'], scheduledTasks: legacy.scheduledTasks });
+    expect(readFileSync(join(dataDir, 'projects', 'config-migration', 'context.json'), 'utf8'))
+      .toContain('"new"');
     await expect(readProjectContext('config-migration')).resolves.toMatchObject({
       notes: [{ body: legacy.projectNotes }], todos: [{ id: 'new' }],
     });
@@ -200,7 +205,7 @@ describe('P10 separate project context store', () => {
     await expect(replaceProjectTodos('..', [])).rejects.toThrow('invalid project ID');
   });
 
-  it('creates, edits, and deletes notes without touching project config', async () => {
+  it('creates, edits, and deletes notes while preserving unrelated project config', async () => {
     const { registerProjectsRoutes } = await import('../routes/projects.ts');
     const app = new Hono();
     registerProjectsRoutes(app);
@@ -231,7 +236,8 @@ describe('P10 separate project context store', () => {
     const removed = await app.request(`/api/project-context/note-flow/notes/${id}`, { method: 'DELETE' });
     expect(removed.status).toBe(200);
     expect((await removed.json() as { notes: unknown[] }).notes).toHaveLength(1);
-    expect(readFileSync(configPath, 'utf8')).toBe(before);
+    expect(JSON.parse(readFileSync(configPath, 'utf8')))
+      .toEqual({ actions: ['build'], projectNotes: 'Legacy note' });
     expect((await readProjectContext('note-flow')).notes).toHaveLength(1);
   });
 

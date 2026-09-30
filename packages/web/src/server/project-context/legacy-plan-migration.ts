@@ -99,7 +99,7 @@ async function convertLinks(paths: Paths, links: unknown[]): Promise<PlanLink[]>
   return converted;
 }
 
-async function cleanupLegacyConfig(paths: Paths, config: Record<string, unknown>): Promise<void> {
+export async function cleanupLegacyConfig(paths: Paths, config: Record<string, unknown>): Promise<void> {
   const remaining = { ...config };
   for (const key of ['projectNotes', 'projectTodos', 'projectPlanFiles', 'notes', 'todos', 'plans']) delete remaining[key];
   const temp = `${paths.config}.tmp-${randomUUID()}`;

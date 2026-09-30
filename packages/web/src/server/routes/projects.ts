@@ -18,7 +18,8 @@ import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 import { ContextInputError, createProjectNote, deleteProjectNote, readProjectContext,
-  projectTodosRevision, replaceProjectTodosChecked, updateProjectNote } from '../project-context/context-store.ts';
+  migrateLegacyProjectContextUnlocked, projectTodosRevision, replaceProjectTodosChecked,
+  updateProjectNote } from '../project-context/context-store.ts';
 import { validateProjectTodos } from '../project-context/todo-schema.ts';
 import { importWorkspaceContext } from '../project-context/workspace-import.ts';
 import { createProjectPlan, deleteProjectPlan, readProjectContextWithShared, readProjectPlan,
@@ -126,12 +127,13 @@ async function replaceProjectConfig(projectId: string, body: Record<string, unkn
       if ((error as { code?: string }).code !== 'ENOENT') throw error;
     }
     const contextExists = existsSync(contextPath);
-    if (contextExists) await readProjectContext(projectId); // malformed context must not make legacy keys disposable
+    if (contextExists) await migrateLegacyProjectContextUnlocked(projectId); // malformed context must not make legacy keys disposable
     const next = { ...body };
     delete next.scheduledTasks;
     if (existing.scheduledTasks !== undefined) next.scheduledTasks = existing.scheduledTasks;
+    const legacyReference = existing;
     for (const key of LEGACY_CONTEXT_KEYS) {
-      if (Object.hasOwn(body, key) && !isDeepStrictEqual(body[key], existing[key])) {
+      if (Object.hasOwn(body, key) && !isDeepStrictEqual(body[key], legacyReference[key])) {
         throw new ProjectConfigInputError(`${key} belongs to project context`);
       }
       delete next[key];

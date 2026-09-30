@@ -724,17 +724,21 @@ only when the checkout cannot be located.
 ### D.5 Legacy migration (v1 → v2)
 
 `projectNotes` (a single string), `projectTodos`, `projectPlanFiles` once
-lived in `<projectId>.json`. On the first read with no `context.json`: the
-three keys move out and are deleted from the (bounded-name) config file,
-every other key preserved untouched; the v1 note string converts to a single
-`manual` note (empty string → no notes); plan links carrying absolute paths
-convert to base names — a file already in the plans directory is used in
-place, one referenced from elsewhere is **copied in** rather than dropped,
-and a link whose markdown cannot be found at all is discarded. Legacy keys
-are removed only after `context.json` is durably written, so any failure
-leaves the migration to run again; repeat and concurrent reads converge on
-identical content. The conversion lives in the **read path**, not a migration
-pass, so every reader — including one racing a writer — sees one shape. A
+lived in `<projectId>.json`. A no-context read projects the bounded legacy
+keys instead of consuming them. A durable context document — the plan-link
+read path or an explicit context mutation — hands legacy state over first:
+the v1 note string converts to a single
+`manual` note (empty string → no notes); plan links convert later through the
+dedicated plan-link read path using absolute paths carried by
+`projectPlanFiles` — a file already in the plans directory is used in
+place, one referenced elsewhere is **copied in** rather than dropped,
+and a link whose markdown cannot be found at all is discarded. Bounded legacy
+keys are removed from config only after the new context shape is durably
+written, so any failure leaves the legacy data intact; repeat and concurrent
+projected reads converge on identical content without rewriting config. The
+conversion lives in the **adopting/mutating path**, not a migration pass,
+so every authoring reader — including one racing a writer — sees one shape.
+A
 sibling settings-runtime merge (`mergeProjectContextFiles`) merges context
 lists by identity across project-storage changes and deliberately does *not*
 convert a v1 note (this module owns that conversion; two implementations
@@ -1862,7 +1866,7 @@ template are owned by doc **02**; this doc inlines only the memory tool (C.5):
 
 | Store | Version | Migration |
 |---|---|---|
-| context.json | 2 | v1 read-path conversion: single string → one `manual` note; absolute plan links → base names (copy-in/unusable-dropped); legacy keys removed from project config only after durable write (repeat reads converge) |
+| context.json | 2 | v1 deferred-adopt conversion: single string → one `manual` note; absolute plan links → base names (copy-in/unusable-dropped); bounded legacy keys removed from project config only after a durable adopting context write |
 | memory.json | 1 | none yet; sanitize-on-read re-derives `flagged` |
 | todos persist | 2 | blank migrate (cache only) |
 | magic-prompts.json | `{version, overrides}` | legacy single-string keys split at first newline on read |
