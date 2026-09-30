@@ -9,7 +9,7 @@
  * execution half (name/model/agent/prompt/goal) lands with the editor
  * dialog that hosts this component.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { TaskSchedule } from '../../lib/scheduled-tasks-api.ts';
 import {
   CRON_EXAMPLES, PILL_CATALOG, cronShapeOk, emptyDraft, localeFirstDay,
@@ -131,10 +131,14 @@ function OnceFields({ value, onChange }: { value: TaskSchedule & { kind: 'once' 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input type="date" value={value.date} data-testid="once-date"
-        onChange={(event) => { if (event.target.value.length > 0) onChange({ ...value, date: event.target.value }); }}
+        onInput={(event: FormEvent<HTMLInputElement>) => {
+          if (event.currentTarget.value.length > 0) onChange({ ...value, date: event.currentTarget.value });
+        }}
         className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
       <input type="time" value={value.time} data-testid="once-time"
-        onChange={(event) => { if (event.target.value.length > 0) onChange({ ...value, time: event.target.value.slice(0, 5) }); }}
+        onInput={(event: FormEvent<HTMLInputElement>) => {
+          if (event.currentTarget.value.length > 0) onChange({ ...value, time: event.currentTarget.value.slice(0, 5) });
+        }}
         className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
     </div>
   );

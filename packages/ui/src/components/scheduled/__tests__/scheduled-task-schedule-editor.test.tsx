@@ -228,17 +228,16 @@ describe('ScheduledScheduleEditor (doc 12 §H)', () => {
     renderEditor(emptyDraft('once', 'UTC'), async () => ({ ok: true, slots: [] }));
     act(() => {
       const date = document.querySelector('[data-testid="once-date"]') as HTMLInputElement;
-      date.dispatchEvent(new window.Event('input', { bubbles: true }));
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       setter.call(date, '2026-10-01');
-      date.dispatchEvent(new window.Event('change', { bubbles: true }));
+      date.dispatchEvent(new window.Event('input', { bubbles: true }));
     });
     expect(changes[0]).toMatchObject({ kind: 'once', date: '2026-10-01' });
     act(() => {
       const time = document.querySelector('[data-testid="once-time"]') as HTMLInputElement;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       setter.call(time, '14:45');
-      time.dispatchEvent(new window.Event('change', { bubbles: true }));
+      time.dispatchEvent(new window.Event('input', { bubbles: true }));
     });
     expect(changes[1]).toMatchObject({ kind: 'once', time: '14:45' });
   });

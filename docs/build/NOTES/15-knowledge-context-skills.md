@@ -1,5 +1,34 @@
 # P10 knowledge/context build notes
 
+## P10-63: H.2 small-model generation (2026-09-30)
+
+`GET /api/small-model` resolves the active port without exposing credentials.
+`POST /api/small-model/generate` accepts one bounded recap and one bounded
+suggestion prompt. Resolution is staged as explicit request, settings
+override, live session preferred provider/model, harness model, then a
+readiness-filtered scan of authenticated provider families. A restricted
+preferred provider can only be selected by a narrowed fallback; public-key
+sentinels are refused, malformed readiness selectors yield unavailable, and
+ordinary candidates are skipped when output bounds are exhausted.
+
+Direct provider calls are implemented for OpenAI Chat Completions, Anthropic
+Messages, and Google `generateContent`. Inputs are bounded before transport;
+OpenCode injects its session header; normalization retains a candidate only
+when it has both required outputs. Provider, URL, timeout, and classified
+transport failures are reported without credentials.
+
+`nna-session-assist` is the production runtime. It uses harness ports to read
+confirmed completed sessions and patch only `metadata.openchamber.assist`,
+listens to the live feed for idle completion and newer activity, resolves the
+session's preferred pair, and applies Settings recap/suggestion filters and
+320/500 clamps. Generation is 60-second idle-only, deletes the runtime when
+the session disappears, discards stale work, and remains outside the main
+conversation thread.
+
+The slice deliberately does not claim OpenAI Responses, Copilot, structured
+output, `{file:PATH}` credential indirection, or broader provider-baseURL
+SSRF hardening; those remain future integration/security work.
+
 ## P10-62: markdown image grants (2026-09-29)
 
 `POST /api/openchamber/sessions/:sessionId/markdown-image-grants` keeps the

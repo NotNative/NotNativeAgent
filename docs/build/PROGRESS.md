@@ -14,13 +14,27 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
-| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, opt-in legacy note/todo copy, bounded legacy plan-link migration, shared project plans, server-owned memory prompt delivery, managed memory callback launch, bounded ancestor/worktree skill discovery, OpenCode config-root, cache, configured-path discovery, managed skill delete API, configured catalog scanner/cache/installer, NNA callback consumption, typed skills/catalog client transport, and skills catalog store, Settings catalog page, one-skill install controls, catalog conflict resolution, captured identity-selection contracts, bounded credential-free Git identity profiles, SSH-catalog clone support, install cancellation, MCP config-layer storage/CRUD, MCP runtime/status/config stores, workspace MCP Settings CRUD/health/OAuth callback wiring, JSON share import, server compaction restoration, BTW sessions, work-status context-pin metadata/list/detach, chat-row pin action, and draft-pin transfer, session-knowledge routes, UI send-rider delivery, work-status knowledge summaries, live project-panel pins, and session-assist contracts/read surface, context-file open guard, outside-file grants, system reminders, and markdown image grants delivered 2026-09-29; assist generation, remaining context/skill surfaces remain |
+| P10 knowledge/context | 15 | 🔶 isolated context storage, note API/UI, personal plan CRUD/UI, project todo UI, canonical three-tab Notes rail with search and snapshot match counts, opt-in legacy note/todo copy, bounded legacy plan-link migration, shared project plans, server-owned memory prompt delivery, managed memory callback launch, bounded ancestor/worktree skill discovery, OpenCode config-root, cache, configured-path discovery, managed skill delete API, configured catalog scanner/cache/installer, NNA callback consumption, typed skills/catalog client transport, and skills catalog store, Settings catalog page, one-skill install controls, catalog conflict resolution, captured identity-selection contracts, bounded credential-free Git identity profiles, SSH-catalog clone support, install cancellation, MCP config-layer storage/CRUD, MCP runtime/status/config stores, workspace MCP Settings CRUD/health/OAuth callback wiring, JSON share import, server compaction restoration, BTW sessions, work-status context-pin metadata/list/detach, chat-row pin action, and draft-pin transfer, session-knowledge routes, UI send-rider delivery, work-status knowledge summaries, live project-panel pins, and session-assist contracts/read surface, context-file open guard, outside-file grants, system reminders, markdown image grants, and H.2 small-model generation delivered 2026-09-30; remaining context/skill surfaces remain |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, and explicit NNA model explanation delivered 2026-09-26; tunnels and full walkthrough lifecycle pending |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-30 · **P10-63 H.2 small-model generation.**
+  Added the production small-model generation port for documented OpenAI,
+  Anthropic, and Google providers. Model resolution follows explicit request,
+  settings override, session preferred provider/model, harness small model,
+  and a readiness-filtered authenticated-family fallback; restricted providers,
+  public-key sentinels, malformed selectors, and exhausted output bounds fail
+  closed. Direct first-pass calls carry bounded body, context, prompt, system,
+  and output constraints, then normalize responses into recap/suggestion
+  content. The live session-assist runtime consumes harness read/patch ports,
+  applies the preferred pair and settings filters/clamps, and writes idle
+  assistance only through server-owned metadata. Adversarial review landed
+  naming, budget, URL, credential, readiness, exhaustion, and timeout fixes;
+  focused small-model/assist tests 12/12 and web server typecheck passed.
 
 - 2026-09-29 · **P10-56 live project-panel knowledge pins.**
   Notes and saved plans now offer live-session pin/unpin through the additive
@@ -38,10 +52,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   user activity, runtime changes, deletion, or in-flight staleness invalidate
   generation. The write path re-reads session and assistant identity, clamps
   recap/suggestion, merge-writes `metadata.openchamber.assist`, and refuses
-  stale generation. No production small-model port is wired yet, so absent
-  generation stays quiet and never enters the main thread. Adversarial review
-  fixed numeric-looking identity coercion; focused tests 6/6 and web typecheck
-  passed.
+  stale generation. Adversarial review fixed numeric-looking identity
+  coercion; focused tests 6/6 and web typecheck passed.
 - 2026-09-29 · **P10-61 system reminders.**
   Added the §G.7 idempotent synthetic-reminder wrapper and the composer
   first-send/draft rider. An enabled response-style profile emits one reminder

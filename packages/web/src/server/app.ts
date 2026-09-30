@@ -26,6 +26,7 @@ import { registerAgentMemoryRoutes } from './routes/agent-memory.ts';
 import { registerAgentToolCallback } from './routes/agent-tool.ts';
 import { registerSkillRoutes } from './routes/skills.ts';
 import { registerMcpConfigRoutes } from './routes/mcp-config.ts';
+import { registerSmallModelRoutes } from './routes/small-model.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { createNnaSessionHarnessPorts } from './session-orchestration/session-harness-ports.ts';
@@ -39,6 +40,7 @@ import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerOpenChamberSessionRoutes } from './session-orchestration/openchamber-sessions.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { readMergedSettings } from './lib/settings-store.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
 import { registerProbeUrlRoutes } from './preview/probe-url.ts';
 import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
@@ -263,6 +265,9 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   // Session-knowledge project pins/memory context (doc 15 §B): before proxy.
   registerSessionKnowledgeRoutes(app);
   registerMcpConfigRoutes(app);
+  registerSmallModelRoutes(app, {
+    settings: async () => readMergedSettings('web'),
+  });
   // Magic-prompt template overrides (doc 03 §5.31): before the proxy.
   registerMagicPromptRoutes(app);
   registerRelayRoutes(app);

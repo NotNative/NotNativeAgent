@@ -25,6 +25,8 @@ import { onSettingsWrite, readMergedSettings } from './lib/settings-store.ts';
 import { createNnaContextRestorationPorts } from './context/nna-context-obligatory-ports.ts';
 import { ContextObligatoryRuntime } from './context/context-obligatory-runtime.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { SessionAssistRuntime } from './session-assist/session-assist-runtime.ts';
+import { createNnaSessionAssistPorts } from './session-assist/nna-session-assist.ts';
 import { agentMemoryEnabled } from './project-context/agent-memory.ts';
 import { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
@@ -191,7 +193,7 @@ function bootMessageQueue(): void {
 function bootAutomation(): { dispose(): void } | null {
   bootMessageQueue();
   bootScheduledTasks();
-  const disposers = [bootContextObligatory(), bootGoalSafety()].filter((disposer): disposer is {
+  const disposers = [bootContextObligatory(), bootGoalSafety(), bootSessionAssist()].filter((disposer): disposer is {
     dispose(): void;
   } => disposer !== null);
   if (disposers.length === 0) return null;
@@ -200,6 +202,26 @@ function bootAutomation(): { dispose(): void } | null {
       for (const disposer of [...disposers].reverse()) disposer.dispose();
     },
   };
+}
+
+function bootSessionAssist(): { dispose(): void } | null {
+  try {
+    const feed = getMessageQueueRuntime().feed;
+    const ports = createNnaSessionAssistPorts();
+    const enabled = () => {
+      const settings = readMergedSettings('web');
+      return settings.sessionRecapEnabled !== false || settings.sessionSuggestionEnabled !== false;
+    };
+    const runtime = new SessionAssistRuntime(feed, ports, enabled);
+    runtime.start();
+    const unsubscribe = onSettingsWrite((keys) => {
+      if (keys.includes('sessionRecapEnabled') || keys.includes('sessionSuggestionEnabled')) runtime.settingsChanged();
+    });
+    return { dispose() { unsubscribe(); runtime.dispose(); } };
+  } catch (error) {
+    console.warn(`session assist boot failed: ${String(error)}`);
+    return null;
+  }
 }
 
 /** Re-apply pinned messages and pending project knowledge after compaction. */

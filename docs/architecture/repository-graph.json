@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:8f371b507504abfe3ba72c19551b811679bb53f766f385e773ab91426367ad61",
+  "source_digest": "sha256:71e903f0ec78dffc78cd15b5a6379ad40f9d6c8fc9ce7b362f47b496f5ff53a8",
   "counts": {
-    "modules": 569,
+    "modules": 574,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 188
+      "module_count": 193
     },
     {
       "id": "web-entry",
@@ -3752,6 +3752,7 @@
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/request-security.ts",
         "packages/web/src/server/lib/relay/identity.ts",
+        "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/preview/browser-control-broker.ts",
         "packages/web/src/server/preview/browser-control-callback.ts",
@@ -3780,6 +3781,7 @@
         "packages/web/src/server/routes/scheduled-tasks.ts",
         "packages/web/src/server/routes/session-folders.ts",
         "packages/web/src/server/routes/skills.ts",
+        "packages/web/src/server/routes/small-model.ts",
         "packages/web/src/server/routes/snippets.ts",
         "packages/web/src/server/routes/tunnel.ts",
         "packages/web/src/server/session-knowledge/session-knowledge-routes.ts",
@@ -4073,6 +4075,8 @@
         "packages/web/src/server/project-context/agent-memory.ts",
         "packages/web/src/server/queue/queue-runtime.ts",
         "packages/web/src/server/scheduled/scheduled-service.ts",
+        "packages/web/src/server/session-assist/nna-session-assist.ts",
+        "packages/web/src/server/session-assist/session-assist-runtime.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
@@ -4440,6 +4444,27 @@
     },
     {
       "path": "packages/web/src/server/lib/skills/skill-scan.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/small-model/provider-call.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/small-model/provider-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/small-model/service.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/small-model/service.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": []
@@ -5039,6 +5064,17 @@
       ]
     },
     {
+      "path": "packages/web/src/server/routes/small-model.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/lib/small-model/provider-call.ts",
+        "packages/web/src/server/lib/small-model/provider-ports.ts",
+        "packages/web/src/server/lib/small-model/service.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/routes/snippets.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5231,6 +5267,18 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/session-assist/nna-session-assist.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/routes/small-model.ts",
+        "packages/web/src/server/session-assist/session-assist-runtime.ts",
+        "packages/web/src/server/session-orchestration/session-harness-read-ports.ts",
+        "packages/web/src/server/session-orchestration/session-harness-write-ports.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/session-assist/session-assist-runtime.ts",
