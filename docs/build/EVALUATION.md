@@ -9,10 +9,10 @@ unit tests assert in-process). Entries are dated; re-verification supersedes.
 
 | Surface | Evidence |
 |---|---|
-| Artifacts-only package | `pnpm --filter @notnative/electron package -- --no-nsis` completed for `20260930-24`; Vite/CSS gate, server bundle, tray assets, settings registry, and Windows x64 `node-pty` runtime staged. |
+| Artifacts-only package | `pnpm --filter @notnative/electron package -- --no-nsis` completed for `20260930-25`; Vite/CSS gate, server bundle, tray assets, settings registry, and Windows x64 `node-pty` runtime staged. |
 | Build freshness | Generated content stamp covers 902 source/config files and 54 artifacts; the immediate `electron-build-stamp.mjs check` passed. `install.ps1` now rebuilds when this stamp is absent, stale, or mismatched. |
 | Static gates | UI/web typechecks, quality gates, version pairing, repository graph, and PowerShell parser check passed. Tests were not run. |
-| NNA registration | Read-only `nna nnd package status` reports a valid registered package at `%LOCALAPPDATA%\NotNativeDesktop`, version `20260928-41`; the `20260930-24` source checkout has not been installed or activated. |
+| NNA registration | Read-only `nna nnd package status` reports a valid registered package at `%LOCALAPPDATA%\NotNativeDesktop`, version `20260928-41`; the `20260930-25` source checkout has not been installed or activated. |
 
 **Not yet verified on this host**
 

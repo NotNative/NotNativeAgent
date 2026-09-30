@@ -3,7 +3,7 @@
  * Minimal desktop invoke face (doc 09 §11.1 v1 + D-09-3). Extracted from
  * main.mjs for file-cap hygiene: sender framing + the command allowlist
  * (desktop_open_external / desktop_get_boot_info / browser-control IPC /
- * relay dev-tunnel selection). Unknown commands never
+ * relay dev-tunnel selection / tray boot-health retry). Unknown commands never
  * throw raw — every path answers { ok, error }.
  */
 import { ipcMain, shell } from 'electron';

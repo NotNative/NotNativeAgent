@@ -50,17 +50,21 @@ remaining P12 slices ride after it.
      files: main/preload/dist-server/resources; node_modules asarUnpack NOT
      attempted for node-pty (D-09-5); artifact
      `NotNativeDesktop-Setup-<version>-win-x64.exe`.
-  5. On-system loop (the user's ask): package → install (NSIS silent) →
-     launch installed exe → verify `/health` + `/` + asset serve from the
-     installed root; results recorded in docs/build/EVALUATION.md.
+  5. On-system loop (the user's ask): package → install through the NNA-aware
+     `install.ps1` source installer → launch installed exe → verify `/health`
+     + `/` + asset serve from the installed root; results recorded in
+     docs/build/EVALUATION.md. The NSIS target is currently disabled pending
+     NNA-aware package registration/validation.
 
-- **P12b (in progress):** privileged `notnative-ui://app` protocol (§6.3) +
-  tray (§10.1) + close-to-tray + menus (§10.3) +
-  autostart/login-item (§10.6) + deep-link `openchamber://connect` handler
-  (§5 — link head stays openchamber:// per the sealed pairing payload) +
-  IPC catalog growth (§3.1: file read/write guards §12.2-12.5, notifications
-  §10.2) + renderer crash recovery (§12.1) + host chooser/multi-instance
-  remote (§2.3/2.8) + updater (§9) + Mini Chat (§4.6) + SSH bridge body
+- **P12b (in progress):** delivered: tray/close-to-tray/menus, scripted
+  source install with NNA package registration, window geometry persistence,
+  boot-failure recovery, bounded renderer crash recovery, native zoom lock,
+  and source/artifact build freshness. Remaining: privileged
+  `notnative-ui://app` protocol (§6.3), autostart/login-item (§10.6), deep-link
+  `openchamber://connect` handler (§5 — link head stays openchamber:// per the
+  sealed pairing payload), IPC catalog growth (§3.1: file read/write guards
+  §12.2-12.5, notifications §10.2), host chooser/multi-instance remote
+  (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
 ## B. Adaptation deltas (registered)
@@ -72,13 +76,17 @@ remaining P12 slices ride after it.
   no remote/env/default-host resolution ladder (§2.3) until multi-host
   management lands. UI has no desktopBoot.ts validation surface yet — it boots
   exactly like web (splash releases on first answered /auth probe).
-- **D-09-3** Preload v1 exposes `__NOTNATIVE_DESKTOP_INVOKE__` with an
-  allowlist: `desktop_open_external` (http/https only), `desktop_get_boot_info`.
-  No MessagePort relay protocol (§3.3), no `window.__OPENCHAMBER_DESKTOP__`
-  wholesale mirror.
-- **D-09-4** Tray/menus/notifications/deep-links/SSH/updater/Mini Chat/
-  window-restore/close-to-tray/keep-awake all deferred to P12b rows above.
-  Close = quit (window-all-closed quits the app after server dispose).
+- **D-09-3** Preload exposes `__NOTNATIVE_DESKTOP_INVOKE__`; the main-process
+  allowlist includes `desktop_open_external` (http/https only),
+  `desktop_get_boot_info`, browser-control register/unregister/claim/result,
+  relay dev-tunnel open/close/close-all, and the tray boot-health retry.
+  Browser-control and retry require the trusted main frame; the remaining
+  local commands use the local sender gate. No MessagePort relay protocol
+  (§3.3), no `window.__OPENCHAMBER_DESKTOP__` wholesale mirror.
+- **D-09-4** Tray, menu, close-to-tray, window geometry, boot-health retry,
+  renderer recovery, and native zoom lock are implemented. Notifications,
+  deep links, SSH, updater, Mini Chat, autostart, privileged UI protocol,
+  keep-awake, and multi-host routing remain deferred to P12b rows above.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
@@ -157,7 +165,9 @@ remaining P12 slices ride after it.
   The marker gives the SCRIPTED install product identity (userData
   `%APPDATA%\NotNativeDesktop`, AppUserModelId without `.dev`) while a repo
   checkout keeps the `… Dev` split — the two can co-exist on one machine.
-  NSIS packaging remains available but secondary.
+  NSIS packaging is currently disabled until the installer can perform
+  NNA-aware package registration/validation; `install.ps1` is the supported
+  install path.
 - **D-09-18** P12b-1 adversarial-audit fixes (tray + scripted install).
   Windows install.ps1: install REFUSES while the install-tree electron.exe
   is running (Get-Process path match; robocopy now also captures its stdout
@@ -177,7 +187,9 @@ remaining P12 slices ride after it.
   artifact match and rebuilds when the stamp is missing, stale, or mismatched.
   Electron shell: boot failure with a tray swaps the splash
   spinner for a local failure page (data: URL, error text + main.log path +
-  quit-and-reinstall guidance; textContent only, no HTML injection);
+  tray-quit/log guidance; textContent only, no HTML injection). If a server
+  handle exists, the page also offers a bounded health-check retry; failures
+  before a handle exists require quitting and restarting the app;
   trays' stopped state says "Server stopped"; recoverable renderer crashes
   auto-reload at most three times in a rolling 60-second window, while clean
   exits and other reasons only log. Open App remains the manual reload escape
@@ -216,6 +228,17 @@ remaining P12 slices ride after it.
   build passed; its app.asar contains the new state modules plus tray and IPC
   modules, and packaged terminal spawn and HTTP/WebSocket smokes passed.
   Actual installed-GUI geometry behavior still needs a visible shell probe.
+
+- **D-09-20** P12b resilience and freshness: the tray failure card rechecks
+  health only when the failed boot left a server handle; retry IPC is main-frame
+  gated and never starts a second server. Recoverable renderer exits reload at
+  most three times per rolling minute, and Chromium page zoom is pinned to
+  100%. `electron-package --no-nsis` writes a source/artifact content stamp;
+  `install.ps1 -SkipBuild` rebuilds unless version, build inputs, and all
+  required outputs match it. The artifact digest includes Vite's generated
+  JS/CSS assets and the staged native runtime. Auditors fixed the retry-card
+  replacement race, the pre-application wheel-zoom race, and omissions in the
+  initial artifact hash.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 
