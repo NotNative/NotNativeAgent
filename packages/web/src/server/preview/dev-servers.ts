@@ -44,14 +44,15 @@ function runCommand(command: string, args: string[]): Promise<string> {
 }
 
 export function createDevServerScanner(options: { run?: Run; platform?: NodeJS.Platform;
-  ownPorts?: () => number[]; ownPid?: number } = {}) {
+  ownPorts?: () => number[]; ownPid?: number; cacheMs?: number } = {}) {
   const run = options.run ?? runCommand;
   const platform = options.platform ?? process.platform;
   const ownPorts = options.ownPorts ?? (() => [ENV.port]);
   const ownPid = options.ownPid ?? process.pid;
   let cached: { at: number; servers: DevServer[] } | null = null;
+  const cacheMs = options.cacheMs ?? 3000;
   return async (): Promise<{ ok: true; servers: DevServer[] } | { ok: false; reason: string }> => {
-    if (cached && Date.now() - cached.at < 3000) return { ok: true, servers: cached.servers };
+    if (cached && Date.now() - cached.at < cacheMs) return { ok: true, servers: cached.servers };
     if (platform !== 'win32') return { ok: false, reason: 'no-listener-source' };
     let output: string;
     try { output = await run('netstat', ['-ano', '-p', 'TCP']); }
@@ -64,7 +65,7 @@ export function createDevServerScanner(options: { run?: Run; platform?: NodeJS.P
   };
 }
 
-function attachedHarnessPort(): number {
+export function attachedHarnessPort(): number {
   try {
     const url = new URL(ENV.nnaHarnessUrl);
     return url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : url.protocol === 'http:' ? 80 : 0;

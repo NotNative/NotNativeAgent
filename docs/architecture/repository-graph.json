@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:fae5236ec7f400279f83afba1f54212111aa75e93ae59f93113b92d35a314e59",
+  "source_digest": "sha256:594bc316527a205251c8f31b390bd78d3778e68e5ac19c5893c4262c5f6150c9",
   "counts": {
-    "modules": 574,
+    "modules": 575,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 193
+      "module_count": 194
     },
     {
       "id": "web-entry",
@@ -4072,6 +4072,7 @@
         "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
         "packages/web/src/server/preview/browser-control-broker.ts",
+        "packages/web/src/server/preview/dev-tunnel.ts",
         "packages/web/src/server/project-context/agent-memory.ts",
         "packages/web/src/server/queue/queue-runtime.ts",
         "packages/web/src/server/scheduled/scheduled-service.ts",
@@ -4643,6 +4644,19 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/preview/dev-tunnel.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/auth/url-tokens.ts",
+        "packages/web/src/server/lib/http/request-security.ts",
+        "packages/web/src/server/preview/dev-servers.ts",
+        "packages/web/src/server/terminal/wire.ts"
       ]
     },
     {

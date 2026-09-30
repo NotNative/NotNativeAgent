@@ -30,6 +30,7 @@ import { createNnaSessionAssistPorts } from './session-assist/nna-session-assist
 import { agentMemoryEnabled } from './project-context/agent-memory.ts';
 import { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
+import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tunnel.ts';
 import type { Server as HttpServer } from 'node:http';
 
 export async function startServer(): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
@@ -72,14 +73,12 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   let relayService: ReturnType<typeof startRelayHostService> | undefined;
   let tunnelPlane: ReturnType<typeof wireTunnelPlane> | undefined;
   let goalSafety: ReturnType<typeof bootAutomation> | undefined;
+  let devTunnelWiring: ReturnType<typeof attachDevTunnelWebsocket> | undefined;
   try {
     // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
     // upgrade gate (loopback stays enforced in the wire layer).
-    wiring = attachTerminalWebsocket(
-      server as HttpServer,
-      terminal,
-      (url, headers, method) => upgradeAllowedForRequest(url, headers, method),
-    );
+    wiring = attachTerminalWebsocket(server as HttpServer, terminal, upgradeAllowedForRequest);
+    devTunnelWiring = attachDevTunnelWebsocket(server as HttpServer, { availablePorts: freshDevServerPorts });
     terminal.startSweep();
     relayService = startRelayHostService();
     // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
@@ -91,7 +90,8 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   } catch (error) {
     // A failure after bind must not leave a listener accepting requests with
     // its authenticated NNA child already stopped by the outer boot guard.
-    rollbackServerStart(server as HttpServer, terminal, wiring, relayService, tunnelPlane, goalSafety);
+    rollbackServerStart(server as HttpServer, terminal, wiring, relayService, tunnelPlane, goalSafety,
+      devTunnelWiring);
     throw error;
   }
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
@@ -117,13 +117,15 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
 
 function rollbackServerStart(server: HttpServer, terminal: ReturnType<typeof createTerminalRuntime>,
   wiring?: ReturnType<typeof attachTerminalWebsocket>, relay?: ReturnType<typeof startRelayHostService>,
-  tunnel?: ReturnType<typeof wireTunnelPlane>, goal?: ReturnType<typeof bootAutomation>): void {
+  tunnel?: ReturnType<typeof wireTunnelPlane>, goal?: ReturnType<typeof bootAutomation>,
+  devTunnel?: ReturnType<typeof attachDevTunnelWebsocket>): void {
   server.close();
   terminal.dispose();
   wiring?.dispose();
   relay?.dispose();
   void tunnel?.dispose();
   goal?.dispose();
+  devTunnel?.dispose();
 }
 
 /** Demand signals drive the relay lifecycle; routes resolve this singleton lazily. */
