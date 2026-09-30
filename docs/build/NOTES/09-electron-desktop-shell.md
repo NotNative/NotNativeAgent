@@ -63,7 +63,8 @@ remaining P12 slices ride after it.
   Remaining: privileged `notnative-ui://app` protocol (§6.3), deep-link
   `openchamber://connect` handler (§5 — link head stays openchamber:// per the
   sealed pairing payload), IPC catalog growth (§3.1: file read/write guards
-  §12.2-12.5, notifications §10.2), host chooser/multi-instance remote
+  §12.2-12.5, native notification delivery/dedupe/click routing §10.2),
+  host chooser/multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
@@ -85,9 +86,10 @@ remaining P12 slices ride after it.
   (§3.3), no `window.__OPENCHAMBER_DESKTOP__` wholesale mirror.
 - **D-09-4** Tray, menu, close-to-tray, window geometry, boot-health retry,
   renderer recovery, native zoom lock, and Windows/macOS launch-at-login are
-  implemented. Notifications, deep links, SSH, updater, Mini Chat, privileged
-  UI protocol, keep-awake, and multi-host routing remain deferred to P12b rows
-  above.
+  implemented. The desktop main frame can request notification permission;
+  native delivery, dedupe, and click routing remain. Deep links, SSH, updater,
+  Mini Chat, privileged UI protocol, keep-awake, and multi-host routing remain
+  deferred to P12b rows above.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
@@ -249,6 +251,11 @@ remaining P12 slices ride after it.
   frame. Startup launches hide behind the tray when available; a missing tray
   falls back to a visible main window. The General settings control reports OS
   support and operation failures rather than optimistically changing its state.
+
+- **D-09-22** The default Electron session allows only `notifications` requests
+  from the main BrowserWindow's main frame at the exact loopback app origin.
+  Its permission-check handler applies the same window, frame, and origin gates;
+  the isolated preview session continues to deny every permission.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 

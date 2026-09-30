@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-12 first-party notification permission gate.** Electron
+  now allows notification permission only for the desktop main frame at the
+  exact loopback app origin; the embedded preview partition remains deny-all.
+  Adversarial review found and fixed a same-origin iframe permission-check
+  leak by requiring the main frame in both request and check handlers.
+  The v28 source installer completed and NNA reports it valid; health and web
+  asset checks passed. Typechecks, Electron syntax checks, and quality gates
+  passed. Native delivery, dedupe, and notification-click routing remain
+  incomplete; the visible permission interaction could not be exercised because
+  CUA exposes no native app windows. Tests were not run.
+
 - 2026-09-30 · **P12b-11 launch at login.** General settings now expose
   Windows/macOS login startup through a main-frame-gated Electron IPC command.
   Windows source installs preserve the main script argument and start hidden

@@ -422,6 +422,28 @@ function configurePreviewSession() {
   });
 }
 
+function isLocalAppOrigin(value) {
+  try { return new URL(value).origin === new URL(localOrigin()).origin; }
+  catch { return false; }
+}
+
+function configureMainSessionPermissions() {
+  const appSession = session.defaultSession;
+  appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const allowed = permission === 'notifications'
+      && contents === mainWindow?.webContents
+      && details.isMainFrame === true
+      && isLocalAppOrigin(details.requestingUrl);
+    callback(allowed);
+  });
+  appSession.setPermissionCheckHandler((contents, permission, requestingOrigin, details) => (
+    permission === 'notifications'
+      && contents === mainWindow?.webContents
+      && details.isMainFrame === true
+      && isLocalAppOrigin(requestingOrigin)
+  ));
+}
+
 function createMainWindow() {
   const restored = restoredWindowState();
   const win = new BrowserWindow({
@@ -584,6 +606,7 @@ async function boot() {
   console.log(`[shell] app start version=${app.getVersion()} packaged=${PACKAGED} platform=${process.platform} arch=${process.arch} argv=${JSON.stringify(process.argv)}`);
   chosenPort = await selectPort();
   applyServerEnv(chosenPort);
+  configureMainSessionPermissions();
   configurePreviewSession();
   invokeFace.register();
   trayController = createTrayController({
