@@ -1,5 +1,12 @@
 # NOTES 09 - Electron desktop shell
 
+P12b-49 adds `ssh-remote-command.mjs`, a bounded remote shell-script runner
+for the managed SSH work. It derives the executable, options, and destination
+from the validated catalog command, uses a fixed `sh -s` remote command, and
+sends script bytes through stdin with the local shell disabled. Scripts and
+captured output are bounded, and each command has a maximum deadline. The
+current external-server tunnel path does not use this runner yet.
+
 P12b-46 starts native updater work with `updater-policy.mjs`: production feed
 selection defaults to GitHub, a loopback feed is available only to a test
 build with runtime opt-in, Windows ARM64 selects its dedicated manifest, and

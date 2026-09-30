@@ -79,7 +79,7 @@ function safeOption(flag, value) {
   // equals form lets a quoted `ProxyCommand /bin/sh ...` reach ssh, where
   // OpenSSH executes it through a local shell.
   const option = value.trim().split(/[=\s]/u, 1)[0];
-  return !/^(?:Control\w*|BatchMode|ProxyCommand|LocalCommand|PermitLocalCommand|KnownHostsCommand|PKCS11Provider|SecurityKeyProvider|RemoteCommand)$/iu.test(option);
+  return !/^(?:Control\w*|BatchMode|ProxyCommand|LocalCommand|PermitLocalCommand|KnownHostsCommand|PKCS11Provider|SecurityKeyProvider|RemoteCommand|SessionType|StdinNull)$/iu.test(option);
 }
 
 /** Strict SSH argv parser: exactly one destination, no remote command tail. */

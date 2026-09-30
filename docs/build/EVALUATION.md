@@ -1,5 +1,13 @@
 # Evaluation Log — working / broken on this system
 
+## 2026-09-30 - P12b-49 bounded SSH remote-command runner (20260930-70)
+
+| Area | Result |
+|---|---|
+| Invocation | Parsed saved SSH configuration; fixed `sh -s` command; script sent over stdin with `shell:false`. |
+| Bounds | 256 KiB script, 512 KiB stdout, 32 KiB stderr, and a bounded 1 second–10 minute execution deadline. |
+| Verification | Focused tests pass 4/4; full Electron tests pass 179/179 and workspace typechecks pass. No remote host was available; provisioning has not yet been connected to this runner. |
+
 ## 2026-09-30 - P12b-46 updater policy primitives (20260930-67)
 
 | Area | Result |

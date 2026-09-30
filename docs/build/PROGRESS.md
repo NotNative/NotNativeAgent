@@ -2,6 +2,17 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-49 bounded SSH remote-command runner (20260930-70)
+
+Added a packaged remote-command primitive for managed SSH provisioning. It
+uses the sanitized saved destination and fixed `sh -s` remote command, sends
+scripts on stdin without a local shell, and bounds scripts, output, and process
+time. Adversarial review fixed `StdinNull`/`SessionType` options that could
+silently suppress script execution, trailing output loss on `exit`, and an
+unhandled asynchronous stdin `EPIPE`. Four focused tests and the full Electron
+suite pass. Managed package installation, server startup, forward adoption,
+and disconnect cleanup still need to consume this runner.
+
 ## 2026-09-30 · P12b-46 updater policy primitives (20260930-67)
 
 Added the deterministic native updater policy base: production GitHub feed
