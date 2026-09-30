@@ -23,6 +23,7 @@ import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAp
 import { createNativeNotifications } from './native-notifications.mjs';
 import { createUiProtocolHandler } from './ui-protocol.mjs';
 import { createFileUtilities } from './file-utilities.mjs';
+import { createLocalPathUtilities } from './local-paths.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -562,6 +563,7 @@ const nativeNotifications = createNativeNotifications({
 const fileUtilities = createFileUtilities({
   homeDir: os.homedir(), tempDir: os.tmpdir(), dialog, getWindow: () => mainWindow,
 });
+const localPathUtilities = createLocalPathUtilities({ shell });
 
 /** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
 function quitFromTray() {
@@ -589,6 +591,7 @@ const invokeFace = createInvokeFace({
   mainContents: () => mainWindow?.webContents,
   nativeNotifications,
   fileUtilities: () => fileUtilities,
+  localPathUtilities: () => localPathUtilities,
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
   retryServer: retryServerFromFailurePage,

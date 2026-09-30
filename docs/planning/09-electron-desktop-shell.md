@@ -1484,7 +1484,7 @@ on load, #04). The browser panel has its own renderer-side crash budget
 (src: main.mjs)
 1. Path required; `path.resolve`.
 2. Under `$HOME` (inclusive of `$HOME` itself) OR `os.tmpdir()`; else `'File is outside the allowed workspace'`. (Defense in depth behind the IPC origin gate: even the app's own UI — or a prompt-injected agent — cannot read credential stores.)
-3. Denied relative segments under home (exact or as a path prefix): `.ssh`, `.aws`, `.gnupg`, `.gpg`, `.config/gh`, `.config/openchamber/credentials`; basename checks: `.env`, `.env.<anything>`, `*.pem`, `*.key` → `'Access to this path is not allowed'`.
+3. Denied relative segments under home (exact or as a path prefix): `.ssh`, `.aws`, `.gnupg`, `.gpg`, `.config/gh`, `.config/openchamber/credentials`, `.azure`, `.docker`, `.kube`, `.config/gcloud`; basename checks: `.npmrc`, `.netrc`, `.git-credentials`, `.gitconfig`, `.pypirc`, `.pgpass`, `.my.cnf`, `.env`, `.env.<anything>`, `*.pem`, `*.key` → `'Access to this path is not allowed'`.
 4. Size limit 50 MB (`'File is too large. Maximum size is 50MB.'`).
 5. Read → `{ mime, base64, size }`; MIME map: png→image/png, jpg/jpeg, gif, webp, svg+xml, bmp, ico→image/x-icon, pdf, txt, md→text/markdown, json, js→text/javascript, ts/tsx→text/typescript(+jsx), jsx, html, css, py→text/x-python; default `application/octet-stream`.
 

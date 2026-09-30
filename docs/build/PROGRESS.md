@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-14 validated desktop local-path actions.** The shell now
+  validates readable files and traversable directories before open/reveal,
+  rejects special files, surfaces resolved Electron shell failures, and uses
+  argument-vector app launches only on macOS. The shared UI wrappers require
+  Electron IPC plus a local loopback or packaged `notnative-ui://app` origin;
+  path IPC also requires the desktop main frame. Focused Electron/UI tests and
+  workspace typecheck pass. Adversarial re-review caught and fixed a frame-list
+  confusion that could grant a remote main frame local privileges when a
+  trusted local child frame was also present; build gates passed after repair.
+
 - 2026-09-30 · **P12b-13 guarded file utilities and custom-origin IPC.** The
   desktop main frame can read bounded files under the home/temp roots and save
   Markdown through the native picker. Credential directories/files are denied,

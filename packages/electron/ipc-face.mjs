@@ -7,7 +7,7 @@
  * throw raw — every path answers { ok, error }.
  */
 import { ipcMain, shell } from 'electron';
-import { matchesTrustedOrigin } from './trusted-origin.mjs';
+import { matchesDesktopLocalOrigin, matchesTrustedOrigin } from './trusted-origin.mjs';
 
 export function senderFrameUrls(event) {
   const urls = [];
@@ -33,6 +33,17 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
     return contents && event.sender === contents && frame && main
       && frame.processId === main.processId && frame.routingId === main.routingId
       && isLocalSender(event);
+  }
+
+  function isDesktopLocalMainSender(event) {
+    const contents = input.mainContents();
+    const frame = event.senderFrame;
+    const main = contents?.mainFrame;
+    if (!contents || event.sender !== contents || !frame || !main
+      || frame.processId !== main.processId || frame.routingId !== main.routingId) return false;
+    // Authorize the actual invoking main frame URL. event.frames can contain
+    // trusted child frames and must not make a remote top-level page local.
+    return matchesDesktopLocalOrigin(frame.url, input.origin(), input.uiOrigin?.());
   }
 
   function dropBrowserClient(contents) {
@@ -103,13 +114,20 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
 
   async function runInvokeCommand(command, payload, event) {
     if (command === 'desktop_read_file' || command === 'desktop_save_markdown_file') {
-      if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const files = input.fileUtilities?.();
       if (!files) return { ok: false, error: 'file-utilities-unavailable' };
       if (command === 'desktop_read_file') {
         return { ok: true, result: await files.readFile(payload?.path) };
       }
       return { ok: true, result: await files.saveMarkdown(payload?.defaultFileName, payload?.content) };
+    }
+    if (command === 'desktop_open_path' || command === 'desktop_reveal_path') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      const paths = input.localPathUtilities?.();
+      if (!paths) return { ok: false, error: 'local-path-utilities-unavailable' };
+      if (command === 'desktop_open_path') return { ok: true, result: await paths.open(payload?.path, payload?.app) };
+      return { ok: true, result: await paths.reveal(payload?.path) };
     }
     if (command === 'desktop_notify') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
