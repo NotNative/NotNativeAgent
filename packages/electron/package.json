@@ -25,6 +25,7 @@
       "desktop-identity.mjs",
       "deep-links.mjs",
       "desktop-pairing.mjs",
+      "host-probe.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",

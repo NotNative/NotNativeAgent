@@ -80,6 +80,10 @@ remaining P12 slices ride after it.
   redirects, redeems once, and stores the client token in the validated host
   catalog while holding the shared catalog mutation lock. Relay-only import and
   switching the running app to a remote host remain pending.
+  The bounded Electron host probe now implements the identity-first,
+  compatibility/auth checks and unreachable-only retry policy required by §2.6;
+  main boot routing and the matching server compatibility endpoint are still
+  pending.
   Remaining: relay-only pairing and `openchamber://host` routing, remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
@@ -155,6 +159,13 @@ remaining P12 slices ride after it.
   redirects are rejected to keep the secret on the approved origin. Redemption
   is serialized and shares a lock with host-catalog IPC through persistence,
   preventing concurrent UI updates from exceeding the catalog cap.
+- **D-09-31** Electron's host probe is implemented as an isolated, testable
+  preflight. When an expected server id is available, it checks `/health`
+  without credentials before bearer-bearing requests. `/api/version` must
+  advertise `api.runtime-url.v1`, and `/auth/session` must succeed. Fetch and
+  bounded response reads share a deadline; only unreachable probes receive one
+  longer retry. The probe is groundwork only until boot routing and the API
+  compatibility surface are wired.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
