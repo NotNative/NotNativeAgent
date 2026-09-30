@@ -104,8 +104,11 @@ remaining P12 slices ride after it.
   tolerates an in-flight pairing catalog lock, and main verifies the descriptor
   and credentials did not change after probing. Standalone servers admit the
   exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
-  use the validated direct switch path. Remaining: mixed direct/relay fallback
-  and remaining IPC catalog growth (§3.1),
+  use the validated direct switch path. Mixed direct/relay pairing links now
+  disclose every approved recipient before network access, probe direct
+  candidates first, and fall back to their supplied relay only when no direct
+  health/identity check passes. Relay pairing retains the catalog lock and
+  grant-free persistence rules. Remaining: IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -230,6 +233,12 @@ remaining P12 slices ride after it.
   request deadline and 64 KiB response bound, validates the returned client
   token, and closes the tunnel in `finally`. Grant-free catalog and runtime
   integration are recorded in D-09-40.
+- **D-09-41** Mixed pairing links disclose direct and encrypted relay
+  destinations in one native consent prompt. Direct candidates are probed in
+  priority order; only when none pass health and expected-identity checks does
+  redemption fall back through the relay bridge. The existing catalog lock,
+  capacity checks, and grant-free relay persistence remain in force. At catalog
+  capacity, duplicate detection also matches an already-saved relay server id.
 - **D-09-40** Saved relay-only defaults keep Electron's injected boot runtime on
   the local server with a `relay-pending` outcome. The trusted renderer probes
   the stored descriptor over E2EE, then asks main to confirm the same relay key,

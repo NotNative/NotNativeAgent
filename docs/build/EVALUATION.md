@@ -3,6 +3,23 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-31 mixed direct/relay pairing fallback (20260930-52)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Mixed pairing fallback | Focused Electron pairing tests cover direct-first selection, relay fallback after unreachable or identity-mismatched direct endpoints, one consent prompt with query redaction, grant-free persistence, and re-pairing an existing relay host at the 100-host limit. |
+| Adversarial review | Review found and fixed duplicate detection missing an existing relay identity at catalog capacity; regression test added. No other concrete defects were confirmed. |
+| Verification | Focused Electron pairing suite passes 20/20. Full quality gates, packaging, and graph checks are recorded after this entry is sealed. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live relay pairing | No connected relay endpoint was used; transport behavior is covered by the existing renderer relay bridge tests and importer tests. |
+| Installed native GUI | This slice has not run the installer or visually exercised a native Electron window. |
+
 ## 2026-09-30 - P12b-30 saved relay host switching (20260930-51)
 
 **Verified working**

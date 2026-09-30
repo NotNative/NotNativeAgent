@@ -92,6 +92,80 @@ test('relay-only pairing cancellation does not ask the renderer to redeem or mut
   assert.equal(state.writes.length, 0);
 });
 
+test('mixed pairing falls back to the disclosed relay after direct health checks fail', async () => {
+  const relayCandidate = {
+    type: 'relay', relayUrl: 'wss://relay.example/ws?ticket=private', serverId: 'relay-server',
+    hostEncPubJwk: { kty: 'EC', crv: 'P-256', x: 'pub-x', y: 'pub-y' }, grant: 'one-time-grant',
+  };
+  const pairing = payload({ candidates: [
+    { type: 'lan', url: 'http://192.168.1.20:57123' }, relayCandidate,
+  ] });
+  const state = setup({
+    fetchImpl: async () => new Response('unreachable', { status: 503 }),
+    redeemRelay: async ({ candidate }) => {
+      assert.equal(candidate, relayCandidate);
+      return { ok: true, clientToken: 'relay-client-token', serverLabel: 'Relay Studio' };
+    },
+  });
+  assert.deepEqual(await state.importer.importPairing(pairing), {
+    status: 'paired', hostId: 'host-new', url: 'relay://relay-server',
+  });
+  assert.deepEqual(state.calls.map((call) => call.url), ['http://192.168.1.20:57123/health']);
+  assert.equal(state.dialogs.length, 2, 'one consent dialog and one success notice');
+  assert.match(state.dialogs[0].detail, /relay\.example/u);
+  assert.match(state.dialogs[0].detail, /encrypted relay/u);
+  assert.doesNotMatch(state.dialogs[0].detail, /private/u);
+  assert.deepEqual(state.writes[0].hosts[0].relay, {
+    relayUrl: relayCandidate.relayUrl, serverId: relayCandidate.serverId,
+    hostEncPubJwk: relayCandidate.hostEncPubJwk,
+  });
+  assert.equal(JSON.stringify(state.writes).includes('one-time-grant'), false);
+});
+
+test('mixed pairing uses the relay only after direct candidates are unreachable', async () => {
+  const redeemed = [];
+  const relayCandidate = {
+    type: 'relay', relayUrl: 'wss://relay.example/ws', serverId: 'relay-server',
+    hostEncPubJwk: { kty: 'EC', crv: 'P-256', x: 'pub-x', y: 'pub-y' }, grant: 'grant',
+  };
+  const state = setup({
+    fetchImpl: async (url) => url.endsWith('/health')
+      ? Response.json({ ok: true, serverId: 'relay-server' })
+      : Response.json({ ok: true, clientToken: 'direct-token' }),
+    redeemRelay: async (input) => { redeemed.push(input); return { ok: true, clientToken: 'relay-token' }; },
+  });
+  const result = await state.importer.importPairing(payload({ candidates: [
+    { type: 'lan', url: 'https://studio.example' }, relayCandidate,
+  ] }));
+  assert.equal(result.status, 'paired');
+  assert.equal(redeemed.length, 0);
+  assert.equal(state.calls.some((call) => call.url.endsWith('/pairing/redeem')), true);
+  assert.equal(state.writes[0].hosts[0].clientToken, 'direct-token');
+});
+
+test('mixed pairing recognizes an already saved relay host when the catalog is full', async () => {
+  const relayCandidate = {
+    type: 'relay', relayUrl: 'wss://relay.example/ws', serverId: 'relay-server',
+    hostEncPubJwk: { kty: 'EC', crv: 'P-256', x: 'pub-x', y: 'pub-y' }, grant: 'grant',
+  };
+  const hosts = [
+    { id: 'existing-relay', url: 'relay://relay-server', serverId: 'relay-server', relay: { serverId: 'relay-server' } },
+    ...Array.from({ length: 99 }, (_, index) => ({ id: `other-${index}`, url: `https://other-${index}.example` })),
+  ];
+  const state = setup({
+    hosts,
+    fetchImpl: async () => new Response('unreachable', { status: 503 }),
+    redeemRelay: async () => ({ ok: true, clientToken: 'refreshed-token' }),
+  });
+  const result = await state.importer.importPairing(payload({ candidates: [
+    { type: 'lan', url: 'http://192.168.1.20:57123' }, relayCandidate,
+  ] }));
+  assert.equal(result.status, 'paired');
+  assert.equal(state.writes.length, 1);
+  assert.equal(state.writes[0].hosts.length, 100);
+  assert.equal(state.writes[0].hosts[0].id, 'existing-relay');
+});
+
 test('relay-only pairing reports server rate limits as try again later', async () => {
   const pairing = payload({ candidates: [{
     type: 'relay', relayUrl: 'wss://relay.example/ws', serverId: 'relay-server',

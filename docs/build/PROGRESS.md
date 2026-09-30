@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-31 mixed direct/relay pairing fallback.** Mixed pairing
+  links now disclose all direct candidates and the relay destination in the
+  native consent prompt. The importer probes direct addresses first and uses
+  the encrypted relay only when none pass health and identity checks; it saves
+  the relay descriptor and client token without retaining the one-time grant.
+  The adversarial review caught a full-catalog duplicate check that missed
+  already-saved relay identities; this now matches by server id. Focused
+  Electron pairing tests pass (20/20).
+
 - 2026-09-30 · **P12b-30 saved relay host switching and restore.** Remote
   Instances now identity-checks a saved relay descriptor, verifies API
   compatibility and authentication through E2EE, then adopts that same tunnel

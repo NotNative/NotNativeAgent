@@ -84,8 +84,8 @@ export function createDesktopPairingImporter({
     const expiresAt = Date.parse(payload?.expiresAt);
     if (!payload || payload.v !== 2 || !Number.isFinite(expiresAt) || expiresAt <= now()) return { status: 'expired' };
     const directCandidates = payload.candidates.filter((candidate) => candidate.type === 'lan' || candidate.type === 'tunnel');
+    const relayCandidate = payload.candidates.find((candidate) => candidate.type === 'relay');
     if (directCandidates.length === 0) {
-      const relayCandidate = payload.candidates.find((candidate) => candidate.type === 'relay');
       if (!relayCandidate || typeof redeemRelay !== 'function') {
         await message({ type: 'info', title: 'Relay-only pairing is not available yet', message: 'This link has no direct LAN or tunnel address.', detail: 'Use a pairing link that includes a direct address. Relay-only import is still in development.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
         return { status: 'relay-only' };
@@ -94,7 +94,9 @@ export function createDesktopPairingImporter({
     }
     const current = getHosts();
     const candidateUrls = new Set(directCandidates.map((candidate) => candidate.url));
-    const alreadySaved = current.hosts.some((host) => candidateUrls.has(host.url) || candidateUrls.has(host.apiUrl));
+    const relayServerId = safeText(relayCandidate?.serverId, 256);
+    const alreadySaved = current.hosts.some((host) => candidateUrls.has(host.url) || candidateUrls.has(host.apiUrl)
+      || (relayServerId && (host.serverId === relayServerId || host.relay?.serverId === relayServerId)));
     if (!alreadySaved && current.hosts.length >= 100) {
       await message({ type: 'error', title: 'Host list is full', message: 'Remove a saved host before adding this server.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
       return { status: 'catalog-full' };
@@ -105,10 +107,11 @@ export function createDesktopPairingImporter({
     // bounded candidate set before consent so fallback cannot silently change
     // the server receiving the credential.
     const previews = directCandidates.map((candidate) => redactedPreview(candidate.url));
+    if (relayCandidate) previews.push(`encrypted relay${relayCandidate.relayUrl ? ` ${redactedPreview(relayCandidate.relayUrl)}` : ''}`);
     const consent = await message({
       type: 'warning', title: 'Connect to remote server?',
       message: `Connect to ${label}${payload.fingerprint ? ` (${safeText(payload.fingerprint, 256)})` : ''}?`,
-      detail: `This adds a saved remote instance and stores its client token on this device. The desktop will try these addresses in order and send the pairing secret to the first one that responds: ${previews.join(', ')}. Continue only if you trust these servers and started this connection yourself.`,
+      detail: `This adds a saved remote instance and stores its client token on this device. The desktop will check these addresses in order and send the pairing secret to the first reachable server: ${previews.join(', ')}. If direct addresses are unreachable, it may use the encrypted relay. Continue only if you trust these servers and started this connection yourself.`,
       buttons: ['Connect', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
     });
     if (consent?.response !== 0) return { status: 'cancelled' };
@@ -137,6 +140,9 @@ export function createDesktopPairingImporter({
       } catch { /* try the next explicitly supplied candidate */ }
     }
     if (!candidateUrl) {
+      if (relayCandidate && typeof redeemRelay === 'function') {
+        return performRelayOnlyImport(payload, relayCandidate, { consented: true });
+      }
       await message({ type: 'error', title: 'Could not reach server', message: 'None of the connection addresses answered a valid health check.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
       return { status: 'unreachable' };
     }
@@ -232,16 +238,18 @@ export function createDesktopPairingImporter({
     } finally { releaseLock(); }
   }
 
-  async function performRelayOnlyImport(payload, candidate) {
+  async function performRelayOnlyImport(payload, candidate, { consented = false } = {}) {
     const label = safeText(payload.label, 256) || 'this server';
-    const relayPreview = redactedPreview(candidate.relayUrl);
-    const consent = await message({
-      type: 'warning', title: 'Connect to remote server?',
-      message: `Connect to ${label}${payload.fingerprint ? ` (${safeText(payload.fingerprint, 256)})` : ''}?`,
-      detail: `This link has no direct address. The desktop will use the encrypted relay at ${relayPreview} for the pairing request and save this relay identity on this device. Continue only if you trust this server and started this connection yourself.`,
-      buttons: ['Connect', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
-    });
-    if (consent?.response !== 0) return { status: 'cancelled' };
+    if (!consented) {
+      const relayPreview = redactedPreview(candidate.relayUrl);
+      const consent = await message({
+        type: 'warning', title: 'Connect to remote server?',
+        message: `Connect to ${label}${payload.fingerprint ? ` (${safeText(payload.fingerprint, 256)})` : ''}?`,
+        detail: `This link has no direct address. The desktop will use the encrypted relay at ${relayPreview} for the pairing request and save this relay identity on this device. Continue only if you trust this server and started this connection yourself.`,
+        buttons: ['Connect', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+      });
+      if (consent?.response !== 0) return { status: 'cancelled' };
+    }
     if (Date.parse(payload.expiresAt) <= now()) return { status: 'expired' };
 
     const releaseHostConfigLock = acquireHostConfigLock?.();
