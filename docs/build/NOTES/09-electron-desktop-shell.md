@@ -112,10 +112,21 @@ remaining P12 slices ride after it.
   disclose every approved recipient before network access, probe direct
   candidates first, and fall back to their supplied relay only when no direct
   health/identity check passes. Relay pairing retains the catalog lock and
-  grant-free persistence rules. Remaining: IPC catalog growth (§3.1),
+  grant-free persistence rules. The SSH instance catalog foundation now parses
+  shell-free SSH commands, sanitizes persisted entries, and reconciles SSH ids
+  with saved-host defaults atomically. It deliberately blocks `-F`, `-I`,
+  `ProxyCommand`, `LocalCommand`, `RemoteCommand`, `KnownHostsCommand`, and provider-loading
+  options; arbitrary SSH config files and executable providers are not accepted
+  by this contract. Remaining: IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
+
+- **D-09-45** SSH definitions are parsed as argv without invoking a shell.
+  Executable config/provider hooks, remote-command options, and config-file flags are rejected, secrets
+  are persisted only under explicit settings-storage consent, and forwarding
+  hosts are normalized before specification construction. Catalog updates
+  reconcile saved-host ids and defaults in one atomic preferences write.
 
 - **D-09-44** `desktop_host_probe` is exposed only to the trusted local main
   frame and accepts a saved host id rather than a renderer-selected URL. Main

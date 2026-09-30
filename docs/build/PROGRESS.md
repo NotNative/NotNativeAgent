@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-35 SSH instance catalog foundation.** Added bounded
+  SSH instance normalization, a shell-free argv tokenizer/parser, and local
+  main-frame IPC for reading and saving definitions. Saving reconciles SSH
+  ids with saved-host records through the atomic preferences writer; removed
+  SSH defaults fall back to local, and collisions with direct/relay hosts are
+  rejected. Secrets are retained only when settings storage is explicitly
+  enabled. The adversarial audit blocked quoted/attached OpenSSH config and
+  provider-loading options, constrained forwarding hosts, and preserved
+  backslashes in quoted Windows paths. Focused SSH + IPC tests pass 23/23.
+  This establishes the persisted catalog contract; connection lifecycle,
+  process control, SSH config import, and UI wiring remain.
+
 - 2026-09-30 · **P12b-34 saved-host probe IPC.** Added the §3.1 remote-host
   probe command for the trusted local main frame. Callers provide only a saved
   host id; Electron selects its sanitized URL and stored credentials, preserving

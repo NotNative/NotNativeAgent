@@ -25,6 +25,7 @@ import { createUiProtocolHandler } from './ui-protocol.mjs';
 import { createFileUtilities } from './file-utilities.mjs';
 import { createLocalPathUtilities } from './local-paths.mjs';
 import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
+import { reconcileDesktopSshHosts, sanitizeDesktopSshInstances } from './ssh-instances.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
@@ -260,6 +261,32 @@ function writeStoredHosts(input) {
   // Throw to IPC so a disk failure is visible to the caller.
   writeShellPrefs(prefsFile(), patch);
   return config;
+}
+
+function readStoredSshInstances() {
+  try { return sanitizeDesktopSshInstances(readShellPrefs(prefsFile()).desktopSshInstances ?? []); }
+  catch { return []; }
+}
+
+function writeStoredSshInstances(input) {
+  if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };
+  const previous = readStoredSshInstances();
+  const hosts = readStoredHosts();
+  let reconciled;
+  try {
+    reconciled = reconcileDesktopSshHosts(input, previous.map((instance) => instance.id), hosts);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'desktop-ssh-host-id-collision') return { ok: false, error: error.message };
+    throw error;
+  }
+  const nextHosts = sanitizeDesktopHostsConfig(reconciled.hostsConfig);
+  writeShellPrefs(prefsFile(), {
+    desktopSshInstances: reconciled.instances,
+    desktopHosts: nextHosts.hosts,
+    desktopDefaultHostId: nextHosts.defaultHostId,
+    desktopInitialHostChoiceCompleted: nextHosts.initialHostChoiceCompleted,
+  });
+  return { instances: reconciled.instances, hosts: nextHosts.hosts };
 }
 
 function writeStoredPort(port) {
@@ -875,6 +902,7 @@ const invokeFace = createInvokeFace({
       ? { ok: false, error: 'desktop-hosts-busy' }
       : { ok: true, result: writeStoredHosts(input) },
   },
+  sshInstances: { get: readStoredSshInstances, set: writeStoredSshInstances },
   hostProbe: probeRemoteHost,
   identity: {
     getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),

@@ -3,6 +3,22 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-35 SSH catalog foundation (20260930-56)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| SSH command parser and normalizer | Focused parser tests cover one-destination argv parsing, command-tail and unsafe-option rejection, quoted Windows paths, forwarding-host constraints, field bounds, secret-storage opt-in, and saved-host reconciliation. |
+| Local IPC | IPC tests confirm catalog reads/writes require the trusted desktop main frame. |
+| Adversarial review | Closed concrete config/provider execution bypasses (`-F`, `-I`, command hooks), colon forwarding-field injection, and quoted Windows path corruption. Combined SSH + IPC suite passes 23/23. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| SSH connection lifecycle | Catalog only; transport/process supervision, reconnect and disconnect handling, config import, and renderer wiring remain. |
+
 ## 2026-09-30 - P12b-34 saved-host probe IPC (20260930-55)
 
 **Verified working**

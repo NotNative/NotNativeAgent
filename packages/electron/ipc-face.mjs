@@ -207,6 +207,20 @@ export function createInvokeFace(input, dependencies) {
         url, clientToken: host.clientToken, requestHeaders: host.requestHeaders, expectedServerId: host.serverId,
       }) };
     }
+    if (command === 'desktop_ssh_instances_get') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.get) return { ok: false, error: 'desktop-ssh-unavailable' };
+      return { ok: true, result: { instances: input.sshInstances.get() } };
+    }
+    if (command === 'desktop_ssh_instances_set') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.set || !payload?.config || !Array.isArray(payload.config.instances)) {
+        return { ok: false, error: 'desktop-ssh-unavailable' };
+      }
+      const result = input.sshInstances.set(payload.config.instances);
+      if (result?.ok === false && typeof result.error === 'string') return result;
+      return { ok: true, result };
+    }
     if (command === 'desktop_pairing_redeem_relay_complete') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const bridge = input.relayPairingBridge;

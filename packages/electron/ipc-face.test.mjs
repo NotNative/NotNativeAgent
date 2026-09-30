@@ -182,6 +182,27 @@ test('host probe uses only saved host credentials and cannot target an arbitrary
   assert.equal(calls.length, 1);
 });
 
+test('SSH instance catalog IPC is local-main-frame-only and persists through the injected store', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, sshInstances: {
+    get: () => [{ id: 'ssh-studio' }],
+    set: (instances) => { calls.push(instances); return { instances }; },
+  } });
+  assert.deepEqual((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_ssh_instances_get')).result,
+    { instances: [{ id: 'ssh-studio' }] });
+  const set = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_ssh_instances_set', {
+    config: { instances: [{ id: 'ssh-next' }] },
+  });
+  assert.deepEqual(set.result, { instances: [{ id: 'ssh-next' }] });
+  assert.deepEqual(calls, [[{ id: 'ssh-next' }]]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_ssh_instances_set', {
+    config: { instances: [{ id: 'ssh-stolen' }] },
+  });
+  assert.equal(remote.error, 'sender-not-allowed');
+  assert.equal(calls.length, 1);
+});
+
 test('boot runtime configuration is returned only to the desktop local main frame', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const bootConfig = { apiBaseUrl: 'https://remote.example', clientToken: 'active-token', runtimeKey: 'host:remote' };

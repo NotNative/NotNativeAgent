@@ -22,6 +22,7 @@
       "local-paths.mjs",
       "windows-file-replace.mjs",
       "host-config.mjs",
+      "ssh-instances.mjs",
       "desktop-identity.mjs",
       "deep-links.mjs",
       "desktop-pairing.mjs",
