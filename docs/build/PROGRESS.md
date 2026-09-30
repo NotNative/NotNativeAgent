@@ -21,6 +21,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+- 2026-09-30 · **P12b-10 installed package walkthrough (20260930-25).** The
+  NNA-aware source installer completed, and `nna nnd package status` reported
+  the installed package registered and valid at version 20260930-25. The
+  installed Electron server bound its stored loopback port, health returned
+  version 20260930.0.25, and the UI document plus its JS/CSS assets returned
+  HTTP 200; the browser rendered the UI. The desktop host exposed no native
+  application windows to CUA, so the native-window visual walkthrough remains
+  unverified. Installer/runtime adversarial audit found and corrected the stale
+  evaluation record; no runtime defect was confirmed.
 
 - 2026-09-30 · **P12b-9 content-verified Electron build stamp.** The artifact
   pipeline now writes a deterministic stamp over the source inputs, package
