@@ -80,7 +80,10 @@ export function DesktopSshCatalog(): ReactNode {
     }
     const active = result.activeHostId === hostId;
     setActionMessage(active
-      ? hostId === 'local' ? 'Using this computer.' : 'Using the SSH instance.'
+      ? hostId === 'local' ? 'Using this computer.'
+        : result.bootOutcome && typeof result.bootOutcome === 'object'
+          && (result.bootOutcome as { status?: unknown }).status === 'auth'
+          ? 'Sign in to use this SSH instance.' : 'Using the SSH instance.'
       : 'The SSH server could not be reached or authenticated; this computer remains active.');
     return active;
   };
@@ -126,8 +129,11 @@ export function DesktopSshCatalog(): ReactNode {
   const activeSshHostId = activeRuntimeKey.startsWith('ssh:') ? activeRuntimeKey.slice(4) : '';
   const activeSshPhase = activeSshHostId ? store.statuses[activeSshHostId]?.phase ?? '' : '';
   useEffect(() => {
-    if (activeSshPhase === 'error' || activeSshPhase === 'idle') void selectRuntime('local');
-  }, [activeRuntimeKey, activeSshPhase]);
+    // A tunnel can fail while another catalog action is in flight. Retry the
+    // fallback when that action releases the UI lock, or the SSH runtime can
+    // remain pointed at a dead forwarded port indefinitely.
+    if (!busy && (activeSshPhase === 'error' || activeSshPhase === 'idle')) void selectRuntime('local');
+  }, [activeRuntimeKey, activeSshPhase, busy]);
 
   return (
     <section className="mt-5 border-t border-border/50 pt-4" aria-labelledby="desktop-ssh-catalog-title">

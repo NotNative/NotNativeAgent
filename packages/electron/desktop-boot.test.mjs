@@ -113,6 +113,22 @@ test('a ready SSH tunnel is probed and uses an SSH runtime key; unready markers 
   assert.equal(connected.bootOutcome.status, 'ok');
 });
 
+test('explicit host selection can open the auth gate for a verified host; boot still falls back locally', async () => {
+  const config = { hosts: [{ id: 'ssh-atlas', transport: 'ssh', url: 'http://127.0.0.1:48123' }], defaultHostId: 'ssh-atlas' };
+  const probeHost = async () => ({ status: 'auth' });
+  const boot = await resolveDesktopBootTarget({
+    config, localRuntime, localAvailable: true, probeHost, sshHostIds: [], connectedSshHostIds: ['ssh-atlas'],
+  });
+  assert.equal(boot.runtime.runtimeKey, 'local');
+  assert.equal(boot.bootOutcome.status, 'unreachable');
+  const selected = await resolveDesktopBootTarget({
+    config, localRuntime, localAvailable: true, probeHost, sshHostIds: [], connectedSshHostIds: ['ssh-atlas'],
+    allowAuthenticationPrompt: true,
+  });
+  assert.equal(selected.runtime.runtimeKey, 'ssh:ssh-atlas');
+  assert.equal(selected.bootOutcome.status, 'auth');
+});
+
 test('missing, invalid, and failed remotes fall back locally with a bounded boot outcome', async (t) => {
   await t.test('missing saved id', async () => {
     const result = await resolveDesktopBootTarget({ config: { hosts: [], defaultHostId: 'gone' }, localRuntime, localAvailable: true, probeHost: async () => { throw new Error('must not probe'); } });

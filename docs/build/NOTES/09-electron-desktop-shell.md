@@ -12,8 +12,11 @@ ready only after `/health` identifies `NotNativeDesktop`. Lifecycle IPC is
 local-main-frame-only and status events are buffered by preload. Removing an
 instance tears down its process; duplicate connects and remove/cancel/reconnect
 races have regression coverage. New entries target an existing remote server
-on port 57123. Managed remote install/start, password prompts, and adopting the
-tunnel as the active UI runtime remain outstanding.
+on port 57123. P12b-41 allows a ready tunnel to be probed and adopted as the
+active runtime. P12b-42 allows explicit selection to open the shared auth gate
+when the compatible endpoint requires login; startup still falls back locally.
+Managed remote install/start, desktop-specific password login issuance, and
+installed GUI acceptance remain outstanding.
 
 Doc 09 (1762 lines) is enormous (full parity = checklist §15 rows 1-14). This file
 carries the slice map + adaptation deltas. **P12a-v1 is the installable shell** —
@@ -141,7 +144,7 @@ remaining P12 slices ride after it.
   The Remote Instances page now edits SSH commands and imports direct `Host`
   aliases from the local SSH config through a bounded main-frame-only read;
   the external SSH connect/disconnect tunnel and status production now work.
-  Remaining: managed SSH install/start, password prompts, runtime adoption,
+  Remaining: managed SSH install/start, password-token issuance/persistence,
   plus general IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body

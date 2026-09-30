@@ -28,6 +28,7 @@ function bootFailureStatus(status) {
  * incompatible remotes fall back to the healthy local desktop server. */
 export async function resolveDesktopBootTarget({
   config, localRuntime, localAvailable, envTargetUrl = '', probeHost, sshHostIds = [], connectedSshHostIds = [],
+  allowAuthenticationPrompt = false,
 }) {
   const hasEnvTarget = typeof envTargetUrl === 'string' && Boolean(envTargetUrl.trim());
   const envTarget = normalizeTarget(envTargetUrl);
@@ -83,14 +84,14 @@ export async function resolveDesktopBootTarget({
       expectedServerId: host.serverId,
     });
   } catch { probe = { status: 'unreachable' }; }
-  if (probe.status === 'ok') return {
+  if (probe.status === 'ok' || (allowAuthenticationPrompt && probe.status === 'auth')) return {
     runtime: {
       apiBaseUrl: targetUrl,
       clientToken: host.clientToken ?? null,
       requestHeaders: host.requestHeaders ?? {},
       runtimeKey: host.transport === 'ssh' ? `ssh:${host.id}` : `host:${host.id}`,
     },
-    bootOutcome: { target: 'remote', status: 'ok', hostId, url: targetUrl },
+    bootOutcome: { target: 'remote', status: probe.status, hostId, url: targetUrl },
   };
   return localResult({
     localRuntime, localAvailable,

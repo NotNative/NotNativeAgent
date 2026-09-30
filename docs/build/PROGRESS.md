@@ -2,6 +2,20 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-42 SSH auth gate entry (20260930-63)
+
+Explicit selection of a connected, API-compatible remote now adopts its
+endpoint when the probe reports that login is required, letting the existing
+session gate prompt the user. Startup keeps its local fallback on the same auth
+response. The adversarial review confirmed the scope and fixed a tunnel-loss
+race where fallback could be skipped while another catalog operation was busy.
+It also traced an intermittent Windows SSH config-reader rejection to unsafe
+numeric inode comparisons; descriptor and path stats now use BigInt identity
+checks with a large-inode regression. Full Electron tests pass 155/155, full UI
+tests pass 1451/1451, and workspace typechecks pass. Password login
+issuance/persistence, managed remote install/start, and installed GUI
+acceptance remain open P12 work.
+
 ## 2026-09-30 · P12b-41 SSH runtime adoption (20260930-62)
 
 Ready SSH tunnels can now be probed and selected as active desktop runtimes,

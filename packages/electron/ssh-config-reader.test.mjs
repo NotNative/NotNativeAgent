@@ -67,3 +67,32 @@ test('rejects a descriptor that no longer identifies the checked in-home path', 
     } finally { fs.rmSync(outside, { force: true }); }
   });
 });
+
+test('compares large Windows-style file ids without losing integer precision', async () => {
+  await withHome(async (home) => {
+    const ssh = path.join(home, '.ssh');
+    fs.mkdirSync(ssh, { recursive: true });
+    fs.writeFileSync(path.join(ssh, 'config'), 'Host large-id\n');
+    const inode = 9_007_199_254_741_117n;
+    const fileSystem = new Proxy(fs, {
+      get(target, property) {
+        if (property === 'fstatSync' || property === 'statSync') {
+          const method = Reflect.get(target, property, target);
+          return (...args) => {
+            const stats = method.apply(target, args);
+            return new Proxy(stats, {
+              get(value, key) {
+                if (key === 'ino') return inode;
+                const member = Reflect.get(value, key, value);
+                return typeof member === 'function' ? member.bind(value) : member;
+              },
+            });
+          };
+        }
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    assert.match(await readDesktopSshConfigTree({ homeDir: home, fileSystem }), /Host large-id/u);
+  });
+});

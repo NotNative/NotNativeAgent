@@ -27,10 +27,11 @@ describe('DesktopSshCatalog', () => {
       if (command === 'desktopSshRefreshStatuses') return { ok: true, result: [] };
       if (command === 'desktop_host_switch') {
         const { hostId } = payload as { hostId: string };
+        const needsLogin = hostId === 'ssh-1';
         return { ok: true, result: {
           activeHostId: hostId,
           runtime: { apiBaseUrl: 'http://127.0.0.1:57123', clientToken: null, requestHeaders: {}, runtimeKey: hostId === 'local' ? 'local' : `ssh:${hostId}` },
-          bootOutcome: { target: hostId === 'local' ? 'local' : 'remote', status: 'ok' },
+          bootOutcome: { target: hostId === 'local' ? 'local' : 'remote', status: needsLogin ? 'auth' : 'ok' },
         } };
       }
       if (command === 'desktopSshConnect') return { ok: true, result: { id: 'ssh-1', phase: 'ready', startedByUs: true, retryAttempt: 0, requiresUserAction: false, updatedAtMs: Date.now() } };
@@ -118,6 +119,25 @@ describe('DesktopSshCatalog', () => {
     expect(invoke).toHaveBeenCalledWith('desktopSshConnect', { id: 'ssh-1' });
   });
 
+  it('adopts an authenticated SSH tunnel and directs the user to the session gate', async () => {
+    instances = [{ id: 'ssh-1', sshCommand: 'ssh dev@atlas.example', nickname: 'Atlas' }];
+    window.__NOTNATIVE_DESKTOP_EVENTS__ = {
+      onOpenSession: () => () => {},
+      onRelayPairingRequest: () => () => {},
+      onSshStatus: (handler) => {
+        queueMicrotask(() => handler({ id: 'ssh-1', phase: 'ready', localUrl: 'http://127.0.0.1:48123', startedByUs: true, retryAttempt: 0, requiresUserAction: false, updatedAtMs: Date.now() }));
+        return () => {};
+      },
+    };
+    await act(async () => { root!.render(<DesktopSshCatalog />); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => {
+      [...container!.querySelectorAll('button')].find((button) => button.textContent === 'Use instance')!.click();
+      await Promise.resolve(); await Promise.resolve();
+    });
+    expect(switchRuntimeEndpoint).toHaveBeenCalledWith(expect.objectContaining({ runtimeKey: 'ssh:ssh-1' }));
+    expect(container?.textContent).toContain('Sign in to use this SSH instance.');
+  });
+
   it('switches an active SSH runtime to local before removing its instance', async () => {
     instances = [{ id: 'ssh-1', sshCommand: 'ssh dev@atlas.example', nickname: 'Atlas' }];
     window.__NOTNATIVE_RUNTIME_KEY__ = 'ssh:ssh-1';
@@ -132,6 +152,55 @@ describe('DesktopSshCatalog', () => {
     expect(fallbackCall).toBeGreaterThanOrEqual(0);
     expect(removeCall).toBeGreaterThan(fallbackCall);
     expect(switchRuntimeEndpoint).toHaveBeenCalledWith(expect.objectContaining({ runtimeKey: 'local' }));
+    expect(window.__NOTNATIVE_RUNTIME_KEY__).toBe('local');
+  });
+
+  it('retries local fallback when the active tunnel fails during another catalog action', async () => {
+    instances = [
+      { id: 'ssh-1', sshCommand: 'ssh dev@atlas.example', nickname: 'Atlas' },
+      { id: 'ssh-2', sshCommand: 'ssh dev@other.example', nickname: 'Other' },
+    ];
+    window.__NOTNATIVE_RUNTIME_KEY__ = 'ssh:ssh-1';
+    let publishStatus!: (status: Record<string, unknown>) => void;
+    window.__NOTNATIVE_DESKTOP_EVENTS__ = {
+      onOpenSession: () => () => {},
+      onRelayPairingRequest: () => () => {},
+      onSshStatus: (handler) => {
+        publishStatus = handler as (status: Record<string, unknown>) => void;
+        return () => {};
+      },
+    };
+    let finishRemove!: (reply: { ok: true; result: { instances: unknown[] } }) => void;
+    invoke.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === 'desktopSshConfig') return { ok: true, result: { instances } };
+      if (command === 'desktopSshRefreshStatuses') return { ok: true, result: [] };
+      if (command === 'desktopSshRemoveInstance') {
+        return await new Promise((resolve) => { finishRemove = resolve; });
+      }
+      if (command === 'desktop_host_switch') {
+        const { hostId } = payload as { hostId: string };
+        return { ok: true, result: {
+          activeHostId: hostId,
+          runtime: { apiBaseUrl: 'http://127.0.0.1:57123', clientToken: null, requestHeaders: {}, runtimeKey: 'local' },
+          bootOutcome: { target: 'local', status: 'ok' },
+        } };
+      }
+      return { ok: false, error: 'unexpected-command' };
+    });
+    await act(async () => { root!.render(<DesktopSshCatalog />); await Promise.resolve(); await Promise.resolve(); });
+    const removeButtons = [...container!.querySelectorAll('button')].filter((button) => button.textContent === 'Remove');
+    act(() => removeButtons[1]!.click());
+    expect(invoke).toHaveBeenCalledWith('desktopSshRemoveInstance', { id: 'ssh-2' });
+    await act(async () => {
+      publishStatus({ id: 'ssh-1', phase: 'error', startedByUs: true, retryAttempt: 0, requiresUserAction: false, updatedAtMs: Date.now() });
+      await Promise.resolve();
+    });
+    expect(invoke.mock.calls.filter(([command]) => command === 'desktop_host_switch')).toHaveLength(0);
+    await act(async () => {
+      finishRemove({ ok: true, result: { instances: [instances[0]!] } });
+      await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    });
+    expect(invoke).toHaveBeenCalledWith('desktop_host_switch', { hostId: 'local' });
     expect(window.__NOTNATIVE_RUNTIME_KEY__).toBe('local');
   });
 });

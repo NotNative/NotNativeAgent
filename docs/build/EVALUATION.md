@@ -3,6 +3,23 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-42 SSH auth gate entry (20260930-63)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Explicit host selection | A compatible endpoint that returns an auth-required result is adopted only for explicit selection, so the shared session gate can render. Startup remains local on auth failure. |
+| Tunnel-loss fallback | Adversarial review reproduced a failure during a busy catalog action; fallback now runs after the action releases the lock. UI regression coverage passes. |
+| Automated checks | Full Electron tests pass 155/155; full UI tests pass 1451/1451; workspace typechecks pass. A BigInt inode regression covers Windows file IDs above JavaScript's safe integer range. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Password login issuance | The current session gate can accept the selected runtime; desktop-specific client-token issuance and persistence remain open. |
+| Remote provisioning and GUI | Managed remote install/start and installed-app acceptance remain open. |
+
 ## 2026-09-30 - P12b-41 SSH runtime adoption (20260930-62)
 
 **Verified working**

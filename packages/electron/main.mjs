@@ -761,7 +761,7 @@ function probeRemoteHost(options) {
   });
 }
 
-async function resolveBootTarget(config = readStoredHosts()) {
+async function resolveBootTarget(config = readStoredHosts(), { allowAuthenticationPrompt = false } = {}) {
   const connectedSsh = new Map(desktopSshTransport.getStatuses()
     .filter((status) => status.phase === 'ready' && typeof status.localUrl === 'string')
     .map((status) => [status.id, status]));
@@ -778,6 +778,7 @@ async function resolveBootTarget(config = readStoredHosts()) {
     probeHost: probeRemoteHost,
     sshHostIds: [...sshIds].filter((id) => !connectedSsh.has(id)),
     connectedSshHostIds,
+    allowAuthenticationPrompt,
   });
 }
 
@@ -858,12 +859,13 @@ async function switchDesktopHost(hostId) {
     const updated = writeStoredHosts({
       ...current, defaultHostId: hostId, initialHostChoiceCompleted: true,
     });
-    const selected = await resolveBootTarget(updated);
+    const selected = await resolveBootTarget(updated, { allowAuthenticationPrompt: true });
     desktopRuntimeConfig = selected.runtime;
     desktopBootOutcome = selected.bootOutcome;
     return { ok: true, result: {
       requestedHostId: hostId,
-      activeHostId: selected.bootOutcome.target === 'remote' && selected.bootOutcome.status === 'ok'
+      activeHostId: selected.bootOutcome.target === 'remote'
+        && ['ok', 'auth'].includes(selected.bootOutcome.status)
         ? selected.bootOutcome.hostId : 'local',
       runtime: selected.runtime,
       bootOutcome: selected.bootOutcome,

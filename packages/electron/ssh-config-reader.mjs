@@ -20,8 +20,8 @@ function sameFile(left, right) {
   // Fail closed when the platform cannot provide stable file identity. A
   // descriptor opened through a raced symlink must not inherit the path's
   // earlier containment check.
-  return Number.isSafeInteger(left.ino) && left.ino > 0
-    && Number.isSafeInteger(right.ino) && right.ino > 0
+  return typeof left.ino === 'bigint' && left.ino > 0n
+    && typeof right.ino === 'bigint' && right.ino > 0n
     && left.ino === right.ino && left.dev === right.dev;
 }
 
@@ -79,13 +79,15 @@ export async function readDesktopSshConfigTree({ homeDir = os.homedir(), fileSys
       // file cannot exceed the cap after a prior stat check.
       const noFollow = fileSystem.constants.O_NOFOLLOW ?? 0;
       descriptor = fileSystem.openSync(resolved, fileSystem.constants.O_RDONLY | noFollow);
-      const stat = fileSystem.fstatSync(descriptor);
+      const stat = fileSystem.fstatSync(descriptor, { bigint: true });
       // O_NOFOLLOW is not available on every supported platform (notably
       // Windows). Re-resolve and compare descriptor identity to close the
       // check/open race before accepting any bytes.
       const currentPath = fileSystem.realpathSync(resolved);
-      if (!inside(home, currentPath) || !sameFile(stat, fileSystem.statSync(currentPath))) return;
-      if (!stat.isFile() || stat.size < 0 || totalBytes + stat.size > MAX_TOTAL_BYTES) return;
+      const currentStat = fileSystem.statSync(currentPath, { bigint: true });
+      if (!inside(home, currentPath) || !sameFile(stat, currentStat)) return;
+      if (!stat.isFile() || stat.size < 0n || stat.size > BigInt(MAX_TOTAL_BYTES)
+        || totalBytes + Number(stat.size) > MAX_TOTAL_BYTES) return;
       const chunks = [];
       let bytesRead = 0;
       const limit = MAX_TOTAL_BYTES - totalBytes;
