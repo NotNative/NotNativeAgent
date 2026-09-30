@@ -109,17 +109,28 @@ async function shareSavedPlan(scope: PlanActionScope, action: 'share' | 'unshare
   } finally { if (scope.live.current) scope.setBusy(false); }
 }
 
-export function ContextPlans({ projectId, directory, visible, query = '', retainedDraft, onDraftChange }: {
+export function ContextPlans({ projectId, directory, visible, query = '', retainedDraft, onDraftChange,
+  pinnedIDs = [], onTogglePlanPin, pinBusy = false, pinError }: {
   projectId: string; directory: string; visible: boolean; query?: string; retainedDraft?: ContextPlanDraft;
   onDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
+  pinnedIDs?: string[];
+  onTogglePlanPin?: (planID: string, pinned: boolean) => void;
+  pinBusy?: boolean;
+  pinError?: string | null;
 }): ReactNode {
   return <ContextPlansForProject key={projectId} projectId={projectId} directory={directory} visible={visible} query={query}
-    retainedDraft={retainedDraft} onDraftChange={onDraftChange} />;
+    retainedDraft={retainedDraft} onDraftChange={onDraftChange} pinnedIDs={pinnedIDs}
+    onTogglePlanPin={onTogglePlanPin} pinBusy={pinBusy} pinError={pinError} />;
 }
 
-function ContextPlansForProject({ projectId, directory, visible, query, retainedDraft, onDraftChange }: {
+function ContextPlansForProject({ projectId, directory, visible, query, retainedDraft, onDraftChange,
+  pinnedIDs, onTogglePlanPin, pinBusy, pinError }: {
   projectId: string; directory: string; visible: boolean; query: string; retainedDraft?: ContextPlanDraft;
   onDraftChange?: (projectId: string, draft: ContextPlanDraft) => void;
+  pinnedIDs?: string[];
+  onTogglePlanPin?: (planID: string, pinned: boolean) => void;
+  pinBusy?: boolean;
+  pinError?: string | null;
 }): ReactNode {
   const { context, setContext, error, setError, loading, refresh, sequence } = useSavedPlanList(projectId, directory, visible);
   const [draft, setDraft] = useState<ContextPlanDraft>(() => retainedDraft ?? { title: '', body: '', selectedId: null, raw: '' });
@@ -143,23 +154,31 @@ function ContextPlansForProject({ projectId, directory, visible, query, retained
     draft={draft} setDraft={setDraft} open={(planId) => openSavedPlan(scope, planId)}
     create={() => createSavedPlan(scope)} save={() => saveSavedPlan(scope)} remove={remove}
     share={(action) => shareSavedPlan(scope, action)}
-    close={() => closePlanDraft(draft, setDraft)} />;
+    close={() => closePlanDraft(draft, setDraft)} pinnedIDs={pinnedIDs}
+    onTogglePlanPin={onTogglePlanPin} pinBusy={pinBusy} pinError={pinError} />;
 }
 
-function SavedPlanPanel({ context, error, loading, busy, refresh, query, draft, setDraft, open, create, save, remove, share, close }: {
+function SavedPlanPanel({ context, error, loading, busy, refresh, query, draft, setDraft, open, create, save, remove, share, close,
+  pinnedIDs, onTogglePlanPin, pinBusy, pinError }: {
   context: ProjectContext | null; error: string; loading: boolean; busy: boolean; refresh: () => void; query: string;
   draft: ContextPlanDraft; setDraft: Dispatch<SetStateAction<ContextPlanDraft>>;
   open: (id: string) => Promise<void>; create: () => Promise<void>; save: () => Promise<void>;
   remove: () => Promise<void>;
   share: (action: 'share' | 'unshare') => Promise<{ plan: ProjectPlan; context: ProjectContext; sharedPlansDir: string }>;
   close: () => void;
+  pinnedIDs?: string[];
+  onTogglePlanPin?: (planID: string, pinned: boolean) => void;
+  pinBusy?: boolean;
+  pinError?: string | null;
 }): ReactNode {
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-plans">
     <SavedPlanHeader busy={busy} refresh={refresh} />
     {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
+    {pinError ? <p role="alert" className="text-xs text-amber-300">{pinError}</p> : null}
     {!context && loading ? <p className="text-xs text-neutral-500">Loading saved plans…</p> : null}
     {context ? <>
-      <SavedPlanList plans={context.plans} query={query} busy={busy} open={open} />
+      <SavedPlanList plans={context.plans} query={query} busy={busy} open={open} pinnedIDs={pinnedIDs}
+        onTogglePin={onTogglePlanPin} pinBusy={pinBusy} />
       <PlanDraftEditor draft={draft} setDraft={setDraft} busy={busy} create={create} save={save} remove={remove}
         shared={isSharedPlan(context, draft.selectedId)} share={share} close={close} />
     </> : null}
@@ -172,18 +191,26 @@ function SavedPlanHeader({ busy, refresh }: { busy: boolean; refresh: () => void
   </header>;
 }
 
-function SavedPlanList({ plans, query, busy, open }: { plans: ProjectContext['plans']; query: string; busy: boolean;
-  open: (id: string) => Promise<void> }): ReactNode {
+function SavedPlanList({ plans, query, busy, open, pinnedIDs, onTogglePin, pinBusy }: { plans: ProjectContext['plans']; query: string; busy: boolean;
+  open: (id: string) => Promise<void>; pinnedIDs?: string[];
+  onTogglePin?: (planID: string, pinned: boolean) => void;
+  pinBusy?: boolean;
+}): ReactNode {
   const needle = query.trim().toLocaleLowerCase();
   const visiblePlans = plans.filter(usablePlan).filter((plan) => !needle || plan.title.toLocaleLowerCase().includes(needle));
   return <>
     {plans.some((item) => !usablePlan(item)) ? <p role="status" className="text-xs text-amber-300">Some stored plans could not be displayed.</p> : null}
     {needle && !visiblePlans.length ? <p className="text-xs text-neutral-500">No matching plan titles.</p> : null}
-    <ol className="max-h-32 overflow-y-auto">{visiblePlans.map((plan) => <li key={plan.id}>
+    <ol className="max-h-32 overflow-y-auto">{visiblePlans.map((plan) => <li key={plan.id} className="flex items-center gap-2">
       <button type="button" disabled={busy} className="py-1 text-left text-xs text-sky-300" onClick={() => { void open(plan.id); }}>
         {plan.title}
         <span className="ml-1 text-[10px] text-neutral-400">{plan.source === 'shared' || plan.shared ? 'shared' : 'personal'}</span>
       </button>
+      {onTogglePin ? <button type="button" disabled={busy || pinBusy} className="py-1 text-[10px] text-amber-300"
+        aria-pressed={pinnedIDs?.includes(plan.id) ?? false}
+        onClick={() => onTogglePin?.(plan.id, !pinnedIDs?.includes(plan.id))}>
+        {pinnedIDs?.includes(plan.id) ? 'Pinned' : 'Pin'}
+      </button> : null}
     </li>)}</ol>
   </>;
 }

@@ -46,11 +46,15 @@ function loadContextOnce(input: { projectId: string; visible: boolean; revision:
 }
 
 export function ContextNotes({ projectId, visible, query = '', refreshToken = 0, retainedDraft, onDraftChange,
-  draftPins, onToggleNotePin }: {
+  draftPins, onToggleNotePin, pinBusy = false, pinLabel = 'Pin to draft', pinError, pinTargetLabel = 'the new-session draft' }: {
   projectId: string; visible: boolean; query?: string; refreshToken?: number; retainedDraft?: ContextNotesDraft;
   onDraftChange?: (projectId: string, draft: ContextNotesDraft) => void;
   draftPins?: ProjectContextPinTargets;
   onToggleNotePin?: (noteID: string, pinned: boolean) => void;
+  pinBusy?: boolean;
+  pinLabel?: string;
+  pinError?: string | null;
+  pinTargetLabel?: string;
 }): ReactNode {
   const { context, setContext, loading, error, setError, refresh, requestSequence } = useContextLoad(projectId, visible, refreshToken);
   const [draftState, setDraftState] = useState<ContextNotesDraft>(() => retainedDraft ?? { draft: '', editing: null, editBody: '' });
@@ -69,6 +73,7 @@ export function ContextNotes({ projectId, visible, query = '', refreshToken = 0,
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-notes">
     <ContextNotesHeader busy={busy} refresh={refresh} />
     {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
+  {pinError ? <p role="alert" className="text-xs text-amber-300">{pinError}</p> : null}
     {!context ? loading ? <p className="text-xs text-neutral-500">Loading project context…</p> : null : <>
       <textarea aria-label="New context note" value={draft} onChange={(event) => setDraft(event.target.value)}
         maxLength={3000} disabled={busy} className="min-h-16 resize-y rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" />
@@ -76,7 +81,7 @@ export function ContextNotes({ projectId, visible, query = '', refreshToken = 0,
         className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50">Add note</button>
       <ContextNoteList notes={context.notes} query={query} editing={editing} editBody={editBody} busy={busy}
         setEditing={setEditing} setEditBody={setEditBody} saveEdit={saveEdit} remove={remove}
-        pinnedIDs={new Set(draftPins?.notes ?? [])} onTogglePin={onToggleNotePin} />
+    pinnedIDs={new Set(draftPins?.notes ?? [])} onTogglePin={onToggleNotePin} pinBusy={pinBusy} pinLabel={pinLabel} pinTargetLabel={pinTargetLabel} />
     </>}
   </section>;
 }
@@ -128,12 +133,15 @@ function useProjectNoteActions(input: { projectId: string; draft: string; editin
 }
 
 function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, setEditBody, saveEdit, remove,
-  pinnedIDs, onTogglePin }: {
+  pinnedIDs, onTogglePin, pinBusy, pinLabel, pinTargetLabel }: {
   notes: ProjectNote[]; query: string; editing: string | null; editBody: string; busy: boolean;
   setEditing: (value: string | null) => void; setEditBody: (value: string) => void;
   saveEdit: () => Promise<void>; remove: (id: string) => Promise<void>;
   pinnedIDs: Set<string>;
   onTogglePin?: (noteID: string, pinned: boolean) => void;
+  pinBusy?: boolean;
+  pinLabel?: string;
+  pinTargetLabel?: string;
 }): ReactNode {
   const needle = query.trim().toLocaleLowerCase();
   const visibleNotes = notes.filter(usableNote).filter((note) => !needle || note.body.toLocaleLowerCase().includes(needle));
@@ -149,10 +157,10 @@ function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, se
         <button type="button" disabled={busy} className="ml-2" onClick={() => setEditing(null)}>Cancel</button>
       </> : <>
         <p className="whitespace-pre-wrap break-words">{note.body}</p>
-        <button type="button" disabled={busy || !onTogglePin} className="mt-2 text-amber-300"
-          aria-label={`Pin ${note.id} to the new-session draft`}
+        <button type="button" disabled={busy || pinBusy || !onTogglePin} className="mt-2 text-amber-300"
+          aria-label={`Pin ${note.id} to ${pinTargetLabel}`}
           aria-pressed={pinnedIDs.has(note.id)} onClick={() => onTogglePin?.(note.id, !pinnedIDs.has(note.id))}>
-          {pinnedIDs.has(note.id) ? 'Pinned' : 'Pin to draft'}
+          {pinnedIDs.has(note.id) ? 'Pinned' : pinLabel}
         </button>
         <button type="button" disabled={busy} className="mt-2 ml-2 text-sky-300" onClick={() => {
           setEditing(note.id); setEditBody(note.body);

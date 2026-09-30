@@ -9,7 +9,8 @@ import { ContextPlans, type ContextPlanDraft } from './context-plans.tsx';
 import { ContextTodos, usableTodo } from './context-todos.tsx';
 import { getProjectContext, type ProjectContext } from '../lib/project-context-api.ts';
 import { readDraft, saveDraft } from './drafts.ts';
-import { mergeProjectContextPin, parseProjectContextPins } from './project-context-pins.ts';
+import { mergeProjectContextPin, parseProjectContextPins, type ProjectContextPinTargets } from './project-context-pins.ts';
+import { getSessionKnowledgeSummary, pinSessionKnowledge } from '../lib/session-knowledge-api.ts';
 import { WorkspaceContextImport } from './workspace-context-import.tsx';
 
 type Tab = 'notes' | 'todos' | 'plans' | 'context' | 'saved' | 'project-todos' | 'memory';
@@ -72,17 +73,80 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
   }) : null;
   const [draftPinRevision, setDraftPinRevision] = useState(0);
   void draftPinRevision;
-  const toggleNotePin = draftPinSessionId === null && projectId !== null ? (noteID: string, pinned: boolean): void => {
-    const record = readDraft(directory, 'draft');
-    const pins = parseProjectContextPins({
-      project_context_pins: record.projectContextPins,
+  const [livePinTargets, setLivePinTargets] = useState<ProjectContextPinTargets | null>(null);
+  const [livePinError, setLivePinError] = useState<string | null>(null);
+  const [livePinAction, setLivePinAction] = useState<string | null>(null);
+  const knowledgeRevision = useRef(0);
+  useEffect(() => {
+    if (!projectId || !visible || !draftPinSessionId) {
+      setLivePinTargets(null);
+      setLivePinError(null);
+      setLivePinAction(null);
+      knowledgeRevision.current += 1;
+      return () => undefined;
+    }
+    const revision = ++knowledgeRevision.current;
+    let active = true;
+    setLivePinAction(null);
+    setLivePinError(null);
+    getSessionKnowledgeSummary(directory, draftPinSessionId).then((summary) => {
+      if (!active) return;
+      setLivePinTargets({
+        notes: summary.notes.map((note) => note.id).slice(0, 50),
+        plans: summary.plans.map((plan) => plan.id).slice(0, 50),
+      });
+    }).catch(() => {
+      if (active) {
+        setLivePinTargets(null);
+        setLivePinError('Session-knowledge pin state is unavailable');
+      }
     });
-    saveDraft(directory, 'draft', {
-      ...record,
-      projectContextPins: mergeProjectContextPin(pins, 'note', noteID, pinned),
-    });
-    setDraftPinRevision((revision) => revision + 1);
+    return () => { active = false; };
+  }, [directory, projectId, visible, draftPinSessionId]);
+  const toggleKnowledgePin = async (kind: 'note' | 'plan', id: string, pinned: boolean): Promise<boolean> => {
+    if (!draftPinSessionId || livePinAction !== null || !livePinTargets) return false;
+    const revision = ++knowledgeRevision.current;
+    setLivePinAction(`${kind}:${id}`);
+    setLivePinError(null);
+    try {
+      const pins = await pinSessionKnowledge({
+        sessionId: draftPinSessionId, directory, kind, id, pinned,
+      });
+      if (knowledgeRevision.current === revision) {
+        setLivePinTargets({ notes: pins.notes.slice(0, 50), plans: pins.plans.slice(0, 50) });
+        return true;
+      }
+      return false;
+    } catch {
+      if (knowledgeRevision.current === revision) {
+        setLivePinError(`Could not ${pinned ? 'pin' : 'unpin'} the knowledge target`);
+        return false;
+      }
+      return false;
+    } finally {
+      if (knowledgeRevision.current === revision) setLivePinAction(null);
+    }
+  };
+  const toggleNotePin = draftPinSessionId === null && projectId !== null
+    ? (noteID: string, pinned: boolean): void => {
+      const record = readDraft(directory, 'draft');
+      const pins = parseProjectContextPins({
+        project_context_pins: record.projectContextPins,
+      });
+      saveDraft(directory, 'draft', {
+        ...record,
+        projectContextPins: mergeProjectContextPin(pins, 'note', noteID, pinned),
+      });
+      setDraftPinRevision((revision) => revision + 1);
+    }
+    : draftPinSessionId ? (noteID: string, pinned: boolean): void => {
+      void toggleKnowledgePin('note', noteID, pinned);
+    }
+    : undefined;
+  const togglePlanPin = draftPinSessionId ? (planID: string, pinned: boolean): void => {
+    void toggleKnowledgePin('plan', planID, pinned);
   } : undefined;
+  const pinnedKnowledge = draftPinSource ?? livePinTargets;
   const activeTab = !projectId && (tab === 'context' || tab === 'saved' || tab === 'project-todos' || tab === 'memory') ? 'notes'
     : projectId && !workspaceFilesOpen && (tab === 'notes' || tab === 'todos' || tab === 'plans') ? 'context' : tab;
   const primaryTabs: { id: Tab; label: string }[] = projectId
@@ -133,8 +197,11 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     {opened.has('todos') ? <div className={activeTab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={activeTab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && activeTab === 'plans'} /></div> : null}
     {projectId && (opened.has('context') || activeTab === 'context') ? <div className={activeTab === 'context' ? 'min-h-0 flex-1' : 'hidden'}><ContextNotes key={projectId} projectId={projectId} visible={visible && activeTab === 'context'} refreshToken={contextRefresh} query={query} retainedDraft={contextDraft} onDraftChange={onContextDraftChange}
-      draftPins={draftPinSource ?? undefined} onToggleNotePin={toggleNotePin} /></div> : null}
-    {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} directory={directory} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} /></div> : null}
+      draftPins={pinnedKnowledge ?? undefined} onToggleNotePin={toggleNotePin}
+      pinBusy={livePinAction !== null || (!!draftPinSessionId && !livePinTargets)}
+      pinLabel={draftPinSessionId ? 'Pin to session' : undefined} pinError={livePinError}
+      pinTargetLabel={draftPinSessionId ? 'the chosen session' : undefined} /></div> : null}
+    {projectId && (opened.has('saved') || activeTab === 'saved') ? <div className={activeTab === 'saved' ? 'min-h-0 flex-1' : 'hidden'}><ContextPlans key={projectId} projectId={projectId} directory={directory} visible={visible && activeTab === 'saved'} query={query} retainedDraft={planDraft} onDraftChange={onPlanDraftChange} pinnedIDs={pinnedKnowledge?.plans ?? []} onTogglePlanPin={togglePlanPin} pinBusy={livePinAction !== null || (!!draftPinSessionId && !livePinTargets)} pinError={livePinError} /></div> : null}
     {projectId && (opened.has('project-todos') || activeTab === 'project-todos') ? <div className={activeTab === 'project-todos' ? 'min-h-0 flex-1' : 'hidden'}><ContextTodos key={projectId} projectId={projectId} visible={visible && activeTab === 'project-todos'} refreshToken={contextRefresh} query={query} retainedDraft={todoDraft} onDraftChange={onTodoDraftChange} onAddToChat={onAddTodoToChat} onAddToNewChat={onAddTodoToNewChat} /></div> : null}
     {projectId && (opened.has('memory') || activeTab === 'memory') ? <div className={activeTab === 'memory' ? 'min-h-0 flex-1' : 'hidden'}><ContextMemory key={projectId} projectId={projectId} visible={visible && activeTab === 'memory'} query={query} /></div> : null}
   </section>;

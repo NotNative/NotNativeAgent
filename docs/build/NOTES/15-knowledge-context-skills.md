@@ -234,6 +234,23 @@ cache and guarded empty reads. Truth: UI typecheck green; focused
 summary/work-status suites 22/22; full UI blocked by unrelated deterministic
 schedule once-date test.
 
+## P10-56: live project-panel knowledge pins (2026-09-29)
+
+With a live companion session, the notes list pins/unpins note IDs and the
+saved-plans list pins/unpins plan IDs through `/api/session-knowledge/pin`.
+The target state seeds from the summary route and each successful mutation
+adopts the full returned `{ notes, plans }`. Controls stay serialized and are
+disabled until the target is available; failures leave targets unchanged and
+show a tab-local error.
+
+Draft mode (`draftPinSessionId === null`) still writes only durable draft
+targets through the established P10-51 path, and absent targets suppress the
+new plan pin control to preserve the baseline. Stale review adds a mutation
+generation so changing the live session explains an old route response rather
+than applying it to the next session. Truth: UI typecheck green; focused
+panel/draft/summary suites 61/61 excluding the unrelated schedule test; full
+UI otherwise passed with the same known schedule test failure.
+
 ## P10-2: note lifecycle API (2026-09-26)
 
 The isolated context store now has note create, patch, and delete operations
