@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:927190cc1232ea1d5ea3604573067f5c4e063db35acb8a3d519a1141010adba8",
+  "source_digest": "sha256:0af9e869a4bb94ed763c865055b65752ae1cacfe787c1246cd4a75654b343537",
   "counts": {
-    "modules": 587,
+    "modules": 588,
     "component_edges": 14
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 38
+      "module_count": 39
     },
     {
       "id": "harness-facade",
@@ -102,19 +102,19 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 206,
-      "module_count": 87
+      "import_count": 207,
+      "module_count": 88
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 74,
+      "import_count": 76,
       "module_count": 36
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 63,
+      "import_count": 64,
       "module_count": 52
     },
     {
@@ -136,6 +136,12 @@
       "module_count": 6
     },
     {
+      "from": "sync-engine",
+      "to": "runtime-io",
+      "import_count": 9,
+      "module_count": 8
+    },
+    {
       "from": "web-entry",
       "to": "web-server",
       "import_count": 9,
@@ -146,12 +152,6 @@
       "to": "harness-facade",
       "import_count": 9,
       "module_count": 9
-    },
-    {
-      "from": "sync-engine",
-      "to": "runtime-io",
-      "import_count": 8,
-      "module_count": 7
     },
     {
       "from": "harness-facade",
@@ -204,9 +204,13 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/stores/useMessageQueueStore.ts",
-        "packages/ui/src/sync/sync-engine.ts"
+        "packages/ui/src/sync/desktop-notifications.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/view-store.ts"
       ]
     },
     {
@@ -3304,6 +3308,14 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/desktop-notifications.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
       ]
     },
     {
