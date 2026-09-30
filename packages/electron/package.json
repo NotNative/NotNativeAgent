@@ -16,6 +16,9 @@
     },
     "files": [
       "main.mjs",
+      "native-notifications.mjs",
+      "relay-dev-tunnel.mjs",
+      "renderer-recovery.mjs",
       "browser-guest-policy.mjs",
       "preload.mjs",
       "ipc-face.mjs",
