@@ -1,5 +1,24 @@
 # 13 — Preview and inspection build notes
 
+# P11-31: walkthrough model readiness (2026-09-30)
+
+The Walkthrough pane now resolves one authoritative model snapshot from NND's
+provider inventory, credential evidence, harness config, feature override, and
+the captured diff. The response carries the selected model, bounded catalog
+options, and a refusal reason for no model, no reviewable digest, only generated
+files, missing login, unsupported JSON output, or an input budget too small for
+the required prompt plus digest. Malformed source descriptors are rejected
+before snapshot work instead of falling back to the default scope.
+
+Generation accepts a bounded `providerID/modelID` request, forwards it to NNA,
+and requires the response's provider/model attribution to match both the session
+identity and the explicit request. The durable cache key, generation job, and
+progress/cancel isolation use that model identity, while the client retains the
+pending override across UI changes so cancel and progress cannot drift to a newly
+selected model. The UI offers `Default chain` or catalog models, persists the
+feature-scoped `walkthroughModelOverride`, and displays the bounded readiness
+result before generation.
+
 # P11-29: walkthrough lifecycle UI wiring (2026-09-30)
 
 The Walkthrough pane now observes the server-owned lifecycle instead of

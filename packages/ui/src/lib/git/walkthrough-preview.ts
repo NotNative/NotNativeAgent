@@ -33,6 +33,28 @@ export interface GeneratedWalkthrough {
   providerID: string;
   modelID: string;
 }
+export interface WalkthroughModelOption {
+  providerID: string;
+  modelID: string;
+  label: string;
+  hasLogin: boolean;
+  structuredOutput: boolean | null;
+  inputCharBudget: number | null;
+  contextTokens: number | null;
+  contextKnown: boolean;
+  outputTokens: number | null;
+}
+export interface WalkthroughReadiness {
+  ready: boolean;
+  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'structured-output-unsupported' | 'context-too-small' | null;
+  requiredChars: number;
+  availableChars: number | null;
+}
+export interface WalkthroughReadinessResponse {
+  model: WalkthroughModelOption | null;
+  options: WalkthroughModelOption[];
+  readiness: WalkthroughReadiness;
+}
 
 function jsonError(payload: unknown, fallback: string, status: number): Error {
   const shaped = payload as { error?: unknown } | null;
@@ -61,11 +83,13 @@ export async function loadWalkthroughPreview(directory: string, selected: Walkth
 
 export async function generateWalkthroughPreview(directory: string, sessionId: string, revision: string,
   source: WalkthroughSource | WalkthroughScope = 'all', language = 'en',
+  model: string | null = null,
   signal?: AbortSignal): Promise<GeneratedWalkthrough> {
   const response = await runtimeFetch('/api/git/walkthrough-generate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ directory, sessionId, revision, source: requestSource(source), language }),
+    body: JSON.stringify({ directory, sessionId, revision, source: requestSource(source), language,
+      ...(model === null || model === '' ? {} : { model }) }),
     signal,
   });
   const payload = await response.json().catch(() => null) as GeneratedWalkthrough | { error?: string } | null;
@@ -76,19 +100,41 @@ export async function generateWalkthroughPreview(directory: string, sessionId: s
   return payload;
 }
 
+export async function loadWalkthroughReadiness(directory: string,
+  selected: WalkthroughScope | WalkthroughSource = 'all', model: string | null = null,
+  signal?: AbortSignal): Promise<WalkthroughReadinessResponse> {
+  const modelQuery = model === null || model === '' ? '' : `&model=${encodeURIComponent(model)}`;
+  const response = await runtimeFetch(`/api/git/walkthrough-readiness?directory=${encodeURIComponent(directory)}&${encodeSource(selected)}${modelQuery}`, { signal });
+  const payload = await response.json().catch(() => null) as {
+    model?: WalkthroughModelOption; options?: WalkthroughModelOption[];
+    readiness?: WalkthroughReadiness;
+  } | null;
+  if (!response.ok) throw jsonError(payload, 'Model readiness failed', response.status);
+  const selectedModel = payload?.model;
+  if (!payload || !payload.readiness || !Array.isArray(payload.options)
+    || selectedModel !== null && (selectedModel === undefined || selectedModel === null
+      || typeof selectedModel.providerID !== 'string' || typeof selectedModel.modelID !== 'string')) {
+    throw new Error('Invalid model readiness response.');
+  }
+  return { model: selectedModel ?? null, options: payload.options, readiness: payload.readiness };
+}
+
 export async function fetchWalkthroughStage(directory: string, source: WalkthroughSource | WalkthroughScope = 'all',
-  signal?: AbortSignal): Promise<string | null> {
-  const response = await runtimeFetch(`/api/git/walkthrough-progress?directory=${encodeURIComponent(directory)}&${encodeSource(source)}`, { signal });
+  signal?: AbortSignal, model: string | null = null): Promise<string | null> {
+  const modelQuery = model === null || model === '' ? '' : `&model=${encodeURIComponent(model)}`;
+  const response = await runtimeFetch(`/api/git/walkthrough-progress?directory=${encodeURIComponent(directory)}&${encodeSource(source)}${modelQuery}`, { signal });
   const payload = await response.json().catch(() => null) as { stage?: unknown } | JSONRecord | null;
   if (!response.ok) return null;
   return typeof payload?.stage === 'string' && payload.stage.length <= 32 ? payload.stage : null;
 }
 
-export async function cancelWalkthroughStage(directory: string, source: WalkthroughSource | WalkthroughScope = 'all'): Promise<boolean> {
+export async function cancelWalkthroughStage(directory: string, source: WalkthroughSource | WalkthroughScope = 'all',
+  model: string | null = null): Promise<boolean> {
   const response = await runtimeFetch('/api/git/walkthrough-cancel', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ directory, source: requestSource(source) }),
+    body: JSON.stringify({ directory, source: requestSource(source),
+      ...(model === null || model === '' ? {} : { model }) }),
   });
   const payload = await response.json().catch(() => null) as { cancelled?: unknown } | JSONRecord | null;
   return response.ok && payload?.cancelled === true;

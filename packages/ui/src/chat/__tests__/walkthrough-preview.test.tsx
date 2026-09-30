@@ -4,13 +4,16 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../lib/git/walkthrough-preview.ts', () => ({ loadWalkthroughPreview: vi.fn(), generateWalkthroughPreview: vi.fn(), fetchWalkthroughStage: vi.fn(), cancelWalkthroughStage: vi.fn() }));
-import { cancelWalkthroughStage, fetchWalkthroughStage } from '../../lib/git/walkthrough-preview.ts';
+vi.mock('../../lib/git/walkthrough-preview.ts', () => ({ loadWalkthroughPreview: vi.fn(),
+  loadWalkthroughReadiness: vi.fn(),
+  generateWalkthroughPreview: vi.fn(), fetchWalkthroughStage: vi.fn(), cancelWalkthroughStage: vi.fn() }));
+import { cancelWalkthroughStage, fetchWalkthroughStage, loadWalkthroughReadiness } from '../../lib/git/walkthrough-preview.ts';
 import { generateWalkthroughPreview, loadWalkthroughPreview } from '../../lib/git/walkthrough-preview.ts';
 import { WalkthroughPreviewSurface } from '../walkthrough-preview.tsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const load = loadWalkthroughPreview as ReturnType<typeof vi.fn>;
+const readiness = loadWalkthroughReadiness as ReturnType<typeof vi.fn>;
 const generate = generateWalkthroughPreview as ReturnType<typeof vi.fn>;
 const stageFetch = fetchWalkthroughStage as ReturnType<typeof vi.fn>;
 const stageCancel = cancelWalkthroughStage as ReturnType<typeof vi.fn>;
@@ -22,6 +25,12 @@ const stop = (path: string) => ({ id: `working:${path}:1:1:0`, scope: 'working',
 beforeEach(() => {
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
   load.mockReset().mockResolvedValue({ signature: 'rev1', fileCount: 1, stops: [stop('a.ts'), stop('b.ts')] });
+  readiness.mockReset();
+  readiness.mockResolvedValue({
+    model: null,
+    options: [],
+    readiness: { ready: true, reason: null, requiredChars: 1000, availableChars: null },
+  });
   generate.mockReset();
   stageFetch.mockReset();
   stageCancel.mockReset();
@@ -44,6 +53,23 @@ describe('WalkthroughPreviewSurface', () => {
     expect(document.body.textContent).toContain('b.ts');
     expect(load).toHaveBeenCalledTimes(1);
     expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('loads readiness independently from preview and shows a bounded blocker', async () => {
+    readiness.mockResolvedValue({
+      model: { providerID: 'local', modelID: 'compact', label: 'Compact (compact)', hasLogin: true,
+        structuredOutput: true, inputCharBudget: 100, contextTokens: 200, contextKnown: true, outputTokens: 50 },
+      options: [
+        { providerID: 'local', modelID: 'compact', label: 'Compact (compact)', hasLogin: true,
+          structuredOutput: true, inputCharBudget: 100, contextTokens: 200, contextKnown: true, outputTokens: 50 },
+        { providerID: 'local', modelID: 'small', label: 'Small (small)', hasLogin: true,
+          structuredOutput: true, inputCharBudget: 100, contextTokens: 200, contextKnown: true, outputTokens: 50 },
+      ],
+      readiness: { ready: false, reason: 'context-too-small', requiredChars: 120, availableChars: 100 },
+    });
+    await render();
+    expect(document.body.textContent).toContain('Diff needs 120 chars');
+    expect(document.querySelector('select[aria-label="Walkthrough model"]')?.textContent).toContain('Small (small)');
   });
 
   it('marks a changed revision stale instead of silently replacing viewed hunks', async () => {
@@ -81,9 +107,9 @@ describe('WalkthroughPreviewSurface', () => {
     await render();
     expect(generate).not.toHaveBeenCalled();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
-    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all', 'en');
     expect(document.body.textContent).toContain('The output value changes.');
     expect(document.body.textContent).toContain('1 sensitive-path hunk(s) were not sent');
+    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all', 'en', '');
     load.mockResolvedValue({ signature: 'rev2', fileCount: 1, stops: [stop('c.ts')] });
     await act(async () => { window.dispatchEvent(new Event('focus')); await Promise.resolve(); });
     expect(document.body.textContent).not.toContain('The output value changes.');
@@ -175,11 +201,11 @@ describe('WalkthroughPreviewSurface', () => {
     generate.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
     await render();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
-    expect(stageFetch).toHaveBeenCalledWith('/repo', 'all', expect.any(AbortSignal));
+    expect(stageFetch).toHaveBeenCalledWith('/repo', 'all', expect.any(AbortSignal), null);
     expect(document.body.textContent).toContain('Walkthrough stage: asking');
 
     await act(async () => { (document.querySelector('button:nth-of-type(3)') as HTMLButtonElement).click(); await Promise.resolve(); });
-    expect(stageCancel).toHaveBeenCalledWith('/repo', 'all');
+    expect(stageCancel).toHaveBeenCalledWith('/repo', 'all', null);
     expect(document.body.textContent).toContain('Walkthrough generation cancelled.');
     expect(document.body.textContent).not.toContain('Walkthrough stage: asking');
     await act(async () => { finish?.({ revision: 'rev1', chapters: [], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small' }); });

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4f1f45ba4f991951395f4c58ddaad71485dd641427e882e0d4779f7ac50fab29",
+  "source_digest": "sha256:46d53f199fdb80e5ebbbc6c606dc6466c8a01551039f1e536610228844f239b8",
   "counts": {
-    "modules": 582,
+    "modules": 583,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 198
+      "module_count": 199
     },
     {
       "id": "web-entry",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 205,
+      "import_count": 206,
       "module_count": 87
     },
     {
@@ -924,7 +924,8 @@
       "imports": [
         "packages/ui/src/lib/git/walkthrough-preview.ts",
         "packages/ui/src/lib/git/walkthrough-source-store.ts",
-        "packages/ui/src/lib/i18n/store.ts"
+        "packages/ui/src/lib/i18n/store.ts",
+        "packages/ui/src/lib/settings/store.ts"
       ]
     },
     {
@@ -4664,6 +4665,15 @@
       ]
     },
     {
+      "path": "packages/web/src/server/lib/walkthrough/model-readiness.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/small-model/provider-ports.ts",
+        "packages/web/src/server/lib/walkthrough/identity.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/magic-prompts/prompt-store.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -4962,8 +4972,11 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/lib/small-model/provider-ports.ts",
         "packages/web/src/server/lib/walkthrough/cache.ts",
         "packages/web/src/server/lib/walkthrough/identity.ts",
+        "packages/web/src/server/lib/walkthrough/model-readiness.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts",
         "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
         "packages/web/src/server/routes/git-walkthrough-sources.ts"

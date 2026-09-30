@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { cancelWalkthrough, digestFor, generateWalkthrough, normalizeWalkthrough, walkthroughProgress,
   walkthroughProgressState,
   type WalkthroughJob } from '../routes/git-walkthrough-generate.ts';
 import { getWalkthroughSnapshot } from '../routes/git-walkthrough-snapshot.ts';
+import { sourceKey } from '../routes/git-walkthrough-sources.ts';
+import { WalkthroughCache } from '../lib/walkthrough/cache.ts';
 
 const revision = 'a'.repeat(64);
+const tempCacheDir = (): string => {
+  const parent = mkdtempSync(join(tmpdir(), 'nnd-walkthrough-cache-'));
+  rmSync(parent, { recursive: true, force: true });
+  return parent;
+};
 const stop = (path: string, id = 'working:a.ts:12345678', oldPath?: string) => ({ id, scope: 'working' as const, path,
   ...(oldPath ? { oldPath } : {}),
   header: '@@ -1 +1 @@', oldStart: 1, newStart: 1, body: '-old\n+new' });
@@ -40,6 +50,16 @@ describe('walkthrough generation lifecycle', () => {
     const response = await app.request('/api/git/walkthrough-progress?source=all&directory=' + encodeURIComponent(target));
     const body = await response.json() as { error?: string; code?: string };
     expect(body.code).toBe('git-failed');
+  });
+
+  it('returns malformed readiness source as a request error', async () => {
+    const { Hono } = await import('hono');
+    const { registerGitWalkthroughGenerateRoute } = await import('../routes/git-walkthrough-generate.ts');
+    const app = new Hono();
+    registerGitWalkthroughGenerateRoute(app);
+    const response = await app.request('/api/git/walkthrough-readiness?directory=missing&source=not-json');
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'invalid-source' });
   });
 });
 const json = (value: unknown, status = 200): Response => Response.json(value, { status });
@@ -81,6 +101,30 @@ describe('model-authored walkthrough boundary', () => {
     const ports = { root: () => '/test-root', snapshot: () => snapshot(), call: async () => { calls += 1; return json({ directory: '/other' }); } };
     await expect(generateWalkthrough('/repo', 'ses_test', revision, ports)).rejects.toMatchObject({ code: 'session-scope' });
     expect(calls).toBe(1);
+  });
+
+  it('passes a valid explicit model and refuses a mismatched NNA response', async () => {
+    let bodies: unknown[] = [];
+    let modelCalls = 0;
+    const ports = { root: () => '/test-root', snapshot: () => snapshot(),
+      call: async (request: Request) => {
+        if (new URL(request.url).pathname.endsWith('/session/ses_test')) return json({ directory: '/repo' });
+        modelCalls += 1;
+        bodies.push(JSON.parse(await request.clone().text()));
+        return json({ revision, text: narrative, providerID: 'audit-local',
+          modelID: modelCalls === 1 ? 'small' : 'other' });
+      } };
+    await expect(generateWalkthrough('/repo', 'ses_test', revision, ports, 'all',
+      { model: 'audit-local/small', cache: new WalkthroughCache(join(tempCacheDir(), 'cache.json')) }))
+      .resolves.toMatchObject({ providerID: 'audit-local', modelID: 'small' });
+    expect(bodies[0]).toMatchObject({ model: 'audit-local/small' });
+    bodies = [];
+    await expect(generateWalkthrough('/repo', 'ses_test', revision, ports, 'all',
+      { model: 'audit-local/small', cache: new WalkthroughCache(join(tempCacheDir(), 'cache.json')) }))
+      .rejects.toMatchObject({ code: 'model-changed' });
+    await expect(generateWalkthrough('/repo', 'ses_test', revision, ports, 'all', { model: 'invalid' }))
+      .rejects.toMatchObject({ code: 'invalid-model' });
+    expect(bodies).toHaveLength(1);
   });
 
   it('sends only the aliased digest to NNA and returns text attached to server IDs', async () => {
@@ -164,8 +208,22 @@ describe('model-authored walkthrough boundary', () => {
       stage: 'asking', state: 'running', expected: revision, controller: new AbortController(), promise: Promise.resolve({}), error: null,
     });
     expect(walkthroughProgress('/repo', 'all', root, store)).toBe('asking');
+    expect(walkthroughProgress('/repo', 'all', root, store, 'audit-mobile/small')).toBeNull();
     expect(cancelWalkthrough('/repo', { kind: 'working-tree', scope: 'all' }, root, store)).toBe(true);
     expect(store.get(root.toLowerCase() + ' working-tree:all')!.controller.signal.aborted).toBe(true);
+  });
+
+  it('keeps explicit-model progress and cancellation isolated from the default chain', () => {
+    const store = new Map<string, WalkthroughJob>();
+    const root = '/job-root';
+    store.set(`${root.toLowerCase()}\0${sourceKey({ kind: 'working-tree', scope: 'all' })}\0audit-mobile/small`, {
+      stage: 'asking', state: 'running', expected: revision, controller: new AbortController(),
+      promise: Promise.resolve({}), error: null,
+    });
+    expect(walkthroughProgress('/repo', 'all', root, store)).toBeNull();
+    expect(walkthroughProgress('/repo', 'all', root, store, 'audit-mobile/small')).toBe('asking');
+    expect(cancelWalkthrough('/repo', { kind: 'working-tree', scope: 'all' }, root, store, 'other-model')).toBe(false);
+    expect(cancelWalkthrough('/repo', { kind: 'working-tree', scope: 'all' }, root, store, 'audit-mobile/small')).toBe(true);
   });
 
   it('rejects a revision mismatch while the source job is already running', async () => {
@@ -174,6 +232,7 @@ describe('model-authored walkthrough boundary', () => {
     store.set(`${root.toLowerCase()}\0working-tree:all`, {
       stage: 'asking', state: 'running', expected: revision, controller: new AbortController(), promise: Promise.resolve({}), error: null,
     });
+    expect(cancelWalkthrough('/repo', { kind: 'working-tree', scope: 'all' }, root, store, 'audit-mobile/small')).toBe(false);
     await expect(generateWalkthrough('/repo', 'ses_test', 'b'.repeat(64), {
       root: () => root, snapshot: () => snapshot(), call: async () => { throw new Error('unexpected model call'); },
     }, 'all', { jobs: store, rawSource: 'all' })).rejects.toMatchObject({ code: 'snapshot-stale' });

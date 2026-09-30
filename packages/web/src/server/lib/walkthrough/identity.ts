@@ -69,7 +69,7 @@ export function providerHasModel(providers: readonly unknown[], providerID: stri
 export function identityFromString(value: unknown): ModelIdentity | null {
   const text = boundedText(value, 1536);
   const separator = text.indexOf('/');
-  if (separator === -1) return null;
+  if (separator <= 0 || separator >= text.length - 1) return null;
   return { providerID: text.slice(0, separator), modelID: text.slice(separator + 1) };
 }
 

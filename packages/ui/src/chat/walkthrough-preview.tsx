@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cancelWalkthroughStage, fetchWalkthroughStage, generateWalkthroughPreview, loadWalkthroughPreview,
-  type GeneratedWalkthrough, type WalkthroughPreview, type WalkthroughScope, type WalkthroughSource } from '../lib/git/walkthrough-preview.ts';
+  loadWalkthroughReadiness, type GeneratedWalkthrough, type WalkthroughModelOption,
+  type WalkthroughPreview, type WalkthroughReadiness, type WalkthroughScope,
+  type WalkthroughSource } from '../lib/git/walkthrough-preview.ts';
 import { sourceKey } from '../lib/git/walkthrough-source-store.ts';
 import { useI18nStore } from '../lib/i18n/store.ts';
+import { setSettingsField, useSettingsStore } from '../lib/settings/store.ts';
 
 type SelectedSource = WalkthroughScope | WalkthroughSource;
 type WalkthroughScopeAlias = WalkthroughScope;
@@ -13,6 +16,8 @@ type NarrativeRecord = { directory: string; source: SelectedSource; sessionId: s
 const OBJECT_ID = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/u;
 const OWNER = /^[a-zA-Z0-9-]+$/u;
 const REPOSITORY = /^[a-zA-Z0-9_.-]+$/u;
+type ModelReadinessRecord = { readiness: WalkthroughReadiness; model: WalkthroughModelOption | null;
+  options: WalkthroughModelOption[] };
 
 function normalize(value: string, max = 256): string | null {
   const trimmed = value.trim();
@@ -64,7 +69,7 @@ function validSource(source: SelectedSource | null): WalkthroughSource | null {
 }
 
 function useWalkthroughNarrative(directory: string, source: SelectedSource | null, sessionId: string | null,
-  preview: WalkthroughPreview | null, stale: boolean): { narrative: GeneratedWalkthrough | null; generating: boolean;
+  preview: WalkthroughPreview | null, stale: boolean, model: string): { narrative: GeneratedWalkthrough | null; generating: boolean;
   stage: string | null; error: string | null; generate: () => Promise<void>; cancel: () => Promise<void>; reset: () => void } {
   const [record, setRecord] = useState<NarrativeRecord | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -72,6 +77,7 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
   const watching = useRef<AbortController | null>(null);
+  const pendingModel = useRef<string | null>(null);
   const stopWatcher = useCallback(() => {
     const watcher = watching.current;
     watching.current = null;
@@ -83,6 +89,7 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
     stopWatcher();
     request.current += 1;
     setRecord(null); setGenerating(false); setStage(null); setError(null);
+    pendingModel.current = null;
   }, [currentId, directory, preview?.signature, sessionId, stopWatcher]);
   useEffect(() => () => stopWatcher(), [stopWatcher]);
   const reset = useCallback(() => {
@@ -92,8 +99,9 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
     setGenerating(false);
     setStage(null);
     setError(null);
+    pendingModel.current = null;
   }, [stopWatcher]);
-  const cancel = useWalkthroughCancel({ directory, source, sessionId, preview, generating, request, stopWatcher,
+  const cancel = useWalkthroughCancel({ directory, source, sessionId, preview, generating, pendingModel, request, stopWatcher,
     setGenerating, setStage, setError });
   const generate = useCallback(async () => {
     if (!sessionId || !preview || stale) return;
@@ -101,21 +109,23 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
     setGenerating(true);
     setStage('collecting');
     setError(null);
+    pendingModel.current = model === '' ? null : model;
     const observing = new AbortController();
     watching.current = observing;
-    void watchWalkthroughStage(directory, source, observing, id, request, setStage);
+    void watchWalkthroughStage(directory, source, observing, id, request, setStage, pendingModel.current);
     try {
       const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
       const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, selected,
-        useI18nStore.getState().locale);
+        useI18nStore.getState().locale, model);
       if (id === request.current) setRecord({ directory, source: source as SelectedSource, sessionId, value });
     } catch (cause) {
       if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');
     } finally {
       stopWatcher();
+      pendingModel.current = null;
       if (id === request.current) setGenerating(false);
     }
-  }, [directory, preview, sessionId, source, stale]);
+  }, [directory, preview, sessionId, source, stale, model]);
   return { narrative, generating, stage, error, generate, cancel, reset };
 }
 
@@ -125,6 +135,7 @@ type WalkthroughCancelConfig = {
   sessionId: string | null;
   preview: WalkthroughPreview | null;
   generating: boolean;
+  pendingModel: { current: string | null };
   request: { current: number };
   stopWatcher: () => void;
   setGenerating: (value: boolean) => void;
@@ -132,13 +143,13 @@ type WalkthroughCancelConfig = {
   setError: (value: string | null) => void;
 };
 
-function useWalkthroughCancel({ directory, source, sessionId, preview, generating, request, stopWatcher,
-  setGenerating, setStage, setError }: WalkthroughCancelConfig) {
+function useWalkthroughCancel({ directory, source, sessionId, preview, generating, pendingModel, request,
+  stopWatcher, setGenerating, setStage, setError }: WalkthroughCancelConfig) {
   return useCallback(async () => {
     if (!sessionId || !preview || !generating) return;
     try {
       const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
-      const cancelled = await cancelWalkthroughStage(directory, selected);
+      const cancelled = await cancelWalkthroughStage(directory, selected, pendingModel.current);
       if (!cancelled) {
         setError('Could not cancel walkthrough generation.');
         return;
@@ -151,23 +162,57 @@ function useWalkthroughCancel({ directory, source, sessionId, preview, generatin
     } catch {
       setError('Could not cancel walkthrough generation.');
     }
-  }, [directory, generating, preview, sessionId, source, request, stopWatcher,
+  }, [directory, generating, pendingModel, preview, sessionId, source, request, stopWatcher,
     setGenerating, setStage, setError]);
 }
 
 function watchWalkthroughStage(directory: string, source: SelectedSource | null, observing: AbortController,
-  id: number, request: { current: number }, setStage: (value: string | null) => void): Promise<void> {
+  id: number, request: { current: number }, setStage: (value: string | null) => void,
+  model: string | null): Promise<void> {
   return (async () => {
     while (!observing.signal.aborted) {
       try {
         const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
-        const observed = await fetchWalkthroughStage(directory, selected, observing.signal);
+        const observed = await fetchWalkthroughStage(directory, selected, observing.signal, model);
         if (!observing.signal.aborted && id === request.current && observed) setStage(observed);
       } catch { /* Generation completion still owns this state. */ }
       await new Promise((resolve) => setTimeout(resolve, observing.signal.aborted ? 0 : 450));
       if (observing.signal.aborted) break;
     }
   })();
+}
+
+function useWalkthroughModelReadiness(directory: string, source: SelectedSource | null, visible: boolean,
+  signature: string | null, override: string): { record: ModelReadinessRecord | null; error: boolean } {
+  const [record, setRecord] = useState<ModelReadinessRecord | null>(null);
+  const [error, setError] = useState(false);
+  const request = useRef(0);
+  useEffect(() => {
+    const id = ++request.current;
+    if (!visible || !signature || !source) {
+      setRecord(null);
+      setError(false);
+      return () => undefined;
+    }
+    const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
+    const controller = new AbortController();
+    void loadWalkthroughReadiness(directory, selected, override, controller.signal).then((next) => {
+      if (id === request.current) {
+        setRecord(next);
+        setError(false);
+      }
+    }).catch(() => {
+      if (id === request.current) {
+        setRecord(null);
+        setError(true);
+      }
+    });
+    return () => {
+      request.current += 1;
+      controller.abort();
+    };
+  }, [identity(source), signature, override, directory, visible]);
+  return { record, error };
 }
 
 function useWalkthroughPreview(directory: string, source: SelectedSource | null, visible: boolean): {
@@ -256,6 +301,33 @@ function textInput(label: string, value: string, onChange: (value: string) => vo
     onChange={(event) => onChange(event.currentTarget.value)} />;
 }
 
+function ModelSelector({ options, override }: { options: WalkthroughModelOption[]; override: string }
+): ReactNode {
+  const selected = options.some((option) => `${option.providerID}/${option.modelID}` === override)
+    ? override : '';
+  const changeModel = (model: string): void => setSettingsField('walkthroughModelOverride', model);
+  return <select aria-label="Walkthrough model" className="min-w-0 max-w-64 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
+    value={selected} onChange={(event) => changeModel(event.currentTarget.value)}>
+    <option value="">Default chain</option>
+    {options.map((option) => <option key={`${option.providerID}/${option.modelID}`}
+      value={`${option.providerID}/${option.modelID}`}>{option.hasLogin ? option.label : `${option.label} (no login)`}</option>)}
+    {!options.some((option) => `${option.providerID}/${option.modelID}` === override) && override
+      ? <option value={override}>{override}</option> : null}
+  </select>;
+}
+
+function readinessText(readiness: WalkthroughReadiness, error: boolean): string {
+  if (error) return 'Model readiness is unavailable; selection may not be usable.';
+  if (readiness.ready) return 'Model ready for the current diff.';
+  if (readiness.reason === 'empty-diff') return 'No text hunks are available.';
+  if (readiness.reason === 'only-generated') return 'Generated files are excluded from this walkthrough.';
+  if (readiness.reason === 'no-model') return 'No walkthrough model is selected or available.';
+  if (readiness.reason === 'no-provider-login') return 'The selected model has no provider login.';
+  if (readiness.reason === 'structured-output-unsupported') return 'The selected model does not advertise JSON output.';
+  if (readiness.reason === 'context-too-small') return `Diff needs ${readiness.requiredChars} chars; available is ${readiness.availableChars ?? 'unknown'}.`;
+  return 'Model readiness is unavailable.';
+}
+
 function SourceFields({ source, onChange }: { source: SelectedSource; onChange: (state: SelectedSource) => void }): ReactNode | null {
   const selectedSource = typeof source === 'string' ? null : source;
   if (selectedSource?.kind === 'branch') {
@@ -282,9 +354,13 @@ function SourceFields({ source, onChange }: { source: SelectedSource; onChange: 
 export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { directory: string; sessionId: string | null; visible: boolean }): ReactNode {
   const [source, setSource] = useState<SelectedSource>('all');
   const [active, setActive] = useState(0);
+  const override = useSettingsStore((state) => typeof state.doc.walkthroughModelOverride === 'string'
+    ? state.doc.walkthroughModelOverride : '');
   const valid = validSource(source);
   const { preview, stale, error, refresh } = useWalkthroughPreview(directory, typeof source === 'string' ? source : valid, visible);
-  const { narrative, generating, stage, error: generationError, generate, cancel, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale);
+  const { record: modelRecord, error: modelError } = useWalkthroughModelReadiness(directory,
+    typeof source === 'string' ? source : valid, visible, preview?.signature ?? null, override);
+  const { narrative, generating, stage, error: generationError, generate, cancel, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale, override);
   const stop = preview?.stops[Math.min(active, (preview?.stops.length ?? 1) - 1)];
   useEffect(() => { setActive(0); }, [identity(source), directory]);
   const changeSource = (next: SelectedSource): void => {
@@ -300,6 +376,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
     <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
       <div className="w-full text-xs font-medium text-neutral-200">Diff walkthrough</div>
       <SourceSelector source={source} onChange={changeSource} />
+      <ModelSelector options={modelRecord?.options ?? []} override={override} />
       <SourceFields source={source} onChange={changeSource} />
       <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
         disabled={!validSource(source)} onClick={() => { reset(); void refresh(); }}>Refresh</button>
@@ -310,8 +387,11 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
       {generating ? <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300" onClick={() => void cancel()}>Cancel</button> : null}
     </header>
     <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
-      Local Git hunks in patch order. Source selectors can compare branches, commits, or pull requests. Generate explicitly sends a bounded diff digest to the configured NNA model.
+      Local Git hunks in patch order. Source selectors can compare branches, commits, or pull requests. Generate explicitly sends a bounded diff digest to the model shown above.
     </div>
+    {modelRecord ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
+      {readinessText(modelRecord.readiness, modelError)}
+    </div> : null}
     {!validSource(source) && typeof source !== 'string'
       ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Complete all source fields to capture this walkthrough.</p> : null}
     {generating && stage ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">

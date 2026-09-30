@@ -3131,6 +3131,26 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Delta/Delayed register
 
+- **2026-09-30 · P11-31 walkthrough model readiness (seal 20260930-15).**
+  Walkthrough now resolves one bounded model snapshot from provider inventory,
+  credential evidence, harness config, `walkthroughModelOverride`, and the
+  captured digest. The readiness endpoint rejects malformed source admission and
+  reports the corresponding empty, generated-only, no-model, no-login,
+  unsupported-JSON, or context-budget refusal explicitly.
+  NND sends the selected `providerID/modelID` to NNA, requires response
+  attribution to match session and request, and isolates durable-cache and job
+  keys by that model; progress/cancel now carry the same model. The UI exposes
+  Default chain/catalog pickers, persists the feature override, shows bounded
+  readiness, and retains the pending model across picker changes. Windows
+  context budget uses bounded `context - output`; public API-key sentinels are
+  not treated as logins. Adversarial audits fixed the
+  context/cache/job/progress races and malformed IDs. Truth: pnpm check 583/583
+  production files, graph current for 583 modules, all typechecks green, UI
+  1414/1414 (167 files, +2 focused readiness/lifecycle tests), web 1226/1226
+  (103 files, +17 focused readiness/generation/progress/cancel tests). Remaining
+  walkthrough work: richer chapter/stop schema, direct small-model transport,
+  and P12b installed-GUI acceptance.
+
 | # | Item | Phase landing | Note |
 |---|---|---|---|
 | D1 | Mock harness semantics | P1 (doc 02) | P0 ships `/health`,`/auth/*`,`/api` proxy + control SSE only |

@@ -6,7 +6,10 @@ import type { Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { ENV } from '../env.ts';
 import { WalkthroughCache } from '../lib/walkthrough/cache.ts';
-import { walkthroughCacheKey, sessionIdentity } from '../lib/walkthrough/identity.ts';
+import { walkthroughCacheKey, sessionIdentity, identityFromString } from '../lib/walkthrough/identity.ts';
+import { walkthroughModelSelection, walkthroughReadiness } from '../lib/walkthrough/model-readiness.ts';
+import { credentialEvidence, providerList, readConfig, type SmallModelPorts } from '../lib/small-model/provider-ports.ts';
+import { readMergedSettings } from '../lib/settings-store.ts';
 import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 import { getWalkthroughSnapshot, SnapshotError, sourceRoot } from './git-walkthrough-snapshot.ts';
 import { parseWalkthroughSource, sourceKey } from './git-walkthrough-sources.ts';
@@ -35,6 +38,7 @@ export type WalkthroughJob = {
 
 const jobs = new Map<string, WalkthroughJob>();
 const defaultCachedWalkthrough = new WalkthroughCache(ENV.dataDir ? `${ENV.dataDir.replace(/[\\/]+$/u, '')}/walkthrough-cache.json` : 'walkthrough-cache.json');
+const READINESS_PROMPT_OVERHEAD_CHARS = 8_192;
 const stageOrder: Record<WalkthroughStage, number> = { collecting: 0, asking: 1, assembling: 2 };
 
 function signalWithDeadline(job: WalkthroughJob, timeoutMs: number): AbortSignal | undefined {
@@ -115,6 +119,28 @@ function cacheIdentity(sourceKey: string, root: string, identity: { providerID: 
   return walkthroughCacheKey('walkthrough-cache-v1', root, sourceKey, identity, language, snapshot);
 }
 
+function cacheModelIdentity(requested: string | null, owner: unknown): { providerID: string; modelID: string } | null {
+  return requested === null ? sessionIdentity(owner) : identityFromString(requested);
+}
+
+export function generationJobKey(root: string, source: string, requestedModel: string | null): string {
+  return requestedModel === null
+    ? `${root.toLowerCase()}\0${source}`
+    : `${root.toLowerCase()}\0${source}\0${requestedModel}`;
+}
+
+async function modelSelection(directory: string, requestModel: string | undefined) {
+  const modelPorts: SmallModelPorts = {};
+  const providers = await providerList(modelPorts, directory);
+  if (providers === null) throw new WalkthroughGenerateError('Model provider inventory is unavailable.', 502, 'provider-list-failed');
+  const credentials = await credentialEvidence(directory, providers, modelPorts);
+  const config = await readConfig(modelPorts, directory);
+  return walkthroughModelSelection({
+    providers, credentials, requestModel,
+    settingsOverride: readMergedSettings('web').walkthroughModelOverride, config,
+  });
+}
+
 async function ownedSession(ports: Partial<Record<'call' | 'root', any>>, sessionId: string,
   directory: string, job: WalkthroughJob): Promise<Response> {
   return ports.call?.(harnessRequest(`/session/${encodeURIComponent(sessionId)}`, directory, {
@@ -123,12 +149,40 @@ async function ownedSession(ports: Partial<Record<'call' | 'root', any>>, sessio
 }
 
 type WalkthroughModelResponse = { revision: unknown; text: unknown; providerID: unknown; modelID: unknown; error?: { message?: string } };
+type AcceptedModelResponse = { revision: string; text: string; providerID: string; modelID: string; error?: { message?: string } };
+
+function requestedModel(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string' || value.length > 512) {
+    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
+  }
+  const separator = value.indexOf('/');
+  if (separator <= 0 || separator >= value.length - 1) {
+    throw new WalkthroughGenerateError('Model must be providerID/modelID.', 400, 'invalid-model');
+  }
+  return value;
+}
 
 function validModelResponse(result: WalkthroughModelResponse | null, snapshot: Snapshot):
   result is { revision: string; text: string; providerID: string; modelID: string; error?: { message?: string } } {
   return result !== null && result.revision === snapshot.signature && typeof result.text === 'string' && result.text.length <= MAX_TEXT
     && typeof result.providerID === 'string' && result.providerID.length > 0 && result.providerID.length <= 256
     && typeof result.modelID === 'string' && result.modelID.length > 0 && result.modelID.length <= 256;
+}
+
+function acceptModelResponse(result: WalkthroughModelResponse | null, snapshot: Snapshot,
+  identity: { providerID: string; modelID: string } | null,
+  requestModel: string | null): AcceptedModelResponse {
+  if (!validModelResponse(result, snapshot)) {
+    throw new WalkthroughGenerateError('Model response does not match this diff revision.', 502, 'invalid-walkthrough');
+  }
+  if (identity !== null && (result!.providerID !== identity.providerID || result!.modelID !== identity.modelID)) {
+    throw new WalkthroughGenerateError('Model response does not match this walkthrough identity.', 502, 'model-changed');
+  }
+  if (requestModel !== null && `${result!.providerID}/${result!.modelID}` !== requestModel) {
+    throw new WalkthroughGenerateError('Model response does not match the requested walkthrough model.', 502, 'model-changed');
+  }
+  return result!;
 }
 
 function walkthroughAnswer(chapters: ModelChapter[], snapshot: Snapshot, aliases: Map<string, Snapshot['stops'][number]>, omitted: number, providerID: string, modelID: string) {
@@ -155,6 +209,7 @@ async function runGeneration(input: {
   ports: Partial<Record<'snapshot' | 'call' | 'root', any>>;
   rawSource: unknown;
   language: string;
+  requestModel: string | null;
   cache?: WalkthroughCache;
   job: WalkthroughJob;
 }): Promise<unknown> {
@@ -174,7 +229,7 @@ async function runGeneration(input: {
   if (!session.ok || typeof owner?.directory !== 'string' || !sameDirectory(owner.directory, directory)) {
     throw new WalkthroughGenerateError('Session does not belong to this workspace.', 403, 'session-scope');
   }
-  const identity = sessionIdentity(owner);
+  const identity = cacheModelIdentity(input.requestModel, owner);
   if (identity !== null && input.cache !== undefined) {
       const cacheKey = cacheIdentity(sourceKey(source), root, identity, input.language, snapshot);
     const cached = input.cache.get(cacheKey);
@@ -186,24 +241,22 @@ async function runGeneration(input: {
   }
   const response = await ports.call(harnessRequest(`/v1/nnd/sessions/${encodeURIComponent(sessionId)}/walkthrough`, directory, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ revision: snapshot.signature, digest }), signal: signalWithDeadline(job, 50_000),
+    body: JSON.stringify(input.requestModel === null
+      ? { revision: snapshot.signature, digest }
+      : { revision: snapshot.signature, digest, model: input.requestModel }),
+    signal: signalWithDeadline(job, 50_000),
   }));
   const result = await response.json().catch(() => null) as WalkthroughModelResponse | null;
   if (!response.ok) throw new WalkthroughGenerateError(result?.error?.message ?? 'Walkthrough model is unavailable.', response.status, 'model-unavailable');
-  if (!validModelResponse(result, snapshot)) {
-    throw new WalkthroughGenerateError('Model response does not match this diff revision.', 502, 'invalid-walkthrough');
-  }
-  if (identity !== null && (result.providerID !== identity.providerID || result.modelID !== identity.modelID)) {
-    throw new WalkthroughGenerateError('Model response does not match this walkthrough identity.', 502, 'model-changed');
-  }
+  const accepted = acceptModelResponse(result, snapshot, identity, input.requestModel);
   setStage(input.job, 'assembling');
-  const chapters = normalizeWalkthrough(result.text, aliases);
+  const chapters = normalizeWalkthrough(accepted.text, aliases);
   const current = ports.snapshot(directory, undefined, source);
   if (current.signature !== snapshot.signature) {
     throw new WalkthroughGenerateError('Diff changed during generation; refresh and retry.', 409, 'snapshot-stale');
   }
   cancelledIfAborted(input.job);
-  const answer = walkthroughAnswer(chapters, snapshot, aliases, omitted, result.providerID, result.modelID);
+  const answer = walkthroughAnswer(chapters, snapshot, aliases, omitted, accepted.providerID, accepted.modelID);
   if (identity !== null && input.cache !== undefined) {
     input.cache.set(cacheIdentity(sourceKey(source), root, identity, input.language, snapshot), answer);
   }
@@ -214,11 +267,12 @@ export async function generateWalkthrough(directory: string, sessionId: string, 
   ports: { snapshot: typeof getWalkthroughSnapshot; call: typeof callHarness; root?: typeof sourceRoot } = { snapshot: getWalkthroughSnapshot, call: callHarness },
   rawSource: unknown = 'all',
   context: { jobs?: Map<string, WalkthroughJob>; rawSource?: unknown; language?: unknown;
-    cache?: WalkthroughCache } = {}): Promise<unknown> {
+    model?: unknown; cache?: WalkthroughCache } = {}): Promise<unknown> {
+  const requestModel = requestedModel(context.model);
   parseInputs(sessionId, expected, directory, rawSource);
   const source = parseWalkthroughSource(rawSource);
   const root = ports.root?.(directory) ?? sourceRoot(directory);
-  const key = `${root.toLowerCase()}\0${sourceKey(source)}`;
+  const key = generationJobKey(root, sourceKey(source), requestModel);
   const existing = context.jobs?.get(key);
   if (existing && existing.state === 'running') {
     if (existing.expected !== expected) throw new WalkthroughGenerateError('Diff changed; refresh before generating.', 409, 'snapshot-stale');
@@ -230,7 +284,7 @@ export async function generateWalkthrough(directory: string, sessionId: string, 
   const language = typeof rawLanguage === 'string' && /^[A-Za-z0-9-]{1,32}$/u.test(rawLanguage)
     ? rawLanguage : 'en';
   const generation = { sessionId, expected, directory, rawSource, ports, job,
-    language, cache: context.cache ?? defaultCachedWalkthrough };
+    language, requestModel, cache: context.cache ?? defaultCachedWalkthrough };
   job.promise = runGeneration(generation).catch((error) => {
     job.error = error;
     if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'cancelled');
@@ -249,17 +303,17 @@ function setStage(job: WalkthroughJob, next: WalkthroughStage): void {
 }
 
 export function walkthroughProgress(_directory: string, sourceRaw: unknown,
-  root: string, store: Map<string, WalkthroughJob>): WalkthroughStage | null {
+  root: string, store: Map<string, WalkthroughJob>, model: string | null = null): WalkthroughStage | null {
   const source = parseWalkthroughSource(sourceRaw);
-  const key = `${root.toLowerCase()}\0${sourceKey(source)}`;
+  const key = generationJobKey(root, sourceKey(source), model);
   return store.get(key)?.stage ?? null;
 }
 
 export function cancelWalkthrough(_directory: string, sourceRaw: unknown,
-  root: string, store: Map<string, WalkthroughJob>): boolean {
+  root: string, store: Map<string, WalkthroughJob>, model: string | null = null): boolean {
   try {
     const source = parseWalkthroughSource(sourceRaw);
-    const key = `${root.toLowerCase()}\0${sourceKey(source)}`;
+    const key = generationJobKey(root, sourceKey(source), model);
     const job = store.get(key);
     if (!job || job.state !== 'running') return false;
     job.controller.abort();
@@ -272,9 +326,9 @@ export function __walkthroughJobs(jobsMap: Map<string, WalkthroughJob>): void {
 }
 
 export function walkthroughProgressState(encodedSource: string, root: string,
-  store: Map<string, WalkthroughJob> = jobs): { status: number; body: Record<string, unknown> } {
+  store: Map<string, WalkthroughJob> = jobs, model: string | null = null): { status: number; body: Record<string, unknown> } {
   try {
-    return { status: 200, body: { stage: walkthroughProgress("", JSON.parse(encodedSource), root, store) } };
+    return { status: 200, body: { stage: walkthroughProgress("", JSON.parse(encodedSource), root, store, model) } };
   } catch (cause) {
     const failure = cause as { status?: number; code?: string };
     const status = failure.status === 400 || typeof failure.status !== 'number' ? 400 : 500;
@@ -283,9 +337,9 @@ export function walkthroughProgressState(encodedSource: string, root: string,
 }
 
 export function walkthroughCancelState(source: unknown, root: string,
-  store: Map<string, WalkthroughJob> = jobs): { status: number; body: { cancelled?: boolean; error?: string; code?: string } } {
+  store: Map<string, WalkthroughJob> = jobs, model: string | null = null): { status: number; body: { cancelled?: boolean; error?: string; code?: string } } {
   try {
-    return { status: 200, body: { cancelled: cancelWalkthrough("", source, root, store) } };
+    return { status: 200, body: { cancelled: cancelWalkthrough("", source, root, store, model) } };
   } catch (cause) {
     const failure = cause as { status?: number; code?: string };
     const status = failure.status === 400 || typeof failure.status !== 'number' ? 400 : 500;
@@ -298,18 +352,47 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
       const body = await readJsonBodyBounded(c.req.raw, 4_096);
       return c.json(await generateWalkthrough(body?.directory as string, body?.sessionId as string, body?.revision as string,
         undefined, body?.source ?? body?.scope,
-        { jobs, rawSource: body?.source ?? body?.scope, language: body?.language }));
+        { jobs, rawSource: body?.source ?? body?.scope, language: body?.language, model: body?.model }));
     } catch (cause) {
       if (cause instanceof WalkthroughGenerateError) return c.json({ error: cause.message, code: cause.code }, cause.status as 400);
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);
       return c.json({ error: 'Walkthrough generation failed.', code: 'generation-failed' }, 500);
     }
   });
+  app.get('/api/git/walkthrough-readiness', async (c) => {
+    try {
+      const directory = c.req.query('directory');
+      if (!directory) return c.json({ error: 'directory parameter is required', code: 'invalid-request' }, 400);
+      const rawSource = c.req.query('source') ?? 'all';
+      if (rawSource.length > 4_096) throw new WalkthroughGenerateError('Invalid walkthrough source.', 400, 'invalid-source');
+      const source = rawSource === 'all' || rawSource === 'staged' || rawSource === 'working'
+        ? parseWalkthroughSource(rawSource)
+        : parseWalkthroughSource(JSON.parse(rawSource) ?? {});
+      const selection = await modelSelection(directory, c.req.query('model'));
+      const snapshot = getWalkthroughSnapshot(directory, undefined, source);
+      const { digest } = digestFor(snapshot);
+      const requiredChars = Buffer.byteLength(JSON.stringify(digest), 'utf8') + READINESS_PROMPT_OVERHEAD_CHARS;
+      const readiness = walkthroughReadiness({
+        digestCount: digest.length, fileCount: snapshot.fileCount, requiredChars, selection,
+      });
+      return c.json({ model: selection.model, options: selection.options, readiness });
+    } catch (cause) {
+      if (cause instanceof WalkthroughGenerateError) return c.json({ error: cause.message, code: cause.code }, cause.status as 502);
+      if (cause instanceof Error && (cause as { status?: unknown }).status === 400) {
+        return c.json({ error: cause.message,
+          code: (cause as { code?: unknown }).code === 'invalid-source' ? 'invalid-source' : 'invalid-request' }, 400);
+      }
+      if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);
+      if (cause instanceof SyntaxError) return c.json({ error: 'Invalid walkthrough source.', code: 'invalid-source' }, 400);
+      return c.json({ error: 'Walkthrough readiness failed.', code: 'readiness-failed' }, 500);
+    }
+  });
   app.get('/api/git/walkthrough-progress', (c) => {
     const directory = c.req.query('directory');
     if (!directory) return c.json({ error: 'directory parameter is required', code: 'invalid-request' }, 400);
     try {
-      const state = walkthroughProgressState(c.req.query('source') ?? '{}', sourceRoot(directory));
+      const state = walkthroughProgressState(c.req.query('source') ?? '{}', sourceRoot(directory), jobs,
+        typeof c.req.query('model') === 'string' ? c.req.query('model') : null);
       return c.json(state.body, state.status as 200);
     } catch (cause) {
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 500);
@@ -320,7 +403,8 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
     try {
       const body = await readJsonBodyBounded(c.req.raw, 4_096);
       if (!body?.directory) return c.json({ error: 'directory parameter is required', code: 'invalid-request' }, 400);
-      const state = walkthroughCancelState(body?.source ?? { kind: 'working-tree', scope: 'all' }, sourceRoot(body.directory as string));
+      const state = walkthroughCancelState(body?.source ?? { kind: 'working-tree', scope: 'all' }, sourceRoot(body.directory as string), jobs,
+        typeof body?.model === 'string' ? body.model : null);
       return c.json(state.body, state.status as 200);
     } catch (cause) {
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 500);
