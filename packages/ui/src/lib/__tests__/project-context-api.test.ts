@@ -26,6 +26,15 @@ describe('project context HTTP boundary', () => {
     await expect(getProjectContext('../other')).rejects.toThrow('Invalid project ID');
   });
 
+  it('keeps HTTP-missing and malformed-authoritative failures separate', async () => {
+    answer({ message: 'project not found' }, 404);
+    await expect(getProjectContext('missing')).rejects.toThrow('Project context request failed (404)');
+    expect(runtimeFetch).toHaveBeenCalledWith('/api/project-context/missing', undefined);
+    answer({ version: 2, notes: [], todos: [] });
+    await expect(getProjectContext('malformed')).rejects.toThrow('Invalid project context response');
+    expect(runtimeFetch).toHaveBeenLastCalledWith('/api/project-context/malformed', undefined);
+  });
+
   it('uses note and todo routes with explicit methods and committed response shapes', async () => {
     const note = { id: 'n1', body: 'Body', createdAt: 1, updatedAt: 1, source: 'manual' };
     answer({ note, context: { ...empty, notes: [note] } });
@@ -45,6 +54,17 @@ describe('project context HTTP boundary', () => {
     expect(JSON.parse((vi.mocked(runtimeFetch).mock.lastCall?.[1] as RequestInit).body as string)).toMatchObject({
       expectedRevision: revision, todos: [todo],
     });
+  });
+
+  it('sends pin patches without a body, preserving note text isolation', async () => {
+    const note = { id: 'n1', body: 'Body', createdAt: 1, updatedAt: 1, source: 'manual' };
+    answer({ note });
+    await expect(updateProjectNote('p1', 'n1', { pinned: true })).resolves.toEqual(note);
+    const init = vi.mocked(runtimeFetch).mock.lastCall?.[1] as RequestInit;
+    expect(init).toMatchObject({ method: 'PATCH' });
+    expect(JSON.parse(init.body as string)).toEqual({ pinned: true });
+    answer({ message: 'gone' }, 404);
+    await expect(updateProjectNote('p1', 'n1', { body: 'Edit' })).rejects.toThrow('Project context request failed (404)');
   });
 
   it('uses saved-plan routes without accepting malformed authoritative responses', async () => {

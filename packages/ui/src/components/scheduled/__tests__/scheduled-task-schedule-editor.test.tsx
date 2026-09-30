@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScheduledScheduleEditor, type ScheduledScheduleEditorProps } from '../scheduled-task-schedule-editor.tsx';
 import {
   emptyDraft, localeFirstDay, timePillLabel, toggleMember, weekdayOrder,
-  cronShapeOk, zoneChoices,
+  weekdayLabels, cronShapeOk, zoneChoices,
 } from '../schedule-form.ts';
 import type { TaskSchedule } from '../../../lib/scheduled-tasks-api.ts';
 import { useI18nStore } from '../../../lib/i18n/store.ts';
@@ -222,6 +222,17 @@ describe('ScheduledScheduleEditor (doc 12 §H)', () => {
     const days = chips.map((id) => Number((id ?? '').replace('weekday-', '')));
     expect(new Set(days).size).toBe(7);
     expect(days[0]).toBe(localeFirstDay(BCP47ByLocale.en));
+  });
+
+  it('renders non-ASCII weekday chips in the locale walk order', () => {
+    useI18nStore.setState({ locale: 'de' });
+    renderEditor(emptyDraft('weekly', 'UTC'), async () => ({ ok: true, slots: [] }));
+    const chips = [...document.querySelectorAll('[data-testid^="weekday-"]')]
+      .filter((node) => node.getAttribute('data-testid') !== 'weekday-chips');
+    const order = weekdayOrder(localeFirstDay(BCP47ByLocale.de));
+    expect(chips.map((node) => node.textContent)).toEqual(order.map((day) => weekdayLabels(BCP47ByLocale.de)[day]));
+    expect(chips[0]?.textContent).toMatch(/\p{Script=Latin}/u);
+    expect(chips.map((node) => node.textContent)).not.toContain('Sun');
   });
 
   it('once fields round-trip date and time through onChange', () => {

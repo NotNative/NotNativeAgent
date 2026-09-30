@@ -23,16 +23,26 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 ## Log
 
 - 2026-09-30 · **P10-64 durable project-context migration.**
-  Legacy configs now convert notes, todos, plans, and plan-file links into
-  `context.json` during locked reads. The isolated document commits atomically
-  before bounded legacy keys are removed, while unrelated config values remain.
-  Alias conflicts, malformed lists, unsupported plan paths, and other malformed
-  input fail before any handoff; repeated and concurrent readers converge, and
-  listeners see the context event on first durable completion. Config PUT no
-  longer accepts a stale legacy-key echo after context has adopted ownership.
-  Adversarial audit confirmed lock ordering and atomicity and fixed the stale
-  reference contradiction. Focused storage/route/plan suites 34/34 and web
+  Normal reads now project legacy notes/todos without consuming them; the
+  plan-link path and explicit context mutations durably adopt the isolated
+  document before bounded legacy keys are removed, while unrelated config
+  values remain. Alias conflicts, malformed lists, unsupported plan paths, and
+  other malformed input fail before handoff; repeated and concurrent projected
+  readers converge. Config PUT preserves unseeded keys and rejects changed
+  context-owned echoes after ownership handoff. The final adversarial audit
+  aligned §D.5 documentation with that deferred-adopt contract. Focused
+  storage/route/plan suites 34/34 and web
   server typecheck passed.
+
+- 2026-09-30 · **P10-65 locale-calendar and D8 fixture pins.**
+  Added a genuine DOM locale-calendar test for non-ASCII weekday chips in
+  German with the locale's first-day walk order, over the existing pure
+  weekInfo/off-by-one/midnight-zone pins. Added concrete HTTP fixtures to the
+  D8 project-context API: a 404 missing-authority response remains distinct
+  from a malformed authoritative body, and pin-only PATCHes omit the note
+  body so text edits never ride a pin update. No `supportsCalendarData`
+  fake exists in the repository or planning record; the genuine browser
+  DOM/Intl behavior and real response shapes were preferred.
 
 - 2026-09-30 · **P10-63 H.2 small-model generation.**
   Added the production small-model generation port for documented OpenAI,
