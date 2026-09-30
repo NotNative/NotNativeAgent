@@ -202,6 +202,21 @@ extracted draft delivery and project-note actions without behavior change.
 Truth: UI typecheck green; focused pin suites 14/14; full UI 1,347/1,347 and
 web 1,158/1,158; graph current at 549 modules.
 
+## P10-54: session-knowledge send rider (2026-09-29)
+
+The UI optimistic prompt path now consults the additive
+`/api/session-knowledge` route before dispatch. Pending knowledge is placed
+first as a synthetic text part named `session-knowledge`; route failures do
+not block the send. The client records `openchamber.knowledge_context_delivered`
+only after the prompt resolves, including the transport-failure path where a
+delayed confirmation proves the message landed. Recording itself remains
+best-effort, so a bookkeeping failure leaves the signature eligible for a
+later resend rather than failing a delivered prompt.
+
+The adversarial audit confirmed and captured the delayed-confirmation case.
+Truth: UI typecheck green; focused rider/recovery/BTW/multirun suites 36/36;
+full UI 1,365/1,365.
+
 ## P10-2: note lifecycle API (2026-09-26)
 
 The isolated context store now has note create, patch, and delete operations

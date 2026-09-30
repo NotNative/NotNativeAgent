@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a217b23b7f4021493b8e08844f5428169b780587d68b0170ec7b8da04784aae8",
+  "source_digest": "sha256:3bcd3c1f4b8945022aecb7d589168911ffa26de9c3e77326305afc224337f4e8",
   "counts": {
     "modules": 556,
     "component_edges": 14
@@ -150,8 +150,8 @@
     {
       "from": "sync-engine",
       "to": "runtime-io",
-      "import_count": 7,
-      "module_count": 6
+      "import_count": 8,
+      "module_count": 7
     },
     {
       "from": "harness-facade",
@@ -3471,6 +3471,7 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/session-knowledge-api.ts",
         "packages/ui/src/sync/materialization.ts",
         "packages/ui/src/sync/message-ordering.ts",
         "packages/ui/src/sync/session-lifecycle.ts",

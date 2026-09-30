@@ -13,6 +13,7 @@ import type { Message, Part, PermissionRequest, QuestionRequest, Session, Sessio
 import { truncateAtMessageId, messagesBefore } from './message-ordering.ts';
 import { getStaleRunningToolMessageID } from './materialization.ts';
 import type { EngineServices } from './session-lifecycle.ts';
+import { getSessionKnowledge, recordSessionKnowledgeDelivered } from '../lib/session-knowledge-api.ts';
 
 export interface SendFailureRecord {
   at: number;
@@ -91,7 +92,7 @@ export async function optimisticSend(
     sessionID: string;
     delivery?: 'steer' | 'queue';
     parts: Array<
-      { type: 'text'; text: string; synthetic?: boolean } |
+      { type: 'text'; text: string; synthetic?: boolean; systemContext?: string } |
       { type: 'file'; url?: string; mime?: string; filename?: string }
     >;
     model: { providerID: string; modelID: string; variant?: string };
@@ -101,15 +102,44 @@ export async function optimisticSend(
   const directory = normalizeDirectory(input.directory);
   await engine.waitForConnection();
   const store = engine.ensureChild(directory);
+  const knowledge = await pendingKnowledge(directory, input.sessionID);
+  const sendInput: optimisticSendInput = knowledge === undefined
+    ? input
+    : { ...input, parts: [knowledge.part, ...input.parts] };
   const messageID = ascendingId('msg');
-  addOptimisticDraft(engine, store, directory, input, messageID);
+  addOptimisticDraft(engine, store, directory, {
+    ...sendInput,
+  }, messageID);
   const previousStatus = store.getState().session_status[input.sessionID];
   markStatus(store, engine, directory, input.sessionID, { type: 'busy' });
   try {
-    await dispatchPrompt(engine, directory, input, messageID, store);
+    await dispatchPrompt(engine, directory, sendInput, messageID, store);
+    if (knowledge) recordKnowledge(directory, input.sessionID, knowledge.signature);
   } catch (error) {
-    await handleSendFailure(engine, store, directory, input, messageID, previousStatus, error);
+    const confirmed = await handleSendFailure(engine, store, directory, input, messageID, previousStatus, error);
+    if (confirmed && knowledge) recordKnowledge(directory, input.sessionID, knowledge.signature);
   }
+}
+
+async function pendingKnowledge(directory: string, sessionID: string): Promise<{
+  text: string; signature: string; part: { type: 'text'; text: string; synthetic: true; systemContext: 'session-knowledge' };
+} | undefined> {
+  try {
+    const pending = await getSessionKnowledge(directory, sessionID);
+    if (pending.unavailable || pending.text === '' || pending.signature === '') return undefined;
+    return {
+      text: pending.text,
+      signature: pending.signature,
+      part: { type: 'text', text: pending.text, synthetic: true, systemContext: 'session-knowledge' },
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function recordKnowledge(directory: string, sessionID: string, signature: string): void {
+  void recordSessionKnowledgeDelivered({ directory, sessionId: sessionID, signature })
+    .catch(() => undefined);
 }
 
 function addOptimisticDraft(
@@ -166,7 +196,8 @@ async function dispatchPrompt(
       ...(input.delivery ? { delivery: input.delivery } : {}),
       parts: input.parts.map((part) =>
         part.type === 'text'
-          ? { type: 'text', text: part.text, ...(part.synthetic ? { synthetic: true } : {}) }
+          ? { type: 'text', text: part.text, ...(part.synthetic ? { synthetic: true } : {}),
+              ...(part.systemContext ? { systemContext: part.systemContext } : {}) }
           : { type: 'file', url: part.url ?? '', mime: part.mime ?? 'application/octet-stream', filename: part.filename },
       ),
     },
@@ -192,7 +223,7 @@ async function handleSendFailure(
   messageID: string,
   previousStatus: SessionStatus | undefined,
   error: unknown,
-): Promise<never> {
+): Promise<boolean> {
   const status = (error as { status?: number }).status;
   const ambiguous = isAmbiguousSendFailure(error);
   if (!ambiguous) {
@@ -212,7 +243,7 @@ async function handleSendFailure(
     recordSendFailure({ at: Date.now(), sessionID: input.sessionID, messageID, status, reason: String(error).slice(0, 200), transportTagged: true, confirmedPresent: true, rolledBack: false, confirmationAttempts: confirmation.attempts, confirmationChecked: true, outcome: 'confirmed', cause: error });
     engine.loaderOptimisticConfirm(directory, input.sessionID, store, messageID);
     await engine.loaderRefreshTail(directory, input.sessionID, store);
-    return undefined as never;
+    return true;
   }
   recordSendFailure({ at: Date.now(), sessionID: input.sessionID, messageID, status, reason: String(error).slice(0, 200), transportTagged: true, confirmedPresent: false, rolledBack: true, confirmationAttempts: confirmation.attempts, confirmationChecked: true, outcome: 'unconfirmed', cause: error });
   engine.loaderOptimisticRemove(directory, input.sessionID, store, messageID);
