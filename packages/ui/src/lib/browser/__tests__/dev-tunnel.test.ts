@@ -52,6 +52,17 @@ describe('dev-tunnel panel decisions', () => {
     expect(proxy.open).not.toHaveBeenCalled();
   });
 
+  it('preserves the requested port when reusing a mapped port', async () => {
+    const proxy = bridge();
+    setDesktopTunnelBridge(proxy as never);
+    const first = await resolveBrowsableUrl('http://localhost:4200/first', runtime);
+    const second = await resolveBrowsableUrl('http://localhost:4200/second', runtime);
+    expect(new URL(second).port).toBe(new URL(first).port);
+    expect((proxy.open as ReturnType<typeof vi.fn>).mock.calls).toEqual([
+      [{ baseUrl: 'https://remote.example.invalid/api', port: 4200 }],
+    ]);
+  });
+
   it('maps implicit ports and reuses one cache per baseUrl|port', async () => {
     const proxy = bridge();
     setDesktopTunnelBridge(proxy as never);

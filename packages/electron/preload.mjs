@@ -61,6 +61,23 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_INVOKE__', async (command, 
   }
 });
 
+contextBridge.exposeInMainWorld('__NOTNATIVE_RELAY_DEV_TUNNEL__', Object.freeze({
+  open: (payload) => invoke('desktop_dev_tunnel_open', payload),
+  close: (payload) => invoke('desktop_dev_tunnel_close', payload),
+  closeAll: () => invoke('desktop_relay_dev_tunnel_close_all'),
+  onConnect(handler) {
+    if (typeof handler !== 'function') return () => {};
+    const listener = (event) => {
+      const payload = event.data;
+      if (payload?.type !== 'connect') return;
+      const port = event.ports?.[0];
+      if (port) handler({ ...payload, port });
+    };
+    ipcRenderer.on('openchamber:relay-dev-tunnel-connect', listener);
+    return () => ipcRenderer.removeListener('openchamber:relay-dev-tunnel-connect', listener);
+  },
+}));
+
 // The isolated guest has no preload. Only the top-level NND renderer receives
 // this narrow browser-control face; main derives ownership from its sender.
 contextBridge.exposeInMainWorld('__NOTNATIVE_BROWSER_CONTROL__', Object.freeze({

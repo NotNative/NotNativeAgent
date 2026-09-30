@@ -149,6 +149,8 @@ export function createDevTunnelClient(options = {}) {
     mappings.forEach((entry, key) => { if (entry === mapping) mappings.delete(key); });
   }
 
+  const cloneForReuse = (result) => ({ ...result, reused: true });
+
   /** @param {string} key */
   const closeKey = (key) => {
     const mapping = mappings.get(key);
@@ -169,7 +171,9 @@ export function createDevTunnelClient(options = {}) {
     const mapping = mappings.get(key);
     if (mapping) return { localPort: mapping.localPort, reused: true, url: `http://127.0.0.1:${mapping.localPort}/` };
     const pendingOpen = opens.get(key);
-    if (pendingOpen) return pendingOpen;
+    if (pendingOpen) {
+      return cloneForReuse(await pendingOpen);
+    }
     const result = establishConnection(input, key);
     opens.set(key, result);
     try { return await result; }

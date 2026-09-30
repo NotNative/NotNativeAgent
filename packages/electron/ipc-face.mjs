@@ -2,7 +2,8 @@
 /**
  * Minimal desktop invoke face (doc 09 §11.1 v1 + D-09-3). Extracted from
  * main.mjs for file-cap hygiene: sender framing + the command allowlist
- * (desktop_open_external / desktop_get_boot_info / browser-control IPC). Unknown commands never
+ * (desktop_open_external / desktop_get_boot_info / browser-control IPC /
+ * relay dev-tunnel selection). Unknown commands never
  * throw raw — every path answers { ok, error }.
  */
 import { ipcMain, shell } from 'electron';
@@ -98,8 +99,34 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
     ));
   }
 
-  function runInvokeCommand(command, payload, event) {
+  async function runInvokeCommand(command, payload, event) {
     if (command.startsWith('desktop_browser_')) return browserCommand(command, payload, event);
+    if (command === 'desktop_dev_tunnel_open') {
+      if (payload?.relay !== true) return { ok: false, error: 'direct-dev-tunnel-unavailable' };
+      const bridge = input.relayDevTunnel?.();
+      if (!bridge) return { ok: false, error: 'relay-dev-tunnel-unavailable' };
+      try {
+        const result = await bridge.open({
+          targetKey: payload.targetKey,
+          remotePort: payload.remotePort,
+          webContents: event.sender,
+        });
+        return { ok: true, result };
+      } catch (error) { return { ok: false, error: stringifyError(error) }; }
+    }
+    if (command === 'desktop_dev_tunnel_close') {
+      if (payload?.relay !== true) return { ok: false, error: 'direct-dev-tunnel-unavailable' };
+      const bridge = input.relayDevTunnel?.();
+      if (!bridge) return { ok: false, error: 'relay-dev-tunnel-unavailable' };
+      try { return { ok: true, result: bridge.close({ targetKey: payload.targetKey, remotePort: payload.remotePort, webContents: event.sender }) }; }
+      catch (error) { return { ok: false, error: stringifyError(error) }; }
+    }
+    if (command === 'desktop_relay_dev_tunnel_close_all') {
+      const bridge = input.relayDevTunnel?.();
+      if (!bridge) return { ok: false, error: 'relay-dev-tunnel-unavailable' };
+      bridge.closeAll();
+      return { ok: true, result: { closed: true } };
+    }
     if (command === 'desktop_open_external') {
       const target = payload && typeof payload.url === 'string' ? payload.url : '';
       try {
@@ -129,7 +156,7 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
             console.warn(`[shell] invoke rejected for sender: ${JSON.stringify(senderFrameUrls(event))}`);
             result = { ok: false, error: 'sender-not-allowed' };
           } else {
-            result = runInvokeCommand(String(envelope?.command ?? ''), envelope?.payload, event);
+            result = await runInvokeCommand(String(envelope?.command ?? ''), envelope?.payload, event);
           }
         } catch (error) {
           result = { ok: false, error: stringifyError(error) };

@@ -5,8 +5,8 @@ ff3cf819a5ddf0e551d608142584439011c70a96bdf0add899261b1662e1467e *docs/architect
 368cf30b7dfbdccfcb5bf09a1de0d2d559b0296273c569d5877eaa51d54575ab *docs/architecture/dependency-registry.json
 659969cd5574bb4edd2e388f72674b51283b24621b820ea8c98532b8a137f4bf *docs/architecture/nnd-terminology.json
 7bb44f94e22e9189926f336474ba8d6b2c4d7b29d799b31da7360503328c9159 *docs/architecture/README.md
-39b8655098d46d9a10944e624e4eba1eade2f92e505ec65f2bd6c2ca7075549f *docs/architecture/repository-graph.json
-124e19cae7f4be5d1bbda47cc288e1f67c3afe374ec0d91b3c9df69e428cb129 *docs/architecture/repository-graph.md
+05342c033ba27370525feb830196a18b1e30efbea68238e101912ee7f34b1c1c *docs/architecture/repository-graph.json
+4db5e3baec47776c4f14d215fd39faf1972136c9a7da47bbf914fb36ec9f27f5 *docs/architecture/repository-graph.md
 e405bb1cf362a38c1ca46b7d6da474e9da565cf5edc873fc15305bd56ad723b0 *docs/build/DECISIONS.md
 2b50f9a61f4f4a034e84744b209d91b66e56771780c1f571bd9adff0f537a553 *docs/build/EVALUATION.md
 addd4ffa70f5047445950803c63235ec90eaf3f6c1614b39bb6e4591b8acef7f *docs/build/GUI-PLAN.md
@@ -24,7 +24,7 @@ aba1e11005037272954862f0a6472f51fabda0632186d4bdc05a3b1a8f509907 *docs/build/NOT
 3bbef171e7e12b5abbfc44fa084a00417b787d975ae88a2fd97d4c8e91e16b02 *docs/build/NOTES/08-remote-access-and-security.md
 f6a394ef52dd9ec92d8a54edc805040e70134232f8b177963f55ff32700ec6e7 *docs/build/NOTES/09-electron-desktop-shell.md
 9944b85a02ac07ec3df928eac900133c1914e8a4729b5fa832577c6b46ea36d1 *docs/build/NOTES/12-autonomy-and-orchestration.md
-8e39df7d58b1a6be6d24fb8b3f0257b7f7d54951667ae05ecf63c0d7c37c6c05 *docs/build/NOTES/13-preview-and-inspection.md
+47e9a1e19987a9cee656a9e9fcc2eeda75c4b795cbbc84f359eb8e773f7f2c13 *docs/build/NOTES/13-preview-and-inspection.md
 e45d41550d2525357292e74d53a16caedb72a8ea583efbe3c62e5a0aa45b9f88 *docs/build/NOTES/14-theme-settings-system.md
 9960f301d3be0272a624f8c488840faccd793ec000de360ef3be48ab170d45b3 *docs/build/NOTES/15-knowledge-context-skills.md
 d4037fd45284dad5f6fd367476f87855c9625b8e68ee99318db7eb3fb3f6b970 *docs/build/NOTES/16-architecture-and-upstream-alignment.md
@@ -34,7 +34,7 @@ f5f82e48610e230a866efac231db09de7e82231a9cb408c824c4bef7e9dde054 *docs/build/NOT
 777552b12440de2f77328fe2408f93b8e92c806950a73c5808554c1fd140e4af *docs/build/NOTES/p12b-review-band-notes.md
 41aa66c05bf5a154db57c5928532ff28de17a0172420c5395fca71c770577bad *docs/build/NOTES/p12b-session-product-notes.md
 d9b1a430d4dcf82ed3f30e77bbd1336c63738946b985ff66221c6eef02c69e5f *docs/build/PLAN.md
-eb3444c8e0281aea61503335c69aa7edf1000971c6818253b2f85223ae34f948 *docs/build/PROGRESS.md
+56f2f273582f51f0dfd6b7fcfa28dc079cab9a86c38bea2b07ef03d92a581b10 *docs/build/PROGRESS.md
 fdcdc1ac8a3a519a85d9ba9e8f8ebb3d350f22c3a1c8899a546ee7030a962dfb *docs/planning/00-INDEX.md
 247db0e602d1fa55c9a1f6b03f68d164f9d62377ed122c54845262abb1f02ce4 *docs/planning/01-architecture-and-app-shell.md
 95b41b6649e3fb113530679c7b205549dd9e32cfc6bdd91d401b041904dfd75e *docs/planning/02-opencode-harness-contract.md
@@ -51,7 +51,7 @@ af0ca86fb619203dde2e97bb15838bf2bac1dc31a61fd74bd17f7bc7566256e0 *docs/planning/
 0bad0612a9010dbcf1a4026ad8b2621f9d99b2edc762f3f4a1788c0f59a88eed *docs/planning/13-preview-and-inspection.md
 a4c51e68981b876ca247023291f9ddec1f2bb45ed95e9f875005e80d70b2551a *docs/planning/14-theme-settings-system.md
 389ded477fdb975bd55909f1bb5db8b2f0bbe360bfe6a36243ef7a72d66f1601 *docs/planning/15-knowledge-context-skills.md
-35462cee76be8a8597b4a5344af712c1d948cc546cdba85c2ac8f14e0a4bd3bb *package.json
+4620d2ec387f315380acc592cc10249b7067d814c8a713271e0288158e418978 *package.json
 ccf889e33708d72789a05b803725d95765ed793a28e6f1d971acd8c012057d18 *packages/ui/src/App.tsx
 4f8ba3e404c817fef847b47c58f606e0c9aedf84b36989481443def2fe1beccf *packages/ui/src/chat/__tests__/archive-view.test.tsx
 e57c318e9e6cd92e0b022f7a7108dc0612abc3c951b015678536ccd5ea638697 *packages/ui/src/chat/__tests__/blocking-cards.test.tsx
@@ -301,7 +301,7 @@ b588a8a73c8bd04ecb964990785049dd02399fbf0c7afd32eaaed95a9893ed01 *packages/ui/sr
 f1d0bffa20f406e03f5c7db0cb365961968a590f603cd91bf9a95f9b770c43d7 *packages/ui/src/lib/api/types.ts
 73b8031468ed466c6399b7068c1bb74770a08566bc284d39beac7b046b5b0f40 *packages/ui/src/lib/browser/__tests__/annotation-capture.test.ts
 59052ed980f80971aab2e7d596160b3b39b136d2bd3724b92a88e44bd61f7d9f *packages/ui/src/lib/browser/__tests__/desktop-capture-action.test.ts
-b6d5f6e925988618c8543fbe6cd96040ec7777fea248046f4f27ba2720317dfb *packages/ui/src/lib/browser/__tests__/dev-tunnel.test.ts
+56017851b4f066cbd20892c112cd67be7f93887a2844d71c6efe3647a7a41d81 *packages/ui/src/lib/browser/__tests__/dev-tunnel.test.ts
 b6db83e46d5be223d1795802cc18e36c654b3ab576ebe3da64cc11de3931e3b0 *packages/ui/src/lib/browser/__tests__/page-annotation.test.ts
 1eec77f6cfc8fe853a7f32cf1a82442e5a51adf05640ecf5b22168ac62cd2fa0 *packages/ui/src/lib/browser/__tests__/page-click.test.ts
 e4db81060d9dbc287fd844e62d154067e518a540b87160b8ede5382011e4dcf3 *packages/ui/src/lib/browser/__tests__/page-inspection.test.ts
@@ -325,6 +325,7 @@ d5235fc015fd9435fd6e74cd3cded7e9e1e25845703ee42bf8155724e7b85d12 *packages/ui/sr
 8554db8d19fbfbf7f8f8de35d9984068c28eb79bf6ee0a201d8c505ebf7ed7aa *packages/ui/src/lib/browser/preview-readiness.ts
 e38e591fb8d7ed57e8a0ee8605952dd6154466fd219bb7761f554662fc722659 *packages/ui/src/lib/browser/preview-url.ts
 4696e6f454f0b0d963d2d20363ab6652a32c5bf67951b957412f283782841865 *packages/ui/src/lib/browser/region-annotation.ts
+8e69b2da238e2dc54bc4f454eb0f8e19f4f354cfee941c2570fc04394063a39c *packages/ui/src/lib/browser/relay-dev-tunnel.ts
 65a4d8a9210da2961ca54e76d6f8de7e98f1ced312d629d4e0690859579e5519 *packages/ui/src/lib/browser/stroke-annotation.ts
 ee3b2f683d2e35c2ba44501f7f309318ef2ee210703c151e9e5f2049895aa630 *packages/ui/src/lib/chunkLoadRecovery.ts
 e358f1a371e79acc990eb2dd05db9d4d39d091fbcfca521d370a32ef93449ecc *packages/ui/src/lib/comments/drafts.ts
@@ -622,7 +623,7 @@ c27cd206481e4b6292ad7133bdc41365672a09d7789a8b57c1c5b94456071f5d *packages/web/s
 4feb77fd8c85820ff7063ea04aa1ea4554f1bd45887967cf49ce61538e339442 *packages/web/src/server/__tests__/p11-browser-control-broker.test.ts
 7c7c1fe32c7bff2cc97dee7828d561794d092c058e734dee71a4a9a41fa9ab60 *packages/web/src/server/__tests__/p11-browser-ipc.test.js
 538f3343ad121402da96d7f670eaccf3c8bfd7cac5a4b532c482fb13df31af98 *packages/web/src/server/__tests__/p11-dev-servers.test.ts
-c48892beb4ea041b3ec35aee409abdb90f6aef11ef93a0dabc46be45e7f25994 *packages/web/src/server/__tests__/p11-dev-tunnel-client.test.ts
+a8429e71c7dc2ad7099d27f1775e241cfed6a2975ecaaffbd58d6c8670226383 *packages/web/src/server/__tests__/p11-dev-tunnel-client.test.ts
 a325a6dbe5ec6ea3f7eb3e8b1e35c76b00ef42241b7508977befa9b870d12ad0 *packages/web/src/server/__tests__/p11-dev-tunnel.test.ts
 b1adf2813c63b3d8bd6b2a931ef758291a5136066c2149b4e6620f1585205031 *packages/web/src/server/__tests__/p11-probe-url.test.ts
 fd3db625e4cfa2b0659bc63449ef7e28c84c45d1c45547a9c87562ab75ee2118 *packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts
@@ -741,7 +742,7 @@ c42bfff199c297a7dd62ee02e52c4b25e8a15d9e058b85fd451cd1042d940279 *packages/web/s
 6016cccc96fb8164703b22dc71f7e43764d4ace6346431cc23aa60af40dac491 *packages/web/src/server/lib/auth/webauthn-ceremony.ts
 5229c10fc5f476e3918df5c41b47fbd99f4d280d4e2e8717704bf8ab3311c1dc *packages/web/src/server/lib/bus.ts
 9f65ae4893ee7cc77305f53716a4045917eae883cada9d93321fcab77d8323b5 *packages/web/src/server/lib/dev-tunnel/client.d.mts
-f7ebc6a6c9581d7e4910ab2e06b626e094c4e9eef61362ad7509c36ece09b57e *packages/web/src/server/lib/dev-tunnel/client.mjs
+09d9cb063ddf08169af771f05a4b5e1edb2893ddf88c53a91a6adb56761f3bff *packages/web/src/server/lib/dev-tunnel/client.mjs
 570cf600279795b8867f462e367f06fd8bc590cb2c5b33f5ffe6d540e2740c70 *packages/web/src/server/lib/fs/outside-file-grants.ts
 387d65d2b8b354938a0b57d442c16061708f36be8b578fe0ccd907b49798ef3e *packages/web/src/server/lib/harnessNaming.ts
 153b03a44ed0c68e361d845a6f52f76d3920067372a196d871ac7872ef855b2c *packages/web/src/server/lib/http/read-bounded.ts
@@ -920,4 +921,4 @@ e5e91435f0cd1c16919a0303ed5deb028ff7dda2ddf7d6fb8d0ec8cc6dfcb5a7 *scripts/smoke-
 7d1a741bbc75a1eb040f655b3fe3ad9f05f064039325720c308f71c100b44b9b *scripts/web-css-gate.mjs
 9dc68711721df6346e5d1e1ab33e131fa1acaf8fb4391e723d275f7571afb2cf *scripts/web-serve.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-1977fb0d47f3c714667bb04b2a46720cb80d44ffede7bcf04768cdd917375567 *VERSION
+f620350297a56e6fe88f41d0ebba4efd5d984730e35c2afc703bba559768214e *VERSION

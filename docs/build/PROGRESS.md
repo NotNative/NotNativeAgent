@@ -15,12 +15,25 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | ✅ done 2026-09-30 (goals, scheduled tasks, snippets/starters, message queue UI, multi-run/fusion, session orchestration, live goal/scheduled feedback, adversarial reviews; full web/UI releases through 20260930-2) |
 | P10 knowledge/context | 15 | ✅ done 2026-09-30 (isolated context storage and durable migration, notes/plans/todos, shared plans, agent memory/tool/runtime, session knowledge/riding, context pins, skills/catalog/install, MCP config/runtime, obligatory context, file/image guards, system reminders, BTW, and H.2 assist generation; adversarial reviews, web/UI suites, and graph/quality gates) |
-| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct-client panel seam delivered 2026-09-30; relay branch and full walkthrough lifecycle remain |
+| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; full walkthrough lifecycle remain |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-30 · **P11-26 relay dev-tunnel branch.**
+  Electron main binds a loopback route per upstream target, pauses each
+  accepted socket, transfers one `MessageChannel` port to the trusted renderer,
+  and pipes `ready/data/close` through the existing relay tunnel. Route reuse
+  awaits a shared pending open; readiness has a 15-second budget; token refresh
+  and virtual-socket failures reject their connection promise; close and errors
+  move in both directions. The bridge closes only its route or webContents and
+  closes all routes on endpoint change; transfer failure destroys only that
+  source. Adversarial review fixed port event handling, pending-open races,
+  duplicate close paths, async callbacks, transfer isolation, and stronger
+  frame-shape tests. Node bridge tests 4/4, direct-client 6/6, panel seam
+  9/9, and web/UI typechecks passed.
 
 - 2026-09-30 · **P11-24/25 raw dev-tunnel host and direct client.**
   The security host upgrades only the exact `/api/dev-tunnel`, rechecks

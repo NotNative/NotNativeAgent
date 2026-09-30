@@ -8,12 +8,13 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, powerMonitor, screen, session, shell } from 'electron';
+import { app, BrowserWindow, MessageChannelMain, powerMonitor, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { createInvokeFace } from './ipc-face.mjs';
+import { createRelayDevTunnelBridge } from './relay-dev-tunnel.mjs';
 import { readShellPrefs, writeShellPrefs } from './shell-prefs.mjs';
 import { createTrayController } from './tray.mjs';
 import { captureWindowState, restoreWindowState } from './window-state.mjs';
@@ -30,6 +31,9 @@ const PACKAGED = Boolean(app.isPackaged);
 // --hidden start (row-bot parity): service boots to tray-only; the FIRST
 // window reveal belongs to the user (tray Open App / ensureMainWindow).
 const HIDDEN_START = process.argv.includes('--hidden');
+
+const relayDevTunnel =
+  createRelayDevTunnelBridge({ createPorts: () => [new MessageChannelMain().port1, new MessageChannelMain().port2] });
 
 let mainWindow = null;
 let serverHandle = null;
@@ -508,6 +512,7 @@ const invokeFace = createInvokeFace({
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   mainContents: () => mainWindow?.webContents,
   browserControl: () => serverHandle?.browserControl,
+  relayDevTunnel: () => relayDevTunnel,
 });
 
 // ── §1.3 boot flow ──────────────────────────────────────────────────────────

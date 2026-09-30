@@ -66,6 +66,32 @@ describe('direct dev-tunnel transport', () => {
     expect(first.url).toBe(`http://127.0.0.1:${first.localPort}/`);
   });
 
+  it('reuses one pending open across simultaneous callers', async () => {
+    const upstream = await listenTCP();
+    let openConnections = 0;
+    const client = createDevTunnelClient({
+      connectWebSocket: () => {
+        openConnections += 1;
+        const socket = new FakeWebSocket();
+        socket.readyState = 1;
+        setTimeout(() => socket.emit('open'), 10);
+        return socket;
+      },
+    });
+    cleanups.push(async () => client.closeAll());
+    const [a, b] = await Promise.all([
+      client.open({ baseUrl: 'http://example.invalid', port: upstream.port }),
+      client.open({ baseUrl: 'http://example.invalid', port: upstream.port }),
+    ]);
+    expect(a.localPort).toBe(b.localPort);
+    expect([a.reused, b.reused]).toEqual([false, true]);
+    expect(a.url).toBe(b.url);
+    expect(openConnections).toBe(0);
+    connect(a.localPort, '127.0.0.1');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(openConnections).toBe(1);
+  });
+
   it('buffers first pending bytes until its own handshake completes', async () => {
     const upstream = await listenTCP();
     const socket = new FakeWebSocket();

@@ -1,5 +1,29 @@
 # 13 — Preview and inspection build notes
 
+## P11-26: relay dev-tunnel branch (2026-09-30)
+
+The Electron bridge owns one loopback route per `runtime` key. Before
+transferring control it pauses the accepted socket, creates a real
+`MessageChannelMain` pair, and posts `openchamber:relay-dev-tunnel-connect`
+with a connection id and the requested upstream port. A renderer bridge can
+wait on one route operation while refusing a second same-target open, so
+repeated opens reuse the pending socket rather than creating a second listener.
+
+The renderer refreshes the short-lived runtime URL token and opens the virtual
+relay websocket. Only after readiness does it announce `ready`; `data` messages
+use `Uint8Array` bytes in both directions, and either close propagates to the
+other side. The source remains isolated when port transfer fails. A connection
+that does not become ready within 15 seconds is closed. Errors during endpoint
+cancellation or token refresh reject the caller instead of escaping async event
+callbacks.
+
+`MessagePortMain` readiness uses its native event API, with a test-compatible
+fallback. Closing a route detaches its port before destroying the source to
+avoid duplicate close handling. Endpoint changes close all routes, and
+webContents death closes that webContents' routes. The focused tests pin the
+actual two-frame transfer shape, readiness timeout, buffered bytes,
+bidirectional close, endpoint cleanup, and death cleanup.
+
 ## P11-25: raw dev-tunnel direct client seam (2026-09-30)
 
 The web-package client accepts a WebSocket connector and creates one local
