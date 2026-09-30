@@ -196,6 +196,17 @@ export function createInvokeFace(input, dependencies) {
       if (!hostConfig) return { ok: false, error: 'desktop-hosts-unavailable' };
       return { ok: true, result: { ...hostConfig, localOrigin: input.localOrigin() } };
     }
+    if (command === 'desktop_host_probe') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (typeof payload?.hostId !== 'string' || !input.hostProbe) return { ok: false, error: 'desktop-host-probe-unavailable' };
+      const host = input.hostConfig?.get?.()?.hosts?.find((entry) => entry.id === payload.hostId);
+      if (!host) return { ok: false, error: 'desktop-host-not-found' };
+      const url = typeof host?.apiUrl === 'string' ? host.apiUrl : typeof host?.url === 'string' ? host.url : '';
+      if (!url || url.startsWith('relay://')) return { ok: false, error: 'desktop-host-not-direct' };
+      return { ok: true, result: await input.hostProbe({
+        url, clientToken: host.clientToken, requestHeaders: host.requestHeaders, expectedServerId: host.serverId,
+      }) };
+    }
     if (command === 'desktop_pairing_redeem_relay_complete') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const bridge = input.relayPairingBridge;

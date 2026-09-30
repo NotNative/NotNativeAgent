@@ -684,15 +684,19 @@ function localRuntimeConfig() {
   };
 }
 
+function probeRemoteHost(options) {
+  return probeDesktopHost({
+    ...options,
+    chromiumFetch: (url, fetchOptions) => electronNet.fetch(url, fetchOptions),
+    isReady: () => app.isReady(),
+  });
+}
+
 async function resolveBootTarget(config = readStoredHosts()) {
   return resolveDesktopBootTarget({
     config, localRuntime: localRuntimeConfig(), localAvailable: true,
     envTargetUrl: process.env.OPENCHAMBER_SERVER_URL,
-    probeHost: (options) => probeDesktopHost({
-      ...options,
-      chromiumFetch: (url, fetchOptions) => electronNet.fetch(url, fetchOptions),
-      isReady: () => app.isReady(),
-    }),
+    probeHost: probeRemoteHost,
   });
 }
 
@@ -871,6 +875,7 @@ const invokeFace = createInvokeFace({
       ? { ok: false, error: 'desktop-hosts-busy' }
       : { ok: true, result: writeStoredHosts(input) },
   },
+  hostProbe: probeRemoteHost,
   identity: {
     getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
     getInstallId: () => readOrCreateDesktopInstallId({

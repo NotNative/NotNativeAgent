@@ -3,6 +3,21 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-34 saved-host probe IPC (20260930-55)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Saved-host probe | IPC + host-probe tests pass 29/29. The call accepts a host id only and resolves its URL, token, headers, and expected server id from the sanitized catalog; query removal, redirect rejection, and bounded probe behavior remain covered by the host-probe tests. |
+| Adversarial review | No concrete defect found in credential destination binding, identity checks, or frame authorization. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| UI consumer | The IPC face is present, but Remote Instances does not yet expose a separate “probe only” action. |
+
 ## 2026-09-30 - P12b-33 native window IPC core (20260930-54)
 
 **Verified working**

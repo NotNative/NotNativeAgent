@@ -160,6 +160,28 @@ test('host config IPC reads and writes only from the desktop local main frame', 
   assert.equal(remote.error, 'sender-not-allowed');
 });
 
+test('host probe uses only saved host credentials and cannot target an arbitrary URL', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const host = {
+    id: 'saved-studio', url: 'https://studio.example/ui', apiUrl: 'https://studio.example/api',
+    clientToken: 'stored-token', requestHeaders: { 'x-tenant': 'studio' }, serverId: 'server-1',
+  };
+  const invoke = registeredInvoke({ contents,
+    hostConfig: { get: () => ({ hosts: [host] }) },
+    hostProbe: async (options) => { calls.push(options); return { status: 'ok', latencyMs: 12 }; },
+  });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'saved-studio' });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { status: 'ok', latencyMs: 12 } });
+  assert.deepEqual(calls, [{ url: host.apiUrl, clientToken: 'stored-token', requestHeaders: { 'x-tenant': 'studio' }, expectedServerId: 'server-1' }]);
+  const missing = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'attacker-url' });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.error, 'desktop-host-not-found');
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_probe', { hostId: 'saved-studio' });
+  assert.equal(remote.ok, false);
+  assert.equal(calls.length, 1);
+});
+
 test('boot runtime configuration is returned only to the desktop local main frame', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const bootConfig = { apiBaseUrl: 'https://remote.example', clientToken: 'active-token', runtimeKey: 'host:remote' };

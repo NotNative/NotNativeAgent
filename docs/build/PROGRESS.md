@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-34 saved-host probe IPC.** Added the §3.1 remote-host
+  probe command for the trusted local main frame. Callers provide only a saved
+  host id; Electron selects its sanitized URL and stored credentials, preserving
+  server identity checks, query stripping, redirect rejection, and bounded
+  probe deadlines without allowing renderer-chosen credential destinations.
+  Relay-only hosts are rejected by this direct probe. Adversarial review found
+  no additional defects. IPC + probe suites: 29/29.
+
 - 2026-09-30 · **P12b-33 native window IPC core.** Added the §3.1 window
   controls for focusing, fullscreen state, title, app version, close, minimize,
   maximize toggle, and current maximize state. Each operation targets the

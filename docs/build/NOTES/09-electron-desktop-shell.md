@@ -106,7 +106,9 @@ remaining P12 slices ride after it.
   exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
   use the validated direct switch path. The core calling-window controls from
   §3.1 now target the invoking BrowserWindow and require its trusted local main
-  frame. Mixed direct/relay pairing links now
+  frame. The direct host probe IPC accepts a saved host id and sources
+  credentials exclusively from that sanitized catalog record. Mixed
+  direct/relay pairing links now
   disclose every approved recipient before network access, probe direct
   candidates first, and fall back to their supplied relay only when no direct
   health/identity check passes. Relay pairing retains the catalog lock and
@@ -115,6 +117,11 @@ remaining P12 slices ride after it.
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
+- **D-09-44** `desktop_host_probe` is exposed only to the trusted local main
+  frame and accepts a saved host id rather than a renderer-selected URL. Main
+  resolves the direct endpoint, bearer token, request headers, and expected
+  server id from the sanitized host catalog before invoking the bounded probe;
+  relay-only records cannot enter this direct probe path.
 - **D-09-42** The Electron entry point imports `ipcMain` before constructing
   the invoke face. Source syntax and unit tests do not evaluate the Electron
   entry module, so a native launch check is retained: startup must reach the
