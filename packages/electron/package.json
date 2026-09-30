@@ -23,6 +23,7 @@
       "windows-file-replace.mjs",
       "host-config.mjs",
       "desktop-identity.mjs",
+      "deep-links.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",

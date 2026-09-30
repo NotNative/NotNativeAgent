@@ -26,6 +26,7 @@ import { createFileUtilities } from './file-utilities.mjs';
 import { createLocalPathUtilities } from './local-paths.mjs';
 import { readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
+import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -60,6 +61,36 @@ let quitting = false;
 let bootFailure = null; // boot-abort message; trayed installs linger and must say why
 let windowStateTimer = null;
 let revealPending = false;
+const pendingDeepLinks = extractDesktopDeepLinks(process.argv);
+
+function receiveDeepLink(link) {
+  if (!link) return;
+  if (link.type === 'focus') {
+    if (!app.isReady() || !mainWindow || mainWindow.isDestroyed()) {
+      revealPending = true;
+      return;
+    }
+    ensureMainWindow();
+    return;
+  }
+  if (link.type === 'session') {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
+      pendingDeepLinks.push(link);
+      if (pendingDeepLinks.length > 20) pendingDeepLinks.shift();
+      if (!mainWindow) revealPending = true;
+      else ensureMainWindow();
+      return;
+    }
+    ensureMainWindow();
+    mainWindow.webContents.send('openchamber:emit', {
+      event: 'openchamber:open-session', detail: { sessionId: link.sessionId },
+    });
+  }
+}
+
+function flushDeepLinks() {
+  for (const link of pendingDeepLinks.splice(0)) receiveDeepLink(link);
+}
 
 // ── §1.2/1.3 module-load identity (before app.whenReady) ────────────────────
 
@@ -87,12 +118,24 @@ if (!app.requestSingleInstanceLock()) {
   app.exit(0);
   process.exit(0);
 }
-app.on('second-instance', () => {
+app.on('second-instance', (_event, argv) => {
+  const links = extractDesktopDeepLinks(argv);
+  for (const link of links) receiveDeepLink(link);
+  if (links.length) return;
   // A second launch can arrive after app ready but before boot creates the
   // first window. Let boot own creation, then honor the user's reveal request.
   if (!mainWindow) { revealPending = true; return; }
   ensureMainWindow();
 });
+app.on('open-url', (event, rawUrl) => {
+  event.preventDefault();
+  const link = parseDesktopDeepLink(rawUrl);
+  if (link) receiveDeepLink(link);
+  else console.warn('[shell] ignored unsupported deep link');
+});
+if (process.platform === 'win32' || process.platform === 'darwin') {
+  try { app.setAsDefaultProtocolClient('openchamber'); } catch { /* installation policy may own registration */ }
+}
 
 try { process.chdir(os.homedir()); } catch { /* best effort fallback cwd */ }
 
@@ -517,6 +560,13 @@ function createMainWindow() {
     win.on(eventName, () => scheduleWindowStatePersist(win));
   }
   attachWindowGuards(win);
+  // A second-instance/open-url event can arrive while the main renderer is
+  // navigating (including reloads after startup). Keep session links queued
+  // until the trusted UI document has finished loading; the splash page's
+  // preload is replaced on navigation and would otherwise lose its buffer.
+  win.webContents.on('did-finish-load', () => {
+    if (win === mainWindow && win.webContents.getURL() === mainUiUrl()) flushDeepLinks();
+  });
   win.once('ready-to-show', () => {
     // A hidden login launch is only useful when the tray can reveal the app.
     // If the tray icon cannot be created on this machine, leaving the window
@@ -716,6 +766,7 @@ async function boot() {
   trayController?.setStatus('running', localOrigin());
   console.log(`[shell] navigating main window to ${localOrigin()}/`);
   await mainWindow.webContents.loadURL(mainUiUrl());
+  flushDeepLinks();
 }
 
 app.on('window-all-closed', () => {

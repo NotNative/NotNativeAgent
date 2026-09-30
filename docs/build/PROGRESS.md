@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-18 session and focus deep links.** Electron now registers
+  the `openchamber` protocol on Windows/macOS, parses bounded session and focus
+  actions from launch argv, Windows/Linux second-instance argv, and macOS
+  `open-url`, and delivers session links through the preload event face. Links
+  received during splash/startup or a renderer reload wait for the trusted UI
+  document to finish loading. The adversarial audit found and fixed a queue
+  that could otherwise remain pending after a later reload. Focused parser and
+  full Electron tests pass (53/53); connect pairing and host-switch links
+  remain planned work.
+
 - 2026-09-30 · **P12b-17 local host identity IPC.** The desktop exposes its
   local server client token and a stable per-install UUID only to the desktop
   main frame on the loopback or packaged UI origin. Missing or malformed

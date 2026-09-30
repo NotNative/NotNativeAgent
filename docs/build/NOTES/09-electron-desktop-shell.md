@@ -71,9 +71,13 @@ remaining P12 slices ride after it.
   with bounded Windows rename retries (§12.4), and validated saved-host
   catalog storage and local client-token/install-id IPC (§2.8/§3.1) are also
   delivered. Install ids are persisted UUIDs, generated once and repaired if
-  malformed; token reads stay local-origin-only.
+  malformed; token reads stay local-origin-only. Strict `openchamber://session`
+  and `openchamber://focus` links now enter through startup argv, second-instance
+  argv, or macOS `open-url`; session actions queue across UI startup and reload.
+  Pairing consent and host switching are not part of this link slice.
   Remaining: deep-link `openchamber://connect` handler (§5 — link head stays
-  openchamber:// per the sealed pairing payload), remaining IPC catalog growth
+  openchamber:// per the sealed pairing payload), `openchamber://host` routing,
+  remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -124,6 +128,12 @@ remaining P12 slices ride after it.
   malformed points fail at save time. Host get/set IPC is limited to the
   desktop main frame on the loopback server or packaged UI origin. The catalog
   is not yet used to choose the boot target.
+- **D-09-28** The Electron shell accepts only bounded `openchamber://focus` and
+  `openchamber://session/<id>` actions. Startup and second-instance argv are
+  parsed on Windows/Linux; macOS `open-url` is handled directly. Session links
+  are buffered across splash/startup and renderer reloads, then delivered via
+  the existing preload event face. Pairing (`connect`) and host switching
+  remain deferred; unknown link actions are ignored.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
