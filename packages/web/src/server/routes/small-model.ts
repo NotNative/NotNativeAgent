@@ -119,24 +119,10 @@ export function generateSmallModel(raw: Record<string, unknown>, ports: SmallMod
 async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal?: AbortSignal,
   timeoutMs = GENERATION_TIMEOUT_MS): Promise<Response> {
   const raw = await readJsonBodyBounded(rawRequest, BODY_MAX_CHARS);
-  if (raw === null) {
-    return Response.json({ error: { message: 'A valid JSON prompt body is required' } }, { status: 400 });
-  }
-  const prompt = textOf(raw.prompt, BODY_MAX_CHARS).trim();
-  if (prompt === '') {
-    return Response.json({ error: { message: 'prompt is required' } }, { status: 400 });
-  }
-  const system = textOf(raw.system, BODY_MAX_CHARS);
-  const requestModel = textOf(raw.model, 256);
-  if (requestModel !== '' && splitModel(requestModel) === null) {
-    return Response.json({ error: { message: 'model must be providerID/modelID' } }, { status: 400 });
-  }
-  const maxOutputTokens = raw.maxOutputTokens === undefined
-    ? DEFAULT_OUTPUT_TOKENS
-    : integerInput(raw.maxOutputTokens, 1, 1_000_000);
-  if (maxOutputTokens === null) {
-    return Response.json({ error: { message: 'maxOutputTokens must be a positive integer' } }, { status: 400 });
-  }
+  if (raw === null) return invalidInput('A valid JSON prompt body is required');
+  const parsed = parseGenerationRequest(raw);
+  if (parsed instanceof Response) return parsed;
+  const { prompt, system, responseSchema, requestModel, maxOutputTokens } = parsed;
   const directory = textOf(raw.directory, 4096);
   const sessionID = textOf(raw.sessionID, 256);
   const preferredProviderID = textOf(raw.preferredProviderID, 256);
@@ -169,11 +155,38 @@ async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal
     system: bounds.system,
     prompt: bounds.prompt,
     maxOutputTokens: outputTokens,
+    ...(responseSchema === null ? {} : { responseSchema }),
     sessionID: sessionID === '' ? null : sessionID,
     timeoutMs: Number.isSafeInteger(timeoutMs) && timeoutMs > 0 ? Math.min(timeoutMs, 900_000) : GENERATION_TIMEOUT_MS,
     signal,
   }, ports.fetch ?? fetch);
   return generationResponse(outcome, resolution, bounds);
+}
+
+function parseGenerationRequest(raw: Record<string, unknown>): Response | {
+  prompt: string; system: string; responseSchema: Record<string, unknown> | null; requestModel: string;
+  maxOutputTokens: number;
+} {
+  const prompt = textOf(raw.prompt, BODY_MAX_CHARS).trim();
+  if (prompt === '') return invalidInput('prompt is required');
+  const responseSchema = schemaOf(raw.responseSchema);
+  if (raw.responseSchema !== undefined && responseSchema === null) return invalidInput('responseSchema must be a bounded JSON Schema object');
+  const requestModel = textOf(raw.model, 256);
+  if (requestModel !== '' && splitModel(requestModel) === null) return invalidInput('model must be providerID/modelID');
+  const maxOutputTokens = raw.maxOutputTokens === undefined ? DEFAULT_OUTPUT_TOKENS : integerInput(raw.maxOutputTokens, 1, 1_000_000);
+  if (maxOutputTokens === null) return invalidInput('maxOutputTokens must be a positive integer');
+  return { prompt, system: textOf(raw.system, BODY_MAX_CHARS), responseSchema, requestModel, maxOutputTokens };
+}
+
+function invalidInput(message: string): Response {
+  return Response.json({ error: { message } }, { status: 400 });
+}
+
+function schemaOf(value: unknown): Record<string, unknown> | null {
+  if (value === undefined) return null;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  try { return Buffer.byteLength(JSON.stringify(value), 'utf8') <= 32_768 ? value as Record<string, unknown> : null; }
+  catch { return null; }
 }
 
 function generationResponse(

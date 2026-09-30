@@ -9,6 +9,7 @@ import { WalkthroughCache } from '../lib/walkthrough/cache.ts';
 import { walkthroughCacheKey, sessionIdentity, identityFromString } from '../lib/walkthrough/identity.ts';
 import { walkthroughModelSelection, walkthroughReadiness } from '../lib/walkthrough/model-readiness.ts';
 import { walkthroughPrompt } from '../lib/walkthrough/prompt.ts';
+import { WALKTHROUGH_RESPONSE_SCHEMA } from '../lib/walkthrough/response-schema.ts';
 import { credentialEvidence, providerList, readConfig, type SmallModelPorts } from '../lib/small-model/provider-ports.ts';
 import { generateSmallModel } from './small-model.ts';
 import { readMergedSettings } from '../lib/settings-store.ts';
@@ -328,6 +329,7 @@ async function requestWalkthroughModel(input: {
     const response = await generateSmallModel({ directory, model,
       sessionID: `nnd-walkthrough-${cacheIdentity(sourceKey(source), root, identity, language, snapshot)}`,
       system: prompt.system, prompt: prompt.prompt, maxOutputTokens: selected.model.outputTokens ?? 24_000,
+      ...(selected.model.structuredOutput === true ? { responseSchema: WALKTHROUGH_RESPONSE_SCHEMA } : {}),
     }, modelPorts, job.controller.signal, timeoutMs);
     const generated = await response.json().catch(() => null) as Record<string, unknown> | null;
     if (!response.ok) throw walkthroughModelError(response, generated);

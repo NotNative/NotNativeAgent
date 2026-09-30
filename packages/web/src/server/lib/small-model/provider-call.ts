@@ -13,6 +13,8 @@ export interface DirectCallInput {
   system: string;
   prompt: string;
   maxOutputTokens: number;
+  responseSchema?: Record<string, unknown>;
+  jsonMode?: boolean;
   sessionID: string | null;
   timeoutMs: number;
   signal?: AbortSignal;
@@ -36,13 +38,19 @@ export async function callSmallModelDirect(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
   try {
-    const response = await fetcher(buildEndpoint(input.baseURL, input.model, wire), {
-      method: 'POST',
-      headers: headers(input.model.providerID, input.credential, input.sessionID),
-      body: JSON.stringify(body(input, wire)),
-      signal: input.signal === undefined ? controller.signal : AbortSignal.any([controller.signal, input.signal]),
-    });
-    const text = await boundedBody(response);
+    const endpoint = buildEndpoint(input.baseURL, input.model, wire);
+    const signal = input.signal === undefined ? controller.signal : AbortSignal.any([controller.signal, input.signal]);
+    let response: Response;
+    let text: string;
+    let attempt: DirectCallInput = input;
+    while (true) {
+      response = await fetcher(endpoint, { method: 'POST',
+        headers: headers(input.model.providerID, input.credential, input.sessionID),
+        body: JSON.stringify(body(attempt, wire)), signal });
+      text = await boundedBody(response);
+      if (response.ok || attempt.responseSchema === undefined || !schemaRefusal(response.status, text)) break;
+      attempt = { ...input, responseSchema: undefined, jsonMode: true };
+    }
     if (!response.ok) return {
       ok: false,
       status: response.status >= 400 && response.status <= 499 ? response.status : 502,
@@ -59,6 +67,13 @@ export async function callSmallModelDirect(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function schemaRefusal(status: number, raw: string): boolean {
+  if (status !== 400 && status !== 422) return false;
+  let message = raw.toLowerCase();
+  try { message = JSON.stringify(JSON.parse(raw)).toLowerCase(); } catch { /* provider may return plain text */ }
+  return /(?:json.?schema|response.?schema|response.?format|structured.?output|output_config).{0,100}(?:unsupported|not support|invalid|unknown|not allowed|unrecognized)|(?:unsupported|not support|invalid|unknown|not allowed|unrecognized).{0,100}(?:json.?schema|response.?schema|response.?format|structured.?output|output_config)/u.test(message);
 }
 
 function buildEndpoint(baseURL: URL, model: { id: string }, wire: 'openai' | 'anthropic' | 'google'): string {
@@ -97,12 +112,16 @@ function body(input: DirectCallInput, wire: 'openai' | 'anthropic' | 'google'): 
       { role: 'user', content: input.prompt },
     ];
   if (wire === 'openai') {
-    return { model: input.model.id, messages, max_completion_tokens: input.maxOutputTokens, stream: false };
+    return { model: input.model.id, messages, max_completion_tokens: input.maxOutputTokens, stream: false,
+      ...(input.responseSchema !== undefined ? { response_format: { type: 'json_schema', json_schema: {
+        name: 'walkthrough', strict: true, schema: input.responseSchema,
+      } } } : input.jsonMode ? { response_format: { type: 'json_object' } } : {}) };
   }
   if (wire === 'anthropic') {
     return {
       model: input.model.id, max_tokens: input.maxOutputTokens, stream: false,
       ...(input.system === '' ? {} : { system: input.system }),
+      ...(input.responseSchema === undefined ? {} : { output_config: { format: { type: 'json_schema', schema: input.responseSchema } } }),
       messages: [{ role: 'user', content: input.prompt }],
     };
   }
@@ -111,7 +130,8 @@ function body(input: DirectCallInput, wire: 'openai' | 'anthropic' | 'google'): 
     generationConfig: {
       maxOutputTokens: input.maxOutputTokens,
       thinkingConfig: { thinkingBudget: 0 },
-      responseMimeType: 'application/json',
+      responseFormat: { text: { mimeType: 'application/json',
+        ...(input.responseSchema === undefined ? {} : { schema: input.responseSchema }) } },
     },
   };
 }
