@@ -177,8 +177,10 @@ remaining P12 slices ride after it.
   warning-only). Electron shell: boot failure with a tray swaps the splash
   spinner for a local failure page (data: URL, error text + main.log path +
   quit-and-reinstall guidance; textContent only, no HTML injection);
-  trays' stopped state says "Server stopped"; Open App reloads a crashed
-  renderer document instead of re-showing it. A boot failure with an existing
+  trays' stopped state says "Server stopped"; recoverable renderer crashes
+  auto-reload at most three times in a rolling 60-second window, while clean
+  exits and other reasons only log. Open App remains the manual reload escape
+  after the recovery budget is exhausted. A boot failure with an existing
   server handle offers a bounded health-check retry from the failure card;
   startup failures before a handle exists still require restarting the app.
   The retry never starts a second server or changes the import-time port.

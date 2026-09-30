@@ -17,6 +17,7 @@ import { createInvokeFace } from './ipc-face.mjs';
 import { createRelayDevTunnelBridge } from './relay-dev-tunnel.mjs';
 import { readShellPrefs, writeShellPrefs } from './shell-prefs.mjs';
 import { createTrayController } from './tray.mjs';
+import { attachRendererRecovery } from './renderer-recovery.mjs';
 import { captureWindowState, restoreWindowState } from './window-state.mjs';
 import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAppUrl } from './browser-guest-policy.mjs';
 
@@ -446,9 +447,7 @@ function createMainWindow() {
   win.on('focus', () => {
     if (!win.webContents.isDestroyed() && !win.webContents.isCrashed()) win.webContents.focus();
   });
-  win.webContents.on('render-process-gone', (_event, details) => {
-    console.error('[shell] renderer exited:', details.reason, details.exitCode);
-  });
+  attachRendererRecovery(win, { log: (...args) => console.error(...args), label: 'main window' });
   // Tray mode: the close button hides the window and the service keeps
   // running (reference launcher semantics); Quit belongs to the tray menu.
   win.on('close', (event) => {

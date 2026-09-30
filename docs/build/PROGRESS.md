@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-7 bounded renderer recovery.** The main Electron window
+  now auto-reloads after recoverable renderer exits (`abnormal-exit`, `crashed`,
+  `oom`, `memory-eviction`) with a 100 ms delay and a maximum of three reloads
+  per rolling minute. Clean exits and unrecognized reasons only log; destroying
+  the window cancels pending recovery. The existing tray Open App path remains
+  the manual escape after the budget is exhausted. Adversarial review found no
+  confirmed defects; Electron syntax checks, all workspace typechecks, quality
+  gates, and graph currency passed. Tests were not run.
+
 - 2026-09-30 · **P12b-6 tray boot-retry recovery.** When startup reaches a
   server handle but its health probe times out, the stopped tray's failure card
   now offers a bounded health recheck. The retry IPC accepts only the trusted
