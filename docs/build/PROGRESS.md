@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-32 native Electron startup repair.** Launching the
+  workspace Electron binary exposed a runtime-only `ReferenceError`: main
+  passed `ipcMain` to the invoke face without importing it. The named import
+  is now present; a second launch started the embedded mock server, passed
+  health readiness, and navigated the main window. The adversarial review
+  found no further concrete initialization defects. Electron: 118 tests;
+  syntax check and artifacts-only package pass. The computer-use bridge still
+  exposes no native app window, so visual GUI acceptance remains open.
+
 - 2026-09-30 · **P12b-31 mixed direct/relay pairing fallback.** Mixed pairing
   links now disclose all direct candidates and the relay destination in the
   native consent prompt. The importer probes direct addresses first and uses

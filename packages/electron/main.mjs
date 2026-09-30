@@ -8,7 +8,7 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, MessageChannelMain, Notification, dialog, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
+import { app, BrowserWindow, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';

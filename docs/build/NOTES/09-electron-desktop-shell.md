@@ -113,6 +113,13 @@ remaining P12 slices ride after it.
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
+- **D-09-42** The Electron entry point imports `ipcMain` before constructing
+  the invoke face. Source syntax and unit tests do not evaluate the Electron
+  entry module, so a native launch check is retained: startup must reach the
+  embedded server health gate and navigate the main window. On this host the
+  process passed that gate, but the computer-use bridge exposed no app window
+  for visual acceptance.
+
 ## B. Adaptation deltas (registered)
 
 - **D-09-1** The packaged UI is served through the privileged

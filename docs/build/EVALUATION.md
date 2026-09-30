@@ -3,6 +3,21 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-32 native Electron startup repair (20260930-53)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Electron module startup | Before the fix, a real Electron launch failed at module load with `ReferenceError: ipcMain is not defined`. After importing `ipcMain`, the launch logged server readiness and `navigating main window`, which occurs after the embedded `/health` gate succeeds. |
+| Automated checks | Electron suite: 118/118; `node --check packages/electron/main.mjs` passes; artifacts-only desktop packaging succeeds. Adversarial review found no additional concrete startup defect. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Visual native window | The computer-use bridge returned `apps=[]` after launch; the app window could not be inspected. The launching process was stopped after capturing startup evidence. |
+
 ## 2026-09-30 - P12b-31 mixed direct/relay pairing fallback (20260930-52)
 
 **Verified working**
