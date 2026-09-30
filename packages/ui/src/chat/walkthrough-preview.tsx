@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { cancelWalkthroughStage, fetchWalkthroughStage, generateWalkthroughPreview, loadWalkthroughPreview,
   type GeneratedWalkthrough, type WalkthroughPreview, type WalkthroughScope, type WalkthroughSource } from '../lib/git/walkthrough-preview.ts';
 import { sourceKey } from '../lib/git/walkthrough-source-store.ts';
+import { useI18nStore } from '../lib/i18n/store.ts';
 
 type SelectedSource = WalkthroughScope | WalkthroughSource;
 type WalkthroughScopeAlias = WalkthroughScope;
@@ -105,7 +106,8 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
     void watchWalkthroughStage(directory, source, observing, id, request, setStage);
     try {
       const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
-      const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, selected);
+      const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, selected,
+        useI18nStore.getState().locale);
       if (id === request.current) setRecord({ directory, source: source as SelectedSource, sessionId, value });
     } catch (cause) {
       if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');

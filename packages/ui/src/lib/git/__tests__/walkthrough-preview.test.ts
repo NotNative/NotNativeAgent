@@ -47,8 +47,9 @@ describe('deterministic walkthrough client', () => {
     expect(request.mock.calls[0]?.[0]).toBe('/api/git/walkthrough-generate');
     const init = request.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({
+      expect(JSON.parse(String(init.body))).toEqual({
       directory: '/repo', sessionId: 'ses_test', revision: 'rev1',
+        language: 'en',
       source: { kind: 'working-tree', scope: 'all' },
     });
   });

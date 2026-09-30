@@ -81,7 +81,7 @@ describe('WalkthroughPreviewSurface', () => {
     await render();
     expect(generate).not.toHaveBeenCalled();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
-    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all');
+    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all', 'en');
     expect(document.body.textContent).toContain('The output value changes.');
     expect(document.body.textContent).toContain('1 sensitive-path hunk(s) were not sent');
     load.mockResolvedValue({ signature: 'rev2', fileCount: 1, stops: [stop('c.ts')] });

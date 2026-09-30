@@ -4,6 +4,9 @@ import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { ENV } from '../env.ts';
+import { WalkthroughCache } from '../lib/walkthrough/cache.ts';
+import { walkthroughCacheKey, sessionIdentity } from '../lib/walkthrough/identity.ts';
 import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 import { getWalkthroughSnapshot, SnapshotError, sourceRoot } from './git-walkthrough-snapshot.ts';
 import { parseWalkthroughSource, sourceKey } from './git-walkthrough-sources.ts';
@@ -31,6 +34,7 @@ export type WalkthroughJob = {
 };
 
 const jobs = new Map<string, WalkthroughJob>();
+const defaultCachedWalkthrough = new WalkthroughCache(ENV.dataDir ? `${ENV.dataDir.replace(/[\\/]+$/u, '')}/walkthrough-cache.json` : 'walkthrough-cache.json');
 const stageOrder: Record<WalkthroughStage, number> = { collecting: 0, asking: 1, assembling: 2 };
 
 function signalWithDeadline(job: WalkthroughJob, timeoutMs: number): AbortSignal | undefined {
@@ -106,8 +110,35 @@ function cancelledIfAborted(job: WalkthroughJob): void {
   if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'cancelled');
 }
 
+function cacheIdentity(sourceKey: string, root: string, identity: { providerID: string; modelID: string },
+  language: string, snapshot: Snapshot) {
+  return walkthroughCacheKey('walkthrough-cache-v1', root, sourceKey, identity, language, snapshot);
+}
+
+async function ownedSession(ports: Partial<Record<'call' | 'root', any>>, sessionId: string,
+  directory: string, job: WalkthroughJob): Promise<Response> {
+  return ports.call?.(harnessRequest(`/session/${encodeURIComponent(sessionId)}`, directory, {
+    method: 'GET', signal: signalWithDeadline(job, 5_000),
+  })) ?? Promise.reject(new WalkthroughGenerateError('Walkthrough generation failed.', 500, 'generation-failed'));
+}
+
+type WalkthroughModelResponse = { revision: unknown; text: unknown; providerID: unknown; modelID: unknown; error?: { message?: string } };
+
+function validModelResponse(result: WalkthroughModelResponse | null, snapshot: Snapshot):
+  result is { revision: string; text: string; providerID: string; modelID: string; error?: { message?: string } } {
+  return result !== null && result.revision === snapshot.signature && typeof result.text === 'string' && result.text.length <= MAX_TEXT
+    && typeof result.providerID === 'string' && result.providerID.length > 0 && result.providerID.length <= 256
+    && typeof result.modelID === 'string' && result.modelID.length > 0 && result.modelID.length <= 256;
+}
+
+function walkthroughAnswer(chapters: ModelChapter[], snapshot: Snapshot, aliases: Map<string, Snapshot['stops'][number]>, omitted: number, providerID: string, modelID: string) {
+  return { revision: snapshot.signature, chapters: chapters.map((chapter) => ({ title: chapter.title,
+    stops: chapter.stops.map((item) => ({ id: aliases.get(item.alias)!.id, explanation: item.explanation })) })),
+    omittedSensitiveHunks: omitted, providerID, modelID };
+}
+
 function parseInputs(sessionId: unknown, expected: unknown, directory: unknown, rawSource: unknown): {
-  sessionId: string; expected: string; directory: string;
+  sessionId: string; expected: string; directory: string; language: string;
 } {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || typeof expected !== 'string' || !REVISION.test(expected)
     || typeof directory !== 'string' || !directory || directory.length > 4096) {
@@ -116,42 +147,54 @@ function parseInputs(sessionId: unknown, expected: unknown, directory: unknown, 
   try { parseWalkthroughSource(rawSource); } catch {
     throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
   }
-  return { sessionId, expected, directory };
+    return { sessionId, expected, directory, language: 'en' };
 }
 
 async function runGeneration(input: {
   sessionId: string; expected: string; directory: string;
   ports: Partial<Record<'snapshot' | 'call' | 'root', any>>;
   rawSource: unknown;
+  language: string;
+  cache?: WalkthroughCache;
   job: WalkthroughJob;
 }): Promise<unknown> {
   const { sessionId, expected, directory, ports } = input;
   const rawSource = input.rawSource;
   const job = input.job;
   const source = parseWalkthroughSource(rawSource);
+  const root = ports.root?.(directory) ?? sourceRoot(directory);
   setStage(job, 'collecting');
   const snapshot = ports.snapshot(directory, undefined, source);
   if (snapshot.signature !== expected) throw new WalkthroughGenerateError('Diff changed; refresh before generating.', 409, 'snapshot-stale');
   const { digest, aliases, omitted } = digestFor(snapshot);
   if (!digest.length) throw new WalkthroughGenerateError('No reviewable non-sensitive text hunks.', 409, 'empty-diff');
   setStage(job, 'asking');
-  const session = await ports.call(harnessRequest(`/session/${encodeURIComponent(sessionId)}`, directory, {
-    method: 'GET', signal: signalWithDeadline(job, 5_000),
-  }));
+  const session = await ownedSession(ports, sessionId, directory, job);
   const owner = await session.json().catch(() => null) as { directory?: unknown } | null;
   if (!session.ok || typeof owner?.directory !== 'string' || !sameDirectory(owner.directory, directory)) {
     throw new WalkthroughGenerateError('Session does not belong to this workspace.', 403, 'session-scope');
+  }
+  const identity = sessionIdentity(owner);
+  if (identity !== null && input.cache !== undefined) {
+      const cacheKey = cacheIdentity(sourceKey(source), root, identity, input.language, snapshot);
+    const cached = input.cache.get(cacheKey);
+    if (cached !== null) {
+      cancelledIfAborted(input.job);
+      return { revision: snapshot.signature, chapters: cached.chapters,
+        omittedSensitiveHunks: omitted, providerID: cached.providerID, modelID: cached.modelID };
+    }
   }
   const response = await ports.call(harnessRequest(`/v1/nnd/sessions/${encodeURIComponent(sessionId)}/walkthrough`, directory, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ revision: snapshot.signature, digest }), signal: signalWithDeadline(job, 50_000),
   }));
-  const result = await response.json().catch(() => null) as { text?: unknown; revision?: unknown; providerID?: unknown; modelID?: unknown; error?: { message?: string } } | null;
+  const result = await response.json().catch(() => null) as WalkthroughModelResponse | null;
   if (!response.ok) throw new WalkthroughGenerateError(result?.error?.message ?? 'Walkthrough model is unavailable.', response.status, 'model-unavailable');
-  if (!result || result.revision !== snapshot.signature || typeof result.text !== 'string' || result.text.length > MAX_TEXT
-    || typeof result.providerID !== 'string' || !result.providerID || result.providerID.length > 256
-    || typeof result.modelID !== 'string' || !result.modelID || result.modelID.length > 256) {
+  if (!validModelResponse(result, snapshot)) {
     throw new WalkthroughGenerateError('Model response does not match this diff revision.', 502, 'invalid-walkthrough');
+  }
+  if (identity !== null && (result.providerID !== identity.providerID || result.modelID !== identity.modelID)) {
+    throw new WalkthroughGenerateError('Model response does not match this walkthrough identity.', 502, 'model-changed');
   }
   setStage(input.job, 'assembling');
   const chapters = normalizeWalkthrough(result.text, aliases);
@@ -160,15 +203,18 @@ async function runGeneration(input: {
     throw new WalkthroughGenerateError('Diff changed during generation; refresh and retry.', 409, 'snapshot-stale');
   }
   cancelledIfAborted(input.job);
-  return { revision: snapshot.signature, chapters: chapters.map((chapter) => ({ title: chapter.title,
-    stops: chapter.stops.map((item) => ({ id: aliases.get(item.alias)!.id, explanation: item.explanation })) })),
-    omittedSensitiveHunks: omitted, providerID: result.providerID, modelID: result.modelID };
+  const answer = walkthroughAnswer(chapters, snapshot, aliases, omitted, result.providerID, result.modelID);
+  if (identity !== null && input.cache !== undefined) {
+    input.cache.set(cacheIdentity(sourceKey(source), root, identity, input.language, snapshot), answer);
+  }
+  return answer;
 }
 
 export async function generateWalkthrough(directory: string, sessionId: string, expected: string,
   ports: { snapshot: typeof getWalkthroughSnapshot; call: typeof callHarness; root?: typeof sourceRoot } = { snapshot: getWalkthroughSnapshot, call: callHarness },
   rawSource: unknown = 'all',
-  context: { jobs?: Map<string, WalkthroughJob>; rawSource?: unknown } = {}): Promise<unknown> {
+  context: { jobs?: Map<string, WalkthroughJob>; rawSource?: unknown; language?: unknown;
+    cache?: WalkthroughCache } = {}): Promise<unknown> {
   parseInputs(sessionId, expected, directory, rawSource);
   const source = parseWalkthroughSource(rawSource);
   const root = ports.root?.(directory) ?? sourceRoot(directory);
@@ -180,7 +226,11 @@ export async function generateWalkthrough(directory: string, sessionId: string, 
   }
   const controller = new AbortController();
   const job: WalkthroughJob = { stage: 'collecting', state: 'running', expected, controller, promise: Promise.resolve<unknown>(null), error: null };
-  const generation = { sessionId, expected, directory, rawSource, ports, job };
+  const rawLanguage = context.language;
+  const language = typeof rawLanguage === 'string' && /^[A-Za-z0-9-]{1,32}$/u.test(rawLanguage)
+    ? rawLanguage : 'en';
+  const generation = { sessionId, expected, directory, rawSource, ports, job,
+    language, cache: context.cache ?? defaultCachedWalkthrough };
   job.promise = runGeneration(generation).catch((error) => {
     job.error = error;
     if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'cancelled');
@@ -247,7 +297,8 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
     try {
       const body = await readJsonBodyBounded(c.req.raw, 4_096);
       return c.json(await generateWalkthrough(body?.directory as string, body?.sessionId as string, body?.revision as string,
-        undefined, body?.source ?? body?.scope, { jobs, rawSource: body?.source ?? body?.scope }));
+        undefined, body?.source ?? body?.scope,
+        { jobs, rawSource: body?.source ?? body?.scope, language: body?.language }));
     } catch (cause) {
       if (cause instanceof WalkthroughGenerateError) return c.json({ error: cause.message, code: cause.code }, cause.status as 400);
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);

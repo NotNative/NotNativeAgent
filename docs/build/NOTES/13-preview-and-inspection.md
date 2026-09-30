@@ -19,6 +19,25 @@ This wiring deliberately avoids optimistic result rendering: only the
 generation request may install a walkthrough, and the server revision must
 still match the captured preview.
 
+## P11-30: durable walkthrough cache (2026-09-30)
+
+Successful explanations persist in `<data-dir>/walkthrough-cache.json` under a
+bounded SHA-256 key covering capture signature, hunk identity, repository root,
+review source, provider/model identity, and active language. The model identity
+uses the harness session's explicit `model` route when present; unresolved
+session identity disables caching rather than attributing prose to a guessed
+model. A cache hit still rereads the diff, verifies that its signature matches
+the request, and checks the live session's current workspace before returning;
+only the bounded model call is skipped.
+
+The store keeps at most 64 entries for 30 days, enforces an 8 MiB document
+ceiling, validates every persisted chapter/stop/provider/model shape, and
+discards malformed or stale entries. Writes use a chained pid-suffixed
+temporary-plus-rename path with mode `0600`. A response model identity that
+disagrees with the resolved session identity is rejected as `model-changed`
+before prose is shown or persisted. The UI sends its active locale with the
+existing explicit generate action.
+
 ## P11-28: walkthrough generation lifecycle (2026-09-30)
 
 Walkthrough generation now has one in-memory job per repository root and

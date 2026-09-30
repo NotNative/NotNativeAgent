@@ -60,11 +60,12 @@ export async function loadWalkthroughPreview(directory: string, selected: Walkth
 }
 
 export async function generateWalkthroughPreview(directory: string, sessionId: string, revision: string,
-  source: WalkthroughSource | WalkthroughScope = 'all', signal?: AbortSignal): Promise<GeneratedWalkthrough> {
+  source: WalkthroughSource | WalkthroughScope = 'all', language = 'en',
+  signal?: AbortSignal): Promise<GeneratedWalkthrough> {
   const response = await runtimeFetch('/api/git/walkthrough-generate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ directory, sessionId, revision, source: requestSource(source) }),
+    body: JSON.stringify({ directory, sessionId, revision, source: requestSource(source), language }),
     signal,
   });
   const payload = await response.json().catch(() => null) as GeneratedWalkthrough | { error?: string } | null;
