@@ -172,9 +172,10 @@ remaining P12 slices ride after it.
   runtime artifact is regenerated wholesale by --no-nsis so lingering orphans
   are inert. -SkipBuild requires bundle + settings-registry.json + both tray
   PNGs and the staged node-pty runtime (a torn prior build rebuilds instead
-  of booting half-built) and WARNS
-  when watched sources are newer than the stored bundle (freshness oracle,
-  warning-only). Electron shell: boot failure with a tray swaps the splash
+  of booting half-built). The build writes a content stamp over build inputs
+  and produced artifacts; -SkipBuild reuses only an exact version/source/
+  artifact match and rebuilds when the stamp is missing, stale, or mismatched.
+  Electron shell: boot failure with a tray swaps the splash
   spinner for a local failure page (data: URL, error text + main.log path +
   quit-and-reinstall guidance; textContent only, no HTML injection);
   trays' stopped state says "Server stopped"; recoverable renderer crashes

@@ -330,24 +330,17 @@ try {
         if (!$reusable) { Write-Host "  -SkipBuild ignored: stored artifacts incomplete - rebuilding" -ForegroundColor Yellow }
     }
     if ($reusable) {
-        # Freshness probe (no build-stamp system exists): if any watched source
-        # is newer than the stored bundle the artifacts may be stale - warn, do
-        # not override -SkipBuild's explicit intent to reuse.
-        $bundleStamp = (Get-Item -LiteralPath $bundle).LastWriteTimeUtc
-        $watched = Get-ChildItem -Path @(
-            (Join-Path $InstallDir "packages\web\src"),
-            (Join-Path $InstallDir "scripts"),
-            (Join-Path $InstallDir "packages\electron")
-        ) -Recurse -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -notmatch '\\(dist-server|dist|resources|assets|node_modules)\\' }
-        $newest = $watched | Sort-Object LastWriteTimeUtc | Select-Object -Last 1
-        if ($newest -and $newest.LastWriteTimeUtc -gt $bundleStamp) {
-            Write-Host "  WARNING: sources are newer than the stored artifacts (newest: $($newest.FullName))" -ForegroundColor Yellow
-            Write-Host "  the reused build may be stale - re-run install.ps1 without -SkipBuild to rebuild" -ForegroundColor Yellow
+        $stampExit = Invoke-Native "node" @("scripts\electron-build-stamp.mjs", "check") "stamp-errors.log" "stamp-out.log"
+        if ($stampExit -ne 0) {
+            Show-NativeFailures "stamp-errors.log" 12
+            Show-NativeFailures "stamp-out.log" 12 -FromTail
+            Write-Host "  -SkipBuild ignored: build stamp is stale, missing, or invalid - rebuilding" -ForegroundColor Yellow
+            $reusable = $false
         } else {
-            Write-Good "existing artifacts reused (-SkipBuild)"
+            Write-Good "verified build reused (-SkipBuild)"
         }
-    } else {
+    }
+    if (!$reusable) {
         # -OutputLog keeps the integrity oracle + vite chatter readable after
         # the run; the console only echoes the short digest lines.
         $buildExit = Invoke-Native "node" @("scripts\electron-package.mjs", "--no-nsis") "build-errors.log" "build-out.log"

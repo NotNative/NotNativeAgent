@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-9 content-verified Electron build stamp.** The artifact
+  pipeline now writes a deterministic stamp over the source inputs, package
+  version, server/UI outputs, settings registry, tray icons, and staged `node-pty`
+  runtime. `install.ps1 -SkipBuild` validates that exact stamp and rebuilds on
+  missing, stale, or changed content instead of relying on mtimes and warning
+  while reusing stale code. The stamp check passed for the fresh artifacts;
+  adversarial review found and fixed an artifact-hash gap for Vite's generated
+  assets. The corrected stamp, Electron artifact build, typechecks, quality
+  gates, version check, and graph check all passed. Tests were not run.
+
 - 2026-09-30 · **P12b-8 native zoom lock.** Electron content zoom now starts
   at 100%, rejects pinch zoom through visual zoom limits, and resets native
   wheel zoom requests so the product's own scaling controls stay authoritative.

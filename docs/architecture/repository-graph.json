@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:7b912d7e4c38c325945048dac762389cc203146c7e0ddab278364e447a572b8b",
+  "source_digest": "sha256:fc8cea74c17cf00d21ca77a95e73d8ecf31ff60b043a742b4d9516279f2be14e",
   "counts": {
-    "modules": 585,
+    "modules": 586,
     "component_edges": 14
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 22
+      "module_count": 23
     },
     {
       "id": "foundation",
@@ -5691,6 +5691,12 @@
       "path": "scripts/dev.mjs",
       "component": "gates",
       "entrypoint": true,
+      "imports": []
+    },
+    {
+      "path": "scripts/electron-build-stamp.mjs",
+      "component": "gates",
+      "entrypoint": false,
       "imports": []
     },
     {

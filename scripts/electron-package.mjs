@@ -73,6 +73,7 @@ async function main() {
   verifyNativeRuntime();
   if (NO_NSIS) {
     reportArtifactIntegrity();
+    writeBuildStamp();
     log('artifacts ready (electron/, no installer pass)');
     return;
   }
@@ -385,6 +386,12 @@ function reportArtifactIntegrity() {
   log(`sha256 web-dist tree (packages/web/dist, ${web.files} files, sorted rel-path digest): ${web.digest}`);
   const native = directoryDigest(NATIVE_RUNTIME_DIR);
   log(`sha256 native-runtime tree (node-pty, ${native.files} files, sorted rel-path digest): ${native.digest}`);
+}
+
+function writeBuildStamp() {
+  const script = path.join(ROOT, 'scripts', 'electron-build-stamp.mjs');
+  const result = spawnSync(process.execPath, [script, 'write'], { cwd: ROOT, stdio: 'inherit', env: process.env });
+  if (result.status !== 0) throw new Error(`Electron build stamp write failed (exit ${result.status})`);
 }
 
 function log(line) {
