@@ -62,20 +62,23 @@ remaining P12 slices ride after it.
   source/artifact build freshness, Windows/macOS launch-at-login (§10.6), and
   the renderer-to-native notification path with dedupe, hidden-window gating,
   retained native references, click-to-session routing, and settings-gated
-  completion/error/question/subtask event production (§10.2).
-  Remaining: privileged `notnative-ui://app` protocol (§6.3), deep-link
-  `openchamber://connect` handler (§5 — link head stays openchamber:// per the
-  sealed pairing payload), IPC catalog growth (§3.1: file read/write guards
-  §12.2-12.5,
+  completion/error/question/subtask event production (§10.2), the privileged
+  `notnative-ui://app` protocol (§6.3), and guarded Markdown save/file read
+  IPC (§3.1, §12.2-12.3). The custom-origin sender gate compares exact scheme
+  and host because Node reports custom-scheme origins as opaque; credentials
+  embedded in URLs are rejected.
+  Remaining: deep-link `openchamber://connect` handler (§5 — link head stays
+  openchamber:// per the sealed pairing payload), IPC catalog growth (§3.1:
+  workspace write guards §12.4-12.5,
   host chooser/multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
 ## B. Adaptation deltas (registered)
 
-- **D-09-1** UI load mode v1 = server-served same-origin window URL, NOT the
-  privileged custom protocol. Dev-parity consequence: the window behaves like
-  the browser build; no `openchamber-ui://`/`notnative-ui://` handler yet.
+- **D-09-1** The packaged UI is served through the privileged
+  `notnative-ui://app` protocol (§6.3); development continues to use the
+  server-served loopback URL for dev parity.
 - **D-09-2** Boot outcome always `{target:'local',status:'ok'}` post-health;
   no remote/env/default-host resolution ladder (§2.3) until multi-host
   management lands. UI has no desktopBoot.ts validation surface yet — it boots
@@ -94,9 +97,11 @@ remaining P12 slices ride after it.
   references, and click-to-session routing; notification clicks are buffered
   across document/React startup. Completion, error, question, and subtask events
   honor notification settings; settle alerts exclude child sessions and the
-  focused session. The desktop main frame can request permission. Deep links, SSH, updater,
-  Mini Chat, privileged UI protocol, keep-awake, and multi-host routing remain
-  deferred to P12b rows above.
+  focused session. The desktop main frame can request permission. File reads
+  are bounded to real files under the home or temp roots, reject common
+  credential locations, and stream at most 50 MiB. Markdown save uses the
+  native picker and writes UTF-8. Deep links, SSH, updater, Mini Chat,
+  keep-awake, and multi-host routing remain deferred to P12b rows above.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.

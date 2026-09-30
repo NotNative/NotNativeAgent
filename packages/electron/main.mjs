@@ -8,7 +8,7 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, MessageChannelMain, Notification, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
+import { app, BrowserWindow, MessageChannelMain, Notification, dialog, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -22,6 +22,7 @@ import { captureWindowState, restoreWindowState } from './window-state.mjs';
 import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAppUrl } from './browser-guest-policy.mjs';
 import { createNativeNotifications } from './native-notifications.mjs';
 import { createUiProtocolHandler } from './ui-protocol.mjs';
+import { createFileUtilities } from './file-utilities.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -389,8 +390,13 @@ function isAllowedNavigation(urlString) {
   if (urlString === SPLASH_URL || urlString.startsWith('data:text/html')) return true; // own splash only
   try {
     const url = new URL(urlString);
-    return url.origin === localOrigin() || (USE_UI_PROTOCOL && url.origin === UI_ORIGIN);
+    return url.origin === localOrigin() || isUiProtocolUrl(url);
   } catch { return false; }
+}
+
+function isUiProtocolUrl(url) {
+  return USE_UI_PROTOCOL && url.protocol === `${UI_SCHEME}:` && url.host === 'app'
+    && url.username === '' && url.password === '';
 }
 
 function attachWindowGuards(win) {
@@ -445,8 +451,8 @@ function configurePreviewSession() {
 
 function isLocalAppOrigin(value) {
   try {
-    const origin = new URL(value).origin;
-    return origin === new URL(localOrigin()).origin || (USE_UI_PROTOCOL && origin === UI_ORIGIN);
+    const url = new URL(value);
+    return url.origin === new URL(localOrigin()).origin || isUiProtocolUrl(url);
   }
   catch { return false; }
 }
@@ -553,6 +559,9 @@ const nativeNotifications = createNativeNotifications({
   getWindow: () => mainWindow,
   focusWindow: () => ensureMainWindow(),
 });
+const fileUtilities = createFileUtilities({
+  homeDir: os.homedir(), tempDir: os.tmpdir(), dialog, getWindow: () => mainWindow,
+});
 
 /** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
 function quitFromTray() {
@@ -579,6 +588,7 @@ const invokeFace = createInvokeFace({
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   mainContents: () => mainWindow?.webContents,
   nativeNotifications,
+  fileUtilities: () => fileUtilities,
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
   retryServer: retryServerFromFailurePage,

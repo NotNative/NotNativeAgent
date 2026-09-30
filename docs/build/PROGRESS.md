@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-13 guarded file utilities and custom-origin IPC.** The
+  desktop main frame can read bounded files under the home/temp roots and save
+  Markdown through the native picker. Credential directories/files are denied,
+  symlink escapes are rejected, and reads stream under a 50 MiB cap. Adversarial
+  review also found the custom `notnative-ui://app` origin was rejected by the
+  IPC/navigation/permission gates because Node reports it as opaque; exact
+  scheme+host matching now restores trusted access while rejecting lookalikes
+  and credentials. Focused tests pass 6/6; full workspace checks pending.
+
 - 2026-09-30 · **P12b-12 first-party notification permission gate.** Electron
   now allows notification permission only for the desktop main frame at the
   exact loopback app origin; the embedded preview partition remains deny-all.
