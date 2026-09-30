@@ -41,6 +41,12 @@ function boundIdentity(value: unknown, limit: number): string {
   return typeof value === 'string' ? value.slice(0, limit).trim() : '';
 }
 
+function cachedPath(value: unknown): string | null {
+  // Git paths may legally begin or end with whitespace. Trimming here changes
+  // the path identity and makes a persisted hunk fail its live-snapshot check.
+  return typeof value === 'string' && value.length <= 4096 && PATH_PATTERN.test(value) ? value : null;
+}
+
 function integerAtLeast(value: unknown, minimum: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value) && value >= minimum ? value : null;
 }
@@ -49,12 +55,13 @@ function cachedHunk(value: unknown, seen: Set<string>): CachedHunk | null {
   const hunk = objectOf(value);
   const id = boundIdentity(hunk?.id, 128);
   const scope = boundIdentity(hunk?.scope, 16);
-  const path = boundIdentity(hunk?.path, 4096);
-  const oldPath = hunk?.oldPath === undefined ? null : boundIdentity(hunk.oldPath, 4096);
+  const path = cachedPath(hunk?.path);
+  const oldPathPresent = hunk?.oldPath !== undefined;
+  const oldPath = oldPathPresent ? cachedPath(hunk.oldPath) : null;
   const oldStart = integerAtLeast(hunk?.oldStart, 0);
   const newStart = integerAtLeast(hunk?.newStart, 0);
-  if (!ID_PATTERN.test(id) || !SCOPE_PATTERN.test(scope) || !PATH_PATTERN.test(path)
-    || oldStart === null || newStart === null || oldPath !== null && !PATH_PATTERN.test(oldPath) || seen.has(id)) return null;
+  if (!ID_PATTERN.test(id) || !SCOPE_PATTERN.test(scope) || path === null
+    || oldStart === null || newStart === null || oldPathPresent && oldPath === null || seen.has(id)) return null;
   seen.add(id);
   return { id, scope: scope as CachedHunk['scope'], path, oldStart, newStart, ...(oldPath ? { oldPath } : {}) };
 }

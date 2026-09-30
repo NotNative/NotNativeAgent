@@ -19,7 +19,8 @@ const stageFetch = fetchWalkthroughStage as ReturnType<typeof vi.fn>;
 const stageCancel = cancelWalkthroughStage as ReturnType<typeof vi.fn>;
 let container: HTMLDivElement;
 let root: Root;
-const explained = (path: string, explanation: string) => ({ ...stop(path), explanation });
+const explained = (path: string, prose: string) => ({ id: `step-${path}`, title: 'Review the change',
+  importance: 'normal', prose, hunks: [{ id: stop(path).id, scope: 'working', path, oldStart: 1, newStart: 1 }] });
 const stop = (path: string) => ({ id: `working:${path}:1:1:0`, scope: 'working', path, header: '@@ -1 +1 @@', oldStart: 1, newStart: 1,
   body: '-old\n+new' });
 
@@ -102,14 +103,15 @@ describe('WalkthroughPreviewSurface', () => {
   });
 
   it('generates only on explicit click and shows prose beside its server-owned hunk', async () => {
-    generate.mockResolvedValue({ revision: 'rev1', chapters: [{ title: 'Behavior', summary: 'One behavior change.', stops: [
+    generate.mockResolvedValue({ revision: 'rev1', title: 'Walkthrough', focus: 'Follow the value change.', chapters: [{
+      id: 'chapter-1', title: 'Behavior', icon: 'gear', blurb: 'One behavior change.', stops: [
       explained('a.ts', 'The output value changes.'),
     ] }], omittedSensitiveHunks: 1, providerID: 'local', modelID: 'small' });
     await render();
     expect(generate).not.toHaveBeenCalled();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(document.body.textContent).toContain('The output value changes.');
-    expect(document.body.textContent).toContain('Behavior: One behavior change.');
+    expect(document.body.textContent).toContain('Behavior · One behavior change.');
     expect(document.body.textContent).toContain('1 sensitive-path hunk(s) were not sent');
     expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all', 'en',
       [stop('a.ts'), stop('b.ts')], '');
@@ -124,11 +126,13 @@ describe('WalkthroughPreviewSurface', () => {
     await render();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); });
     await act(async () => { root.render(<WalkthroughPreviewSurface directory="/repo" sessionId="ses_other" visible />); });
-    await act(async () => { finish?.({ revision: 'rev1', chapters: [{ title: 'Late', stops: [
+    await act(async () => { finish?.({ revision: 'rev1', title: 'Walkthrough', focus: 'Follow the value.', chapters: [{
+      id: 'chapter-1', title: 'Late', icon: 'gear', blurb: 'Late result', stops: [
       explained('a.ts', 'Must not appear.'),
     ] }], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small' }); });
     expect(document.body.textContent).not.toContain('Must not appear.');
-    generate.mockResolvedValue({ revision: 'rev1', chapters: [{ title: 'Current', stops: [
+    generate.mockResolvedValue({ revision: 'rev1', title: 'Walkthrough', focus: 'Follow the value.', chapters: [{
+      id: 'chapter-1', title: 'Current', icon: 'gear', blurb: 'Current result', stops: [
       explained('a.ts', 'Refresh must clear this.'),
     ] }], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small' });
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); });

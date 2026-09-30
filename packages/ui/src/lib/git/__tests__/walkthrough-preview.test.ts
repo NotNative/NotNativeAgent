@@ -43,8 +43,10 @@ describe('deterministic walkthrough client', () => {
 
   it('sends an explicit revision-bound generation request', async () => {
     request.mockResolvedValue(new Response(JSON.stringify({
-      revision: 'rev1', chapters: [{ title: 'Behavior', stops: [{ id: snapshot.stops[0]!.id,
-        explanation: 'It changes.', scope: 'working', path: 'a.ts', oldStart: 1, newStart: 1 }] }],
+      revision: 'rev1', title: 'Walkthrough', focus: 'Follow the change.', chapters: [{ id: 'chapter-1',
+        title: 'Behavior', icon: 'gear', blurb: 'A behavior change.', stops: [{ id: 'stop-1',
+          title: 'Changed value', importance: 'normal', prose: 'It changes.', hunks: [{ id: snapshot.stops[0]!.id,
+            scope: 'working', path: 'a.ts', oldStart: 1, newStart: 1 }] }] }],
       omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
     }), { status: 200 }));
     await generateWalkthroughPreview('/repo', 'ses_test', 'rev1');
@@ -60,11 +62,11 @@ describe('deterministic walkthrough client', () => {
 
   it('rejects a successful narrative whose stop facts reject the live snapshot', async () => {
     request.mockResolvedValue(new Response(JSON.stringify({
-      revision: 'rev1', chapters: [{ title: 'Behavior', stops: [{
-        id: snapshot.stops[0]!.id, explanation: 'It changes.', scope: snapshot.stops[0]!.scope,
-        path: 'wrong.ts',
-        oldStart: 1, newStart: 1,
-      }] }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
+      revision: 'rev1', title: 'Walkthrough', focus: 'Follow the change.', chapters: [{ id: 'chapter-1',
+        title: 'Behavior', icon: 'gear', blurb: 'A behavior change.', stops: [{ id: 'stop-1',
+          title: 'Changed value', importance: 'normal', prose: 'It changes.', hunks: [{
+            id: snapshot.stops[0]!.id, scope: snapshot.stops[0]!.scope, path: 'wrong.ts', oldStart: 1, newStart: 1,
+          }] }] }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
     }), { status: 200 }));
     await expect(generateWalkthroughPreview('/repo', 'ses_test', 'rev1',
       'all', 'en', snapshot.stops)).rejects.toThrow(/Invalid generated walkthrough response/u);
@@ -80,10 +82,12 @@ describe('deterministic walkthrough client', () => {
 
   it('rejects generated prose outside the bounded schema', async () => {
     request.mockResolvedValue(new Response(JSON.stringify({
-      revision: 'rev1', chapters: [{ title: 'Behavior', summary: 's'.repeat(601), stops: [{
-        id: snapshot.stops[0]!.id, explanation: 'It changes.', scope: snapshot.stops[0]!.scope,
-        path: snapshot.stops[0]!.path, oldStart: 1, newStart: 1,
-      }] }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
+      revision: 'rev1', title: 'Walkthrough', focus: 'Follow the change.', chapters: [{ id: 'chapter-1',
+        title: 'Behavior', icon: 'gear', blurb: 's'.repeat(601), stops: [{ id: 'stop-1',
+          title: 'Changed value', importance: 'normal', prose: 'It changes.', hunks: [{
+            id: snapshot.stops[0]!.id, scope: snapshot.stops[0]!.scope, path: snapshot.stops[0]!.path,
+            oldStart: 1, newStart: 1,
+          }] }] }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
     }), { status: 200 }));
     await expect(generateWalkthroughPreview('/repo', 'ses_test', 'rev1', 'all', 'en', snapshot.stops))
       .rejects.toThrow(/Invalid generated walkthrough response/u);

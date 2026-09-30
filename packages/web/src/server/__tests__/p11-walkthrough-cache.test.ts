@@ -106,4 +106,23 @@ describe('walkthrough durable cache', () => {
     expect(validCachedWalkthrough({ revision, title: 'Review', focus: 'Focus.', chapters, omittedSensitiveHunks: 0,
       providerID: 'provider', modelID: 'model' })).toBeNull();
   });
+
+  it('preserves legal leading and trailing whitespace in cached Git paths', () => {
+    const path = ' leading and trailing .ts ';
+    const cached = validCachedWalkthrough({ revision, title: 'Review', focus: 'Focus.', chapters: [{
+      id: 'chapter-1', title: 'Behavior', icon: 'doc', blurb: 'Chapter.', stops: [{ id: 'stop-1-1',
+        title: 'A stop', importance: 'normal', prose: 'Complete.', hunks: [{ id: stop.id, scope: 'working',
+          path, oldStart: 1, newStart: 1 }] }],
+    }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model' });
+    expect(cached?.chapters[0]?.stops[0]?.hunks[0]?.path).toBe(path);
+  });
+
+  it('rejects an explicitly malformed optional old path', () => {
+    const cached = validCachedWalkthrough({ revision, title: 'Review', focus: 'Focus.', chapters: [{
+      id: 'chapter-1', title: 'Behavior', icon: 'doc', blurb: 'Chapter.', stops: [{ id: 'stop-1-1',
+        title: 'A stop', importance: 'normal', prose: 'Complete.', hunks: [{ id: stop.id, scope: 'working',
+          path: 'a.ts', oldPath: null, oldStart: 1, newStart: 1 }] }],
+    }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model' });
+    expect(cached).toBeNull();
+  });
 });

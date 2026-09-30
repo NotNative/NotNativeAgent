@@ -169,7 +169,10 @@ describe('model-authored walkthrough boundary', () => {
     }] });
     expect(generationRequest).toMatchObject({ model: 'gpt-nano', max_completion_tokens: 8_000 });
     expect(JSON.stringify(generationRequest)).toContain('Write all prose in de');
-    expect(JSON.stringify(generationRequest)).toContain('"alias":"h1"');
+    const capturedRequest = generationRequest as unknown as Record<string, unknown> | null;
+    const generationMessages = capturedRequest?.messages as { role?: string; content?: string }[] | undefined;
+    const userPrompt = generationMessages?.find((message) => message.role === 'user')?.content ?? '';
+    expect(userPrompt).toContain('"alias":"h1"');
     expect(harnessWalkthroughCalls).toBe(0);
   });
 

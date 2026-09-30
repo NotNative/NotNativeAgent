@@ -3272,6 +3272,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   Full suites also exposed pre-existing incomplete walkthrough-schema fixtures
   (UI 1419/1422, web 1234/1236); those are registered for the next slice.
 
+- **2026-09-30 · P11 walkthrough schema closure.** The chapter/stop/hunk
+  fixtures now match the bounded generated-response contract, readiness tests
+  pin unsupported-provider precedence separately from context-budget refusal,
+  and prompt assertions inspect the decoded user message. The adversarial audit
+  found that cache validation trimmed legal Git filenames; cached paths now
+  preserve exact bytes and reject a supplied malformed `oldPath` while still
+  allowing the field to be omitted. Full UI tests pass (1422/1422), full web
+  tests pass (1238/1238), and all workspace typechecks pass.
+
 | # | Item | Phase landing | Note |
 |---|---|---|---|
 | D1 | Mock harness semantics | P1 (doc 02) | P0 ships `/health`,`/auth/*`,`/api` proxy + control SSE only |
