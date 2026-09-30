@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-37 SSH placeholder isolation.** SSH placeholder hosts
+  now carry a sanitized `transport: 'ssh'` marker. The generic host chooser
+  hides them, direct-host probes and manual switches reject them until an SSH
+  transport exists, and startup never probes their loopback URL as a remote
+  server. This also stays safe when the SSH instance catalog is corrupt and
+  its IDs cannot be read. An adversarial review confirmed the corruption case;
+  boot, host-config, SSH, and IPC tests pass 47/47.
+
 - 2026-09-30 · **P12b-36 SSH catalog CRUD IPC.** Exposed the renderer's
   existing config, upsert, create-from-command, and remove calls through the
   trusted desktop main frame. Main-process writes preserve the saved-host

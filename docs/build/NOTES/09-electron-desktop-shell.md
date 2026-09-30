@@ -120,7 +120,10 @@ remaining P12 slices ride after it.
   by this contract. Local-main-frame IPC now also exposes the UI store's config,
   upsert, create-from-command, and remove operations over that persistence
   contract. Mutations fail closed if persisted SSH rows are corrupt so an edit
-  cannot silently erase recoverable entries. Remaining: SSH connect/disconnect transport and status events,
+  cannot silently erase recoverable entries. SSH placeholders are explicitly
+  marked and excluded from direct host probing/switching until SSH transport
+  exists; the marker still protects startup if the instance catalog is corrupt.
+  Remaining: SSH connect/disconnect transport and status events,
   config import, plus general IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body

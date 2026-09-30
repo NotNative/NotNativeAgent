@@ -194,13 +194,22 @@ export function createInvokeFace(input, dependencies) {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const hostConfig = input.hostConfig?.get?.();
       if (!hostConfig) return { ok: false, error: 'desktop-hosts-unavailable' };
-      return { ok: true, result: { ...hostConfig, localOrigin: input.localOrigin() } };
+      const sshIds = new Set((input.sshInstances?.get?.() ?? []).map((instance) => instance.id));
+      for (const host of hostConfig.hosts) if (host.transport === 'ssh') sshIds.add(host.id);
+      return { ok: true, result: {
+        ...hostConfig,
+        hosts: hostConfig.hosts.filter((host) => host.transport !== 'ssh' && !sshIds.has(host.id)),
+        defaultHostId: hostConfig.hosts.some((host) => host.id === hostConfig.defaultHostId && host.transport === 'ssh')
+          || sshIds.has(hostConfig.defaultHostId) ? 'local' : hostConfig.defaultHostId,
+        localOrigin: input.localOrigin(),
+      } };
     }
     if (command === 'desktop_host_probe') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (typeof payload?.hostId !== 'string' || !input.hostProbe) return { ok: false, error: 'desktop-host-probe-unavailable' };
       const host = input.hostConfig?.get?.()?.hosts?.find((entry) => entry.id === payload.hostId);
       if (!host) return { ok: false, error: 'desktop-host-not-found' };
+      if (host.transport === 'ssh') return { ok: false, error: 'desktop-ssh-not-connected' };
       const url = typeof host?.apiUrl === 'string' ? host.apiUrl : typeof host?.url === 'string' ? host.url : '';
       if (!url || url.startsWith('relay://')) return { ok: false, error: 'desktop-host-not-direct' };
       return { ok: true, result: await input.hostProbe({

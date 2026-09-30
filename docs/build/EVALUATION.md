@@ -3,6 +3,21 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-37 SSH placeholder isolation (in progress)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| SSH/direct-host separation | Tests confirm SSH placeholders are hidden from the direct-host catalog, rejected by direct host probes, and cause local startup fallback without probing `127.0.0.1`. The persisted transport marker preserves this behavior when the SSH instance catalog is corrupt. |
+| Adversarial review | Confirmed the corrupt-catalog placeholder could otherwise be treated as a healthy direct local server; marker-based isolation closes the path. Focused boot + host config + SSH + IPC suites pass 47/47. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| SSH transport | Still not implemented; SSH entries cannot be connected or selected as active runtimes. |
+
 ## 2026-09-30 - P12b-36 SSH catalog CRUD IPC (20260930-57)
 
 **Verified working**

@@ -65,6 +65,33 @@ test('saved relay-only host boots locally pending renderer tunnel restoration', 
   });
 });
 
+test('SSH placeholder defaults remain local until the SSH transport is connected', async () => {
+  const probes = [];
+  const result = await resolveDesktopBootTarget({
+    config: { defaultHostId: 'ssh-studio', hosts: [{ id: 'ssh-studio', url: 'http://127.0.0.1/' }] },
+    sshHostIds: ['ssh-studio'], localRuntime, localAvailable: true,
+    probeHost: async (input) => { probes.push(input); return { status: 'ok' }; },
+  });
+  assert.equal(result.runtime.runtimeKey, 'local');
+  assert.deepEqual(result.bootOutcome, {
+    target: 'remote', status: 'unreachable', hostId: 'ssh-studio', via: 'ssh',
+    reason: 'desktop-ssh-not-connected', localAvailable: true,
+  });
+  assert.deepEqual(probes, []);
+});
+
+test('SSH transport marker keeps a placeholder local when its instance catalog is corrupt', async () => {
+  const probes = [];
+  const result = await resolveDesktopBootTarget({
+    config: { defaultHostId: 'ssh-studio', hosts: [{ id: 'ssh-studio', transport: 'ssh', url: 'http://127.0.0.1/' }] },
+    sshHostIds: [], localRuntime, localAvailable: true,
+    probeHost: async (input) => { probes.push(input); return { status: 'ok' }; },
+  });
+  assert.equal(result.runtime.runtimeKey, 'local');
+  assert.equal(result.bootOutcome.reason, 'desktop-ssh-not-connected');
+  assert.deepEqual(probes, []);
+});
+
 test('missing, invalid, and failed remotes fall back locally with a bounded boot outcome', async (t) => {
   await t.test('missing saved id', async () => {
     const result = await resolveDesktopBootTarget({ config: { hosts: [], defaultHostId: 'gone' }, localRuntime, localAvailable: true, probeHost: async () => { throw new Error('must not probe'); } });

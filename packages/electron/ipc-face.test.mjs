@@ -142,14 +142,19 @@ function ipcEvent(contents, url, frames = [{ url }]) {
 
 test('host config IPC reads and writes only from the desktop local main frame', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
-  let stored = { hosts: [], defaultHostId: null, initialHostChoiceCompleted: false };
-  const invoke = registeredInvoke({ contents, hostConfig: {
+  let stored = { hosts: [
+    { id: 'ssh-studio', label: 'SSH studio', url: 'http://127.0.0.1/' },
+    { id: 'direct-studio', label: 'Direct studio', url: 'https://studio.example/' },
+  ], defaultHostId: 'ssh-studio', initialHostChoiceCompleted: false };
+  const invoke = registeredInvoke({ contents, sshInstances: { get: () => [{ id: 'ssh-studio' }] }, hostConfig: {
     get: () => stored,
     set: (value) => { stored = value; return value; },
   } });
   const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_hosts_get');
   assert.equal(local.ok, true);
   assert.equal(local.result.localOrigin, 'http://127.0.0.1:57123');
+  assert.deepEqual(local.result.hosts.map((host) => host.id), ['direct-studio']);
+  assert.equal(local.result.defaultHostId, 'local');
   const write = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_hosts_set', {
     input: { hosts: [], defaultHostId: 'local', initialHostChoiceCompleted: true },
   });
@@ -158,6 +163,20 @@ test('host config IPC reads and writes only from the desktop local main frame', 
   const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_hosts_get');
   assert.equal(remote.ok, false);
   assert.equal(remote.error, 'sender-not-allowed');
+});
+
+test('host config IPC hides persisted SSH placeholders when the SSH catalog is unavailable', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, sshInstances: { get: () => [] }, hostConfig: {
+    get: () => ({ hosts: [
+      { id: 'ssh-studio', label: 'SSH studio', url: 'http://127.0.0.1/', transport: 'ssh' },
+      { id: 'direct-studio', label: 'Studio', url: 'https://studio.example/' },
+    ], defaultHostId: 'ssh-studio', initialHostChoiceCompleted: true }),
+  } });
+  const result = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_hosts_get');
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.result.hosts.map((host) => host.id), ['direct-studio']);
+  assert.equal(result.result.defaultHostId, 'local');
 });
 
 test('host probe uses only saved host credentials and cannot target an arbitrary URL', async () => {
@@ -180,6 +199,18 @@ test('host probe uses only saved host credentials and cannot target an arbitrary
   const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_probe', { hostId: 'saved-studio' });
   assert.equal(remote.ok, false);
   assert.equal(calls.length, 1);
+});
+
+test('host probe refuses an SSH placeholder until its transport is connected', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents,
+    hostConfig: { get: () => ({ hosts: [{ id: 'ssh-studio', url: 'http://127.0.0.1/', transport: 'ssh' }] }) },
+    hostProbe: async (options) => { calls.push(options); return { status: 'ok' }; },
+  });
+  const result = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'ssh-studio' });
+  assert.equal(result.error, 'desktop-ssh-not-connected');
+  assert.deepEqual(calls, []);
 });
 
 test('SSH instance catalog IPC is local-main-frame-only and persists through the injected store', async () => {

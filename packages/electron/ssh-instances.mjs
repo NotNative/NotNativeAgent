@@ -231,7 +231,10 @@ export function reconcileDesktopSshHosts(instancesInput, previousIdsInput, hosts
   }
   const hosts = hostsConfig.hosts.filter((host) => !previousIds.has(host.id));
   for (const instance of instances) {
-    hosts.push({ id: instance.id, label: instance.nickname || instance.sshParsed.destination, url: 'http://127.0.0.1/' });
+    hosts.push({
+      id: instance.id, label: instance.nickname || instance.sshParsed.destination,
+      url: 'http://127.0.0.1/', transport: 'ssh',
+    });
   }
   return {
     instances,

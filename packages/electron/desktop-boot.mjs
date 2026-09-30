@@ -27,7 +27,7 @@ function bootFailureStatus(status) {
 /** Pick a boot runtime without mutating stored preferences. Unhealthy or
  * incompatible remotes fall back to the healthy local desktop server. */
 export async function resolveDesktopBootTarget({
-  config, localRuntime, localAvailable, envTargetUrl = '', probeHost,
+  config, localRuntime, localAvailable, envTargetUrl = '', probeHost, sshHostIds = [],
 }) {
   const hasEnvTarget = typeof envTargetUrl === 'string' && Boolean(envTargetUrl.trim());
   const envTarget = normalizeTarget(envTargetUrl);
@@ -52,6 +52,10 @@ export async function resolveDesktopBootTarget({
   const hostId = config?.defaultHostId;
   if (!hostId || hostId === 'local') return localResult({ localRuntime, localAvailable });
   const host = Array.isArray(config?.hosts) ? config.hosts.find((entry) => entry.id === hostId) : null;
+  if (sshHostIds.includes(hostId) || host?.transport === 'ssh') return localResult({
+    localRuntime, localAvailable,
+    bootOutcome: { target: 'remote', status: 'unreachable', hostId, via: 'ssh', reason: 'desktop-ssh-not-connected', localAvailable },
+  });
   if (!host) return localResult({
     localRuntime, localAvailable,
     bootOutcome: { target: 'remote', status: 'missing', hostId, localAvailable },

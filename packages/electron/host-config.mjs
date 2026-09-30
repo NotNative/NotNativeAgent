@@ -86,6 +86,7 @@ export function sanitizeDesktopHost(input) {
     ...(serverId ? { serverId } : {}),
     ...(requestHeaders ? { requestHeaders } : {}),
     ...(relay ? { relay } : {}),
+    ...(input.transport === 'ssh' ? { transport: 'ssh' } : {}),
   };
 }
 

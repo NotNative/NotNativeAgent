@@ -96,7 +96,7 @@ test('reconciles SSH definitions with saved-host ids and resets a removed defaul
   });
   assert.deepEqual(result.hostsConfig, {
     hosts: [
-      current[1], { id: 'ssh-new', label: 'dev@studio.example', url: 'http://127.0.0.1/' },
+      current[1], { id: 'ssh-new', label: 'dev@studio.example', url: 'http://127.0.0.1/', transport: 'ssh' },
     ],
     defaultHostId: 'local', initialHostChoiceCompleted: true,
   });

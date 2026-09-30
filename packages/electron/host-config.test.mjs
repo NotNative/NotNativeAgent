@@ -40,6 +40,12 @@ test('sanitizes direct host metadata and strips unsafe headers and URL fragments
   });
 });
 
+test('preserves only the explicit SSH transport marker on saved-host placeholders', () => {
+  const host = sanitizeDesktopHost({ id: 'ssh-studio', label: 'Studio', url: 'http://127.0.0.1/', transport: 'ssh' });
+  assert.deepEqual(host, { id: 'ssh-studio', label: 'Studio', url: 'http://127.0.0.1', apiUrl: 'http://127.0.0.1', transport: 'ssh' });
+  assert.equal(sanitizeDesktopHost({ id: 'direct', url: 'https://studio.example/', transport: 'other' }).transport, undefined);
+});
+
 test('accepts relay-only hosts but persists only public relay key material', () => {
   const host = sanitizeDesktopHost({ id: 'relay', relay: {
     relayUrl: 'wss://relay.example/socket#discard', serverId: 'server-1', hostEncPubJwk: hostKey,

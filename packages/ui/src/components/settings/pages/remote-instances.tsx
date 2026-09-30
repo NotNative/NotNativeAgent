@@ -183,6 +183,7 @@ export function RemoteInstancesPage(): ReactNode {
           const messageByError: Record<string, string> = {
             'desktop-env-target-active': 'An explicit server URL is active; the saved host cannot be selected in this launch.',
             'desktop-host-not-found': 'That saved instance no longer exists.',
+            'desktop-ssh-not-connected': 'The SSH instance is saved, but its connection service is not available yet.',
             'desktop-hosts-busy': 'A pairing operation is updating the saved instances. Try again shortly.',
             'desktop-host-switch-busy': 'An instance switch is already in progress.',
             'desktop-host-changed': 'That saved instance changed while it was being checked. Reload the list and try again.',
@@ -208,6 +209,7 @@ export function RemoteInstancesPage(): ReactNode {
         const messages: Record<string, string> = {
           'desktop-env-target-active': 'An explicit server URL is active; the saved host cannot be selected in this launch.',
           'desktop-host-not-found': 'That saved instance no longer exists.',
+          'desktop-ssh-not-connected': 'The SSH instance is saved, but its connection service is not available yet.',
           'desktop-hosts-busy': 'A pairing operation is updating the saved instances. Try again shortly.',
           'desktop-host-switch-busy': 'An instance switch is already in progress.',
         };

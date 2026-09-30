@@ -753,10 +753,13 @@ function probeRemoteHost(options) {
 }
 
 async function resolveBootTarget(config = readStoredHosts()) {
+  const sshIds = new Set(readStoredSshInstances().map((instance) => instance.id));
+  for (const host of config.hosts) if (host.transport === 'ssh') sshIds.add(host.id);
   return resolveDesktopBootTarget({
     config, localRuntime: localRuntimeConfig(), localAvailable: true,
     envTargetUrl: process.env.OPENCHAMBER_SERVER_URL,
     probeHost: probeRemoteHost,
+    sshHostIds: [...sshIds],
   });
 }
 
@@ -774,6 +777,7 @@ async function applyHostDeepLink(hostId) {
   if (!outcome.ok) {
     const reasons = {
       'desktop-host-not-found': 'The linked instance is not saved on this computer.',
+      'desktop-ssh-not-connected': 'That SSH instance is saved but the SSH connection service is not available yet. The local instance remains active.',
       'desktop-env-target-active': 'An explicit server URL is active for this launch.',
       'desktop-hosts-busy': 'A pairing or host update is still in progress. Try the link again shortly.',
     };
@@ -820,6 +824,10 @@ async function switchDesktopHost(hostId) {
   }
   if (typeof process.env.OPENCHAMBER_SERVER_URL === 'string' && process.env.OPENCHAMBER_SERVER_URL.trim()) {
     return { ok: false, error: 'desktop-env-target-active' };
+  }
+  if (readStoredSshInstances().some((instance) => instance.id === hostId)
+    || readStoredHosts().hosts.some((host) => host.id === hostId && host.transport === 'ssh')) {
+    return { ok: false, error: 'desktop-ssh-not-connected' };
   }
   const current = readStoredHosts();
   if (hostId !== 'local' && !current.hosts.some((host) => host.id === hostId)) {
