@@ -38,10 +38,11 @@ function invoke(command, payload) {
   return new Promise((resolve) => {
     sequence += 1;
     const seq = sequence;
+    const timeoutMs = command === 'desktop_retry_server' ? 25_000 : INVOKE_TIMEOUT_MS;
     const timer = setTimeout(() => {
       pending.delete(seq);
       resolve({ ok: false, error: 'invoke-timeout' });
-    }, INVOKE_TIMEOUT_MS);
+    }, timeoutMs);
     pending.set(seq, { resolve, timer });
     try {
       ipcRenderer.send('nnd:desktop-invoke', { command, payload, seq });

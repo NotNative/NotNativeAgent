@@ -178,9 +178,11 @@ remaining P12 slices ride after it.
   spinner for a local failure page (data: URL, error text + main.log path +
   quit-and-reinstall guidance; textContent only, no HTML injection);
   trays' stopped state says "Server stopped"; Open App reloads a crashed
-  renderer document instead of re-showing it (ensureMainWindow never
-  re-invokes boot — a failed boot is terminal for the process, retry is a
-  registered residual). electron-package --no-nsis prints an integrity
+  renderer document instead of re-showing it. A boot failure with an existing
+  server handle offers a bounded health-check retry from the failure card;
+  startup failures before a handle exists still require restarting the app.
+  The retry never starts a second server or changes the import-time port.
+  electron-package --no-nsis prints an integrity
   oracle (sha256: server bundle, settings-registry.json, both tray PNGs +
   a sorted-rel-path recursive digest of packages/web/dist) and SKIPS
   resources/web-dist staging (consumed only by electron-builder; the

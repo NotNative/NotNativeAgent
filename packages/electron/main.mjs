@@ -328,8 +328,9 @@ const FAILURE_PAGE_HTML = [
   'color-scheme:dark;text-align:center}</style></head><body><div>',
   '<div style="font-size:16px;font-weight:600">NotNativeDesktop could not start</div>',
   '<div id="m" style="margin-top:10px;opacity:.55;max-width:560px;word-break:break-word;white-space:pre-line"></div>',
-  '<div style="margin-top:16px;opacity:.75;font-size:13px">Quit from the tray menu, reinstall, and check the log file.</div>',
-  '</div><script>document.getElementById("m").textContent=decodeURIComponent(location.hash.slice(1));</script>',
+  '<button id="r" style="margin-top:18px;padding:8px 14px" type="button">Retry server check</button>',
+  '<div id="s" style="margin-top:10px;opacity:.75;font-size:13px">You can also quit from the tray menu and check the log file.</div>',
+  '</div><script>const d=JSON.parse(decodeURIComponent(location.hash.slice(1)));document.getElementById("m").textContent=d.message;const b=document.getElementById("r"),s=document.getElementById("s");b.hidden=!d.retry;b.onclick=async()=>{b.disabled=true;s.textContent="Checking the local server…";const f=window.__NOTNATIVE_DESKTOP_INVOKE__;const x=typeof f==="function"?await f("desktop_retry_server"):null;if(x?.ok){s.textContent="Server is ready. Opening NotNativeDesktop…"}else{s.textContent=x?.error==="server-unavailable"?"This startup failed before a server was available. Quit and restart the app; see the log file for details.":"The server is still unavailable. You can try again or quit from the tray menu.";b.disabled=false}}</script>',
   '</body></html>',
 ].join('');
 
@@ -339,7 +340,7 @@ function bootFailurePageUrl(message) {
     String(message ?? 'unknown startup failure'),
     `Log: ${LOG_FILE}`,
   ].filter((line) => line.length > 0).join('\n');
-  return `data:text/html,${encodeURIComponent(FAILURE_PAGE_HTML)}#${encodeURIComponent(detail)}`;
+  return `data:text/html,${encodeURIComponent(FAILURE_PAGE_HTML)}#${encodeURIComponent(JSON.stringify({ message: detail, retry: Boolean(serverHandle) }))}`;
 }
 
 function buildInitScript() {
@@ -478,7 +479,10 @@ function focusMainWindow() {
 function ensureMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     mainWindow = createMainWindow();
-    if (serverHandle) mainWindow.loadURL(localOrigin()).catch(() => { /* cosmetic */ });
+    // Preserve the failure card while a boot failure is active. A handle can
+    // exist even when its health probe failed, so it is not proof that the UI
+    // origin is ready to load.
+    if (serverHandle && !bootFailure) mainWindow.loadURL(localOrigin()).catch(() => { /* cosmetic */ });
   } else if (mainWindow.webContents.isCrashed()) {
     // A crashed renderer reborn blank: Open App must not just re-show the
     // corpse — reload the document (origin when running, failure page when not).
@@ -513,7 +517,25 @@ const invokeFace = createInvokeFace({
   mainContents: () => mainWindow?.webContents,
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
+  retryServer: retryServerFromFailurePage,
 });
+
+let retryInProgress = false;
+async function retryServerFromFailurePage() {
+  if (quitting || !bootFailure || !serverHandle) return { ok: false, error: 'server-unavailable' };
+  if (retryInProgress) return { ok: false, error: 'retry-in-progress' };
+  retryInProgress = true;
+  try {
+    if (!await waitForHealth(localOrigin())) return { ok: false, error: 'server-still-unavailable' };
+    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.loadURL(`${localOrigin()}/`);
+    bootFailure = null;
+    trayController?.setStatus('running', localOrigin());
+    return { ok: true };
+  } catch (error) {
+    console.error('[shell] retry health check failed:', error);
+    return { ok: false, error: 'server-still-unavailable' };
+  } finally { retryInProgress = false; }
+}
 
 // ── §1.3 boot flow ──────────────────────────────────────────────────────────
 

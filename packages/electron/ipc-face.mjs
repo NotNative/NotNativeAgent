@@ -100,6 +100,11 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
   }
 
   async function runInvokeCommand(command, payload, event) {
+    if (command === 'desktop_retry_server') {
+      if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.retryServer) return { ok: false, error: 'server-unavailable' };
+      return input.retryServer();
+    }
     if (command.startsWith('desktop_browser_')) return browserCommand(command, payload, event);
     if (command === 'desktop_dev_tunnel_open') {
       if (payload?.relay !== true) return { ok: false, error: 'direct-dev-tunnel-unavailable' };

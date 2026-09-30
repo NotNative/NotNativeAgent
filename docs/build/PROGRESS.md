@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-6 tray boot-retry recovery.** When startup reaches a
+  server handle but its health probe times out, the stopped tray's failure card
+  now offers a bounded health recheck. The retry IPC accepts only the trusted
+  desktop main frame, serializes concurrent attempts, and reopens the app only
+  after health succeeds; it never starts a second server or changes the
+  import-time port. Failures before a server handle exists retain explicit
+  restart guidance. Adversarial review caught and fixed a destroyed-window
+  path that could replace the failure card with the unhealthy app origin.
+  Electron syntax checks, all workspace typechecks, quality gates, and graph
+  currency passed; tests were not run.
+
 - 2026-09-30 · **P11-32 cache-backed walkthrough stop metadata.** Generated
   stops now carry server-owned scope, path, rename path, and line positions;
   chapters may include a bounded summary. Cache format v2 validates and
