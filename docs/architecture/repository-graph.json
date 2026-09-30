@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e9c52c651ef677074bf13588a56047129e48caeee44919e4be81e5d5f65e4206",
+  "source_digest": "sha256:d2622d569311fb6b2178271023bb74c50e6e1ff13781c1e0620bdc0d949fbcb2",
   "counts": {
-    "modules": 557,
+    "modules": 559,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 182
+      "module_count": 184
     },
     {
       "id": "web-entry",
@@ -5139,6 +5139,21 @@
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/scheduled/next-run.ts",
         "packages/web/src/server/scheduled/scheduled-constants.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/session-assist/assist-metadata.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/session-assist/session-assist-runtime.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/queue/queue-feed.ts",
+        "packages/web/src/server/session-assist/assist-metadata.ts"
       ]
     },
     {

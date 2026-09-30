@@ -24,6 +24,28 @@ The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed
 context test exposed the previous unhandled-rejection behavior.
 
+## P10-57: session-assist trigger contract (2026-09-29)
+
+The H.2 assist surface now has a safe metadata contract and live trigger
+lifecycle. Readers require `forMessageID`, a positive fresh timestamp, and at
+least one non-empty clamped field: recap up to 320 characters or suggestion up
+to 500 characters. The writer is fresh-read only, re-checks the completed
+assistant identity, and merge-writes the documented `metadata.openchamber.assist`
+key while preserving unrelated metadata.
+
+Only live `session.status` idle events arm the 60-second quiet timer. Non-idle
+status, real newer user activity, deletion, disabled settings, and generation
+staleness invalidate the current generation and/or arming. Generation crosses
+only an isolated port with bounded transcript, target identity, and preferred
+model context; no such production port is wired yet, so absent generation stays
+quiet and never enters the main thread.
+
+An adversarial audit fixed numeric-looking identity coercion so literal IDs are
+not silently equalized across unrelated metadata writes. Focused regressions
+cover malformed payloads, boundary clamps, merge preservation, live idle arming,
+newer user invalidation, and guarded fresh write. Six focused tests and web
+typechecks pass.
+
 ## P10-45: MCP runtime/status and config stores (2026-09-29)
 
 The UI now has a runtime-status store keyed by normalized workspace directory

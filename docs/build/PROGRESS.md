@@ -32,6 +32,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   suites 61/61 excluding the unrelated schedule test; full UI otherwise 1,369+
   passed with that same deterministic date-boundary test.
 
+- 2026-09-29 · **P10-57 session-assist trigger contract.**
+  Added the H.2 assist metadata validator/merge and an isolated generation
+  lifecycle. Live idle events arm a 60-second timer; non-idle status, newer
+  user activity, runtime changes, deletion, or in-flight staleness invalidate
+  generation. The write path re-reads session and assistant identity, clamps
+  recap/suggestion, merge-writes `metadata.openchamber.assist`, and refuses
+  stale generation. No production small-model port is wired yet, so absent
+  generation stays quiet and never enters the main thread. Adversarial review
+  fixed numeric-looking identity coercion; focused tests 6/6 and web typecheck
+  passed.
+
 - 2026-09-29 · **P10-55 work-status knowledge summaries.**
   The work-status panel shows server-owned pinned note excerpts, plan titles,
   and global/project memory counts in a Knowledge sources section. A five-second

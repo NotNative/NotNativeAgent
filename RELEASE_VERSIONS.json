@@ -588,6 +588,10 @@
     {
       "version": "20260929-35",
       "content_sha256": "e41cbdae26e2386b4dc2c8404ed3c5570e66fccfbec82a7ef3c9b0d5ef9edce2"
+    },
+    {
+      "version": "20260929-36",
+      "content_sha256": "2d149c31f7a320b06b6168ddcd4f35afaf33a709b3a1b9af8d9e11803e759a86"
     }
   ]
 }
