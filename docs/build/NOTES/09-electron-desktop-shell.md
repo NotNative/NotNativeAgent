@@ -31,6 +31,16 @@ P12b-44 connects the existing `new_mini_chat` customizable shortcut to the
 same Mini Chat launch handler used by the main-window toolbar button. The
 dispatcher continues to protect AltGr text entry on Windows.
 
+P12b-45 implements `desktop_remote_password_login` for local-main-frame
+callers. The renderer sends its runtime key, password, and trust choice; the
+main process resolves local or saved direct/SSH destinations from native
+state, sends the bounded password login request, and persists the issued token
+in the matching local/host slot. The response must confirm authentication,
+the host must remain unchanged through the request, and the shared host-catalog
+mutation lock must be clear before persistence. If the session response does
+not contain a client token, the cookie-backed client-creation fallback uses
+the server's `label` field. Relay-only targets and unsaved URLs are rejected.
+
 Doc 09 (1762 lines) is enormous (full parity = checklist §15 rows 1-14). This file
 carries the slice map + adaptation deltas. **P12a-v1 is the installable shell** —
 the shortest honest path to "run the installer, evaluate the app on Windows" —

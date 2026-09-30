@@ -87,6 +87,28 @@ test('Mini Chat creation is available only to the local main frame and validates
   assert.equal(requests.length, 1);
 });
 
+test('desktop password login is local-main-frame-only and delegates to the native target resolver', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const secondary = { mainFrame: { processId: 2, routingId: 1 }, send() {} };
+  const requests = [];
+  const invoke = registeredInvoke({ contents, remotePasswordLogin: async (payload) => {
+    requests.push(payload);
+    return { ok: true, status: 200, locked: false, tunnelLocked: false, retryAfterSeconds: null, clientToken: 'issued-token' };
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_remote_password_login', {
+    runtimeKey: 'host:remote-1', password: 'secret', trustDevice: true,
+  });
+  assert.deepEqual(local, { seq: 7, ok: true, result: {
+    ok: true, status: 200, locked: false, tunnelLocked: false, retryAfterSeconds: null, clientToken: 'issued-token',
+  } });
+  assert.deepEqual(requests, [{ runtimeKey: 'host:remote-1', password: 'secret', trustDevice: true }]);
+  const fromSecondary = await invoke(ipcEvent(secondary, 'notnative-ui://app/index.html'), 'desktop_remote_password_login', {
+    runtimeKey: 'host:remote-1', password: 'secret', trustDevice: true,
+  });
+  assert.equal(fromSecondary.error, 'desktop-main-frame-required');
+  assert.equal(requests.length, 1);
+});
+
 test('window controls reject embedded frames even when their parent is trusted', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   let windowActions = 0;

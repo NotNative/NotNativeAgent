@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a5a62455431419be3abb0cd599f79f4e455681eb0b668cb86f34cf241032508d",
+  "source_digest": "sha256:edbada034c262f278e26ccd9cb4ab8a4b7bbba3666c675810edc5cf1033735ae",
   "counts": {
     "modules": 598,
     "component_edges": 14
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 225,
+      "import_count": 227,
       "module_count": 93
     },
     {
@@ -3220,6 +3220,8 @@
         "packages/ui/src/components/desktop/DesktopRelayPairingBridge.tsx",
         "packages/ui/src/components/desktop/DesktopRelayRuntimeRestore.tsx",
         "packages/ui/src/lib/miniChatLaunch.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/sessionAuthGateState.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },

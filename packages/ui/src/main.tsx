@@ -9,6 +9,8 @@ import { DesktopRelayPairingBridge } from './components/desktop/DesktopRelayPair
 import { DesktopRelayRuntimeRestore } from './components/desktop/DesktopRelayRuntimeRestore.tsx';
 import { readMiniChatLaunch } from './lib/miniChatLaunch.ts';
 import { useSessionViewStore } from './sync/view-store.ts';
+import { getRuntimeKey } from './lib/runtime-switch.ts';
+import type { LoginRequestBody, PasswordLoginResult } from './lib/sessionAuthGateState.ts';
 
 // Doc 01 §4.3 provider tree, NND shape (E-08-50: this repo builds no
 // ThemeSystemProvider): `I18nProvider > ThemeProvider > SessionAuthGate > App`
@@ -22,13 +24,23 @@ export function renderMainApp(element: HTMLElement): void {
       currentSessionId: launch.mode === 'session' ? launch.sessionId : null,
     });
   }
+  const invokeDesktop = window.__NOTNATIVE_DESKTOP_INVOKE__;
+  const loginPassword = invokeDesktop ? async (body: LoginRequestBody): Promise<PasswordLoginResult> => {
+    const reply = await invokeDesktop('desktop_remote_password_login', {
+      runtimeKey: getRuntimeKey(), password: body.password, trustDevice: body.trustDevice,
+    });
+    if (reply.ok && typeof reply.result === 'object' && reply.result !== null
+      && typeof (reply.result as { ok?: unknown }).ok === 'boolean') return reply.result as PasswordLoginResult;
+    return { ok: false, status: 0, locked: false, tunnelLocked: false, retryAfterSeconds: null, clientToken: null,
+      error: typeof reply.error === 'string' ? reply.error : 'Desktop password login failed.' };
+  } : undefined;
   createRoot(element).render(
     <StrictMode>
       <I18nProvider>
         <ThemeProvider>
           <DesktopRelayPairingBridge />
           <DesktopRelayRuntimeRestore />
-          <SessionAuthGate>
+          <SessionAuthGate loginPassword={loginPassword} issueClientToken={invokeDesktop !== undefined}>
             <App />
           </SessionAuthGate>
         </ThemeProvider>

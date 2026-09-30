@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-45 desktop password login/token issuance (20260930-66)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Desktop password login | The session gate routes password login through local-main-frame IPC. Native code resolves `local`, saved direct, or SSH targets from persisted configuration and refuses arbitrary renderer URLs. |
+| Device token handling | Login requests the client token; the result is persisted to the local token slot or the corresponding host record. When the session response omits a token, the cookie-backed client creation fallback supplies the required label and device identity. |
+| Failure and race handling | No token is accepted unless the response confirms authentication; endpoint changes and host-catalog mutations abort token persistence. |
+| Automated checks | Electron login/host-config/IPC suites pass 40/40; UI auth tests pass 15/15; workspace typechecks pass. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live remote login | No live remote host was available for end-to-end verification. |
+| Remaining P12 | Managed remote install/start, desktop updater, and installed GUI acceptance remain open. |
+
 ## 2026-09-30 - P12b-44 Mini Chat shortcut wiring (20260930-65)
 
 **Verified working**

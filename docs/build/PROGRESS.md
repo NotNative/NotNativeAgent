@@ -2,6 +2,19 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-45 desktop password login/token issuance (20260930-66)
+
+Electron now completes the session gate's password flow against the local
+service or the active saved direct/SSH host. Main-process IPC resolves the
+destination from native host state, issues a device token, and stores it in
+the local token slot or matching host record. It rejects unsuccessful 200
+responses, arbitrary destinations, host changes during login, and catalog
+mutations in progress. The adversarial review fixed the unauthenticated-200
+token acceptance case and the fallback endpoint's required `label` field.
+Focused Electron tests pass 40/40 across login, host-config, and IPC suites;
+UI auth tests pass 15/15 and workspace typechecks pass. Managed remote
+install/start, desktop updater, and installed GUI acceptance remain open P12.
+
 ## 2026-09-30 · P12b-44 Mini Chat shortcut wiring (20260930-65)
 
 The registered `new_mini_chat` action now opens the same current-session or

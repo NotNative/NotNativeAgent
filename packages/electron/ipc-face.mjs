@@ -330,6 +330,11 @@ export function createInvokeFace(input, dependencies) {
       if (!input.miniChat?.open) return { ok: false, error: 'desktop-mini-chat-unavailable' };
       return input.miniChat.open(payload);
     }
+    if (command === 'desktop_remote_password_login') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.remotePasswordLogin) return { ok: false, error: 'desktop-password-login-unavailable' };
+      return { ok: true, result: await input.remotePasswordLogin(payload) };
+    }
     if (command === 'desktop_host_set_relay_default') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (typeof payload?.hostId !== 'string' || !input.relayHostSelect) return { ok: false, error: 'desktop-host-switch-unavailable' };

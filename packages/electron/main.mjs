@@ -29,6 +29,7 @@ import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfi
 import { reconcileDesktopSshHosts, sanitizeDesktopSshInstances } from './ssh-instances.mjs';
 import { readDesktopSshConfigTree } from './ssh-config-reader.mjs';
 import { createDesktopSshTransport } from './ssh-transport.mjs';
+import { createDesktopPasswordLogin } from './desktop-password-login.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
@@ -1005,6 +1006,21 @@ const desktopSshTransport = createDesktopSshTransport({
     }
   },
 });
+const desktopPasswordLogin = createDesktopPasswordLogin({
+  getHosts: readStoredHosts,
+  writeHosts: (config) => desktopHostImportLocked
+    ? { ok: false, error: 'desktop-hosts-busy' }
+    : writeStoredHosts(config),
+  isCatalogBusy: () => desktopHostImportLocked,
+  getLocalOrigin: localOrigin,
+  getInstallId: () => readOrCreateDesktopInstallId({
+    readPrefs: () => readShellPrefs(prefsFile()),
+    writePrefs: (patch) => writeShellPrefs(prefsFile(), patch),
+  }),
+  getAppVersion: () => app.getVersion(),
+  getPlatform: () => process.platform,
+  fetchImpl: (url, options) => electronNet.fetch(url, options),
+});
 const invokeFace = createInvokeFace({
   origin: () => localOrigin(),
   uiOrigin: () => USE_UI_PROTOCOL ? UI_ORIGIN : '',
@@ -1014,6 +1030,7 @@ const invokeFace = createInvokeFace({
   windowForSender: (event) => BrowserWindow.fromWebContents(event.sender),
   platform: () => process.platform,
   miniChat: { open: createMiniChatWindow },
+  remotePasswordLogin: desktopPasswordLogin,
   mainWindow: () => mainWindow,
   focusApp: () => app.focus({ steal: true }),
   bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),

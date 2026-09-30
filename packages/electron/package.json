@@ -26,6 +26,7 @@
       "ssh-config-reader.mjs",
       "ssh-transport.mjs",
       "desktop-identity.mjs",
+      "desktop-password-login.mjs",
       "deep-links.mjs",
       "desktop-pairing.mjs",
       "desktop-boot.mjs",
