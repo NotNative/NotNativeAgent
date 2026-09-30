@@ -48,7 +48,7 @@ export interface WalkthroughModelOption {
 }
 export interface WalkthroughReadiness {
   ready: boolean;
-  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'structured-output-unsupported' | 'context-too-small' | null;
+  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'provider-unsupported' | 'structured-output-unsupported' | 'context-too-small' | null;
   requiredChars: number;
   availableChars: number | null;
 }

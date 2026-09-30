@@ -109,13 +109,15 @@ async function inspect(url: string, ports: SmallModelPorts): Promise<unknown> {
   };
 }
 
-export function generateSmallModel(raw: Record<string, unknown>, ports: SmallModelPorts): Promise<Response> {
+export function generateSmallModel(raw: Record<string, unknown>, ports: SmallModelPorts, signal?: AbortSignal,
+  timeoutMs = GENERATION_TIMEOUT_MS): Promise<Response> {
   return generateRoute(new Request('http://small-model.internal/api/small-model/generate', {
     method: 'POST', body: JSON.stringify(raw),
-  }), ports);
+  }), ports, signal, timeoutMs);
 }
 
-async function generateRoute(rawRequest: Request, ports: SmallModelPorts): Promise<Response> {
+async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal?: AbortSignal,
+  timeoutMs = GENERATION_TIMEOUT_MS): Promise<Response> {
   const raw = await readJsonBodyBounded(rawRequest, BODY_MAX_CHARS);
   if (raw === null) {
     return Response.json({ error: { message: 'A valid JSON prompt body is required' } }, { status: 400 });
@@ -168,7 +170,8 @@ async function generateRoute(rawRequest: Request, ports: SmallModelPorts): Promi
     prompt: bounds.prompt,
     maxOutputTokens: outputTokens,
     sessionID: sessionID === '' ? null : sessionID,
-    timeoutMs: GENERATION_TIMEOUT_MS,
+    timeoutMs: Number.isSafeInteger(timeoutMs) && timeoutMs > 0 ? Math.min(timeoutMs, 900_000) : GENERATION_TIMEOUT_MS,
+    signal,
   }, ports.fetch ?? fetch);
   return generationResponse(outcome, resolution, bounds);
 }

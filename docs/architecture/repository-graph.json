@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:ec4871c043c002d5b502bd6a29a2da87ba49f081a03d0a51adf41c6677ace53c",
+  "source_digest": "sha256:82e3420dae82f4d6741d081e9d3fe9035b64307aa4dfb40748108eaf8b350dd0",
   "counts": {
     "modules": 583,
     "component_edges": 14
@@ -4670,6 +4670,7 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/lib/small-model/provider-ports.ts",
+        "packages/web/src/server/lib/small-model/service.ts",
         "packages/web/src/server/lib/walkthrough/identity.ts"
       ]
     },
@@ -4979,7 +4980,8 @@
         "packages/web/src/server/lib/walkthrough/model-readiness.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts",
         "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
-        "packages/web/src/server/routes/git-walkthrough-sources.ts"
+        "packages/web/src/server/routes/git-walkthrough-sources.ts",
+        "packages/web/src/server/routes/small-model.ts"
       ]
     },
     {

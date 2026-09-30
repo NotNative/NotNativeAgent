@@ -144,6 +144,36 @@ describe('model-authored walkthrough boundary', () => {
     expect(JSON.stringify(sent)).not.toContain('fake');
   });
 
+  it('uses the bounded direct small-model transport when production model ports are enabled', async () => {
+    let generationRequest: Record<string, unknown> | null = null;
+    const modelPorts = {
+      providers: async () => [{ id: 'openai', options: { apiKey: 'test-key', baseURL: 'https://api.openai.com/v1' },
+        models: { 'gpt-nano': { id: 'gpt-nano', limit: { context: 100_000, output: 8_000 },
+          capabilities: { output: { json: true } } } } }],
+      config: async () => ({ small_model: 'openai/gpt-nano' }),
+      fetch: async (_input: string | URL | Request, init?: RequestInit) => {
+        generationRequest = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Response.json({ choices: [{ message: { content: narrative } }] });
+      },
+    };
+    let harnessWalkthroughCalls = 0;
+    const ports = { root: () => '/test-root', snapshot: () => snapshot(), call: async (request: Request) => {
+      if (new URL(request.url).pathname.endsWith('/session/ses_test')) return json({ directory: '/repo' });
+      harnessWalkthroughCalls += 1;
+      return json({});
+    } };
+    const result = await generateWalkthrough('/repo', 'ses_test', revision, ports, 'all', {
+      modelPorts, language: 'de', cache: new WalkthroughCache(join(tempCacheDir(), 'cache.json')),
+    });
+    expect(result).toMatchObject({ providerID: 'openai', modelID: 'gpt-nano', chapters: [{
+      stops: [{ id: 'working:a.ts:12345678', explanation: 'The value changes.' }],
+    }] });
+    expect(generationRequest).toMatchObject({ model: 'gpt-nano', max_completion_tokens: 8_000 });
+    expect(JSON.stringify(generationRequest)).toContain('Write all prose in de');
+    expect(JSON.stringify(generationRequest)).toContain('"alias":"h1"');
+    expect(harnessWalkthroughCalls).toBe(0);
+  });
+
   it('rechecks the selected staged scope and refuses an invalid scope before any NNA call', async () => {
     const scopes: unknown[] = [];
     let calls = 0;

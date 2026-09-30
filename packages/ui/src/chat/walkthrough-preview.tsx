@@ -323,6 +323,7 @@ function readinessText(readiness: WalkthroughReadiness, error: boolean): string 
   if (readiness.reason === 'only-generated') return 'Generated files are excluded from this walkthrough.';
   if (readiness.reason === 'no-model') return 'No walkthrough model is selected or available.';
   if (readiness.reason === 'no-provider-login') return 'The selected model has no provider login.';
+  if (readiness.reason === 'provider-unsupported') return 'The selected provider cannot generate walkthroughs directly.';
   if (readiness.reason === 'structured-output-unsupported') return 'The selected model does not advertise JSON output.';
   if (readiness.reason === 'context-too-small') return `Diff needs ${readiness.requiredChars} chars; available is ${readiness.availableChars ?? 'unknown'}.`;
   return 'Model readiness is unavailable.';

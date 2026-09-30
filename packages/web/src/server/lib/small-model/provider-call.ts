@@ -15,6 +15,7 @@ export interface DirectCallInput {
   maxOutputTokens: number;
   sessionID: string | null;
   timeoutMs: number;
+  signal?: AbortSignal;
 }
 
 export function directCallWire(providerID: string): 'openai' | 'anthropic' | 'google' | null {
@@ -39,7 +40,7 @@ export async function callSmallModelDirect(
       method: 'POST',
       headers: headers(input.model.providerID, input.credential, input.sessionID),
       body: JSON.stringify(body(input, wire)),
-      signal: controller.signal,
+      signal: input.signal === undefined ? controller.signal : AbortSignal.any([controller.signal, input.signal]),
     });
     const text = await boundedBody(response);
     if (!response.ok) return {
@@ -51,6 +52,7 @@ export async function callSmallModelDirect(
     return { ok: true, text };
   } catch (error) {
     if ((error instanceof DOMException || error instanceof Error) && error.name === 'AbortError') {
+      if (input.signal?.aborted) return { ok: false, status: 499, code: 'cancelled', message: '' };
       return { ok: false, status: 504, code: 'generation-timeout', message: '' };
     }
     return { ok: false, status: 502, code: 'provider-failed', message: '' };

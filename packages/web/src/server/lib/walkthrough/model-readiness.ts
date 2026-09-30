@@ -3,6 +3,7 @@
 import type { CredentialEvidence, ProviderRecord } from '../small-model/provider-ports.ts';
 import { configuredApiKeyShape } from '../small-model/provider-ports.ts';
 import type { ModelIdentity } from './identity.ts';
+import { chooseFamilyModel, familyCandidates } from '../small-model/service.ts';
 
 const MAX_TEXT = 2048;
 
@@ -20,7 +21,7 @@ export type WalkthroughModelOption = {
 
 export type WalkthroughReadiness = {
   ready: boolean;
-  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'structured-output-unsupported' | 'context-too-small' | null;
+  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'provider-unsupported' | 'structured-output-unsupported' | 'context-too-small' | null;
   requiredChars: number;
   availableChars: number | null;
 };
@@ -62,7 +63,10 @@ function modelBudget(model: { id: string; limit?: unknown; options?: unknown; ca
 } {
   const limits = objectOf(model.limit);
   const contextTokens = positiveNumber(limits?.context);
-  const outputTokens = positiveNumber(limits?.output);
+  const providerOutputLimit = positiveNumber(limits?.output);
+  const desiredOutput = contextTokens === null ? 24_000
+    : Math.min(96_000, Math.max(24_000, Math.floor(contextTokens * 0.25)));
+  const outputTokens = providerOutputLimit === null ? desiredOutput : Math.min(desiredOutput, providerOutputLimit);
   return {
     contextTokens,
     outputTokens,
@@ -108,6 +112,7 @@ export function walkthroughModelSelection(input: {
   credentials: CredentialEvidence;
   requestModel: unknown;
   settingsOverride: unknown;
+  smallModelSettings?: Record<string, unknown>;
   config: unknown;
 }): ModelOptionResult {
   const providers = input.providers;
@@ -117,9 +122,27 @@ export function walkthroughModelSelection(input: {
   const options = providers.flatMap((provider) => Object.entries(provider.models ?? {})
     .map(([modelID, record]) => modelOption(provider, modelID, record, input.credentials))
     .filter((option): option is WalkthroughModelOption => option !== null));
-  const selected = identityFromString(input.requestModel) ?? identityFromString(input.settingsOverride)
-    ?? identityFromString(objectOf(input.config)?.walkthrough_model)
-    ?? identityFromString(objectOf(input.config)?.small_model);
+  const config = objectOf(input.config);
+  const requestOrFeature = identityFromString(input.requestModel) ?? identityFromString(input.settingsOverride);
+  let selected = requestOrFeature ?? identityFromString(config?.walkthrough_model);
+  const settings = input.smallModelSettings ?? {};
+  if (selected === null && settings.smallModelUseDefault === false) {
+    selected = identityFromString(settings.smallModelOverride);
+  } else if (selected === null) {
+    const configured = identityFromString(config?.small_model);
+    const configuredOption = configured === null ? null : options.find((option) =>
+      option.providerID === configured.providerID && option.modelID === configured.modelID);
+    if (configuredOption?.hasLogin && configuredOption.structuredOutput !== false
+      && ['openai', 'anthropic', 'google'].includes(configuredOption.providerID)) {
+      selected = configured;
+    } else {
+      const candidate = chooseFamilyModel({ candidates: familyCandidates({ providers, preferredProviderID: null })
+        .filter(({ provider, model }) => hasCredential(input.credentials, provider.id, provider)
+          && ['openai', 'anthropic', 'google'].includes(provider.id)
+          && modelStructuredOutput(model) !== false) });
+      selected = candidate === null ? null : { providerID: candidate.provider.id, modelID: candidate.model.id };
+    }
+  }
   const model = selected === null ? null :
     options.find((option) => option.providerID === selected.providerID && option.modelID === selected.modelID) ?? null;
   return { selected, model, options, providerInventoryAvailable: true };
@@ -130,6 +153,7 @@ function readinessForModel(requiredChars: number, selection: ModelOptionResult):
   let reason: WalkthroughReadiness['reason'] = null;
   if (selection.selected === null || selection.model === null) reason = 'no-model';
   else if (selection.model?.hasLogin === false) reason = 'no-provider-login';
+  else if (!['openai', 'anthropic', 'google'].includes(selection.model.providerID)) reason = 'provider-unsupported';
   else if (selection.model?.structuredOutput === false) reason = 'structured-output-unsupported';
   else if (available !== null && requiredChars > available) reason = 'context-too-small';
   return { ready: reason === null, reason, requiredChars, availableChars: available };

@@ -47,4 +47,18 @@ describe('walkthrough model readiness', () => {
         settingsOverride: '', config: {} }) })).toEqual({ ready: false, reason: 'no-provider-login',
       requiredChars: 8192, availableChars: 368_000 });
   });
+
+  it('falls back to an authenticated supported catalog family only when the small-model chain is enabled', () => {
+    const provider: ProviderRecord = { id: 'openai', options: { apiKey: 'test-key' }, models: {
+      'gpt-nano': { id: 'gpt-nano', limit: { context: 100_000, output: 8_000 },
+        capabilities: { output: { json: true } } },
+    } };
+    const defaultSelection = walkthroughModelSelection({ providers: [provider], credentials: { openai: 'api' },
+      requestModel: null, settingsOverride: '', config: {}, smallModelSettings: { smallModelUseDefault: true } });
+    expect(defaultSelection.selected).toEqual({ providerID: 'openai', modelID: 'gpt-nano' });
+    const restricted = walkthroughModelSelection({ providers: [provider], credentials: { openai: 'api' },
+      requestModel: null, settingsOverride: '', config: {},
+      smallModelSettings: { smallModelUseDefault: false, smallModelOverride: 'openai/missing' } });
+    expect(restricted.model).toBeNull();
+  });
 });
