@@ -406,6 +406,8 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
     {preview && preview.stops.length === 0 ? <p className="p-3 text-xs text-neutral-400">No text hunks to walk through. Binary-only changes are not rendered in this preview.</p> : null}
     {preview && preview.binaryFiles > 0 ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">{preview.binaryFiles} binary file scope(s) are omitted from hunk navigation.</p> : null}
     {narrative ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-300">
+      <strong className="block text-xs text-neutral-100">{narrative.title}</strong>
+      <span className="block py-1">{narrative.focus}</span>
       Model explanation: {narrative.providerID}/{narrative.modelID}. Verify claims against the diff.
       {narrative.omittedSensitiveHunks > 0 ? ` ${narrative.omittedSensitiveHunks} sensitive-path hunk(s) were not sent.` : ''}
     </div> : null}
@@ -416,8 +418,8 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
         <button type="button" aria-label="Next hunk" disabled={active + 1 >= preview.stops.length} onClick={() => setActive(active + 1)}>→</button>
       </div>
       <nav aria-label="Diff hunk stops" className="max-h-40 overflow-y-auto border-b border-white/10 p-2">
-        {narrative?.chapters.map((chapter, index) => <div key={`${chapter.title}:${index}`} className="px-2 py-1 text-[11px] text-neutral-300">
-          {chapter.title}{chapter.summary ? `: ${chapter.summary}` : ''} · {chapter.stops.length} stop(s)
+        {narrative?.chapters.map((chapter) => <div key={chapter.id} className="px-2 py-1 text-[11px] text-neutral-300">
+          {chapter.title} · {chapter.blurb} · {chapter.stops.length} stop(s)
         </div>)}
         {preview.stops.map((item, index) => <button key={item.id} type="button" aria-current={index === active ? 'step' : undefined}
           className={`block w-full truncate rounded px-2 py-1 text-left text-[11px] ${index === active ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
@@ -426,8 +428,8 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
         <div className="sticky top-0 bg-neutral-950 py-1 text-xs text-neutral-200">{sourceIdentity(source)} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
         {narrative?.chapters.flatMap((chapter) => chapter.stops.map((item) => ({ ...item, chapter: chapter.title })))
-          .filter((item) => item.id === stop.id).map((item) => <div key={item.id} className="mb-2 rounded border border-white/10 p-2 text-xs text-neutral-200">
-            <div className="mb-1 text-[11px] text-neutral-400">{item.chapter} · {item.path} · old:{item.oldStart} new:{item.newStart} · model explanation</div>{item.explanation}
+          .filter((item) => item.hunks.some((hunk) => hunk.id === stop.id)).map((item) => <div key={item.id} className="mb-2 rounded border border-white/10 p-2 text-xs text-neutral-200">
+            <div className="mb-1 text-[11px] text-neutral-400">{item.chapter} · {item.title} · {item.importance} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>{item.prose}
           </div>)}
         <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-neutral-300" data-testid="walkthrough-hunk">{stop.header}{'\n'}{stop.body}</pre>
       </div>

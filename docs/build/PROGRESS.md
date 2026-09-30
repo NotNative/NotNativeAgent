@@ -15,7 +15,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | ✅ done 2026-09-30 (goals, scheduled tasks, snippets/starters, message queue UI, multi-run/fusion, session orchestration, live goal/scheduled feedback, adversarial reviews; full web/UI releases through 20260930-2) |
 | P10 knowledge/context | 15 | ✅ done 2026-09-30 (isolated context storage and durable migration, notes/plans/todos, shared plans, agent memory/tool/runtime, session knowledge/riding, context pins, skills/catalog/install, MCP config/runtime, obligatory context, file/image guards, system reminders, BTW, and H.2 assist generation; adversarial reviews, web/UI suites, and graph/quality gates) |
-| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; walkthrough source selectors, generation lifecycle, UI lifecycle wiring, durable identity-bound cache, model selection/readiness, cache-backed stop metadata, direct small-model transport, and installed-GUI acceptance delivered/underway 2026-09-30; richer chapter/stop schema remains |
+| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; walkthrough source selectors, generation lifecycle, UI lifecycle wiring, durable identity-bound cache, model selection/readiness, cache-backed metadata, direct model transport, and rich chapter/stop schema delivered 2026-09-30; installed-GUI acceptance remains |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
@@ -31,6 +31,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   otherwise valid cache record is evicted and regenerated rather than causing
   repeat 409 failures. UI/web typechecks passed; focused regression cases were
   added but not run in this slice.
+
+- 2026-09-30 · **P11-34 rich walkthrough schema (seal 20260930-18).** Model
+  answers now carry a title and focus line, bounded chapters with icon and
+  blurb, and titled/weighted stops that may anchor up to 14 current hunks.
+  Server normalization resolves every alias to current snapshot metadata;
+  cache v3 validates the full narrative and its anchors; the client validates
+  the same shape and displays the grouped explanation for each selected hunk.
+  Adversarial review fixed a cache rejection for prose containing escaped line
+  breaks. Both typechecks and quality/graph gates passed; tests were not run.
 
 - 2026-09-30 · **P11-30 durable walkthrough cache.** Successful explanations
   now persist under the server data directory, keyed by the exact capture
@@ -3161,7 +3170,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   walkthrough work: richer chapter/stop schema, direct small-model transport,
   and P12b installed-GUI acceptance.
 
-- **2026-09-30 · P11-32 direct small-model walkthrough transport.** Walkthrough
+- **2026-09-30 · P11-33 direct small-model walkthrough transport.** Walkthrough
   generation now uses the web server's bounded OpenAI/Anthropic/Google transport,
   with request cancellation, timeout classification, provider attribution,
   readiness/context budget checks, and cache/job identity bound to the selected

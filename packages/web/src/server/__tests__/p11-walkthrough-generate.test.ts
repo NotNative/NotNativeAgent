@@ -21,8 +21,8 @@ const stop = (path: string, id = 'working:a.ts:12345678', oldPath?: string) => (
   header: '@@ -1 +1 @@', oldStart: 1, newStart: 1, body: '-old\n+new' });
 const snapshot = (stops = [stop('a.ts')], signature = revision): ReturnType<typeof getWalkthroughSnapshot> =>
   ({ signature, stops, fileCount: stops.length, binaryFiles: 0 });
-const narrative = JSON.stringify({ chapters: [{ title: 'Behavior', stops: [
-  { alias: 'h1', explanation: 'The value changes.' }, { alias: 'fake', explanation: 'Invented.' },
+const narrative = JSON.stringify({ title: 'Change review', focus: 'The value now flows through a validated path.', chapters: [{ title: 'Behavior', icon: 'wrench', blurb: 'How the result changes.', stops: [
+  { title: 'Validated result', hunks: ['h1', 'fake'], importance: 'normal', prose: 'The value changes.' },
 ] }] });
 
 describe('walkthrough generation lifecycle', () => {
@@ -73,9 +73,8 @@ describe('model-authored walkthrough boundary', () => {
       { alias: 'h1', scope: 'working', path: 'id_rsa.pub', header: '@@ -1 +1 @@', patch: '-old\n+new' },
       { alias: 'h2', scope: 'working', path: 'a.ts', header: '@@ -1 +1 @@', patch: '-old\n+new' },
     ]);
-    expect(normalizeWalkthrough(narrative, digest.aliases)).toEqual([{ title: 'Behavior', stops: [
-      { alias: 'h1', explanation: 'The value changes.' },
-    ] }]);
+    expect(normalizeWalkthrough(narrative, digest.aliases)).toMatchObject({ title: 'Change review', focus: expect.any(String),
+      chapters: [{ title: 'Behavior', icon: 'wrench', stops: [{ aliases: ['h1'], title: 'Validated result', prose: 'The value changes.' }] }] });
   });
 
   it('requires a matching snapshot before calling NNA and again after generation', async () => {
@@ -135,8 +134,8 @@ describe('model-authored walkthrough boundary', () => {
       return json({ revision, text: narrative, providerID: 'local', modelID: 'small' });
     } };
     const result = await generateWalkthrough('/repo', 'ses_test', revision, ports);
-    expect(result).toMatchObject({ revision, chapters: [{ title: 'Behavior', stops: [
-      { id: 'working:a.ts:12345678', explanation: 'The value changes.' },
+    expect(result).toMatchObject({ revision, title: 'Change review', chapters: [{ title: 'Behavior', stops: [
+      { title: 'Validated result', prose: 'The value changes.', hunks: [{ id: 'working:a.ts:12345678' }] },
     ] }] });
     const sent = await seen[1]!.json() as { revision: string; digest: unknown[] };
     expect(sent.revision).toBe(revision);
@@ -166,7 +165,7 @@ describe('model-authored walkthrough boundary', () => {
       modelPorts, language: 'de', cache: new WalkthroughCache(join(tempCacheDir(), 'cache.json')),
     });
     expect(result).toMatchObject({ providerID: 'openai', modelID: 'gpt-nano', chapters: [{
-      stops: [{ id: 'working:a.ts:12345678', explanation: 'The value changes.' }],
+      stops: [{ title: 'Validated result', prose: 'The value changes.', hunks: [{ id: 'working:a.ts:12345678' }] }],
     }] });
     expect(generationRequest).toMatchObject({ model: 'gpt-nano', max_completion_tokens: 8_000 });
     expect(JSON.stringify(generationRequest)).toContain('Write all prose in de');

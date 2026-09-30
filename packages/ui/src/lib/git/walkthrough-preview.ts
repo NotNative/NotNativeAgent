@@ -29,8 +29,11 @@ export interface WalkthroughPreview {
 }
 export interface GeneratedWalkthrough {
   revision: string;
-  chapters: { title: string; summary?: string; stops: { id: string; explanation: string;
-    scope: 'staged' | 'working'; path: string; oldPath?: string; oldStart: number; newStart: number }[] }[];
+  title: string;
+  focus: string;
+  chapters: { id: string; title: string; icon: 'bug' | 'wrench' | 'path' | 'flask' | 'doc' | 'gear'; blurb: string;
+    stops: { id: string; title: string; importance: 'critical' | 'normal' | 'context'; prose: string;
+      hunks: { id: string; scope: 'staged' | 'working'; path: string; oldPath?: string; oldStart: number; newStart: number }[] }[] }[];
   omittedSensitiveHunks: number;
   providerID: string;
   modelID: string;
@@ -69,31 +72,46 @@ function walkthroughIsValid(payload: GeneratedWalkthrough | unknown, snapshotSto
   const value = payload as GeneratedWalkthrough;
   const known = snapshotStops === undefined ? undefined : new Map(snapshotStops.map((stop) => [stop.id, stop]));
   const seen = new Set<string>();
+  let stopCount = 0;
   return typeof value.revision === 'string' && typeof value.providerID === 'string'
     && value.providerID.length > 0 && value.providerID.length <= 256
     && typeof value.modelID === 'string' && value.modelID.length > 0 && value.modelID.length <= 256
+    && typeof value.title === 'string' && value.title.trim() !== '' && value.title.length <= 80
+    && typeof value.focus === 'string' && value.focus.trim() !== '' && value.focus.length <= 500
     && Number.isSafeInteger(value.omittedSensitiveHunks)
     && value.omittedSensitiveHunks >= 0 && Array.isArray(value.chapters)
-    && value.chapters.length > 0 && value.chapters.length <= 12 && value.chapters.every((chapter) =>
+    && value.chapters.length > 0 && value.chapters.length <= 6 && value.chapters.every((chapter) =>
       chapter !== null && typeof chapter === 'object' && !Array.isArray(chapter)
-      && typeof chapter.title === 'string' && chapter.title.trim() !== '' && chapter.title.length <= 120
-      && Array.isArray(chapter.stops) && chapter.stops.length > 0 && chapter.stops.length <= 200
-      && (chapter.summary === undefined || typeof chapter.summary === 'string' && chapter.summary.length <= 600)
+      && typeof chapter.id === 'string' && chapter.id.length > 0 && chapter.id.length <= 128
+      && !seen.has(`chapter:${chapter.id}`)
+      && typeof chapter.title === 'string' && chapter.title.trim() !== '' && chapter.title.length <= 24
+      && ['bug', 'wrench', 'path', 'flask', 'doc', 'gear'].includes(chapter.icon)
+      && typeof chapter.blurb === 'string' && chapter.blurb.length <= 600
+      && Array.isArray(chapter.stops) && chapter.stops.length > 0 && chapter.stops.length <= 16
       && chapter.stops.every((stop) => {
         if (stop === null || typeof stop !== 'object' || Array.isArray(stop)
           || typeof stop.id !== 'string' || stop.id.length === 0 || stop.id.length > 128 || seen.has(stop.id)
-          || typeof stop.explanation !== 'string' || stop.explanation.trim() === '' || stop.explanation.length > 1_000
-          || (stop.scope !== 'staged' && stop.scope !== 'working') || typeof stop.path !== 'string'
-          || stop.path.length === 0 || stop.path.length > 4_096
-          || !Number.isSafeInteger(stop.oldStart) || stop.oldStart < 0
-          || !Number.isSafeInteger(stop.newStart) || stop.newStart < 0
-          || stop.oldPath !== undefined && (typeof stop.oldPath !== 'string' || stop.oldPath.length === 0 || stop.oldPath.length > 4_096)) return false;
+          || typeof stop.title !== 'string' || stop.title.trim() === '' || stop.title.length > 100
+          || !['critical', 'normal', 'context'].includes(stop.importance)
+          || typeof stop.prose !== 'string' || stop.prose.trim() === '' || stop.prose.length > 1_000
+          || !Array.isArray(stop.hunks) || stop.hunks.length === 0 || stop.hunks.length > 14) return false;
+        if (++stopCount > 16 || seen.has(`stop:${stop.id}`)) return false;
+        seen.add(`chapter:${chapter.id}`);
+        seen.add(`stop:${stop.id}`);
         seen.add(stop.id);
-        if (known === undefined) return true;
-        const actual = known.get(stop.id);
-        return actual !== undefined
-          && stop.scope === actual.scope && stop.path === actual.path && stop.oldPath === actual.oldPath
-          && stop.oldStart === actual.oldStart && stop.newStart === actual.newStart;
+        return stop.hunks.every((hunk) => {
+          if (hunk === null || typeof hunk !== 'object' || typeof hunk.id !== 'string' || hunk.id.length === 0
+            || (hunk.scope !== 'staged' && hunk.scope !== 'working') || typeof hunk.path !== 'string'
+            || hunk.path.length === 0 || hunk.path.length > 4_096 || !Number.isSafeInteger(hunk.oldStart) || hunk.oldStart < 0
+            || !Number.isSafeInteger(hunk.newStart) || hunk.newStart < 0
+            || hunk.oldPath !== undefined && (typeof hunk.oldPath !== 'string' || hunk.oldPath.length === 0 || hunk.oldPath.length > 4_096)) return false;
+          if (seen.has(`hunk:${hunk.id}`)) return false;
+          seen.add(`hunk:${hunk.id}`);
+          if (known === undefined) return true;
+          const actual = known.get(hunk.id);
+          return actual !== undefined && hunk.scope === actual.scope && hunk.path === actual.path && hunk.oldPath === actual.oldPath
+            && hunk.oldStart === actual.oldStart && hunk.newStart === actual.newStart;
+        });
       })) && seen.size > 0;
 }
 

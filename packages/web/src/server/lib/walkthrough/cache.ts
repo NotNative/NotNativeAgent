@@ -3,22 +3,29 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_LIMIT = 64;
 const FILE_LIMIT = 8 * 1024 * 1024;
 const ID_PATTERN = /^[A-Za-z0-9_.:\\/-]{1,256}$/u;
 const TEXT_PATTERN = /^[^\r\n\t\0]{1,1000}$/u;
-const SUMMARY_PATTERN = /^[^\r\n\t\0]{1,600}$/u;
+// Model prose may contain legitimate paragraph breaks or tabs. Keep other
+// controls out while accepting the same narrative text as generation.
+const NARRATIVE_PATTERN = /^[^\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]{1,1000}$/u;
+const SUMMARY_NARRATIVE_PATTERN = /^[^\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]{1,600}$/u;
 const SCOPE_PATTERN = /^(?:staged|working)$/u;
 const PATH_PATTERN = /^[^\r\n\0]{1,4096}$/u;
-const TITLE_PATTERN = /^[^\r\n\t\0]{1,120}$/u;
+const TITLE_PATTERN = /^[^\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]{1,120}$/u;
+const ICON_PATTERN = /^(?:bug|wrench|path|flask|doc|gear)$/u;
+const IMPORTANCE_PATTERN = /^(?:critical|normal|context)$/u;
 
-export type CachedStop = { id: string; explanation: string; scope: 'staged' | 'working'; path: string;
-  oldPath?: string; oldStart: number; newStart: number };
-export type CachedChapter = { title: string; summary?: string; stops: CachedStop[] };
+export type CachedHunk = { id: string; scope: 'staged' | 'working'; path: string; oldPath?: string; oldStart: number; newStart: number };
+export type CachedStop = { id: string; title: string; importance: 'critical' | 'normal' | 'context'; prose: string; hunks: CachedHunk[] };
+export type CachedChapter = { id: string; title: string; icon: 'bug' | 'wrench' | 'path' | 'flask' | 'doc' | 'gear'; blurb: string; stops: CachedStop[] };
 export type CachedWalkthrough = {
   revision: string;
-  chapters: { title: string; summary?: string; stops: CachedStop[] }[];
+  title: string;
+  focus: string;
+  chapters: CachedChapter[];
   omittedSensitiveHunks: number;
   providerID: string;
   modelID: string;
@@ -38,49 +45,76 @@ function integerAtLeast(value: unknown, minimum: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value) && value >= minimum ? value : null;
 }
 
+function cachedHunk(value: unknown, seen: Set<string>): CachedHunk | null {
+  const hunk = objectOf(value);
+  const id = boundIdentity(hunk?.id, 128);
+  const scope = boundIdentity(hunk?.scope, 16);
+  const path = boundIdentity(hunk?.path, 4096);
+  const oldPath = hunk?.oldPath === undefined ? null : boundIdentity(hunk.oldPath, 4096);
+  const oldStart = integerAtLeast(hunk?.oldStart, 0);
+  const newStart = integerAtLeast(hunk?.newStart, 0);
+  if (!ID_PATTERN.test(id) || !SCOPE_PATTERN.test(scope) || !PATH_PATTERN.test(path)
+    || oldStart === null || newStart === null || oldPath !== null && !PATH_PATTERN.test(oldPath) || seen.has(id)) return null;
+  seen.add(id);
+  return { id, scope: scope as CachedHunk['scope'], path, oldStart, newStart, ...(oldPath ? { oldPath } : {}) };
+}
+
+function cachedStop(value: unknown, hunkIds: Set<string>, narrativeIds: Set<string>): CachedStop | null {
+  const stop = objectOf(value);
+  const id = boundIdentity(stop?.id, 128);
+  const title = boundIdentity(stop?.title, 100);
+  const importance = boundIdentity(stop?.importance, 16);
+  const prose = boundIdentity(stop?.prose, 1000);
+  if (!ID_PATTERN.test(id) || narrativeIds.has(id) || !TITLE_PATTERN.test(title)
+    || !IMPORTANCE_PATTERN.test(importance) || !NARRATIVE_PATTERN.test(prose)
+    || !Array.isArray(stop?.hunks) || stop.hunks.length === 0 || stop.hunks.length > 14) return null;
+  const hunks = stop.hunks.map((hunk) => cachedHunk(hunk, hunkIds));
+  if (hunks.some((hunk) => hunk === null)) return null;
+  narrativeIds.add(id);
+  return { id, title, importance: importance as CachedStop['importance'], prose, hunks: hunks as CachedHunk[] };
+}
+
+function cachedChapter(value: unknown, hunkIds: Set<string>, narrativeIds: Set<string>, maxStops: number): CachedChapter | null {
+  const chapter = objectOf(value);
+  const id = boundIdentity(chapter?.id, 128);
+  const title = boundIdentity(chapter?.title, 24);
+  const icon = boundIdentity(chapter?.icon, 16);
+  const blurb = boundIdentity(chapter?.blurb, 600);
+  if (!ID_PATTERN.test(id) || narrativeIds.has(id) || !TITLE_PATTERN.test(title) || !ICON_PATTERN.test(icon)
+    || !SUMMARY_NARRATIVE_PATTERN.test(blurb) || !Array.isArray(chapter?.stops) || chapter.stops.length === 0
+    || chapter.stops.length > maxStops) return null;
+  narrativeIds.add(id);
+  const stops = chapter.stops.map((stop) => cachedStop(stop, hunkIds, narrativeIds));
+  if (stops.some((stop) => stop === null)) return null;
+  return { id, title, icon: icon as CachedChapter['icon'], blurb, stops: stops as CachedStop[] };
+}
+
 export function validCachedWalkthrough(value: unknown): CachedWalkthrough | null {
   const record = objectOf(value);
   if (record === null || !/^[0-9a-f]{40}$|^[0-9a-f]{64}$/u.test(boundIdentity(record.revision, 128))
     || integerAtLeast(record.omittedSensitiveHunks, 0) === null
     || !TEXT_PATTERN.test(boundIdentity(record.providerID, 512))
     || !TEXT_PATTERN.test(boundIdentity(record.modelID, 1024))) return null;
-  if (!Array.isArray(record.chapters) || record.chapters.length === 0 || record.chapters.length > 12) return null;
+  const title = boundIdentity(record.title, 80);
+  const focus = boundIdentity(record.focus, 500);
+  if (!NARRATIVE_PATTERN.test(title) || !SUMMARY_NARRATIVE_PATTERN.test(focus)
+    || !Array.isArray(record.chapters) || record.chapters.length === 0 || record.chapters.length > 6) return null;
   const chapters: CachedChapter[] = [];
-  const stopIds = new Set<string>();
+  const hunkIds = new Set<string>();
+  const narrativeIds = new Set<string>();
+  let stopCount = 0;
   for (const rawChapter of record.chapters) {
-    const chapter = objectOf(rawChapter);
-    const title = boundIdentity(chapter?.title, 128);
-    const summaryRaw = chapter?.summary === null || chapter?.summary === undefined
-      ? null : boundIdentity(chapter.summary, 600);
-    if (!TITLE_PATTERN.test(title) || !Array.isArray(chapter!.stops)
-      || (summaryRaw !== null && !SUMMARY_PATTERN.test(summaryRaw))) return null;
-    const stops: CachedStop[] = [];
-    for (const rawStop of chapter!.stops.slice(0, 200)) {
-      const stop = objectOf(rawStop);
-      const id = boundIdentity(stop?.id, 128);
-      const explanation = boundIdentity(stop?.explanation, 1024);
-      const scope = boundIdentity(stop?.scope, 16);
-      const path = boundIdentity(stop?.path, 4096);
-      const oldPathRaw = stop?.oldPath === undefined ? null : boundIdentity(stop.oldPath, 4096);
-      const oldStart = integerAtLeast(stop?.oldStart, 0);
-      const newStart = integerAtLeast(stop?.newStart, 0);
-      if (stop === null || !ID_PATTERN.test(id) || !TEXT_PATTERN.test(explanation)
-        || !SCOPE_PATTERN.test(scope) || !PATH_PATTERN.test(path)
-        || oldStart === null || newStart === null
-        || oldPathRaw !== null && !PATH_PATTERN.test(oldPathRaw)) return null;
-      const item: CachedStop = { id, explanation, scope: scope as CachedStop['scope'], path, oldStart, newStart,
-        ...(oldPathRaw ? { oldPath: oldPathRaw } : {}) };
-      if (stopIds.has(item.id)) return null;
-      stopIds.add(item.id);
-      stops.push(item);
-    }
-    if (stops.length === 0) return null;
-    chapters.push({ title, ...(summaryRaw ? { summary: summaryRaw } : {}), stops });
+    const chapter = cachedChapter(rawChapter, hunkIds, narrativeIds, 16 - stopCount);
+    if (chapter === null) return null;
+    stopCount += chapter.stops.length;
+    chapters.push(chapter);
   }
   const omitted = integerAtLeast(record.omittedSensitiveHunks, 0);
   if (omitted === null) return null;
   return {
     revision: boundIdentity(record.revision, 128),
+    title,
+    focus,
     chapters,
     omittedSensitiveHunks: omitted,
     providerID: boundIdentity(record.providerID, 512),
