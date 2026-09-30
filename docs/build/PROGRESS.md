@@ -22,12 +22,20 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-28 relay redemption IPC bridge.** Added a bounded
+  one-shot main/renderer request seam so Electron can retain native consent
+  and catalog ownership while the local renderer runs the E2EE tunnel. Requests
+  are capped, timeout and renderer-destruction paths settle them, and results
+  use collision-checked request ids and accept only a token plus optional label.
+  Six focused tests and all 106 Electron tests pass. Main/preload
+  and UI event wiring remains pending.
+
 - 2026-09-30 · **P12b-27 relay pairing redemption core.** Added the
   renderer-side relay redemption primitive required by the pairing contract:
   the one-time grant is used only to open a throwaway E2EE tunnel, the device
   dedupe key is sent through `/api/client-auth/pairing/redeem`, responses are
-  size-bounded and validated, and the tunnel closes on every outcome. Four
-  five focused tests and UI typechecking pass. The full UI suite passes 1,433
+  size-bounded and validated, and the tunnel closes on every outcome. Five
+  focused tests and UI typechecking pass. The full UI suite passes 1,433
   tests. Wiring consent, catalog persistence,
   relay runtime switching, and direct/relay candidate fallback remains pending.
 

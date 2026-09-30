@@ -86,7 +86,9 @@ remaining P12 slices ride after it.
   Renderer-side relay pairing redemption now opens a grant-scoped throwaway
   E2EE tunnel, sends the deduplicated pairing request, bounds and validates the
   response, and always closes the tunnel. Consent/catalog wiring, relay runtime
-  switching, and multi-candidate fallback remain pending.
+  switching, and multi-candidate fallback remain pending. A bounded one-shot
+  main/renderer bridge carries redemption requests to the trusted local
+  renderer and accepts only a token/label result; app-face wiring remains open.
   The bounded Electron host probe now implements the identity-first,
   compatibility/auth checks and unreachable-only retry policy required by §2.6.
   The server exposes the unauthenticated `/api/version` compatibility contract;
@@ -213,6 +215,11 @@ remaining P12 slices ride after it.
   host-link requests, and uses the existing catalog lock and remote probe. A
   successful switch reloads the local shell so the per-document runtime config
   is refreshed; missing hosts and switch conflicts show a native warning.
+- **D-09-39** The relay pairing bridge caps concurrent requests, assigns
+  collision-checked one-shot request ids, expires unanswered work, and settles
+  requests when the renderer is destroyed. Its accepted result shape excludes
+  the relay grant and pairing secret. Main/preload/UI wiring remains to be
+  completed.
 - **D-09-38** Renderer-side relay pairing redemption uses the link's optional
   one-time grant only for the throwaway E2EE connection, applies a 15-second
   request deadline and 64 KiB response bound, validates the returned client
