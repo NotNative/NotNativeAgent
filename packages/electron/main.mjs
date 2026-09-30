@@ -30,6 +30,7 @@ import { reconcileDesktopSshHosts, sanitizeDesktopSshInstances } from './ssh-ins
 import { readDesktopSshConfigTree } from './ssh-config-reader.mjs';
 import { createDesktopSshTransport } from './ssh-transport.mjs';
 import { createDesktopPasswordLogin } from './desktop-password-login.mjs';
+import { createDesktopUpdater } from './desktop-updater.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
@@ -75,6 +76,7 @@ let windowStateTimer = null;
 let revealPending = false;
 const pendingDeepLinks = extractDesktopDeepLinks(process.argv);
 let desktopHostImportLocked = false;
+let desktopUpdater = null;
 
 function receiveDeepLink(link) {
   if (!link) return;
@@ -1031,6 +1033,11 @@ const invokeFace = createInvokeFace({
   platform: () => process.platform,
   miniChat: { open: createMiniChatWindow },
   remotePasswordLogin: desktopPasswordLogin,
+  updater: {
+    check: (...args) => desktopUpdater?.check(...args),
+    download: (...args) => desktopUpdater?.download(...args),
+    install: (...args) => desktopUpdater?.install(...args),
+  },
   mainWindow: () => mainWindow,
   focusApp: () => app.focus({ steal: true }),
   bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),
@@ -1141,6 +1148,29 @@ async function startServerAndProbe() {
 
 async function boot() {
   await app.whenReady();
+  if (PACKAGED) {
+    const { autoUpdater } = await import('electron-updater');
+    desktopUpdater = createDesktopUpdater({
+      autoUpdater,
+      packaged: PACKAGED,
+      platform: process.platform,
+      architecture: process.arch,
+      environment: process.env,
+      testBuild: globalThis.__NOTNATIVE_UPDATER_E2E_BUILD__ === true,
+      currentVersion: productVersion(),
+      emitProgress: (detail) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) window.webContents.send('openchamber:emit', { event: 'openchamber:update-progress', detail });
+        }
+      },
+      setTaskbarProgress: (value) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) window.setProgressBar(value);
+        }
+      },
+    });
+    desktopUpdater.setup();
+  }
   if (USE_UI_PROTOCOL) protocol.handle(UI_SCHEME, createUiProtocolHandler({
     webDistDir: resolveDistDir(), apiOrigin: localOrigin(), fetchFile: (url, options) => electronNet.fetch(url, options),
   }));

@@ -371,6 +371,21 @@ export function createInvokeFace(input, dependencies) {
       if (typeof payload?.enabled !== 'boolean') return { ok: false, error: 'invalid-enabled-value' };
       return { ok: true, result: input.loginItem?.set?.(payload.enabled) ?? { supported: false, enabled: false } };
     }
+    if (command === 'desktop_updater_check') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.updater?.check) return { ok: false, error: 'desktop-updater-unavailable' };
+      return { ok: true, result: await input.updater.check() };
+    }
+    if (command === 'desktop_updater_download') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.updater?.download) return { ok: false, error: 'desktop-updater-unavailable' };
+      return { ok: true, result: await input.updater.download() };
+    }
+    if (command === 'desktop_updater_install') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.updater?.install) return { ok: false, error: 'desktop-updater-unavailable' };
+      return { ok: true, result: await input.updater.install() };
+    }
     if (command === 'desktop_retry_server') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.retryServer) return { ok: false, error: 'server-unavailable' };

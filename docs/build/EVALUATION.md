@@ -9,6 +9,14 @@
 | Version ordering | Numeric dotted cores use precision-safe comparison; prerelease identifiers follow semver precedence, including same-day build stamps. |
 | Verification | Focused policy tests pass 4/4; full updater lifecycle remains unimplemented. |
 
+## 2026-09-30 - P12b-47 native updater lifecycle bridge (20260930-68)
+
+| Area | Result |
+|---|---|
+| Packaged configuration | `electron-updater` uses the policy-selected feed/channel with automatic download/install-on-quit disabled. |
+| Native operations | Local-main-frame IPC exposes check, download, and apply; progress events update taskbar state and renderer subscribers. |
+| Verification | All Electron tests pass; workspace typechecks and artifacts-only Windows x64 packaging pass. UI controls and restart/install failure recovery remain unverified and unimplemented. |
+
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 

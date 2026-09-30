@@ -62,6 +62,20 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_INVOKE__', async (command, 
   }
 });
 
+contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_UPDATER__', Object.freeze({
+  check: () => invoke('desktop_updater_check'),
+  download: () => invoke('desktop_updater_download'),
+  install: () => invoke('desktop_updater_install'),
+  onProgress(handler) {
+    if (typeof handler !== 'function') return () => {};
+    const listener = (_event, envelope) => {
+      if (envelope?.event === 'openchamber:update-progress' && envelope.detail && typeof envelope.detail.event === 'string') handler(envelope.detail);
+    };
+    ipcRenderer.on('openchamber:emit', listener);
+    return () => ipcRenderer.removeListener('openchamber:emit', listener);
+  },
+}));
+
 contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_EVENTS__', Object.freeze({
   onOpenSession(handler) {
     if (typeof handler !== 'function') return () => {};

@@ -28,6 +28,7 @@
       "desktop-identity.mjs",
       "desktop-password-login.mjs",
       "updater-policy.mjs",
+      "desktop-updater.mjs",
       "deep-links.mjs",
       "desktop-pairing.mjs",
       "desktop-boot.mjs",
@@ -57,7 +58,9 @@
       {
         "from": "dist-server/node_modules/node-pty",
         "to": "dist-server/node_modules/node-pty",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -80,5 +83,8 @@
   "devDependencies": {
     "electron": "^44.4.3",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

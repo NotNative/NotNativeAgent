@@ -7,6 +7,13 @@ Linux updates require a writable packaged AppImage and parent directory.
 Version ordering is pure and tested. This does not yet configure `autoUpdater`
 or expose update check/download/install operations.
 
+P12b-47 configures packaged `electron-updater` and exposes native check,
+download, and apply operations only to the trusted local main frame. Download
+progress is sent to the taskbar and preload subscribers. The renderer still
+needs update controls and state handling; restart grace, rollback after an
+asynchronous installer error, and the authenticated server updater adapter are
+not implemented yet.
+
 P12b-39 adds `ssh-config-reader.mjs` to the explicit Electron package file
 allowlist. It expands user SSH config Include globs with bounded asynchronous
 enumeration, home-directory containment, cycle/symlink rejection, descriptor

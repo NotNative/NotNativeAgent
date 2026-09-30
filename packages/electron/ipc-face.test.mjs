@@ -183,6 +183,32 @@ function ipcEvent(contents, url, frames = [{ url }]) {
   };
 }
 
+test('updater IPC is restricted to the local main frame and delegates check/download', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, updater: {
+    check: async () => { calls.push('check'); return { available: true }; },
+    download: async () => { calls.push('download'); return null; },
+    install: async () => { calls.push('install'); return null; },
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_updater_check'), {
+    seq: 7, ok: true, result: { available: true },
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'https://remote.example/index.html'), 'desktop_updater_download'), {
+    seq: 7, ok: false, error: 'sender-not-allowed',
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_updater_download'), {
+    seq: 7, ok: true, result: null,
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_updater_install'), {
+    seq: 7, ok: true, result: null,
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'https://remote.example/index.html'), 'desktop_updater_install'), {
+    seq: 7, ok: false, error: 'sender-not-allowed',
+  });
+  assert.deepEqual(calls, ['check', 'download', 'install']);
+});
+
 test('host config IPC reads and writes only from the desktop local main frame', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   let stored = { hosts: [

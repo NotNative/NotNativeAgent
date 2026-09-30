@@ -11,6 +11,16 @@ version ordering. Adversarial review caught and fixed same-day version
 ordering and AppImage replacement-directory checks. Full updater setup,
 check/download/install IPC, and UI progress delivery remain open.
 
+## 2026-09-30 · P12b-47 native updater lifecycle bridge (20260930-68)
+
+Packaged Electron configures `electron-updater` with the sealed feed/channel
+policy and explicit downloads. The local main frame can check, download, and
+apply a pending update through IPC; taskbar and progress events are bridged to
+the renderer. Adversarial review found and fixed a missing apply IPC route.
+Electron tests and typechecks pass, and the artifacts-only Windows x64 package
+builds. Renderer update UI, restart grace/error rollback, and authenticated
+server updater adapter remain open.
+
 ## 2026-09-30 · P12b-45 desktop password login/token issuance (20260930-66)
 
 Electron now completes the session gate's password flow against the local
