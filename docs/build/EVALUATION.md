@@ -3,6 +3,22 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-36 SSH catalog CRUD IPC (20260930-57)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Renderer catalog operations | Focused IPC tests cover config read, upsert, create-from-command, remove, and denial of a remote-origin caller. Combined SSH + IPC suite passes 24/24. |
+| Main persistence | CRUD delegates through the atomic catalog writer introduced in P12b-35, keeping SSH host ids and default selection reconciled. |
+| Adversarial review | Confirmed corrupt persisted catalogs must not be treated as empty during a write; mutations now return `desktop-ssh-config-invalid` instead of replacing recoverable rows. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| SSH user experience | UI store has a compatible command vocabulary, but desktop bridge construction, status events, and live connection lifecycle are still pending. |
+
 ## 2026-09-30 - P12b-35 SSH catalog foundation (20260930-56)
 
 **Verified working**

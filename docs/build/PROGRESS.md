@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-36 SSH catalog CRUD IPC.** Exposed the renderer's
+  existing config, upsert, create-from-command, and remove calls through the
+  trusted desktop main frame. Main-process writes preserve the saved-host
+  reconciliation path; generated ids use UUIDs, while edit/remove preserve the
+  current catalog semantics. The adversarial review found that a corrupt
+  persisted catalog could otherwise be mistaken for empty and overwritten;
+  writes now fail closed while reads retain their safe empty-view fallback.
+  The focused SSH + IPC suite passes 24/24. Live status events and
+  connect/disconnect transport remain for later slices.
+
 - 2026-09-30 · **P12b-35 SSH instance catalog foundation.** Added bounded
   SSH instance normalization, a shell-free argv tokenizer/parser, and local
   main-frame IPC for reading and saving definitions. Saving reconciles SSH

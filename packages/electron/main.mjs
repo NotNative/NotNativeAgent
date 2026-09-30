@@ -10,6 +10,7 @@
  */
 import { app, BrowserWindow, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -263,14 +264,23 @@ function writeStoredHosts(input) {
   return config;
 }
 
+function readStoredSshInstancesStrict() {
+  return sanitizeDesktopSshInstances(readShellPrefs(prefsFile()).desktopSshInstances ?? []);
+}
+
 function readStoredSshInstances() {
-  try { return sanitizeDesktopSshInstances(readShellPrefs(prefsFile()).desktopSshInstances ?? []); }
+  try { return readStoredSshInstancesStrict(); }
   catch { return []; }
 }
 
 function writeStoredSshInstances(input) {
   if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };
-  const previous = readStoredSshInstances();
+  // Refuse to mutate when persisted rows cannot be normalized. Treating a
+  // malformed catalog as empty here would make the next create silently
+  // replace every otherwise recoverable instance in the same prefs write.
+  let previous;
+  try { previous = readStoredSshInstancesStrict(); }
+  catch { return { ok: false, error: 'desktop-ssh-config-invalid' }; }
   const hosts = readStoredHosts();
   let reconciled;
   try {
@@ -287,6 +297,29 @@ function writeStoredSshInstances(input) {
     desktopInitialHostChoiceCompleted: nextHosts.initialHostChoiceCompleted,
   });
   return { instances: reconciled.instances, hosts: nextHosts.hosts };
+}
+
+function upsertStoredSshInstance(instance) {
+  const current = readStoredSshInstances();
+  const index = current.findIndex((row) => row.id === instance?.id);
+  const next = current.slice();
+  if (index < 0) next.push(instance);
+  else next[index] = instance;
+  const saved = writeStoredSshInstances(next);
+  return saved?.ok === false ? saved : { ok: true, result: { instances: saved.instances } };
+}
+
+function createStoredSshInstance(sshCommand, nickname) {
+  const id = `ssh-${randomUUID()}`;
+  const saved = writeStoredSshInstances([...readStoredSshInstances(), { id, sshCommand, nickname }]);
+  return saved?.ok === false ? saved : { ok: true, result: { id } };
+}
+
+function removeStoredSshInstance(id) {
+  const current = readStoredSshInstances();
+  if (!current.some((row) => row.id === id)) return { ok: false, error: 'desktop-ssh-instance-not-found' };
+  const saved = writeStoredSshInstances(current.filter((row) => row.id !== id));
+  return saved?.ok === false ? saved : { ok: true, result: { instances: saved.instances } };
 }
 
 function writeStoredPort(port) {
@@ -902,7 +935,13 @@ const invokeFace = createInvokeFace({
       ? { ok: false, error: 'desktop-hosts-busy' }
       : { ok: true, result: writeStoredHosts(input) },
   },
-  sshInstances: { get: readStoredSshInstances, set: writeStoredSshInstances },
+  sshInstances: {
+    get: readStoredSshInstances,
+    set: writeStoredSshInstances,
+    upsert: upsertStoredSshInstance,
+    remove: removeStoredSshInstance,
+    createFromCommand: createStoredSshInstance,
+  },
   hostProbe: probeRemoteHost,
   identity: {
     getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),

@@ -203,6 +203,31 @@ test('SSH instance catalog IPC is local-main-frame-only and persists through the
   assert.equal(calls.length, 1);
 });
 
+test('SSH catalog CRUD commands preserve local-main-frame authorization and delegate validated payloads', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, sshInstances: {
+    get: () => [], set: () => ({ instances: [] }),
+    upsert: (instance) => { calls.push(['upsert', instance]); return { ok: true, result: { saved: true } }; },
+    remove: (id) => { calls.push(['remove', id]); return { ok: true, result: { removed: true } }; },
+    createFromCommand: (command, nickname) => { calls.push(['create', command, nickname]); return { ok: true, result: { id: 'ssh-new' } }; },
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConfig'),
+    { seq: 7, ok: true, result: { instances: [] } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshUpsertInstance', { instance: { id: 'ssh-1' } }),
+    { seq: 7, ok: true, result: { saved: true } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshCreateFromCommand', { sshCommand: 'ssh host', nickname: 'host' }),
+    { seq: 7, ok: true, result: { id: 'ssh-new' } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRemoveInstance', { id: 'ssh-1' }),
+    { seq: 7, ok: true, result: { removed: true } });
+  assert.deepEqual(calls, [
+    ['upsert', { id: 'ssh-1' }], ['create', 'ssh host', 'host'], ['remove', 'ssh-1'],
+  ]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshCreateFromCommand', { sshCommand: 'ssh stolen' });
+  assert.equal(remote.error, 'sender-not-allowed');
+  assert.equal(calls.length, 3);
+});
+
 test('boot runtime configuration is returned only to the desktop local main frame', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const bootConfig = { apiBaseUrl: 'https://remote.example', clientToken: 'active-token', runtimeKey: 'host:remote' };

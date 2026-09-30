@@ -117,7 +117,11 @@ remaining P12 slices ride after it.
   with saved-host defaults atomically. It deliberately blocks `-F`, `-I`,
   `ProxyCommand`, `LocalCommand`, `RemoteCommand`, `KnownHostsCommand`, and provider-loading
   options; arbitrary SSH config files and executable providers are not accepted
-  by this contract. Remaining: IPC catalog growth (§3.1),
+  by this contract. Local-main-frame IPC now also exposes the UI store's config,
+  upsert, create-from-command, and remove operations over that persistence
+  contract. Mutations fail closed if persisted SSH rows are corrupt so an edit
+  cannot silently erase recoverable entries. Remaining: SSH connect/disconnect transport and status events,
+  config import, plus general IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).

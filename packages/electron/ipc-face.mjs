@@ -221,6 +221,32 @@ export function createInvokeFace(input, dependencies) {
       if (result?.ok === false && typeof result.error === 'string') return result;
       return { ok: true, result };
     }
+    if (command === 'desktopSshConfig') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.get) return { ok: false, error: 'desktop-ssh-unavailable' };
+      return { ok: true, result: { instances: input.sshInstances.get() } };
+    }
+    if (command === 'desktopSshUpsertInstance') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.upsert || !payload?.instance || typeof payload.instance !== 'object') {
+        return { ok: false, error: 'desktop-ssh-unavailable' };
+      }
+      return input.sshInstances.upsert(payload.instance);
+    }
+    if (command === 'desktopSshCreateFromCommand') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.createFromCommand || typeof payload?.sshCommand !== 'string') {
+        return { ok: false, error: 'desktop-ssh-unavailable' };
+      }
+      return input.sshInstances.createFromCommand(payload.sshCommand, payload.nickname);
+    }
+    if (command === 'desktopSshRemoveInstance') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.remove || typeof payload?.id !== 'string') {
+        return { ok: false, error: 'desktop-ssh-unavailable' };
+      }
+      return input.sshInstances.remove(payload.id);
+    }
     if (command === 'desktop_pairing_redeem_relay_complete') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const bridge = input.relayPairingBridge;
