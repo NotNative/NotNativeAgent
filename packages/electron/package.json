@@ -22,6 +22,7 @@
       "local-paths.mjs",
       "windows-file-replace.mjs",
       "host-config.mjs",
+      "desktop-identity.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",

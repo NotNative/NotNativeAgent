@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-17 local host identity IPC.** The desktop exposes its
+  local server client token and a stable per-install UUID only to the desktop
+  main frame on the loopback or packaged UI origin. Missing or malformed
+  install ids are regenerated and persisted; token reads return an empty value
+  when unset. Adversarial audit found oversized/control-character stored
+  tokens could be returned over IPC; reads now enforce the same 8,192-character
+  and control-character policy as saved-host writes. Focused identity/host/IPC
+  tests pass 13/13, and workspace typecheck passes.
+
 - 2026-09-30 · **P12b-16 validated saved-host catalog.** Electron now stores a
   bounded host list, default id, first-choice marker, and optional local client
   token update through schema-sanitized local-only IPC. Direct URLs, request

@@ -25,6 +25,7 @@ import { createUiProtocolHandler } from './ui-protocol.mjs';
 import { createFileUtilities } from './file-utilities.mjs';
 import { createLocalPathUtilities } from './local-paths.mjs';
 import { readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
+import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -611,6 +612,13 @@ const invokeFace = createInvokeFace({
   fileUtilities: () => fileUtilities,
   localPathUtilities: () => localPathUtilities,
   hostConfig: { get: readStoredHosts, set: writeStoredHosts },
+  identity: {
+    getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
+    getInstallId: () => readOrCreateDesktopInstallId({
+      readPrefs: () => readShellPrefs(prefsFile()),
+      writePrefs: (patch) => writeShellPrefs(prefsFile(), patch),
+    }),
+  },
   localOrigin,
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,

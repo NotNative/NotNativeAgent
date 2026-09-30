@@ -140,6 +140,16 @@ export function createInvokeFace(input, dependencies) {
       if (!input.hostConfig?.set || !payload?.input) return { ok: false, error: 'desktop-hosts-unavailable' };
       return { ok: true, result: input.hostConfig.set(payload.input) };
     }
+    if (command === 'desktop_local_client_token_get') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.identity?.getLocalClientToken) return { ok: false, error: 'desktop-identity-unavailable' };
+      return { ok: true, result: input.identity.getLocalClientToken() };
+    }
+    if (command === 'desktop_install_id_get') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.identity?.getInstallId) return { ok: false, error: 'desktop-identity-unavailable' };
+      return { ok: true, result: input.identity.getInstallId() };
+    }
     if (command === 'desktop_notify') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const result = input.nativeNotifications?.notify(payload);

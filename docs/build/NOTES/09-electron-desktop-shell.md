@@ -69,7 +69,9 @@ remaining P12 slices ride after it.
   embedded in URLs are rejected. Validated local open/reveal IPC and the
   shared-UI local-origin wrappers (§12.5, §13.2), plus atomic Markdown save
   with bounded Windows rename retries (§12.4), and validated saved-host
-  catalog storage behind local-only IPC (§2.8/§3.1) are also delivered.
+  catalog storage and local client-token/install-id IPC (§2.8/§3.1) are also
+  delivered. Install ids are persisted UUIDs, generated once and repaired if
+  malformed; token reads stay local-origin-only.
   Remaining: deep-link `openchamber://connect` handler (§5 — link head stays
   openchamber:// per the sealed pairing payload), remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote

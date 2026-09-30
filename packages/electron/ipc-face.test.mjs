@@ -83,3 +83,16 @@ test('a remote top-level frame cannot borrow a trusted local child frame for hos
   assert.equal(reply.ok, false);
   assert.equal(reply.error, 'desktop-main-frame-required');
 });
+
+test('local identity commands expose the saved token and install id only to the local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, identity: {
+    getLocalClientToken: () => 'local-secret',
+    getInstallId: () => 'install-id',
+  } });
+  assert.equal((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_local_client_token_get')).result, 'local-secret');
+  assert.equal((await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_install_id_get')).result, 'install-id');
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_local_client_token_get');
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
