@@ -44,7 +44,7 @@ export function authorizeDevTunnelUpgrade(url: URL, headers: Headers): boolean {
     if (!originAdmittedByHeaders({
       originHeader: origin, hostHeader: headers.get('host'),
       forwardedHostHeader: headers.get('x-forwarded-host'),
-    })) return false;
+    }, null, process.env.NOTNATIVE_DESKTOP_UI_ORIGIN)) return false;
     return controller.upgradeAllowed(url, headers, 'GET');
   }
   const granted = controller.authenticate(headers, url, 'GET');

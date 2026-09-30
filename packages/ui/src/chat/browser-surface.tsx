@@ -2,6 +2,7 @@
 /** Manual, isolated preview with user-triggered read-only DOM inspection. */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizePreviewUrl, isLoopbackPreview, canEmbedDesktopPreview } from '../lib/browser/preview-url.ts';
+import { runtimeFetch } from '../lib/runtime-fetch.ts';
 export { canEmbedDesktopPreview } from '../lib/browser/preview-url.ts';
 import { pageSnapshotScript, parsePageSnapshot, type PageSnapshot } from '../lib/browser/page-snapshot.ts';
 import { pageInspectionScript, parsePageInspection } from '../lib/browser/page-inspection.ts';
@@ -176,7 +177,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     if (!visible || active || !localRuntime) return;
     const controller = new AbortController();
     setDiscovery((current) => current.kind === 'ready' ? current : { kind: 'loading', servers: [] });
-    void fetch('/api/dev-servers', { signal: controller.signal }).then(async (response) => {
+    void runtimeFetch('/api/dev-servers', { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error('discovery unavailable');
       const servers = validServers(await response.json());
       if (!servers) throw new Error('invalid discovery response');

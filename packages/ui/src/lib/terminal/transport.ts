@@ -13,6 +13,7 @@ import {
   decodeTerminalFrameAsync, encodeTerminalFrame, trimHead,
   type TerminalEventFrame, type TerminalProjection, type TerminalStreamEvent, type WireSocket, type WebSocketFactory,
 } from './wire.ts';
+import { getRealtimeBaseUrl } from '../runtime-url.ts';
 
 export interface TerminalHandlers {
   onEvent(frame: TerminalEventFrame, sessionId: string): void;
@@ -49,7 +50,7 @@ export class TerminalTransport {
 
   constructor(
     private readonly socketFactory: WebSocketFactory,
-    private readonly resolveUrl: () => string = () => `${typeof window !== 'undefined' ? window.location.origin.replace(/^http/u, 'ws') : 'ws://127.0.0.1'}${TERMINAL_WS_PATH}`,
+    private readonly resolveUrl: () => string = () => `${getRealtimeBaseUrl().replace(/^http/u, 'ws')}${TERMINAL_WS_PATH}`,
     private readonly timeouts: Timeouts = defaultTimeouts,
     private readonly onTokenExpired: (() => void) | null = null,
   ) {

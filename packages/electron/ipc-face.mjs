@@ -92,11 +92,12 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
     const appPrefix = input.appPathPrefix();
     const urls = senderFrameUrls(event);
     if (urls.length === 0) return false;
-    return urls.some((url) => (
-      url.startsWith(origin) || url === origin.replace(/\/$/u, '')
-      || url.startsWith('data:text/html') // our own splash document
-      || url.startsWith(appPrefix)
-    ));
+    const uiOrigin = input.uiOrigin?.();
+    return urls.some((url) => {
+      if (url.startsWith(origin) || url === origin.replace(/\/$/u, '')
+        || url.startsWith('data:text/html') || url.startsWith(appPrefix)) return true;
+      try { return Boolean(uiOrigin) && new URL(url).origin === uiOrigin; } catch { return false; }
+    });
   }
 
   async function runInvokeCommand(command, payload, event) {

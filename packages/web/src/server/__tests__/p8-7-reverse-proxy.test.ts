@@ -81,6 +81,12 @@ describe('section 9 origin consumption (host equality only)', () => {
     expect(originHostPasses({ origin: 'https://my.tunnel.app:8443', host: 'my.tunnel.app' })).toBe(false);
   });
 
+  it('admits only the exact privileged desktop UI origin for local WebSocket upgrades', () => {
+    const headers = { originHeader: 'notnative-ui://app', hostHeader: '127.0.0.1:57123', forwardedHostHeader: null };
+    expect(originAdmittedByHeaders(headers, null, 'notnative-ui://app')).toBe(true);
+    expect(originAdmittedByHeaders({ ...headers, originHeader: 'notnative-ui://app.evil' }, null, 'notnative-ui://app')).toBe(false);
+  });
+
   it('protocol never compares: the edge-terminated https origin passes on an http Host', () => {
     expect(originHostPasses({ origin: 'https://my.tunnel.app', host: 'http://my.tunnel.app' })).toBe(true);
     expect(originAdmittedByHeaders({

@@ -2,6 +2,9 @@
 /** §G.6 prepared local-image access for assistant markdown. */
 
 import { rawAssetUrl } from '../lib/files/api.ts';
+import { runtimeFetch } from '../lib/runtime-fetch.ts';
+import { getApiBaseUrl } from '../lib/runtime-url.ts';
+import { getCurrentUrlToken } from '../lib/runtime-auth.ts';
 
 const READY_CACHE_MS = 60_000;
 
@@ -34,7 +37,7 @@ export async function prepareLocalMarkdownImages(
   const images = new Map<string, PreparedMarkdownImage>();
   for (const source of input.sources) images.set(source, { state: 'unavailable' });
   try {
-    const response = await request('/api/openchamber/sessions/' + encodeURIComponent(input.sessionId) + '/markdown-image-grants', {
+    const response = await request(`${getApiBaseUrl()}/api/openchamber/sessions/` + encodeURIComponent(input.sessionId) + '/markdown-image-grants', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ directory: input.directory, messageId: input.messageId, sources: [...input.sources] }),
@@ -96,7 +99,9 @@ function minimumExpiry(results: readonly Record<string, unknown>[]): number {
 }
 
 function rawOutsideAssetUrl(path: string, token: string): string {
-  return '/api/fs/raw?path=' + encodeURIComponent(path) + '&allowOutsideWorkspace=true&outsideFileGrant=' + encodeURIComponent(token);
+  const urlToken = getCurrentUrlToken();
+  const auth = urlToken ? '&nn_url_token=' + encodeURIComponent(urlToken) : '';
+  return getApiBaseUrl() + '/api/fs/raw?path=' + encodeURIComponent(path) + '&allowOutsideWorkspace=true&outsideFileGrant=' + encodeURIComponent(token) + auth;
 }
 
 function requestRuntimeKey(): string {
@@ -104,4 +109,4 @@ function requestRuntimeKey(): string {
 }
 
 function defaultNow(): number { return Date.now(); }
-function defaultRequest(url: string, init: RequestInit): Promise<Response> { return fetch(url, init); }
+function defaultRequest(url: string, init: RequestInit): Promise<Response> { return runtimeFetch(url, init); }

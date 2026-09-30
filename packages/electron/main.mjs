@@ -8,7 +8,7 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, MessageChannelMain, Notification, powerMonitor, screen, session, shell } from 'electron';
+import { app, BrowserWindow, MessageChannelMain, Notification, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -21,6 +21,7 @@ import { attachRendererRecovery } from './renderer-recovery.mjs';
 import { captureWindowState, restoreWindowState } from './window-state.mjs';
 import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAppUrl } from './browser-guest-policy.mjs';
 import { createNativeNotifications } from './native-notifications.mjs';
+import { createUiProtocolHandler } from './ui-protocol.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -30,9 +31,19 @@ const HEALTH_POLL_START_MS = 250;
 const HEALTH_POLL_MAX_MS = 2_000;
 const LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const PACKAGED = Boolean(app.isPackaged);
+const USE_UI_PROTOCOL = (PACKAGED && process.env.OPENCHAMBER_ELECTRON_LOAD_SERVER_UI !== '1')
+  || process.env.OPENCHAMBER_ELECTRON_USE_BUNDLED_UI === '1';
+const UI_SCHEME = 'notnative-ui';
+const UI_ORIGIN = `${UI_SCHEME}://app`;
 // --hidden start (row-bot parity): service boots to tray-only; the FIRST
 // window reveal belongs to the user (tray Open App / ensureMainWindow).
 const HIDDEN_START = process.argv.includes('--hidden');
+
+if (USE_UI_PROTOCOL) {
+  protocol.registerSchemesAsPrivileged([{ scheme: UI_SCHEME, privileges: {
+    standard: true, secure: true, supportFetchAPI: true, corsEnabled: true,
+  } }]);
+}
 
 const relayDevTunnel =
   createRelayDevTunnelBridge({ createPorts: () => [new MessageChannelMain().port1, new MessageChannelMain().port2] });
@@ -252,6 +263,10 @@ function resolveServerBundle() {
   return path.join(selfDir(), 'dist-server', 'server.mjs');
 }
 
+function mainUiUrl() {
+  return USE_UI_PROTOCOL ? `${UI_ORIGIN}/index.html` : `${localOrigin()}/`;
+}
+
 function fileUrlFor(nativePath) {
   return new URL(`file:///${encodeURI(nativePath.replaceAll('\\', '/'))}`);
 }
@@ -261,6 +276,8 @@ function applyServerEnv(port) {
   process.env.NOTNATIVE_PORT = String(port);
   process.env.NOTNATIVE_DIST_DIR = resolveDistDir();
   process.env.NOTNATIVE_RUNTIME = 'desktop';
+  if (USE_UI_PROTOCOL) process.env.NOTNATIVE_DESKTOP_UI_ORIGIN = UI_ORIGIN;
+  else delete process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
   // D-09-12: the server's version surface must agree with the installer's.
   process.env.NOTNATIVE_APP_VERSION = productVersion();
   // Security: scripted installs identify the GUI package to NNA. NNA checks
@@ -370,7 +387,10 @@ function openExternalSafely(urlString) {
 function isAllowedNavigation(urlString) {
   if (urlString.startsWith('devtools:')) return true;
   if (urlString === SPLASH_URL || urlString.startsWith('data:text/html')) return true; // own splash only
-  try { return new URL(urlString).origin === localOrigin(); } catch { return false; }
+  try {
+    const url = new URL(urlString);
+    return url.origin === localOrigin() || (USE_UI_PROTOCOL && url.origin === UI_ORIGIN);
+  } catch { return false; }
 }
 
 function attachWindowGuards(win) {
@@ -424,7 +444,10 @@ function configurePreviewSession() {
 }
 
 function isLocalAppOrigin(value) {
-  try { return new URL(value).origin === new URL(localOrigin()).origin; }
+  try {
+    const origin = new URL(value).origin;
+    return origin === new URL(localOrigin()).origin || (USE_UI_PROTOCOL && origin === UI_ORIGIN);
+  }
   catch { return false; }
 }
 
@@ -515,7 +538,7 @@ function ensureMainWindow() {
     // Preserve the failure card while a boot failure is active. A handle can
     // exist even when its health probe failed, so it is not proof that the UI
     // origin is ready to load.
-    if (serverHandle && !bootFailure) mainWindow.loadURL(localOrigin()).catch(() => { /* cosmetic */ });
+    if (serverHandle && !bootFailure) mainWindow.loadURL(mainUiUrl()).catch(() => { /* cosmetic */ });
   } else if (mainWindow.webContents.isCrashed()) {
     // A crashed renderer reborn blank: Open App must not just re-show the
     // corpse — reload the document (origin when running, failure page when not).
@@ -551,6 +574,7 @@ function appFileUrlPrefix() {
 
 const invokeFace = createInvokeFace({
   origin: () => localOrigin(),
+  uiOrigin: () => USE_UI_PROTOCOL ? UI_ORIGIN : '',
   appPathPrefix: () => appFileUrlPrefix(),
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   mainContents: () => mainWindow?.webContents,
@@ -582,7 +606,7 @@ async function retryServerFromFailurePage() {
   retryInProgress = true;
   try {
     if (!await waitForHealth(localOrigin())) return { ok: false, error: 'server-still-unavailable' };
-    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.loadURL(`${localOrigin()}/`);
+    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.loadURL(mainUiUrl());
     bootFailure = null;
     trayController?.setStatus('running', localOrigin());
     return { ok: true };
@@ -611,6 +635,9 @@ async function startServerAndProbe() {
 
 async function boot() {
   await app.whenReady();
+  if (USE_UI_PROTOCOL) protocol.handle(UI_SCHEME, createUiProtocolHandler({
+    webDistDir: resolveDistDir(), apiOrigin: localOrigin(), fetchFile: (url, options) => electronNet.fetch(url, options),
+  }));
   console.log(`[shell] app start version=${app.getVersion()} packaged=${PACKAGED} platform=${process.platform} arch=${process.arch} argv=${JSON.stringify(process.argv)}`);
   chosenPort = await selectPort();
   applyServerEnv(chosenPort);
@@ -647,7 +674,7 @@ async function boot() {
   writeStoredPort(chosenPort);
   trayController?.setStatus('running', localOrigin());
   console.log(`[shell] navigating main window to ${localOrigin()}/`);
-  await mainWindow.webContents.loadURL(`${localOrigin()}/`);
+  await mainWindow.webContents.loadURL(mainUiUrl());
 }
 
 app.on('window-all-closed', () => {

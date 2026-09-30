@@ -3259,6 +3259,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   no confirmed defects. Web/UI typechecks passed; full quality gate and graph
   refresh run after versioning. Tests were not run.
 
+- **2026-09-30 · P12 packaged UI protocol.** Packaged Electron now serves UI
+  assets through `notnative-ui://app`, with root-confined path resolution,
+  extensionless SPA fallback, asset MIME/cache preservation, and strict
+  authority validation. Runtime API, SSE, socket, and file/image requests use
+  the loopback server origin. Exact-origin CORS admits the packaged renderer;
+  only its UI session cookie receives `SameSite=None; Secure` so the cross-site
+  loopback fetch can authenticate. A bundled Electron probe confirmed the
+  cookie behavior. Adversarial review found and fixed relative API paths and a
+  terminal WebSocket origin bug. Focused UI tests 51/51, web security tests
+  26/26, typechecks, Electron syntax checks, and protocol tests 5/5 passed.
+  Full suites also exposed pre-existing incomplete walkthrough-schema fixtures
+  (UI 1419/1422, web 1234/1236); those are registered for the next slice.
+
 | # | Item | Phase landing | Note |
 |---|---|---|---|
 | D1 | Mock harness semantics | P1 (doc 02) | P0 ships `/health`,`/auth/*`,`/api` proxy + control SSE only |

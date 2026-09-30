@@ -6,6 +6,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { BrowserSurface, canEmbedDesktopPreview, canPreviewDiscoveredServers } from '../browser-surface.tsx';
 import { captureAnnotationImage } from '../../lib/browser/annotation-capture.ts';
 
+vi.mock('../../lib/runtime-fetch.ts', () => ({
+  runtimeFetch: (input: string | URL | Request, init?: RequestInit) => {
+    const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const url = new URL(raw, window.location.href);
+    return globalThis.fetch(url.pathname + url.search, init);
+  },
+}));
+
 vi.mock('../../lib/browser/annotation-capture.ts', () => ({
   captureAnnotationImage: vi.fn().mockResolvedValue({ name: 'browser-annotation-1.jpg', mime: 'image/jpeg',
     dataUrl: 'data:image/jpeg;base64,AA==' }),

@@ -2,6 +2,7 @@
 /** Local preview server readiness probe, independent of the browser guest. */
 import { useEffect, useState } from 'react';
 import { isLoopbackPreview } from './preview-url.ts';
+import { runtimeFetch } from '../runtime-fetch.ts';
 
 export type Readiness = { key: string; state: 'checking' | 'ready' | 'timed-out' | 'unavailable' };
 
@@ -26,7 +27,7 @@ export function usePreviewReadiness(active: string | null, reload: number, visib
     setReadiness({ key, state: 'checking' });
     const probe = async (): Promise<void> => {
       try {
-        const response = await fetch('/api/system/probe-url', { method: 'POST',
+        const response = await runtimeFetch('/api/system/probe-url', { method: 'POST',
           headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: active }), signal: controller.signal });
         if (!response.ok) throw new Error('probe unavailable');
         const result = await response.json() as { ok?: unknown; status?: unknown };

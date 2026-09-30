@@ -17,6 +17,7 @@
     "files": [
       "main.mjs",
       "native-notifications.mjs",
+      "ui-protocol.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",

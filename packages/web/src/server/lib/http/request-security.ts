@@ -74,12 +74,13 @@ export function originHostPasses(input: OriginCheckRequest, publicOrigin?: strin
  * guest page's ambient access to the local listener. Explicit bearer clients
  * are authenticated by the normal API gate; browsers cannot send that header
  * cross-origin without a CORS preflight. */
-export function browserMutationAllowed(request: Request, validatedBearer = false): boolean {
+export function browserMutationAllowed(request: Request, validatedBearer = false, trustedOrigin?: string): boolean {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase())) return true;
   if (validatedBearer) return true;
+  const origin = request.headers.get('origin');
+  if (trustedOrigin && origin === trustedOrigin) return true;
   const site = request.headers.get('sec-fetch-site');
   if (site === 'cross-site' || site === 'same-site') return false;
-  const origin = request.headers.get('origin');
   if (origin === null || origin === '') return true; // non-browser clients
   // Opaque sandboxed pages serialize their Origin as `null`; treating that
   // token as a bare hostname could otherwise match a Host/forwarded host.
@@ -97,7 +98,8 @@ export function originAdmittedByHeaders(request: {
   originHeader: string | null | undefined;
   hostHeader: string | null | undefined;
   forwardedHostHeader: string | null | undefined;
-}, publicOrigin?: string | null): boolean {
+}, publicOrigin?: string | null, trustedOrigin?: string): boolean {
+  if (trustedOrigin && request.originHeader === trustedOrigin) return true;
   return originHostPasses(
     {
       origin: request.originHeader,

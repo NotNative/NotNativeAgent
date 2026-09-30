@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:0af9e869a4bb94ed763c865055b65752ae1cacfe787c1246cd4a75654b343537",
+  "source_digest": "sha256:d717cd5495017b43ff84cf08f9fa895b8243fac8c0690adca52298011d561439",
   "counts": {
     "modules": 588,
     "component_edges": 14
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 207,
+      "import_count": 211,
       "module_count": 88
     },
     {
@@ -264,7 +264,8 @@
         "packages/ui/src/lib/browser/page-snapshot.ts",
         "packages/ui/src/lib/browser/preview-readiness.ts",
         "packages/ui/src/lib/browser/preview-url.ts",
-        "packages/ui/src/lib/platform.ts"
+        "packages/ui/src/lib/platform.ts",
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {
@@ -508,7 +509,10 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/files/api.ts"
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
       ]
     },
     {
@@ -1928,7 +1932,8 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/browser/preview-url.ts"
+        "packages/ui/src/lib/browser/preview-url.ts",
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {
@@ -2016,7 +2021,9 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/runtime-fetch.ts"
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
       ]
     },
     {
@@ -2184,6 +2191,7 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
         "packages/ui/src/stores/useConfigStore.ts"
       ]
     },
@@ -2865,6 +2873,7 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/runtime-url.ts",
         "packages/ui/src/lib/terminal/wire.ts"
       ]
     },

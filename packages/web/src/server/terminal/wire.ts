@@ -48,7 +48,7 @@ export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRun
       originHeader: headers.get('origin'),
       hostHeader: headers.get('host'),
       forwardedHostHeader: headers.get('x-forwarded-host'),
-    })) {
+    }, null, process.env.NOTNATIVE_DESKTOP_UI_ORIGIN)) {
       socket.destroy();
       return;
     }

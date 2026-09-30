@@ -169,6 +169,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
 
   registerPublicHygiene(app);
 
+  app.use('*', desktopUiCors);
   app.use('*', browserWriteGate);
 
   registerHealthRoute(app);
@@ -235,8 +236,53 @@ async function browserWriteGate(c: Context, next: Next): Promise<Response | void
   const validBearer = url.pathname.startsWith('/api/')
     && request.headers.has('authorization')
     && getUiAuthController().credentialGrant(request.headers, url, request.method, false);
-  if (!browserMutationAllowed(request, validBearer)) return c.json({ error: 'Cross-origin browser write denied' }, 403);
+  if (!browserMutationAllowed(request, validBearer, process.env.NOTNATIVE_DESKTOP_UI_ORIGIN))
+    return c.json({ error: 'Cross-origin browser write denied' }, 403);
   return next();
+}
+
+export function desktopSessionCookieHeader(cookie: string): string {
+  if (!/^oc_ui_session=/i.test(cookie)) return cookie;
+  return cookie.replace(/;\s*SameSite=Strict\b/i, '; SameSite=None')
+    .replace(/;\s*Secure\b/i, '') + '; Secure';
+}
+
+async function desktopUiCors(c: Context, next: Next): Promise<Response | void> {
+  const origin = c.req.header('origin');
+  const trusted = process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+  if (!trusted || origin !== trusted) return next();
+  c.header('Access-Control-Allow-Origin', trusted);
+  c.header('Access-Control-Allow-Credentials', 'true');
+  c.header('Vary', 'Origin');
+  if (c.req.method === 'OPTIONS') {
+    c.header('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
+    const requested = c.req.header('access-control-request-headers') ?? '';
+    const headers = requested.split(',').map((header) => header.trim().toLowerCase())
+      .filter((header) => /^[a-z0-9-]+$/u.test(header));
+    if (headers.length) c.header('Access-Control-Allow-Headers', headers.join(', '));
+    return c.body(null, 204);
+  }
+  await next();
+
+  // The packaged UI has its own secure custom origin, while its API remains
+  // on loopback HTTP. Chromium treats that fetch as cross-site, so Strict
+  // session cookies are omitted. Scope the SameSite=None exception to requests
+  // carrying the exact configured Electron origin; loopback is a secure
+  // context, and Secure is required for SameSite=None. Keep tunnel cookies and
+  // every other origin's cookie policy unchanged.
+  const response = c.res;
+  const cookies = response.headers.getSetCookie();
+  if (!cookies.some((cookie) => /^oc_ui_session=/i.test(cookie))) return;
+  const headers = new Headers(response.headers);
+  headers.delete('set-cookie');
+  for (const cookie of cookies) {
+    headers.append('set-cookie', desktopSessionCookieHeader(cookie));
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 /** The §9 belt answer, exported so the error path is tested through real

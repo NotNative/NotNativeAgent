@@ -264,6 +264,19 @@ remaining P12 slices ride after it.
   Its permission-check handler applies the same window, frame, and origin gates;
   the isolated preview session continues to deny every permission.
 
+- **D-09-23** Packaged UI assets load from the privileged `notnative-ui://app`
+  origin, while API, SSE, and WebSocket traffic stays on the per-instance
+  loopback server. The protocol handler confines reads to the packaged web
+  root, serves extensionless routes through the SPA entry, rejects missing
+  assets and noncanonical authorities, and preserves asset MIME/cache headers.
+  The trusted renderer origin has an exact-origin CORS and browser-write
+  exception; only its UI session cookie is rewritten to `SameSite=None; Secure`
+  because Chromium otherwise omits `SameSite=Strict` cookies on the cross-site
+  loopback request. Other cookies and origins retain their policy. Relative UI
+  API requests and terminal sockets now use the configured loopback base. A
+  bundled Electron probe confirmed that only the `None; Secure` cookie crosses
+  to loopback. `LOAD_SERVER_UI=1` retains the loopback development mode.
+
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 
 - node-pty was external AND unshipped in the original v1 installer. The

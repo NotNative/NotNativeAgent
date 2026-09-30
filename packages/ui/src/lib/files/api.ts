@@ -6,6 +6,8 @@
  * routes directly; the adapter indirection lands with the desktop shell).
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
+import { getApiBaseUrl } from '../runtime-url.ts';
+import { getCurrentUrlToken } from '../runtime-auth.ts';
 
 export interface FsEntry { name: string; path: string; isDirectory: boolean; isFile?: boolean }
 
@@ -71,7 +73,9 @@ export async function writeFileText(directory: string, path: string, content: st
 /** Binary asset URL for <img>/download (P6-1 web slice: same-origin asset). */
 export function rawAssetUrl(directory: string, path: string, download = false): string {
   const suffix = download ? '&download=true' : '';
-  return `/api/fs/raw?directory=${encodeURIComponent(directory)}&path=${encodeURIComponent(path)}${suffix}`;
+  const token = getCurrentUrlToken();
+  const auth = token ? `&nn_url_token=${encodeURIComponent(token)}` : '';
+  return `${getApiBaseUrl()}/api/fs/raw?directory=${encodeURIComponent(directory)}&path=${encodeURIComponent(path)}${suffix}${auth}`;
 }
 
 export async function createDirectory(directory: string, path: string): Promise<void> {
