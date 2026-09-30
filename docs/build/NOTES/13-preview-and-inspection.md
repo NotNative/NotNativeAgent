@@ -1,5 +1,46 @@
 # 13 — Preview and inspection build notes
 
+## P11-25: raw dev-tunnel direct client seam (2026-09-30)
+
+The web-package client accepts a WebSocket connector and creates one local
+`127.0.0.1` listener per connection. Cache identity is `runtime|bootstrap|
+port`, so repeat opens with or without test/bootstrap differentiation reuse a
+single upstream port through one `ws(s)` websocket without replaying
+`ready`/`close` against an already-settled socket. The source socket is paused
+for at most 15 seconds while the upstream connects; buffered bytes are capped
+at 256 KiB, and overflow, timeout, connector failure, or local-source close
+destroys that connection only. Conversion occurs only after an http(s) origin
+guard; relay-virtual/non-special schemes are rejected before `ws` conversion.
+
+The panel's `resolveBrowsableUrl` changes a server-side loopback target only
+for a real local/Electron runtime. The null runtime is a no-op; absent desktop
+IPC throws an explicit selection error. Decision results are cached by runtime
+and source port; reachable direct ports are reused, implicit ports are
+normalized, and already-tunnel ports are skipped before opening a nested
+bridge. Display restoration uses the exact origin cached at open time, so an
+mapped `localhost`/`127.0.0.1`/IPv6 target still shows the original URL. An
+endpoint reset discards in-flight opens by generation, removes cached mappings,
+and makes a best-effort close-all call over the existing selection seam. A
+tunnel failure never falls back to the plain URL.
+
+## P11-24: raw dev-tunnel security host (2026-09-30)
+
+`/api/dev-tunnel?port=<1..65535>` is an exact route: query values and protocol
+are strict, subpaths are not accepted by URL-token allowlisting, and
+unavailable ports return a safe 403 after a fresh `dev-servers` check. The
+auth postures follow the preview contract: browser origins are allowlisted;
+credentialless client authentication may connect; credentialless non-client
+authentication is refused; a short-lived URL token is accepted only for the
+exact path in the existing allowlist; and the existing development auth-off
+local-only mode remains explicit.
+
+The server synchronously reserves at most 64 raw sockets per host. Source
+socket data is paused during a stalled 5-second dial; when connected, reads
+pause while the websocket's queued bytes exceed 1 MB and resume on the 20 ms
+poll. Closing either side closes the peer, with per-socket maps and exceptions
+isolated. Discovery-fresh check callback ownership and listener-broadcast
+error paths have focused regressions.
+
 ## P11-1: live dev-server discovery (2026-09-26)
 
 - Windows `netstat -ano -p TCP` is the first scanner backend. It is bounded to
