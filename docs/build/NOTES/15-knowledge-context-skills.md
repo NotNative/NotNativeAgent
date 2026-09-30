@@ -217,6 +217,23 @@ The adversarial audit confirmed and captured the delayed-confirmation case.
 Truth: UI typecheck green; focused rider/recovery/BTW/multirun suites 36/36;
 full UI 1,365/1,365.
 
+## P10-55: work-status knowledge summaries (2026-09-29)
+
+The work-status Knowledge sources section reads the additive summary route.
+It displays the first 120 characters of pinned note bodies, pinned plan
+titles, and global/project memory counts, then offers per-note/per-plan unpin.
+Successful unpin adopts the authoritative pin set locally; failure preserves
+rows and reports one panel-local error.
+
+Summary reads use a five-second cache keyed by normalized directory and
+session. Successful refreshes replace the cache and cap the in-process cache
+at 100 entries; missing directory or session never fetches a zeroed summary.
+Route failures show an unavailable row without hiding other work-status data.
+The adversarial audit returned no actionable output; direct review bounded the
+cache and guarded empty reads. Truth: UI typecheck green; focused
+summary/work-status suites 22/22; full UI blocked by unrelated deterministic
+schedule once-date test.
+
 ## P10-2: note lifecycle API (2026-09-26)
 
 The isolated context store now has note create, patch, and delete operations

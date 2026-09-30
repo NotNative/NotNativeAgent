@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3bcd3c1f4b8945022aecb7d589168911ffa26de9c3e77326305afc224337f4e8",
+  "source_digest": "sha256:f1632f6158f85ef3c411f3781a5b60fa69fe2b45a34a41ba07997d03702accd5",
   "counts": {
-    "modules": 556,
+    "modules": 557,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 151
+      "module_count": 152
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 198,
-      "module_count": 84
+      "import_count": 199,
+      "module_count": 85
     },
     {
       "from": "ui-shell",
@@ -114,8 +114,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 62,
-      "module_count": 51
+      "import_count": 63,
+      "module_count": 52
     },
     {
       "from": "sync-engine",
@@ -728,6 +728,15 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/session-knowledge-summary.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/session-knowledge-api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/session-pin-cleanup.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -897,6 +906,7 @@
         "packages/ui/src/chat/context-message-ledger.ts",
         "packages/ui/src/chat/context-message-pins.ts",
         "packages/ui/src/chat/panel-gate.ts",
+        "packages/ui/src/chat/session-knowledge-summary.ts",
         "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/global-stores.ts",

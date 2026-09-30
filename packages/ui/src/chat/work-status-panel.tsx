@@ -17,6 +17,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
 import { contextMessageLedger, MAX_LEDGER_ROWS } from './context-message-ledger.ts';
 import { sessionMessagePinIDs, setSessionMessagePinned, type SessionPinClient } from './context-message-pins.ts';
+import { useSessionKnowledgeSummary } from './session-knowledge-summary.ts';
 
 const PANEL_WIDTH = 300;
 
@@ -31,6 +32,8 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const [committed, setCommitted] = useState<{ sessionID: string; stats: PanelStats } | null>(null);
   const [pinAction, setPinAction] = useState<PinAction | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [knowledgePinAction, setKnowledgePinAction] = useState<string | null>(null);
+  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const currentSessionIDRef = useRef<string | null | undefined>(sessionID);
   const pinActionRef = useRef<PinAction | null>(null);
   const pinActionTokenRef = useRef(0);
@@ -43,6 +46,11 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     currentSessionIDRef.current = sessionID;
     setPinError(null);
   }, [sessionID]);
+  const selectedSession = snapshot.session.find((session) => session.id === sessionID);
+  const knowledge = useSessionKnowledgeSummary({
+    directory: selectedSession?.directory ?? '',
+    sessionID: sessionID ?? '',
+  });
   if (!sessionID) return <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} p-3 text-xs text-neutral-500`}
     data-testid="work-status-panel">Select a session to inspect its NNA context.</aside>;
 
@@ -69,7 +77,6 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const work = nnaWorkSummary(snapshot, sessionID);
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
   const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
-  const selectedSession = snapshot.session.find((session) => session.id === sessionID);
   const messagePinIDs = sessionMessagePinIDs(selectedSession);
   const reportedTokens = (lastAssistant as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } | undefined)?.tokens;
   const tokenFacts = [
@@ -177,6 +184,35 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   if (messagePinIDs.size > 0) sections.push({ id: 'pins', label: 'Context pins', rows: [
     row('Saved messages', String(messagePinIDs.size)),
   ] });
+  if (knowledge.summary || knowledge.unavailable) {
+    const knowledgeRows: (ReactNode | null)[] = [];
+    for (const note of knowledge.summary?.notes ?? []) {
+      knowledgeRows.push(
+        <div key={`note-${note.id}`} className="flex items-start justify-between gap-2 text-[11px]" data-testid={`ws-knowledge-note-${note.id}`}>
+          <span className="min-w-0 flex-1 break-words text-neutral-300">{shortKnowledgeText(note.body)}</span>
+          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+            disabled={knowledgePinAction === `note:${note.id}`}
+            onClick={() => void unpinKnowledge('note', note.id)}>Unpin</button>
+        </div>,
+      );
+    }
+    for (const plan of knowledge.summary?.plans ?? []) {
+      knowledgeRows.push(
+        <div key={`plan-${plan.id}`} className="flex items-start justify-between gap-2 text-[11px]" data-testid={`ws-knowledge-plan-${plan.id}`}>
+          <span className="min-w-0 flex-1 break-words text-neutral-300">{shortKnowledgeText(plan.title)}</span>
+          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+            disabled={knowledgePinAction === `plan:${plan.id}`}
+            onClick={() => void unpinKnowledge('plan', plan.id)}>Unpin</button>
+        </div>,
+      );
+    }
+    if (knowledgeError) knowledgeRows.push(row('Pin error', knowledgeError));
+    knowledgeRows.push(row('Memory', knowledge.summary
+      ? `${knowledge.summary.memory.global} global · ${knowledge.summary.memory.project} project`
+      : null));
+    if (!knowledge.summary) knowledgeRows.push(row('Knowledge', 'Unavailable'));
+    sections.push({ id: 'knowledge-sources', label: 'Knowledge sources', rows: knowledgeRows });
+  }
 
   const visibleSections = sections.filter((section) => !hidden.includes(section.id));
   // The project branch is useful ambient workspace information, but it is
@@ -213,6 +249,19 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
         pinActionRef.current = null;
         setPinAction(null);
       }
+    }
+  }
+
+  async function unpinKnowledge(kind: 'note' | 'plan', id: string): Promise<void> {
+    if (!selectedSession || knowledgePinAction !== null) return;
+    setKnowledgePinAction(`${kind}:${id}`);
+    setKnowledgeError(null);
+    try {
+      await knowledge.unpin({ kind, id });
+    } catch {
+      if (currentSessionIDRef.current === selectedSession.id) setKnowledgeError('Could not update the knowledge pin');
+    } finally {
+      setKnowledgePinAction(null);
     }
   }
 
@@ -297,6 +346,10 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
 
 function reportedToken(label: string, count: unknown): { label: string; value: string } | null {
   return Number.isSafeInteger(count) && (count as number) >= 0 ? { label, value: (count as number).toLocaleString() } : null;
+}
+
+function shortKnowledgeText(value: string): string {
+  return value.length <= 120 ? value : `${value.slice(0, 120)}…`;
 }
 
 function UsageFact({ label, value }: { label: string; value: string }): ReactNode {
