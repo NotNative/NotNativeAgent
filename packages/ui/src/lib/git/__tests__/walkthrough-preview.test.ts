@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 import { runtimeFetch } from '../../runtime-fetch.ts';
-import { generateWalkthroughPreview, loadWalkthroughPreview, type WalkthroughSource } from '../walkthrough-preview.ts';
+import { cancelWalkthroughStage, fetchWalkthroughStage, generateWalkthroughPreview, loadWalkthroughPreview, type WalkthroughSource } from '../walkthrough-preview.ts';
 
 const request = runtimeFetch as ReturnType<typeof vi.fn>;
 const snapshot = { signature: 'server-revision', fileCount: 1, binaryFiles: 0, stops: [
@@ -51,5 +51,17 @@ describe('deterministic walkthrough client', () => {
       directory: '/repo', sessionId: 'ses_test', revision: 'rev1',
       source: { kind: 'working-tree', scope: 'all' },
     });
+  });
+
+  it('polls and cancels the explicit server-side generation lifecycle', async () => {
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ stage: 'asking' }), { status: 200 }));
+    expect(await fetchWalkthroughStage('/repo', { kind: 'commit', hash: 'a'.repeat(40) })).toBe('asking');
+    expect(String(request.mock.calls[0]?.[0])).toContain('/api/git/walkthrough-progress?directory=%2Frepo&source=');
+
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ cancelled: true }), { status: 200 }));
+    expect(await cancelWalkthroughStage('/repo', { kind: 'commit', hash: 'a'.repeat(40) })).toBe(true);
+    const cancelInit = request.mock.calls[1]?.[1] as RequestInit;
+    expect(cancelInit.method).toBe('POST');
+    expect(JSON.parse(String(cancelInit.body))).toEqual({ directory: '/repo', source: { kind: 'commit', hash: 'a'.repeat(40) } });
   });
 });

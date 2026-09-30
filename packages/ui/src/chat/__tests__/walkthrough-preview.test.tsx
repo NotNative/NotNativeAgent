@@ -4,13 +4,16 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../lib/git/walkthrough-preview.ts', () => ({ loadWalkthroughPreview: vi.fn(), generateWalkthroughPreview: vi.fn() }));
+vi.mock('../../lib/git/walkthrough-preview.ts', () => ({ loadWalkthroughPreview: vi.fn(), generateWalkthroughPreview: vi.fn(), fetchWalkthroughStage: vi.fn(), cancelWalkthroughStage: vi.fn() }));
+import { cancelWalkthroughStage, fetchWalkthroughStage } from '../../lib/git/walkthrough-preview.ts';
 import { generateWalkthroughPreview, loadWalkthroughPreview } from '../../lib/git/walkthrough-preview.ts';
 import { WalkthroughPreviewSurface } from '../walkthrough-preview.tsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const load = loadWalkthroughPreview as ReturnType<typeof vi.fn>;
 const generate = generateWalkthroughPreview as ReturnType<typeof vi.fn>;
+const stageFetch = fetchWalkthroughStage as ReturnType<typeof vi.fn>;
+const stageCancel = cancelWalkthroughStage as ReturnType<typeof vi.fn>;
 let container: HTMLDivElement;
 let root: Root;
 const stop = (path: string) => ({ id: `working:${path}:1:1:0`, scope: 'working', path, header: '@@ -1 +1 @@', oldStart: 1, newStart: 1,
@@ -20,6 +23,10 @@ beforeEach(() => {
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
   load.mockReset().mockResolvedValue({ signature: 'rev1', fileCount: 1, stops: [stop('a.ts'), stop('b.ts')] });
   generate.mockReset();
+  stageFetch.mockReset();
+  stageCancel.mockReset();
+  stageFetch.mockResolvedValue(null);
+  stageCancel.mockResolvedValue(true);
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); });
 
@@ -112,5 +119,94 @@ describe('WalkthroughPreviewSurface', () => {
     expect(load).toHaveBeenLastCalledWith('/repo', 'staged');
     expect(document.body.textContent).toContain('staged.ts');
     expect(document.body.textContent).not.toContain('b.ts');
+  });
+
+  it('separates pull-request sources that differ by repository', async () => {
+    await render();
+    const select = document.querySelector('select[aria-label="Walkthrough scope"]') as HTMLSelectElement;
+    await act(async () => {
+      select.value = 'pr'; select.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const setValue = (input: HTMLInputElement, value: string): void => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const setNumber = (value: string): void => {
+      const input = document.querySelector<HTMLInputElement>('input[aria-label="Pull request number"]');
+      if (input) setValue(input, value);
+    };
+    const setRepo = (label: string, value: string): void => {
+      const input = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+      if (input) setValue(input, value);
+    };
+    await act(async () => {
+      setNumber('1'); setRepo('PR owner', 'owner'); setRepo('PR repository', 'desktop');
+      await Promise.resolve();
+    });
+    load.mockReset().mockImplementation(async (directory, selected) => (
+      selected.kind === 'pr' && selected.sourceRepo?.repo === 'desktop'
+        ? { signature: 'repo-rev', fileCount: 1, stops: [stop('fork.ts')] }
+        : { signature: 'rev1', fileCount: 1, stops: [stop('a.ts'), stop('b.ts')] }
+    ));
+    await act(async () => { setNumber('1'); setRepo('PR owner', 'owner'); setRepo('PR repository', 'desktop'); await Promise.resolve(); });
+    await act(async () => { (document.querySelector('header button') as HTMLButtonElement).click(); await Promise.resolve(); await Promise.resolve(); });
+    expect(load).toHaveBeenLastCalledWith('/repo', { kind: 'pr', number: 1, sourceRepo: { owner: 'owner', repo: 'desktop' } });
+    expect(document.body.textContent).toContain('fork.ts');
+  });
+
+  it('stops the progress watcher when the walkthrough pane unmounts', async () => {
+    let provide: ((value: string | null) => void) | undefined;
+    stageFetch.mockImplementation(() => new Promise<string | null>((resolve) => { provide = resolve; }));
+    generate.mockImplementation(() => new Promise(() => {}));
+    await render();
+    await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
+    const firstObservers = stageFetch.mock.calls.length;
+    act(() => root.unmount());
+    container.remove();
+    await act(async () => { provide?.('asking'); await Promise.resolve(); await Promise.resolve(); });
+    expect(stageFetch.mock.calls.length).toBe(firstObservers);
+  });
+
+  it('shows lifecycle progress and detaches before cancelling the server job', async () => {
+    stageFetch.mockResolvedValue('asking');
+    let finish: ((value: unknown) => void) | undefined;
+    generate.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    await render();
+    await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(stageFetch).toHaveBeenCalledWith('/repo', 'all', expect.any(AbortSignal));
+    expect(document.body.textContent).toContain('Walkthrough stage: asking');
+
+    await act(async () => { (document.querySelector('button:nth-of-type(3)') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(stageCancel).toHaveBeenCalledWith('/repo', 'all');
+    expect(document.body.textContent).toContain('Walkthrough generation cancelled.');
+    expect(document.body.textContent).not.toContain('Walkthrough stage: asking');
+    await act(async () => { finish?.({ revision: 'rev1', chapters: [], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small' }); });
+    expect(document.body.textContent).not.toContain('The output value changes.');
+  });
+
+  it('stops detached lifecycle polling without leaking a server job across reconnects', async () => {
+    stageFetch.mockResolvedValue('collecting');
+    let finished = false;
+    let finish: ((value: unknown) => void) | undefined;
+    generate.mockImplementation(async () => new Promise((resolve) => { finish = resolve; }));
+    await render();
+    await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
+    const pollsAfterStart = stageFetch.mock.calls.length;
+    await act(async () => { (document.querySelector('button:nth-of-type(1)') as HTMLButtonElement).click(); await Promise.resolve(); });
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+      await Promise.resolve();
+    });
+    expect(stageFetch.mock.calls.length).toBe(pollsAfterStart);
+    vi.useRealTimers();
+    finished = true;
+    await act(async () => { finish?.({
+      revision: 'rev1', chapters: [], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small',
+    }); });
+    expect(stageCancel).not.toHaveBeenCalled();
+    expect(finished).toBe(true);
   });
 });

@@ -1,5 +1,24 @@
 # 13 — Preview and inspection build notes
 
+# P11-29: walkthrough lifecycle UI wiring (2026-09-30)
+
+The Walkthrough pane now observes the server-owned lifecycle instead of
+pretending that only local HTTP state matters. The client polls progress by
+the same canonical source descriptor used to start generation, surfaces
+`collecting`, `asking`, and `assembling`, and renders an explicit cancel
+control while a run is active.
+
+On a confirmed server-side cancellation, the client increments its generation
+counter, detaches any late result and progress state, then reports the
+successful abort. If the cancel acknowledgement is absent or the call fails,
+the client keeps the request active and reports that cancellation did not succeed. The progress watcher stops at unmount, after cancellation starts an
+abort in the server, after the generation identity is superseded, or when the
+generation request settles.
+
+This wiring deliberately avoids optimistic result rendering: only the
+generation request may install a walkthrough, and the server revision must
+still match the captured preview.
+
 ## P11-28: walkthrough generation lifecycle (2026-09-30)
 
 Walkthrough generation now has one in-memory job per repository root and

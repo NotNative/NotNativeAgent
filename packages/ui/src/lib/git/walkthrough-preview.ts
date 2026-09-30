@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Deterministic walkthrough preview and explicit generation transport. */
+type JSONRecord = Record<string, unknown>;
 import { runtimeFetch } from '../runtime-fetch.ts';
 
 export type WalkthroughScope = 'all' | 'staged' | 'working';
@@ -72,6 +73,24 @@ export async function generateWalkthroughPreview(directory: string, sessionId: s
     throw new Error('Invalid generated walkthrough response.');
   }
   return payload;
+}
+
+export async function fetchWalkthroughStage(directory: string, source: WalkthroughSource | WalkthroughScope = 'all',
+  signal?: AbortSignal): Promise<string | null> {
+  const response = await runtimeFetch(`/api/git/walkthrough-progress?directory=${encodeURIComponent(directory)}&${encodeSource(source)}`, { signal });
+  const payload = await response.json().catch(() => null) as { stage?: unknown } | JSONRecord | null;
+  if (!response.ok) return null;
+  return typeof payload?.stage === 'string' && payload.stage.length <= 32 ? payload.stage : null;
+}
+
+export async function cancelWalkthroughStage(directory: string, source: WalkthroughSource | WalkthroughScope = 'all'): Promise<boolean> {
+  const response = await runtimeFetch('/api/git/walkthrough-cancel', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ directory, source: requestSource(source) }),
+  });
+  const payload = await response.json().catch(() => null) as { cancelled?: unknown } | JSONRecord | null;
+  return response.ok && payload?.cancelled === true;
 }
 
 export function sourceLabel(source: WalkthroughSource): string {

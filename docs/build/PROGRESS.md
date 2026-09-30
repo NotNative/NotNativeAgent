@@ -15,12 +15,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | ✅ done 2026-09-30 (goals, scheduled tasks, snippets/starters, message queue UI, multi-run/fusion, session orchestration, live goal/scheduled feedback, adversarial reviews; full web/UI releases through 20260930-2) |
 | P10 knowledge/context | 15 | ✅ done 2026-09-30 (isolated context storage and durable migration, notes/plans/todos, shared plans, agent memory/tool/runtime, session knowledge/riding, context pins, skills/catalog/install, MCP config/runtime, obligatory context, file/image guards, system reminders, BTW, and H.2 assist generation; adversarial reviews, web/UI suites, and graph/quality gates) |
-| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; walkthrough source selectors and memory-only generation lifecycle delivered 2026-09-30; durable walkthrough cache, model selection/readiness, and richer walkthrough schema remain |
+| P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; walkthrough source selectors, memory-only generation lifecycle, and UI lifecycle wiring delivered 2026-09-30; durable walkthrough cache, model selection/readiness, and richer walkthrough schema remain |
 | P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-30 · **P11-29 walkthrough lifecycle UI wiring.** Added canonical
+  source-aware progress and cancel client calls, explicit stage display, and a
+  cancel control. Cancellation reports false or failed server acknowledgements instead of
+  pretending a local detach was an abort, and late results remain ignored after
+  a confirmed cancel. Progress watchers receive abort signals so superseded,
+  settled, or unmounted runs do not keep polling.
 
 - 2026-09-30 · **P11-28 walkthrough generation lifecycle.** Attached
   in-memory collection/assembly jobs to repository-root plus source identity,

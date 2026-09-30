@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { generateWalkthroughPreview, loadWalkthroughPreview,
+import { cancelWalkthroughStage, fetchWalkthroughStage, generateWalkthroughPreview, loadWalkthroughPreview,
   type GeneratedWalkthrough, type WalkthroughPreview, type WalkthroughScope, type WalkthroughSource } from '../lib/git/walkthrough-preview.ts';
 import { sourceKey } from '../lib/git/walkthrough-source-store.ts';
 
@@ -25,11 +25,7 @@ function asWalkthroughSource(source: SelectedSource | null): WalkthroughSource |
 
 function identity(source: SelectedSource | null): string | null {
   if (!source) return null;
-  if (typeof source === 'string') return source;
-  if (source.kind === 'working-tree') return source.scope;
-  if (source.kind === 'branch') return `branch:${source.baseRef}:${source.headRef}`;
-  if (source.kind === 'commit') return `commit:${source.hash}`;
-  return `pr:${source.number}`;
+  return sourceKey(asWalkthroughSource(source)!);
 }
 
 function sourceIdentity(source: SelectedSource): string {
@@ -57,7 +53,7 @@ function validSource(source: SelectedSource | null): WalkthroughSource | null {
     return baseRef && headRef ? { kind: source.kind, baseRef, headRef } : null;
   }
   if (source.kind === 'commit') return OBJECT_ID.test(source.hash) ? source : null;
-  if (!Number.isSafeInteger(source.number) || source.number < 1) return null;
+  if (!Number.isSafeInteger(source.number) || source.number < 1 || source.number > 2_147_483_647) return null;
   if (!source.sourceRepo) return source;
   const owner = source.sourceRepo.owner.trim();
   const repo = source.sourceRepo.repo.trim();
@@ -67,28 +63,46 @@ function validSource(source: SelectedSource | null): WalkthroughSource | null {
 }
 
 function useWalkthroughNarrative(directory: string, source: SelectedSource | null, sessionId: string | null,
-  preview: WalkthroughPreview | null, stale: boolean): { narrative: GeneratedWalkthrough | null; generating: boolean; error: string | null; generate: () => Promise<void>; reset: () => void } {
+  preview: WalkthroughPreview | null, stale: boolean): { narrative: GeneratedWalkthrough | null; generating: boolean;
+  stage: string | null; error: string | null; generate: () => Promise<void>; cancel: () => Promise<void>; reset: () => void } {
   const [record, setRecord] = useState<NarrativeRecord | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
+  const watching = useRef<AbortController | null>(null);
+  const stopWatcher = useCallback(() => {
+    const watcher = watching.current;
+    watching.current = null;
+    watcher?.abort();
+  }, []);
   const currentId = identity(source);
   const narrative = selectedNarrative(record, directory, source, sessionId, preview, stale);
   useEffect(() => {
+    stopWatcher();
     request.current += 1;
-    setRecord(null); setGenerating(false); setError(null);
-  }, [currentId, directory, preview?.signature, sessionId]);
+    setRecord(null); setGenerating(false); setStage(null); setError(null);
+  }, [currentId, directory, preview?.signature, sessionId, stopWatcher]);
+  useEffect(() => () => stopWatcher(), [stopWatcher]);
   const reset = useCallback(() => {
+    stopWatcher();
     request.current += 1;
     setRecord(null);
     setGenerating(false);
+    setStage(null);
     setError(null);
-  }, []);
+  }, [stopWatcher]);
+  const cancel = useWalkthroughCancel({ directory, source, sessionId, preview, generating, request, stopWatcher,
+    setGenerating, setStage, setError });
   const generate = useCallback(async () => {
     if (!sessionId || !preview || stale) return;
     const id = ++request.current;
     setGenerating(true);
+    setStage('collecting');
     setError(null);
+    const observing = new AbortController();
+    watching.current = observing;
+    void watchWalkthroughStage(directory, source, observing, id, request, setStage);
     try {
       const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
       const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, selected);
@@ -96,10 +110,62 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
     } catch (cause) {
       if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');
     } finally {
+      stopWatcher();
       if (id === request.current) setGenerating(false);
     }
   }, [directory, preview, sessionId, source, stale]);
-  return { narrative, generating, error, generate, reset };
+  return { narrative, generating, stage, error, generate, cancel, reset };
+}
+
+type WalkthroughCancelConfig = {
+  directory: string;
+  source: SelectedSource | null;
+  sessionId: string | null;
+  preview: WalkthroughPreview | null;
+  generating: boolean;
+  request: { current: number };
+  stopWatcher: () => void;
+  setGenerating: (value: boolean) => void;
+  setStage: (value: string | null) => void;
+  setError: (value: string | null) => void;
+};
+
+function useWalkthroughCancel({ directory, source, sessionId, preview, generating, request, stopWatcher,
+  setGenerating, setStage, setError }: WalkthroughCancelConfig) {
+  return useCallback(async () => {
+    if (!sessionId || !preview || !generating) return;
+    try {
+      const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
+      const cancelled = await cancelWalkthroughStage(directory, selected);
+      if (!cancelled) {
+        setError('Could not cancel walkthrough generation.');
+        return;
+      }
+      request.current += 1;
+      stopWatcher();
+      setGenerating(false);
+      setStage(null);
+      setError('Walkthrough generation cancelled.');
+    } catch {
+      setError('Could not cancel walkthrough generation.');
+    }
+  }, [directory, generating, preview, sessionId, source, request, stopWatcher,
+    setGenerating, setStage, setError]);
+}
+
+function watchWalkthroughStage(directory: string, source: SelectedSource | null, observing: AbortController,
+  id: number, request: { current: number }, setStage: (value: string | null) => void): Promise<void> {
+  return (async () => {
+    while (!observing.signal.aborted) {
+      try {
+        const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
+        const observed = await fetchWalkthroughStage(directory, selected, observing.signal);
+        if (!observing.signal.aborted && id === request.current && observed) setStage(observed);
+      } catch { /* Generation completion still owns this state. */ }
+      await new Promise((resolve) => setTimeout(resolve, observing.signal.aborted ? 0 : 450));
+      if (observing.signal.aborted) break;
+    }
+  })();
 }
 
 function useWalkthroughPreview(directory: string, source: SelectedSource | null, visible: boolean): {
@@ -216,7 +282,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
   const [active, setActive] = useState(0);
   const valid = validSource(source);
   const { preview, stale, error, refresh } = useWalkthroughPreview(directory, typeof source === 'string' ? source : valid, visible);
-  const { narrative, generating, error: generationError, generate, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale);
+  const { narrative, generating, stage, error: generationError, generate, cancel, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale);
   const stop = preview?.stops[Math.min(active, (preview?.stops.length ?? 1) - 1)];
   useEffect(() => { setActive(0); }, [identity(source), directory]);
   const changeSource = (next: SelectedSource): void => {
@@ -239,12 +305,16 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
         disabled={!sessionId || !preview?.stops.length || stale || generating} onClick={() => void generate()}>
         {generating ? 'Generating…' : 'Generate explanation'}
       </button>
+      {generating ? <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300" onClick={() => void cancel()}>Cancel</button> : null}
     </header>
     <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
       Local Git hunks in patch order. Source selectors can compare branches, commits, or pull requests. Generate explicitly sends a bounded diff digest to the configured NNA model.
     </div>
     {!validSource(source) && typeof source !== 'string'
       ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Complete all source fields to capture this walkthrough.</p> : null}
+    {generating && stage ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
+      Walkthrough stage: {stage}
+    </div> : null}
     {!sessionId ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Select a session to generate an explanation.</p> : null}
     {stale && preview ? <div role="status" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">
       {error ? 'The current source could not be verified against this preview. Refresh before relying on it.' : 'Changes moved since this preview was captured. Refresh to rebuild the stops.'}
