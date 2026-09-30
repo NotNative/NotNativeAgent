@@ -83,7 +83,9 @@ remaining P12 slices ride after it.
   The bounded Electron host probe now implements the identity-first,
   compatibility/auth checks and unreachable-only retry policy required by §2.6.
   The server exposes the unauthenticated `/api/version` compatibility contract;
-  main boot routing is still pending.
+  a pure boot-target policy now resolves env/default targets, validates probe
+  outcomes, and falls back locally on invalid overrides or probe failure. Main
+  boot still needs to consume the policy and inject the selected runtime.
   Remaining: relay-only pairing and `openchamber://host` routing, remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
@@ -166,6 +168,16 @@ remaining P12 slices ride after it.
   bounded response reads share a deadline; only unreachable probes receive one
   longer retry. The API compatibility surface is wired; the probe remains
   groundwork until boot routing consumes it.
+- **D-09-32** The server's public `/api/version` route returns product version,
+  runtime, process start time, optional `serverId`, and the conservative
+  `{ apiVersion: 1, minClientApiVersion: 1, capabilities: ['api.runtime-url.v1'] }`
+  contract. It is registered before global `/api/*` auth so clients can
+  classify a host before sending credentials.
+- **D-09-33** A pure desktop boot-target resolver implements environment-target
+  precedence, saved-default lookup, remote compatibility outcomes, and local
+  fallback. Invalid explicit environment URLs cannot silently select a saved
+  remote, and thrown probes cannot prevent local boot. Electron's main process
+  does not consume this policy until runtime injection and host routing land.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
