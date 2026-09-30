@@ -24,6 +24,23 @@ The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed
 context test exposed the previous unhandled-rejection behavior.
 
+## P10-59: context-file open guard (2026-09-29)
+
+The §G.4 validator answers file-link clicks before FilesView receives them.
+Known document, image, audio/video, font, database, and executable extensions
+bypass text decoding and defer preview/cannot-preview behavior to the files
+surface. For candidate text files, an optional `readFileStat` supports a 10 MiB
+preflight; failed or unavailable sizing does not block the guarded fresh read.
+
+The fresh read must contain no NUL byte, which classifies it as binary, and
+must have no more than 20,000 lines or 10 MiB UTF-16 code units; the line
+bound counts newlines and the length bound also covers stale stat data. True
+404 transport errors return `missing`; 403/permission, other HTTP statuses,
+network failures, and operating-system damage return `unreadable`. Empty paths
+short-circuit to `missing`; the adapter call uses the caller-supplied
+directory and no-store behavior. Seven focused tests cover extension bypass,
+content/transport/line-bound classification, stat preflight, and empty input.
+
 ## P10-58: session-assist read surface (2026-09-29)
 
 The existing composer recap band now consumes the H.2 service contract directly

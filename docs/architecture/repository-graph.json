@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a491d8fad13d9d156902da44b133772e8cb073142a4f05370304844b613ef652",
+  "source_digest": "sha256:f6aa9762db580bc12cbe1f11fc0146508b70aba924bab5596128e7d8de32a268",
   "counts": {
-    "modules": 560,
+    "modules": 561,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 150
+      "module_count": 151
     },
     {
       "id": "ui-shell",
@@ -1923,6 +1923,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/relay/bytes.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/context-file-open-guard.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/files/api.ts"
       ]
     },
     {
