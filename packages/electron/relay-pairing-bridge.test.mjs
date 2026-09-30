@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createRelayPairingBridge } from './relay-pairing-bridge.mjs';
+
+test('the relay pairing bridge is shipped with the packaged Electron main process', () => {
+  const manifestPath = new URL('./package.json', import.meta.url);
+  const manifest = JSON.parse(readFileSync(fileURLToPath(manifestPath), 'utf8'));
+  assert.ok(manifest.build.files.includes('relay-pairing-bridge.mjs'));
+});
 
 function setup(options = {}) {
   const listeners = new Map();

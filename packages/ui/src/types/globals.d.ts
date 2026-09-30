@@ -32,6 +32,14 @@ declare global {
     }>;
     __NOTNATIVE_DESKTOP_EVENTS__?: {
       onOpenSession(handler: (detail: { sessionId: string; directory?: string }) => void): () => void;
+      onRelayPairingRequest(handler: (detail: {
+        requestId: string;
+        payload: unknown;
+        candidate: unknown;
+        installId: string;
+        platform: string;
+        version: string;
+      }) => void): () => void;
     };
     /** Main-frame-only, identity-bound Electron broker face; absent on web and guest pages. */
     __NOTNATIVE_BROWSER_CONTROL__?: {

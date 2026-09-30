@@ -135,6 +135,12 @@ export function createInvokeFace(input, dependencies) {
       if (!hostConfig) return { ok: false, error: 'desktop-hosts-unavailable' };
       return { ok: true, result: { ...hostConfig, localOrigin: input.localOrigin() } };
     }
+    if (command === 'desktop_pairing_redeem_relay_complete') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      const bridge = input.relayPairingBridge;
+      if (!bridge) return { ok: false, error: 'relay-pairing-unavailable' };
+      return bridge.complete(payload?.requestId, payload?.result);
+    }
     if (command === 'desktop_boot_config_get') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const bootConfig = input.bootConfig?.();

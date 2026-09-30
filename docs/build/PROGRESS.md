@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-29 relay-only pairing integration.** The native
+  deep-link importer now consents to relay-only links, delegates redemption to
+  the trusted local renderer over the bounded bridge, and saves the token plus
+  public relay descriptor under the catalog lock. The one-time grant is
+  stripped, existing direct-host metadata is preserved by server identity, and
+  cancellation writes nothing. Thirty-three focused Electron tests, four
+  renderer handler tests, 111 full Electron tests, and 1,438 UI tests pass.
+  Mixed direct/relay fallback and live
+  relay switching remain pending.
+
 - 2026-09-30 · **P12b-28 relay redemption IPC bridge.** Added a bounded
   one-shot main/renderer request seam so Electron can retain native consent
   and catalog ownership while the local renderer runs the E2EE tunnel. Requests

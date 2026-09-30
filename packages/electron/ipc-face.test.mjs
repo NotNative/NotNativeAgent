@@ -133,3 +133,21 @@ test('local identity commands expose the saved token and install id only to the 
   assert.equal(remote.ok, false);
   assert.equal(remote.error, 'sender-not-allowed');
 });
+
+test('relay pairing completion accepts responses only from the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, relayPairingBridge: {
+    complete: (requestId, result) => { calls.push({ requestId, result }); return { ok: true, result: { accepted: true } }; },
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_pairing_redeem_relay_complete', {
+    requestId: 'request-1', result: { ok: true, clientToken: 'token' },
+  });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { accepted: true } });
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_pairing_redeem_relay_complete', {
+    requestId: 'request-2', result: { ok: true, clientToken: 'stolen-token' },
+  });
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+  assert.deepEqual(calls, [{ requestId: 'request-1', result: { ok: true, clientToken: 'token' } }]);
+});

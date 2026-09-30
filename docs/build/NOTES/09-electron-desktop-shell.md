@@ -85,10 +85,11 @@ remaining P12 slices ride after it.
   they queue across startup/reload and report failure through a native warning.
   Renderer-side relay pairing redemption now opens a grant-scoped throwaway
   E2EE tunnel, sends the deduplicated pairing request, bounds and validates the
-  response, and always closes the tunnel. Consent/catalog wiring, relay runtime
-  switching, and multi-candidate fallback remain pending. A bounded one-shot
-  main/renderer bridge carries redemption requests to the trusted local
-  renderer and accepts only a token/label result; app-face wiring remains open.
+  response, and always closes the tunnel. Relay-only deep-link pairing now
+  obtains native consent, redeems through the trusted local renderer, and saves
+  the token and grant-free public relay descriptor while holding the catalog
+  lock. A bounded one-shot main/renderer bridge carries redemption requests to
+  the trusted local renderer and accepts only a token/label result.
   The bounded Electron host probe now implements the identity-first,
   compatibility/auth checks and unreachable-only retry policy required by §2.6.
   The server exposes the unauthenticated `/api/version` compatibility contract;
@@ -99,7 +100,7 @@ remaining P12 slices ride after it.
   The Remote Instances settings page now selects saved direct hosts and
   switches the running renderer after probing; standalone servers admit the
   exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
-  use the same validated switch path. Remaining: relay pairing orchestration,
+  use the same validated switch path. Remaining: mixed direct/relay fallback,
   relay-aware switching and remaining IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body

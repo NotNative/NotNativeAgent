@@ -102,6 +102,7 @@ export async function redeemDesktopPairingOverRelay(
       }),
       signal: AbortSignal.timeout(REDEEM_TIMEOUT_MS),
     });
+    if (response.status === 429) throw new Error('pairing-rate-limited');
     const body = await boundedJson(response) as { ok?: unknown; clientToken?: unknown; server?: { label?: unknown } };
     const clientToken = safeString(body?.clientToken, 8_192);
     if (!response.ok || body?.ok !== true || !clientToken) throw new Error('pairing-rejected');

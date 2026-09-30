@@ -30,6 +30,7 @@ import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs'
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
 import { probeDesktopHost } from './host-probe.mjs';
 import { resolveDesktopBootTarget } from './desktop-boot.mjs';
+import { createRelayPairingBridge } from './relay-pairing-bridge.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -803,6 +804,7 @@ function appFileUrlPrefix() {
   return `file:///${encodeURI(app.getAppPath().replaceAll('\\', '/'))}`;
 }
 
+const relayPairingBridge = createRelayPairingBridge({ getWindow: () => mainWindow });
 const invokeFace = createInvokeFace({
   origin: () => localOrigin(),
   uiOrigin: () => USE_UI_PROTOCOL ? UI_ORIGIN : '',
@@ -810,6 +812,7 @@ const invokeFace = createInvokeFace({
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),
   hostSwitch: switchDesktopHost,
+  relayPairingBridge,
   mainContents: () => mainWindow?.webContents,
   nativeNotifications,
   fileUtilities: () => fileUtilities,
@@ -860,6 +863,7 @@ const desktopPairingImporter = createDesktopPairingImporter({
   }),
   platform: process.platform,
   version: productVersion(),
+  redeemRelay: (input) => relayPairingBridge.request(input),
   acquireHostConfigLock: () => {
     if (desktopHostImportLocked) return null;
     desktopHostImportLocked = true;
@@ -959,6 +963,7 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 app.on('before-quit', () => {
+  relayPairingBridge.closeAll();
   persistWindowState(mainWindow);
   if (!serverHandle) return;
   try { serverHandle.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }

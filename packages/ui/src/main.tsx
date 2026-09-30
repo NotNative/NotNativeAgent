@@ -5,6 +5,7 @@ import { App } from './App.tsx';
 import { I18nProvider } from './components/I18nProvider.tsx';
 import { ThemeProvider } from './components/ThemeProvider.tsx';
 import { SessionAuthGate } from './components/auth/SessionAuthGate.tsx';
+import { DesktopRelayPairingBridge } from './components/desktop/DesktopRelayPairingBridge.tsx';
 
 // Doc 01 §4.3 provider tree, NND shape (E-08-50: this repo builds no
 // ThemeSystemProvider): `I18nProvider > ThemeProvider > SessionAuthGate > App`
@@ -15,6 +16,7 @@ export function renderMainApp(element: HTMLElement): void {
     <StrictMode>
       <I18nProvider>
         <ThemeProvider>
+          <DesktopRelayPairingBridge />
           <SessionAuthGate>
             <App />
           </SessionAuthGate>

@@ -69,6 +69,12 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_EVENTS__', Object.freeze({
     for (const detail of pendingOpenSessions.splice(0)) handler(detail);
     return () => openSessionHandlers.delete(handler);
   },
+  onRelayPairingRequest(handler) {
+    if (typeof handler !== 'function') return () => {};
+    relayPairingHandlers.add(handler);
+    for (const detail of pendingRelayPairingRequests.splice(0)) handler(detail);
+    return () => relayPairingHandlers.delete(handler);
+  },
 }));
 
 // The main process can route a notification click immediately after document
@@ -76,15 +82,28 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_EVENTS__', Object.freeze({
 // until then so the click isn't lost during a cold start.
 const openSessionHandlers = new Set();
 const pendingOpenSessions = [];
+const relayPairingHandlers = new Set();
+const pendingRelayPairingRequests = [];
 ipcRenderer.on('openchamber:emit', (_event, envelope) => {
-  if (envelope?.event !== 'openchamber:open-session') return;
-  const detail = envelope.detail;
-  if (!detail || typeof detail.sessionId !== 'string' || detail.sessionId.length > 500) return;
-  const safe = { sessionId: detail.sessionId, ...(typeof detail.directory === 'string' ? { directory: detail.directory.slice(0, 2_000) } : {}) };
-  if (openSessionHandlers.size) for (const handler of openSessionHandlers) handler(safe);
+  const detail = envelope?.detail;
+  if (envelope?.event === 'openchamber:open-session') {
+    if (!detail || typeof detail.sessionId !== 'string' || detail.sessionId.length > 500) return;
+    const safe = { sessionId: detail.sessionId, ...(typeof detail.directory === 'string' ? { directory: detail.directory.slice(0, 2_000) } : {}) };
+    if (openSessionHandlers.size) for (const handler of openSessionHandlers) handler(safe);
+    else {
+      pendingOpenSessions.push(safe);
+      if (pendingOpenSessions.length > 20) pendingOpenSessions.shift();
+    }
+    return;
+  }
+  if (envelope?.event !== 'openchamber:desktop-pairing-relay-request' || !detail
+    || typeof detail.requestId !== 'string' || detail.requestId.length > 128
+    || !detail.payload || typeof detail.payload !== 'object'
+    || !detail.candidate || typeof detail.candidate !== 'object') return;
+  if (relayPairingHandlers.size) for (const handler of relayPairingHandlers) handler(detail);
   else {
-    pendingOpenSessions.push(safe);
-    if (pendingOpenSessions.length > 20) pendingOpenSessions.shift();
+    pendingRelayPairingRequests.push(detail);
+    if (pendingRelayPairingRequests.length > 4) pendingRelayPairingRequests.shift();
   }
 });
 

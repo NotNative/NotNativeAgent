@@ -51,7 +51,7 @@ function redactedPreview(value) {
 
 export function createDesktopPairingImporter({
   dialog, getWindow, fetch = globalThis.fetch, getHosts, setHosts, getInstallId,
-  acquireHostConfigLock,
+  acquireHostConfigLock, redeemRelay,
   platform = process.platform, version = '0.0.0', makeHostId = () => `host-${randomUUID()}`,
   now = () => Date.now(),
 }) {
@@ -81,11 +81,16 @@ export function createDesktopPairingImporter({
   }
 
   async function performImport(payload) {
-    if (!payload || payload.v !== 2 || Date.parse(payload.expiresAt) <= now()) return { status: 'expired' };
+    const expiresAt = Date.parse(payload?.expiresAt);
+    if (!payload || payload.v !== 2 || !Number.isFinite(expiresAt) || expiresAt <= now()) return { status: 'expired' };
     const directCandidates = payload.candidates.filter((candidate) => candidate.type === 'lan' || candidate.type === 'tunnel');
     if (directCandidates.length === 0) {
-      await message({ type: 'info', title: 'Relay-only pairing is not available yet', message: 'This link has no direct LAN or tunnel address.', detail: 'Use a pairing link that includes a direct address. Relay-only import is still in development.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
-      return { status: 'relay-only' };
+      const relayCandidate = payload.candidates.find((candidate) => candidate.type === 'relay');
+      if (!relayCandidate || typeof redeemRelay !== 'function') {
+        await message({ type: 'info', title: 'Relay-only pairing is not available yet', message: 'This link has no direct LAN or tunnel address.', detail: 'Use a pairing link that includes a direct address. Relay-only import is still in development.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+        return { status: 'relay-only' };
+      }
+      return performRelayOnlyImport(payload, relayCandidate);
     }
     const current = getHosts();
     const candidateUrls = new Set(directCandidates.map((candidate) => candidate.url));
@@ -224,6 +229,94 @@ export function createDesktopPairingImporter({
       releaseLock();
       await message({ type: 'info', title: 'Server paired', message: `${host.label} was added to your saved hosts.`, detail: 'The client token is stored locally and was not displayed.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
       return { status: 'paired', hostId, url: candidateUrl };
+    } finally { releaseLock(); }
+  }
+
+  async function performRelayOnlyImport(payload, candidate) {
+    const label = safeText(payload.label, 256) || 'this server';
+    const relayPreview = redactedPreview(candidate.relayUrl);
+    const consent = await message({
+      type: 'warning', title: 'Connect to remote server?',
+      message: `Connect to ${label}${payload.fingerprint ? ` (${safeText(payload.fingerprint, 256)})` : ''}?`,
+      detail: `This link has no direct address. The desktop will use the encrypted relay at ${relayPreview} for the pairing request and save this relay identity on this device. Continue only if you trust this server and started this connection yourself.`,
+      buttons: ['Connect', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true,
+    });
+    if (consent?.response !== 0) return { status: 'cancelled' };
+    if (Date.parse(payload.expiresAt) <= now()) return { status: 'expired' };
+
+    const releaseHostConfigLock = acquireHostConfigLock?.();
+    if (acquireHostConfigLock && !releaseHostConfigLock) {
+      await message({ type: 'error', title: 'Host list is busy', message: 'Wait for the current host update to finish, then try this pairing link again.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+      return { status: 'catalog-busy' };
+    }
+    let released = false;
+    const releaseLock = () => {
+      if (released) return;
+      released = true;
+      releaseHostConfigLock?.();
+    };
+    try {
+      const before = getHosts();
+      const matching = before.hosts.find((host) => host.serverId === candidate.serverId
+        || host.relay?.serverId === candidate.serverId);
+      if (!matching && before.hosts.length >= 100) {
+        releaseLock();
+        await message({ type: 'error', title: 'Host list is full', message: 'Remove a saved host before adding this server.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+        return { status: 'catalog-full' };
+      }
+      let installId;
+      try { installId = getInstallId(); }
+      catch {
+        releaseLock();
+        await message({ type: 'error', title: 'Pairing failed', message: 'The desktop could not read its installation identity.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+        return { status: 'identity-error' };
+      }
+      const result = await redeemRelay({ payload, candidate, installId, platform, version });
+      if (result?.ok !== true || !safeText(result.clientToken, 8_192)) {
+        releaseLock();
+        const rateLimited = result?.error === 'pairing-rate-limited';
+        await message({ type: 'error', title: rateLimited ? 'Try again later' : 'Pairing failed', message: rateLimited
+          ? 'The server is temporarily limiting pairing requests. Try again later.'
+          : 'The relay connection could not complete pairing. Check your network and try again.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+        return { status: result?.error === 'pairing-expired' ? 'expired' : 'relay-redeem-failed' };
+      }
+      const config = getHosts();
+      const current = config.hosts.find((host) => host.serverId === candidate.serverId
+        || host.relay?.serverId === candidate.serverId);
+      if (!current && config.hosts.length >= 100) {
+        releaseLock();
+        await message({ type: 'error', title: 'Host list is full', message: 'Remove a saved host before adding this server.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+        return { status: 'catalog-full' };
+      }
+      const host = {
+        ...(current ?? {}), id: current?.id ?? makeHostId(),
+        label: label === 'this server' ? safeText(result.serverLabel, 256) || `relay://${candidate.serverId}` : label,
+        url: current?.url ?? `relay://${candidate.serverId}`,
+        clientToken: result.clientToken,
+        serverId: candidate.serverId,
+        relay: {
+          relayUrl: candidate.relayUrl,
+          serverId: candidate.serverId,
+          hostEncPubJwk: candidate.hostEncPubJwk,
+        },
+      };
+      const hosts = current
+        ? config.hosts.map((entry) => entry.id === current.id ? host : entry)
+        : [...config.hosts, host];
+      try {
+        setHosts({ hosts, defaultHostId: config.defaultHostId ?? host.id, initialHostChoiceCompleted: true });
+      } catch {
+        releaseLock();
+        await message({ type: 'error', title: 'Pairing failed', message: 'The host was paired, but NotNativeDesktop could not save it locally.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+        return { status: 'storage-error' };
+      }
+      releaseLock();
+      await message({ type: 'info', title: 'Server paired', message: `${host.label} was added to your saved hosts.`, detail: 'The client token is stored locally and the relay admission grant was not saved.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+      return { status: 'paired', hostId: host.id, url: host.url };
+    } catch {
+      releaseLock();
+      await message({ type: 'error', title: 'Pairing failed', message: 'The relay connection could not complete pairing. Check your network and try again.', buttons: ['OK'], defaultId: 0, cancelId: 0, noLink: true });
+      return { status: 'relay-redeem-failed' };
     } finally { releaseLock(); }
   }
 

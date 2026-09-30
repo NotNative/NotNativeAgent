@@ -27,6 +27,7 @@
       "desktop-pairing.mjs",
       "desktop-boot.mjs",
       "host-probe.mjs",
+      "relay-pairing-bridge.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",
