@@ -24,6 +24,26 @@ The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed
 context test exposed the previous unhandled-rejection behavior.
 
+## P10-60: outside-file grants (2026-09-29)
+
+The §G.5 resolver turns an outside-workspace path into the two-value read
+options contract only when outside access is explicitly enabled and a host
+approves it. Ownership checks normalize separators, drive letter case,
+and trailing separators before membership; requests must be absolute with an
+absolute or drive-qualified path. Disabling, a missing path/root, a relative
+or drive-relative path, an inside path, or no browser-side desktop host fails
+closed to
+`allowOutsideWorkspace: false`.
+
+A successful host reply must carry a nonempty grant string, a nonempty path,
+and a safe integer expiry in the future. The runtime cache keys grants under
+`local:<normalized requested path>`; it also keys the canonical granted path
+so both forms hit. In-flight calls share one Promise, while expiry minus the
+five-second renewal buffer triggers host re-minting instead of trusting a
+decaying token. Transport and validation failures leave no read options.
+Six focused resolver tests cover these fail-closed paths plus caching,
+aliasing, deduplication, renewal, and malformed replies.
+
 ## P10-59: context-file open guard (2026-09-29)
 
 The §G.4 validator answers file-link clicks before FilesView receives them.
