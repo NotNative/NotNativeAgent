@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-16 validated saved-host catalog.** Electron now stores a
+  bounded host list, default id, first-choice marker, and optional local client
+  token update through schema-sanitized local-only IPC. Direct URLs, request
+  headers, and relay descriptors are sanitized; relay public keys are imported
+  before persistence to reject invalid curve points. Adversarial audit found
+  and fixed the invalid-key acceptance case. IPC/schema tests pass 9/9 and
+  workspace typecheck passes. Boot-time host routing and chooser UI remain.
+
 - 2026-09-30 · **P12b-15 atomic Markdown replacement.** Markdown saves now write
   a unique temp file beside the destination and atomically rename it into
   place. Windows retries only transient `EPERM`/`EACCES`/`EBUSY` errors using

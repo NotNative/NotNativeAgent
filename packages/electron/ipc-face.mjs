@@ -6,7 +6,6 @@
  * relay dev-tunnel selection / tray boot-health retry). Unknown commands never
  * throw raw — every path answers { ok, error }.
  */
-import { ipcMain, shell } from 'electron';
 import { matchesDesktopLocalOrigin, matchesTrustedOrigin } from './trusted-origin.mjs';
 
 export function senderFrameUrls(event) {
@@ -23,7 +22,8 @@ function stringifyError(error) {
   try { return error instanceof Error ? `${error.stack ?? error.message}` : String(error); } catch { return '[unstringifiable]'; }
 }
 
-export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
+export function createInvokeFace(input, dependencies) {
+  if (!dependencies?.ipcMain || !dependencies?.shell) throw new TypeError('ipcMain and shell dependencies are required');
   const browserReleases = new Map();
 
   function isDesktopMainSender(event) {
@@ -128,6 +128,17 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
       if (!paths) return { ok: false, error: 'local-path-utilities-unavailable' };
       if (command === 'desktop_open_path') return { ok: true, result: await paths.open(payload?.path, payload?.app) };
       return { ok: true, result: await paths.reveal(payload?.path) };
+    }
+    if (command === 'desktop_hosts_get') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      const hostConfig = input.hostConfig?.get?.();
+      if (!hostConfig) return { ok: false, error: 'desktop-hosts-unavailable' };
+      return { ok: true, result: { ...hostConfig, localOrigin: input.localOrigin() } };
+    }
+    if (command === 'desktop_hosts_set') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.hostConfig?.set || !payload?.input) return { ok: false, error: 'desktop-hosts-unavailable' };
+      return { ok: true, result: input.hostConfig.set(payload.input) };
     }
     if (command === 'desktop_notify') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };

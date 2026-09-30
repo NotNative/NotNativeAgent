@@ -21,6 +21,7 @@
       "file-utilities.mjs",
       "local-paths.mjs",
       "windows-file-replace.mjs",
+      "host-config.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",

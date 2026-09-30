@@ -24,6 +24,7 @@ import { createNativeNotifications } from './native-notifications.mjs';
 import { createUiProtocolHandler } from './ui-protocol.mjs';
 import { createFileUtilities } from './file-utilities.mjs';
 import { createLocalPathUtilities } from './local-paths.mjs';
+import { readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -165,6 +166,23 @@ function persistShellPrefs(patch) {
 function readStoredPort() {
   const value = Number(readShellPrefs(prefsFile()).port);
   return Number.isSafeInteger(value) && value > 0 && value < 65_536 ? value : 0;
+}
+
+function readStoredHosts() {
+  return readDesktopHostsConfig(readShellPrefs(prefsFile()));
+}
+
+function writeStoredHosts(input) {
+  const config = sanitizeDesktopHostsConfig(input);
+  const patch = {
+    desktopHosts: config.hosts,
+    desktopDefaultHostId: config.defaultHostId,
+    desktopInitialHostChoiceCompleted: config.initialHostChoiceCompleted,
+  };
+  if (Object.hasOwn(config, 'localClientToken')) patch.desktopLocalClientToken = config.localClientToken;
+  // Throw to IPC so a disk failure is visible to the caller.
+  writeShellPrefs(prefsFile(), patch);
+  return config;
 }
 
 function writeStoredPort(port) {
@@ -592,6 +610,8 @@ const invokeFace = createInvokeFace({
   nativeNotifications,
   fileUtilities: () => fileUtilities,
   localPathUtilities: () => localPathUtilities,
+  hostConfig: { get: readStoredHosts, set: writeStoredHosts },
+  localOrigin,
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
   retryServer: retryServerFromFailurePage,
@@ -610,7 +630,7 @@ const invokeFace = createInvokeFace({
       return { supported: true, enabled: app.getLoginItemSettings().openAtLogin };
     },
   },
-});
+}, { ipcMain, shell });
 
 let retryInProgress = false;
 async function retryServerFromFailurePage() {

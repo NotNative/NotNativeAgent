@@ -68,11 +68,11 @@ remaining P12 slices ride after it.
   and host because Node reports custom-scheme origins as opaque; credentials
   embedded in URLs are rejected. Validated local open/reveal IPC and the
   shared-UI local-origin wrappers (§12.5, §13.2), plus atomic Markdown save
-  with bounded Windows rename retries (§12.4), are also delivered.
+  with bounded Windows rename retries (§12.4), and validated saved-host
+  catalog storage behind local-only IPC (§2.8/§3.1) are also delivered.
   Remaining: deep-link `openchamber://connect` handler (§5 — link head stays
   openchamber:// per the sealed pairing payload), remaining IPC catalog growth
-  (§3.1),
-  host chooser/multi-instance remote
+  (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
@@ -115,6 +115,13 @@ remaining P12 slices ride after it.
   and `EBUSY` with the §12.4 bounded backoff; all other platforms and errors
   get one attempt. Failed saves remove the temporary file and preserve an
   existing target.
+- **D-09-27** Saved host records are schema-sanitized and capped at 100 entries
+  before atomic persistence in shell preferences. Direct URLs reject
+  credentials and fragments; auth/cookie headers and relay private key fields
+  are dropped; P-256 relay public keys are imported during validation so
+  malformed points fail at save time. Host get/set IPC is limited to the
+  desktop main frame on the loopback server or packaged UI origin. The catalog
+  is not yet used to choose the boot target.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
