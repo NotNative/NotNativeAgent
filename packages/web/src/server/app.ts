@@ -44,6 +44,7 @@ import { readMergedSettings } from './lib/settings-store.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
 import { registerProbeUrlRoutes } from './preview/probe-url.ts';
 import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
+import { createVersionRoutes } from './routes/version.ts';
 import type { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
 
@@ -173,6 +174,9 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   app.use('*', browserWriteGate);
 
   registerHealthRoute(app);
+  // Deliberately registered before /api auth: compatibility metadata is a
+  // public, non-sensitive discovery surface used before selecting a host.
+  app.route('/', createVersionRoutes());
 
   app.route('/', createAuthRoutes());
   // The anonymous pairing redeem (doc 08 §5.5) rides BEFORE the /api gate:

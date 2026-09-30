@@ -22,14 +22,21 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-22 public API compatibility route.** The server now
+  answers unauthenticated `GET /api/version` with its product version, runtime,
+  process start time, optional stable server id, and the supported runtime URL
+  compatibility capability. The route is registered before the general API
+  auth gate and sends `Cache-Control: no-store`. Integration test confirms the
+  public response contract.
+
 - 2026-09-30 · **P12b-21 bounded Electron host probe.** Added the remote-host
   preflight used by the planned desktop boot router: optional server identity
   check before bearer headers, bounded `/api/version` and `/auth/session`
   checks, explicit auth/incompatible/wrong-service/update results, one deadline
   across fetch plus body reads, and a single longer retry only after an
   unreachable result. Adversarial review fixed query-string leakage and fail-open
-  server identity handling; focused host-probe tests pass (15/15). Main boot routing
-  and the server compatibility endpoint remain separate pending slices.
+  server identity handling; focused host-probe tests pass (15/15). Main boot
+  routing remains pending.
 
 - 2026-09-30 · **P12b-20 consent-gated pairing import.** Native consent now
   displays every possible direct destination with query values redacted and

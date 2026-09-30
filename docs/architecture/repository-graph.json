@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f221441db09baa823ffef0bed31c07e3906f54bc61f7491783205673feb33885",
+  "source_digest": "sha256:52f7f1faf1d3a2c69c81fa25eae5d7e5df4c8c80bdc9a8400a0f393b437f4d18",
   "counts": {
-    "modules": 589,
+    "modules": 590,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 201
+      "module_count": 202
     },
     {
       "id": "web-entry",
@@ -3849,6 +3849,7 @@
         "packages/web/src/server/routes/small-model.ts",
         "packages/web/src/server/routes/snippets.ts",
         "packages/web/src/server/routes/tunnel.ts",
+        "packages/web/src/server/routes/version.ts",
         "packages/web/src/server/session-knowledge/session-knowledge-routes.ts",
         "packages/web/src/server/session-orchestration/openchamber-sessions.ts",
         "packages/web/src/server/session-orchestration/session-harness-ports.ts",
@@ -5240,6 +5241,15 @@
         "packages/web/src/server/lib/tunnels/tunnel-settings.ts",
         "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
         "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/version.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/relay/identity.ts"
       ]
     },
     {

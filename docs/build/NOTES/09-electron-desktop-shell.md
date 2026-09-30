@@ -81,9 +81,9 @@ remaining P12 slices ride after it.
   catalog while holding the shared catalog mutation lock. Relay-only import and
   switching the running app to a remote host remain pending.
   The bounded Electron host probe now implements the identity-first,
-  compatibility/auth checks and unreachable-only retry policy required by §2.6;
-  main boot routing and the matching server compatibility endpoint are still
-  pending.
+  compatibility/auth checks and unreachable-only retry policy required by §2.6.
+  The server exposes the unauthenticated `/api/version` compatibility contract;
+  main boot routing is still pending.
   Remaining: relay-only pairing and `openchamber://host` routing, remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
@@ -164,8 +164,8 @@ remaining P12 slices ride after it.
   without credentials before bearer-bearing requests. `/api/version` must
   advertise `api.runtime-url.v1`, and `/auth/session` must succeed. Fetch and
   bounded response reads share a deadline; only unreachable probes receive one
-  longer retry. The probe is groundwork only until boot routing and the API
-  compatibility surface are wired.
+  longer retry. The API compatibility surface is wired; the probe remains
+  groundwork until boot routing consumes it.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
