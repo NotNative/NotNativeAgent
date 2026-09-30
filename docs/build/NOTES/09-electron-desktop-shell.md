@@ -27,6 +27,10 @@ This slice uses the existing UI entry with a `miniChat=1` query flag rather
 than adding a separate HTML entrypoint; the Mini Chat layout mounts only the
 chat surface with its own native window controls.
 
+P12b-44 connects the existing `new_mini_chat` customizable shortcut to the
+same Mini Chat launch handler used by the main-window toolbar button. The
+dispatcher continues to protect AltGr text entry on Windows.
+
 Doc 09 (1762 lines) is enormous (full parity = checklist §15 rows 1-14). This file
 carries the slice map + adaptation deltas. **P12a-v1 is the installable shell** —
 the shortest honest path to "run the installer, evaluate the app on Windows" —

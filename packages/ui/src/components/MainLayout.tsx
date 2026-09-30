@@ -39,6 +39,7 @@ import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
 import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
+import { useKeybind } from '../lib/shortcuts/hooks.ts';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -236,6 +237,7 @@ export function MainLayout(): ReactNode {
       directory: activeDirectory,
     });
   };
+  useKeybind('new_mini_chat', openMiniChat);
   const closeMiniChat = (): void => { void window.__NOTNATIVE_DESKTOP_INVOKE__?.('desktop_close_current_window'); };
   const togglePinned = async (): Promise<void> => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;

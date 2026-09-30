@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:920bfecb7fea085a6c8e7c8ab5162dd2a87649c6bf454e03fac4cc43f8ebeee8",
+  "source_digest": "sha256:a5a62455431419be3abb0cd599f79f4e455681eb0b668cb86f34cf241032508d",
   "counts": {
     "modules": 598,
     "component_edges": 14
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 224,
+      "import_count": 225,
       "module_count": 93
     },
     {
@@ -1307,6 +1307,7 @@
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/settings/apply.ts",
         "packages/ui/src/lib/settings/store.ts",
+        "packages/ui/src/lib/shortcuts/hooks.ts",
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/sync/engine-support.ts",
         "packages/ui/src/sync/global-stores.ts",

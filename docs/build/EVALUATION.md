@@ -3,6 +3,22 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-44 Mini Chat shortcut wiring (20260930-65)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Shortcut action | The declared `new_mini_chat` action invokes the same IPC launch path as the Mini Chat toolbar button, using the active session and directory or opening a draft. |
+| Input edge cases | Existing dispatcher tests cover customizable bindings and ensure `Mod+Alt+N` does not hijack AltGr+N while typing on Windows. |
+| Automated checks | UI suite passes 1453/1453 with one Vitest worker; workspace typechecks pass. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Interactive native window | Packaged/installed GUI acceptance remains pending. |
+
 ## 2026-09-30 - P12b-43 Mini Chat window (20260930-64)
 
 **Verified working**

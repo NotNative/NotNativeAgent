@@ -2,6 +2,15 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-44 Mini Chat shortcut wiring (20260930-65)
+
+The registered `new_mini_chat` action now opens the same current-session or
+draft Mini Chat as the toolbar control. The adversarial review confirmed it
+uses the existing customizable shortcut router and preserves the Windows
+AltGr text-entry guard. UI tests pass 1453/1453 with one worker and workspace
+typechecks pass. Managed remote install/start, password login issuance,
+updater, and installed GUI acceptance remain open P12 work.
+
 ## 2026-09-30 · P12b-43 Mini Chat window (20260930-64)
 
 The desktop shell can now open a separate Mini Chat window for the current

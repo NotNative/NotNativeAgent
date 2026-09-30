@@ -48,7 +48,7 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 224 | 93 |
+| UI shell | Runtime adaptation | 225 | 93 |
 | UI shell | Client sync and state engine | 77 | 37 |
 | UI shell | Harness SDK facade | 64 | 52 |
 | Client sync and state engine | Harness SDK facade | 51 | 36 |
@@ -70,4 +70,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:920bfecb7fea085a6c8e7c8ab5162dd2a87649c6bf454e03fac4cc43f8ebeee8`.
+Source fingerprint: `sha256:a5a62455431419be3abb0cd599f79f4e455681eb0b668cb86f34cf241032508d`.
