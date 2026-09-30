@@ -5,8 +5,8 @@ ff3cf819a5ddf0e551d608142584439011c70a96bdf0add899261b1662e1467e *docs/architect
 368cf30b7dfbdccfcb5bf09a1de0d2d559b0296273c569d5877eaa51d54575ab *docs/architecture/dependency-registry.json
 659969cd5574bb4edd2e388f72674b51283b24621b820ea8c98532b8a137f4bf *docs/architecture/nnd-terminology.json
 7bb44f94e22e9189926f336474ba8d6b2c4d7b29d799b31da7360503328c9159 *docs/architecture/README.md
-d256c476d08707961b9a9896b47791b390a471300ce891fbb77a91c675e2eb7d *docs/architecture/repository-graph.json
-f3b849f69b14cc962a1a4fe81727eab63b0744e808e772e5971e1ac82c243153 *docs/architecture/repository-graph.md
+433d1b5141200a04efe5caba7366ae8938742995058586dc8195efac48c020f2 *docs/architecture/repository-graph.json
+33db2ce6cb91ebbf062607e80934fa0f2896025bd0cc3cb848935a29f0ab2a92 *docs/architecture/repository-graph.md
 e405bb1cf362a38c1ca46b7d6da474e9da565cf5edc873fc15305bd56ad723b0 *docs/build/DECISIONS.md
 2b50f9a61f4f4a034e84744b209d91b66e56771780c1f571bd9adff0f537a553 *docs/build/EVALUATION.md
 addd4ffa70f5047445950803c63235ec90eaf3f6c1614b39bb6e4591b8acef7f *docs/build/GUI-PLAN.md
@@ -26,7 +26,7 @@ f6a394ef52dd9ec92d8a54edc805040e70134232f8b177963f55ff32700ec6e7 *docs/build/NOT
 9944b85a02ac07ec3df928eac900133c1914e8a4729b5fa832577c6b46ea36d1 *docs/build/NOTES/12-autonomy-and-orchestration.md
 aaadf6c38d2e3773078ee5fb517c9888ed6422f7bc40f4eba960f9f1dc6608b3 *docs/build/NOTES/13-preview-and-inspection.md
 e45d41550d2525357292e74d53a16caedb72a8ea583efbe3c62e5a0aa45b9f88 *docs/build/NOTES/14-theme-settings-system.md
-367fa31d3780c24be1473145bd519a77515ea4709f3e30cceccb943774c288fb *docs/build/NOTES/15-knowledge-context-skills.md
+9960f301d3be0272a624f8c488840faccd793ec000de360ef3be48ab170d45b3 *docs/build/NOTES/15-knowledge-context-skills.md
 d4037fd45284dad5f6fd367476f87855c9625b8e68ee99318db7eb3fb3f6b970 *docs/build/NOTES/16-architecture-and-upstream-alignment.md
 3be43c0445383f65740d93a2904785b291aa6169e93e79b31c16dbbf7dc9b49a *docs/build/NOTES/17-nnd-gui-north-star.md
 6184e78ca775ff13d3e32901c7ca299d5308d8497175fba96a3d1052ff83c7ef *docs/build/NOTES/18-nna-operator-surface-contract.md
@@ -34,7 +34,7 @@ f5f82e48610e230a866efac231db09de7e82231a9cb408c824c4bef7e9dde054 *docs/build/NOT
 777552b12440de2f77328fe2408f93b8e92c806950a73c5808554c1fd140e4af *docs/build/NOTES/p12b-review-band-notes.md
 41aa66c05bf5a154db57c5928532ff28de17a0172420c5395fca71c770577bad *docs/build/NOTES/p12b-session-product-notes.md
 d9b1a430d4dcf82ed3f30e77bbd1336c63738946b985ff66221c6eef02c69e5f *docs/build/PLAN.md
-0f2924eb4b1bba75c7e6c344c940345685867e8d8d262304cbc800ddbb001175 *docs/build/PROGRESS.md
+ce3e2be9c2b2169abc50eab919853132ba90e54bfacdbb29db4dd5c0b3bc62f5 *docs/build/PROGRESS.md
 fdcdc1ac8a3a519a85d9ba9e8f8ebb3d350f22c3a1c8899a546ee7030a962dfb *docs/planning/00-INDEX.md
 247db0e602d1fa55c9a1f6b03f68d164f9d62377ed122c54845262abb1f02ce4 *docs/planning/01-architecture-and-app-shell.md
 95b41b6649e3fb113530679c7b205549dd9e32cfc6bdd91d401b041904dfd75e *docs/planning/02-opencode-harness-contract.md
@@ -50,8 +50,8 @@ af0ca86fb619203dde2e97bb15838bf2bac1dc31a61fd74bd17f7bc7566256e0 *docs/planning/
 347dc1ed367af3b3443bbd035bcaae699c68e3c06f9a4a8ca8564af4617fdab4 *docs/planning/12-autonomy-and-orchestration.md
 0bad0612a9010dbcf1a4026ad8b2621f9d99b2edc762f3f4a1788c0f59a88eed *docs/planning/13-preview-and-inspection.md
 a4c51e68981b876ca247023291f9ddec1f2bb45ed95e9f875005e80d70b2551a *docs/planning/14-theme-settings-system.md
-015a44f602cd307c2db78aaef705349b64976ef9ff1e220257572bd1b7d262ce *docs/planning/15-knowledge-context-skills.md
-394af2c2c8988fc69995477bb8d7c35da63e061a2815b6f87f675efd874cc39c *package.json
+389ded477fdb975bd55909f1bb5db8b2f0bbe360bfe6a36243ef7a72d66f1601 *docs/planning/15-knowledge-context-skills.md
+e26f6e604b47a5f082385363f232851e203413558512e7894d19035cacd32dd5 *package.json
 ccf889e33708d72789a05b803725d95765ed793a28e6f1d971acd8c012057d18 *packages/ui/src/App.tsx
 4f8ba3e404c817fef847b47c58f606e0c9aedf84b36989481443def2fe1beccf *packages/ui/src/chat/__tests__/archive-view.test.tsx
 e57c318e9e6cd92e0b022f7a7108dc0612abc3c951b015678536ccd5ea638697 *packages/ui/src/chat/__tests__/blocking-cards.test.tsx
@@ -220,7 +220,7 @@ de9469facb041241d28d67fc0b8bed509a52d81e9f5f9572fa6e5e134a277b15 *packages/ui/sr
 38f00f3775b85720c2d0721d148726839d1c612888b8f60a34b518cf51e5302b *packages/ui/src/components/plan/__tests__/plan-view.test.tsx
 e1ff341be4e8972744575f00354f1d157a7b76faa736457f22132b3519b216b6 *packages/ui/src/components/plan/PlanView.tsx
 4a12f72965bb4b2c0947604c894e2e8c1f61fb88ac670102480dca040e8e0e8a *packages/ui/src/components/scheduled/__tests__/scheduled-task-editor-dialog.test.tsx
-751f789aa63a73521a33038070f08e28893d1f2aec059a5f47af4cba9416fee5 *packages/ui/src/components/scheduled/__tests__/scheduled-task-schedule-editor.test.tsx
+6c87434d61c068f8bec0c180d7b20bf1b1f8e30638e9dfe61930a9f1b827033d *packages/ui/src/components/scheduled/__tests__/scheduled-task-schedule-editor.test.tsx
 7473f20aa40bcfbfa663cf57d82c1a80afb69c98c50c9d070d5b735344ba81dd *packages/ui/src/components/scheduled/__tests__/scheduled-tasks-dialog.test.tsx
 9ac29dc4d460578dab7686cea14f927a7c48e1c3879471004b6fe8eaab11db28 *packages/ui/src/components/scheduled/schedule-form.ts
 424bff59005b47b4505737438569049c2a1a78938f721fed99729b877ea26c5b *packages/ui/src/components/scheduled/scheduled-shell-wiring.tsx
@@ -276,7 +276,7 @@ c053f512dcd76dce45a2e2438b74e3d6daefde7e9103cd53c17ee96a8d677289 *packages/ui/sr
 5df2bc515b339d1a453ef4b79cc44d53964cbd287063f16b965ca8783582400b *packages/ui/src/lib/__tests__/p10-system-reminders.test.ts
 84629a0a2a1771bb5cafa05993895289d6983515bdb3dc62f3600ef7c83db5e4 *packages/ui/src/lib/__tests__/pairing.test.ts
 3ec144a503d687a8d4f9b35179b83adb2e2516c91ce023b61e0bfc9df70b11a1 *packages/ui/src/lib/__tests__/passkeys.test.ts
-b1c764bd19b68bad2a3780735988a0353a671d64c3028655536478ddde0d8a28 *packages/ui/src/lib/__tests__/project-context-api.test.ts
+bc28bf8ef6a4d0b576ce3d8d0d292c9fabcf98e1ab50fbfbb540952c89e0ab3f *packages/ui/src/lib/__tests__/project-context-api.test.ts
 57e596e3c5a570c712d1dfb7bfeafe43b38a76ea30faa25ce19f01a2e7db0865 *packages/ui/src/lib/__tests__/redact-url.test.ts
 e89d1394856fafbf0d19b8e50163a2ad009da3e48caeaf190f0963499b237c9c *packages/ui/src/lib/__tests__/runtime-auth-expiry.test.ts
 c3809bfbb42e3773d501dc1ba0a9008a24d18f55d148e974d7febe165ed817cd *packages/ui/src/lib/__tests__/runtime-auth.test.ts
@@ -603,7 +603,8 @@ af2c20cab3413bc0763d6c72a6e8580ae21eef560da92d078e4b021974038f48 *packages/web/s
 b1ee44c35ca44d77a0de99e842baf226320284630d011ea47e8cfb54d4c543cb *packages/web/src/server/__tests__/p10-agent-memory.test.ts
 9a031d022545372d4c244972674e64920214848aac1bfdff80acb23b7b5c87fb *packages/web/src/server/__tests__/p10-assist-metadata.test.ts
 d3efeb50ba29f375c4f607f5a30b07bd6ac5cd29e6413db1d0c37f1738043b35 *packages/web/src/server/__tests__/p10-context-obligatory.test.ts
-83cdd81869efce54645c84ece584e7208ca04a23cfd0e10b411dc2fc166655a8 *packages/web/src/server/__tests__/p10-context-store.test.ts
+b305e11a0004c079b1726f6caa89e3c707d848de1f389fee110ff28eaf3ce476 *packages/web/src/server/__tests__/p10-context-store.test.ts
+7eb7472e7b449b7c472fa301dabbf3122ad70d6992a9970e9a5d8e518e0faf65 *packages/web/src/server/__tests__/p10-durable-legacy-context.test.ts
 f89fa8de8fea5f793130abb4c1010e5b025826b0ede279cdf70e3c41d6e6c50d *packages/web/src/server/__tests__/p10-legacy-plan-migration.test.ts
 a717d6c0ec1db8455f2a792fa51f823386bb8971d1f40be2ccc732b7aecee9ab *packages/web/src/server/__tests__/p10-markdown-image-grants.test.ts
 b732904ed52472fd94ef1642030e8bd4417cee2c4ac3af82154e9f788944b4a0 *packages/web/src/server/__tests__/p10-markdown-image-parser.test.ts
@@ -793,8 +794,8 @@ cd4ba0ea80a951bf9029a770a422d4cf43815f9ed701a75560da7a9da2766cd9 *packages/web/s
 f4bfda62aa6e312acc6a74b9c865c755867bcb1b88ae53bf9f2b1e00800e735b *packages/web/src/server/preview/probe-url.ts
 ba249f03decdef88e1d366a8ff50bcd5b2846bae83ae175165d7c2c86a26cdf2 *packages/web/src/server/project-context/agent-memory-ownership.ts
 cc752e4070fbf515a739360ca079ffb00fd6067a6a51043e95b2daac7f143642 *packages/web/src/server/project-context/agent-memory.ts
-68538b049ee5bbb156f837c5371cfadcb231f4a6a353eccbde6fb24fe2e09f8c *packages/web/src/server/project-context/context-store.ts
-4a73aee1b80655fea9f461922a695c8e3b1f80a55d617728765619abb280d23c *packages/web/src/server/project-context/legacy-plan-migration.ts
+7e86c7fcb071e3179b0f6e9b7ecdcbf74ee8bdddca2aee1b1b1d131b50f22239 *packages/web/src/server/project-context/context-store.ts
+37f60a9038b90678604e4c9386b8de31a35d38ec12ea5d03e74e724001fa8f8f *packages/web/src/server/project-context/legacy-plan-migration.ts
 f90725a98fa14b3f0f2dbcc9d7dcf0eaa3435092fff121c35be6f0bb286adf08 *packages/web/src/server/project-context/plan-store.ts
 2a7de0e662fae5e3f27a175b9d1231e7e396e287888a26de2e3a3b20999eab4a *packages/web/src/server/project-context/shared-plans.ts
 a59a4058e71b0c09afe13589f062c44bd6572d229d11957091d2ce181a8076d2 *packages/web/src/server/project-context/todo-schema.ts
@@ -825,7 +826,7 @@ a37e085805f1267cee77ebf185fbef61ceb7f2c396e52ea506ab218b5e8dcc84 *packages/web/s
 c4745ab7671511f93cc47c8d51fbb93c3138c055ea623adfa9511e0d52686595 *packages/web/src/server/routes/markdown-image-grants.ts
 6e114643eb9adbf50647c2c93c894421f19196f6fe4a8a786fde96673cc6c1be *packages/web/src/server/routes/mcp-config.ts
 f805cabb2e9276a6875de3c0fd1fdd181d7f19263517470ff89987484439c812 *packages/web/src/server/routes/notnative.ts
-a84c4ff97d0901fac5b24f16e8b531ab7129e03e211959de8610f60f40cac219 *packages/web/src/server/routes/projects.ts
+65fcb66cded5d753b443ee4c8fd3dbc71c2270c6e04ce378ab9a60ab186cc812 *packages/web/src/server/routes/projects.ts
 d4acd73f1241e535d59d5ccde0951071a5748580e21ce6468b112a574cf0c8ee *packages/web/src/server/routes/relay.ts
 77500cf07af021443a172b2afb33ed92447c55da20257f196afaf2ae671d4ff1 *packages/web/src/server/routes/scheduled-tasks.ts
 6a400a8515e10190a61121db8c042062880301ba58d052cbfdcfc7223570c869 *packages/web/src/server/routes/session-folders.ts
@@ -912,4 +913,4 @@ e5e91435f0cd1c16919a0303ed5deb028ff7dda2ddf7d6fb8d0ec8cc6dfcb5a7 *scripts/smoke-
 7d1a741bbc75a1eb040f655b3fe3ad9f05f064039325720c308f71c100b44b9b *scripts/web-css-gate.mjs
 9dc68711721df6346e5d1e1ab33e131fa1acaf8fb4391e723d275f7571afb2cf *scripts/web-serve.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-e8bf198851fa7efd8caf6bf4f5dc8f273726dc2e56c8f885952603e213524aec *VERSION
+02e71e4fe0d08d60c0cfa35e3c9fa81f5de76d8d77a36c10ae549673fca8f36d *VERSION

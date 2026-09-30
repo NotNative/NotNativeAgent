@@ -620,6 +620,10 @@
     {
       "version": "20260930-1",
       "content_sha256": "ec399496d54bc53d25f50e2020df14d17a98c0ed7d1d0f18ffbed7d5adcb1cd1"
+    },
+    {
+      "version": "20260930-3",
+      "content_sha256": "8245da08472948d646b0524f2ae66940b3e9774493b94d1edd1d18e912327e5d"
     }
   ]
 }
