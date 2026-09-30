@@ -3,22 +3,27 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_LIMIT = 64;
 const FILE_LIMIT = 8 * 1024 * 1024;
 const ID_PATTERN = /^[A-Za-z0-9_.:\\/-]{1,256}$/u;
 const TEXT_PATTERN = /^[^\r\n\t\0]{1,1000}$/u;
+const SUMMARY_PATTERN = /^[^\r\n\t\0]{1,600}$/u;
+const SCOPE_PATTERN = /^(?:staged|working)$/u;
+const PATH_PATTERN = /^[^\r\n\0]{1,4096}$/u;
 const TITLE_PATTERN = /^[^\r\n\t\0]{1,120}$/u;
 
-export type CachedChapter = { id: string; explanation: string };
+export type CachedStop = { id: string; explanation: string; scope: 'staged' | 'working'; path: string;
+  oldPath?: string; oldStart: number; newStart: number };
+export type CachedChapter = { title: string; summary?: string; stops: CachedStop[] };
 export type CachedWalkthrough = {
   revision: string;
-  chapters: { title: string; stops: CachedChapter[] }[];
+  chapters: { title: string; summary?: string; stops: CachedStop[] }[];
   omittedSensitiveHunks: number;
   providerID: string;
   modelID: string;
 };
-type CacheDocument = { version: 1; entries: Record<string, CachedWalkthrough & { savedAt: number }> };
+type CacheDocument = { version: typeof CACHE_VERSION; entries: Record<string, CachedWalkthrough & { savedAt: number }> };
 
 function objectOf(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -40,20 +45,37 @@ export function validCachedWalkthrough(value: unknown): CachedWalkthrough | null
     || !TEXT_PATTERN.test(boundIdentity(record.providerID, 512))
     || !TEXT_PATTERN.test(boundIdentity(record.modelID, 1024))) return null;
   if (!Array.isArray(record.chapters) || record.chapters.length === 0 || record.chapters.length > 12) return null;
-  const chapters: CachedWalkthrough['chapters'] = [];
+  const chapters: CachedChapter[] = [];
+  const stopIds = new Set<string>();
   for (const rawChapter of record.chapters) {
     const chapter = objectOf(rawChapter);
     const title = boundIdentity(chapter?.title, 128);
-    if (!TITLE_PATTERN.test(title) || !Array.isArray(chapter!.stops)) return null;
-    const stops: CachedChapter[] = [];
+    const summaryRaw = chapter?.summary === null || chapter?.summary === undefined
+      ? null : boundIdentity(chapter.summary, 600);
+    if (!TITLE_PATTERN.test(title) || !Array.isArray(chapter!.stops)
+      || (summaryRaw !== null && !SUMMARY_PATTERN.test(summaryRaw))) return null;
+    const stops: CachedStop[] = [];
     for (const rawStop of chapter!.stops.slice(0, 200)) {
       const stop = objectOf(rawStop);
-      if (stop === null || !ID_PATTERN.test(boundIdentity(stop.id, 128))
-        || !TEXT_PATTERN.test(boundIdentity(stop.explanation, 1024))) return null;
-      stops.push({ id: boundIdentity(stop.id, 128), explanation: boundIdentity(stop.explanation, 1024) });
+      const id = boundIdentity(stop?.id, 128);
+      const explanation = boundIdentity(stop?.explanation, 1024);
+      const scope = boundIdentity(stop?.scope, 16);
+      const path = boundIdentity(stop?.path, 4096);
+      const oldPathRaw = stop?.oldPath === undefined ? null : boundIdentity(stop.oldPath, 4096);
+      const oldStart = integerAtLeast(stop?.oldStart, 0);
+      const newStart = integerAtLeast(stop?.newStart, 0);
+      if (stop === null || !ID_PATTERN.test(id) || !TEXT_PATTERN.test(explanation)
+        || !SCOPE_PATTERN.test(scope) || !PATH_PATTERN.test(path)
+        || oldStart === null || newStart === null
+        || oldPathRaw !== null && !PATH_PATTERN.test(oldPathRaw)) return null;
+      const item: CachedStop = { id, explanation, scope: scope as CachedStop['scope'], path, oldStart, newStart,
+        ...(oldPathRaw ? { oldPath: oldPathRaw } : {}) };
+      if (stopIds.has(item.id)) return null;
+      stopIds.add(item.id);
+      stops.push(item);
     }
     if (stops.length === 0) return null;
-    chapters.push({ title, stops });
+    chapters.push({ title, ...(summaryRaw ? { summary: summaryRaw } : {}), stops });
   }
   const omitted = integerAtLeast(record.omittedSensitiveHunks, 0);
   if (omitted === null) return null;
@@ -118,6 +140,15 @@ export class WalkthroughCache {
       return null;
     }
     return entry;
+  }
+
+  delete(key: string): void {
+    if (!ID_PATTERN.test(key)) return;
+    this.ensure();
+    if (Object.hasOwn(this.document!.entries, key)) {
+      delete this.document!.entries[key];
+      this.persist();
+    }
   }
 
   set(key: string, value: CachedWalkthrough): void {

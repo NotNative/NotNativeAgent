@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { WalkthroughCache } from '../lib/walkthrough/cache.ts';
+import { validCachedWalkthrough, WalkthroughCache } from '../lib/walkthrough/cache.ts';
 import { sessionIdentity, walkthroughCacheKey } from '../lib/walkthrough/identity.ts';
 import { sourceKey } from '../routes/git-walkthrough-sources.ts';
 import { generateWalkthrough } from '../routes/git-walkthrough-generate.ts';
@@ -36,16 +36,19 @@ describe('walkthrough durable cache', () => {
     await cache.flush();
 
     const reloaded = new WalkthroughCache(file);
-    const key = walkthroughCacheKey('walkthrough-cache-v1', '/test-root', sourceKey({ kind: 'working-tree', scope: 'all' }),
+    const key = walkthroughCacheKey('walkthrough-cache-v2', '/test-root', sourceKey({ kind: 'working-tree', scope: 'all' }),
       sessionIdentity({ providerID: 'provider', modelID: 'model' }), 'en', snapshot());
     expect(reloaded.get(key)).not.toBeNull();
     expect(reloaded.size).toBe(1);
     const answer = await generateWalkthrough('/repo', 'ses_test', revision, ports, 'all',
-      { cache: reloaded, language: 'en' }) as { chapters: { stops: { id: string; explanation: string }[] }[]; providerID: string };
+      { cache: reloaded, language: 'en' }) as {
+      chapters: { title?: string; stops: { id: string; explanation: string; scope: 'staged' | 'working';
+        path: string; oldStart: number; newStart: number }[] }[]; providerID: string; modelID: string };
     expect(calls).toBe(3);
     expect(answer).toMatchObject({ providerID: 'provider', modelID: 'model', revision,
-      chapters: [{ stops: [{ id: stop.id, explanation: 'The value changes.' }] }] });
-    expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ version: 1 });
+      chapters: [{ title: 'Behavior', stops: [{ id: stop.id, explanation: 'The value changes.',
+        scope: stop.scope, path: stop.path, oldStart: stop.oldStart, newStart: stop.newStart }] }] });
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ version: 2 });
     expect(Object.keys(JSON.parse(readFileSync(file, 'utf8')).entries)).toHaveLength(1);
   });
 
@@ -69,5 +72,37 @@ describe('walkthrough durable cache', () => {
     await generateWalkthrough('/repo', 'ses_test', `b${'b'.repeat(63)}`, ports, 'all', { cache, language: 'en' });
     await generateWalkthrough('/repo', 'ses_test', `c${'b'.repeat(63)}`, ports, 'all', { cache, language: 'en' });
     expect(modelCalls).toBe(2);
+  });
+
+  it('evicts a cache hit whose stop metadata disagrees with the live snapshot and regenerates', async () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'nnd-walkthrough-')), 'walkthrough-cache.json');
+    const cache = new WalkthroughCache(file);
+    const key = walkthroughCacheKey('walkthrough-cache-v2', '/test-root', sourceKey({ kind: 'working-tree', scope: 'all' }),
+      sessionIdentity({ providerID: 'provider', modelID: 'model' }), 'en', snapshot());
+    cache.set(key, { revision, chapters: [{ title: 'Wrong capture', stops: [{ id: stop.id,
+      explanation: 'Stale metadata.', scope: 'working', path: 'wrong.ts', oldStart: 1, newStart: 1 }] }],
+      omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model' });
+    let modelCalls = 0;
+    const ports = { root: () => '/test-root', snapshot: () => snapshot(), call: async (request: Request) => {
+      if (new URL(request.url).pathname.endsWith('/session/ses_test')) {
+        return json({ directory: '/repo', model: { providerID: 'provider', id: 'model' } });
+      }
+      modelCalls += 1;
+      return json({ revision, text: modelAnswer, providerID: 'provider', modelID: 'model' });
+    } };
+
+    const answer = await generateWalkthrough('/repo', 'ses_test', revision, ports, 'all', { cache, language: 'en' }) as {
+      chapters: { title: string }[];
+    };
+    expect(modelCalls).toBe(1);
+    expect(answer.chapters[0]?.title).toBe('Behavior');
+    expect(cache.get(key)?.chapters[0]?.title).toBe('Behavior');
+  });
+
+  it('discards records whose server-owned stop metadata is malformed', () => {
+    const chapters = [{ title: 'Behavior', stops: [{ id: stop.id, explanation: 'Complete.', scope: 'working',
+      path: 'a.ts', oldStart: '1', newStart: 1 }] }];
+    expect(validCachedWalkthrough({ revision, chapters, omittedSensitiveHunks: 0,
+      providerID: 'provider', modelID: 'model' })).toBeNull();
   });
 });

@@ -7,7 +7,7 @@ import { cancelWalkthroughStage, fetchWalkthroughStage, generateWalkthroughPrevi
 const request = runtimeFetch as ReturnType<typeof vi.fn>;
 const snapshot = { signature: 'server-revision', fileCount: 1, binaryFiles: 0, stops: [
   { id: 'working:a.ts:abcd1234', scope: 'working', path: 'a.ts', header: '@@ -1 +1 @@',
-    oldStart: 1, newStart: 1, body: '-old\n+new' },
+    oldStart: 1, newStart: 1, body: '-old\n+new' } as const,
 ] };
 beforeEach(() => request.mockReset());
 
@@ -42,7 +42,11 @@ describe('deterministic walkthrough client', () => {
   });
 
   it('sends an explicit revision-bound generation request', async () => {
-    request.mockResolvedValue(new Response(JSON.stringify({ revision: 'rev1', chapters: [], omittedSensitiveHunks: 0 }), { status: 200 }));
+    request.mockResolvedValue(new Response(JSON.stringify({
+      revision: 'rev1', chapters: [{ title: 'Behavior', stops: [{ id: snapshot.stops[0]!.id,
+        explanation: 'It changes.', scope: 'working', path: 'a.ts', oldStart: 1, newStart: 1 }] }],
+      omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
+    }), { status: 200 }));
     await generateWalkthroughPreview('/repo', 'ses_test', 'rev1');
     expect(request.mock.calls[0]?.[0]).toBe('/api/git/walkthrough-generate');
     const init = request.mock.calls[0]?.[1] as RequestInit;
@@ -52,6 +56,37 @@ describe('deterministic walkthrough client', () => {
         language: 'en',
       source: { kind: 'working-tree', scope: 'all' },
     });
+  });
+
+  it('rejects a successful narrative whose stop facts reject the live snapshot', async () => {
+    request.mockResolvedValue(new Response(JSON.stringify({
+      revision: 'rev1', chapters: [{ title: 'Behavior', stops: [{
+        id: snapshot.stops[0]!.id, explanation: 'It changes.', scope: snapshot.stops[0]!.scope,
+        path: 'wrong.ts',
+        oldStart: 1, newStart: 1,
+      }] }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
+    }), { status: 200 }));
+    await expect(generateWalkthroughPreview('/repo', 'ses_test', 'rev1',
+      'all', 'en', snapshot.stops)).rejects.toThrow(/Invalid generated walkthrough response/u);
+  });
+
+  it('rejects malformed nested chapters without trusting their shape', async () => {
+    request.mockResolvedValue(new Response(JSON.stringify({
+      revision: 'rev1', chapters: [null], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
+    }), { status: 200 }));
+    await expect(generateWalkthroughPreview('/repo', 'ses_test', 'rev1', 'all', 'en', snapshot.stops))
+      .rejects.toThrow(/Invalid generated walkthrough response/u);
+  });
+
+  it('rejects generated prose outside the bounded schema', async () => {
+    request.mockResolvedValue(new Response(JSON.stringify({
+      revision: 'rev1', chapters: [{ title: 'Behavior', summary: 's'.repeat(601), stops: [{
+        id: snapshot.stops[0]!.id, explanation: 'It changes.', scope: snapshot.stops[0]!.scope,
+        path: snapshot.stops[0]!.path, oldStart: 1, newStart: 1,
+      }] }], omittedSensitiveHunks: 0, providerID: 'provider', modelID: 'model',
+    }), { status: 200 }));
+    await expect(generateWalkthroughPreview('/repo', 'ses_test', 'rev1', 'all', 'en', snapshot.stops))
+      .rejects.toThrow(/Invalid generated walkthrough response/u);
   });
 
   it('polls and cancels the explicit server-side generation lifecycle', async () => {

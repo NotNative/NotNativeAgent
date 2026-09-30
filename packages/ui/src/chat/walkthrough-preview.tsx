@@ -116,7 +116,7 @@ function useWalkthroughNarrative(directory: string, source: SelectedSource | nul
     try {
       const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
       const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, selected,
-        useI18nStore.getState().locale, model);
+        useI18nStore.getState().locale, preview.stops, model);
       if (id === request.current) setRecord({ directory, source: source as SelectedSource, sessionId, value });
     } catch (cause) {
       if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');
@@ -416,7 +416,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
       </div>
       <nav aria-label="Diff hunk stops" className="max-h-40 overflow-y-auto border-b border-white/10 p-2">
         {narrative?.chapters.map((chapter, index) => <div key={`${chapter.title}:${index}`} className="px-2 py-1 text-[11px] text-neutral-300">
-          {chapter.title} · {chapter.stops.length} stop(s)
+          {chapter.title}{chapter.summary ? `: ${chapter.summary}` : ''} · {chapter.stops.length} stop(s)
         </div>)}
         {preview.stops.map((item, index) => <button key={item.id} type="button" aria-current={index === active ? 'step' : undefined}
           className={`block w-full truncate rounded px-2 py-1 text-left text-[11px] ${index === active ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
@@ -426,7 +426,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
         <div className="sticky top-0 bg-neutral-950 py-1 text-xs text-neutral-200">{sourceIdentity(source)} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
         {narrative?.chapters.flatMap((chapter) => chapter.stops.map((item) => ({ ...item, chapter: chapter.title })))
           .filter((item) => item.id === stop.id).map((item) => <div key={item.id} className="mb-2 rounded border border-white/10 p-2 text-xs text-neutral-200">
-            <div className="mb-1 text-[11px] text-neutral-400">{item.chapter} · model explanation</div>{item.explanation}
+            <div className="mb-1 text-[11px] text-neutral-400">{item.chapter} · {item.path} · old:{item.oldStart} new:{item.newStart} · model explanation</div>{item.explanation}
           </div>)}
         <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-neutral-300" data-testid="walkthrough-hunk">{stop.header}{'\n'}{stop.body}</pre>
       </div>

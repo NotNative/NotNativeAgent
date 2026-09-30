@@ -19,6 +19,7 @@ const stageFetch = fetchWalkthroughStage as ReturnType<typeof vi.fn>;
 const stageCancel = cancelWalkthroughStage as ReturnType<typeof vi.fn>;
 let container: HTMLDivElement;
 let root: Root;
+const explained = (path: string, explanation: string) => ({ ...stop(path), explanation });
 const stop = (path: string) => ({ id: `working:${path}:1:1:0`, scope: 'working', path, header: '@@ -1 +1 @@', oldStart: 1, newStart: 1,
   body: '-old\n+new' });
 
@@ -101,15 +102,17 @@ describe('WalkthroughPreviewSurface', () => {
   });
 
   it('generates only on explicit click and shows prose beside its server-owned hunk', async () => {
-    generate.mockResolvedValue({ revision: 'rev1', chapters: [{ title: 'Behavior', stops: [
-      { id: stop('a.ts').id, explanation: 'The output value changes.' },
+    generate.mockResolvedValue({ revision: 'rev1', chapters: [{ title: 'Behavior', summary: 'One behavior change.', stops: [
+      explained('a.ts', 'The output value changes.'),
     ] }], omittedSensitiveHunks: 1, providerID: 'local', modelID: 'small' });
     await render();
     expect(generate).not.toHaveBeenCalled();
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(document.body.textContent).toContain('The output value changes.');
+    expect(document.body.textContent).toContain('Behavior: One behavior change.');
     expect(document.body.textContent).toContain('1 sensitive-path hunk(s) were not sent');
-    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all', 'en', '');
+    expect(generate).toHaveBeenCalledWith('/repo', 'ses_test', 'rev1', 'all', 'en',
+      [stop('a.ts'), stop('b.ts')], '');
     load.mockResolvedValue({ signature: 'rev2', fileCount: 1, stops: [stop('c.ts')] });
     await act(async () => { window.dispatchEvent(new Event('focus')); await Promise.resolve(); });
     expect(document.body.textContent).not.toContain('The output value changes.');
@@ -122,11 +125,11 @@ describe('WalkthroughPreviewSurface', () => {
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); });
     await act(async () => { root.render(<WalkthroughPreviewSurface directory="/repo" sessionId="ses_other" visible />); });
     await act(async () => { finish?.({ revision: 'rev1', chapters: [{ title: 'Late', stops: [
-      { id: stop('a.ts').id, explanation: 'Must not appear.' },
+      explained('a.ts', 'Must not appear.'),
     ] }], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small' }); });
     expect(document.body.textContent).not.toContain('Must not appear.');
     generate.mockResolvedValue({ revision: 'rev1', chapters: [{ title: 'Current', stops: [
-      { id: stop('a.ts').id, explanation: 'Refresh must clear this.' },
+      explained('a.ts', 'Refresh must clear this.'),
     ] }], omittedSensitiveHunks: 0, providerID: 'local', modelID: 'small' });
     await act(async () => { (document.querySelector('button:nth-of-type(2)') as HTMLButtonElement).click(); });
     expect(document.body.textContent).toContain('Refresh must clear this.');

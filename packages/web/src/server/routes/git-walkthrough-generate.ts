@@ -20,7 +20,11 @@ const MAX_DIGEST_BYTES = 64_000;
 const MAX_TEXT = 65_536;
 type Snapshot = ReturnType<typeof getWalkthroughSnapshot>;
 type ModelStop = { alias: string; explanation: string };
-type ModelChapter = { title: string; stops: ModelStop[] };
+type ModelChapter = { title: string; summary?: string; stops: ModelStop[] };
+export type WalkthroughStopMetadata = { id: string; scope: 'staged' | 'working'; path: string;
+  oldPath?: string; oldStart: number; newStart: number };
+export type WalkthroughChapter = { title: string; summary?: string;
+  stops: (WalkthroughStopMetadata & { explanation: string })[] };
 export type WalkthroughStage = 'collecting' | 'asking' | 'assembling';
 
 export class WalkthroughGenerateError extends Error {
@@ -93,8 +97,11 @@ export function normalizeWalkthrough(text: string, aliases: Map<string, Snapshot
   const chapters: ModelChapter[] = [];
   for (const chapter of raw) {
     if (!chapter || typeof chapter !== 'object' || Array.isArray(chapter)) continue;
-    const shaped = chapter as { title?: unknown; stops?: unknown };
+    const shaped = chapter as { title?: unknown; summary?: unknown; stops?: unknown };
     if (typeof shaped.title !== 'string' || !shaped.title.trim() || shaped.title.length > 120 || !Array.isArray(shaped.stops)) continue;
+    if (shaped.summary !== undefined && shaped.summary !== null
+      && (typeof shaped.summary !== 'string' || !shaped.summary.trim() || shaped.summary.length > 600)) continue;
+    const summary = shaped.summary === undefined || shaped.summary === null ? undefined : shaped.summary.trim();
     const stops: ModelStop[] = [];
     for (const item of shaped.stops.slice(0, 200)) {
       if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
@@ -104,7 +111,7 @@ export function normalizeWalkthrough(text: string, aliases: Map<string, Snapshot
       used.add(stop.alias);
       stops.push({ alias: stop.alias, explanation: stop.explanation.trim() });
     }
-    if (stops.length) chapters.push({ title: shaped.title.trim(), stops });
+    if (stops.length) chapters.push({ title: shaped.title.trim(), ...(summary ? { summary } : {}), stops });
   }
   if (!chapters.length) throw new WalkthroughGenerateError('Model did not explain any current hunk.', 502, 'invalid-walkthrough');
   return chapters;
@@ -116,7 +123,7 @@ function cancelledIfAborted(job: WalkthroughJob): void {
 
 function cacheIdentity(sourceKey: string, root: string, identity: { providerID: string; modelID: string },
   language: string, snapshot: Snapshot) {
-  return walkthroughCacheKey('walkthrough-cache-v1', root, sourceKey, identity, language, snapshot);
+  return walkthroughCacheKey('walkthrough-cache-v2', root, sourceKey, identity, language, snapshot);
 }
 
 function cacheModelIdentity(requested: string | null, owner: unknown): { providerID: string; modelID: string } | null {
@@ -185,10 +192,37 @@ function acceptModelResponse(result: WalkthroughModelResponse | null, snapshot: 
   return result!;
 }
 
+function cachedChaptersMatch(snapshot: Snapshot, cached: { revision: string;
+  chapters: { stops: { id: string; scope: 'staged' | 'working'; path: string; oldPath?: string;
+    oldStart: number; newStart: number }[] }[] }): boolean {
+  if (cached.revision !== snapshot.signature) return false;
+  const byId = new Map(snapshot.stops.map((stop) => [stop.id, stop]));
+  return cached.chapters.flatMap((chapter) => chapter.stops).every((stop) => {
+    const actual = byId.get(stop.id);
+    return actual !== undefined && actual.scope === stop.scope && actual.path === stop.path
+      && actual.oldPath === stop.oldPath && actual.oldStart === stop.oldStart && actual.newStart === stop.newStart;
+  });
+}
+
+function readCachedAnswer(cache: WalkthroughCache, key: string, snapshot: Snapshot, omitted: number): unknown | null {
+  const cached = cache.get(key);
+  if (cached === null) return null;
+  if (!cachedChaptersMatch(snapshot, cached)) {
+    cache.delete(key);
+    return null;
+  }
+  return { revision: snapshot.signature, chapters: cached.chapters,
+    omittedSensitiveHunks: omitted, providerID: cached.providerID, modelID: cached.modelID };
+}
+
 function walkthroughAnswer(chapters: ModelChapter[], snapshot: Snapshot, aliases: Map<string, Snapshot['stops'][number]>, omitted: number, providerID: string, modelID: string) {
-  return { revision: snapshot.signature, chapters: chapters.map((chapter) => ({ title: chapter.title,
-    stops: chapter.stops.map((item) => ({ id: aliases.get(item.alias)!.id, explanation: item.explanation })) })),
-    omittedSensitiveHunks: omitted, providerID, modelID };
+  return { revision: snapshot.signature, chapters: chapters.map((chapter) => ({
+    title: chapter.title, ...(chapter.summary ? { summary: chapter.summary } : {}),
+    stops: chapter.stops.map((item) => {
+      const stop = aliases.get(item.alias)!;
+      return { id: stop.id, explanation: item.explanation, scope: stop.scope, path: stop.path,
+        ...(stop.oldPath ? { oldPath: stop.oldPath } : {}), oldStart: stop.oldStart, newStart: stop.newStart };
+    }) })), omittedSensitiveHunks: omitted, providerID, modelID };
 }
 
 function parseInputs(sessionId: unknown, expected: unknown, directory: unknown, rawSource: unknown): {
@@ -231,12 +265,11 @@ async function runGeneration(input: {
   }
   const identity = cacheModelIdentity(input.requestModel, owner);
   if (identity !== null && input.cache !== undefined) {
-      const cacheKey = cacheIdentity(sourceKey(source), root, identity, input.language, snapshot);
-    const cached = input.cache.get(cacheKey);
+    const cacheKey = cacheIdentity(sourceKey(source), root, identity, input.language, snapshot);
+    const cached = readCachedAnswer(input.cache, cacheKey, snapshot, omitted);
     if (cached !== null) {
       cancelledIfAborted(input.job);
-      return { revision: snapshot.signature, chapters: cached.chapters,
-        omittedSensitiveHunks: omitted, providerID: cached.providerID, modelID: cached.modelID };
+      return cached;
     }
   }
   const response = await ports.call(harnessRequest(`/v1/nnd/sessions/${encodeURIComponent(sessionId)}/walkthrough`, directory, {
