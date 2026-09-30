@@ -17,6 +17,8 @@ describe('DesktopSshCatalog', () => {
     instances = [];
     invoke = vi.fn(async (command: string, payload?: unknown) => {
       if (command === 'desktopSshConfig') return { ok: true, result: { instances } };
+      if (command === 'desktopSshRefreshStatuses') return { ok: true, result: [] };
+      if (command === 'desktopSshConnect') return { ok: true, result: { id: 'ssh-1', phase: 'ready', startedByUs: true, retryAttempt: 0, requiresUserAction: false, updatedAtMs: Date.now() } };
       if (command === 'desktopSshReadConfig') return { ok: true, result: 'Host atlas\n  HostName atlas.example\n' };
       if (command === 'desktopSshCreateFromCommand') {
         const data = payload as { sshCommand: string; nickname?: string };
@@ -89,5 +91,14 @@ describe('DesktopSshCatalog', () => {
     expect(aliasButton.disabled).toBe(true);
     expect(invoke.mock.calls.filter(([command]) => command === 'desktopSshCreateFromCommand')).toHaveLength(1);
     await act(async () => { finishCreate({ ok: true, result: { id: 'ssh-1' } }); await Promise.resolve(); await Promise.resolve(); });
+  });
+
+  it('starts a saved SSH tunnel through the native store bridge', async () => {
+    instances = [{ id: 'ssh-1', sshCommand: 'ssh dev@atlas.example', nickname: 'Atlas' }];
+    await act(async () => { root!.render(<DesktopSshCatalog />); await Promise.resolve(); await Promise.resolve(); });
+    const connect = [...container!.querySelectorAll('button')].find((button) => button.textContent === 'Connect tunnel');
+    expect(connect).toBeDefined();
+    await act(async () => { connect!.click(); await Promise.resolve(); await Promise.resolve(); });
+    expect(invoke).toHaveBeenCalledWith('desktopSshConnect', { id: 'ssh-1' });
   });
 });

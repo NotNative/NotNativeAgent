@@ -28,6 +28,7 @@ import { createLocalPathUtilities } from './local-paths.mjs';
 import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
 import { reconcileDesktopSshHosts, sanitizeDesktopSshInstances } from './ssh-instances.mjs';
 import { readDesktopSshConfigTree } from './ssh-config-reader.mjs';
+import { createDesktopSshTransport } from './ssh-transport.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
@@ -312,7 +313,10 @@ function upsertStoredSshInstance(instance) {
 
 function createStoredSshInstance(sshCommand, nickname) {
   const id = `ssh-${randomUUID()}`;
-  const saved = writeStoredSshInstances([...readStoredSshInstances(), { id, sshCommand, nickname }]);
+  const saved = writeStoredSshInstances([...readStoredSshInstances(), {
+    id, sshCommand, nickname,
+    remoteOpenchamber: { mode: 'external', keepRunning: false, preferredPort: DEFAULT_PORT },
+  }]);
   return saved?.ok === false ? saved : { ok: true, result: { id } };
 }
 
@@ -925,6 +929,14 @@ function appFileUrlPrefix() {
 }
 
 const relayPairingBridge = createRelayPairingBridge({ getWindow: () => mainWindow });
+const desktopSshTransport = createDesktopSshTransport({
+  getInstances: readStoredSshInstances,
+  emitStatus: (status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('openchamber:emit', { event: 'openchamber:ssh-instance-status', detail: status });
+    }
+  },
+});
 const invokeFace = createInvokeFace({
   origin: () => localOrigin(),
   uiOrigin: () => USE_UI_PROTOCOL ? UI_ORIGIN : '',
@@ -956,6 +968,7 @@ const invokeFace = createInvokeFace({
     createFromCommand: createStoredSshInstance,
     readSshConfig: readSshConfigText,
   },
+  sshTransport: desktopSshTransport,
   hostProbe: probeRemoteHost,
   identity: {
     getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
@@ -1097,6 +1110,7 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 app.on('before-quit', () => {
+  desktopSshTransport.dispose();
   relayPairingBridge.closeAll();
   persistWindowState(mainWindow);
   if (!serverHandle) return;

@@ -6,6 +6,15 @@ enumeration, home-directory containment, cycle/symlink rejection, descriptor
 identity validation, and a 1 MiB aggregate read cap. It does not establish an
 SSH process or tunnel; catalog entries remain configuration-only.
 
+P12b-40 adds an external-server tunnel manager. Electron starts OpenSSH with
+`shell:false`, enforces a loopback-only local forward, and marks a connection
+ready only after `/health` identifies `NotNativeDesktop`. Lifecycle IPC is
+local-main-frame-only and status events are buffered by preload. Removing an
+instance tears down its process; duplicate connects and remove/cancel/reconnect
+races have regression coverage. New entries target an existing remote server
+on port 57123. Managed remote install/start, password prompts, and adopting the
+tunnel as the active UI runtime remain outstanding.
+
 Doc 09 (1762 lines) is enormous (full parity = checklist §15 rows 1-14). This file
 carries the slice map + adaptation deltas. **P12a-v1 is the installable shell** —
 the shortest honest path to "run the installer, evaluate the app on Windows" —
@@ -131,9 +140,9 @@ remaining P12 slices ride after it.
   exists; the marker still protects startup if the instance catalog is corrupt.
   The Remote Instances page now edits SSH commands and imports direct `Host`
   aliases from the local SSH config through a bounded main-frame-only read;
-  the preload exposes a validated, buffered status subscription for the future
-  manager. Remaining: SSH connect/disconnect transport and status production,
-  config import, plus general IPC catalog growth (§3.1),
+  the external SSH connect/disconnect tunnel and status production now work.
+  Remaining: managed SSH install/start, password prompts, runtime adoption,
+  plus general IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).

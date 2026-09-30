@@ -2,6 +2,20 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-40 External SSH tunnel lifecycle (20260930-61)
+
+Electron can now start an OpenSSH local forward to an already-running
+NotNativeDesktop server, verify the tunneled `/health` identity, and publish
+connect/cancel/disconnect status through local-main-frame IPC to Settings.
+New catalog entries use the external-server mode on remote port 57123. The
+process uses argv with `shell:false`, disables agent/X11 forwarding and
+unrelated configured forwards, and is torn down on edits/removal or app exit.
+Adversarial review fixed duplicate-connect, cancellation/reconnect ordering,
+false-ready, invalid-edit teardown, and removed-instance ghost-status cases.
+Focused IPC/transport tests pass 29/29; catalog UI tests pass 3/3; workspace
+typechecks pass. Managed install/start, password prompting, runtime selection
+through the tunnel, and installed GUI acceptance remain open P12 work.
+
 ## 2026-09-30 · P12b-39 SSH config Include reader (20260930-60)
 
 The SSH settings reader now expands bounded recursive `Include` globs within

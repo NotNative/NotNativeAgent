@@ -14,7 +14,10 @@ export function DesktopSshCatalog(): ReactNode {
 
   useEffect(() => {
     const unsubscribe = store.subscribe(() => redraw((value) => value + 1));
-    void store.loadConfig();
+    void (async () => {
+      await store.loadConfig();
+      await store.refreshStatuses();
+    })();
     return unsubscribe;
   }, [store]);
 
@@ -53,10 +56,21 @@ export function DesktopSshCatalog(): ReactNode {
     finally { busyRef.current = false; setBusy(false); }
   };
 
+  const transportAction = async (id: string, action: 'connect' | 'disconnect' | 'cancel'): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      if (action === 'connect') await store.connect(id);
+      else if (action === 'disconnect') await store.disconnect(id);
+      else await store.cancelConnecting(id);
+    } finally { busyRef.current = false; setBusy(false); }
+  };
+
   return (
     <section className="mt-5 border-t border-border/50 pt-4" aria-labelledby="desktop-ssh-catalog-title">
       <h3 id="desktop-ssh-catalog-title" className="text-sm font-medium text-foreground">SSH instances</h3>
-      <p className="mb-3 mt-1 text-xs text-muted-foreground">Save an OpenSSH destination or import aliases from your user SSH config. Connection and forwarding controls are still being added.</p>
+      <p className="mb-3 mt-1 text-xs text-muted-foreground">Connect to an existing OpenChamber server through an SSH key or agent. The tunnel targets remote port 57123; password prompts and remote installation are not supported yet.</p>
       {!bridgeAvailable ? <p className="text-xs text-muted-foreground">SSH instances are available in the desktop app.</p> : (
         <>
           <form className="flex flex-col gap-2" onSubmit={(event) => { void add(event); }}>
@@ -82,15 +96,33 @@ export function DesktopSshCatalog(): ReactNode {
               <button type="button" disabled={busy} onClick={() => { void addAlias(candidate.sshCommand, candidate.host); }} className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Add alias</button>
             </div>
           ))}
-          {store.instances.map((instance) => (
-            <div key={instance.id} className="mt-2 flex items-center justify-between gap-3 rounded border border-border/50 px-3 py-2">
+          {store.instances.map((instance) => {
+            const status = store.statuses[instance.id];
+            const connecting = ['config_resolved', 'auth_check', 'master_connecting', 'remote_probe', 'installing', 'updating', 'server_detecting', 'server_starting', 'forwarding'].includes(status?.phase ?? '');
+            return <div key={instance.id} className="mt-2 flex items-center justify-between gap-3 rounded border border-border/50 px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-sm text-foreground">{instance.nickname || instance.sshParsed.destination}</div>
                 <div className="truncate text-xs text-muted-foreground">{instance.sshCommand}</div>
+                {status ? (
+                  <div role="status" className="mt-1 truncate text-xs text-muted-foreground">
+                    {status.phase === 'ready'
+                      ? `Tunnel ready at ${status.localUrl ?? 'local endpoint'}`
+                      : `${status.phase.replaceAll('_', ' ')}${status.detail ? `: ${status.detail}` : ''}`}
+                  </div>
+                ) : null}
               </div>
-              <button type="button" disabled={busy} onClick={() => { void remove(instance.id); }} className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Remove</button>
-            </div>
-          ))}
+              <div className="flex shrink-0 gap-1">
+                {status?.phase === 'ready' ? (
+                  <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'disconnect'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Disconnect</button>
+                ) : connecting ? (
+                  <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'cancel'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Cancel</button>
+                ) : (
+                  <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'connect'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Connect tunnel</button>
+                )}
+              <button type="button" disabled={busy} onClick={() => { void remove(instance.id); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Remove</button>
+              </div>
+            </div>;
+          })}
           {store.loaded && store.instances.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No SSH instances saved.</p> : null}
         </>
       )}

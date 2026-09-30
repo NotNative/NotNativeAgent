@@ -246,7 +246,15 @@ export function createInvokeFace(input, dependencies) {
       if (!input.sshInstances?.upsert || !payload?.instance || typeof payload.instance !== 'object') {
         return { ok: false, error: 'desktop-ssh-unavailable' };
       }
-      return input.sshInstances.upsert(payload.instance);
+      const saved = await input.sshInstances.upsert(payload.instance);
+      // Validate and persist before disrupting a live tunnel. A malformed edit
+      // must not disconnect an instance whose saved configuration is intact.
+      if (saved?.ok === false) return saved;
+      if (input.sshTransport && typeof payload.instance.id === 'string') {
+        const disconnected = input.sshTransport.disconnect(payload.instance.id);
+        if (disconnected?.ok === false) return disconnected;
+      }
+      return saved;
     }
     if (command === 'desktopSshCreateFromCommand') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
@@ -260,7 +268,28 @@ export function createInvokeFace(input, dependencies) {
       if (!input.sshInstances?.remove || typeof payload?.id !== 'string') {
         return { ok: false, error: 'desktop-ssh-unavailable' };
       }
-      return input.sshInstances.remove(payload.id);
+      if (input.sshTransport) {
+        const disconnected = input.sshTransport.disconnect(payload.id);
+        if (disconnected?.ok === false) return disconnected;
+      }
+      const removed = input.sshInstances.remove(payload.id);
+      if (removed?.ok !== false) input.sshTransport?.forgetStatus?.(payload.id);
+      return removed;
+    }
+    if (command === 'desktopSshConnect' || command === 'desktopSshDisconnect'
+      || command === 'desktopSshCancelConnecting' || command === 'desktopSshRetry'
+      || command === 'desktopSshRefreshStatuses') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      const transport = input.sshTransport;
+      if (!transport) return { ok: false, error: 'desktop-ssh-transport-unavailable' };
+      if (command === 'desktopSshRefreshStatuses') return { ok: true, result: transport.getStatuses() };
+      if (typeof payload?.id !== 'string' || payload.id.length === 0 || payload.id.length > 128) {
+        return { ok: false, error: 'desktop-ssh-instance-id-invalid' };
+      }
+      if (command === 'desktopSshConnect') return await transport.connect(payload.id);
+      if (command === 'desktopSshRetry') return await transport.connect(payload.id, { retryAttempt: 1 });
+      if (command === 'desktopSshDisconnect') return transport.disconnect(payload.id);
+      return transport.cancel(payload.id);
     }
     if (command === 'desktop_pairing_redeem_relay_complete') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };

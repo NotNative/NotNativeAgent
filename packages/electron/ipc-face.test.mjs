@@ -237,26 +237,38 @@ test('SSH instance catalog IPC is local-main-frame-only and persists through the
 test('SSH catalog CRUD commands preserve local-main-frame authorization and delegate validated payloads', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const calls = [];
+  const transportCalls = [];
   const invoke = registeredInvoke({ contents, sshInstances: {
     get: () => [], set: () => ({ instances: [] }),
-    upsert: (instance) => { calls.push(['upsert', instance]); return { ok: true, result: { saved: true } }; },
+    upsert: (instance) => {
+      calls.push(['upsert', instance]);
+      return instance.id === 'invalid'
+        ? { ok: false, error: 'desktop-ssh-instance-invalid' }
+        : { ok: true, result: { saved: true } };
+    },
     remove: (id) => { calls.push(['remove', id]); return { ok: true, result: { removed: true } }; },
     createFromCommand: (command, nickname) => { calls.push(['create', command, nickname]); return { ok: true, result: { id: 'ssh-new' } }; },
+  }, sshTransport: {
+    disconnect: (id) => { transportCalls.push(id); return { ok: true }; },
+    forgetStatus: (id) => transportCalls.push(`forget:${id}`),
   } });
   assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConfig'),
     { seq: 7, ok: true, result: { instances: [] } });
   assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshUpsertInstance', { instance: { id: 'ssh-1' } }),
     { seq: 7, ok: true, result: { saved: true } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshUpsertInstance', { instance: { id: 'invalid' } }),
+    { seq: 7, ok: false, error: 'desktop-ssh-instance-invalid' });
   assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshCreateFromCommand', { sshCommand: 'ssh host', nickname: 'host' }),
     { seq: 7, ok: true, result: { id: 'ssh-new' } });
   assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRemoveInstance', { id: 'ssh-1' }),
     { seq: 7, ok: true, result: { removed: true } });
   assert.deepEqual(calls, [
-    ['upsert', { id: 'ssh-1' }], ['create', 'ssh host', 'host'], ['remove', 'ssh-1'],
+    ['upsert', { id: 'ssh-1' }], ['upsert', { id: 'invalid' }], ['create', 'ssh host', 'host'], ['remove', 'ssh-1'],
   ]);
+  assert.deepEqual(transportCalls, ['ssh-1', 'ssh-1', 'forget:ssh-1']);
   const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshCreateFromCommand', { sshCommand: 'ssh stolen' });
   assert.equal(remote.error, 'sender-not-allowed');
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
 });
 
 test('SSH config reads are local-main-frame-only and return only the injected config text', async () => {
@@ -270,6 +282,35 @@ test('SSH config reads are local-main-frame-only and return only the injected co
   });
   assert.equal((await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshReadConfig')).error, 'sender-not-allowed');
   assert.equal(reads, 1);
+});
+
+test('SSH transport actions and status snapshots are available only to the local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const status = { id: 'ssh-1', phase: 'ready', startedByUs: true };
+  const invoke = registeredInvoke({ contents, sshTransport: {
+    connect: async (id, options) => { calls.push(['connect', id, options]); return { ok: true, result: status }; },
+    disconnect: (id) => { calls.push(['disconnect', id]); return { ok: true }; },
+    cancel: (id) => { calls.push(['cancel', id]); return { ok: true }; },
+    getStatuses: () => [status],
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConnect', { id: 'ssh-1' }), {
+    seq: 7, ok: true, result: status,
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRetry', { id: 'ssh-1' }), {
+    seq: 7, ok: true, result: status,
+  });
+  assert.deepEqual((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRefreshStatuses')).result, [status]);
+  await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshDisconnect', { id: 'ssh-1' });
+  await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshCancelConnecting', { id: 'ssh-1' });
+  assert.deepEqual(calls, [
+    ['connect', 'ssh-1', undefined], ['connect', 'ssh-1', { retryAttempt: 1 }],
+    ['disconnect', 'ssh-1'], ['cancel', 'ssh-1'],
+  ]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshConnect', { id: 'ssh-1' });
+  assert.equal(remote.error, 'sender-not-allowed');
+  const malformed = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConnect', { id: 'x'.repeat(129) });
+  assert.equal(malformed.error, 'desktop-ssh-instance-id-invalid');
 });
 
 test('boot runtime configuration is returned only to the desktop local main frame', async () => {

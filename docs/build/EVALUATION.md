@@ -3,6 +3,25 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-40 External SSH tunnel lifecycle (20260930-61)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| SSH process lifecycle | `ssh-transport.test.mjs` verifies argv-only spawn, external forwarding, health-gated readiness, disconnect, timeout cleanup, cancellation, duplicate-connect protection, and reconnect ordering. |
+| IPC and renderer status | Electron IPC tests cover lifecycle commands behind the local-main-frame gate; preload buffers validated status events; SSH catalog UI exposes connect/cancel/disconnect. |
+| Removal/edit safety | Audit regressions confirm invalid edits do not interrupt a tunnel and a removed instance cannot regain status from an in-flight connect. |
+| Focused checks | Electron transport + IPC tests pass 29/29; catalog UI tests pass 3/3; UI and workspace typechecks pass. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Real remote SSH | No live SSH server was available for an end-to-end connection check. |
+| Full SSH/runtime feature | Managed remote install/start, interactive password auth, and app runtime selection through the tunnel remain unimplemented. |
+| Windows GUI acceptance | Package build is a separate gate; interactive installed-app acceptance remains pending. |
+
 ## 2026-09-30 - P12b-39 SSH config Include reader (20260930-60)
 
 **Verified working**

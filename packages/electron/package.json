@@ -24,6 +24,7 @@
       "host-config.mjs",
       "ssh-instances.mjs",
       "ssh-config-reader.mjs",
+      "ssh-transport.mjs",
       "desktop-identity.mjs",
       "deep-links.mjs",
       "desktop-pairing.mjs",
