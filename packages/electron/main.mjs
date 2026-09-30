@@ -62,6 +62,7 @@ const relayDevTunnel =
   createRelayDevTunnelBridge({ createPorts: () => [new MessageChannelMain().port1, new MessageChannelMain().port2] });
 
 let mainWindow = null;
+const miniChatWindows = new Map();
 let serverHandle = null;
 let chosenPort = 0;
 let desktopRuntimeConfig = null;
@@ -530,9 +531,9 @@ function bootFailurePageUrl(message) {
   return `data:text/html,${encodeURIComponent(FAILURE_PAGE_HTML)}#${encodeURIComponent(JSON.stringify({ message: detail, retry: Boolean(serverHandle) }))}`;
 }
 
-function buildInitScript() {
+function buildInitScript(runtimeConfig = desktopRuntimeConfig, bootOutcome = desktopBootOutcome) {
   const j = (value) => JSON.stringify(value);
-  const runtime = desktopRuntimeConfig ?? {
+  const runtime = runtimeConfig ?? {
     apiBaseUrl: localOrigin(), clientToken: null, requestHeaders: {}, runtimeKey: 'local',
   };
   // Per-document injection keeps route selection and credentials on reload.
@@ -545,7 +546,7 @@ function buildInitScript() {
     `window.__NOTNATIVE_CLIENT_TOKEN__=${j(runtime.clientToken ?? '')};`,
     `window.__NOTNATIVE_RUNTIME_HEADERS__=${j(runtime.requestHeaders ?? {})};`,
     `window.__NOTNATIVE_RUNTIME_KEY__=${j(runtime.runtimeKey ?? 'local')};`,
-    `window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__=${j(desktopBootOutcome)};`,
+    `window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__=${j(bootOutcome)};`,
     'void 0;',
   ].join('\n');
 }
@@ -573,7 +574,7 @@ function isUiProtocolUrl(url) {
     && url.username === '' && url.password === '';
 }
 
-function attachWindowGuards(win) {
+function attachWindowGuards(win, getInitScript = buildInitScript) {
   const contents = win.webContents;
   // The UI owns its own scaling controls; native Chromium zoom must not drift.
   contents.setZoomFactor(1);
@@ -584,7 +585,7 @@ function attachWindowGuards(win) {
     if (!contents.isDestroyed()) contents.setZoomFactor(1);
   });
   contents.on('dom-ready', () => {
-    const initScript = buildInitScript();
+    const initScript = getInitScript();
     try { contents.executeJavaScript({ code: initScript, injectImmediately: true }).catch(() => {}); }
     catch { contents.executeJavaScript(initScript).catch(() => {}); }
   });
@@ -707,6 +708,61 @@ function createMainWindow() {
   });
   win.loadURL(bootFailure ? bootFailurePageUrl(bootFailure) : SPLASH_URL).catch(() => { /* splash/error is cosmetic */ });
   return win;
+}
+
+function createMiniChatWindow(payload) {
+  const mode = payload?.mode;
+  const sessionId = payload?.sessionId;
+  const directory = payload?.directory;
+  if (!['session', 'draft'].includes(mode)
+    || (mode === 'session' && (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 256
+      || /[\u0000-\u001f\u007f]/u.test(sessionId)))
+    || typeof directory !== 'string' || directory.length > 4_096 || /[\u0000-\u001f\u007f]/u.test(directory)) {
+    return { ok: false, error: 'desktop-mini-chat-request-invalid' };
+  }
+  const runtime = desktopRuntimeConfig ? {
+    ...desktopRuntimeConfig, requestHeaders: { ...(desktopRuntimeConfig.requestHeaders ?? {}) },
+  } : localRuntimeConfig();
+  const dedupeKey = mode === 'session' ? JSON.stringify([runtime.runtimeKey, sessionId]) : null;
+  if (dedupeKey) {
+    const existing = miniChatWindows.get(dedupeKey);
+    if (existing && !existing.isDestroyed()) {
+      if (existing.isMinimized()) existing.restore();
+      existing.show();
+      existing.focus();
+      return { ok: true, result: { focused: true, deduplicated: true } };
+    }
+  }
+  const url = new URL(mainUiUrl());
+  url.searchParams.set('miniChat', '1');
+  url.searchParams.set('mode', mode);
+  url.searchParams.set('directory', directory);
+  if (mode === 'session') url.searchParams.set('sessionId', sessionId);
+  if (typeof payload.projectId === 'string' && payload.projectId.length <= 256
+    && !/[\u0000-\u001f\u007f]/u.test(payload.projectId)) url.searchParams.set('projectId', payload.projectId);
+  const win = new BrowserWindow({
+    title: 'NotNative Mini Chat', width: 520, height: 760, minWidth: 360, minHeight: 480,
+    backgroundColor: '#0c0a09', show: false,
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 12, y: 13 } }
+      : { frame: false }),
+    webPreferences: {
+      preload: path.join(selfDir(), 'preload.mjs'), contextIsolation: true,
+      nodeIntegration: false, sandbox: false, webviewTag: false, backgroundThrottling: false,
+    },
+  });
+  win.__nndMiniChat = true;
+  win.__nndPinned = false;
+  if (dedupeKey) miniChatWindows.set(dedupeKey, win);
+  attachWindowGuards(win, () => buildInitScript(runtime, desktopBootOutcome));
+  win.once('ready-to-show', () => { if (!win.isDestroyed()) { win.show(); win.focus(); } });
+  win.on('closed', () => { if (dedupeKey && miniChatWindows.get(dedupeKey) === win) miniChatWindows.delete(dedupeKey); });
+  win.loadURL(url.href).catch((error) => {
+    if (dedupeKey && miniChatWindows.get(dedupeKey) === win) miniChatWindows.delete(dedupeKey);
+    console.error('[shell] Mini Chat failed to load:', error);
+    if (!win.isDestroyed()) win.close();
+  });
+  return { ok: true, result: { focused: false, deduplicated: false } };
 }
 
 function focusMainWindow() {
@@ -956,6 +1012,8 @@ const invokeFace = createInvokeFace({
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   appVersion: () => app.getVersion(),
   windowForSender: (event) => BrowserWindow.fromWebContents(event.sender),
+  platform: () => process.platform,
+  miniChat: { open: createMiniChatWindow },
   mainWindow: () => mainWindow,
   focusApp: () => app.focus({ steal: true }),
   bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),

@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-43 Mini Chat window (20260930-64)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Window launch and runtime context | Local-main-frame IPC creates a session or draft window; session windows deduplicate by runtime and session, restore if minimized, and retain the runtime snapshot used at launch. |
+| Renderer context and controls | Bounded URL context seeds the session view before mount; Mini Chat has its own compact header, close and pin controls, and pin IPC only works for Mini Chat windows. |
+| Platform behavior | Windows/Linux use frameless chrome, macOS uses hidden titlebar chrome, and background throttling is disabled. |
+| Automated checks | UI suite passes 1453/1453 using one Vitest worker; Electron IPC tests pass 22/22; UI typecheck passes. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Interactive native window | Packaged/installed GUI acceptance remains pending. |
+| Remaining P12 | Managed remote install/start, password login issuance/persistence, and desktop updater remain open. |
+
 ## 2026-09-30 - P12b-42 SSH auth gate entry (20260930-63)
 
 **Verified working**

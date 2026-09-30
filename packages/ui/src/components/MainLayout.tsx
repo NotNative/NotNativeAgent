@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 import { useI18n } from '../lib/i18n/context.tsx';
 import { mountEngine } from '../chat/app-engine.ts';
@@ -38,6 +38,7 @@ import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
+import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -49,6 +50,7 @@ function subscribeRuntimeKey(notify: () => void): () => void {
  * (Files button; full surface with the tree over the chat column). */
 export function MainLayout(): ReactNode {
   const engine = mountEngine();
+  const miniChat = readMiniChatLaunch(typeof window === 'undefined' ? '' : window.location.search).enabled;
   const { t } = useI18n();
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
@@ -86,6 +88,16 @@ export function MainLayout(): ReactNode {
     bindSettingsBridge();
     bindAppearanceAppliers();
   }, []);
+
+  useEffect(() => {
+    if (!miniChat) return;
+    void window.__NOTNATIVE_DESKTOP_INVOKE__?.('desktop_get_current_window_state').then((reply) => {
+      if (reply.ok && typeof reply.result === 'object' && reply.result !== null
+        && typeof (reply.result as { pinned?: unknown }).pinned === 'boolean') {
+        document.documentElement.dataset['miniChatPinned'] = String((reply.result as { pinned: boolean }).pinned);
+      }
+    });
+  }, [miniChat]);
 
   useEffect(() => {
     const onOpen = (event: Event): void => {
@@ -214,14 +226,43 @@ export function MainLayout(): ReactNode {
 
   const activeDirectory = normalizeDirectoryInput(view.activeDirectory || globalHome(global) || harnessDirectory);
 
+  const openMiniChat = (): void => {
+    const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
+    if (!invoke) return;
+    const mode = view.currentSessionId ? 'session' : 'draft';
+    void invoke('desktop_open_mini_chat', {
+      mode,
+      ...(mode === 'session' ? { sessionId: view.currentSessionId } : {}),
+      directory: activeDirectory,
+    });
+  };
+  const closeMiniChat = (): void => { void window.__NOTNATIVE_DESKTOP_INVOKE__?.('desktop_close_current_window'); };
+  const togglePinned = async (): Promise<void> => {
+    const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
+    if (!invoke) return;
+    const current = document.documentElement.dataset['miniChatPinned'] === 'true';
+    const result = await invoke('desktop_set_window_pinned', { pinned: !current });
+    if (result.ok) document.documentElement.dataset['miniChatPinned'] = String(!current);
+  };
+
   return (
-    <div className="flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100">
-      <TerminalKeepaliveOwner />
-      <ShellShortcuts />
+    <div className={`flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100${miniChat ? ' nnd-mini-chat' : ''}`} data-testid={miniChat ? 'mini-chat-layout' : undefined}>
+      {!miniChat ? <TerminalKeepaliveOwner /> : null}
+      {!miniChat ? <ShellShortcuts /> : null}
+      {miniChat ? (
+        <header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 bg-neutral-950/80 px-3" data-testid="mini-chat-header" style={{ WebkitAppRegion: 'drag' } as CSSProperties & { WebkitAppRegion: string }}>
+          <span className="text-xs font-medium text-neutral-200">NotNative Mini Chat</span>
+          <span className="ml-auto" />
+          <button type="button" aria-label="Pin Mini Chat" title="Pin" className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={() => { void togglePinned(); }}>⌖</button>
+          <button type="button" aria-label="Close Mini Chat" title="Close" className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={closeMiniChat}>×</button>
+        </header>
+      ) : (
       <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
         <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
         <SessionTabs engine={engine} directory={activeDirectory} />
+        <button type="button" data-testid="mini-chat-open" title="Open Mini Chat" aria-label="Open Mini Chat"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" onClick={openMiniChat}>▣</button>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
           {connected ? 'connected' : 'reconnecting'}
         </span>
@@ -344,9 +385,11 @@ export function MainLayout(): ReactNode {
           ⚙
         </button>
       </header>
+      )}
       <AuthExpiredBanner />
-      <div className="flex min-h-0 flex-1">
-        {filesOpen ? (
+      <div className={`flex min-h-0 flex-1${miniChat ? ' overflow-hidden' : ''}`}>
+        {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} /> : null}
+        {!miniChat ? (filesOpen ? (
           <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />
         ) : reviewPane === 'diff' ? (
           <DiffView directory={activeDirectory} visible />
@@ -372,7 +415,7 @@ export function MainLayout(): ReactNode {
             <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} onRunFusion={openFusion} />
             <ChatView services={services} currentDirectory={activeDirectory} />
           </>
-        )}
+        )) : null}
       </div>
       {settingsPage !== null ? (
         <SettingsWindow initialPage={settingsPage} onClose={closeSettings} />

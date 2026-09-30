@@ -124,7 +124,8 @@ export function createInvokeFace(input, dependencies) {
     if (command === 'desktop_focus_window' || command === 'desktop_is_window_fullscreen'
       || command === 'desktop_set_window_title' || command === 'desktop_get_app_version'
       || command === 'desktop_close_current_window' || command === 'desktop_minimize_current_window'
-      || command === 'desktop_toggle_current_window_maximized' || command === 'desktop_get_current_window_state') {
+      || command === 'desktop_toggle_current_window_maximized' || command === 'desktop_get_current_window_state'
+      || command === 'desktop_set_window_pinned') {
       // Window controls must come from the top-level renderer. isLocalSender
       // also considers ancestor frames for compatibility with other IPC, so
       // it alone would let an embedded frame control its containing window.
@@ -172,7 +173,17 @@ export function createInvokeFace(input, dependencies) {
         if (win.isMaximized()) win.unmaximize();
         else win.maximize();
       }
-      return { ok: true, result: { maximized: Boolean(win.isMaximized()) } };
+      return { ok: true, result: { maximized: Boolean(win.isMaximized()), pinned: win.__nndPinned === true } };
+    }
+    if (command === 'desktop_set_window_pinned') {
+      if (typeof payload?.pinned !== 'boolean') return { ok: false, error: 'invalid-pinned-value' };
+      const win = input.windowForSender?.(event);
+      if (!win || win.isDestroyed?.()) return { ok: false, error: 'desktop-window-unavailable' };
+      if (win.__nndMiniChat !== true) return { ok: false, error: 'pinning-is-only-available-for-mini-chat' };
+      win.setAlwaysOnTop(payload.pinned, 'floating');
+      if (input.platform?.() === 'darwin') win.setVisibleOnAllWorkspaces(payload.pinned);
+      win.__nndPinned = payload.pinned;
+      return { ok: true, result: { pinned: payload.pinned } };
     }
     if (command === 'desktop_read_file' || command === 'desktop_save_markdown_file') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
@@ -313,6 +324,11 @@ export function createInvokeFace(input, dependencies) {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (typeof payload?.hostId !== 'string' || !input.hostSwitch) return { ok: false, error: 'desktop-host-switch-unavailable' };
       return input.hostSwitch(payload.hostId);
+    }
+    if (command === 'desktop_open_mini_chat') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.miniChat?.open) return { ok: false, error: 'desktop-mini-chat-unavailable' };
+      return input.miniChat.open(payload);
     }
     if (command === 'desktop_host_set_relay_default') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };

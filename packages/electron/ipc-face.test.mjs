@@ -35,6 +35,8 @@ test('window IPC controls the calling BrowserWindow and validates mutable titles
     maximize: () => { calls.push('maximize'); win.isMaximized = () => true; },
     unmaximize: () => { calls.push('unmaximize'); win.isMaximized = () => false; },
     setTitle: (title) => calls.push(['title', title]),
+    __nndMiniChat: true, setAlwaysOnTop: (pinned, level) => calls.push(['pin', pinned, level]),
+    setVisibleOnAllWorkspaces: (visible) => calls.push(['spaces', visible]),
   };
   let focusedApp = 0;
   const invoke = registeredInvoke({ contents, windowForSender: (event) => {
@@ -57,13 +59,32 @@ test('window IPC controls the calling BrowserWindow and validates mutable titles
   assert.equal((await local('desktop_get_app_version')).result, '20260930.0.54');
   assert.equal((await local('desktop_minimize_current_window')).ok, true);
   assert.deepEqual(calls.splice(0), ['minimize']);
-  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: true } });
+  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: true, pinned: false } });
   assert.deepEqual(calls.splice(0), ['maximize']);
-  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: false } });
+  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: false, pinned: false } });
   assert.deepEqual(calls.splice(0), ['unmaximize']);
-  assert.deepEqual(await local('desktop_get_current_window_state'), { seq: 7, ok: true, result: { maximized: false } });
+  assert.deepEqual(await local('desktop_get_current_window_state'), { seq: 7, ok: true, result: { maximized: false, pinned: false } });
+  const pinInvoke = registeredInvoke({ contents, windowForSender: () => win, platform: () => 'darwin' });
+  assert.deepEqual(await pinInvoke(ipcEvent(contents, 'notnative-ui://app/mini-chat.html'), 'desktop_set_window_pinned', { pinned: true }), {
+    seq: 7, ok: true, result: { pinned: true },
+  });
+  assert.deepEqual(calls.splice(0), [['pin', true, 'floating'], ['spaces', true]]);
   assert.equal((await local('desktop_close_current_window')).ok, true);
   assert.deepEqual(calls.splice(0), ['close']);
+});
+
+test('Mini Chat creation is available only to the local main frame and validates through its shell owner', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const miniContents = { mainFrame: { processId: 2, routingId: 1 }, send() {} };
+  const requests = [];
+  const invoke = registeredInvoke({ contents, miniChat: { open: (payload) => { requests.push(payload); return { ok: true, result: { opened: true } }; } } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_open_mini_chat', { mode: 'session', sessionId: 's1', directory: '/work' });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { opened: true } });
+  assert.deepEqual(requests, [{ mode: 'session', sessionId: 's1', directory: '/work' }]);
+  const secondary = await invoke(ipcEvent(miniContents, 'notnative-ui://app/index.html'), 'desktop_open_mini_chat', { mode: 'draft', directory: '/' });
+  assert.equal(secondary.ok, false);
+  assert.equal(secondary.error, 'desktop-main-frame-required');
+  assert.equal(requests.length, 1);
 });
 
 test('window controls reject embedded frames even when their parent is trusted', async () => {

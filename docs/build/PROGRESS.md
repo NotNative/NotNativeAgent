@@ -2,6 +2,19 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-43 Mini Chat window (20260930-64)
+
+The desktop shell can now open a separate Mini Chat window for the current
+session or a fresh draft. Session windows are deduplicated by runtime and
+session; the renderer receives bounded URL context and seeds its session view
+before mounting. Local-main-frame IPC gates creation, pinning is restricted to
+Mini Chat, and the window follows the documented platform chrome and remains
+active while hidden. Adversarial review found and fixed the missing platform
+chrome/background-throttling contract. UI tests pass 1453/1453 with one
+Vitest worker, Electron IPC tests pass 22/22, and workspace typechecks pass.
+Managed remote install/start, password login issuance/persistence, updater,
+and installed GUI acceptance remain open P12 work.
+
 ## 2026-09-30 · P12b-42 SSH auth gate entry (20260930-63)
 
 Explicit selection of a connected, API-compatible remote now adopts its

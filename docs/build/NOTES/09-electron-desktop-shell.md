@@ -18,6 +18,15 @@ when the compatible endpoint requires login; startup still falls back locally.
 Managed remote install/start, desktop-specific password login issuance, and
 installed GUI acceptance remain outstanding.
 
+P12b-43 adds the Mini Chat window entrypoint: session windows deduplicate by
+runtime/session while draft windows remain independent; the renderer receives
+bounded non-secret context in its URL and initializes before mount. Creation is
+local-main-frame-gated, pinning is window-local and Mini-Chat-only, native
+chrome follows the platform policy, and background throttling is disabled.
+This slice uses the existing UI entry with a `miniChat=1` query flag rather
+than adding a separate HTML entrypoint; the Mini Chat layout mounts only the
+chat surface with its own native window controls.
+
 Doc 09 (1762 lines) is enormous (full parity = checklist §15 rows 1-14). This file
 carries the slice map + adaptation deltas. **P12a-v1 is the installable shell** —
 the shortest honest path to "run the installer, evaluate the app on Windows" —

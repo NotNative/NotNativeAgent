@@ -7,12 +7,21 @@ import { ThemeProvider } from './components/ThemeProvider.tsx';
 import { SessionAuthGate } from './components/auth/SessionAuthGate.tsx';
 import { DesktopRelayPairingBridge } from './components/desktop/DesktopRelayPairingBridge.tsx';
 import { DesktopRelayRuntimeRestore } from './components/desktop/DesktopRelayRuntimeRestore.tsx';
+import { readMiniChatLaunch } from './lib/miniChatLaunch.ts';
+import { useSessionViewStore } from './sync/view-store.ts';
 
 // Doc 01 §4.3 provider tree, NND shape (E-08-50: this repo builds no
 // ThemeSystemProvider): `I18nProvider > ThemeProvider > SessionAuthGate > App`
 // — the gate renders App only after `/auth/session` says the session is live,
 // so boot never races a lock (§6.6).
 export function renderMainApp(element: HTMLElement): void {
+  const launch = readMiniChatLaunch(window.location.search);
+  if (launch.enabled) {
+    useSessionViewStore.setState({
+      activeDirectory: launch.directory,
+      currentSessionId: launch.mode === 'session' ? launch.sessionId : null,
+    });
+  }
   createRoot(element).render(
     <StrictMode>
       <I18nProvider>

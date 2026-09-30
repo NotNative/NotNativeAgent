@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4627221ca9b8cca3d4f77cff710f9569fa6c9699a4896960fd0fa0b62654695c",
+  "source_digest": "sha256:920bfecb7fea085a6c8e7c8ab5162dd2a87649c6bf454e03fac4cc43f8ebeee8",
   "counts": {
-    "modules": 597,
+    "modules": 598,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 160
+      "module_count": 161
     },
     {
       "id": "ui-shell",
@@ -102,14 +102,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 222,
-      "module_count": 92
+      "import_count": 224,
+      "module_count": 93
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 76,
-      "module_count": 36
+      "import_count": 77,
+      "module_count": 37
     },
     {
       "from": "ui-shell",
@@ -1300,6 +1300,7 @@
         "packages/ui/src/lib/files/tabs-store.ts",
         "packages/ui/src/lib/git/commit-drafts.ts",
         "packages/ui/src/lib/i18n/context.tsx",
+        "packages/ui/src/lib/miniChatLaunch.ts",
         "packages/ui/src/lib/multirun/fusion.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
@@ -2287,6 +2288,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/miniChatLaunch.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/multirun/create.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -3210,7 +3217,9 @@
         "packages/ui/src/components/ThemeProvider.tsx",
         "packages/ui/src/components/auth/SessionAuthGate.tsx",
         "packages/ui/src/components/desktop/DesktopRelayPairingBridge.tsx",
-        "packages/ui/src/components/desktop/DesktopRelayRuntimeRestore.tsx"
+        "packages/ui/src/components/desktop/DesktopRelayRuntimeRestore.tsx",
+        "packages/ui/src/lib/miniChatLaunch.ts",
+        "packages/ui/src/sync/view-store.ts"
       ]
     },
     {
