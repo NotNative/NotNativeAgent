@@ -4,6 +4,7 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
 import { adoptRelayTunnel } from '../../../lib/runtime-tunnel.ts';
 import { probeDesktopRelayHost } from '../../../lib/desktop-relay-host.ts';
+import { DesktopSshCatalog } from './desktop-ssh-catalog.tsx';
 
 interface DesktopHost {
   id: string;
@@ -270,6 +271,7 @@ export function RemoteInstancesPage(): ReactNode {
         ))}
         {catalog?.hosts.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No paired remote instances yet. Open a pairing link to add one.</p> : null}
         {message ? <p role="status" className="mt-3 text-xs text-muted-foreground">{message}</p> : null}
+        <DesktopSshCatalog />
       </SettingsSection>
     </div>
   );

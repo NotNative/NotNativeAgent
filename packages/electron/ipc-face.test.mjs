@@ -259,6 +259,19 @@ test('SSH catalog CRUD commands preserve local-main-frame authorization and dele
   assert.equal(calls.length, 3);
 });
 
+test('SSH config reads are local-main-frame-only and return only the injected config text', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  let reads = 0;
+  const invoke = registeredInvoke({ contents, sshInstances: {
+    readSshConfig: () => { reads += 1; return 'Host studio\n'; },
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshReadConfig'), {
+    seq: 7, ok: true, result: 'Host studio\n',
+  });
+  assert.equal((await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshReadConfig')).error, 'sender-not-allowed');
+  assert.equal(reads, 1);
+});
+
 test('boot runtime configuration is returned only to the desktop local main frame', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const bootConfig = { apiBaseUrl: 'https://remote.example', clientToken: 'active-token', runtimeKey: 'host:remote' };

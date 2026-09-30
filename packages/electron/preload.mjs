@@ -75,6 +75,12 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_EVENTS__', Object.freeze({
     for (const detail of pendingRelayPairingRequests.splice(0)) handler(detail);
     return () => relayPairingHandlers.delete(handler);
   },
+  onSshStatus(handler) {
+    if (typeof handler !== 'function') return () => {};
+    sshStatusHandlers.add(handler);
+    for (const detail of pendingSshStatuses.splice(0)) handler(detail);
+    return () => sshStatusHandlers.delete(handler);
+  },
 }));
 
 // The main process can route a notification click immediately after document
@@ -84,6 +90,13 @@ const openSessionHandlers = new Set();
 const pendingOpenSessions = [];
 const relayPairingHandlers = new Set();
 const pendingRelayPairingRequests = [];
+const sshStatusHandlers = new Set();
+const pendingSshStatuses = [];
+const sshStatusPhases = new Set([
+  'idle', 'config_resolved', 'auth_check', 'master_connecting', 'remote_probe',
+  'installing', 'updating', 'server_detecting', 'server_starting', 'forwarding',
+  'ready', 'degraded', 'error',
+]);
 ipcRenderer.on('openchamber:emit', (_event, envelope) => {
   const detail = envelope?.detail;
   if (envelope?.event === 'openchamber:open-session') {
@@ -93,6 +106,29 @@ ipcRenderer.on('openchamber:emit', (_event, envelope) => {
     else {
       pendingOpenSessions.push(safe);
       if (pendingOpenSessions.length > 20) pendingOpenSessions.shift();
+    }
+    return;
+  }
+  if (envelope?.event === 'openchamber:ssh-instance-status') {
+    if (!detail || typeof detail.id !== 'string' || detail.id.length > 128
+      || !sshStatusPhases.has(detail.phase)) return;
+    const validPort = (port) => Number.isInteger(port) && port >= 1 && port <= 65_535;
+    const safe = {
+      id: detail.id,
+      phase: detail.phase,
+      ...(typeof detail.detail === 'string' ? { detail: detail.detail.slice(0, 1_000) } : {}),
+      ...(typeof detail.localUrl === 'string' ? { localUrl: detail.localUrl.slice(0, 2_000) } : {}),
+      ...(validPort(detail.localPort) ? { localPort: detail.localPort } : {}),
+      ...(validPort(detail.remotePort) ? { remotePort: detail.remotePort } : {}),
+      startedByUs: detail.startedByUs === true,
+      retryAttempt: Number.isFinite(detail.retryAttempt) ? Math.max(0, Math.floor(detail.retryAttempt)) : 0,
+      requiresUserAction: detail.requiresUserAction === true,
+      updatedAtMs: Number.isFinite(detail.updatedAtMs) ? detail.updatedAtMs : Date.now(),
+    };
+    if (sshStatusHandlers.size) for (const handler of sshStatusHandlers) handler(safe);
+    else {
+      pendingSshStatuses.push(safe);
+      if (pendingSshStatuses.length > 100) pendingSshStatuses.shift();
     }
     return;
   }

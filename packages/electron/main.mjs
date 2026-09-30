@@ -322,6 +322,19 @@ function removeStoredSshInstance(id) {
   return saved?.ok === false ? saved : { ok: true, result: { instances: saved.instances } };
 }
 
+function readSshConfigText() {
+  const configPath = path.join(os.homedir(), '.ssh', 'config');
+  let stat;
+  try { stat = fs.lstatSync(configPath); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw error;
+  }
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('desktop-ssh-config-file-invalid');
+  if (stat.size > 1_048_576) throw new Error('desktop-ssh-config-file-too-large');
+  return fs.readFileSync(configPath, 'utf8');
+}
+
 function writeStoredPort(port) {
   persistShellPrefs({ port });
 }
@@ -949,6 +962,7 @@ const invokeFace = createInvokeFace({
     upsert: upsertStoredSshInstance,
     remove: removeStoredSshInstance,
     createFromCommand: createStoredSshInstance,
+    readSshConfig: readSshConfigText,
   },
   hostProbe: probeRemoteHost,
   identity: {

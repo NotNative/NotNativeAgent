@@ -40,6 +40,7 @@ declare global {
         platform: string;
         version: string;
       }) => void): () => void;
+      onSshStatus?(handler: (detail: unknown) => void): () => void;
     };
     /** Main-frame-only, identity-bound Electron broker face; absent on web and guest pages. */
     __NOTNATIVE_BROWSER_CONTROL__?: {

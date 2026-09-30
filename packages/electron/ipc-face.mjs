@@ -235,6 +235,12 @@ export function createInvokeFace(input, dependencies) {
       if (!input.sshInstances?.get) return { ok: false, error: 'desktop-ssh-unavailable' };
       return { ok: true, result: { instances: input.sshInstances.get() } };
     }
+    if (command === 'desktopSshReadConfig') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.sshInstances?.readSshConfig) return { ok: false, error: 'desktop-ssh-unavailable' };
+      try { return { ok: true, result: await input.sshInstances.readSshConfig() }; }
+      catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'desktop-ssh-config-read-failed' }; }
+    }
     if (command === 'desktopSshUpsertInstance') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.sshInstances?.upsert || !payload?.instance || typeof payload.instance !== 'object') {

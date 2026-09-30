@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-38 SSH catalog UI bridge.** The Remote Instances page
+  now reads and edits SSH definitions, loads user `~/.ssh/config` host aliases,
+  and adds/removes entries through the native local-main-frame bridge. The
+  bridge unwraps invoke results and subscribes to bounded status events; the
+  preload buffers early status events and validates phases and ports. Audit
+  fixed rapid-click duplicate mutations with a synchronous operation lock.
+  Focused settings/bridge tests pass 5/5, full UI suite passes 1447/1447,
+  Electron suite passes 138/138, and all workspace typechecks pass. Live
+  connection/status production remains pending.
+
 - 2026-09-30 · **P12b-37 SSH placeholder isolation.** SSH placeholder hosts
   now carry a sanitized `transport: 'ssh'` marker. The generic host chooser
   hides them, direct-host probes and manual switches reject them until an SSH

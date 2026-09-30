@@ -3,6 +3,22 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-38 SSH catalog UI bridge (in progress)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Catalog settings UI | Component tests cover alias read/add and removal through the native bridge; rapid repeated clicks are locked while an operation is pending. |
+| Native bridge | Tests cover success/error envelope adaptation, SSH config reads, and status listener cleanup. Electron IPC keeps config reads local-main-frame-only; the SSH file reader rejects symlinks and files over 1 MiB. |
+| Automated checks | Full UI suite passes 1447/1447, Electron suite passes 138/138, and workspace typechecks pass. Artifacts-only Windows x64 package, quality gates, graph check, and version pairing pass. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| SSH live connection | No process manager produces status events or opens tunnels yet; the UI is configuration only. |
+
 ## 2026-09-30 - P12b-37 SSH placeholder isolation (in progress)
 
 **Verified working**

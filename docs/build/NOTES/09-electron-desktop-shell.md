@@ -123,7 +123,10 @@ remaining P12 slices ride after it.
   cannot silently erase recoverable entries. SSH placeholders are explicitly
   marked and excluded from direct host probing/switching until SSH transport
   exists; the marker still protects startup if the instance catalog is corrupt.
-  Remaining: SSH connect/disconnect transport and status events,
+  The Remote Instances page now edits SSH commands and imports direct `Host`
+  aliases from the local SSH config through a bounded main-frame-only read;
+  the preload exposes a validated, buffered status subscription for the future
+  manager. Remaining: SSH connect/disconnect transport and status production,
   config import, plus general IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
