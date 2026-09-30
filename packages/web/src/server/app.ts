@@ -7,7 +7,7 @@ import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } fr
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
 import { peekRelayServerId } from './lib/relay/identity.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
-import { browserMutationAllowed } from './lib/http/request-security.ts';
+import { browserMutationAllowed, isTrustedDesktopUiOrigin } from './lib/http/request-security.ts';
 import { createAuthRoutes } from './routes/auth.ts';
 import { createClientAuthPublicRoutes, registerClientAuthRoutes } from './routes/client-auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
@@ -253,9 +253,9 @@ export function desktopSessionCookieHeader(cookie: string): string {
 
 async function desktopUiCors(c: Context, next: Next): Promise<Response | void> {
   const origin = c.req.header('origin');
-  const trusted = process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
-  if (!trusted || origin !== trusted) return next();
-  c.header('Access-Control-Allow-Origin', trusted);
+  const configuredOrigin = process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+  if (!isTrustedDesktopUiOrigin(origin, configuredOrigin)) return next();
+  c.header('Access-Control-Allow-Origin', origin!);
   c.header('Access-Control-Allow-Credentials', 'true');
   c.header('Vary', 'Origin');
   if (c.req.method === 'OPTIONS') {

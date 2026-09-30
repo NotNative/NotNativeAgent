@@ -501,8 +501,8 @@ function attachWindowGuards(win) {
     // so getZoomFactor() can still be 1 before Chromium applies the request.
     if (!contents.isDestroyed()) contents.setZoomFactor(1);
   });
-  const initScript = buildInitScript();
   contents.on('dom-ready', () => {
+    const initScript = buildInitScript();
     try { contents.executeJavaScript({ code: initScript, injectImmediately: true }).catch(() => {}); }
     catch { contents.executeJavaScript(initScript).catch(() => {}); }
   });
@@ -663,6 +663,65 @@ const fileUtilities = createFileUtilities({
 });
 const localPathUtilities = createLocalPathUtilities({ shell });
 
+function localRuntimeConfig() {
+  return {
+    apiBaseUrl: localOrigin(),
+    clientToken: readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
+    requestHeaders: {}, runtimeKey: 'local',
+  };
+}
+
+async function resolveBootTarget(config = readStoredHosts()) {
+  return resolveDesktopBootTarget({
+    config, localRuntime: localRuntimeConfig(), localAvailable: true,
+    envTargetUrl: process.env.OPENCHAMBER_SERVER_URL,
+    probeHost: (options) => probeDesktopHost({
+      ...options,
+      chromiumFetch: (url, fetchOptions) => electronNet.fetch(url, fetchOptions),
+      isReady: () => app.isReady(),
+    }),
+  });
+}
+
+let hostSwitchInProgress = false;
+async function switchDesktopHost(hostId) {
+  if (hostSwitchInProgress) return { ok: false, error: 'desktop-host-switch-busy' };
+  if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };
+  if (typeof hostId !== 'string' || hostId.length === 0 || hostId.length > 128) {
+    return { ok: false, error: 'desktop-host-id-invalid' };
+  }
+  if (typeof process.env.OPENCHAMBER_SERVER_URL === 'string' && process.env.OPENCHAMBER_SERVER_URL.trim()) {
+    return { ok: false, error: 'desktop-env-target-active' };
+  }
+  const current = readStoredHosts();
+  if (hostId !== 'local' && !current.hosts.some((host) => host.id === hostId)) {
+    return { ok: false, error: 'desktop-host-not-found' };
+  }
+  hostSwitchInProgress = true;
+  desktopHostImportLocked = true;
+  try {
+    const updated = writeStoredHosts({
+      ...current, defaultHostId: hostId, initialHostChoiceCompleted: true,
+    });
+    const selected = await resolveBootTarget(updated);
+    desktopRuntimeConfig = selected.runtime;
+    desktopBootOutcome = selected.bootOutcome;
+    return { ok: true, result: {
+      requestedHostId: hostId,
+      activeHostId: selected.bootOutcome.target === 'remote' && selected.bootOutcome.status === 'ok'
+        ? selected.bootOutcome.hostId : 'local',
+      runtime: selected.runtime,
+      bootOutcome: selected.bootOutcome,
+    } };
+  } catch (error) {
+    console.error('[shell] desktop host switch failed:', error);
+    return { ok: false, error: 'desktop-host-switch-failed' };
+  } finally {
+    desktopHostImportLocked = false;
+    hostSwitchInProgress = false;
+  }
+}
+
 /** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
 function quitFromTray() {
   if (quitting) return;
@@ -687,6 +746,7 @@ const invokeFace = createInvokeFace({
   appPathPrefix: () => appFileUrlPrefix(),
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),
+  hostSwitch: switchDesktopHost,
   mainContents: () => mainWindow?.webContents,
   nativeNotifications,
   fileUtilities: () => fileUtilities,
@@ -817,20 +877,7 @@ async function boot() {
   const healthy = await startServerAndProbe();
   if (!healthy) throw new Error(`server health check failed on ${localOrigin()} after ${HEALTH_TIMEOUT_MS} ms`);
   writeStoredPort(chosenPort);
-  const localRuntime = {
-    apiBaseUrl: localOrigin(),
-    clientToken: readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
-    requestHeaders: {}, runtimeKey: 'local',
-  };
-  const bootTarget = await resolveDesktopBootTarget({
-    config: readStoredHosts(), localRuntime, localAvailable: true,
-    envTargetUrl: process.env.OPENCHAMBER_SERVER_URL,
-    probeHost: (options) => probeDesktopHost({
-      ...options,
-      chromiumFetch: (url, fetchOptions) => electronNet.fetch(url, fetchOptions),
-      isReady: () => app.isReady(),
-    }),
-  });
+  const bootTarget = await resolveBootTarget();
   desktopRuntimeConfig = bootTarget.runtime;
   desktopBootOutcome = bootTarget.bootOutcome;
   if (desktopBootOutcome.target === 'remote' && desktopBootOutcome.status !== 'ok') {

@@ -34,14 +34,23 @@ describe('unsafe browser request origin gate', () => {
     expect(browserMutationAllowed(request('/api/fs/delete', 'GET', { origin: 'null' }))).toBe(true);
   });
 
-  it('admits writes only from the configured desktop UI origin', () => {
+  it('admits writes from the stable packaged desktop UI origin and configured exact origin', () => {
     const trusted = 'notnative-ui://app';
+    expect(browserMutationAllowed(request('/api/settings', 'PUT', {
+      origin: trusted, 'sec-fetch-site': 'cross-site',
+    }))).toBe(true);
+    expect(browserMutationAllowed(request('/api/settings', 'PUT', {
+      origin: 'notnative-ui://app.attacker', 'sec-fetch-site': 'cross-site',
+    }))).toBe(false);
     expect(browserMutationAllowed(request('/api/settings', 'PUT', {
       origin: trusted, 'sec-fetch-site': 'cross-site',
     }), false, trusted)).toBe(true);
     expect(browserMutationAllowed(request('/api/settings', 'PUT', {
       origin: 'notnative-ui://app.attacker', 'sec-fetch-site': 'cross-site',
     }), false, trusted)).toBe(false);
+    expect(browserMutationAllowed(request('/api/settings', 'PUT', {
+      origin: 'https://desktop.example', 'sec-fetch-site': 'cross-site',
+    }), false, 'https://desktop.example')).toBe(true);
   });
 
   it('answers a credentialed CORS preflight only for the configured desktop origin', async () => {
@@ -58,6 +67,34 @@ describe('unsafe browser request origin gate', () => {
       expect(preflight.headers.get('access-control-allow-credentials')).toBe('true');
       const denied = await app.fetch(new Request(`${TARGET}/api/settings`, { method: 'OPTIONS', headers: { origin: 'notnative-ui://app.attacker' } }));
       expect(denied.headers.get('access-control-allow-origin')).toBeNull();
+    } finally {
+      if (original === undefined) delete process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+      else process.env.NOTNATIVE_DESKTOP_UI_ORIGIN = original;
+    }
+  });
+
+  it('answers preflight for the stable packaged desktop origin without per-server setup', async () => {
+    const original = process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+    delete process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+    try {
+      const app = createApp();
+      const preflight = await app.fetch(new Request(`${TARGET}/api/settings`, { method: 'OPTIONS', headers: {
+        origin: 'notnative-ui://app', 'access-control-request-method': 'PUT',
+        'access-control-request-headers': 'authorization, content-type',
+      } }));
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get('access-control-allow-origin')).toBe('notnative-ui://app');
+      expect(preflight.headers.get('access-control-allow-credentials')).toBe('true');
+      expect(preflight.headers.get('access-control-allow-headers')).toContain('authorization');
+      const lookalike = await app.fetch(new Request(`${TARGET}/api/settings`, { method: 'OPTIONS', headers: {
+        origin: 'notnative-ui://app.attacker', 'access-control-request-method': 'PUT',
+        'access-control-request-headers': 'authorization, content-type',
+      } }));
+      expect(lookalike.headers.get('access-control-allow-origin')).toBeNull();
+      const actualWrite = await app.fetch(request('/api/settings', 'PUT', {
+        origin: 'notnative-ui://app', 'sec-fetch-site': 'cross-site',
+      }));
+      expect(actualWrite.status).not.toBe(403);
     } finally {
       if (original === undefined) delete process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
       else process.env.NOTNATIVE_DESKTOP_UI_ORIGIN = original;

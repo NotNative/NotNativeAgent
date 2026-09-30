@@ -141,6 +141,11 @@ export function createInvokeFace(input, dependencies) {
       if (!bootConfig) return { ok: false, error: 'desktop-boot-config-unavailable' };
       return { ok: true, result: bootConfig };
     }
+    if (command === 'desktop_host_switch') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (typeof payload?.hostId !== 'string' || !input.hostSwitch) return { ok: false, error: 'desktop-host-switch-unavailable' };
+      return input.hostSwitch(payload.hostId);
+    }
     if (command === 'desktop_hosts_set') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.hostConfig?.set || !payload?.input) return { ok: false, error: 'desktop-hosts-unavailable' };

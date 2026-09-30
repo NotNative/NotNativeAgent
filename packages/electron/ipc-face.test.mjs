@@ -84,6 +84,23 @@ test('boot runtime configuration is returned only to the desktop local main fram
   assert.equal(remote.error, 'sender-not-allowed');
 });
 
+test('host switching delegates only validated local-main-frame IPC requests', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const selections = [];
+  const invoke = registeredInvoke({ contents, hostSwitch: async (hostId) => {
+    selections.push(hostId);
+    return { ok: true, result: { activeHostId: hostId } };
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_switch', { hostId: 'host-1' });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { activeHostId: 'host-1' } });
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_switch', { hostId: 'host-2' });
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+  const malformed = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_host_switch', {});
+  assert.deepEqual({ ok: malformed.ok, error: malformed.error }, { ok: false, error: 'desktop-host-switch-unavailable' });
+  assert.deepEqual(selections, ['host-1']);
+});
+
 test('host config IPC returns the explicit busy response while pairing reserves the catalog', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const invoke = registeredInvoke({ contents, hostConfig: {

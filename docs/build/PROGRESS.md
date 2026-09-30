@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-25 remote instance chooser and live switching.** Added a
+  Remote Instances settings page backed by desktop-local IPC. A selection is
+  identity/API/auth probed, persisted as the default, and applied to runtime
+  URL, token, headers, and storage namespace without closing settings; failed
+  probes keep the local runtime active and leave the remote retryable. The
+  adversarial audit fixed active-vs-default confusion and found a CORS gap:
+  standalone remotes could pass Electron probing but reject renderer traffic.
+  The server now supports the exact stable `notnative-ui://app` origin for
+  credentialed CORS and browser writes, while rejecting lookalikes. Validation:
+  99 Electron tests, 1,427 UI tests (single worker), focused CORS tests, and
+  workspace typechecks passed.
+
 - 2026-09-30 · **P12b-24 remote desktop boot integration.** Electron keeps
   the packaged UI local while initializing API clients from an authenticated,
   compatibility-probed saved or explicit remote host; failures fall back to the

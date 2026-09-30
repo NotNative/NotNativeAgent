@@ -88,8 +88,11 @@ remaining P12 slices ride after it.
   outcomes, and falls back locally on invalid overrides or probe failure. Main
   boot consumes the policy and initializes the renderer with the selected API
   runtime through local-main-frame IPC.
-  Remaining: relay-only pairing and `openchamber://host` routing, remaining IPC catalog growth
-  (§3.1), boot-time host routing/chooser and multi-instance remote
+  The Remote Instances settings page now selects saved direct hosts and
+  switches the running renderer after probing; standalone servers admit the
+  exact packaged UI origin for CORS. Remaining: relay-only pairing and
+  `openchamber://host` routing, remaining IPC catalog growth (§3.1), relay-aware
+  boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
 
@@ -104,9 +107,9 @@ remaining P12 slices ride after it.
   probes fall back locally with a bounded boot outcome.
 - **D-09-3** Preload exposes `__NOTNATIVE_DESKTOP_INVOKE__`; the main-process
   allowlist includes `desktop_open_external` (http/https only),
-  `desktop_get_boot_info`, browser-control register/unregister/claim/result,
+  `desktop_get_boot_info`, `desktop_host_switch`, browser-control register/unregister/claim/result,
   relay dev-tunnel open/close/close-all, and the tray boot-health retry.
-  Browser-control and retry require the trusted main frame; the remaining
+  Browser-control, host switching, and retry require the trusted main frame; the remaining
   local commands use the local sender gate. No MessagePort relay protocol
   (§3.3), no `window.__OPENCHAMBER_DESKTOP__` wholesale mirror.
 - **D-09-4** Tray, menu, close-to-tray, window geometry, boot-health retry,
@@ -120,7 +123,7 @@ remaining P12 slices ride after it.
   are bounded to real files under the home or temp roots, reject common
   credential locations, and stream at most 50 MiB. Markdown save uses the
   native picker and writes UTF-8. Deep links, SSH, updater, Mini Chat,
-  keep-awake, and multi-host routing remain deferred to P12b rows above.
+  keep-awake, relay-aware routing, and host deep links remain deferred to P12b rows above.
 - **D-09-25** Local open/reveal commands require the desktop main frame at the
   exact loopback or packaged UI origin. Paths must exist and be readable;
   directories also require traversal access, and special files are rejected.
@@ -138,14 +141,15 @@ remaining P12 slices ride after it.
   are dropped; P-256 relay public keys are imported during validation so
   malformed points fail at save time. Host get/set IPC is limited to the
   desktop main frame on the loopback server or packaged UI origin. The catalog
-  is not yet used to choose the boot target.
+  is used by boot routing and Remote Instances settings.
 - **D-09-28** The Electron shell accepts only bounded `openchamber://focus` and
   `openchamber://session/<id>` actions. Startup and second-instance argv are
   parsed on Windows/Linux; macOS `open-url` is handled directly. Session links
   are buffered across splash/startup and renderer reloads, then delivered via
   the existing preload event face. Pairing (`connect`) links now pass through
-  native consent and bounded direct redemption;
-  relay-only pairing and host switching remain deferred. Unknown link actions
+  native consent and bounded direct redemption. Host selection is available in
+  Remote Instances settings; relay-only pairing and `openchamber://host` links
+  remain deferred. Unknown link actions
   are ignored.
 - **D-09-29** The deep-link parser recognizes v2 pairing payloads only after
   strict base64url/UTF-8/JSON bounds, expiry checks, and all-candidate shape
@@ -155,8 +159,9 @@ remaining P12 slices ride after it.
   `/health` responses, forbids redirects, and redeems the one-time secret only
   at the first healthy candidate. Expired-during-probe links are stopped before
   redemption. The client token is stored in the saved-host catalog under a
-  shared mutation lock; runtime selection occurs at next app boot, while live
-  host switching and relay-only redemption remain pending.
+  shared mutation lock; the Remote Instances page can probe and switch to a
+  saved direct host live. Relay-only redemption and relay-aware switching remain
+  pending.
 - **D-09-30** The desktop pairing importer requires native user consent before
   network access, redacts candidate query values in the dialog, and discloses
   every possible secret recipient. Health and redemption responses are bounded;
@@ -185,6 +190,17 @@ remaining P12 slices ride after it.
   API base, client token, safe request headers, runtime key, local origin, and
   bounded boot outcome. Pairing with a relay identity requires an exact
   `/health` server-id match before sending the one-time secret to a direct URL.
+- **D-09-35** Remote Instances settings reads the host catalog and active
+  runtime over local-main-frame-only IPC. Switching persists the chosen default,
+  takes the shared host-catalog lock, runs identity/API/auth preflight, and
+  returns the selected runtime to the renderer; the renderer updates its API
+  endpoint, credential, headers, and runtime namespace in place. Failed remote
+  probes keep local runtime active while preserving the selected default for a
+  later retry.
+- **D-09-36** The API server admits the exact stable `notnative-ui://app`
+  packaged renderer origin for credentialed CORS and browser writes even when
+  `NOTNATIVE_DESKTOP_UI_ORIGIN` is unset. A configured exact origin remains
+  additionally supported; suffix/lookalike origins receive no CORS trust.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
@@ -360,10 +376,13 @@ remaining P12 slices ride after it.
   The trusted renderer origin has an exact-origin CORS and browser-write
   exception; only its UI session cookie is rewritten to `SameSite=None; Secure`
   because Chromium otherwise omits `SameSite=Strict` cookies on the cross-site
-  loopback request. Other cookies and origins retain their policy. Relative UI
-  API requests and terminal sockets now use the configured loopback base. A
-  bundled Electron probe confirmed that only the `None; Secure` cookie crosses
-  to loopback. `LOAD_SERVER_UI=1` retains the loopback development mode.
+  loopback request. Other cookies and origins retain their policy. The server
+  admits the exact stable `notnative-ui://app` origin for CORS and browser writes
+  so standalone remotes can serve the packaged renderer without per-server CORS
+  setup; lookalike origins remain denied. Relative UI API requests and terminal
+  sockets now use the configured runtime base. A bundled Electron probe
+  confirmed that only the `None; Secure` cookie crosses to loopback.
+  `LOAD_SERVER_UI=1` retains the loopback development mode.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 

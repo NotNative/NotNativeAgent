@@ -15,14 +15,22 @@ export interface OriginCheckRequest {
 }
 
 export const PUBLIC_ORIGIN_SETTING_KEY = 'publicOrigin';
+/** Stable first-party origin of the NotNativeDesktop packaged renderer. */
+export const NOTNATIVE_DESKTOP_UI_ORIGIN = 'notnative-ui://app';
 
 /** §10.1 packaged-client origins ride pre-allowed. */
 export const PACKAGED_CLIENT_ORIGINS = [
+  NOTNATIVE_DESKTOP_UI_ORIGIN,
   'openchamber-ui://app',
   'capacitor://localhost',
   'https://localhost',
   'http://localhost',
 ] as const;
+
+export function isTrustedDesktopUiOrigin(origin: string | null | undefined, configuredOrigin?: string): boolean {
+  return typeof origin === 'string'
+    && (origin === NOTNATIVE_DESKTOP_UI_ORIGIN || (Boolean(configuredOrigin) && origin === configuredOrigin));
+}
 
 const BARE_HOST = /^(\[[0-9a-f:.]+\]|[a-z0-9.\-]+)(?::(\d+))?$/u;
 
@@ -78,7 +86,7 @@ export function browserMutationAllowed(request: Request, validatedBearer = false
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase())) return true;
   if (validatedBearer) return true;
   const origin = request.headers.get('origin');
-  if (trustedOrigin && origin === trustedOrigin) return true;
+  if (isTrustedDesktopUiOrigin(origin, trustedOrigin)) return true;
   const site = request.headers.get('sec-fetch-site');
   if (site === 'cross-site' || site === 'same-site') return false;
   if (origin === null || origin === '') return true; // non-browser clients

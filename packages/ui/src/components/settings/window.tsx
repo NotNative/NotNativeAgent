@@ -24,6 +24,7 @@ import { SkillsPage } from './pages/skills.tsx';
 import { SkillsCatalogPage } from './pages/skills-catalog.tsx';
 import { AgentsPage } from './pages/agents.tsx';
 import { SnippetsPage } from './pages/snippets.tsx';
+import { RemoteInstancesPage } from './pages/remote-instances.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 
 export { PAGE_TITLE_KEYS };
@@ -41,6 +42,7 @@ const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, () => ReactNode>> = {
   'skills.installed': () => <SkillsPage />,
   'skills.catalog': () => <SkillsCatalogPage />,
   snippets: () => <SnippetsPage />,
+  'remote-instances': () => <RemoteInstancesPage />,
 };
 
 const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
