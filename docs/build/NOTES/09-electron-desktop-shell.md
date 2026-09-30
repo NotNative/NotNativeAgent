@@ -83,7 +83,10 @@ remaining P12 slices ride after it.
   health response. Bounded `openchamber://host/<id>` links switch only to an
   existing saved host through the same identity/API/auth probe and catalog lock;
   they queue across startup/reload and report failure through a native warning.
-  Relay-only import and switching remain pending.
+  Renderer-side relay pairing redemption now opens a grant-scoped throwaway
+  E2EE tunnel, sends the deduplicated pairing request, bounds and validates the
+  response, and always closes the tunnel. Consent/catalog wiring, relay runtime
+  switching, and multi-candidate fallback remain pending.
   The bounded Electron host probe now implements the identity-first,
   compatibility/auth checks and unreachable-only retry policy required by §2.6.
   The server exposes the unauthenticated `/api/version` compatibility contract;
@@ -94,8 +97,8 @@ remaining P12 slices ride after it.
   The Remote Instances settings page now selects saved direct hosts and
   switches the running renderer after probing; standalone servers admit the
   exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
-  use the same validated switch path. Remaining: relay-only pairing and
-  remaining IPC catalog growth (§3.1), relay-aware
+  use the same validated switch path. Remaining: relay pairing orchestration,
+  relay-aware switching and remaining IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -210,6 +213,11 @@ remaining P12 slices ride after it.
   host-link requests, and uses the existing catalog lock and remote probe. A
   successful switch reloads the local shell so the per-document runtime config
   is refreshed; missing hosts and switch conflicts show a native warning.
+- **D-09-38** Renderer-side relay pairing redemption uses the link's optional
+  one-time grant only for the throwaway E2EE connection, applies a 15-second
+  request deadline and 64 KiB response bound, validates the returned client
+  token, and closes the tunnel in `finally`. The saved-host catalog and runtime
+  integration remain separate follow-up work.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.

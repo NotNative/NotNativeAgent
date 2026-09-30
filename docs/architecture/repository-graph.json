@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:88e8aeaee64c743001b3bc32c0cb1a9e0d73c4c2fc02aca3597be64376be015e",
+  "source_digest": "sha256:7f2941b2b835f7d829ee2098fafccdb180e76101ca06c169409c4a47a8cad98c",
   "counts": {
-    "modules": 591,
+    "modules": 592,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 157
+      "module_count": 158
     },
     {
       "id": "ui-shell",
@@ -2008,6 +2008,16 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/desktop-relay-pairing.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/connection-payload.ts",
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-client.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/desktopSsh.ts",
