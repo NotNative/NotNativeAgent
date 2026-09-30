@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-30 saved relay host switching and restore.** Remote
+  Instances now identity-checks a saved relay descriptor, verifies API
+  compatibility and authentication through E2EE, then adopts that same tunnel
+  for the live runtime. Relay defaults boot locally until the trusted renderer
+  restores the tunnel; failed probes keep the local runtime available. Main
+  process selection is serialized with catalog writes, verifies the probed
+  descriptor/token/headers still match, and startup retries temporary pairing
+  locks for a bounded window. Startup restore now confirms the selected host
+  remains the saved default, so a late probe cannot override a newer choice.
+  Full UI: 1,442 tests; Electron: 115 tests;
+  typecheck and focused relay tests pass. Mixed direct/relay fallback remains.
+
 - 2026-09-30 · **P12b-29 relay-only pairing integration.** The native
   deep-link importer now consents to relay-only links, delegates redemption to
   the trusted local renderer over the bounded bridge, and saves the token plus

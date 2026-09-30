@@ -57,6 +57,13 @@ export async function resolveDesktopBootTarget({
     bootOutcome: { target: 'remote', status: 'missing', hostId, localAvailable },
   });
 
+  // The Electron main process cannot probe the end-to-end-encrypted relay.
+  // Keep boot local until the trusted renderer restores the saved descriptor.
+  if (host.relay && !host.apiUrl) return localResult({
+    localRuntime, localAvailable,
+    bootOutcome: { target: 'remote', status: 'relay-pending', hostId, via: 'relay', localAvailable },
+  });
+
   const targetUrl = normalizeTarget(host.apiUrl || host.url);
   if (!targetUrl) return localResult({
     localRuntime, localAvailable,

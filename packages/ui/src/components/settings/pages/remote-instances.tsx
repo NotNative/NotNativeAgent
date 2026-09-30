@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
+import { adoptRelayTunnel } from '../../../lib/runtime-tunnel.ts';
+import { probeDesktopRelayHost } from '../../../lib/desktop-relay-host.ts';
 
 interface DesktopHost {
   id: string;
@@ -9,6 +11,9 @@ interface DesktopHost {
   url: string;
   apiUrl?: string;
   relayOnly: boolean;
+  relay?: { relayUrl: string; serverId: string; hostEncPubJwk: { kty: string; crv: string; x: string; y: string } };
+  clientToken: string | null;
+  requestHeaders: Record<string, string>;
 }
 
 interface HostCatalog {
@@ -52,13 +57,34 @@ function parseCatalog(value: unknown): HostCatalog | null {
   const hosts: DesktopHost[] = [];
   for (const item of input.hosts) {
     if (typeof item !== 'object' || item === null) return null;
-    const host = item as { id?: unknown; label?: unknown; url?: unknown; apiUrl?: unknown };
+    const host = item as { id?: unknown; label?: unknown; url?: unknown; apiUrl?: unknown; relay?: unknown; clientToken?: unknown; requestHeaders?: unknown };
     if (typeof host.id !== 'string' || typeof host.label !== 'string' || typeof host.url !== 'string') return null;
     if (host.apiUrl !== undefined && typeof host.apiUrl !== 'string') return null;
     const apiUrl = typeof host.apiUrl === 'string' && /^https?:\/\//iu.test(host.apiUrl) ? host.apiUrl : undefined;
+    let relay: DesktopHost['relay'];
+    if (typeof host.relay === 'object' && host.relay !== null) {
+      const candidate = host.relay as { relayUrl?: unknown; serverId?: unknown; hostEncPubJwk?: unknown };
+      const jwk = candidate.hostEncPubJwk as { kty?: unknown; crv?: unknown; x?: unknown; y?: unknown } | null;
+      if (typeof candidate.relayUrl === 'string' && /^wss?:\/\//iu.test(candidate.relayUrl)
+        && typeof candidate.serverId === 'string' && jwk?.kty === 'EC' && jwk.crv === 'P-256'
+        && typeof jwk.x === 'string' && typeof jwk.y === 'string') {
+        relay = { relayUrl: candidate.relayUrl, serverId: candidate.serverId,
+          hostEncPubJwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y } };
+      }
+    }
+    const requestHeaders: Record<string, string> = {};
+    if (typeof host.requestHeaders === 'object' && host.requestHeaders !== null && !Array.isArray(host.requestHeaders)) {
+      for (const [key, value] of Object.entries(host.requestHeaders)) {
+        if (/^[A-Za-z0-9-]{1,64}$/u.test(key) && typeof value === 'string' && value.length <= 2_048
+          && !/^(authorization|cookie|set-cookie)$/iu.test(key)) requestHeaders[key] = value;
+      }
+    }
     hosts.push({
       id: host.id, label: host.label, url: host.url, ...(apiUrl ? { apiUrl } : {}),
       relayOnly: host.url.startsWith('relay://') && apiUrl === undefined,
+      ...(relay ? { relay } : {}),
+      clientToken: typeof host.clientToken === 'string' && host.clientToken.length <= 8_192 ? host.clientToken : null,
+      requestHeaders,
     });
   }
   if (input.defaultHostId !== null && typeof input.defaultHostId !== 'string') return null;
@@ -80,11 +106,16 @@ export function RemoteInstancesPage(): ReactNode {
       setCatalog(parsed);
       if (!reply.ok || parsed === null) setMessage('Could not read saved remote instances.');
       const boot = await invoke('desktop_boot_config_get');
+      const liveRuntimeKey = window.__NOTNATIVE_RUNTIME_KEY__;
+      if (liveRuntimeKey === 'local') setActiveHostId('local');
+      else if (typeof liveRuntimeKey === 'string' && liveRuntimeKey.startsWith('host:')) setActiveHostId(liveRuntimeKey.slice(5));
       if (boot.ok && typeof boot.result === 'object' && boot.result !== null) {
         const runtimeKey = (boot.result as { runtimeKey?: unknown }).runtimeKey;
         const outcome = (boot.result as { bootOutcome?: unknown }).bootOutcome;
-        if (runtimeKey === 'local') setActiveHostId('local');
-        else if (typeof runtimeKey === 'string' && runtimeKey.startsWith('host:')) setActiveHostId(runtimeKey.slice(5));
+        if (liveRuntimeKey === undefined || liveRuntimeKey === null) {
+          if (runtimeKey === 'local') setActiveHostId('local');
+          else if (typeof runtimeKey === 'string' && runtimeKey.startsWith('host:')) setActiveHostId(runtimeKey.slice(5));
+        }
         else if (typeof outcome === 'object' && outcome !== null
           && (outcome as { hostId?: unknown }).hostId === '__env') setActiveHostId('__env');
       }
@@ -93,7 +124,24 @@ export function RemoteInstancesPage(): ReactNode {
     }
   }, []);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+    const onBootOutcome = (event: Event): void => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (!detail || typeof detail !== 'object') return;
+      const outcome = detail as { hostId?: unknown; status?: unknown; via?: unknown };
+      if (outcome.via !== 'relay') return;
+      if (outcome.status === 'ok' && typeof outcome.hostId === 'string') {
+        setActiveHostId(outcome.hostId);
+        setMessage('Connected to the saved relay instance.');
+      } else {
+        setActiveHostId('local');
+        setMessage('The saved relay instance could not be reached. The local instance remains active.');
+      }
+    };
+    window.addEventListener('notnative:desktop-boot-outcome-changed', onBootOutcome);
+    return () => window.removeEventListener('notnative:desktop-boot-outcome-changed', onBootOutcome);
+  }, [reload]);
 
   const select = async (hostId: string): Promise<void> => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
@@ -101,6 +149,60 @@ export function RemoteInstancesPage(): ReactNode {
     setBusyId(hostId);
     setMessage('Checking the selected instance…');
     try {
+      const relayHost = catalog?.hosts.find((host) => host.id === hostId && host.relayOnly);
+      if (relayHost) {
+        if (!relayHost.relay) { setMessage('This saved relay descriptor is invalid. Pair the instance again.'); return; }
+        const probe = await probeDesktopRelayHost(relayHost.relay, {
+          clientToken: relayHost.clientToken, requestHeaders: relayHost.requestHeaders, keepTunnel: true,
+        });
+        if (probe.status !== 'ok' || !probe.client) {
+          const statusText: Record<string, string> = {
+            auth: 'rejected authentication', incompatible: 'does not support this desktop API',
+            'update-recommended': 'requires a newer desktop client', 'wrong-service': 'is not the paired server',
+            unreachable: 'could not be reached through the relay',
+          };
+          setMessage(`The selected instance ${statusText[probe.status] ?? 'could not be checked'}.`);
+          return;
+        }
+        let saved;
+        try {
+          saved = await invoke('desktop_host_set_relay_default', {
+            hostId,
+            expectedHost: {
+              relayUrl: relayHost.relay.relayUrl, serverId: relayHost.relay.serverId,
+              hostEncPubJwk: relayHost.relay.hostEncPubJwk, clientToken: relayHost.clientToken,
+              requestHeaders: relayHost.requestHeaders,
+            },
+          });
+        } catch (error) {
+          probe.client.close();
+          throw error;
+        }
+        if (!saved.ok) {
+          probe.client.close();
+          const messageByError: Record<string, string> = {
+            'desktop-env-target-active': 'An explicit server URL is active; the saved host cannot be selected in this launch.',
+            'desktop-host-not-found': 'That saved instance no longer exists.',
+            'desktop-hosts-busy': 'A pairing operation is updating the saved instances. Try again shortly.',
+            'desktop-host-switch-busy': 'An instance switch is already in progress.',
+            'desktop-host-changed': 'That saved instance changed while it was being checked. Reload the list and try again.',
+          };
+          setMessage(messageByError[saved.error ?? ''] ?? 'Could not switch instances.');
+          return;
+        }
+        const selected = saved.result as { runtime?: unknown; bootOutcome?: unknown } | undefined;
+        const runtime = parseRuntime(selected?.runtime);
+        if (!runtime) { probe.client.close(); setMessage('The desktop returned an invalid runtime configuration.'); return; }
+        adoptRelayTunnel(relayHost.relay, probe.client);
+        await switchRuntimeEndpoint({ ...runtime, relay: relayHost.relay });
+        if (typeof selected?.bootOutcome === 'object' && selected.bootOutcome !== null) {
+          window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__ = selected.bootOutcome as Record<string, unknown>;
+        }
+        setActiveHostId(hostId);
+        setCatalog((previous) => previous ? { ...previous, defaultHostId: hostId } : previous);
+        setMessage(`Switched to ${relayHost.label} through the relay.`);
+        return;
+      }
       const reply = await invoke('desktop_host_switch', { hostId });
       if (!reply.ok) {
         const messages: Record<string, string> = {
@@ -159,10 +261,9 @@ export function RemoteInstancesPage(): ReactNode {
               <div className="truncate text-sm text-foreground">{host.label}</div>
               <div className="truncate text-xs text-muted-foreground">{host.apiUrl ?? host.url}</div>
             </div>
-            <button type="button" className="shrink-0 rounded border border-border px-3 py-1.5 text-xs hover:bg-interactive-hover/40" disabled={busyId !== null || activeHostId === host.id || host.relayOnly} onClick={() => { void select(host.id); }}>
-              {busyId === host.id ? 'Checking…' : activeHostId === host.id ? 'Current' : host.relayOnly ? 'Relay support pending' : 'Use this instance'}
+            <button type="button" className="shrink-0 rounded border border-border px-3 py-1.5 text-xs hover:bg-interactive-hover/40" disabled={busyId !== null || activeHostId === host.id} onClick={() => { void select(host.id); }}>
+            {busyId === host.id ? 'Checking…' : activeHostId === host.id ? 'Current' : 'Use this instance'}
             </button>
-            {host.relayOnly ? <div className="basis-full text-xs text-muted-foreground">Relay-only connections are not available in this build.</div> : null}
           </div>
         ))}
         {catalog?.hosts.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No paired remote instances yet. Open a pairing link to add one.</p> : null}

@@ -97,11 +97,15 @@ remaining P12 slices ride after it.
   outcomes, and falls back locally on invalid overrides or probe failure. Main
   boot consumes the policy and initializes the renderer with the selected API
   runtime through local-main-frame IPC.
-  The Remote Instances settings page now selects saved direct hosts and
-  switches the running renderer after probing; standalone servers admit the
+  The Remote Instances settings page now selects saved direct and relay-only
+  hosts. Relay selection performs identity, compatibility, and authentication
+  checks over E2EE, then adopts the probe tunnel. Startup holds the main runtime
+  on local until the renderer restores a saved relay default; a bounded retry
+  tolerates an in-flight pairing catalog lock, and main verifies the descriptor
+  and credentials did not change after probing. Standalone servers admit the
   exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
-  use the same validated switch path. Remaining: mixed direct/relay fallback,
-  relay-aware switching and remaining IPC catalog growth (§3.1),
+  use the validated direct switch path. Remaining: mixed direct/relay fallback
+  and remaining IPC catalog growth (§3.1),
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -157,9 +161,9 @@ remaining P12 slices ride after it.
   parsed on Windows/Linux; macOS `open-url` is handled directly. Session links
   are buffered across splash/startup and renderer reloads, then delivered via
   the existing preload event face. Pairing (`connect`) links now pass through
-  native consent and bounded direct redemption. Host selection is available in
-  Remote Instances settings and saved-host deep links; relay-only pairing remains
-  deferred. Unknown link actions
+  native consent and bounded direct or relay redemption. Direct host selection
+  is available in Remote Instances settings and saved-host deep links; relay host
+  selection is available in Remote Instances settings. Unknown link actions
   are ignored.
 - **D-09-29** The deep-link parser recognizes v2 pairing payloads only after
   strict base64url/UTF-8/JSON bounds, expiry checks, and all-candidate shape
@@ -170,7 +174,7 @@ remaining P12 slices ride after it.
   at the first healthy candidate. Expired-during-probe links are stopped before
   redemption. The client token is stored in the saved-host catalog under a
   shared mutation lock; the Remote Instances page can probe and switch to a
-  saved direct host live. Relay-only redemption and relay-aware switching remain
+  saved direct or relay-only host live. Mixed direct/relay fallback remains
   pending.
 - **D-09-30** The desktop pairing importer requires native user consent before
   network access, redacts candidate query values in the dialog, and discloses
@@ -201,10 +205,11 @@ remaining P12 slices ride after it.
   bounded boot outcome. Pairing with a relay identity requires an exact
   `/health` server-id match before sending the one-time secret to a direct URL.
 - **D-09-35** Remote Instances settings reads the host catalog and active
-  runtime over local-main-frame-only IPC. Switching persists the chosen default,
-  takes the shared host-catalog lock, runs identity/API/auth preflight, and
-  returns the selected runtime to the renderer; the renderer updates its API
-  endpoint, credential, headers, and runtime namespace in place. Failed remote
+  runtime over local-main-frame-only IPC. Direct switching persists the chosen
+  default, takes the shared host-catalog lock, runs identity/API/auth preflight,
+  and returns the selected runtime to the renderer. Relay-only switching probes
+  identity/API/auth over E2EE, verifies the catalog record still matches the
+  probed credentials under the same lock, and adopts that open tunnel. Failed
   probes keep local runtime active while preserving the selected default for a
   later retry.
 - **D-09-36** The API server admits the exact stable `notnative-ui://app`
@@ -213,19 +218,25 @@ remaining P12 slices ride after it.
   additionally supported; suffix/lookalike origins receive no CORS trust.
 - **D-09-37** `openchamber://host/<id>` accepts a single bounded saved-host id.
   The shell queues it across startup and renderer loading, serializes multiple
-  host-link requests, and uses the existing catalog lock and remote probe. A
+  host-link requests, and uses the existing catalog lock and direct-host probe. A
   successful switch reloads the local shell so the per-document runtime config
   is refreshed; missing hosts and switch conflicts show a native warning.
 - **D-09-39** The relay pairing bridge caps concurrent requests, assigns
   collision-checked one-shot request ids, expires unanswered work, and settles
   requests when the renderer is destroyed. Its accepted result shape excludes
-  the relay grant and pairing secret. Main/preload/UI wiring remains to be
-  completed.
+  the relay grant and pairing secret. Main/preload/UI wiring is complete.
 - **D-09-38** Renderer-side relay pairing redemption uses the link's optional
   one-time grant only for the throwaway E2EE connection, applies a 15-second
   request deadline and 64 KiB response bound, validates the returned client
-  token, and closes the tunnel in `finally`. The saved-host catalog and runtime
-  integration remain separate follow-up work.
+  token, and closes the tunnel in `finally`. Grant-free catalog and runtime
+  integration are recorded in D-09-40.
+- **D-09-40** Saved relay-only defaults keep Electron's injected boot runtime on
+  the local server with a `relay-pending` outcome. The trusted renderer probes
+  the stored descriptor over E2EE, then asks main to confirm the same relay key,
+  token, and request headers under the catalog lock before adopting the tunnel
+  and switching. Startup retries a busy catalog lock with capped backoff. Main
+  keeps renderer-reload injection local so a reload rebuilds the ephemeral
+  tunnel instead of addressing the virtual `tunnel.invalid` origin directly.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.

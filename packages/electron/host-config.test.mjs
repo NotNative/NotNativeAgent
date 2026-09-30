@@ -2,9 +2,31 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
-import { readDesktopHostsConfig, sanitizeDesktopHost, sanitizeDesktopHostsConfig } from './host-config.mjs';
+import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfig, sanitizeDesktopHost, sanitizeDesktopHostsConfig } from './host-config.mjs';
 
 const hostKey = { ...generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).publicKey.export({ format: 'jwk' }), d: 'private-key-must-not-survive' };
+
+test('relay selection expectation rejects same-id descriptor or credential replacement after probe', () => {
+  const saved = sanitizeDesktopHost({
+    id: 'relay', url: 'relay://server-1', relay: { relayUrl: 'wss://relay.example/ws', serverId: 'server-1', hostEncPubJwk: hostKey },
+    clientToken: 'token-a', requestHeaders: { 'X-Site': 'studio' },
+  });
+  const expected = {
+    relayUrl: saved.relay.relayUrl, serverId: saved.relay.serverId,
+    hostEncPubJwk: saved.relay.hostEncPubJwk, clientToken: saved.clientToken,
+    requestHeaders: saved.requestHeaders,
+  };
+  assert.equal(matchesExpectedRelayHost(saved, expected), true);
+  assert.equal(matchesExpectedRelayHost({ ...saved, clientToken: 'token-b' }, expected), false);
+  assert.equal(matchesExpectedRelayHost({ ...saved, relay: { ...saved.relay, serverId: 'server-2' } }, expected), false);
+  assert.equal(matchesExpectedRelayHost({ ...saved, requestHeaders: { 'x-site': 'other' } }, expected), false);
+});
+
+test('startup restore is allowed only while its relay host remains the saved default', () => {
+  assert.equal(isExpectedRelayDefault({ defaultHostId: 'relay-1' }, 'relay-1'), true);
+  assert.equal(isExpectedRelayDefault({ defaultHostId: 'local' }, 'relay-1'), false);
+  assert.equal(isExpectedRelayDefault({ defaultHostId: 'direct-2' }, 'relay-1'), false);
+});
 
 test('sanitizes direct host metadata and strips unsafe headers and URL fragments', () => {
   const host = sanitizeDesktopHost({

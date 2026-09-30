@@ -5,6 +5,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 vi.mock('../../../lib/runtime-switch.ts', () => ({ switchRuntimeEndpoint: vi.fn(async () => undefined) }));
+const relayProbe = vi.fn(async (_relay?: unknown, _options?: unknown) => ({ status: 'ok' as const, latencyMs: 12, client: { close: vi.fn() } }));
+vi.mock('../../../lib/desktop-relay-host.ts', () => ({ probeDesktopRelayHost: (relay: unknown, options: unknown) => relayProbe(relay, options) }));
+vi.mock('../../../lib/runtime-tunnel.ts', () => ({ adoptRelayTunnel: vi.fn() }));
 
 import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
 import { RemoteInstancesPage } from '../pages/remote-instances.tsx';
@@ -17,6 +20,7 @@ describe('RemoteInstancesPage', () => {
   let invoke: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    delete window.__NOTNATIVE_RUNTIME_KEY__;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -90,11 +94,14 @@ describe('RemoteInstancesPage', () => {
     expect(retry?.disabled).toBe(false);
   });
 
-  it('does not offer a relay-only record as an HTTP host', async () => {
+  it('probes and switches to a saved relay-only host through the relay tunnel', async () => {
     invoke.mockImplementation(async (command: string) => {
       if (command === 'desktop_hosts_get') return { ok: true, result: {
         defaultHostId: 'local', hosts: [
-          { id: 'relay', label: 'Relay', url: 'relay://server-id' },
+          { id: 'relay', label: 'Relay', url: 'relay://server-id', clientToken: 'relay-token', relay: {
+            relayUrl: 'wss://relay.example/ws', serverId: 'server-id',
+            hostEncPubJwk: { kty: 'EC', crv: 'P-256', x: 'x'.repeat(43), y: 'y'.repeat(43) },
+          } },
           { id: 'hybrid', label: 'Hybrid', url: 'relay://hybrid-id', apiUrl: 'https://hybrid.example' },
         ],
       } };
@@ -102,13 +109,23 @@ describe('RemoteInstancesPage', () => {
         apiBaseUrl: 'http://127.0.0.1:57123', clientToken: 'local-secret', requestHeaders: {}, runtimeKey: 'local',
         bootOutcome: { target: 'local', status: 'ok' },
       } };
+      if (command === 'desktop_host_set_relay_default') return { ok: true, result: {
+        activeHostId: 'relay', runtime: { apiBaseUrl: 'http://tunnel.invalid', clientToken: 'relay-token', requestHeaders: {}, runtimeKey: 'host:relay' },
+        bootOutcome: { target: 'remote', status: 'ok', hostId: 'relay', via: 'relay' },
+      } };
       return { ok: false, error: 'unexpected-command' };
     });
     await act(async () => { root!.render(<RemoteInstancesPage />); await Promise.resolve(); });
-    expect(container?.textContent).toContain('Relay-only connections are not available in this build.');
-    const relayButton = [...container!.querySelectorAll('button')].find((item) => item.textContent === 'Relay support pending');
-    expect(relayButton?.disabled).toBe(true);
-    expect(invoke).not.toHaveBeenCalledWith('desktop_host_switch', { hostId: 'relay' });
+    const relayButton = [...container!.querySelectorAll('button')].find((item) => {
+      return item.parentElement?.textContent?.includes('Relay') && item.textContent === 'Use this instance';
+    });
+    expect(relayButton?.disabled).toBe(false);
+    await act(async () => { relayButton!.click(); await Promise.resolve(); await Promise.resolve(); });
+    expect(relayProbe).toHaveBeenCalledWith(expect.objectContaining({ serverId: 'server-id' }), expect.objectContaining({ clientToken: 'relay-token', keepTunnel: true }));
+    expect(invoke).toHaveBeenCalledWith('desktop_host_set_relay_default', expect.objectContaining({
+      hostId: 'relay', expectedHost: expect.objectContaining({ serverId: 'server-id', clientToken: 'relay-token' }),
+    }));
+    expect(switchRuntimeEndpoint).toHaveBeenCalledWith(expect.objectContaining({ apiBaseUrl: 'http://tunnel.invalid', runtimeKey: 'host:relay', relay: expect.objectContaining({ serverId: 'server-id' }) }));
     expect(container?.textContent).toContain('https://hybrid.example');
     const hybridButton = [...container!.querySelectorAll('button')].find((item) => {
       const row = item.parentElement;

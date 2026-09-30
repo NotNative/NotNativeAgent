@@ -101,6 +101,22 @@ test('host switching delegates only validated local-main-frame IPC requests', as
   assert.deepEqual(selections, ['host-1']);
 });
 
+test('relay default selection is available only to the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const selected = [];
+  const expectedHost = { relayUrl: 'wss://relay.example/ws', serverId: 'server-1' };
+  const invoke = registeredInvoke({ contents, relayHostSelect: async (hostId, expected, restoringDefault) => {
+    selected.push([hostId, expected, restoringDefault]);
+    return { ok: true, result: { activeHostId: hostId } };
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_set_relay_default', { hostId: 'relay-1', expectedHost });
+  assert.equal(local.ok, true);
+  assert.deepEqual(selected, [['relay-1', expectedHost, false]]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_set_relay_default', { hostId: 'relay-2' });
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
+
 test('host config IPC returns the explicit busy response while pairing reserves the catalog', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const invoke = registeredInvoke({ contents, hostConfig: {

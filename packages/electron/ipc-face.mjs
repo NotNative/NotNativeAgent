@@ -152,6 +152,11 @@ export function createInvokeFace(input, dependencies) {
       if (typeof payload?.hostId !== 'string' || !input.hostSwitch) return { ok: false, error: 'desktop-host-switch-unavailable' };
       return input.hostSwitch(payload.hostId);
     }
+    if (command === 'desktop_host_set_relay_default') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (typeof payload?.hostId !== 'string' || !input.relayHostSelect) return { ok: false, error: 'desktop-host-switch-unavailable' };
+      return input.relayHostSelect(payload.hostId, payload.expectedHost, payload.restoringDefault === true);
+    }
     if (command === 'desktop_hosts_set') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.hostConfig?.set || !payload?.input) return { ok: false, error: 'desktop-hosts-unavailable' };

@@ -24,7 +24,7 @@ import { createNativeNotifications } from './native-notifications.mjs';
 import { createUiProtocolHandler } from './ui-protocol.mjs';
 import { createFileUtilities } from './file-utilities.mjs';
 import { createLocalPathUtilities } from './local-paths.mjs';
-import { readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
+import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
@@ -786,6 +786,49 @@ async function switchDesktopHost(hostId) {
   }
 }
 
+/** Persist a relay selection only after renderer-side E2EE probing succeeds. */
+async function selectRelayDesktopHost(hostId, expectedHost, restoringDefault = false) {
+  if (hostSwitchInProgress) return { ok: false, error: 'desktop-host-switch-busy' };
+  if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };
+  if (typeof process.env.OPENCHAMBER_SERVER_URL === 'string' && process.env.OPENCHAMBER_SERVER_URL.trim()) {
+    return { ok: false, error: 'desktop-env-target-active' };
+  }
+  hostSwitchInProgress = true;
+  desktopHostImportLocked = true;
+  try {
+    const current = readStoredHosts();
+    if (restoringDefault && !isExpectedRelayDefault(current, hostId)) {
+      return { ok: false, error: 'desktop-host-default-changed' };
+    }
+    const host = current.hosts.find((entry) => entry.id === hostId);
+    if (!host) return { ok: false, error: 'desktop-host-not-found' };
+    if (!host.relay || host.apiUrl) return { ok: false, error: 'desktop-host-not-relay-only' };
+    if (!matchesExpectedRelayHost(host, expectedHost)) {
+      return { ok: false, error: 'desktop-host-changed' };
+    }
+    const updated = writeStoredHosts({ ...current, defaultHostId: hostId, initialHostChoiceCompleted: true });
+    const relayRuntime = {
+      apiBaseUrl: 'http://tunnel.invalid', clientToken: host.clientToken ?? null,
+      requestHeaders: host.requestHeaders ?? {}, runtimeKey: `host:${host.id}`,
+    };
+    // Keep reload injection on the healthy local origin until the new renderer
+    // restores its in-memory E2EE tunnel. A virtual origin cannot bootstrap it.
+    desktopRuntimeConfig = localRuntimeConfig();
+    desktopBootOutcome = { target: 'remote', status: 'relay-pending', hostId, via: 'relay', localAvailable: true };
+    return { ok: true, result: {
+      activeHostId: hostId, runtime: relayRuntime,
+      bootOutcome: { target: 'remote', status: 'ok', hostId, via: 'relay' },
+      host: updated.hosts.find((entry) => entry.id === hostId),
+    } };
+  } catch (error) {
+    console.error('[shell] relay host selection failed:', error);
+    return { ok: false, error: 'desktop-host-switch-failed' };
+  } finally {
+    desktopHostImportLocked = false;
+    hostSwitchInProgress = false;
+  }
+}
+
 /** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
 function quitFromTray() {
   if (quitting) return;
@@ -812,6 +855,7 @@ const invokeFace = createInvokeFace({
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),
   hostSwitch: switchDesktopHost,
+  relayHostSelect: selectRelayDesktopHost,
   relayPairingBridge,
   mainContents: () => mainWindow?.webContents,
   nativeNotifications,

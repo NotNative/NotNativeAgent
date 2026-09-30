@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-30 saved relay host switching (20260930-51)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Relay selection and restore | Renderer tests cover relay probe adoption, boot restoration, and retry after a busy catalog lock; Electron policy tests cover local-pending relay boot, host identity/credential race rejection, and refusing stale startup restores after a newer default selection. |
+| Automated suites | UI: 1,442 tests across 175 files with one worker; Electron: 115 tests; focused relay switching tests: 7 tests. UI typecheck passes. |
+| Packaged desktop build | `pnpm --filter @notnative/electron package -- --no-nsis` completed for `20260930.0.51`; build stamp covers 946 source files and 54 artifacts. |
+| Repository gates | Quality gates, version pairing, and repository graph checks pass; graph contains 595 modules. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live relay service | No connected relay endpoint was used for an end-to-end network switch; probe, restore, and selection behavior is covered by local tests. |
+| Installed native GUI | This artifacts-only build does not run the installer; native-window acceptance remains open. |
+
 ## 2026-09-30 - P12 source-installed Electron artifacts (workspace and installed 20260930-28)
 
 **Verified working**

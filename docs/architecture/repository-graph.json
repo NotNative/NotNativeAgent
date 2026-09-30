@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4c6e782c2d0c5fd6c27db61320747c0c250f7319efc5f0b40851bd6dd5e37f5a",
+  "source_digest": "sha256:5f1fd90df7891d213c88b1080c21894de31ed6760c7dcc08bb0a56a8aabd633b",
   "counts": {
-    "modules": 593,
+    "modules": 595,
     "component_edges": 14
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 158
+      "module_count": 159
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 158
+      "module_count": 159
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 214,
-      "module_count": 90
+      "import_count": 219,
+      "module_count": 91
     },
     {
       "from": "ui-shell",
@@ -1078,6 +1078,16 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/desktop/DesktopRelayRuntimeRestore.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/desktop-relay-host.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-tunnel.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/diff/diff-view-model.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -1617,7 +1627,9 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/settings/primitives.tsx",
-        "packages/ui/src/lib/runtime-switch.ts"
+        "packages/ui/src/lib/desktop-relay-host.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-tunnel.ts"
       ]
     },
     {
@@ -2017,6 +2029,16 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/desktop-relay-host.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-client.ts",
+        "packages/ui/src/lib/runtime-tunnel.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/desktop-relay-pairing.ts",
@@ -3167,7 +3189,8 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/ThemeProvider.tsx",
         "packages/ui/src/components/auth/SessionAuthGate.tsx",
-        "packages/ui/src/components/desktop/DesktopRelayPairingBridge.tsx"
+        "packages/ui/src/components/desktop/DesktopRelayPairingBridge.tsx",
+        "packages/ui/src/components/desktop/DesktopRelayRuntimeRestore.tsx"
       ]
     },
     {

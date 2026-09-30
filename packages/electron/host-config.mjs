@@ -115,6 +115,22 @@ export function sanitizeDesktopHostsConfig(input = {}) {
   return config;
 }
 
+/** Protect renderer probes from a same-id catalog replacement before commit. */
+export function matchesExpectedRelayHost(host, expected) {
+  if (!host?.relay || host.apiUrl || !expected || typeof expected !== 'object') return false;
+  const relay = host.relay;
+  const jwk = (value) => JSON.stringify({ kty: value?.kty, crv: value?.crv, x: value?.x, y: value?.y });
+  const headers = (value) => JSON.stringify(Object.fromEntries(Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b))));
+  return expected.relayUrl === relay.relayUrl && expected.serverId === relay.serverId
+    && jwk(expected.hostEncPubJwk) === jwk(relay.hostEncPubJwk)
+    && expected.clientToken === (host.clientToken ?? null)
+    && headers(expected.requestHeaders) === headers(host.requestHeaders);
+}
+
+export function isExpectedRelayDefault(config, hostId) {
+  return config?.defaultHostId === hostId;
+}
+
 export function readDesktopHostsConfig(prefs = {}) {
   const raw = {
     hosts: Array.isArray(prefs.desktopHosts) ? prefs.desktopHosts : [],

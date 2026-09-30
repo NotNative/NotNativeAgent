@@ -51,6 +51,20 @@ test('saved host routes only after authenticated compatibility probe succeeds', 
   assert.equal(result.bootOutcome.target, 'remote');
 });
 
+test('saved relay-only host boots locally pending renderer tunnel restoration', async () => {
+  const host = { id: 'relay-1', url: 'relay://srv-1', relay: {
+    relayUrl: 'wss://relay.example/ws', serverId: 'srv-1', hostEncPubJwk: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+  } };
+  const result = await resolveDesktopBootTarget({
+    config: { hosts: [host], defaultHostId: host.id }, localRuntime, localAvailable: true,
+    probeHost: async () => { throw new Error('relay probes belong in the renderer'); },
+  });
+  assert.equal(result.runtime, localRuntime);
+  assert.deepEqual(result.bootOutcome, {
+    target: 'remote', status: 'relay-pending', hostId: 'relay-1', via: 'relay', localAvailable: true,
+  });
+});
+
 test('missing, invalid, and failed remotes fall back locally with a bounded boot outcome', async (t) => {
   await t.test('missing saved id', async () => {
     const result = await resolveDesktopBootTarget({ config: { hosts: [], defaultHostId: 'gone' }, localRuntime, localAvailable: true, probeHost: async () => { throw new Error('must not probe'); } });
