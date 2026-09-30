@@ -35,6 +35,14 @@ export function createInvokeFace(input, dependencies) {
       && isLocalSender(event);
   }
 
+  function isDesktopWindowMainSender(event) {
+    const frame = event.senderFrame;
+    const main = event.sender?.mainFrame;
+    return frame && main
+      && frame.processId === main.processId && frame.routingId === main.routingId
+      && matchesDesktopLocalOrigin(frame.url, input.origin(), input.uiOrigin?.());
+  }
+
   function isDesktopLocalMainSender(event) {
     const contents = input.mainContents();
     const frame = event.senderFrame;
@@ -113,6 +121,59 @@ export function createInvokeFace(input, dependencies) {
   }
 
   async function runInvokeCommand(command, payload, event) {
+    if (command === 'desktop_focus_window' || command === 'desktop_is_window_fullscreen'
+      || command === 'desktop_set_window_title' || command === 'desktop_get_app_version'
+      || command === 'desktop_close_current_window' || command === 'desktop_minimize_current_window'
+      || command === 'desktop_toggle_current_window_maximized' || command === 'desktop_get_current_window_state') {
+      // Window controls must come from the top-level renderer. isLocalSender
+      // also considers ancestor frames for compatibility with other IPC, so
+      // it alone would let an embedded frame control its containing window.
+      if (!isDesktopWindowMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+    }
+    if (command === 'desktop_focus_window') {
+      const win = input.windowForSender?.(event) ?? input.mainWindow?.();
+      if (!win || win.isDestroyed?.()) return { ok: true, result: false };
+      input.focusApp?.();
+      if (win.isMinimized?.()) win.restore();
+      win.show?.();
+      win.focus?.();
+      return { ok: true, result: true };
+    }
+    if (command === 'desktop_is_window_fullscreen') {
+      const win = input.windowForSender?.(event);
+      return { ok: true, result: Boolean(win && !win.isDestroyed?.() && win.isFullScreen?.()) };
+    }
+    if (command === 'desktop_set_window_title') {
+      const title = payload?.title;
+      if (typeof title !== 'string' || title.trim() === '' || title.length > 200 || /[\u0000-\u001f\u007f]/u.test(title)) {
+        return { ok: false, error: 'invalid-window-title' };
+      }
+      const win = input.windowForSender?.(event);
+      if (!win || win.isDestroyed?.()) return { ok: false, error: 'desktop-window-unavailable' };
+      win.setTitle(title.trim());
+      return { ok: true, result: null };
+    }
+    if (command === 'desktop_get_app_version') {
+      return { ok: true, result: String(input.appVersion?.() ?? '') };
+    }
+    if (command === 'desktop_close_current_window' || command === 'desktop_minimize_current_window'
+      || command === 'desktop_toggle_current_window_maximized' || command === 'desktop_get_current_window_state') {
+      const win = input.windowForSender?.(event);
+      if (!win || win.isDestroyed?.()) return { ok: false, error: 'desktop-window-unavailable' };
+      if (command === 'desktop_close_current_window') {
+        win.close();
+        return { ok: true, result: null };
+      }
+      if (command === 'desktop_minimize_current_window') {
+        win.minimize();
+        return { ok: true, result: null };
+      }
+      if (command === 'desktop_toggle_current_window_maximized') {
+        if (win.isMaximized()) win.unmaximize();
+        else win.maximize();
+      }
+      return { ok: true, result: { maximized: Boolean(win.isMaximized()) } };
+    }
     if (command === 'desktop_read_file' || command === 'desktop_save_markdown_file') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const files = input.fileUtilities?.();

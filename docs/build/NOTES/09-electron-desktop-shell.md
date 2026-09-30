@@ -104,7 +104,9 @@ remaining P12 slices ride after it.
   tolerates an in-flight pairing catalog lock, and main verifies the descriptor
   and credentials did not change after probing. Standalone servers admit the
   exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
-  use the validated direct switch path. Mixed direct/relay pairing links now
+  use the validated direct switch path. The core calling-window controls from
+  §3.1 now target the invoking BrowserWindow and require its trusted local main
+  frame. Mixed direct/relay pairing links now
   disclose every approved recipient before network access, probe direct
   candidates first, and fall back to their supplied relay only when no direct
   health/identity check passes. Relay pairing retains the catalog lock and

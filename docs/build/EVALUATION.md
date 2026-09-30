@@ -3,6 +3,22 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-33 native window IPC core (20260930-54)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Calling-window operations | IPC tests verify focus/restore, fullscreen query, validated title, version, close/minimize, maximize toggle, and state against the BrowserWindow associated with the invoking webContents. A secondary local BrowserWindow remains supported. |
+| Frame boundary | Adversarial review caught trusted-parent/untrusted-child privilege inheritance; controls now require the invoking window's own main frame at the exact local desktop origin. The regression confirms no window action occurs for an embedded untrusted frame. |
+| Automated checks | Focused IPC suite passes 13/13. Full Electron and artifact package checks are recorded after sealing. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Native window controls | No addressable app window is exposed by the computer-use bridge, so operating-system window controls were not exercised against a visible UI. |
+
 ## 2026-09-30 - P12b-32 native Electron startup repair (20260930-53)
 
 **Verified working**

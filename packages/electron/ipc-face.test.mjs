@@ -25,6 +25,92 @@ test('desktop-local origin excludes network UI origins and requires the invoking
   assert.equal(matchesDesktopLocalOrigin('https://remote.example/index.html', localOrigin, packagedUiOrigin), false);
 });
 
+test('window IPC controls the calling BrowserWindow and validates mutable titles', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const win = {
+    isDestroyed: () => false, isMinimized: () => true, isFullScreen: () => true,
+    isMaximized: () => false, restore: () => calls.push('restore'), show: () => calls.push('show'),
+    focus: () => calls.push('focus'), close: () => calls.push('close'), minimize: () => calls.push('minimize'),
+    maximize: () => { calls.push('maximize'); win.isMaximized = () => true; },
+    unmaximize: () => { calls.push('unmaximize'); win.isMaximized = () => false; },
+    setTitle: (title) => calls.push(['title', title]),
+  };
+  let focusedApp = 0;
+  const invoke = registeredInvoke({ contents, windowForSender: (event) => {
+    assert.equal(event.sender, contents);
+    return win;
+  }, focusApp: () => { focusedApp += 1; }, appVersion: () => '20260930.0.54' });
+  const local = (command, payload) => invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), command, payload);
+  assert.equal((await local('desktop_focus_window')).result, true);
+  assert.equal(focusedApp, 1);
+  assert.deepEqual(calls.splice(0), ['restore', 'show', 'focus']);
+  assert.equal((await local('desktop_is_window_fullscreen')).result, true);
+  assert.deepEqual(await local('desktop_set_window_title', { title: '  Remote Studio  ' }), {
+    seq: 7, ok: true, result: null,
+  });
+  assert.deepEqual(calls.splice(0), [['title', 'Remote Studio']]);
+  for (const title of ['', '   ', 'bad\ntitle', 'x'.repeat(201)]) {
+    const result = await local('desktop_set_window_title', { title });
+    assert.equal(result.error, 'invalid-window-title');
+  }
+  assert.equal((await local('desktop_get_app_version')).result, '20260930.0.54');
+  assert.equal((await local('desktop_minimize_current_window')).ok, true);
+  assert.deepEqual(calls.splice(0), ['minimize']);
+  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: true } });
+  assert.deepEqual(calls.splice(0), ['maximize']);
+  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: false } });
+  assert.deepEqual(calls.splice(0), ['unmaximize']);
+  assert.deepEqual(await local('desktop_get_current_window_state'), { seq: 7, ok: true, result: { maximized: false } });
+  assert.equal((await local('desktop_close_current_window')).ok, true);
+  assert.deepEqual(calls.splice(0), ['close']);
+});
+
+test('window controls reject embedded frames even when their parent is trusted', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  let windowActions = 0;
+  const win = {
+    isDestroyed: () => false, isMinimized: () => false, isMaximized: () => false,
+    show: () => { windowActions += 1; }, focus: () => { windowActions += 1; },
+    close: () => { windowActions += 1; }, setTitle: () => { windowActions += 1; },
+  };
+  const invoke = registeredInvoke({ contents, windowForSender: () => win, appVersion: () => '1.0' });
+  const embedded = {
+    ...ipcEvent(contents, 'https://untrusted-frame.example/', [
+      { url: 'notnative-ui://app/index.html' },
+      { url: 'https://untrusted-frame.example/' },
+    ]),
+    senderFrame: { processId: 1, routingId: 2, url: 'https://untrusted-frame.example/' },
+  };
+  for (const command of [
+    'desktop_focus_window', 'desktop_is_window_fullscreen', 'desktop_set_window_title',
+    'desktop_get_app_version', 'desktop_close_current_window', 'desktop_minimize_current_window',
+    'desktop_toggle_current_window_maximized', 'desktop_get_current_window_state',
+  ]) {
+    const result = await invoke(embedded, command, { title: 'Compromised frame' });
+    assert.equal(result.ok, false, command);
+    assert.equal(result.error, 'desktop-main-frame-required', command);
+  }
+  assert.equal(windowActions, 0);
+});
+
+test('window controls work in another trusted local BrowserWindow', async () => {
+  const mainContents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const secondaryContents = { mainFrame: { processId: 2, routingId: 9 }, send() {} };
+  let minimized = 0;
+  const secondaryWindow = { isDestroyed: () => false, minimize: () => { minimized += 1; } };
+  const invoke = registeredInvoke({ contents: mainContents, windowForSender: (event) => {
+    assert.equal(event.sender, secondaryContents);
+    return secondaryWindow;
+  } });
+  const result = await invoke({
+    ...ipcEvent(secondaryContents, 'notnative-ui://app/mini-chat.html'),
+    senderFrame: { processId: 2, routingId: 9, url: 'notnative-ui://app/mini-chat.html' },
+  }, 'desktop_minimize_current_window');
+  assert.equal(result.ok, true);
+  assert.equal(minimized, 1);
+});
+
 function registeredInvoke(input) {
   let handler;
   const face = createInvokeFace({

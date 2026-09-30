@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-33 native window IPC core.** Added the §3.1 window
+  controls for focusing, fullscreen state, title, app version, close, minimize,
+  maximize toggle, and current maximize state. Each operation targets the
+  calling BrowserWindow; mutating titles are bounded and reject controls. The
+  adversarial review caught embedded-frame privilege inheritance; commands now
+  require the invoking BrowserWindow's own trusted local main frame, with a
+  regression proving secondary local windows remain usable. Focused IPC suite
+  passes 13/13.
+
 - 2026-09-30 · **P12b-32 native Electron startup repair.** Launching the
   workspace Electron binary exposed a runtime-only `ReferenceError`: main
   passed `ipcMain` to the invoke face without importing it. The named import
