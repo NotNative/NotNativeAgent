@@ -3689,4 +3689,11 @@ configuration import only; live SSH transport is still outstanding.
   rejects symlinks and unsafe archive paths. This prepares artifact transfer;
   managed SSH installation/start orchestration is still pending. Focused tests
   cover bundle contents and resource bounds.
+
+- **2026-09-30 · P12 managed SSH artifact transfer.** Added a bounded SSH
+  uploader that streams the archive on stdin to a fixed remote `tar` command,
+  stages each attempt under a fresh private directory, and enforces SSH
+  forwarding/agent/X11 restrictions. Transfer is now implemented and tested;
+  remote dependency installation, startup supervision, and readiness handoff
+  still remain.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |
