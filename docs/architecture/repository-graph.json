@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:fc8cea74c17cf00d21ca77a95e73d8ecf31ff60b043a742b4d9516279f2be14e",
+  "source_digest": "sha256:e9c7db6ee0a90b6370eafc0dbb5ed9d617386b28a6a98a072da0df199e416aaa",
   "counts": {
-    "modules": 586,
+    "modules": 587,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 155
+      "module_count": 156
     },
     {
       "id": "web-server",
@@ -1512,6 +1512,15 @@
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/pages/launch-at-login-control.tsx",
+        "packages/ui/src/components/settings/primitives.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/launch-at-login-control.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
         "packages/ui/src/components/settings/primitives.tsx"
       ]
     },

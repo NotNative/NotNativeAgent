@@ -59,8 +59,8 @@ remaining P12 slices ride after it.
 - **P12b (in progress):** delivered: tray/close-to-tray/menus, scripted
   source install with NNA package registration, window geometry persistence,
   boot-failure recovery, bounded renderer crash recovery, native zoom lock,
-  and source/artifact build freshness. Remaining: privileged
-  `notnative-ui://app` protocol (§6.3), autostart/login-item (§10.6), deep-link
+  source/artifact build freshness, and Windows/macOS launch-at-login (§10.6).
+  Remaining: privileged `notnative-ui://app` protocol (§6.3), deep-link
   `openchamber://connect` handler (§5 — link head stays openchamber:// per the
   sealed pairing payload), IPC catalog growth (§3.1: file read/write guards
   §12.2-12.5, notifications §10.2), host chooser/multi-instance remote
@@ -84,9 +84,10 @@ remaining P12 slices ride after it.
   local commands use the local sender gate. No MessagePort relay protocol
   (§3.3), no `window.__OPENCHAMBER_DESKTOP__` wholesale mirror.
 - **D-09-4** Tray, menu, close-to-tray, window geometry, boot-health retry,
-  renderer recovery, and native zoom lock are implemented. Notifications,
-  deep links, SSH, updater, Mini Chat, autostart, privileged UI protocol,
-  keep-awake, and multi-host routing remain deferred to P12b rows above.
+  renderer recovery, native zoom lock, and Windows/macOS launch-at-login are
+  implemented. Notifications, deep links, SSH, updater, Mini Chat, privileged
+  UI protocol, keep-awake, and multi-host routing remain deferred to P12b rows
+  above.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
@@ -108,7 +109,11 @@ remaining P12 slices ride after it.
 - **D-09-8** electron-log dependency deferred; hand-rolled append logger with
   the same intent (file `info`, console off in packaged; server logs bridge
   through console override).
-- **D-09-9** `--background` login-item path deferred (no autostart surface yet).
+- **D-09-9** Login at startup is exposed on Windows and macOS from General
+  settings through main-frame-gated IPC and Electron's login-item API. Windows
+  starts the source-install script with `--hidden`; if tray creation fails, the
+  window is shown so a background launch cannot strand the user. Linux remains
+  unsupported.
 - **D-09-10** Security: preload requires sandbox:false (matches doc), so the
   preload process is privileged — mitigated by the invoke allowlist + sender
   framing check (§11.1 v1). webSecurity stays default-on; the window only ever
@@ -239,6 +244,11 @@ remaining P12 slices ride after it.
   JS/CSS assets and the staged native runtime. Auditors fixed the retry-card
   replacement race, the pre-application wheel-zoom race, and omissions in the
   initial artifact hash.
+
+- **D-09-21** Launch-at-login accepts only a boolean through the trusted main
+  frame. Startup launches hide behind the tray when available; a missing tray
+  falls back to a visible main window. The General settings control reports OS
+  support and operation failures rather than optimistically changing its state.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 

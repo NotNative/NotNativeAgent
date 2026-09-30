@@ -446,7 +446,10 @@ function createMainWindow() {
   }
   attachWindowGuards(win);
   win.once('ready-to-show', () => {
-    if (!HIDDEN_START || bootFailure) {
+    // A hidden login launch is only useful when the tray can reveal the app.
+    // If the tray icon cannot be created on this machine, leaving the window
+    // hidden would strand the user with a running but inaccessible process.
+    if (!HIDDEN_START || bootFailure || !trayController?.active) {
       win.show();
       win.focus();
       win.webContents.focus();
@@ -525,6 +528,21 @@ const invokeFace = createInvokeFace({
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
   retryServer: retryServerFromFailurePage,
+  loginItem: {
+    get: () => ({
+      supported: process.platform === 'win32' || process.platform === 'darwin',
+      enabled: (process.platform === 'win32' || process.platform === 'darwin')
+        ? app.getLoginItemSettings().openAtLogin : false,
+    }),
+    set: (enabled) => {
+      if (process.platform !== 'win32' && process.platform !== 'darwin') return { supported: false, enabled: false };
+      const options = process.platform === 'win32'
+        ? { openAtLogin: enabled, path: process.execPath, args: [...(PACKAGED ? [] : [`"${process.argv[1]}"`]), '--hidden'] }
+        : { openAtLogin: enabled, openAsHidden: true };
+      app.setLoginItemSettings(options);
+      return { supported: true, enabled: app.getLoginItemSettings().openAtLogin };
+    },
+  },
 });
 
 let retryInProgress = false;

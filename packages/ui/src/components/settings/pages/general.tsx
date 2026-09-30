@@ -10,6 +10,7 @@ import {
 } from '../primitives.tsx';
 import { useSettingsField } from '../page-helpers.tsx';
 import { useI18n } from '../../I18nProvider.tsx';
+import { LaunchAtLoginControl } from './launch-at-login-control.tsx';
 
 export function GeneralPage(): ReactNode {
   const { t } = useI18n();
@@ -19,7 +20,6 @@ export function GeneralPage(): ReactNode {
   const binary = useSettingsField<string>('opencodeBinary');
   const restartConfirm = useSettingsField<boolean>('showOpenCodeRestartConfirm');
   const reportUsage = useSettingsField<boolean>('reportUsage');
-
   const yes = (value: boolean | undefined, fallback: boolean): boolean => value ?? fallback;
 
   return (
@@ -44,6 +44,8 @@ export function GeneralPage(): ReactNode {
         </SettingsFieldRow>
         <SettingsCheckboxRow label="Confirm harness restarts" item="general.harness.restart-confirm" checked={yes(restartConfirm.value, true)} onChange={restartConfirm.set} />
       </SettingsSection>
+
+      {window.__NOTNATIVE_ELECTRON__ ? <LaunchAtLoginControl /> : null}
 
       <SettingsSection>
         <SettingsGroupTitle>{t('settings.search.reportUsage')}</SettingsGroupTitle>

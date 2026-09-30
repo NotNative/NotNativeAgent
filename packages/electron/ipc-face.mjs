@@ -100,6 +100,15 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
   }
 
   async function runInvokeCommand(command, payload, event) {
+    if (command === 'desktop_get_launch_at_login') {
+      if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      return { ok: true, result: input.loginItem?.get?.() ?? { supported: false, enabled: false } };
+    }
+    if (command === 'desktop_set_launch_at_login') {
+      if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (typeof payload?.enabled !== 'boolean') return { ok: false, error: 'invalid-enabled-value' };
+      return { ok: true, result: input.loginItem?.set?.(payload.enabled) ?? { supported: false, enabled: false } };
+    }
     if (command === 'desktop_retry_server') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.retryServer) return { ok: false, error: 'server-unavailable' };

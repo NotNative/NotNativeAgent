@@ -22,6 +22,12 @@ declare global {
     __NOTNATIVE_RUNTIME_APIS__?: RuntimeAPIs;
     /** Electron shell identity (P12). */
     __NOTNATIVE_ELECTRON__?: { runtime: 'electron'; arch: string; trayEnabled: boolean };
+    /** Narrow Electron invoke surface; absent on browser and mobile builds. */
+    __NOTNATIVE_DESKTOP_INVOKE__?: (command: string, payload?: unknown) => Promise<{
+      ok: boolean;
+      result?: unknown;
+      error?: string;
+    }>;
     /** Main-frame-only, identity-bound Electron broker face; absent on web and guest pages. */
     __NOTNATIVE_BROWSER_CONTROL__?: {
       register(): Promise<{ ok: boolean; error?: string }>;

@@ -16,11 +16,23 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P9 autonomy | 12 | ✅ done 2026-09-30 (goals, scheduled tasks, snippets/starters, message queue UI, multi-run/fusion, session orchestration, live goal/scheduled feedback, adversarial reviews; full web/UI releases through 20260930-2) |
 | P10 knowledge/context | 15 | ✅ done 2026-09-30 (isolated context storage and durable migration, notes/plans/todos, shared plans, agent memory/tool/runtime, session knowledge/riding, context pins, skills/catalog/install, MCP config/runtime, obligatory context, file/image guards, system reminders, BTW, and H.2 assist generation; adversarial reviews, web/UI suites, and graph/quality gates) |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; walkthrough source selectors, generation lifecycle, UI lifecycle wiring, durable identity-bound cache, model selection/readiness, cache-backed metadata, direct model transport, rich chapter/stop schema, and strict provider response-schema requests delivered 2026-09-30; installed-GUI acceptance remains |
-| P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, and source installer delivered; installed GUI walkthrough and remaining P12b surfaces pending |
+| P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, source installer, and launch-at-login delivered; native-window walkthrough and remaining P12b surfaces pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 
 ## Log
+
+- 2026-09-30 · **P12b-11 launch at login.** General settings now expose
+  Windows/macOS login startup through a main-frame-gated Electron IPC command.
+  Windows source installs preserve the main script argument and start hidden
+  behind the tray; when no tray is available, the app shows its window instead
+  of becoming inaccessible. The adversarial audit caught and fixed that
+  tray-failure case. The v27 source installer completed and NNA reports the
+  package valid; the installed server health and web asset checks passed.
+  UI/web typechecks, Electron syntax checks, quality gates, version and graph
+  checks passed. Tests were not run. The settings toggle still needs native
+  Electron-window interaction, unavailable in this host's CUA app inventory.
+
 - 2026-09-30 · **P12b-10 installed package walkthrough (20260930-25).** The
   NNA-aware source installer completed, and `nna nnd package status` reported
   the installed package registered and valid at version 20260930-25. The

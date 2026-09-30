@@ -3,17 +3,17 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
-## 2026-09-30 - P12 source-installed Electron artifacts (workspace 20260930-26; installed 20260930-25)
+## 2026-09-30 - P12 source-installed Electron artifacts (workspace and installed 20260930-27)
 
 **Verified working**
 
 | Surface | Evidence |
 |---|---|
-| Artifacts-only package | `pnpm --filter @notnative/electron package -- --no-nsis` completed for `20260930-26`; Vite/CSS gate, server bundle, tray assets, settings registry, and Windows x64 `node-pty` runtime staged. |
-| Build freshness | Generated content stamp covers 902 source/config files and 54 artifacts for workspace version `20260930-26`; the immediate `electron-build-stamp.mjs check` passed. `install.ps1` now rebuilds when this stamp is absent, stale, or mismatched. |
-| Static gates | UI/web typechecks, quality gates, version pairing, repository graph, PowerShell parser, and version-26 artifacts-only package build passed. Tests were not run. |
-| NNA registration | Read-only `nna nnd package status` reports a valid registered package at `%LOCALAPPDATA%\NotNativeDesktop`, version `20260930-25`; the installed `VERSION` file agrees. |
-| Installed launch and HTTP health | `install.ps1` completed successfully. `%APPDATA%\NotNativeDesktop\logs\main.log` records Electron loading the installed server bundle, binding port `61776`, and navigating to its loopback URL. The live `/health` response returned `ok` with version `20260930.0.25`; `/`, JavaScript, and CSS returned HTTP 200. |
+| Artifacts-only package | `pnpm --filter @notnative/electron package -- --no-nsis` completed for `20260930-27`; Vite/CSS gate, server bundle, tray assets, settings registry, and Windows x64 `node-pty` runtime staged. |
+| Build freshness | The workspace stamp covers 903 source/config files and 54 artifacts; the installed tree covers 904 because it also contains the installer-generated `install-mode.txt`. `electron-build-stamp.mjs check` passed in both trees. `install.ps1` rebuilds when this stamp is absent, stale, or mismatched. |
+| Static gates | UI/web typechecks, Electron syntax checks, quality gates, version pairing, repository graph, and PowerShell parser check passed. Tests were not run. |
+| NNA registration | Read-only `nna nnd package status` reports a valid registered package at `%LOCALAPPDATA%\NotNativeDesktop`, version `20260930-27`; the installed `VERSION` file agrees. |
+| Installed launch and HTTP health | `install.ps1` completed successfully. `%APPDATA%\NotNativeDesktop\logs\main.log` records Electron loading the installed server bundle, binding port `61776`, and navigating to its loopback URL. The live `/health` response returned `ok` with version `20260930.0.27`; `/`, JavaScript, and CSS returned HTTP 200. |
 | Browser rendering | The served UI rendered in the browser acceptance session. This verifies the installed server and web assets, but does not establish native Electron-window rendering. |
 
 **Not yet verified on this host**
@@ -21,6 +21,7 @@ unit tests assert in-process). Entries are dated; re-verification supersedes.
 | Item | State |
 |---|---|
 | Native GUI walkthrough | CUA reported `apps=[]`, so no native application window was available for visual acceptance. |
+| Launch-at-login interaction | The v27 UI and IPC are installed, but the native settings control could not be toggled or inspected without a visible Electron window. |
 | NSIS installer | Disabled by `electron-package.mjs` until the NNA-aware installer can register or validate NNA and the NND package. |
 | Remaining P12b surfaces | Deep-link pairing and updater work remain open; the broader P12b parity list in NOTES 09 §A is still incomplete. |
 
