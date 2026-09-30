@@ -1,5 +1,31 @@
 # 13 — Preview and inspection build notes
 
+## P11-28: walkthrough generation lifecycle (2026-09-30)
+
+Walkthrough generation now has one in-memory job per repository root and
+review source. A repeat variable-open returns the pending promise instead of
+starting competing model calls, while progress moves from collecting through
+assembling and keeps progress observable after a prior failed attempt. The
+NNA call honors a 50-second deadline composed with the cancellation signal, so
+timeout and explicit cancellation cannot overwrite each other with contradictory
+responses.
+
+Explicit progress and cancel routes validate the encoded source and repository
+root before examining the job store. Snapshot-admission failures keep their
+specific server status rather than collapsing into the digest too-large
+response. A repeat request carrying a different expected revision is rejected as
+stale instead of silently receiving the older generation, and malformed JSON or
+a missing directory is reported as a request error. Cancellation aborts only a
+still-running job and reports no cancellation for a job that has already
+settled; the source and workspace ownership checks remain server-side rather
+than trusting UI state. Generation completion still rechecks the diff signature
+before result assembly, preserving stale-source rejection whether the work
+finishes naturally or is cancelled.
+
+This lifecycle is memory-only by design: an application restart intentionally
+loses progress, a settled job is removed as it becomes unreachable, and durable
+cache work remains a later slice requiring a dependable model identity.
+
 ## P11-27: walkthrough source selectors (2026-09-30)
 
 The Walkthrough pane can choose Working tree (All/Staged/Unstaged), Branch, Commit, or Pull Request as the review source. The server parses and treats descriptors as untrusted input, compares branches by their merge base and working-tree net diff, compares commits against their first parent (or the empty tree for root commits), and validates GitHub pull-request descriptors before attempting transport. Source captures are double-read and revision-proofed, with the descriptor retained in the snapshot and result.

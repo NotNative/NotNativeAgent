@@ -169,7 +169,7 @@ function stopsFrom(parts: Part[]): Snapshot {
   return { signature: '', stops, fileCount: parts.length, binaryFiles };
 }
 
-function sourceRoot(directory: string): string {
+export function sourceRoot(directory: string): string {
   const root = git(directory, ['rev-parse', '--show-toplevel'], 4096).trim();
   if (!root || !isAbsolute(root)) throw new SnapshotError('No Git repository is available.', 404, 'not-repository');
   const rootReal = realpathSync(root);
