@@ -3,6 +3,25 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12 source-installed Electron artifacts
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Artifacts-only package | `pnpm --filter @notnative/electron package -- --no-nsis` completed for `20260930-24`; Vite/CSS gate, server bundle, tray assets, settings registry, and Windows x64 `node-pty` runtime staged. |
+| Build freshness | Generated content stamp covers 902 source/config files and 54 artifacts; the immediate `electron-build-stamp.mjs check` passed. `install.ps1` now rebuilds when this stamp is absent, stale, or mismatched. |
+| Static gates | UI/web typechecks, quality gates, version pairing, repository graph, and PowerShell parser check passed. Tests were not run. |
+| NNA registration | Read-only `nna nnd package status` reports a valid registered package at `%LOCALAPPDATA%\NotNativeDesktop`, version `20260928-41`; the `20260930-24` source checkout has not been installed or activated. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Installed current build / visible GUI | No native application window is exposed in the current desktop session; the built checkout has not been deployed. |
+| NSIS installer | Disabled by `electron-package.mjs` until the NNA-aware installer can register or validate NNA and the NND package. |
+| Remaining P12b surfaces | Deep-link pairing and updater work remain open; the broader P12b parity list in NOTES 09 §A is still incomplete. |
+
 ## 2026-09-26 - the snippet UI half at P9-4e-ii
 
 **Verified working**
