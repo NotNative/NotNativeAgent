@@ -244,21 +244,42 @@ describe('subagent rows (§E.9) + tasks + §G no-borrow', () => {
   it('recap validity: branded namespace, 60s quiet window, anchor freshness', () => {
     const store = emptyStore();
     patch(store, {
-      session: [{ id: 's1', time: {}, metadata: { nnd: { assist: { recap: 'Built the thing', suggestion: 'Run tests next', forMessageID: 'a1', generatedAt: Date.now() } } } }],
+      sessionStatusReady: true,
+      session: [{ id: 's1', time: {}, metadata: { openchamber: { assist: { recap: 'Built the thing', suggestion: 'Run tests next', forMessageID: 'a1', generatedAt: Date.now() } } } }],
       message: { s1: [assistantMessage('a1', 1, { tokens: TOKENS })] },
     } as unknown as Partial<DirectoryStore>);
-    expect(recapFor(store.getState(), 's1', Date.now())).toBeNull(); // inside the 60s quiet window
+    expect(recapFor(store.getState(), 's1', Date.now())).toBeNull(); // H.2 does not read the legacy nnd namespace
     const muchLater = 60_000 + 5_000;
+    patch(store, {
+      session: [{ id: 's1', time: {}, metadata: { openchamber: { assist: {
+        recap: 'Built the thing', suggestion: 'Run tests next', forMessageID: 'a1',
+        generatedAt: Date.now() - 64_000 } } } }],
+    } as unknown as Partial<DirectoryStore>);
     const backed = recapFor(store.getState(), 's1', Date.now() + muchLater);
     expect(backed?.recap).toBe('Built the thing');
     expect(backed?.suggestion).toBe('Run tests next');
     patch(store, { message: { s1: [assistantMessage('a1', 1, { tokens: TOKENS }), assistantMessage('a2', 2, { tokens: TOKENS })] } });
     expect(recapFor(store.getState(), 's1', Date.now() + muchLater)).toBeNull(); // stale anchor
     patch(store, {
-      session: [{ id: 's1', time: {}, metadata: { assist: { recap: 'WRONG NAMESPACE', forMessageID: 'a1' } } }],
+      session: [{ id: 's1', time: {}, metadata: { openchamber: { assist: { recap: 'Built the thing', suggestion: 'Run tests next', forMessageID: 'a1', generatedAt: Date.now() - 65_000 } } } }],
       message: { s1: [assistantMessage('a1', 1, { tokens: TOKENS })] },
     } as unknown as Partial<DirectoryStore>);
-    expect(recapFor(store.getState(), 's1', Date.now() + muchLater)).toBeNull(); // unbranded namespace ignored
+    expect(recapFor(store.getState(), 's1', Date.now(), { recap: true, suggestion: false }))
+      .toEqual({ recap: 'Built the thing', suggestion: null });
+    patch(store, {
+      session_status: { s1: { type: 'busy' as const } },
+      session: [{ id: 's1', time: {}, metadata: { openchamber: { assist: {
+        recap: 'Built the thing', suggestion: 'Run tests next', forMessageID: 'a1',
+        generatedAt: Date.now() - 65_000 } } } }],
+    } as unknown as Partial<DirectoryStore>);
+    expect(recapFor(store.getState(), 's1')).toBeNull();
+    patch(store, {
+      session_status: {},
+      session: [{ id: 's1', time: {}, metadata: { openchamber: { assist: {
+        recap: 'Built the thing', suggestion: 'Run tests next', forMessageID: 'a1',
+        generatedAt: Date.now() - 200 * 24 * 60 * 60 * 1000 } } } }],
+    } as unknown as Partial<DirectoryStore>);
+    expect(recapFor(store.getState(), 's1')).toBeNull();
   });
 });
 

@@ -24,6 +24,23 @@ The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed
 context test exposed the previous unhandled-rejection behavior.
 
+## P10-58: session-assist read surface (2026-09-29)
+
+The existing composer recap band now consumes the H.2 service contract directly
+from `metadata.openchamber.assist`; the legacy `nnd` namespace is ignored. The
+reader validates only typed/non-numeric identity fields, safe integer timestamps
+within a bounded age, and clamped recap/suggestion strings. It anchors to the
+last completed assistant message even when a user event follows it, requires
+authoritative session readiness, forbids non-idle status, and honors the
+60-second quiet window.
+
+Recap and suggestion are filtered independently through the registry defaults
+(`sessionRecapEnabled`/`sessionSuggestionEnabled`). The composer suggestion is
+still fill-only, and Settings Session assistance exposes both controls default
+on. An audit-found dead dismiss event was removed rather than shipping an
+invisible listener surface. Focused chat coverage is 46 files/367 tests, with
+UI and web typechecks green.
+
 ## P10-57: session-assist trigger contract (2026-09-29)
 
 The H.2 assist surface now has a safe metadata contract and live trigger

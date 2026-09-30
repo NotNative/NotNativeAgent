@@ -48,6 +48,8 @@ export function ChatPage(): ReactNode {
   const enterToSendConfigured = useSettingsField<boolean>('enterToSendConfigured');
   const startersVisible = useSettingsField<boolean>('draftStartersVisible');
   const subagentPrompting = useSettingsField<boolean>('allowPromptingSubagentSessions');
+  const recapEnabled = useSettingsField<boolean>('sessionRecapEnabled');
+  const suggestionEnabled = useSettingsField<boolean>('sessionSuggestionEnabled');
   const goalEnabled = useSettingsField<boolean>('sessionGoalEnabled');
   const goalBudgetDefault = useSettingsField<boolean>('sessionGoalDefaultBudgetEnabled');
   const goalBudget = useSettingsField<number>('sessionGoalDefaultBudget');
@@ -167,6 +169,8 @@ export function ChatPage(): ReactNode {
       <SettingsSection title="Session assistance" item="chat.session-assist">
         <SettingsCheckboxRow label="Draft starters visible" item="chat.draft-starters" checked={yes(startersVisible.value, true)} onChange={startersVisible.set} />
         <SettingsCheckboxRow label="Allow prompting subagent sessions" item="chat.subagent-prompting" checked={yes(subagentPrompting.value, false)} onChange={subagentPrompting.set} />
+        <SettingsCheckboxRow label="Show assistant recaps" item="chat.session-recap" checked={yes(recapEnabled.value, true)} onChange={recapEnabled.set} />
+        <SettingsCheckboxRow label="Show follow-up suggestions" item="chat.session-suggestion" checked={yes(suggestionEnabled.value, true)} onChange={suggestionEnabled.set} />
       </SettingsSection>
 
       <SettingsSection title="Session goals" item="chat.session-goal">

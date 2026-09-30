@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d2622d569311fb6b2178271023bb74c50e6e1ff13781c1e0620bdc0d949fbcb2",
+  "source_digest": "sha256:a491d8fad13d9d156902da44b133772e8cb073142a4f05370304844b613ef652",
   "counts": {
-    "modules": 559,
+    "modules": 560,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 152
+      "module_count": 153
     },
     {
       "id": "web-server",
@@ -711,6 +711,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/session-assist-view.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/chat/session-goal-actions.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -921,6 +927,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/session-assist-view.ts",
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/types.ts"

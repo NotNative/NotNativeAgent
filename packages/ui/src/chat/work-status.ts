@@ -8,6 +8,7 @@
 import type { PresentationMessage } from '../lib/nnd/types.ts';
 import { projectTurns } from './turns.ts';
 import type { DirectoryStore } from '../sync/types.ts';
+import { parseSessionAssistView } from './session-assist-view.ts';
 
 /** Context usage: latest REPORTING assistant message (tokens with a
  * numbers `total`) vs the resolved model context limit. Missing values hide
@@ -269,20 +270,26 @@ export function todoRows(state: DirectoryStore, sessionID: string): TodoRowView[
     .map((todo) => ({ content: todo.content, status: todo.status, priority: todo.priority }));
 }
 
-/** §E.3 recap validity: `metadata.<namespace>.assist` where the namespace is
- * the product brand (nnd); only while its forMessageID is STILL the last
- * assistant message AND a 1-minute quiet window has passed SINCE GENERATION
- * (generatedAt) — the recap must never crowd a fresh turn. */
-export function recapFor(state: DirectoryStore, sessionID: string, now = Date.now()): { recap: string; suggestion: string } | null {
-  const bag = findSession(state, sessionID)?.metadata as Record<string, unknown> | undefined;
-  const assist = (bag?.nnd as Record<string, unknown> | undefined)?.assist as { recap?: string; suggestion?: string; forMessageID?: string; generatedAt?: number } | undefined;
-  if (!assist?.recap || !assist.forMessageID) return null;
+/** H.2/E.3 consumer validity: server-owned `openchamber.assist`, the same
+ * completed assistant anchor, quiet window, and independent field toggles. */
+export function recapFor(state: DirectoryStore, sessionID: string, now = Date.now(),
+  toggles: { recap: boolean; suggestion: boolean } = { recap: true, suggestion: true },
+): { recap: string | null; suggestion: string | null } | null {
+  if (!state.sessionStatusReady) return null;
+  const status = state.session_status[sessionID];
+  if (status && status.type !== 'idle') return null;
+  const assist = parseSessionAssistView(findSession(state, sessionID)?.metadata);
+  if (!assist) return null;
+  const recap = toggles.recap ? assist.recap || null : null;
+  const suggestion = toggles.suggestion ? assist.suggestion || null : null;
+  if (!recap && !suggestion) return null;
   const messages = state.message[sessionID] ?? [];
-  const last = messages.at(-1);
-  if (!last || last.id !== assist.forMessageID) return null; // stale anchor
+  const last = [...messages].reverse().find((message) => message.role === 'assistant');
+  if (!last || last.id !== assist.forMessageID) return null;
+  if (!Number.isFinite((last.time as { completed?: unknown } | undefined)?.completed)) return null;
   const generatedAt = assist.generatedAt ?? 0;
   if (!Number.isFinite(generatedAt) || now - generatedAt < 60_000) return null; // 1-minute quiet window (§E.3)
-  return { recap: assist.recap, suggestion: assist.suggestion ?? '' };
+  return { recap, suggestion };
 }
 
 function findSession(state: DirectoryStore, sessionID: string): { metadata?: unknown } | undefined {

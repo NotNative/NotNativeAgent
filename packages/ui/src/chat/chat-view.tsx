@@ -30,14 +30,16 @@ import { useSettingsStore } from '../lib/settings/store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 
-/** §E.3/§E.4 band: recap note + suggestion chip (chip FILLS, never sends). */
-function RecapNote({ pair }: { pair: { recap: string; suggestion: string } }): ReactNode {
+/** H.2/E.3/E.4 band: recap text and/or suggestion chip; chips only fill. */
+function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string | null } }): ReactNode {
   return (
     <div className="mb-2 flex flex-col gap-1 rounded-lg bg-white/5 px-3 py-2" data-testid="recap-note">
-      <div className="text-[11px] text-neutral-400">
-        <span className="text-neutral-500">Recap: </span>
-        {pair.recap}
-      </div>
+      {pair.recap ? (
+        <div className="text-[11px] text-neutral-400">
+          <span className="text-neutral-500">Recap: </span>
+          {pair.recap}
+        </div>
+      ) : null}
       {pair.suggestion ? (
         <div className="flex items-center gap-2">
           <button
@@ -74,6 +76,8 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const globalSessions = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const goalEnabled = useSettingsStore((state) => state.doc.sessionGoalEnabled === true);
+  const recapEnabled = useSettingsStore((state) => state.doc.sessionRecapEnabled !== false);
+  const suggestionEnabled = useSettingsStore((state) => state.doc.sessionSuggestionEnabled !== false);
   const [shown, setShown] = useState<ChatColumnSession | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   useEffect(() => {
@@ -193,6 +197,9 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const globalGoalRevision = globalNnd && typeof globalNnd === 'object'
     ? (globalNnd as Record<string, unknown>)['goalRevision'] : undefined;
   const draftLanding = shownRef.sessionID === null && !focusMode;
+  const now = Date.now();
+  const recap = shownRef.sessionID ? recapFor(shownRef.store.getState(), shownRef.sessionID,
+    now, { recap: recapEnabled, suggestion: suggestionEnabled }) : null;
   const workspaceName = shownRef.directory.replace(/[\\/]+$/u, '').split(/[\\/]/u).filter(Boolean).at(-1) ?? 'this workspace';
   const btwChildSessionID = (() => {
     const openchamber = selected?.metadata?.openchamber;
@@ -245,9 +252,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
-          {!focusMode && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
-            <RecapNote pair={recapFor(shownRef.store.getState(), shownRef.sessionID)!} />
-          ) : null}
+          {!focusMode && recap ? <RecapNote pair={recap} /> : null}
           {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : <Composer
             services={props.services}
             sessionID={shownRef.sessionID}
