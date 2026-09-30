@@ -26,6 +26,13 @@ shows availability, release notes, download progress, retryable errors, and
 the install action after download. Download invoke waits up to 30 minutes so
 large packages do not outlive the IPC reply window.
 
+P12b-50 completes the native apply boundary: macOS checks `/Applications`,
+the main window geometry is persisted, and installation is deferred so the
+IPC reply can flush. The invoke remains open for up to 15 seconds, while
+preload waits up to 30 seconds. A late installer error still rolls back the
+shell's quitting state and reports to live windows; update listeners are
+removed on app exit.
+
 P12b-39 adds `ssh-config-reader.mjs` to the explicit Electron package file
 allowlist. It expands user SSH config Include globs with bounded asynchronous
 enumeration, home-directory containment, cycle/symlink rejection, descriptor

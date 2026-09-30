@@ -2,6 +2,7 @@
 import { assertUpdaterCapability, compareVersions, resolveUpdaterChannel, resolveUpdaterFeed } from './updater-policy.mjs';
 
 const NO_UPDATE_PATTERNS = /404|ENOTFOUND|Cannot find (?:channel|latest)|latest-linux(?:-arm64)?\.yml|HttpError:\s*404|status code 404/iu;
+const UPDATE_INSTALL_GRACE_MS = 15_000;
 
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
@@ -10,10 +11,18 @@ function errorText(error) {
 export function createDesktopUpdater({
   autoUpdater, packaged, platform, architecture, environment = process.env,
   testBuild = false, currentVersion, emitProgress = () => {}, setTaskbarProgress = () => {},
-  fetchNotes = async () => null,
+  fetchNotes = async () => null, isInApplicationsFolder = () => true,
+  onInstallStart = () => {}, onInstallRollback = () => {}, onInstallError = () => {}, graceMs = UPDATE_INSTALL_GRACE_MS,
 }) {
   let pendingUpdate = null;
   let configured = false;
+  let activeInstall = null;
+  const updaterListeners = [];
+
+  function listen(event, handler) {
+    autoUpdater.on(event, handler);
+    updaterListeners.push([event, handler]);
+  }
 
   function capability() { assertUpdaterCapability({ platform, packaged, environment }); }
 
@@ -29,17 +38,17 @@ export function createDesktopUpdater({
     autoUpdater.setFeedURL(feed);
     const channel = resolveUpdaterChannel({ platform, architecture });
     if (channel) autoUpdater.channel = channel;
-    autoUpdater.on('download-progress', (progress) => {
+    listen('download-progress', (progress) => {
       const total = Number.isFinite(progress?.total) && progress.total > 0 ? progress.total : null;
       const downloaded = Number.isFinite(progress?.transferred) ? Math.max(0, progress.transferred) : 0;
       setTaskbarProgress(total ? Math.min(1, downloaded / total) : 0.01);
       emitProgress({ event: 'Progress', data: { chunkLength: Number.isFinite(progress?.bytesPerSecond) ? progress.bytesPerSecond : 0, downloaded, total } });
     });
-    autoUpdater.on('update-downloaded', () => {
+    listen('update-downloaded', () => {
       setTaskbarProgress(-1);
       if (pendingUpdate) pendingUpdate.downloaded = true;
     });
-    autoUpdater.on('error', () => setTaskbarProgress(-1));
+    listen('error', () => setTaskbarProgress(-1));
     return true;
   }
 
@@ -84,9 +93,69 @@ export function createDesktopUpdater({
 
   function getPending() { return pendingUpdate ? { version: pendingUpdate.version, downloaded: pendingUpdate.downloaded } : null; }
   function install() {
+    capability();
     if (!pendingUpdate?.downloaded) throw new Error('No downloaded update');
-    autoUpdater.quitAndInstall();
+    if (platform === 'darwin' && packaged && !isInApplicationsFolder()) {
+      throw new Error('Desktop update requires NotNativeDesktop.app to be installed in /Applications');
+    }
+    if (activeInstall) throw new Error('Desktop update installation is already in progress');
+    return new Promise((resolve, reject) => {
+      const attempt = { settled: false, failed: false, timer: null, onError: null };
+      activeInstall = attempt;
+      const cleanup = () => {
+        clearTimeout(attempt.timer);
+        autoUpdater.removeListener('error', attempt.onError);
+        if (activeInstall === attempt) activeInstall = null;
+      };
+      const finish = (error) => {
+        if (attempt.settled) return;
+        attempt.settled = true;
+        cleanup();
+        if (error) reject(error); else resolve(null);
+      };
+      const onError = (error) => {
+        if (attempt.failed) return;
+        attempt.failed = true;
+        try { onInstallRollback(); } catch { /* app remains usable */ }
+        const failure = new Error(`Unable to install desktop update: ${errorText(error)}`, { cause: error });
+        try { onInstallError(failure); } catch { /* error reporting must not block rollback */ }
+        // Keep the error listener beyond the IPC grace window. Some installer
+        // failures arrive after quitAndInstall returns; dropping it would leave
+        // the main process in its quitting state with no usable tray action.
+        if (attempt.settled) cleanup();
+        else finish(failure);
+      };
+      attempt.onError = onError;
+      attempt.timer = setTimeout(() => {
+        if (attempt.settled) return;
+        attempt.settled = true;
+        clearTimeout(attempt.timer);
+        resolve(null);
+        // Deliberately retain the listener until an error or process teardown.
+        // A late error still rolls back and reports even though IPC has settled.
+      }, Math.max(0, graceMs));
+      autoUpdater.on('error', onError);
+      setImmediate(() => {
+        if (attempt.failed) return;
+        try {
+          onInstallStart();
+          autoUpdater.quitAndInstall();
+        } catch (error) {
+          onError(error);
+        }
+      });
+    });
   }
 
-  return { setup, check, download, install, getPending, capability };
+  function dispose() {
+    const attempt = activeInstall;
+    if (attempt) {
+      clearTimeout(attempt.timer);
+      autoUpdater.removeListener('error', attempt.onError);
+      activeInstall = null;
+    }
+    for (const [event, handler] of updaterListeners.splice(0)) autoUpdater.removeListener(event, handler);
+  }
+
+  return { setup, check, download, install, getPending, capability, dispose };
 }

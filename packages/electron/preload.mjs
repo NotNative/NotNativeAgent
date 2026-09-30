@@ -39,6 +39,7 @@ function invoke(command, payload) {
     sequence += 1;
     const seq = sequence;
     const timeoutMs = command === 'desktop_updater_download' ? 30 * 60_000
+      : command === 'desktop_updater_install' ? 30_000
       : command === 'desktop_retry_server' ? 25_000 : INVOKE_TIMEOUT_MS;
     const timer = setTimeout(() => {
       pending.delete(seq);

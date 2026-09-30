@@ -1158,6 +1158,18 @@ async function boot() {
       environment: process.env,
       testBuild: globalThis.__NOTNATIVE_UPDATER_E2E_BUILD__ === true,
       currentVersion: productVersion(),
+      isInApplicationsFolder: () => app.isInApplicationsFolder(),
+      onInstallStart: () => {
+        quitting = true;
+        persistWindowState(mainWindow);
+      },
+      onInstallRollback: () => { quitting = false; },
+      onInstallError: (error) => {
+        const detail = { event: 'Error', data: { message: error instanceof Error ? error.message : String(error) } };
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) window.webContents.send('openchamber:emit', { event: 'openchamber:update-progress', detail });
+        }
+      },
       emitProgress: (detail) => {
         for (const window of BrowserWindow.getAllWindows()) {
           if (!window.isDestroyed()) window.webContents.send('openchamber:emit', { event: 'openchamber:update-progress', detail });
@@ -1233,6 +1245,7 @@ app.on('before-quit', () => {
   if (!serverHandle) return;
   try { serverHandle.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
 });
+app.on('will-quit', () => desktopUpdater?.dispose());
 
 boot().catch((error) => {
   console.error('[electron] startup failed:', error);

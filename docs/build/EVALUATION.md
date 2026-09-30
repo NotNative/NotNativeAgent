@@ -1,5 +1,13 @@
 # Evaluation Log — working / broken on this system
 
+## 2026-09-30 - P12b-50 updater install and rollback (20260930-71)
+
+| Area | Result |
+|---|---|
+| Install path | Downloaded update applies on a deferred turn; window geometry is persisted and the IPC reply receives a bounded 15-second grace. |
+| Recovery gates | macOS requires the packaged app in `/Applications`; synchronous and asynchronous errors invoke rollback. |
+| Verification | Focused updater/IPC tests pass; full Electron tests pass 182/182 and workspace typechecks pass. Late-error rollback, retry, and listener disposal have regression coverage. |
+
 ## 2026-09-30 - P12b-49 bounded SSH remote-command runner (20260930-70)
 
 | Area | Result |

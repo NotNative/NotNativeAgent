@@ -2,6 +2,17 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-50 updater install and rollback (20260930-71)
+
+Native update apply now checks the macOS Applications-folder requirement,
+persists window geometry before install, defers `quitAndInstall()` until the
+IPC reply can flush, and holds the invoke open for a bounded grace period.
+The adversarial review found that a late installer error could leave the shell
+quitting after the IPC grace; the listener now survives that window, reports
+the error, rolls back shell state, and permits retry. Updater listeners are
+removed at app exit. The install invoke timeout is 30 seconds. Full Electron
+tests pass 182/182 and workspace typechecks pass.
+
 ## 2026-09-30 · P12b-49 bounded SSH remote-command runner (20260930-70)
 
 Added a packaged remote-command primitive for managed SSH provisioning. It

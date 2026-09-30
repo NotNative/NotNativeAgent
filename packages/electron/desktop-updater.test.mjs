@@ -8,7 +8,7 @@ function fixture(overrides = {}) {
   const updater = new EventEmitter();
   Object.assign(updater, { setFeedURL(feed) { this.feed = feed; }, checkForUpdates: async () => ({ updateInfo: { version: '20260930-68', releaseNotes: 'Notes' } }), downloadUpdate: async () => {}, quitAndInstall() { this.installed = true; } });
   const progress = []; const taskbar = [];
-  const policy = createDesktopUpdater({ autoUpdater: updater, packaged: true, platform: 'win32', architecture: 'x64', environment: {}, currentVersion: '20260930-67', emitProgress: (x) => progress.push(x), setTaskbarProgress: (x) => taskbar.push(x), ...overrides });
+  const policy = createDesktopUpdater({ autoUpdater: updater, packaged: true, platform: 'win32', architecture: 'x64', environment: {}, currentVersion: '20260930-67', emitProgress: (x) => progress.push(x), setTaskbarProgress: (x) => taskbar.push(x), graceMs: 5, ...overrides });
   return { policy, updater, progress, taskbar };
 }
 
@@ -29,8 +29,42 @@ test('checks update version and release notes, then downloads and records comple
   await f.policy.download();
   assert.deepEqual(f.policy.getPending(), { version: '20260930-68', downloaded: true });
   assert.deepEqual(f.progress.map((event) => event.event), ['Started', 'Finished']);
-  f.policy.install();
+  await f.policy.install();
   assert.equal(f.updater.installed, true);
+});
+
+test('update install returns after the grace window and rolls back when updater reports an error', async () => {
+  const changes = [];
+  const f = fixture({ graceMs: 20, onInstallStart: () => changes.push('start'), onInstallRollback: () => changes.push('rollback') });
+  f.policy.setup();
+  await f.policy.check(); await f.policy.download();
+  const pending = f.policy.install();
+  setImmediate(() => f.updater.emit('error', new Error('signature rejected')));
+  await assert.rejects(pending, /signature rejected/u);
+  assert.deepEqual(changes, ['start', 'rollback']);
+});
+
+test('late installer errors still roll back and leave the install route reusable', async () => {
+  const changes = [];
+  const f = fixture({ graceMs: 1, onInstallStart: () => changes.push('start'), onInstallRollback: () => changes.push('rollback'), onInstallError: (error) => changes.push(error.message) });
+  f.policy.setup();
+  await f.policy.check(); await f.policy.download();
+  await f.policy.install(); // IPC grace elapsed; updater may still report asynchronously.
+  assert.equal(f.updater.listenerCount('error'), 2); // setup progress listener + install listener
+  f.updater.emit('error', new Error('installer exited late'));
+  assert.deepEqual(changes, ['start', 'rollback', 'Unable to install desktop update: installer exited late']);
+  assert.equal(f.updater.listenerCount('error'), 1);
+  await f.policy.install(); // retry after rollback is accepted
+  assert.equal(f.updater.installed, true);
+  f.policy.dispose();
+  assert.equal(f.updater.listenerCount('error'), 0);
+});
+
+test('macOS update install requires the packaged app to be in Applications', async () => {
+  const f = fixture({ platform: 'darwin', isInApplicationsFolder: () => false });
+  f.policy.setup();
+  await f.policy.check(); await f.policy.download();
+  assert.throws(() => f.policy.install(), /installed in \/Applications/u);
 });
 
 test('turns absent release manifests into no update, while surfacing network failures', async () => {
