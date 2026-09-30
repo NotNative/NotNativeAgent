@@ -27,6 +27,7 @@ import { createLocalPathUtilities } from './local-paths.mjs';
 import { readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
+import { createDesktopPairingImporter } from './desktop-pairing.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -62,6 +63,7 @@ let bootFailure = null; // boot-abort message; trayed installs linger and must s
 let windowStateTimer = null;
 let revealPending = false;
 const pendingDeepLinks = extractDesktopDeepLinks(process.argv);
+let desktopHostImportLocked = false;
 
 function receiveDeepLink(link) {
   if (!link) return;
@@ -84,6 +86,20 @@ function receiveDeepLink(link) {
     ensureMainWindow();
     mainWindow.webContents.send('openchamber:emit', {
       event: 'openchamber:open-session', detail: { sessionId: link.sessionId },
+    });
+    return;
+  }
+  if (link.type === 'connect') {
+    if (!app.isReady() || !mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
+      pendingDeepLinks.push(link);
+      if (pendingDeepLinks.length > 20) pendingDeepLinks.shift();
+      if (!mainWindow) revealPending = true;
+      else ensureMainWindow();
+      return;
+    }
+    ensureMainWindow();
+    void desktopPairingImporter.importPairing(link.payload).catch(() => {
+      console.error('[shell] pairing import failed unexpectedly');
     });
   }
 }
@@ -661,7 +677,12 @@ const invokeFace = createInvokeFace({
   nativeNotifications,
   fileUtilities: () => fileUtilities,
   localPathUtilities: () => localPathUtilities,
-  hostConfig: { get: readStoredHosts, set: writeStoredHosts },
+  hostConfig: {
+    get: readStoredHosts,
+    set: (input) => desktopHostImportLocked
+      ? { ok: false, error: 'desktop-hosts-busy' }
+      : { ok: true, result: writeStoredHosts(input) },
+  },
   identity: {
     getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
     getInstallId: () => readOrCreateDesktopInstallId({
@@ -689,6 +710,25 @@ const invokeFace = createInvokeFace({
     },
   },
 }, { ipcMain, shell });
+
+const desktopPairingImporter = createDesktopPairingImporter({
+  dialog,
+  getWindow: () => mainWindow,
+  fetch: (url, options) => electronNet.fetch(url, options),
+  getHosts: readStoredHosts,
+  setHosts: writeStoredHosts,
+  getInstallId: () => readOrCreateDesktopInstallId({
+    readPrefs: () => readShellPrefs(prefsFile()),
+    writePrefs: (patch) => writeShellPrefs(prefsFile(), patch),
+  }),
+  platform: process.platform,
+  version: productVersion(),
+  acquireHostConfigLock: () => {
+    if (desktopHostImportLocked) return null;
+    desktopHostImportLocked = true;
+    return () => { desktopHostImportLocked = false; };
+  },
+});
 
 let retryInProgress = false;
 async function retryServerFromFailurePage() {

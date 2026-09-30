@@ -138,7 +138,9 @@ export function createInvokeFace(input, dependencies) {
     if (command === 'desktop_hosts_set') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.hostConfig?.set || !payload?.input) return { ok: false, error: 'desktop-hosts-unavailable' };
-      return { ok: true, result: input.hostConfig.set(payload.input) };
+      const result = input.hostConfig.set(payload.input);
+      if (result?.ok === false && typeof result.error === 'string') return result;
+      return { ok: true, result: result?.ok === true && Object.hasOwn(result, 'result') ? result.result : result };
     }
     if (command === 'desktop_local_client_token_get') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };

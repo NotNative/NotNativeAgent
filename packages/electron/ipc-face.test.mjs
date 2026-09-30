@@ -74,6 +74,16 @@ test('host config IPC reads and writes only from the desktop local main frame', 
   assert.equal(remote.error, 'sender-not-allowed');
 });
 
+test('host config IPC returns the explicit busy response while pairing reserves the catalog', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, hostConfig: {
+    get: () => ({ hosts: [] }),
+    set: () => ({ ok: false, error: 'desktop-hosts-busy' }),
+  } });
+  const reply = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_hosts_set', { input: { hosts: [] } });
+  assert.deepEqual({ ok: reply.ok, error: reply.error }, { ok: false, error: 'desktop-hosts-busy' });
+});
+
 test('a remote top-level frame cannot borrow a trusted local child frame for host access', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const invoke = registeredInvoke({ contents, hostConfig: { get: () => ({ hosts: [] }) } });

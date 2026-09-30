@@ -75,10 +75,12 @@ remaining P12 slices ride after it.
   and `openchamber://focus` links now enter through startup argv, second-instance
   argv, or macOS `open-url`; session actions queue across UI startup and reload.
   The bounded v2 `openchamber://connect` payload parser is in place, including
-  expiry, direct URL, relay key, and candidate-order validation; consent,
-  redemption, persistence, and host switching remain pending.
-  Remaining: connect pairing consent/redemption and `openchamber://host`
-  routing, remaining IPC catalog growth
+  expiry, direct URL, relay key, and candidate-order validation. Pairing import
+  now requires native consent, probes bounded direct candidates, rejects HTTP
+  redirects, redeems once, and stores the client token in the validated host
+  catalog while holding the shared catalog mutation lock. Relay-only import and
+  switching the running app to a remote host remain pending.
+  Remaining: relay-only pairing and `openchamber://host` routing, remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -133,14 +135,26 @@ remaining P12 slices ride after it.
   `openchamber://session/<id>` actions. Startup and second-instance argv are
   parsed on Windows/Linux; macOS `open-url` is handled directly. Session links
   are buffered across splash/startup and renderer reloads, then delivered via
-  the existing preload event face. Pairing (`connect`) and host switching
-  remain deferred; unknown link actions are ignored.
+  the existing preload event face. Pairing (`connect`) links now pass through
+  native consent and bounded direct redemption;
+  relay-only pairing and host switching remain deferred. Unknown link actions
+  are ignored.
 - **D-09-29** The deep-link parser recognizes v2 pairing payloads only after
   strict base64url/UTF-8/JSON bounds, expiry checks, and all-candidate shape
   validation. Direct candidates must be credential-free HTTP(S); relay keys
   must import as P-256 public keys. Candidates are sorted by finite priority.
-  This is parsing groundwork only: no network request or persistence happens
-  until the separate native-consent redemption flow is implemented.
+  Consent-gated import tries those candidates in priority order, checks bounded
+  `/health` responses, forbids redirects, and redeems the one-time secret only
+  at the first healthy candidate. Expired-during-probe links are stopped before
+  redemption. The client token is stored in the saved-host catalog under a
+  shared mutation lock; remote runtime switching and relay-only redemption are
+  still pending.
+- **D-09-30** The desktop pairing importer requires native user consent before
+  network access, redacts candidate query values in the dialog, and discloses
+  every possible secret recipient. Health and redemption responses are bounded;
+  redirects are rejected to keep the secret on the approved origin. Redemption
+  is serialized and shares a lock with host-catalog IPC through persistence,
+  preventing concurrent UI updates from exceeding the catalog cap.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.

@@ -22,12 +22,23 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-20 consent-gated pairing import.** Native consent now
+  displays every possible direct destination with query values redacted and
+  warns that the pairing secret goes to the first healthy candidate. The shell
+  bounds health/redeem responses, rejects redirects, stops if the link expires
+  during probing, redeems once, and persists the returned token under a locked
+  saved-host catalog update. Relay-only import and switching the running app to
+  a remote host remain pending. Adversarial review fixed candidate disclosure,
+  duplicate-ID bypass, redirect leakage, host-cap interleaving, and lock-release
+  ownership hazards. The full Electron suite passes (69/69).
+
 - 2026-09-30 · **P12b-19 v2 pairing deep-link parsing.** The shell now
   recognizes bounded `openchamber://connect?v=2&p=…` payloads, validates UTF-8
   base64url JSON, expiry, all candidate forms, direct URL credentials, and P-256
   relay keys, then sorts candidates by priority. This slice only parses; the
-  native consent, candidate probe, redeem, host persistence, and switch flow
-  remain pending. Focused deep-link tests pass (5/5).
+  native consent, candidate probe, redeem, and host persistence are implemented
+  in P12b-20; switching the running app to a remote host remains pending.
+  Focused deep-link tests pass (5/5).
 
 - 2026-09-30 · **P12b-18 session and focus deep links.** Electron now registers
   the `openchamber` protocol on Windows/macOS, parses bounded session and focus
