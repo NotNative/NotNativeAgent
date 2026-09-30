@@ -8,7 +8,7 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, MessageChannelMain, powerMonitor, screen, session, shell } from 'electron';
+import { app, BrowserWindow, MessageChannelMain, Notification, powerMonitor, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -20,6 +20,7 @@ import { createTrayController } from './tray.mjs';
 import { attachRendererRecovery } from './renderer-recovery.mjs';
 import { captureWindowState, restoreWindowState } from './window-state.mjs';
 import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAppUrl } from './browser-guest-policy.mjs';
+import { createNativeNotifications } from './native-notifications.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -524,6 +525,12 @@ function ensureMainWindow() {
   focusMainWindow();
 }
 
+const nativeNotifications = createNativeNotifications({
+  Notification,
+  getWindow: () => mainWindow,
+  focusWindow: () => ensureMainWindow(),
+});
+
 /** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
 function quitFromTray() {
   if (quitting) return;
@@ -547,6 +554,7 @@ const invokeFace = createInvokeFace({
   appPathPrefix: () => appFileUrlPrefix(),
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
   mainContents: () => mainWindow?.webContents,
+  nativeNotifications,
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
   retryServer: retryServerFromFailurePage,

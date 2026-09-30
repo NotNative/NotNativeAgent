@@ -28,6 +28,9 @@ declare global {
       result?: unknown;
       error?: string;
     }>;
+    __NOTNATIVE_DESKTOP_EVENTS__?: {
+      onOpenSession(handler: (detail: { sessionId: string; directory?: string }) => void): () => void;
+    };
     /** Main-frame-only, identity-bound Electron broker face; absent on web and guest pages. */
     __NOTNATIVE_BROWSER_CONTROL__?: {
       register(): Promise<{ ok: boolean; error?: string }>;

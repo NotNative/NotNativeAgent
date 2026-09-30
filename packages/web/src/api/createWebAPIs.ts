@@ -48,6 +48,11 @@ export function createWebAPIs(): RuntimeAPIs {
     notifications: {
       async notifyAgentCompletion(payload) {
         try {
+          const desktopInvoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
+          if (typeof desktopInvoke === 'function') {
+            const result = await desktopInvoke('desktop_notify', payload);
+            return result.ok === true && (result.result as { shown?: unknown } | undefined)?.shown === true;
+          }
           if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
             return false;
           }
@@ -68,4 +73,3 @@ export function createWebAPIs(): RuntimeAPIs {
     },
   };
 }
-

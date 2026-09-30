@@ -59,11 +59,13 @@ remaining P12 slices ride after it.
 - **P12b (in progress):** delivered: tray/close-to-tray/menus, scripted
   source install with NNA package registration, window geometry persistence,
   boot-failure recovery, bounded renderer crash recovery, native zoom lock,
-  source/artifact build freshness, and Windows/macOS launch-at-login (§10.6).
+  source/artifact build freshness, Windows/macOS launch-at-login (§10.6), and
+  the renderer-to-native notification path with dedupe, hidden-window gating,
+  retained native references, and click-to-session routing (§10.2).
   Remaining: privileged `notnative-ui://app` protocol (§6.3), deep-link
   `openchamber://connect` handler (§5 — link head stays openchamber:// per the
   sealed pairing payload), IPC catalog growth (§3.1: file read/write guards
-  §12.2-12.5, native notification delivery/dedupe/click routing §10.2),
+  §12.2-12.5, server-side notification event production (§10.2),
   host chooser/multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -85,9 +87,12 @@ remaining P12 slices ride after it.
   local commands use the local sender gate. No MessagePort relay protocol
   (§3.3), no `window.__OPENCHAMBER_DESKTOP__` wholesale mirror.
 - **D-09-4** Tray, menu, close-to-tray, window geometry, boot-health retry,
-  renderer recovery, native zoom lock, and Windows/macOS launch-at-login are
-  implemented. The desktop main frame can request notification permission;
-  native delivery, dedupe, and click routing remain. Deep links, SSH, updater,
+  renderer recovery, native zoom lock, Windows/macOS launch-at-login, and the
+  renderer-to-native notification path are implemented. Main-frame-only IPC
+  delivers notifications with dedupe, hidden-window gating, retained native
+  references, and click-to-session routing; notification clicks are buffered
+  across document/React startup. The desktop main frame can request permission.
+  Server-side notification production remains unwired. Deep links, SSH, updater,
   Mini Chat, privileged UI protocol, keep-awake, and multi-host routing remain
   deferred to P12b rows above.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging

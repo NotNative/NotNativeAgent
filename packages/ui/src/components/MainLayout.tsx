@@ -208,6 +208,10 @@ export function MainLayout(): ReactNode {
     },
   } as const;
 
+  useEffect(() => window.__NOTNATIVE_DESKTOP_EVENTS__?.onOpenSession(({ sessionId, directory }) => {
+    actions.openSession(sessionId, directory ?? useSessionViewStore.getState().activeDirectory);
+  }), []);
+
   const activeDirectory = normalizeDirectoryInput(view.activeDirectory || globalHome(global) || harnessDirectory);
 
   return (

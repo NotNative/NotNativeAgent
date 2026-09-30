@@ -62,6 +62,32 @@ contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_INVOKE__', async (command, 
   }
 });
 
+contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_EVENTS__', Object.freeze({
+  onOpenSession(handler) {
+    if (typeof handler !== 'function') return () => {};
+    openSessionHandlers.add(handler);
+    for (const detail of pendingOpenSessions.splice(0)) handler(detail);
+    return () => openSessionHandlers.delete(handler);
+  },
+}));
+
+// The main process can route a notification click immediately after document
+// load, before React installs its event subscription. Buffer a small number
+// until then so the click isn't lost during a cold start.
+const openSessionHandlers = new Set();
+const pendingOpenSessions = [];
+ipcRenderer.on('openchamber:emit', (_event, envelope) => {
+  if (envelope?.event !== 'openchamber:open-session') return;
+  const detail = envelope.detail;
+  if (!detail || typeof detail.sessionId !== 'string' || detail.sessionId.length > 500) return;
+  const safe = { sessionId: detail.sessionId, ...(typeof detail.directory === 'string' ? { directory: detail.directory.slice(0, 2_000) } : {}) };
+  if (openSessionHandlers.size) for (const handler of openSessionHandlers) handler(safe);
+  else {
+    pendingOpenSessions.push(safe);
+    if (pendingOpenSessions.length > 20) pendingOpenSessions.shift();
+  }
+});
+
 contextBridge.exposeInMainWorld('__NOTNATIVE_RELAY_DEV_TUNNEL__', Object.freeze({
   open: (payload) => invoke('desktop_dev_tunnel_open', payload),
   close: (payload) => invoke('desktop_dev_tunnel_close', payload),

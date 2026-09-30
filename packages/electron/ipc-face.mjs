@@ -100,6 +100,11 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
   }
 
   async function runInvokeCommand(command, payload, event) {
+    if (command === 'desktop_notify') {
+      if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      const result = input.nativeNotifications?.notify(payload);
+      return result ? { ok: true, result } : { ok: false, error: 'native-notifications-unavailable' };
+    }
     if (command === 'desktop_get_launch_at_login') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       return { ok: true, result: input.loginItem?.get?.() ?? { supported: false, enabled: false } };
