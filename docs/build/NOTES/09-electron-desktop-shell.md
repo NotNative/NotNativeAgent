@@ -1,5 +1,11 @@
 # NOTES 09 - Electron desktop shell
 
+P12b-39 adds `ssh-config-reader.mjs` to the explicit Electron package file
+allowlist. It expands user SSH config Include globs with bounded asynchronous
+enumeration, home-directory containment, cycle/symlink rejection, descriptor
+identity validation, and a 1 MiB aggregate read cap. It does not establish an
+SSH process or tunnel; catalog entries remain configuration-only.
+
 Doc 09 (1762 lines) is enormous (full parity = checklist §15 rows 1-14). This file
 carries the slice map + adaptation deltas. **P12a-v1 is the installable shell** —
 the shortest honest path to "run the installer, evaluate the app on Windows" —

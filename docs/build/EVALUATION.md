@@ -3,7 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
-## 2026-09-30 - P12b-38 SSH catalog UI bridge (in progress)
+## 2026-09-30 - P12b-39 SSH config Include reader (20260930-60)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| SSH config import | Bounded recursive Include expansion accepts only files resolved inside the home directory, skips cycles/symlinks, and caps patterns, matches, depth, file count, and total bytes. |
+| File-open race | Adversarial review identified and fixed a Windows path-swap race by validating the opened descriptor against the re-resolved path; a deterministic regression test passes. |
+| Packaging | Electron artifacts-only Windows x64 package includes the reader module and builds successfully. |
+| Focused checks | Reader and IPC tests pass 22/22; `git diff --check` is clean. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| SSH live connection | No process manager produces status events or opens tunnels yet; this remains configuration-only. |
+
+## 2026-09-30 - P12b-38 SSH catalog UI bridge (verified; configuration only)
 
 **Verified working**
 

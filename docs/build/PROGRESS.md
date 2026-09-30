@@ -2,6 +2,17 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-39 SSH config Include reader (20260930-60)
+
+The SSH settings reader now expands bounded recursive `Include` globs within
+the user's home directory. It caps files, bytes, include depth, patterns, and
+matches; skips cycles and symlinks; and validates the opened file identity
+before reading, including on Windows where `O_NOFOLLOW` is unavailable. The
+reader is included in the Electron packaging allowlist. Focused reader/IPC
+tests pass (21/21), the artifacts-only Windows x64 package builds, and the
+adversarial review's simulated path-swap regression passes. This remains
+configuration import only; live SSH transport is still outstanding.
+
 | Phase | Doc(s) | Status |
 |---|---|---|
 | P0 scaffold + shell | 01 | ✅ done 2026-07-21 (typecheck ×3 · vitest 6/6 · vite build · prod-serve + echo-loop smoke) |

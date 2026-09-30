@@ -27,6 +27,7 @@ import { createFileUtilities } from './file-utilities.mjs';
 import { createLocalPathUtilities } from './local-paths.mjs';
 import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-config.mjs';
 import { reconcileDesktopSshHosts, sanitizeDesktopSshInstances } from './ssh-instances.mjs';
+import { readDesktopSshConfigTree } from './ssh-config-reader.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
@@ -323,16 +324,7 @@ function removeStoredSshInstance(id) {
 }
 
 function readSshConfigText() {
-  const configPath = path.join(os.homedir(), '.ssh', 'config');
-  let stat;
-  try { stat = fs.lstatSync(configPath); }
-  catch (error) {
-    if (error?.code === 'ENOENT') return '';
-    throw error;
-  }
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('desktop-ssh-config-file-invalid');
-  if (stat.size > 1_048_576) throw new Error('desktop-ssh-config-file-too-large');
-  return fs.readFileSync(configPath, 'utf8');
+  return readDesktopSshConfigTree({ homeDir: os.homedir() });
 }
 
 function writeStoredPort(port) {
