@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-19 v2 pairing deep-link parsing.** The shell now
+  recognizes bounded `openchamber://connect?v=2&p=…` payloads, validates UTF-8
+  base64url JSON, expiry, all candidate forms, direct URL credentials, and P-256
+  relay keys, then sorts candidates by priority. This slice only parses; the
+  native consent, candidate probe, redeem, host persistence, and switch flow
+  remain pending. Focused deep-link tests pass (5/5).
+
 - 2026-09-30 · **P12b-18 session and focus deep links.** Electron now registers
   the `openchamber` protocol on Windows/macOS, parses bounded session and focus
   actions from launch argv, Windows/Linux second-instance argv, and macOS

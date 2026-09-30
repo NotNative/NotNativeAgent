@@ -74,10 +74,11 @@ remaining P12 slices ride after it.
   malformed; token reads stay local-origin-only. Strict `openchamber://session`
   and `openchamber://focus` links now enter through startup argv, second-instance
   argv, or macOS `open-url`; session actions queue across UI startup and reload.
-  Pairing consent and host switching are not part of this link slice.
-  Remaining: deep-link `openchamber://connect` handler (§5 — link head stays
-  openchamber:// per the sealed pairing payload), `openchamber://host` routing,
-  remaining IPC catalog growth
+  The bounded v2 `openchamber://connect` payload parser is in place, including
+  expiry, direct URL, relay key, and candidate-order validation; consent,
+  redemption, persistence, and host switching remain pending.
+  Remaining: connect pairing consent/redemption and `openchamber://host`
+  routing, remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -134,6 +135,12 @@ remaining P12 slices ride after it.
   are buffered across splash/startup and renderer reloads, then delivered via
   the existing preload event face. Pairing (`connect`) and host switching
   remain deferred; unknown link actions are ignored.
+- **D-09-29** The deep-link parser recognizes v2 pairing payloads only after
+  strict base64url/UTF-8/JSON bounds, expiry checks, and all-candidate shape
+  validation. Direct candidates must be credential-free HTTP(S); relay keys
+  must import as P-256 public keys. Candidates are sorted by finite priority.
+  This is parsing groundwork only: no network request or persistence happens
+  until the separate native-consent redemption flow is implemented.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
