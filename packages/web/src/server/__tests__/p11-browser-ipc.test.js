@@ -19,46 +19,55 @@ function setup() {
     bootInfo: () => ({}), mainContents: () => sender, browserControl: () => broker },
   { ipcMain: { on: (name, listener) => ipc.listeners.set(name, listener) },
     shell: { openExternal: vi.fn().mockResolvedValue(undefined) } }).register();
-  const send = (command, payload = {}, frame = sender.mainFrame) => {
+  const send = async (command, payload = {}, frame = sender.mainFrame) => {
     ipc.listeners.get('nnd:desktop-invoke')({ sender, senderFrame: frame, frames: [frame] },
       { seq: sender.sent.length + 1, command, payload });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     return sender.sent.at(-1).payload;
   };
   return { sender, broker, release, send };
 }
 
 describe('desktop browser IPC identity boundary', () => {
-  it('refuses a child frame, then binds claim and result to main sender id', () => {
+  it('refuses a child frame, then binds claim and result to main sender id', async () => {
     const { sender, broker, send } = setup();
-    expect(send('desktop_browser_register', {}, { processId: 7, routingId: 2,
-      url: 'http://127.0.0.1:57123/' }).error).toBe('desktop-main-frame-required');
+    const rejected = await send('desktop_browser_register', {}, { processId: 7, routingId: 2,
+      url: 'http://127.0.0.1:57123/' });
+    expect(rejected.error).toBe('desktop-main-frame-required');
     expect(broker.registerClient).not.toHaveBeenCalled();
-    expect(send('desktop_browser_register').ok).toBe(true);
+    const registered = await send('desktop_browser_register');
+    expect(registered.ok).toBe(true);
     const [id, capable, emit] = broker.registerClient.mock.calls[0];
     expect(id).toBe('42'); expect(capable).toBe(true);
     emit({ requestId: 'browser-00000000-0000-0000-0000-000000000001', action: 'browser.snapshot', parameters: {} });
     expect(sender.sent.at(-1).channel).toBe('nnd:browser-request');
     const requestId = 'browser-00000000-0000-0000-0000-000000000001';
-    expect(send('desktop_browser_claim', { requestId, clientId: 'spoofed' }).result.granted).toBe(true);
+    const claimed = await send('desktop_browser_claim', { requestId, clientId: 'spoofed' });
+    expect(claimed.result.granted).toBe(true);
     expect(broker.claim).toHaveBeenCalledWith(requestId, '42');
-    expect(send('desktop_browser_result', { requestId, clientId: 'spoofed',
-      result: { ok: true, data: { title: 'Ready' } } }).result.matched).toBe(true);
+    const resolved = await send('desktop_browser_result', { requestId, clientId: 'spoofed',
+      result: { ok: true, data: { title: 'Ready' } } });
+    expect(resolved.result.matched).toBe(true);
     expect(broker.resolve).toHaveBeenCalledWith(requestId, '42', { ok: true, data: { title: 'Ready' } });
   });
 
-  it('unregisters without listener leaks and drops a client on main navigation', () => {
+  it('unregisters without listener leaks and drops a client on main navigation', async () => {
     const { sender, release, send } = setup();
-    expect(send('desktop_browser_register').ok).toBe(true);
+    const first = await send('desktop_browser_register');
+    expect(first.ok).toBe(true);
     expect(sender.listenerCount('destroyed')).toBe(1);
     expect(sender.listenerCount('did-start-navigation')).toBe(1);
-    expect(send('desktop_browser_unregister').ok).toBe(true);
+    const removed = await send('desktop_browser_unregister');
+    expect(removed.ok).toBe(true);
     expect(release).toHaveBeenCalledOnce();
     expect(sender.listenerCount('destroyed')).toBe(0);
     expect(sender.listenerCount('did-start-navigation')).toBe(0);
-    expect(send('desktop_browser_register').ok).toBe(true);
+    const second = await send('desktop_browser_register');
+    expect(second.ok).toBe(true);
     sender.emit('did-start-navigation', { isMainFrame: true, isInPlace: false });
     expect(release).toHaveBeenCalledTimes(2);
-    expect(send('desktop_browser_claim', { requestId: 'browser-00000000-0000-0000-0000-000000000001' }).error)
+    const denied = await send('desktop_browser_claim', { requestId: 'browser-00000000-0000-0000-0000-000000000001' });
+    expect(denied.error)
       .toBe('browser-client-not-registered');
   });
 });

@@ -145,7 +145,7 @@ export function createInvokeFace(input, dependencies = { ipcMain, shell }) {
   return {
     /** Wire the ipcMain listener exactly once. */
     register() {
-      dependencies.ipcMain.on('nnd:desktop-invoke', (event, envelope) => {
+      dependencies.ipcMain.on('nnd:desktop-invoke', async (event, envelope) => {
         const seq = envelope && typeof envelope.seq === 'number' ? envelope.seq : -1;
         const reply = (result) => {
           try { event.sender.send('nnd:desktop-reply', { seq, ...result }); } catch { /* frame gone */ }

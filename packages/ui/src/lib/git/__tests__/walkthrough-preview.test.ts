@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 import { runtimeFetch } from '../../runtime-fetch.ts';
-import { generateWalkthroughPreview, loadWalkthroughPreview } from '../walkthrough-preview.ts';
+import { generateWalkthroughPreview, loadWalkthroughPreview, type WalkthroughSource } from '../walkthrough-preview.ts';
 
 const request = runtimeFetch as ReturnType<typeof vi.fn>;
 const snapshot = { signature: 'server-revision', fileCount: 1, binaryFiles: 0, stops: [
@@ -16,10 +16,19 @@ describe('deterministic walkthrough client', () => {
     request.mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 }));
     const result = await loadWalkthroughPreview('/repo');
     expect(request).toHaveBeenCalledOnce();
-    expect(String(request.mock.calls[0]?.[0])).toContain('/api/git/walkthrough-snapshot?directory=%2Frepo&scope=all');
+    expect(String(request.mock.calls[0]?.[0])).toContain('/api/git/walkthrough-snapshot?directory=%2Frepo&source=');
+    expect(String(request.mock.calls[0]?.[0])).toContain(encodeURIComponent(JSON.stringify({ kind: 'working-tree', scope: 'all' })));
     expect(result.signature).toBe('server-revision');
     expect(result.stops[0]?.id).toBe('working:a.ts:abcd1234');
     expect(result.stops[0]?.body).toBe('-old\n+new');
+  });
+
+  it('encodes branch, commit, and PR source descriptors without interpolation', async () => {
+    request.mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 }));
+    const source: WalkthroughSource = { kind: 'pr', number: 12, sourceRepo: { owner: 'owner', repo: 'repo' } };
+    await loadWalkthroughPreview('/repo?x=1', source);
+    expect(String(request.mock.calls[0]?.[0])).toContain('directory=%2Frepo%3Fx%3D1');
+    expect(String(request.mock.calls[0]?.[0])).toContain(encodeURIComponent(JSON.stringify(source)));
   });
 
   it('reports stale/retry response rather than accepting a partial tour', async () => {
@@ -38,6 +47,9 @@ describe('deterministic walkthrough client', () => {
     expect(request.mock.calls[0]?.[0]).toBe('/api/git/walkthrough-generate');
     const init = request.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({ directory: '/repo', sessionId: 'ses_test', revision: 'rev1', scope: 'all' });
+    expect(JSON.parse(String(init.body))).toEqual({
+      directory: '/repo', sessionId: 'ses_test', revision: 'rev1',
+      source: { kind: 'working-tree', scope: 'all' },
+    });
   });
 });

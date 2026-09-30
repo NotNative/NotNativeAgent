@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:840978679769ea13b812c94cfb543077b97bcfd04bd9e2edd90b0aeb397296ce",
+  "source_digest": "sha256:2bdd25d7b5bf6288f7e8de89e936f6d3917db694d6c7616b00ed6aabfa36be52",
   "counts": {
-    "modules": 578,
+    "modules": 580,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 155
+      "module_count": 156
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 195
+      "module_count": 196
     },
     {
       "id": "web-entry",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 203,
+      "import_count": 204,
       "module_count": 87
     },
     {
@@ -922,7 +922,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/git/walkthrough-preview.ts"
+        "packages/ui/src/lib/git/walkthrough-preview.ts",
+        "packages/ui/src/lib/git/walkthrough-source-store.ts"
       ]
     },
     {
@@ -2103,6 +2104,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/git/walkthrough-source-store.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/git/walkthrough-preview.ts"
       ]
     },
     {
@@ -4938,7 +4947,8 @@
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts",
-        "packages/web/src/server/routes/git-walkthrough-snapshot.ts"
+        "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
+        "packages/web/src/server/routes/git-walkthrough-sources.ts"
       ]
     },
     {
@@ -4946,8 +4956,15 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/routes/fs.ts"
+        "packages/web/src/server/routes/fs.ts",
+        "packages/web/src/server/routes/git-walkthrough-sources.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/routes/git-walkthrough-sources.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/routes/git-worktrees.ts",

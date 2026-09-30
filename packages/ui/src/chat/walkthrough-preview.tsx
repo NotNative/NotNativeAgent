@@ -1,94 +1,255 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { generateWalkthroughPreview, loadWalkthroughPreview, type GeneratedWalkthrough, type WalkthroughPreview, type WalkthroughScope } from '../lib/git/walkthrough-preview.ts';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { generateWalkthroughPreview, loadWalkthroughPreview,
+  type GeneratedWalkthrough, type WalkthroughPreview, type WalkthroughScope, type WalkthroughSource } from '../lib/git/walkthrough-preview.ts';
+import { sourceKey } from '../lib/git/walkthrough-source-store.ts';
 
-export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { directory: string; sessionId: string | null; visible: boolean }): ReactNode {
-  const [scope, setScope] = useState<WalkthroughScope>('all');
-  const [record, setRecord] = useState<{ directory: string; scope: WalkthroughScope; preview: WalkthroughPreview } | null>(null);
-  const [active, setActive] = useState(0);
-  const [loading, setLoading] = useState(false);
+type SelectedSource = WalkthroughScope | WalkthroughSource;
+type WalkthroughScopeAlias = WalkthroughScope;
+type WalkthroughSourceAlias = WalkthroughSource;
+type PreviewRecord = { directory: string; source: SelectedSource; preview: WalkthroughPreview };
+type NarrativeRecord = { directory: string; source: SelectedSource; sessionId: string; value: GeneratedWalkthrough };
+const OBJECT_ID = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/u;
+const OWNER = /^[a-zA-Z0-9-]+$/u;
+const REPOSITORY = /^[a-zA-Z0-9_.-]+$/u;
+
+function normalize(value: string, max = 256): string | null {
+  const trimmed = value.trim();
+  return trimmed && trimmed.length <= max && Buffer.byteLength(trimmed, 'utf8') <= max ? trimmed : null;
+}
+
+function asWalkthroughSource(source: SelectedSource | null): WalkthroughSource | null {
+  if (!source) return null;
+  return typeof source === 'string' ? { kind: 'working-tree', scope: source } : source;
+}
+
+function identity(source: SelectedSource | null): string | null {
+  if (!source) return null;
+  if (typeof source === 'string') return source;
+  if (source.kind === 'working-tree') return source.scope;
+  if (source.kind === 'branch') return `branch:${source.baseRef}:${source.headRef}`;
+  if (source.kind === 'commit') return `commit:${source.hash}`;
+  return `pr:${source.number}`;
+}
+
+function sourceIdentity(source: SelectedSource): string {
+  return identity(source) ?? '';
+}
+
+function selectedPreview(record: PreviewRecord | null, directory: string, source: SelectedSource | null): WalkthroughPreview | null {
+  if (!record || !source || record.directory !== directory) return null;
+  return identity(record.source) === identity(source) ? record.preview : null;
+}
+
+function selectedNarrative(record: NarrativeRecord | null, directory: string, source: SelectedSource | null,
+  sessionId: string | null, preview: WalkthroughPreview | null, stale: boolean): GeneratedWalkthrough | null {
+  if (!record || !source || !preview || stale || record.directory !== directory || record.sessionId !== sessionId) return null;
+  return identity(record.source) === identity(source) && record.value.revision === preview.signature ? record.value : null;
+}
+
+function validSource(source: SelectedSource | null): WalkthroughSource | null {
+  if (!source) return null;
+  if (typeof source === 'string') return { kind: 'working-tree', scope: source };
+  if (source.kind === 'working-tree') return source;
+  if (source.kind === 'branch') {
+    const baseRef = normalize(source.baseRef);
+    const headRef = normalize(source.headRef);
+    return baseRef && headRef ? { kind: source.kind, baseRef, headRef } : null;
+  }
+  if (source.kind === 'commit') return OBJECT_ID.test(source.hash) ? source : null;
+  if (!Number.isSafeInteger(source.number) || source.number < 1) return null;
+  if (!source.sourceRepo) return source;
+  const owner = source.sourceRepo.owner.trim();
+  const repo = source.sourceRepo.repo.trim();
+  if (!owner && !repo) return { kind: 'pr', number: source.number };
+  return OWNER.test(owner) && REPOSITORY.test(repo)
+    ? { kind: 'pr', number: source.number, sourceRepo: { owner, repo } } : null;
+}
+
+function useWalkthroughNarrative(directory: string, source: SelectedSource | null, sessionId: string | null,
+  preview: WalkthroughPreview | null, stale: boolean): { narrative: GeneratedWalkthrough | null; generating: boolean; error: string | null; generate: () => Promise<void>; reset: () => void } {
+  const [record, setRecord] = useState<NarrativeRecord | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
+  const currentId = identity(source);
+  const narrative = selectedNarrative(record, directory, source, sessionId, preview, stale);
+  useEffect(() => {
+    request.current += 1;
+    setRecord(null); setGenerating(false); setError(null);
+  }, [currentId, directory, preview?.signature, sessionId]);
+  const reset = useCallback(() => {
+    request.current += 1;
+    setRecord(null);
+    setGenerating(false);
+    setError(null);
+  }, []);
+  const generate = useCallback(async () => {
+    if (!sessionId || !preview || stale) return;
+    const id = ++request.current;
+    setGenerating(true);
+    setError(null);
+    try {
+      const selected = typeof source === 'string' ? source : asWalkthroughSource(source)!;
+      const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, selected);
+      if (id === request.current) setRecord({ directory, source: source as SelectedSource, sessionId, value });
+    } catch (cause) {
+      if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');
+    } finally {
+      if (id === request.current) setGenerating(false);
+    }
+  }, [directory, preview, sessionId, source, stale]);
+  return { narrative, generating, error, generate, reset };
+}
+
+function useWalkthroughPreview(directory: string, source: SelectedSource | null, visible: boolean): {
+  preview: WalkthroughPreview | null; stale: boolean; error: string | null; refresh: () => Promise<void>;
+} {
+  const [record, setRecord] = useState<PreviewRecord | null>(null);
   const [stale, setStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
-  const generationRequest = useRef(0);
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState<{ directory: string; scope: WalkthroughScope; sessionId: string; value: GeneratedWalkthrough } | null>(null);
-  const preview = record?.directory === directory && record.scope === scope ? record.preview : null;
-  const narrative = generated?.directory === directory && generated.scope === scope && generated.sessionId === sessionId
-    && generated.value.revision === preview?.signature && !stale ? generated.value : null;
-  useEffect(() => {
-    generationRequest.current += 1;
-    setGenerated(null);
-    setGenerating(false);
-  }, [directory, scope, sessionId]);
-  const capture = useCallback(async (): Promise<void> => {
+  const preview = selectedPreview(record, directory, source);
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const capture = useCallback(async () => {
+    const target = sourceRef.current;
+    if (!target) return;
     const id = ++request.current;
-    setLoading(true); setError(null);
     try {
-      const next = await loadWalkthroughPreview(directory, scope);
+      const selected = typeof target === 'string' ? target : target;
+      const next = await loadWalkthroughPreview(directory, selected);
       if (id !== request.current) return;
-      setRecord({ directory, scope, preview: next }); setActive(0); setStale(false);
-      generationRequest.current += 1; setGenerated(null); setGenerating(false);
+      setRecord({ directory, source: selected, preview: next });
+      setStale(false);
+      setError(null);
     } catch (cause) {
       if (id === request.current) {
         setStale(true);
         setError(cause instanceof Error ? cause.message : 'Could not load walkthrough preview.');
       }
+    } finally {
+      if (id === request.current) request.current = 0;
     }
-    finally { if (id === request.current) setLoading(false); }
-  }, [directory, scope]);
-  const generate = useCallback(async (): Promise<void> => {
-    if (!sessionId || !preview || stale) return;
-    const id = ++generationRequest.current;
-    setGenerating(true); setError(null);
-    try {
-      const value = await generateWalkthroughPreview(directory, sessionId, preview.signature, scope);
-      if (id === generationRequest.current) setGenerated({ directory, scope, sessionId, value });
-    } catch (cause) {
-      if (id === generationRequest.current) setError(cause instanceof Error ? cause.message : 'Could not generate walkthrough.');
-    } finally { if (id === generationRequest.current) setGenerating(false); }
-  }, [directory, preview, scope, sessionId, stale]);
+  }, [directory]);
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !source) return;
     void capture();
     return () => { request.current += 1; };
-  }, [visible, capture]);
+  }, [capture, identity(source), visible]);
   useEffect(() => {
-    if (!visible || !preview || stale) return;
+    if (!visible || !preview || !source || stale) return;
     let live = true;
     let checking = false;
-    const check = (): void => {
+    const verify = (): void => {
       if (document.hidden || checking) return;
       checking = true;
-      void loadWalkthroughPreview(directory, scope).then((current) => {
+      const selected = typeof source === 'string' ? source : source;
+      void loadWalkthroughPreview(directory, selected).then((current) => {
         if (live && current.signature !== preview.signature) setStale(true);
       }).catch(() => { if (live) { setStale(true); setError('Could not verify whether this preview is current. Refresh before relying on it.'); } })
         .finally(() => { checking = false; });
     };
-    const timer = window.setInterval(check, 15_000);
-    window.addEventListener('focus', check);
-    return () => { live = false; window.clearInterval(timer); window.removeEventListener('focus', check); };
-  }, [directory, preview, scope, stale, visible]);
-  const stop = preview?.stops[active];
+    const timer = window.setInterval(verify, 15_000);
+    window.addEventListener('focus', verify);
+    return () => { live = false; window.clearInterval(timer); window.removeEventListener('focus', verify); };
+  }, [directory, preview, source, stale, visible]);
+  return { preview, stale, error, refresh: capture };
+}
+
+function scopeSelectorValue(source: SelectedSource): WalkthroughScope | 'branch' | 'commit' | 'pr' {
+  if (typeof source === 'string') return source;
+  if (source.kind === 'working-tree') return source.scope;
+  return source.kind;
+}
+
+function SourceSelector({ source, onChange }: { source: SelectedSource; onChange: (source: SelectedSource) => void }): ReactNode {
+  const selected = asWalkthroughSource(source)!;
+  return <select aria-label="Walkthrough scope" className="min-w-0 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
+    value={scopeSelectorValue(selected)}
+    onChange={(event) => {
+      const value = event.currentTarget.value;
+      if (value === 'all' || value === 'staged' || value === 'working') onChange(value);
+      else if (value === 'branch') onChange({ kind: 'branch', baseRef: '', headRef: '' });
+      else if (value === 'commit') onChange({ kind: 'commit', hash: '' });
+      else onChange({ kind: 'pr', number: 0, sourceRepo: { owner: '', repo: '' } });
+    }}>
+    <option value="all">All uncommitted</option>
+    <option value="staged">Staged</option>
+    <option value="working">Unstaged</option>
+    <option value="branch">Branch</option>
+    <option value="commit">Commit</option>
+    <option value="pr">Pull request</option>
+  </select>;
+}
+
+function textInput(label: string, value: string, onChange: (value: string) => void): ReactNode {
+  return <input aria-label={label} value={value} className="min-w-0 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
+    onChange={(event) => onChange(event.currentTarget.value)} />;
+}
+
+function SourceFields({ source, onChange }: { source: SelectedSource; onChange: (state: SelectedSource) => void }): ReactNode | null {
+  const selectedSource = typeof source === 'string' ? null : source;
+  if (selectedSource?.kind === 'branch') {
+    return <fieldset className="flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">
+      {textInput('Base ref', selectedSource.baseRef, (baseRef) => onChange({ ...selectedSource, baseRef }))}
+      {textInput('Head ref', selectedSource.headRef, (headRef) => onChange({ ...selectedSource, headRef }))}
+    </fieldset>;
+  }
+  if (selectedSource?.kind === 'commit') return textInput('Commit object ID', selectedSource.hash,
+    (hash) => onChange({ ...selectedSource, hash: hash.trim().toLowerCase() }));
+  if (selectedSource?.kind === 'pr') {
+    return <fieldset className="flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">
+      {textInput('Pull request number', String(selectedSource.number), (value) => {
+        const number = Number(value);
+        onChange(Number.isSafeInteger(number) && number >= 0 ? { ...selectedSource, number } : selectedSource);
+      })}
+      {textInput('PR owner', selectedSource.sourceRepo?.owner ?? '', (owner) => onChange({ ...selectedSource, sourceRepo: { owner, repo: selectedSource.sourceRepo?.repo ?? '' } }))}
+      {textInput('PR repository', selectedSource.sourceRepo?.repo ?? '', (repo) => onChange({ ...selectedSource, sourceRepo: { owner: selectedSource.sourceRepo?.owner ?? '', repo } }))}
+    </fieldset>;
+  }
+  return null;
+}
+
+export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { directory: string; sessionId: string | null; visible: boolean }): ReactNode {
+  const [source, setSource] = useState<SelectedSource>('all');
+  const [active, setActive] = useState(0);
+  const valid = validSource(source);
+  const { preview, stale, error, refresh } = useWalkthroughPreview(directory, typeof source === 'string' ? source : valid, visible);
+  const { narrative, generating, error: generationError, generate, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale);
+  const stop = preview?.stops[Math.min(active, (preview?.stops.length ?? 1) - 1)];
+  useEffect(() => { setActive(0); }, [identity(source), directory]);
+  const changeSource = (next: SelectedSource): void => {
+    if (typeof next === 'string') {
+      setSource(next);
+      setActive(0);
+      return;
+    }
+    setSource(next.kind === 'working-tree' ? next.scope : next);
+    setActive(0);
+  };
   return <section className="flex h-full min-h-0 flex-col" data-testid="walkthrough-preview">
     <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
       <div className="w-full text-xs font-medium text-neutral-200">Diff walkthrough</div>
-      <select aria-label="Walkthrough scope" value={scope} onChange={(event) => setScope(event.target.value as WalkthroughScope)}
-        className="min-w-0 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300">
-        <option value="all">All uncommitted</option><option value="staged">Staged</option><option value="working">Unstaged</option>
-      </select>
-      <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300" disabled={loading} onClick={() => void capture()}>Refresh</button>
+      <SourceSelector source={source} onChange={changeSource} />
+      <SourceFields source={source} onChange={changeSource} />
       <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
-        disabled={!sessionId || !preview?.stops.length || loading || stale || generating}
-        onClick={() => void generate()}>{generating ? 'Generating…' : 'Generate explanation'}</button>
+        disabled={!validSource(source)} onClick={() => { reset(); void refresh(); }}>Refresh</button>
+      <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
+        disabled={!sessionId || !preview?.stops.length || stale || generating} onClick={() => void generate()}>
+        {generating ? 'Generating…' : 'Generate explanation'}
+      </button>
     </header>
     <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
-      Local Git hunks in patch order. Generate explicitly sends a bounded diff digest to the configured NNA model; known sensitive paths are excluded, but review the diff before sending. No agent turn or tool call is made.
+      Local Git hunks in patch order. Source selectors can compare branches, commits, or pull requests. Generate explicitly sends a bounded diff digest to the configured NNA model.
     </div>
+    {!validSource(source) && typeof source !== 'string'
+      ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Complete all source fields to capture this walkthrough.</p> : null}
     {!sessionId ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Select a session to generate an explanation.</p> : null}
-    {stale && preview ? <div role="status" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">{error ? 'The current changes could not be verified against this preview. Refresh before relying on it.' : 'Changes moved since this preview was captured. Refresh to rebuild the stops.'}</div> : null}
-    {error ? <div role="alert" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">{error}</div> : null}
-    {loading && !preview ? <p role="status" className="p-3 text-xs text-neutral-400">Loading current diff…</p> : null}
+    {stale && preview ? <div role="status" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">
+      {error ? 'The current source could not be verified against this preview. Refresh before relying on it.' : 'Changes moved since this preview was captured. Refresh to rebuild the stops.'}
+    </div> : null}
+    {error || generationError ? <div role="alert" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">{error ?? generationError}</div> : null}
     {preview && preview.stops.length === 0 ? <p className="p-3 text-xs text-neutral-400">No text hunks to walk through. Binary-only changes are not rendered in this preview.</p> : null}
     {preview && preview.binaryFiles > 0 ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">{preview.binaryFiles} binary file scope(s) are omitted from hunk navigation.</p> : null}
     {narrative ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-300">
@@ -107,10 +268,10 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
         </div>)}
         {preview.stops.map((item, index) => <button key={item.id} type="button" aria-current={index === active ? 'step' : undefined}
           className={`block w-full truncate rounded px-2 py-1 text-left text-[11px] ${index === active ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
-          onClick={() => setActive(index)}>{index + 1}. {item.scope} · {item.path}:{item.newStart}</button>)}
+          onClick={() => setActive(index)}>{index + 1}. {sourceIdentity(source)} · {item.path}:{item.newStart}</button>)}
       </nav>
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
-        <div className="sticky top-0 bg-neutral-950 py-1 text-xs text-neutral-200">{stop.scope} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
+        <div className="sticky top-0 bg-neutral-950 py-1 text-xs text-neutral-200">{sourceIdentity(source)} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
         {narrative?.chapters.flatMap((chapter) => chapter.stops.map((item) => ({ ...item, chapter: chapter.title })))
           .filter((item) => item.id === stop.id).map((item) => <div key={item.id} className="mb-2 rounded border border-white/10 p-2 text-xs text-neutral-200">
             <div className="mb-1 text-[11px] text-neutral-400">{item.chapter} · model explanation</div>{item.explanation}

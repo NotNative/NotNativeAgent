@@ -78,9 +78,27 @@ describe('model-authored walkthrough boundary', () => {
       return json({ revision, text: narrative, providerID: 'local', modelID: 'small' });
     } };
     await generateWalkthrough('/repo', 'ses_test', revision, ports, 'staged');
-    expect(scopes).toEqual(['staged', 'staged']);
+    expect(scopes).toEqual([{ kind: 'working-tree', scope: 'staged' }, { kind: 'working-tree', scope: 'staged' }]);
     await expect(generateWalkthrough('/repo', 'ses_test', revision, ports, 'invalid' as 'all'))
       .rejects.toMatchObject({ code: 'invalid-request' });
+    expect(calls).toBe(2);
+  });
+
+  it('rechecks a non-working-tree source and accepts the compatible server signature', async () => {
+    const sources: unknown[] = [];
+    const sourceRevision = 'b'.repeat(40);
+    let calls = 0;
+    const ports = { snapshot: (_directory: string, _after: unknown, source: unknown) => {
+      sources.push(source);
+      return { ...snapshot(), signature: sourceRevision };
+    }, call: async (request: Request) => {
+      calls += 1;
+      if (new URL(request.url).pathname.endsWith('/session/ses_test')) return json({ directory: '/repo' });
+      return json({ revision: sourceRevision, text: narrative, providerID: 'local', modelID: 'small' });
+    } };
+    const result = await generateWalkthrough('/repo', 'ses_test', sourceRevision, ports, { kind: 'commit', hash: 'a'.repeat(40) }) as { revision: string };
+    expect(sources).toEqual([{ kind: 'commit', hash: 'a'.repeat(40) }, { kind: 'commit', hash: 'a'.repeat(40) }]);
+    expect(result.revision).toBe(sourceRevision);
     expect(calls).toBe(2);
   });
 });

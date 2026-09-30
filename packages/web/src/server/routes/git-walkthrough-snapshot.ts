@@ -1,22 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
-/** A bounded, read-only working-tree snapshot for the deterministic tour. */
+/**
+ * Walkthrough source descriptor and bounded comparison snapshot (doc 13 §F.1).
+ * Git-backed descriptors compare by full object IDs and stable patch hashes.
+ * PR descriptors are available for supported UI selection but fail closed when
+ * GitHub transport is unavailable, rather than producing an empty walkthrough.
+ */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import type { Hono } from 'hono';
 import { realpath, resolveWithin } from './fs.ts';
+import {
+  OWNER, REPOSITORY, parseWalkthroughSource, sourceKey,
+  type WalkthroughScope, type WalkthroughSource,
+} from './git-walkthrough-sources.ts';
 
 export const SNAPSHOT_MAX_FILES = 60;
 export const SNAPSHOT_MAX_HUNKS = 200;
 export const SNAPSHOT_MAX_PATCH_BYTES = 750_000;
 const TIMEOUT_MS = 10_000;
+const MAX_REF_CHARS = 256;
+const DIFF_PART_COUNT = 128;
 type Scope = 'staged' | 'working';
-export type WalkthroughScope = 'all' | Scope;
 type Entry = { path: string; oldPath?: string; index: string; working: string };
 type Part = { scope: Scope; path: string; oldPath?: string; patch: string };
 type Stop = { id: string; scope: Scope; path: string; oldPath?: string; header: string; oldStart: number; newStart: number; body: string };
-type Snapshot = { signature: string; stops: Stop[]; fileCount: number; binaryFiles: number };
+export type Snapshot = { signature: string; stops: Stop[]; fileCount: number; binaryFiles: number; source?: WalkthroughSource };
 
 export class SnapshotError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) { super(message); }
@@ -47,7 +57,7 @@ function parseStatus(raw: string): Entry[] {
     const renamed = index === 'R' || index === 'C' || working === 'R' || working === 'C';
     const oldPath = renamed ? records[++i] : undefined;
     if (renamed && !oldPath) throw new SnapshotError('Invalid Git rename status.', 500, 'invalid-status');
-    entries.push({ path, ...(oldPath ? { oldPath } : {}), index, working });
+    entries.push({ path, ...(oldPath ? { oldPath: oldPath } : {}), index, working });
   }
   return entries;
 }
@@ -57,9 +67,6 @@ function safePath(root: string, directory: string, path: string): boolean {
   const candidate = resolve(root, path);
   const workspace = realpath(directory);
   if (resolveWithin(workspace, candidate) === null) return false;
-  // Git reads tracked content from the index/worktree without following the
-  // final symlink. A symlink *parent* can escape the workspace, however.
-  // Walk to an existing ancestor so deleted paths remain valid as well.
   let parent = dirname(candidate);
   while (!lstatSync(parent, { throwIfNoEntry: false })) {
     const next = dirname(parent);
@@ -92,23 +99,23 @@ function capture(directory: string, root: string, prefix: string, selected: Walk
     if (staged) append(diffPart(root, entry, 'staged'));
     if (working) append(diffPart(root, entry, 'working'));
   }
-  parts.sort((a, b) => a.path.localeCompare(b.path) || a.scope.localeCompare(b.scope));
-  // Preserve branch identity, but do not invalidate a scoped tour when only
-  // the other side of the index/worktree changes. The selected patches below
-  // still bind the signature to the actual bytes under review.
-  // Ahead/behind tracking metadata may change after a fetch without changing
-  // either local diff. Only the local branch identity belongs in this proof.
-  const branch = (raw.split('\0', 1)[0] ?? '').replace(/(?:\.\.\..*| \[.*)$/u, '');
-  const selectedStatus = entries.flatMap((entry) => {
-    const staged = selected !== 'working' && entry.index !== ' ' && entry.index !== '?';
-    const working = selected !== 'staged' && (entry.working !== ' ' || entry.index === '?');
-    return [staged ? `staged\0${entry.index}\0${entry.path}\0${entry.oldPath ?? ''}` : '',
-      working ? `working\0${entry.working}\0${entry.path}\0${entry.oldPath ?? ''}` : ''].filter(Boolean);
-  });
-  const key = createHash('sha256').update(selected).update('\0').update(branch).update('\0')
-    .update(selectedStatus.join('\0\0')).update('\0')
-    .update(parts.map(({ scope, path, oldPath, patch }) => `${scope}\0${path}\0${oldPath ?? ''}\0${patch}`).join('\0\0')).digest('hex');
+  parts.sort((a, b) => a.path.localeCompare(b.path));
+  const head = safeHead(root);
+  const key = createHash('sha1').update([head, selected, ...parts.map((part) => [part.scope, part.path, part.patch].join('\0'))].join('\0')).digest('hex');
   return { key, parts };
+}
+
+function safeHead(root: string): string {
+  try {
+    const branch = git(root, ['symbolic-ref', '--quiet', 'HEAD'], 4096).trim();
+    if (branch) return branch;
+  } catch {
+  }
+  try {
+    return git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], 4096).trim();
+  } catch {
+    return '';
+  }
 }
 
 function diffPart(root: string, entry: Entry, scope: Scope): Part {
@@ -118,7 +125,6 @@ function diffPart(root: string, entry: Entry, scope: Scope): Part {
     const info = lstatSync(path);
     if (!info.isFile() || info.isSymbolicLink()) throw new SnapshotError('Untracked file is not a regular file.', 413, 'unsupported-untracked');
     if (info.size > SNAPSHOT_MAX_PATCH_BYTES) throw new SnapshotError('Diff exceeds walkthrough preview limit.', 413, 'diff-too-large');
-    // git diff --no-index uses exit 1 to mean that the files differ.
     try {
       patch = execFileSync('git', ['-C', root, 'diff', '--no-index', '--no-color', '--binary', '--full-index', '--unified=3', '--', '/dev/null', entry.path],
         { encoding: 'utf8', timeout: TIMEOUT_MS, maxBuffer: SNAPSHOT_MAX_PATCH_BYTES + 65_536, windowsHide: true });
@@ -163,13 +169,86 @@ function stopsFrom(parts: Part[]): Snapshot {
   return { signature: '', stops, fileCount: parts.length, binaryFiles };
 }
 
-export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: () => void, selected: WalkthroughScope = 'all'): Snapshot {
-  if (!['all', 'staged', 'working'].includes(selected)) throw new SnapshotError('Invalid walkthrough scope.', 400, 'invalid-scope');
+function sourceRoot(directory: string): string {
   const root = git(directory, ['rev-parse', '--show-toplevel'], 4096).trim();
   if (!root || !isAbsolute(root)) throw new SnapshotError('No Git repository is available.', 404, 'not-repository');
   const rootReal = realpathSync(root);
   const directoryReal = realpathSync(directory);
   if (resolveWithin(rootReal, directoryReal) === null) throw new SnapshotError('Access denied.', 403, 'access-denied');
+  return rootReal;
+}
+
+function reviewObject(root: string, ref: string, label: string): string {
+  if (!ref || Buffer.byteLength(ref, 'utf8') > MAX_REF_CHARS) throw new SnapshotError(`Invalid ${label} reference.`, 400, 'invalid-source');
+  let value = '';
+  try {
+    value = git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], 4096).trim();
+  } catch (cause) {
+    if (cause instanceof SnapshotError && cause.code === 'git-failed') throw new SnapshotError(`Unknown ${label} reference.`, 404, 'unknown-source');
+    throw cause;
+  }
+  if (!/^[0-9a-f]{40}$/u.test(value)) throw new SnapshotError(`Unknown ${label} reference.`, 404, 'unknown-source');
+  return value;
+}
+
+function loadGitHubPullRequest(): string {
+  throw new SnapshotError('GitHub is not connected.', 401, 'github-not-connected');
+}
+
+function patchDiff(root: string, args: string[]): string {
+  return git(root, ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--binary', '--full-index', '--unified=3', '--find-renames', ...args]);
+}
+
+function loadSourcePatch(root: string, source: WalkthroughSource): string {
+  if (source.kind === 'branch') {
+    const base = reviewObject(root, source.baseRef, 'base');
+    const head = reviewObject(root, source.headRef, 'head');
+    const mergeBase = git(root, ['merge-base', base, head], 4096).trim();
+    if (!/^[0-9a-f]{40}$/u.test(mergeBase)) throw new SnapshotError('Branch comparison bases do not share history.', 404, 'unknown-source');
+    return patchDiff(root, [`${mergeBase}..${head}`]);
+  }
+  if (source.kind === 'commit') {
+    const hash = reviewObject(root, source.hash, 'commit');
+    return git(root, ['show', '--format=', '--no-ext-diff', '--no-textconv', '--no-color', '--binary', '--full-index',
+      '--unified=3', '--find-renames', hash, '--', '.'], SNAPSHOT_MAX_PATCH_BYTES + 65_536);
+  }
+  if (source.kind === 'pr') return loadGitHubPullRequest();
+  return patchDiff(root, ['--', '.']);
+}
+
+function getWalkthroughSourceSnapshot(directory: string, source: WalkthroughSource, afterFirstCapture?: () => void): Snapshot {
+  const root = sourceRoot(directory);
+  const before = loadSourcePatch(root, source);
+  afterFirstCapture?.();
+  const after = loadSourcePatch(root, source);
+  if (before !== after) throw new SnapshotError('Changes moved while capturing the diff. Retry.', 409, 'snapshot-stale');
+  const revision = `${sourceKey(source)}:${createHash('sha1').update(before).digest('hex')}`;
+  return { ...stopsFrom(sourceParts(before)), signature: revision, source };
+}
+
+function sourceParts(patch: string): Part[] {
+  return patch.split(/^diff --git /mu).filter(Boolean).slice(0, DIFF_PART_COUNT).map((body) => {
+    const header = body.split('\n', 1)[0] ?? '';
+    const [left, right] = header.split(/\s+b\//u, 2);
+    return { scope: 'working' as const, path: right ?? 'unknown', patch: body };
+  });
+}
+
+export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: () => void,
+  selected: WalkthroughSource | WalkthroughScope = 'all'): Snapshot & { source?: WalkthroughSource } {
+if (typeof selected === 'string' && !['all', 'staged', 'working'].includes(selected)) {
+  throw new SnapshotError('Invalid walkthrough scope.', 400, 'invalid-scope');
+}
+const source = typeof selected === 'string' ? parseWalkthroughSource(selected) : selected;
+  return source.kind === 'working-tree'
+    ? getWalkthroughScopeSnapshot(directory, source.scope, afterFirstCapture)
+    : getWalkthroughSourceSnapshot(directory, source, afterFirstCapture);
+}
+
+function getWalkthroughScopeSnapshot(directory: string, selected: WalkthroughScope, afterFirstCapture?: () => void): Snapshot {
+  const root = sourceRoot(directory);
+  const rootReal = realpathSync(root);
+  const directoryReal = realpathSync(directory);
   const prefix = relative(rootReal, directoryReal).split(sep).join('/');
   const before = capture(directoryReal, rootReal, prefix, selected);
   afterFirstCapture?.();
@@ -181,14 +260,29 @@ export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: ()
 export function registerGitWalkthroughSnapshotRoute(app: Hono): void {
   app.get('/api/git/walkthrough-snapshot', (c) => {
     const directory = c.req.query('directory');
-    const scope = c.req.query('scope') ?? 'all';
     if (!directory) return c.json({ error: 'directory parameter is required' }, 400);
-    try { return c.json(getWalkthroughSnapshot(directory, undefined, scope as WalkthroughScope)); }
-    catch (cause) {
+    const encodedSource = c.req.query('source');
+    const scope = c.req.query('scope') ?? 'all';
+    try {
+      let rawSource: WalkthroughSource = parseWalkthroughSource(scope);
+      if (encodedSource) {
+        if (Buffer.byteLength(encodedSource, 'utf8') > 4_096) throw new SnapshotError('Walkthrough source is too large.', 413, 'source-too-large');
+        rawSource = parseWalkthroughSource(JSON.parse(encodedSource));
+      }
+      const source = rawSource as WalkthroughSource;
+      const snapshot = source.kind === 'working-tree'
+        ? getWalkthroughSnapshot(directory, undefined, source.scope)
+        : getWalkthroughSourceSnapshot(directory, source);
+      return c.json(snapshot);
+    } catch (cause) {
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);
+      const admission = cause as { status?: unknown; code?: unknown };
+      if (typeof admission.status === 'number') {
+        return c.json({ error: cause instanceof Error ? cause.message : 'Invalid walkthrough source.', code: String(admission.code) }, admission.status as 400);
+      }
       return c.json({ error: 'Git snapshot failed.', code: 'git-failed' }, 500);
     }
   });
 }
 
-export const __snapshotTestables = { parseStatus, safePath, stopsFrom };
+export const __snapshotTestables = { parseStatus, safePath, stopsFrom, OWNER, REPOSITORY };

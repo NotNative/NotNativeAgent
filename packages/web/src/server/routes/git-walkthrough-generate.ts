@@ -5,10 +5,11 @@ import { resolve } from 'node:path';
 import type { Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
-import { getWalkthroughSnapshot, SnapshotError, type WalkthroughScope } from './git-walkthrough-snapshot.ts';
+import { getWalkthroughSnapshot, SnapshotError } from './git-walkthrough-snapshot.ts';
+import { parseWalkthroughSource } from './git-walkthrough-sources.ts';
 
 const SESSION_ID = /^[A-Za-z0-9_-]{4,128}$/u;
-const REVISION = /^[a-f0-9]{64}$/u;
+const REVISION = /^[a-f0-9]{40}$|^[a-f0-9]{64}$/u;
 const MAX_DIGEST_BYTES = 64_000;
 const MAX_TEXT = 65_536;
 type Snapshot = ReturnType<typeof getWalkthroughSnapshot>;
@@ -84,12 +85,16 @@ export function normalizeWalkthrough(text: string, aliases: Map<string, Snapshot
 
 export async function generateWalkthrough(directory: string, sessionId: string, expected: string,
   ports: { snapshot: typeof getWalkthroughSnapshot; call: typeof callHarness } = { snapshot: getWalkthroughSnapshot, call: callHarness },
-  scope: WalkthroughScope = 'all'): Promise<unknown> {
+  rawSource: unknown = 'all'): Promise<unknown> {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || typeof expected !== 'string' || !REVISION.test(expected)
-    || typeof directory !== 'string' || !directory || directory.length > 4096 || !['all', 'staged', 'working'].includes(scope)) {
+    || typeof directory !== 'string' || !directory || directory.length > 4096) {
     throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
   }
-  const snapshot = ports.snapshot(directory, undefined, scope);
+  let source;
+  try { source = parseWalkthroughSource(rawSource); } catch {
+    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
+  }
+  const snapshot = ports.snapshot(directory, undefined, source);
   if (snapshot.signature !== expected) throw new WalkthroughGenerateError('Diff changed; refresh before generating.', 409, 'snapshot-stale');
   const { digest, aliases, omitted } = digestFor(snapshot);
   if (!digest.length) throw new WalkthroughGenerateError('No reviewable non-sensitive text hunks.', 409, 'empty-diff');
@@ -112,7 +117,7 @@ export async function generateWalkthrough(directory: string, sessionId: string, 
     throw new WalkthroughGenerateError('Model response does not match this diff revision.', 502, 'invalid-walkthrough');
   }
   const chapters = normalizeWalkthrough(result.text, aliases);
-  const current = ports.snapshot(directory, undefined, scope);
+  const current = ports.snapshot(directory, undefined, source);
   if (current.signature !== snapshot.signature) throw new WalkthroughGenerateError('Diff changed during generation; refresh and retry.', 409, 'snapshot-stale');
   return { revision: snapshot.signature, chapters: chapters.map((chapter) => ({ title: chapter.title,
     stops: chapter.stops.map((item) => ({ id: aliases.get(item.alias)!.id, explanation: item.explanation })) })),
@@ -124,7 +129,7 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
     try {
       const body = await readJsonBodyBounded(c.req.raw, 4_096);
       return c.json(await generateWalkthrough(body?.directory as string, body?.sessionId as string, body?.revision as string,
-        undefined, body?.scope as WalkthroughScope));
+        undefined, body?.source ?? body?.scope));
     } catch (cause) {
       if (cause instanceof WalkthroughGenerateError) return c.json({ error: cause.message, code: cause.code }, cause.status as 400);
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);

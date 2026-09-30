@@ -1,5 +1,13 @@
 # 13 — Preview and inspection build notes
 
+## P11-27: walkthrough source selectors (2026-09-30)
+
+The Walkthrough pane can choose Working tree (All/Staged/Unstaged), Branch, Commit, or Pull Request as the review source. The server parses and treats descriptors as untrusted input, compares branches by their merge base and working-tree net diff, compares commits against their first parent (or the empty tree for root commits), and validates GitHub pull-request descriptors before attempting transport. Source captures are double-read and revision-proofed, with the descriptor retained in the snapshot and result.
+
+The UI source store holds the selected branch/reference, commit, or pull-request identity, clears stale source state on runtime/workspace changes, and sends the exact source through preview refresh and model generation. Generation accepts legacy working-tree scopes and new descriptors; guards prevent a stale generation, concurrent workspace/runtime replacement, or changed source from being displayed. Unknown or closed pull-request transports fail explicitly rather than previewing an empty or fabricated diff.
+
+Focused walkthrough tests cover server descriptors, source-aware generation, root commit capture, 40/64-hex revision compatibility, source rechecking, and UI preview state. Adversarial review fixed source-loss during generation, signature-size mismatches, root-commit working-tree leakage, and malformed query descriptors returning generic server failures.
+
 ## P11-26: relay dev-tunnel branch (2026-09-30)
 
 The Electron bridge owns one loopback route per `runtime` key. Before
