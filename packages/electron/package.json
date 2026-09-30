@@ -20,6 +20,7 @@
       "ui-protocol.mjs",
       "file-utilities.mjs",
       "local-paths.mjs",
+      "windows-file-replace.mjs",
       "relay-dev-tunnel.mjs",
       "renderer-recovery.mjs",
       "browser-guest-policy.mjs",

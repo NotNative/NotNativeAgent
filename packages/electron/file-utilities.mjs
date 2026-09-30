@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { removeFileWithRetry, replaceFileWithRetry } from './windows-file-replace.mjs';
 
 const MAX_READ_BYTES = 50 * 1024 * 1024;
 const MAX_MARKDOWN_BYTES = 50 * 1024 * 1024;
@@ -59,7 +61,7 @@ function defaultMarkdownName(value) {
 }
 
 export function createFileUtilities({ homeDir, tempDir, dialog, getWindow = () => undefined,
-  fileSystem = fs, platform = process.platform } = {}) {
+  fileSystem = fs, platform = process.platform, replaceFile = replaceFileWithRetry } = {}) {
   if (typeof homeDir !== 'string' || typeof tempDir !== 'string') throw new TypeError('homeDir and tempDir are required');
   const homePath = path.resolve(homeDir);
   const tempPath = path.resolve(tempDir);
@@ -116,7 +118,21 @@ export function createFileUtilities({ homeDir, tempDir, dialog, getWindow = () =
         filters: [{ name: 'Markdown', extensions: ['md'] }],
       });
       if (result.canceled || typeof result.filePath !== 'string' || result.filePath === '') return null;
-      await fileSystem.writeFile(result.filePath, content, { encoding: 'utf8', mode: platform === 'win32' ? undefined : 0o600 });
+      const temporaryPath = path.join(path.dirname(result.filePath), `.notnative-${randomUUID()}.tmp`);
+      try {
+        await fileSystem.writeFile(temporaryPath, content, {
+          encoding: 'utf8', flag: 'wx', mode: platform === 'win32' ? undefined : 0o600,
+        });
+        await replaceFile(temporaryPath, result.filePath, {
+          platform, rename: (from, to) => fileSystem.rename(from, to),
+        });
+      } catch (error) {
+        await removeFileWithRetry(temporaryPath, {
+          platform,
+          remove: (filePath) => fileSystem.rm(filePath, { force: true }),
+        }).catch(() => {});
+        throw error;
+      }
       return path.resolve(result.filePath);
     },
   };

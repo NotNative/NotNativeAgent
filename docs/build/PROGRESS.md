@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-15 atomic Markdown replacement.** Markdown saves now write
+  a unique temp file beside the destination and atomically rename it into
+  place. Windows retries only transient `EPERM`/`EACCES`/`EBUSY` errors using
+  the documented bounded backoff; other platforms get one attempt. Failed
+  replacement retries temp cleanup on Windows and leaves an existing target
+  intact. Adversarial audit caught the cleanup retry edge and it is fixed;
+  focused tests and workspace typecheck pass, with final build gates pending.
+
 - 2026-09-30 · **P12b-14 validated desktop local-path actions.** The shell now
   validates readable files and traversable directories before open/reveal,
   rejects special files, surfaces resolved Electron shell failures, and uses
