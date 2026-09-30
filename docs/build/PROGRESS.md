@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-8 native zoom lock.** Electron content zoom now starts
+  at 100%, rejects pinch zoom through visual zoom limits, and resets native
+  wheel zoom requests so the product's own scaling controls stay authoritative.
+  Adversarial review found and fixed the pre-application timing edge in
+  Electron's `zoom-changed` event. Syntax checks, all workspace typechecks,
+  quality gates, and the artifacts-only Electron package build passed; tests
+  were not run.
+
 - 2026-09-30 · **P12b-7 bounded renderer recovery.** The main Electron window
   now auto-reloads after recoverable renderer exits (`abnormal-exit`, `crashed`,
   `oom`, `memory-eviction`) with a 100 ms delay and a maximum of three reloads

@@ -374,6 +374,14 @@ function isAllowedNavigation(urlString) {
 
 function attachWindowGuards(win) {
   const contents = win.webContents;
+  // The UI owns its own scaling controls; native Chromium zoom must not drift.
+  contents.setZoomFactor(1);
+  contents.setVisualZoomLevelLimits(1, 1).catch(() => { /* a closed contents cannot be zoomed */ });
+  contents.on('zoom-changed', () => {
+    // Electron emits this while the wheel gesture is requesting a zoom change,
+    // so getZoomFactor() can still be 1 before Chromium applies the request.
+    if (!contents.isDestroyed()) contents.setZoomFactor(1);
+  });
   const initScript = buildInitScript();
   contents.on('dom-ready', () => {
     try { contents.executeJavaScript({ code: initScript, injectImmediately: true }).catch(() => {}); }
