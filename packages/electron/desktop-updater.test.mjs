@@ -46,10 +46,11 @@ test('update install returns after the grace window and rolls back when updater 
 
 test('late installer errors still roll back and leave the install route reusable', async () => {
   const changes = [];
-  const f = fixture({ graceMs: 1, onInstallStart: () => changes.push('start'), onInstallRollback: () => changes.push('rollback'), onInstallError: (error) => changes.push(error.message) });
+  const f = fixture({ graceMs: 10, onInstallStart: () => changes.push('start'), onInstallRollback: () => changes.push('rollback'), onInstallError: (error) => changes.push(error.message) });
   f.policy.setup();
   await f.policy.check(); await f.policy.download();
   await f.policy.install(); // IPC grace elapsed; updater may still report asynchronously.
+  assert.deepEqual(changes, ['start']);
   assert.equal(f.updater.listenerCount('error'), 2); // setup progress listener + install listener
   f.updater.emit('error', new Error('installer exited late'));
   assert.deepEqual(changes, ['start', 'rollback', 'Unable to install desktop update: installer exited late']);

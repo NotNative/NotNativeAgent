@@ -25,6 +25,7 @@
       "ssh-instances.mjs",
       "ssh-config-reader.mjs",
       "ssh-transport.mjs",
+      "ssh-managed-bundle.mjs",
       "ssh-remote-command.mjs",
       "desktop-identity.mjs",
       "desktop-password-login.mjs",

@@ -3681,4 +3681,12 @@ configuration import only; live SSH transport is still outstanding.
 | E3 | 38 preset palettes self-authored seeds | P5-2 done | originals untranscribed (doc gap §M); NOTES/14 C.1/E.2 interpretation recorded |
 | E4 | iframe theme sync + VS Code adapter | defer (P10/P12) | no embedded/vscode surface until those phases |
 | E5 | custom-theme import UX (Appearance→Reload) | P5-3 | GET /api/config/themes + client gate live; page comes with settings UI |
+
+- **2026-09-30 · P12 managed SSH bundle foundation.** Added a bounded,
+  platform-neutral gzip/USTAR payload builder for the verified server bundle,
+  settings registry, runtime manifest, launcher, and web assets. The builder
+  preflights source metadata, caps total archive size and entry count, and
+  rejects symlinks and unsafe archive paths. This prepares artifact transfer;
+  managed SSH installation/start orchestration is still pending. Focused tests
+  cover bundle contents and resource bounds.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |
