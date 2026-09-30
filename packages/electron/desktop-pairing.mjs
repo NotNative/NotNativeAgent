@@ -109,6 +109,13 @@ export function createDesktopPairingImporter({
     if (consent?.response !== 0) return { status: 'cancelled' };
     if (Date.parse(payload.expiresAt) <= now()) return { status: 'expired' };
 
+    // A direct address and relay descriptor in the same pairing payload refer
+    // to one server identity. Verify that identity before sending the one-time
+    // secret; a DNS/LAN endpoint that only fakes `{ok:true}` must not receive it.
+    const expectedServerId = safeText(
+      payload.candidates.find((candidate) => candidate.type === 'relay')?.serverId,
+      256,
+    );
     let candidateUrl = '';
     for (const candidate of directCandidates) {
       if (Date.parse(payload.expiresAt) <= now()) return { status: 'expired' };
@@ -118,7 +125,10 @@ export function createDesktopPairingImporter({
         });
         if (!response.ok) continue;
         const health = await boundedJson(response, MAX_HEALTH_BYTES);
-        if (health?.ok === true) { candidateUrl = candidate.url; break; }
+        if (health?.ok === true && (!expectedServerId || health.serverId === expectedServerId)) {
+          candidateUrl = candidate.url;
+          break;
+        }
       } catch { /* try the next explicitly supplied candidate */ }
     }
     if (!candidateUrl) {
@@ -193,6 +203,9 @@ export function createDesktopPairingImporter({
       ...(matching ?? {}), id: hostId,
       label: label === 'this server' ? (serverLabel || candidateUrl) : label,
       url: candidateUrl, apiUrl: candidateUrl, clientToken,
+      ...(safeText(payload.candidates.find((candidate) => candidate.type === 'relay')?.serverId, 256)
+        ? { serverId: safeText(payload.candidates.find((candidate) => candidate.type === 'relay')?.serverId, 256) }
+        : {}),
     };
     const hosts = matching
       ? config.hosts.map((entry) => entry.id === hostId ? host : entry)

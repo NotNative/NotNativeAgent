@@ -28,6 +28,8 @@ import { readDesktopHostsConfig, sanitizeDesktopHostsConfig } from './host-confi
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
 import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
+import { probeDesktopHost } from './host-probe.mjs';
+import { resolveDesktopBootTarget } from './desktop-boot.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -57,6 +59,8 @@ const relayDevTunnel =
 let mainWindow = null;
 let serverHandle = null;
 let chosenPort = 0;
+let desktopRuntimeConfig = null;
+let desktopBootOutcome = { target: 'local', status: 'unreachable' };
 let trayController = null;
 let quitting = false;
 let bootFailure = null; // boot-abort message; trayed installs linger and must say why
@@ -356,8 +360,10 @@ function applyServerEnv(port) {
   process.env.NOTNATIVE_PORT = String(port);
   process.env.NOTNATIVE_DIST_DIR = resolveDistDir();
   process.env.NOTNATIVE_RUNTIME = 'desktop';
-  if (USE_UI_PROTOCOL) process.env.NOTNATIVE_DESKTOP_UI_ORIGIN = UI_ORIGIN;
-  else delete process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+  // The custom packaged renderer origin is a stable first-party identity. A
+  // remote desktop server must allow that origin too, even when its own shell
+  // is currently loading the loopback UI in development/source mode.
+  process.env.NOTNATIVE_DESKTOP_UI_ORIGIN = UI_ORIGIN;
   // D-09-12: the server's version surface must agree with the installer's.
   process.env.NOTNATIVE_APP_VERSION = productVersion();
   // Security: scripted installs identify the GUI package to NNA. NNA checks
@@ -444,13 +450,20 @@ function bootFailurePageUrl(message) {
 
 function buildInitScript() {
   const j = (value) => JSON.stringify(value);
-  // D-09-2: boot outcome is always {target:'local',status:'ok'} post-health.
-  // Injected per document (dom-ready) so it survives every navigation.
+  const runtime = desktopRuntimeConfig ?? {
+    apiBaseUrl: localOrigin(), clientToken: null, requestHeaders: {}, runtimeKey: 'local',
+  };
+  // Per-document injection keeps route selection and credentials on reload.
   return [
     `window.__NOTNATIVE_SURFACE__=${j('desktop')};`,
     `window.__NOTNATIVE_PLATFORM__=${j(process.platform)};`,
     `window.__NOTNATIVE_HOME__=${j(os.homedir())};`,
-    `window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__=${j({ target: 'local', status: 'ok' })};`,
+    `window.__NOTNATIVE_API_BASE_URL__=${j(runtime.apiBaseUrl)};`,
+    `window.__NOTNATIVE_LOCAL_ORIGIN__=${j(localOrigin())};`,
+    `window.__NOTNATIVE_CLIENT_TOKEN__=${j(runtime.clientToken ?? '')};`,
+    `window.__NOTNATIVE_RUNTIME_HEADERS__=${j(runtime.requestHeaders ?? {})};`,
+    `window.__NOTNATIVE_RUNTIME_KEY__=${j(runtime.runtimeKey ?? 'local')};`,
+    `window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__=${j(desktopBootOutcome)};`,
     'void 0;',
   ].join('\n');
 }
@@ -673,6 +686,7 @@ const invokeFace = createInvokeFace({
   uiOrigin: () => USE_UI_PROTOCOL ? UI_ORIGIN : '',
   appPathPrefix: () => appFileUrlPrefix(),
   bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
+  bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),
   mainContents: () => mainWindow?.webContents,
   nativeNotifications,
   fileUtilities: () => fileUtilities,
@@ -803,6 +817,25 @@ async function boot() {
   const healthy = await startServerAndProbe();
   if (!healthy) throw new Error(`server health check failed on ${localOrigin()} after ${HEALTH_TIMEOUT_MS} ms`);
   writeStoredPort(chosenPort);
+  const localRuntime = {
+    apiBaseUrl: localOrigin(),
+    clientToken: readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
+    requestHeaders: {}, runtimeKey: 'local',
+  };
+  const bootTarget = await resolveDesktopBootTarget({
+    config: readStoredHosts(), localRuntime, localAvailable: true,
+    envTargetUrl: process.env.OPENCHAMBER_SERVER_URL,
+    probeHost: (options) => probeDesktopHost({
+      ...options,
+      chromiumFetch: (url, fetchOptions) => electronNet.fetch(url, fetchOptions),
+      isReady: () => app.isReady(),
+    }),
+  });
+  desktopRuntimeConfig = bootTarget.runtime;
+  desktopBootOutcome = bootTarget.bootOutcome;
+  if (desktopBootOutcome.target === 'remote' && desktopBootOutcome.status !== 'ok') {
+    console.warn(`[shell] remote boot target unavailable (${desktopBootOutcome.status}); using local runtime`);
+  }
   trayController?.setStatus('running', localOrigin());
   console.log(`[shell] navigating main window to ${localOrigin()}/`);
   await mainWindow.webContents.loadURL(mainUiUrl());

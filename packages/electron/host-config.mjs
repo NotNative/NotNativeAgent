@@ -75,6 +75,7 @@ export function sanitizeDesktopHost(input) {
   if (!directUrl && !relay) return null;
   const url = directUrl || `relay://${relay.serverId}`;
   const clientToken = cleanString(input.clientToken, MAX_CLIENT_TOKEN_LENGTH);
+  const serverId = cleanString(input.serverId, 256);
   const requestHeaders = sanitizeHeaders(input.requestHeaders);
   return {
     id,
@@ -82,6 +83,7 @@ export function sanitizeDesktopHost(input) {
     url,
     ...(apiUrl ? { apiUrl } : {}),
     ...(clientToken ? { clientToken } : {}),
+    ...(serverId ? { serverId } : {}),
     ...(requestHeaders ? { requestHeaders } : {}),
     ...(relay ? { relay } : {}),
   };

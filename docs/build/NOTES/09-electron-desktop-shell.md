@@ -78,14 +78,16 @@ remaining P12 slices ride after it.
   expiry, direct URL, relay key, and candidate-order validation. Pairing import
   now requires native consent, probes bounded direct candidates, rejects HTTP
   redirects, redeems once, and stores the client token in the validated host
-  catalog while holding the shared catalog mutation lock. Relay-only import and
-  switching the running app to a remote host remain pending.
+  catalog while holding the shared catalog mutation lock. Before redemption,
+  pairing verifies the relay-advertised server id against the direct endpoint's
+  health response. Relay-only import remains pending.
   The bounded Electron host probe now implements the identity-first,
   compatibility/auth checks and unreachable-only retry policy required by §2.6.
   The server exposes the unauthenticated `/api/version` compatibility contract;
   a pure boot-target policy now resolves env/default targets, validates probe
   outcomes, and falls back locally on invalid overrides or probe failure. Main
-  boot still needs to consume the policy and inject the selected runtime.
+  boot consumes the policy and initializes the renderer with the selected API
+  runtime through local-main-frame IPC.
   Remaining: relay-only pairing and `openchamber://host` routing, remaining IPC catalog growth
   (§3.1), boot-time host routing/chooser and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
@@ -96,10 +98,10 @@ remaining P12 slices ride after it.
 - **D-09-1** The packaged UI is served through the privileged
   `notnative-ui://app` protocol (§6.3); development continues to use the
   server-served loopback URL for dev parity.
-- **D-09-2** Boot outcome always `{target:'local',status:'ok'}` post-health;
-  no remote/env/default-host resolution ladder (§2.3) until multi-host
-  management lands. UI has no desktopBoot.ts validation surface yet — it boots
-  exactly like web (splash releases on first answered /auth probe).
+- **D-09-2** Electron starts its local server and UI, then selects the API
+  runtime from an explicit `OPENCHAMBER_SERVER_URL`, the saved default host, or
+  local fallback. Remote selection requires the version/auth probe; failed
+  probes fall back locally with a bounded boot outcome.
 - **D-09-3** Preload exposes `__NOTNATIVE_DESKTOP_INVOKE__`; the main-process
   allowlist includes `desktop_open_external` (http/https only),
   `desktop_get_boot_info`, browser-control register/unregister/claim/result,
@@ -153,8 +155,8 @@ remaining P12 slices ride after it.
   `/health` responses, forbids redirects, and redeems the one-time secret only
   at the first healthy candidate. Expired-during-probe links are stopped before
   redemption. The client token is stored in the saved-host catalog under a
-  shared mutation lock; remote runtime switching and relay-only redemption are
-  still pending.
+  shared mutation lock; runtime selection occurs at next app boot, while live
+  host switching and relay-only redemption remain pending.
 - **D-09-30** The desktop pairing importer requires native user consent before
   network access, redacts candidate query values in the dialog, and discloses
   every possible secret recipient. Health and redemption responses are bounded;
@@ -166,8 +168,7 @@ remaining P12 slices ride after it.
   without credentials before bearer-bearing requests. `/api/version` must
   advertise `api.runtime-url.v1`, and `/auth/session` must succeed. Fetch and
   bounded response reads share a deadline; only unreachable probes receive one
-  longer retry. The API compatibility surface is wired; the probe remains
-  groundwork until boot routing consumes it.
+  longer retry. The API compatibility surface and boot routing consume it.
 - **D-09-32** The server's public `/api/version` route returns product version,
   runtime, process start time, optional `serverId`, and the conservative
   `{ apiVersion: 1, minClientApiVersion: 1, capabilities: ['api.runtime-url.v1'] }`
@@ -177,7 +178,13 @@ remaining P12 slices ride after it.
   precedence, saved-default lookup, remote compatibility outcomes, and local
   fallback. Invalid explicit environment URLs cannot silently select a saved
   remote, and thrown probes cannot prevent local boot. Electron's main process
-  does not consume this policy until runtime injection and host routing land.
+  uses this policy to configure renderer API clients while the shell UI remains
+  local.
+- **D-09-34** Boot runtime configuration is available only to the desktop local
+  main frame through `desktop_boot_config_get`. The config contains the selected
+  API base, client token, safe request headers, runtime key, local origin, and
+  bounded boot outcome. Pairing with a relay identity requires an exact
+  `/health` server-id match before sending the one-time secret to a direct URL.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.

@@ -9,12 +9,12 @@ const hostKey = { ...generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).pub
 test('sanitizes direct host metadata and strips unsafe headers and URL fragments', () => {
   const host = sanitizeDesktopHost({
     id: ' home ', label: ' My server ', url: 'https://example.test/base/#secret',
-    apiUrl: 'https://api.example.test/v1/#fragment', clientToken: ' bearer ',
+    apiUrl: 'https://api.example.test/v1/#fragment', clientToken: ' bearer ', serverId: ' server-1 ',
     requestHeaders: { 'X-Region': ' west ', Authorization: 'secret', Cookie: 'private', 'bad name': 'x' },
   });
   assert.deepEqual(host, {
     id: 'home', label: 'My server', url: 'https://example.test/base', apiUrl: 'https://api.example.test/v1',
-    clientToken: 'bearer', requestHeaders: { 'x-region': 'west' },
+    clientToken: 'bearer', serverId: 'server-1', requestHeaders: { 'x-region': 'west' },
   });
 });
 

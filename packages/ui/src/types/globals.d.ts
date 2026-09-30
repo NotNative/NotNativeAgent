@@ -16,6 +16,8 @@ declare global {
     __NOTNATIVE_SURFACE__?: 'desktop' | 'mobile';
     /** Bound runtime key stamped by the shell (mirror/storage namespaces). */
     __NOTNATIVE_RUNTIME_KEY__?: string;
+    /** Main-process classification of the selected desktop boot target. */
+    __NOTNATIVE_DESKTOP_BOOT_OUTCOME__?: Record<string, unknown>;
     /** Host-injected BCP-ish language tag (VS Code webviews, §H.2). */
     __NOTNATIVE_HOST_LANGUAGE__?: string;
     /** Instance adapter injected by the entrypoint. */

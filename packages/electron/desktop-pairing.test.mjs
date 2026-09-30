@@ -122,11 +122,14 @@ test('probes in priority order, redeems once, and persists only after native con
       if (url.endsWith('/health')) {
         assert.equal(options.redirect, 'error');
         if (url.startsWith('http://192.168.1.20')) return new Response('unreachable', { status: 503 });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, serverId: 'stable-server-id' });
     }
     return Response.json({ ok: true, clientToken: 'nnd_client_token', server: { label: 'Studio Server' } });
   } });
-  const result = await state.importer.importPairing(payload());
+  const result = await state.importer.importPairing(payload({ candidates: [
+    ...payload().candidates,
+    { type: 'relay', serverId: 'stable-server-id' },
+  ] }));
   assert.deepEqual(result, { status: 'paired', hostId: 'host-new', url: 'https://studio.example/nnd' });
   assert.deepEqual(state.calls.map((call) => call.url), [
     'http://192.168.1.20:57123/health',
@@ -143,8 +146,28 @@ test('probes in priority order, redeems once, and persists only after native con
   assert.equal(state.writes.length, 1);
   assert.equal(state.writes[0].defaultHostId, 'host-new');
   assert.equal(state.writes[0].hosts[0].clientToken, 'nnd_client_token');
+  assert.equal(state.writes[0].hosts[0].serverId, 'stable-server-id');
   assert.equal(state.dialogs.length, 2);
   assert.doesNotMatch(JSON.stringify(state.dialogs), /nnd_client_token|short-lived-secret/u);
+});
+
+test('pairing identity must match before the one-time secret is sent to a direct address', async (t) => {
+  for (const health of [{ ok: true }, { ok: true, serverId: 'different-server' }]) {
+    await t.test(JSON.stringify(health), async () => {
+      const state = setup({ fetchImpl: async (url) => url.endsWith('/health')
+        ? Response.json(health)
+        : Response.json({ ok: true, clientToken: 'nnd_client_token' }) });
+      const result = await state.importer.importPairing(payload({
+        candidates: [
+          { type: 'lan', url: 'https://studio.example' },
+          { type: 'relay', serverId: 'expected-server' },
+        ],
+      }));
+      assert.equal(result.status, 'unreachable');
+      assert.equal(state.calls.some((call) => call.url.endsWith('/pairing/redeem')), false);
+      assert.equal(state.writes.length, 0);
+    });
+  }
 });
 
 test('expired links, probe failures, invalid tokens, and full catalogs never persist a host', async (t) => {

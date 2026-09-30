@@ -22,14 +22,23 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-24 remote desktop boot integration.** Electron keeps
+  the packaged UI local while initializing API clients from an authenticated,
+  compatibility-probed saved or explicit remote host; failures fall back to the
+  local runtime. Boot credentials/config are exposed through local-main-frame
+  IPC only. Pairing verifies the relay-advertised server identity before
+  sending its one-time secret to a direct candidate. The adversarial audit added
+  regressions for missing/mismatched identity. Full Electron tests (98),
+  typecheck, package build, quality gates, and graph checks pass.
+
 - 2026-09-30 · **P12b-23 desktop boot target policy.** Added a pure resolver
   for explicit environment URLs, saved defaults, local fallback, and versioned
   probe results. It strips URL query/fragment data before probing, never inherits
   credentials into environment overrides, rejects invalid explicit overrides
   instead of falling through to a different saved host, and falls back locally
   if a probe throws. Adversarial review confirmed these two failure cases and
-  added regressions (10/10 resolver tests pass). Electron boot does not consume
-  the resolver yet; runtime injection and host routing remain pending.
+  added regressions (10/10 resolver tests pass). Electron boot integration is
+  recorded in P12b-24 above.
 
 - 2026-09-30 · **P12b-22 public API compatibility route.** The server now
   answers unauthenticated `GET /api/version` with its product version, runtime,

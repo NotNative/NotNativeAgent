@@ -74,6 +74,16 @@ test('host config IPC reads and writes only from the desktop local main frame', 
   assert.equal(remote.error, 'sender-not-allowed');
 });
 
+test('boot runtime configuration is returned only to the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const bootConfig = { apiBaseUrl: 'https://remote.example', clientToken: 'active-token', runtimeKey: 'host:remote' };
+  const invoke = registeredInvoke({ contents, bootConfig: () => bootConfig });
+  assert.deepEqual((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_boot_config_get')).result, bootConfig);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_boot_config_get');
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
+
 test('host config IPC returns the explicit busy response while pairing reserves the catalog', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const invoke = registeredInvoke({ contents, hostConfig: {
