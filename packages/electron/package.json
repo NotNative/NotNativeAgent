@@ -27,6 +27,7 @@
       "ssh-transport.mjs",
       "desktop-identity.mjs",
       "desktop-password-login.mjs",
+      "updater-policy.mjs",
       "deep-links.mjs",
       "desktop-pairing.mjs",
       "desktop-boot.mjs",

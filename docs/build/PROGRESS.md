@@ -2,6 +2,15 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-46 updater policy primitives (20260930-67)
+
+Added the deterministic native updater policy base: production GitHub feed
+selection, E2E-build-only loopback feed override, Windows ARM64 channel
+selection, Linux AppImage and parent-directory writability, and semantic
+version ordering. Adversarial review caught and fixed same-day version
+ordering and AppImage replacement-directory checks. Full updater setup,
+check/download/install IPC, and UI progress delivery remain open.
+
 ## 2026-09-30 · P12b-45 desktop password login/token issuance (20260930-66)
 
 Electron now completes the session gate's password flow against the local

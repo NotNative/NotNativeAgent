@@ -1,5 +1,12 @@
 # NOTES 09 - Electron desktop shell
 
+P12b-46 starts native updater work with `updater-policy.mjs`: production feed
+selection defaults to GitHub, a loopback feed is available only to a test
+build with runtime opt-in, Windows ARM64 selects its dedicated manifest, and
+Linux updates require a writable packaged AppImage and parent directory.
+Version ordering is pure and tested. This does not yet configure `autoUpdater`
+or expose update check/download/install operations.
+
 P12b-39 adds `ssh-config-reader.mjs` to the explicit Electron package file
 allowlist. It expands user SSH config Include globs with bounded asynchronous
 enumeration, home-directory containment, cycle/symlink rejection, descriptor

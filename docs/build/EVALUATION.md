@@ -1,5 +1,14 @@
 # Evaluation Log — working / broken on this system
 
+## 2026-09-30 - P12b-46 updater policy primitives (20260930-67)
+
+| Area | Result |
+|---|---|
+| Feed selection | Production GitHub feed by default; E2E override requires a test build, runtime opt-in, and loopback HTTP(S) URL without credentials, query, or fragment. |
+| Platform policy | Windows ARM64 selects `latest-arm64`; Linux packaged updates require an absolute regular AppImage and writable image and containing directory. |
+| Version ordering | Numeric dotted cores use precision-safe comparison; prerelease identifiers follow semver precedence, including same-day build stamps. |
+| Verification | Focused policy tests pass 4/4; full updater lifecycle remains unimplemented. |
+
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
