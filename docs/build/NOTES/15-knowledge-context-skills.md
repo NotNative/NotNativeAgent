@@ -1,5 +1,33 @@
 # P10 knowledge/context build notes
 
+## P10-62: markdown image grants (2026-09-29)
+
+`POST /api/openchamber/sessions/:sessionId/markdown-image-grants` keeps the
+assistant text authoritative. After a bounded 32 KiB body, an absolute real
+directory, and 1-12 nonempty sources, the route re-reads session messages and
+accepts only the requested message's `assistant` role. The exact-parsed source
+set includes inline and reference markdown images, while fenced, inline-code,
+escaped, and unreferenced sources yield no authorization.
+
+Resolution is limited to the workspace realpath and the approved OS temp root;
+cross-drive membership and traversal fail closed. A candidate is reopened after
+realpath with `O_NOFOLLOW` when supplied by Node, must remain a regular file,
+and is rejected above 10 MB or without a PNG/JPEG/GIF/WEBP signature. Files
+outside the workspace receive one UUID token bound to the canonical path and
+the `raw` scope for ten minutes. `/api/fs/raw` only consumes it with
+`allowOutsideWorkspace=true`, re-resolves the exact path, and rechecks the
+image cap/signature before streaming.
+
+The transcript requests prepared image URLs per `(session, message,
+directory, source set)`; unavailable local sources render as text. http(s)
+and validated data-image URLs may render directly, preserving the small
+markdown renderer's existing scheme restriction.
+
+The parser rejects fenced code, single-line and multiline inline code, and
+backslash-escaped images; reference labels are normalized and defined only on
+normal lines.
+
+
 ## P10-1: storage boundary (2026-09-26)
 
 `GET /api/project-context/:projectId` and `PUT .../todos` now use

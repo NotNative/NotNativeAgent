@@ -608,6 +608,14 @@
     {
       "version": "20260929-40",
       "content_sha256": "22394e408bf9cd762f4ee672cae9568bc6816a04eed9fff1bcf7bedf83d52c8d"
+    },
+    {
+      "version": "20260929-41",
+      "content_sha256": "2a75edd334e4c13b380a60af0fba501406d0ea86e6dcfdb95ac375c8e2c1f1ed"
+    },
+    {
+      "version": "20260929-42",
+      "content_sha256": "59518eb1d7f7f7dc2e0a507686b5c56ef86383c5602c2cb06725737e0252dafa"
     }
   ]
 }

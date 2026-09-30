@@ -5,8 +5,8 @@ ff3cf819a5ddf0e551d608142584439011c70a96bdf0add899261b1662e1467e *docs/architect
 368cf30b7dfbdccfcb5bf09a1de0d2d559b0296273c569d5877eaa51d54575ab *docs/architecture/dependency-registry.json
 659969cd5574bb4edd2e388f72674b51283b24621b820ea8c98532b8a137f4bf *docs/architecture/nnd-terminology.json
 7bb44f94e22e9189926f336474ba8d6b2c4d7b29d799b31da7360503328c9159 *docs/architecture/README.md
-c2ab82b05539f1b865abea1d621d96c0af5268e48fa714f6c3a8942d7e5d9950 *docs/architecture/repository-graph.json
-fde994a360f80ff2f15ad1167d8b08c271c07cb579b4491b7c88cb388b676ad3 *docs/architecture/repository-graph.md
+9fbcce83ef54c35452294df11ac253a50e30ff33f193eebb67834e2a4a0a5e18 *docs/architecture/repository-graph.json
+833fcf02591b7e8e8c204ea7424fd17ef4695d55eeaf3c4407e16c27458edf34 *docs/architecture/repository-graph.md
 e405bb1cf362a38c1ca46b7d6da474e9da565cf5edc873fc15305bd56ad723b0 *docs/build/DECISIONS.md
 2b50f9a61f4f4a034e84744b209d91b66e56771780c1f571bd9adff0f537a553 *docs/build/EVALUATION.md
 addd4ffa70f5047445950803c63235ec90eaf3f6c1614b39bb6e4591b8acef7f *docs/build/GUI-PLAN.md
@@ -26,7 +26,7 @@ f6a394ef52dd9ec92d8a54edc805040e70134232f8b177963f55ff32700ec6e7 *docs/build/NOT
 9944b85a02ac07ec3df928eac900133c1914e8a4729b5fa832577c6b46ea36d1 *docs/build/NOTES/12-autonomy-and-orchestration.md
 aaadf6c38d2e3773078ee5fb517c9888ed6422f7bc40f4eba960f9f1dc6608b3 *docs/build/NOTES/13-preview-and-inspection.md
 e45d41550d2525357292e74d53a16caedb72a8ea583efbe3c62e5a0aa45b9f88 *docs/build/NOTES/14-theme-settings-system.md
-9704abb6cd0b4a0aed191accfcc8c9d20aee2c10b23d9d3ec75e423d38ca8f49 *docs/build/NOTES/15-knowledge-context-skills.md
+c8b26be34b04cee3005145487d495d9a5f54bff2f0c0654856746d06a58d02cd *docs/build/NOTES/15-knowledge-context-skills.md
 d4037fd45284dad5f6fd367476f87855c9625b8e68ee99318db7eb3fb3f6b970 *docs/build/NOTES/16-architecture-and-upstream-alignment.md
 3be43c0445383f65740d93a2904785b291aa6169e93e79b31c16dbbf7dc9b49a *docs/build/NOTES/17-nnd-gui-north-star.md
 6184e78ca775ff13d3e32901c7ca299d5308d8497175fba96a3d1052ff83c7ef *docs/build/NOTES/18-nna-operator-surface-contract.md
@@ -34,7 +34,7 @@ f5f82e48610e230a866efac231db09de7e82231a9cb408c824c4bef7e9dde054 *docs/build/NOT
 777552b12440de2f77328fe2408f93b8e92c806950a73c5808554c1fd140e4af *docs/build/NOTES/p12b-review-band-notes.md
 41aa66c05bf5a154db57c5928532ff28de17a0172420c5395fca71c770577bad *docs/build/NOTES/p12b-session-product-notes.md
 d9b1a430d4dcf82ed3f30e77bbd1336c63738946b985ff66221c6eef02c69e5f *docs/build/PLAN.md
-7289b538cd38ca82c69af800fc9e6e5cfcd97b25096de6dbfd7c73f03ae4444c *docs/build/PROGRESS.md
+9aac74bda1415596c3973a10ce86d4abc01a1e80b5e720a074906f17d6b51f7f *docs/build/PROGRESS.md
 fdcdc1ac8a3a519a85d9ba9e8f8ebb3d350f22c3a1c8899a546ee7030a962dfb *docs/planning/00-INDEX.md
 247db0e602d1fa55c9a1f6b03f68d164f9d62377ed122c54845262abb1f02ce4 *docs/planning/01-architecture-and-app-shell.md
 95b41b6649e3fb113530679c7b205549dd9e32cfc6bdd91d401b041904dfd75e *docs/planning/02-opencode-harness-contract.md
@@ -51,7 +51,7 @@ af0ca86fb619203dde2e97bb15838bf2bac1dc31a61fd74bd17f7bc7566256e0 *docs/planning/
 0bad0612a9010dbcf1a4026ad8b2621f9d99b2edc762f3f4a1788c0f59a88eed *docs/planning/13-preview-and-inspection.md
 a4c51e68981b876ca247023291f9ddec1f2bb45ed95e9f875005e80d70b2551a *docs/planning/14-theme-settings-system.md
 015a44f602cd307c2db78aaef705349b64976ef9ff1e220257572bd1b7d262ce *docs/planning/15-knowledge-context-skills.md
-c0f117aa69f7080467b4cba664ae706547992380dd92e7a228ca086e238beed6 *package.json
+c6e76a3268658d0a9fdbf459aa57d4bbf7b9e2880761d243003753609bca712a *package.json
 ccf889e33708d72789a05b803725d95765ed793a28e6f1d971acd8c012057d18 *packages/ui/src/App.tsx
 4f8ba3e404c817fef847b47c58f606e0c9aedf84b36989481443def2fe1beccf *packages/ui/src/chat/__tests__/archive-view.test.tsx
 e57c318e9e6cd92e0b022f7a7108dc0612abc3c951b015678536ccd5ea638697 *packages/ui/src/chat/__tests__/blocking-cards.test.tsx
@@ -126,7 +126,8 @@ be8ceb0f36baa7ba27b27145841cb4e642cc8a55ddf8e9693d6984896cd5d9da *packages/ui/sr
 ebc7e71074beb5de6e5e4041605d0cb447822babc3d159b9200132179dc2fdcf *packages/ui/src/chat/drafts.ts
 4329987bcb956bad646a3d7b36e0537bb1642d7b59ad58d5fe749059a5a27284 *packages/ui/src/chat/input-history.ts
 9aef516befaecc81d5e437eff2818fa8c48145465a06ce4cb7dc8e358e98dc96 *packages/ui/src/chat/keyboard-policy.ts
-858cf6cb00904d995fda99f418b95ed59f236f97f1ee4af44d06db93b78f26a1 *packages/ui/src/chat/markdown-lite.tsx
+622b683163123104c4d2b8a86b6ceda481490c39fc05ae9756a6225e68b30be4 *packages/ui/src/chat/markdown-image-assets.ts
+458031d7ae3430a4a5a20876e7cbdff4f0a3e3c8e906743a8c0f630f66490f57 *packages/ui/src/chat/markdown-lite.tsx
 f3b19d54f500b33dbf622b8fcb309b8ad2f7d454872ceb3c2c007df01be28767 *packages/ui/src/chat/model-catalog.ts
 73c6482fb22c277282e6d2a9d3334df9d79bf91b5861176e5df853a45b78009f *packages/ui/src/chat/model-picker.ts
 fa5391b86471b4006138745be2e8815f923e8db39fb5f7d5255881021ffbe74f *packages/ui/src/chat/model-picker.tsx
@@ -161,7 +162,7 @@ d1c3c99a107addc907af3519ceed216645728aa52339f5a2674d50e674a5009a *packages/ui/sr
 2db20199b838b78195567c4fb520bc8b926ac924ba2d8b433eeba14ba8dfa3a8 *packages/ui/src/chat/timeline-dialog.tsx
 a53401d5c4fa3e59c160c5f03982bf2a50086d00ff0757a371d840717e6bc187 *packages/ui/src/chat/todo-chat-handoff.ts
 a2758ca14a7cc59424e3c07b92376165514bb9e6a142c55e5e92f1617cb4a0c7 *packages/ui/src/chat/tool-cards.tsx
-528399414f4da1d95d656d1252f39163c3b100a13641b745aff8acccfa6dc9ad *packages/ui/src/chat/transcript.tsx
+ea382c9e444c00f873163bb9f78e752ca7c467637137612fce7adfd815cf4b56 *packages/ui/src/chat/transcript.tsx
 87ef09fc0ef57c1e37b2ce7f98ae930e2ce44fa79dab2a17a815819cfaa17179 *packages/ui/src/chat/turns.ts
 33e04c833690ea42bff343c8d879108220e287f4bddfa12e65f867248bbd7f96 *packages/ui/src/chat/use-agent-memory-events.ts
 30ce40d274a4dae30b4087cdbda978546fb84afe863b1d62e48972e13c2f8679 *packages/ui/src/chat/use-operator-rail-width.ts
@@ -604,6 +605,8 @@ b1ee44c35ca44d77a0de99e842baf226320284630d011ea47e8cfb54d4c543cb *packages/web/s
 d3efeb50ba29f375c4f607f5a30b07bd6ac5cd29e6413db1d0c37f1738043b35 *packages/web/src/server/__tests__/p10-context-obligatory.test.ts
 83cdd81869efce54645c84ece584e7208ca04a23cfd0e10b411dc2fc166655a8 *packages/web/src/server/__tests__/p10-context-store.test.ts
 f89fa8de8fea5f793130abb4c1010e5b025826b0ede279cdf70e3c41d6e6c50d *packages/web/src/server/__tests__/p10-legacy-plan-migration.test.ts
+a717d6c0ec1db8455f2a792fa51f823386bb8971d1f40be2ccc732b7aecee9ab *packages/web/src/server/__tests__/p10-markdown-image-grants.test.ts
+b732904ed52472fd94ef1642030e8bd4417cee2c4ac3af82154e9f788944b4a0 *packages/web/src/server/__tests__/p10-markdown-image-parser.test.ts
 d1b4f488762302fad0f0e387e7d4f287dfe7852834d033ec2fff09ff27d0988b *packages/web/src/server/__tests__/p10-mcp-config-routes.test.ts
 d2ab6fe1a6fe56a70440091769be03db37e15cb833a1f731fed84660b52c3b99 *packages/web/src/server/__tests__/p10-mcp-mock-runtime.test.ts
 dddb52b14f318a155d65f3a67cc35b99765c8b12430863844794693e95cd507e *packages/web/src/server/__tests__/p10-plan-store.test.ts
@@ -686,7 +689,7 @@ ba8d748dc8d18e0af3537bdcb7a75a85b87d0927db004a37b6105cfe7c73158a *packages/web/s
 0ede89e56597043078e65237b91c05dba76814c4e15bfb43ffb25e6142314b7b *packages/web/src/server/agent-tool/memory-delivery.ts
 a418b6a0c0b2e020b436afd9f6dbe0c91bcff5d5181909a9d3b0ef62189c85fa *packages/web/src/server/agent-tool/memory-events.ts
 7b0ebe617e1d6d9dbb4083d2f2873ae62d0d4c2b2e090e664c6917656b6a280d *packages/web/src/server/agent-tool/memory-render.ts
-3e674a144b8b88eb421551ccfdee7feb8e67eb6890c84be3df9af2d715b9a7f2 *packages/web/src/server/app.ts
+8cc2e49cfe2b97f271e4db0869b09d4a18b53b46c4bc3eb90a69cbd4d57e2715 *packages/web/src/server/app.ts
 37a6e8d8520c0f5de890570037303671976ae5c61999a373e1b4a3f2609d2fb5 *packages/web/src/server/context/context-obligatory-runtime.ts
 c90cddd824acb523fd03042391ca849b622fbdd8541901d76d38fe2a0120c531 *packages/web/src/server/context/nna-context-obligatory-ports.ts
 7cebab0aabd651642823eb7ab7d2a5644b90d87ca3708ef8c9a318d97a58202e *packages/web/src/server/context/obligatory-messages.ts
@@ -731,9 +734,12 @@ c42bfff199c297a7dd62ee02e52c4b25e8a15d9e058b85fd451cd1042d940279 *packages/web/s
 5dae182a2d689d6566057fa1bc5fe9be4877a4493eaa6afdb58f3b5d7a33df00 *packages/web/src/server/lib/auth/url-tokens.ts
 6016cccc96fb8164703b22dc71f7e43764d4ace6346431cc23aa60af40dac491 *packages/web/src/server/lib/auth/webauthn-ceremony.ts
 5229c10fc5f476e3918df5c41b47fbd99f4d280d4e2e8717704bf8ab3311c1dc *packages/web/src/server/lib/bus.ts
+570cf600279795b8867f462e367f06fd8bc590cb2c5b33f5ffe6d540e2740c70 *packages/web/src/server/lib/fs/outside-file-grants.ts
 387d65d2b8b354938a0b57d442c16061708f36be8b578fe0ccd907b49798ef3e *packages/web/src/server/lib/harnessNaming.ts
 153b03a44ed0c68e361d845a6f52f76d3920067372a196d871ac7872ef855b2c *packages/web/src/server/lib/http/read-bounded.ts
 1209e1853889330887a8629e349579871692db91ec7e7437604f6e86464b0108 *packages/web/src/server/lib/http/request-security.ts
+44c1d9e69fa561379c72d9b8437d234b7a3cbbb1d8477447f4a8b500393aab63 *packages/web/src/server/lib/markdown-image-grants/image-file-resolver.ts
+28b763464b39d12fce0460e611bc42a1ecdfbc7b0202c8f271cf50c48dd344ae *packages/web/src/server/lib/markdown-image-grants/markdown-image-parser.ts
 6f0d3715725fa2b0592f9fa4978ba0619a3166740317f7428609e40f98f7fa97 *packages/web/src/server/lib/mcp/mcp-config.ts
 bf15a67561bfd2fddce4c233ac1dff411520bffd0362ef6c5452d36fce62fb56 *packages/web/src/server/lib/relay/batch.ts
 2a3c5491917ababba62e6abeb6978b08fb9eec791f2a4b3261c72c9462884488 *packages/web/src/server/lib/relay/crypto.ts
@@ -802,7 +808,7 @@ bc0219efc9703a48816d703d65d3f01d532685902b3e3a83d6304b8db77eda88 *packages/web/s
 7b110128e6b7f5b62159ebff7cba86365294526884c1cb339b35453ce13a8007 *packages/web/src/server/routes/agent-tool.ts
 d3a64fe58b3be929fb14d7a1b0fd1c50a7dba74b4b581ac7863200cbf71fdadc *packages/web/src/server/routes/auth.ts
 4b99937e115d92a984ffd0a89f1d3a05a3ff75e41d7514ffa8f1daa8b070d7c3 *packages/web/src/server/routes/client-auth.ts
-a1284f1ff98f610ea92faaa07e879e8672f79f8d015ff544c5b64ae35522288e *packages/web/src/server/routes/fs-read.ts
+e1b8f1af8669c81433e1db771f9fa5ecf6a7dd3ce688cd06d3207d73ed9f1e22 *packages/web/src/server/routes/fs-read.ts
 e2755f8c8c382dc2abddd3088a4f1043573c0eee086ed15be5535f11d1584ac4 *packages/web/src/server/routes/fs-write.ts
 a31240c293ca052f5683286d24b82e4b52b1a99b1cb58f70a9e4709801cb4b11 *packages/web/src/server/routes/fs.ts
 7574aee6964c4d3521ddd434920e423d0467ad4bd40ca45af7bcdd1d33bd1be2 *packages/web/src/server/routes/git-diff.ts
@@ -812,6 +818,7 @@ a37e085805f1267cee77ebf185fbef61ceb7f2c396e52ea506ab218b5e8dcc84 *packages/web/s
 283e4af56fba39cb7fedbaada68629730da4a25f1bf35cacbefc443550140df8 *packages/web/src/server/routes/git-worktrees.ts
 898f70fffd3c4b929bd0938f785a5338a9f0c06fe66f8f33f79f4eab05197ff3 *packages/web/src/server/routes/git.ts
 38a92c5a645934295088a4e4c318567db6b573f43a0da17e722a429a940865ec *packages/web/src/server/routes/magic-prompts.ts
+c4745ab7671511f93cc47c8d51fbb93c3138c055ea623adfa9511e0d52686595 *packages/web/src/server/routes/markdown-image-grants.ts
 6e114643eb9adbf50647c2c93c894421f19196f6fe4a8a786fde96673cc6c1be *packages/web/src/server/routes/mcp-config.ts
 f805cabb2e9276a6875de3c0fd1fdd181d7f19263517470ff89987484439c812 *packages/web/src/server/routes/notnative.ts
 a84c4ff97d0901fac5b24f16e8b531ab7129e03e211959de8610f60f40cac219 *packages/web/src/server/routes/projects.ts
@@ -899,4 +906,4 @@ e5e91435f0cd1c16919a0303ed5deb028ff7dda2ddf7d6fb8d0ec8cc6dfcb5a7 *scripts/smoke-
 7d1a741bbc75a1eb040f655b3fe3ad9f05f064039325720c308f71c100b44b9b *scripts/web-css-gate.mjs
 9dc68711721df6346e5d1e1ab33e131fa1acaf8fb4391e723d275f7571afb2cf *scripts/web-serve.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-ad8f59e144b0ea08f21ab0b20d18208e6b85101cd15b78c16cbc709f754b5c88 *VERSION
+dbac0ea5cc3653b0ee151b23aad83f72295645f107d5700c6bee3d714e7b290d *VERSION

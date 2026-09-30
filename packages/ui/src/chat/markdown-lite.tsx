@@ -9,6 +9,7 @@
  * fences, headings, lists, blockquotes, hr. Unknown syntax stays literal text.
  */
 import { type ReactNode } from 'react';
+import type { PreparedMarkdownImage } from './markdown-image-assets.ts';
 
 const FENCE = /^```([\w-]*)\s*$/u;
 const HEADING = /^(#{1,4})\s+(.*)$/u;
@@ -27,8 +28,38 @@ function safeHref(target: string): string | null {
   }
 }
 
+type PreparedImages = Map<string, PreparedMarkdownImage>;
+
+const IMAGE = /^!\[([^\]]*)\]\((?:"([^"]*)"|'([^']*)'|([^\s)]+))\)$/u;
+
+function isSafeHttpImageSource(source: string): boolean {
+  try { return /^https?:$/u.test(new URL(source).protocol); } catch { return false; }
+}
+
+function isDataImageSource(source: string): boolean {
+  return /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/u.test(source)
+    && base64ToBytes(source.slice(source.indexOf(',') + 1)) <= 10 * 1024 * 1024;
+}
+
+function base64ToBytes(base64: string): number {
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+function preparedSourceForImage(source: string, images?: PreparedImages): string | null {
+  if (isSafeHttpImageSource(source) || isDataImageSource(source)) return source;
+  const prepared = images?.get(source);
+  return prepared?.state === 'ready' ? prepared.src : null;
+}
+
+function imageFor(target: string, label: string, images?: PreparedImages, key = 0): ReactNode | null {
+  const src = preparedSourceForImage(target, images);
+  if (src === null) return null;
+  return <img key={key} src={src} alt={label} className="max-h-96 max-w-full rounded-lg border border-white/10" loading="lazy" decoding="async" />;
+}
+
 /** Render one source line's inline segments into React nodes (no HTML strings). */
-function renderInline(text: string): ReactNode[] {
+function renderInline(text: string, images?: PreparedImages): ReactNode[] {
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let key = 0;
@@ -54,6 +85,13 @@ function renderInline(text: string): ReactNode[] {
         );
       }
     }
+  }
+  const image = IMAGE.exec(text);
+  if (image !== null) {
+    const label = image[1] ?? image[2] ?? image[3] ?? '';
+    const target = image[4] ?? image[5] ?? '';
+    const preparedImage = imageFor(target, label, images, key);
+    if (preparedImage !== null) return [preparedImage];
   }
   if (cursor < text.length) nodes.push(<span key={key++}>{text.slice(cursor)}</span>);
   return nodes;
@@ -118,14 +156,14 @@ export function markdownBlocks(source: string): Block[] {
 }
 
 /** The renderer: blocks → styled React nodes. Never throws, never injects HTML. */
-export function renderMarkdown(source: string): ReactNode[] {
+export function renderMarkdown(source: string, images?: PreparedImages): ReactNode[] {
   if (typeof source !== 'string' || source.length === 0) return [];
-  return markdownBlocks(source).map((block, index) => <MarkdownBlockView key={index} block={block} />);
+  return markdownBlocks(source).map((block, index) => <MarkdownBlockView key={index} block={block} images={images} />);
 }
 
-export function MarkdownBlockView({ block }: { block: Block }): ReactNode {
+export function MarkdownBlockView({ block, images }: { block: Block; images?: PreparedImages }): ReactNode {
   switch (block.kind) {
-    case 'p': return <p className="whitespace-pre-wrap break-words text-sm leading-6 text-neutral-200">{renderInline(block.text)}</p>;
+    case 'p': return <p className="whitespace-pre-wrap break-words text-sm leading-6 text-neutral-200">{renderInline(block.text, images)}</p>;
     case 'code':
       return (
         <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 bg-neutral-950/80 p-2.5 text-[11.5px] leading-5" data-code-lang={block.lang ?? 'plain'}>
@@ -133,13 +171,13 @@ export function MarkdownBlockView({ block }: { block: Block }): ReactNode {
         </pre>
       );
     case 'ul':
-      return <ul className="ml-4 list-disc space-y-0.5 text-sm leading-6 text-neutral-200">{(block.items ?? []).map((item, at) => <li key={at}>{renderInline(item)}</li>)}</ul>;
+      return <ul className="ml-4 list-disc space-y-0.5 text-sm leading-6 text-neutral-200">{(block.items ?? []).map((item, at) => <li key={at}>{renderInline(item, images)}</li>)}</ul>;
     case 'ol':
-      return <ol className="ml-4 list-decimal space-y-0.5 text-sm leading-6 text-neutral-200">{(block.items ?? []).map((item, at) => <li key={at}>{renderInline(item)}</li>)}</ol>;
-    case 'h1': return <h3 className="mt-1 text-base font-semibold text-neutral-100">{renderInline(block.text)}</h3>;
-    case 'h2': return <h4 className="mt-1 text-sm font-semibold text-neutral-100">{renderInline(block.text)}</h4>;
-    case 'h3': case 'h4': return <h5 className="text-[13px] font-semibold uppercase tracking-wide text-neutral-300">{renderInline(block.text)}</h5>;
-    case 'quote': return <blockquote className="border-l-2 border-white/15 pl-3 text-[13px] leading-6 text-neutral-400">{renderInline(block.text)}</blockquote>;
+      return <ol className="ml-4 list-decimal space-y-0.5 text-sm leading-6 text-neutral-200">{(block.items ?? []).map((item, at) => <li key={at}>{renderInline(item, images)}</li>)}</ol>;
+    case 'h1': return <h3 className="mt-1 text-base font-semibold text-neutral-100">{renderInline(block.text, images)}</h3>;
+    case 'h2': return <h4 className="mt-1 text-sm font-semibold text-neutral-100">{renderInline(block.text, images)}</h4>;
+    case 'h3': case 'h4': return <h5 className="text-[13px] font-semibold uppercase tracking-wide text-neutral-300">{renderInline(block.text, images)}</h5>;
+    case 'quote': return <blockquote className="border-l-2 border-white/15 pl-3 text-[13px] leading-6 text-neutral-400">{renderInline(block.text, images)}</blockquote>;
     case 'hr': return <hr className="border-white/10" />;
     default: return null;
   }

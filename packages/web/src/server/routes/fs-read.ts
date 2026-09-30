@@ -8,12 +8,17 @@
  * doc's allowOutsideWorkspace grant param is a desktop-runtime concept that
  * this web build does not issue — rejected outright, delta E-06-1).
  */
-import { statSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { extname, sep } from 'node:path';
+import { resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import type { Hono } from 'hono';
 import { resolveWithin, realpath } from './fs.ts';
+import { resolveOutsideFileGrant } from '../lib/fs/outside-file-grants.ts';
+import { isImageSignature } from '../lib/markdown-image-grants/image-file-resolver.ts';
 
 const RAW_MAX_BYTES = 50 * 1024 * 1024;
+const GRANT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 const EMPTY_READ_RETRIES = [50, 100, 150];
 
 const RAW_MIME_BY_EXT: Record<string, string> = {
@@ -43,6 +48,7 @@ export function registerFsReadRoutes(app: Hono): void {
 }
 
 interface ReadQuery { path?: string; directory?: string; optional?: string; download?: string }
+interface RawQuery extends ReadQuery { allowOutsideWorkspace?: string; outsideFileGrant?: string; grantExpiresAt?: number }
 
 function denied(): Response {
   return Response.json({ error: 'Access denied' }, { status: 403 });
@@ -63,6 +69,23 @@ function resolveTarget(query: ReadQuery): { target: string; stat: import('node:f
   const stat = statSync(target, { throwIfNoEntry: false });
   if (!stat) return notFound();
   return { target, stat };
+}
+
+function resolveRawTarget(query: RawQuery): { target: string; stat: import('node:fs').Stats; grantExpiresAt?: number } | Response {
+  if (query.path && query.allowOutsideWorkspace === 'true') {
+    try {
+      const target = resolve(query.path);
+      const realTarget = realpathSync(target);
+      const grant = resolveOutsideFileGrant(query.outsideFileGrant, realTarget);
+      if (grant === null) return denied();
+      const stat = statSync(realTarget, { throwIfNoEntry: false });
+      if (!stat) return notFound();
+      return { target: realTarget, stat, grantExpiresAt: grant.expiresAt };
+    } catch {
+      return denied();
+    }
+  }
+  return resolveTarget(query);
 }
 
 function statRoute(query: ReadQuery): Response {
@@ -104,17 +127,27 @@ async function readRoute(context: { req: { query: () => ReadQuery } }): Promise<
   });
 }
 
-function rawRoute(query: ReadQuery): Response {
-  const resolved = resolveTarget(query);
+function rawRoute(query: RawQuery): Response {
+  const resolved = resolveRawTarget(query);
   if (resolved instanceof Response) return resolved;
   const { stat, target } = resolved;
   if (!stat.isFile()) return Response.json({ error: 'Not a file', reason: 'not-file' }, { status: 400 });
+  if (resolved.grantExpiresAt !== undefined && stat.size > GRANT_IMAGE_MAX_BYTES) {
+    return Response.json({ error: 'File too large to serve' }, { status: 413 });
+  }
   if (stat.size > RAW_MAX_BYTES) return Response.json({ error: 'File too large to serve' }, { status: 413 });
   let content: Buffer;
   try {
     content = readFileSync(target);
   } catch (error) {
     return fsFailure(error);
+  }
+  if (content.length > RAW_MAX_BYTES) return Response.json({ error: 'File too large to serve' }, { status: 413 });
+  if (resolved.grantExpiresAt !== undefined && content.length > GRANT_IMAGE_MAX_BYTES) {
+    return Response.json({ error: 'File too large to serve' }, { status: 413 });
+  }
+  if (resolved.grantExpiresAt !== undefined && !isImageSignature(content.subarray(0, Math.min(12, content.length)))) {
+    return Response.json({ error: 'Not a prepared image' }, { status: 415 });
   }
   const mime = RAW_MIME_BY_EXT[extname(target).toLowerCase()] ?? 'application/octet-stream';
   const headers: Record<string, string> = {

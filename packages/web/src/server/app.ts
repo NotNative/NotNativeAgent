@@ -28,6 +28,8 @@ import { registerSkillRoutes } from './routes/skills.ts';
 import { registerMcpConfigRoutes } from './routes/mcp-config.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { createNnaSessionHarnessPorts } from './session-orchestration/session-harness-ports.ts';
+import { registerMarkdownImageGrantRoutes } from './routes/markdown-image-grants.ts';
 import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
 import { registerSnippetRoutes } from './routes/snippets.ts';
 import { registerMagicPromptRoutes } from './routes/magic-prompts.ts';
@@ -252,6 +254,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.17 session orchestration: server-side create/send/fork/archive.
   registerOpenChamberSessionRoutes(app);
+  registerMarkdownImageGrantRoutes(app, createNnaSessionHarnessPorts());
   // §5.16 scheduled-task family (doc 12 C): BEFORE the harness proxy.
   app.route('/', createScheduledTaskRoutes());
   // Snippet config-entity family (doc 03 §5.x, NND addition): BEFORE the

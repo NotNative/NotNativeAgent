@@ -15,6 +15,7 @@ import type { SyncEngine } from '../sync/sync-engine.ts';
 import { toast } from 'sonner';
 import { projectTurns, streamingTail, turnSettled, assistantLiveStatus, toolPhrase, workingPhrase, type PartLite, type ChatTurn } from './turns.ts';
 import { renderMarkdown } from './markdown-lite.tsx';
+import { prepareLocalMarkdownImages, type PreparedMarkdownImage } from './markdown-image-assets.ts';
 import { ToolCard } from './tool-cards.tsx';
 import { BlockingCardsColumn } from './blocking-cards.tsx';
 import { formatDuration, formatRelative, formatRetryCountdown } from './time-format.ts';
@@ -145,7 +146,7 @@ export function Transcript(props: TranscriptProps): ReactNode {
         const pin = { store, sessionID, directory, ...(pinClient ? { pinClient } : {}) };
         return <TurnRow key={turn.userMessage.id} turn={turn} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} pin={pin} />;
       })}
-      {tail ? <StreamingTailRow key={tail.id} parts={(snapshot.part[tail.id] ?? []) as PartLite[]} messageID={tail.id} /> : null}
+      {tail ? <StreamingTailRow key={tail.id} parts={(snapshot.part[tail.id] ?? []) as PartLite[]} messageID={tail.id} sessionID={sessionID} directory={directory} /> : null}
       {permissionsOf(snapshot, sessionID).length > 0 || questionsOf(snapshot, sessionID).length > 0
         ? <BlockingCardsColumn store={store} engine={engine} sessionID={sessionID} />
         : null}
@@ -267,7 +268,7 @@ function AssistantRow({ message, parts, live, anchorID, pin }: { message: import
   const visible = parts.filter((part) => !SKIP_KIND.has(part.type) && !part.synthetic && !part.ignored);
   return (
     <article id={anchorID ? `message-${anchorID}` : undefined} className="flex flex-col gap-1 scroll-mt-16" data-testid="chat-assistant-row">
-      {visible.map((part, index) => <PartView key={index} part={part} />)}
+      {visible.map((part, index) => <PartView key={index} part={part} sessionID={pin.sessionID} directory={pin.directory} messageId={message.id} />)}
       {message.error ? <ErrorCallout message={message.error} /> : null}
       <footer className="flex items-center gap-2 px-1 text-[10px] text-neutral-600">
         <span>{[message.modelID, message.providerID].filter(Boolean).join(' · ')}</span>
@@ -282,10 +283,10 @@ function AssistantRow({ message, parts, live, anchorID, pin }: { message: import
 
 const SKIP_KIND = new Set(['step-start', 'step-finish', 'patch']);
 
-function PartView({ part }: { part: PartLite }): ReactNode {
+function PartView({ part, sessionID, directory, messageId }: { part: PartLite; sessionID: string; directory: string; messageId: string }): ReactNode {
   switch (part.type) {
     case 'text':
-      return <div className="flex flex-col gap-1.5">{renderMarkdown(typeof part.text === 'string' ? part.text : '')}</div>;
+      return <MarkdownTextView text={typeof part.text === 'string' ? part.text : ''} sessionID={sessionID} directory={directory} messageId={messageId} />;
     case 'reasoning':
       return <ReasoningBlock body={typeof part.text === 'string' ? part.text : ''} />;
     case 'tool':
@@ -297,6 +298,36 @@ function PartView({ part }: { part: PartLite }): ReactNode {
     default:
       return null; // unknown part types never throw and never render (doc 05 §0.3)
   }
+}
+
+const IMAGE_SOURCE = /!\[[^\]]+\]\((?:"[^"]*"|'[^']*'|[^)\s]+)\)/gu;
+
+function localImageSources(text: string): string[] {
+  const sources = new Set<string>();
+  for (const match of text.matchAll(IMAGE_SOURCE)) {
+    const source = match[0].slice(match[0].indexOf('(') + 1, -1).replace(/^["']|["']$/g, '');
+    if (!source.startsWith('http://') && !source.startsWith('https://') && !source.startsWith('data:image/')) sources.add(source);
+  }
+  return [...sources];
+}
+
+function MarkdownTextView({ text, sessionID, directory, messageId }: {
+  text: string; sessionID: string; directory: string; messageId: string;
+}): ReactNode {
+  const sources = localImageSources(text);
+  const [prepared, setPrepared] = useState<Map<string, PreparedMarkdownImage>>(new Map());
+  const requestKey = JSON.stringify([directory, messageId, sessionID, sources]);
+  useEffect(() => {
+    if (sources.length === 0) {
+      setPrepared(new Map());
+      return;
+    }
+    let active = true;
+    void prepareLocalMarkdownImages({ sessionId: sessionID, directory, messageId, sources })
+      .then((images) => { if (active) setPrepared(images); });
+    return () => { active = false; };
+  }, [requestKey]);
+  return <div className="flex flex-col gap-1.5">{renderMarkdown(text, prepared)}</div>;
 }
 
 function ReasoningBlock({ body }: { body: string }): ReactNode {
@@ -325,7 +356,7 @@ function ErrorCallout({ message }: { message: { name?: string; message?: string;
   );
 }
 
-function StreamingTailRow({ parts, messageID }: { parts: PartLite[]; messageID: string }): ReactNode {
+function StreamingTailRow({ parts, messageID, sessionID, directory }: { parts: PartLite[]; messageID: string; sessionID: string; directory: string }): ReactNode {
   const live = assistantLiveStatus(() => parts, messageID);
   const phrase = live ? (live.kind === 'thinking' ? 'thinking' : live.kind === 'tool' ? toolPhrase(live.tool) : 'composing') : workingPhrase(messageID);
   const visible = parts.filter((part) => !SKIP_KIND.has(part.type) && !part.synthetic && !part.ignored);
@@ -336,7 +367,7 @@ function StreamingTailRow({ parts, messageID }: { parts: PartLite[]; messageID: 
         {phrase}
       </div>
       <div className="flex flex-col gap-2">
-        {visible.map((part, index) => <PartView key={index} part={part} />)}
+        {visible.map((part, index) => <PartView key={index} part={part} sessionID={sessionID} directory={directory} messageId={messageID} />)}
         {visible.every((part) => part.type !== 'text') ? <StreamPlaceholder /> : null}
       </div>
     </article>
