@@ -21,6 +21,15 @@ Electron tests and typechecks pass, and the artifacts-only Windows x64 package
 builds. Renderer update UI, restart grace/error rollback, and authenticated
 server updater adapter remain open.
 
+## 2026-09-30 · P12b-48 desktop update controls (20260930-69)
+
+General settings now exposes native check, download, progress, and install
+actions for Electron. A failed download clears its busy progress state so it
+can be retried; download IPC uses a 30-minute response window to support large
+or slow packages. Adversarial review confirmed both edge cases and found no
+additional concrete UI defects. Managed SSH install/start and updater restart
+grace/server-client integration remain open.
+
 ## 2026-09-30 · P12b-45 desktop password login/token issuance (20260930-66)
 
 Electron now completes the session gate's password flow against the local

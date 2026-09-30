@@ -17,6 +17,14 @@
 | Native operations | Local-main-frame IPC exposes check, download, and apply; progress events update taskbar state and renderer subscribers. |
 | Verification | All Electron tests pass; workspace typechecks and artifacts-only Windows x64 packaging pass. UI controls and restart/install failure recovery remain unverified and unimplemented. |
 
+## 2026-09-30 - P12b-48 desktop update controls (20260930-69)
+
+| Area | Result |
+|---|---|
+| Renderer | General settings now provides check/download/progress/install actions through the preload updater face. |
+| Retry and timeout | A failed download clears progress lockout; download invoke waits up to 30 minutes instead of the generic 10 seconds. |
+| Verification | Focused UI tests pass 2/2 and UI typecheck passes; full UI suite and quality gates are running for this slice. |
+
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 

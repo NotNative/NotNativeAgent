@@ -38,7 +38,8 @@ function invoke(command, payload) {
   return new Promise((resolve) => {
     sequence += 1;
     const seq = sequence;
-    const timeoutMs = command === 'desktop_retry_server' ? 25_000 : INVOKE_TIMEOUT_MS;
+    const timeoutMs = command === 'desktop_updater_download' ? 30 * 60_000
+      : command === 'desktop_retry_server' ? 25_000 : INVOKE_TIMEOUT_MS;
     const timer = setTimeout(() => {
       pending.delete(seq);
       resolve({ ok: false, error: 'invoke-timeout' });

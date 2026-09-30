@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:edbada034c262f278e26ccd9cb4ab8a4b7bbba3666c675810edc5cf1033735ae",
+  "source_digest": "sha256:aa8262bdea537b5e21747e5a4c7efa1040b64ce72cd1bcd78cbda36a5d91b3ee",
   "counts": {
-    "modules": 598,
+    "modules": 599,
     "component_edges": 14
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 160
+      "module_count": 161
     },
     {
       "id": "web-server",
@@ -1545,12 +1545,21 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/desktop-update-control.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/general.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/pages/desktop-update-control.tsx",
         "packages/ui/src/components/settings/pages/launch-at-login-control.tsx",
         "packages/ui/src/components/settings/primitives.tsx"
       ]

@@ -11,6 +11,7 @@ import {
 import { useSettingsField } from '../page-helpers.tsx';
 import { useI18n } from '../../I18nProvider.tsx';
 import { LaunchAtLoginControl } from './launch-at-login-control.tsx';
+import { DesktopUpdateControl } from './desktop-update-control.tsx';
 
 export function GeneralPage(): ReactNode {
   const { t } = useI18n();
@@ -46,6 +47,7 @@ export function GeneralPage(): ReactNode {
       </SettingsSection>
 
       {window.__NOTNATIVE_ELECTRON__ ? <LaunchAtLoginControl /> : null}
+      {window.__NOTNATIVE_ELECTRON__ ? <DesktopUpdateControl /> : null}
 
       <SettingsSection>
         <SettingsGroupTitle>{t('settings.search.reportUsage')}</SettingsGroupTitle>

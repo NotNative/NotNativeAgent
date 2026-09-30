@@ -30,6 +30,12 @@ declare global {
       result?: unknown;
       error?: string;
     }>;
+    __NOTNATIVE_DESKTOP_UPDATER__?: {
+      check(): Promise<{ ok: boolean; result?: unknown; error?: string }>;
+      download(): Promise<{ ok: boolean; result?: unknown; error?: string }>;
+      install(): Promise<{ ok: boolean; result?: unknown; error?: string }>;
+      onProgress(handler: (detail: { event: string; data?: { downloaded?: number; total?: number | null } }) => void): () => void;
+    };
     __NOTNATIVE_DESKTOP_EVENTS__?: {
       onOpenSession(handler: (detail: { sessionId: string; directory?: string }) => void): () => void;
       onRelayPairingRequest(handler: (detail: {

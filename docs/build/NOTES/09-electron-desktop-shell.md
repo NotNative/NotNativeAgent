@@ -14,6 +14,11 @@ needs update controls and state handling; restart grace, rollback after an
 asynchronous installer error, and the authenticated server updater adapter are
 not implemented yet.
 
+P12b-48 adds the desktop update controls to General settings. The renderer
+shows availability, release notes, download progress, retryable errors, and
+the install action after download. Download invoke waits up to 30 minutes so
+large packages do not outlive the IPC reply window.
+
 P12b-39 adds `ssh-config-reader.mjs` to the explicit Electron package file
 allowlist. It expands user SSH config Include globs with bounded asynchronous
 enumeration, home-directory containment, cycle/symlink rejection, descriptor
