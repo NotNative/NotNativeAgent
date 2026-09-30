@@ -3,6 +3,24 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-30 - P12b-41 SSH runtime adoption (20260930-62)
+
+**Verified working**
+
+| Surface | Evidence |
+|---|---|
+| Boot and host selection | Unit tests verify that only connected SSH endpoints are probed, successful targets use `ssh:<id>`, and unready tunnels remain local. |
+| Tunnel loss and removal | UI audit regression verifies local activation precedes removal; disconnect and status-loss paths also switch local before tearing down the active endpoint. |
+| Automated checks | Electron suite 153/153, UI suite 1449/1449, workspace typechecks, quality gate, graph check, and version pairing pass. The quality gate initially identified the expected stale graph; it was rebuilt for this version. |
+
+**Not yet verified on this host**
+
+| Item | State |
+|---|---|
+| Live remote connection | No real SSH server was available for an end-to-end runtime switch. |
+| Remote auth and provisioning | Password prompting and managed remote install/start remain unimplemented. |
+| Installed GUI | Interactive installed-app acceptance remains pending. |
+
 ## 2026-09-30 - P12b-40 External SSH tunnel lifecycle (20260930-61)
 
 **Verified working**

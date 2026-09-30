@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createDesktopSshNativeBridge } from '../../../lib/desktopSshNativeBridge.ts';
 import { createDesktopSshStore } from '../../../lib/desktopSshStore.ts';
+import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
 
 export function DesktopSshCatalog(): ReactNode {
   const [store] = useState(() => createDesktopSshStore(createDesktopSshNativeBridge()));
@@ -9,6 +10,7 @@ export function DesktopSshCatalog(): ReactNode {
   const [sshCommand, setSshCommand] = useState('');
   const [nickname, setNickname] = useState('');
   const [busy, setBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const busyRef = useRef(false);
   const bridgeAvailable = store.getBridge() !== null;
 
@@ -48,12 +50,60 @@ export function DesktopSshCatalog(): ReactNode {
     finally { busyRef.current = false; setBusy(false); }
   };
 
+  const activateRuntime = async (hostId: string): Promise<boolean> => {
+    const bridge = store.getBridge();
+    if (!bridge) return false;
+    const result = await bridge.invoke('desktop_host_switch', { hostId }) as {
+      activeHostId?: unknown; runtime?: unknown; bootOutcome?: unknown;
+    } | null;
+    if (!result || typeof result !== 'object') {
+      setActionMessage('Could not switch runtime.');
+      return false;
+    }
+    const runtime = result.runtime as {
+      apiBaseUrl?: unknown; clientToken?: unknown; requestHeaders?: unknown; runtimeKey?: unknown;
+    } | undefined;
+    if (typeof runtime?.apiBaseUrl !== 'string' || typeof runtime.runtimeKey !== 'string'
+      || (runtime.clientToken !== null && typeof runtime.clientToken !== 'string')
+      || typeof runtime.requestHeaders !== 'object' || runtime.requestHeaders === null || Array.isArray(runtime.requestHeaders)) {
+      setActionMessage('The desktop returned an invalid runtime configuration.');
+      return false;
+    }
+    await switchRuntimeEndpoint({
+      apiBaseUrl: runtime.apiBaseUrl,
+      runtimeKey: runtime.runtimeKey,
+      clientToken: runtime.clientToken as string | null,
+      requestHeaders: runtime.requestHeaders as Record<string, string>,
+    });
+    if (typeof result.bootOutcome === 'object' && result.bootOutcome !== null) {
+      window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__ = result.bootOutcome as Record<string, unknown>;
+    }
+    const active = result.activeHostId === hostId;
+    setActionMessage(active
+      ? hostId === 'local' ? 'Using this computer.' : 'Using the SSH instance.'
+      : 'The SSH server could not be reached or authenticated; this computer remains active.');
+    return active;
+  };
+
+  const selectRuntime = async (hostId: string): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try { await activateRuntime(hostId); }
+    catch (error) { setActionMessage(error instanceof Error ? error.message : 'Could not switch runtime.'); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+
   const remove = async (id: string): Promise<void> => {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    try { await store.remove(id); }
-    finally { busyRef.current = false; setBusy(false); }
+    try {
+      if (window.__NOTNATIVE_RUNTIME_KEY__ === `ssh:${id}` && !(await activateRuntime('local'))) return;
+      await store.remove(id);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not remove the SSH instance.');
+    } finally { busyRef.current = false; setBusy(false); }
   };
 
   const transportAction = async (id: string, action: 'connect' | 'disconnect' | 'cancel'): Promise<void> => {
@@ -62,10 +112,22 @@ export function DesktopSshCatalog(): ReactNode {
     setBusy(true);
     try {
       if (action === 'connect') await store.connect(id);
-      else if (action === 'disconnect') await store.disconnect(id);
+      else if (action === 'disconnect') {
+        if (window.__NOTNATIVE_RUNTIME_KEY__ === `ssh:${id}` && !(await activateRuntime('local'))) return;
+        await store.disconnect(id);
+      }
       else await store.cancelConnecting(id);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not update the SSH connection.');
     } finally { busyRef.current = false; setBusy(false); }
   };
+
+  const activeRuntimeKey = window.__NOTNATIVE_RUNTIME_KEY__ ?? '';
+  const activeSshHostId = activeRuntimeKey.startsWith('ssh:') ? activeRuntimeKey.slice(4) : '';
+  const activeSshPhase = activeSshHostId ? store.statuses[activeSshHostId]?.phase ?? '' : '';
+  useEffect(() => {
+    if (activeSshPhase === 'error' || activeSshPhase === 'idle') void selectRuntime('local');
+  }, [activeRuntimeKey, activeSshPhase]);
 
   return (
     <section className="mt-5 border-t border-border/50 pt-4" aria-labelledby="desktop-ssh-catalog-title">
@@ -113,7 +175,10 @@ export function DesktopSshCatalog(): ReactNode {
               </div>
               <div className="flex shrink-0 gap-1">
                 {status?.phase === 'ready' ? (
-                  <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'disconnect'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Disconnect</button>
+                  <>
+                    <button type="button" disabled={busy || window.__NOTNATIVE_RUNTIME_KEY__ === `ssh:${instance.id}`} onClick={() => { void selectRuntime(instance.id); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">{window.__NOTNATIVE_RUNTIME_KEY__ === `ssh:${instance.id}` ? 'Current' : 'Use instance'}</button>
+                    <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'disconnect'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Disconnect</button>
+                  </>
                 ) : connecting ? (
                   <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'cancel'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Cancel</button>
                 ) : (
@@ -123,6 +188,7 @@ export function DesktopSshCatalog(): ReactNode {
               </div>
             </div>;
           })}
+          {actionMessage ? <p role="status" className="mt-2 text-xs text-muted-foreground">{actionMessage}</p> : null}
           {store.loaded && store.instances.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No SSH instances saved.</p> : null}
         </>
       )}

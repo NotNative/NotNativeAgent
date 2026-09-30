@@ -209,8 +209,14 @@ export function createInvokeFace(input, dependencies) {
       if (typeof payload?.hostId !== 'string' || !input.hostProbe) return { ok: false, error: 'desktop-host-probe-unavailable' };
       const host = input.hostConfig?.get?.()?.hosts?.find((entry) => entry.id === payload.hostId);
       if (!host) return { ok: false, error: 'desktop-host-not-found' };
-      if (host.transport === 'ssh') return { ok: false, error: 'desktop-ssh-not-connected' };
-      const url = typeof host?.apiUrl === 'string' ? host.apiUrl : typeof host?.url === 'string' ? host.url : '';
+      let url = typeof host?.apiUrl === 'string' ? host.apiUrl : typeof host?.url === 'string' ? host.url : '';
+      if (host.transport === 'ssh') {
+        const status = input.sshTransport?.getStatus?.(host.id);
+        if (status?.phase !== 'ready' || typeof status.localUrl !== 'string') {
+          return { ok: false, error: 'desktop-ssh-not-connected' };
+        }
+        url = status.localUrl;
+      }
       if (!url || url.startsWith('relay://')) return { ok: false, error: 'desktop-host-not-direct' };
       return { ok: true, result: await input.hostProbe({
         url, clientToken: host.clientToken, requestHeaders: host.requestHeaders, expectedServerId: host.serverId,

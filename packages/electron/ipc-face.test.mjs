@@ -213,6 +213,19 @@ test('host probe refuses an SSH placeholder until its transport is connected', a
   assert.deepEqual(calls, []);
 });
 
+test('host probe uses only the active SSH tunnel URL for an SSH instance', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents,
+    hostConfig: { get: () => ({ hosts: [{ id: 'ssh-studio', url: 'http://127.0.0.1/', transport: 'ssh' }] }) },
+    sshTransport: { getStatus: () => ({ id: 'ssh-studio', phase: 'ready', localUrl: 'http://127.0.0.1:48123' }) },
+    hostProbe: async (options) => { calls.push(options); return { status: 'ok' }; },
+  });
+  const result = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'ssh-studio' });
+  assert.equal(result.result.status, 'ok');
+  assert.deepEqual(calls, [{ url: 'http://127.0.0.1:48123', clientToken: undefined, requestHeaders: undefined, expectedServerId: undefined }]);
+});
+
 test('SSH instance catalog IPC is local-main-frame-only and persists through the injected store', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const calls = [];

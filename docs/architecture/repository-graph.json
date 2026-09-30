@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:fd6c80b8ecd67c5dd8d464c0998bbef389cff211bf166371ae2fd42cf141ecbd",
+  "source_digest": "sha256:6fac675797df349f60a8ed01e089936720ae5422b712d4da610c9d6636424dd3",
   "counts": {
     "modules": 597,
     "component_edges": 14
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 221,
+      "import_count": 222,
       "module_count": 92
     },
     {
@@ -1538,7 +1538,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/desktopSshNativeBridge.ts",
-        "packages/ui/src/lib/desktopSshStore.ts"
+        "packages/ui/src/lib/desktopSshStore.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
       ]
     },
     {

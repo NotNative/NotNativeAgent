@@ -92,6 +92,27 @@ test('SSH transport marker keeps a placeholder local when its instance catalog i
   assert.deepEqual(probes, []);
 });
 
+test('a ready SSH tunnel is probed and uses an SSH runtime key; unready markers remain local', async () => {
+  const sshConfig = {
+    hosts: [{ id: 'ssh-atlas', label: 'Atlas', url: 'http://127.0.0.1/', transport: 'ssh' }],
+    defaultHostId: 'ssh-atlas',
+  };
+  const probes = [];
+  const blocked = await resolveDesktopBootTarget({
+    config: sshConfig, localRuntime, localAvailable: true,
+    probeHost: async () => { throw new Error('unready SSH must not be probed'); },
+  });
+  assert.equal(blocked.runtime, localRuntime);
+  const connected = await resolveDesktopBootTarget({
+    config: { ...sshConfig, hosts: [{ ...sshConfig.hosts[0], url: 'http://127.0.0.1:48123', apiUrl: 'http://127.0.0.1:48123' }] },
+    localRuntime, localAvailable: true, sshHostIds: [], connectedSshHostIds: ['ssh-atlas'],
+    probeHost: async (options) => { probes.push(options); return { status: 'ok' }; },
+  });
+  assert.equal(probes[0].url, 'http://127.0.0.1:48123');
+  assert.equal(connected.runtime.runtimeKey, 'ssh:ssh-atlas');
+  assert.equal(connected.bootOutcome.status, 'ok');
+});
+
 test('missing, invalid, and failed remotes fall back locally with a bounded boot outcome', async (t) => {
   await t.test('missing saved id', async () => {
     const result = await resolveDesktopBootTarget({ config: { hosts: [], defaultHostId: 'gone' }, localRuntime, localAvailable: true, probeHost: async () => { throw new Error('must not probe'); } });

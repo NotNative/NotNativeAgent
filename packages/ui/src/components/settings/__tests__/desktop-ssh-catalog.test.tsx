@@ -3,7 +3,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
 import { DesktopSshCatalog } from '../pages/desktop-ssh-catalog.tsx';
+
+vi.mock('../../../lib/runtime-switch.ts', () => ({
+  switchRuntimeEndpoint: vi.fn(async (runtime: { runtimeKey?: string }) => {
+    window.__NOTNATIVE_RUNTIME_KEY__ = runtime.runtimeKey;
+  }),
+}));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -18,6 +25,14 @@ describe('DesktopSshCatalog', () => {
     invoke = vi.fn(async (command: string, payload?: unknown) => {
       if (command === 'desktopSshConfig') return { ok: true, result: { instances } };
       if (command === 'desktopSshRefreshStatuses') return { ok: true, result: [] };
+      if (command === 'desktop_host_switch') {
+        const { hostId } = payload as { hostId: string };
+        return { ok: true, result: {
+          activeHostId: hostId,
+          runtime: { apiBaseUrl: 'http://127.0.0.1:57123', clientToken: null, requestHeaders: {}, runtimeKey: hostId === 'local' ? 'local' : `ssh:${hostId}` },
+          bootOutcome: { target: hostId === 'local' ? 'local' : 'remote', status: 'ok' },
+        } };
+      }
       if (command === 'desktopSshConnect') return { ok: true, result: { id: 'ssh-1', phase: 'ready', startedByUs: true, retryAttempt: 0, requiresUserAction: false, updatedAtMs: Date.now() } };
       if (command === 'desktopSshReadConfig') return { ok: true, result: 'Host atlas\n  HostName atlas.example\n' };
       if (command === 'desktopSshCreateFromCommand') {
@@ -46,6 +61,7 @@ describe('DesktopSshCatalog', () => {
     container = null;
     delete window.__NOTNATIVE_DESKTOP_INVOKE__;
     delete window.__NOTNATIVE_DESKTOP_EVENTS__;
+    delete window.__NOTNATIVE_RUNTIME_KEY__;
     vi.clearAllMocks();
   });
 
@@ -100,5 +116,22 @@ describe('DesktopSshCatalog', () => {
     expect(connect).toBeDefined();
     await act(async () => { connect!.click(); await Promise.resolve(); await Promise.resolve(); });
     expect(invoke).toHaveBeenCalledWith('desktopSshConnect', { id: 'ssh-1' });
+  });
+
+  it('switches an active SSH runtime to local before removing its instance', async () => {
+    instances = [{ id: 'ssh-1', sshCommand: 'ssh dev@atlas.example', nickname: 'Atlas' }];
+    window.__NOTNATIVE_RUNTIME_KEY__ = 'ssh:ssh-1';
+    await act(async () => { root!.render(<DesktopSshCatalog />); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => {
+      [...container!.querySelectorAll('button')].find((button) => button.textContent === 'Remove')!.click();
+      await Promise.resolve(); await Promise.resolve();
+    });
+    const fallbackCall = invoke.mock.calls.findIndex(([command]) => command === 'desktop_host_switch');
+    const removeCall = invoke.mock.calls.findIndex(([command]) => command === 'desktopSshRemoveInstance');
+    expect(invoke).toHaveBeenNthCalledWith(fallbackCall + 1, 'desktop_host_switch', { hostId: 'local' });
+    expect(fallbackCall).toBeGreaterThanOrEqual(0);
+    expect(removeCall).toBeGreaterThan(fallbackCall);
+    expect(switchRuntimeEndpoint).toHaveBeenCalledWith(expect.objectContaining({ runtimeKey: 'local' }));
+    expect(window.__NOTNATIVE_RUNTIME_KEY__).toBe('local');
   });
 });

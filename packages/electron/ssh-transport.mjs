@@ -271,6 +271,7 @@ export function createDesktopSshTransport({
     connect,
     disconnect(id) { return { ok: true, result: stop(id) }; },
     cancel(id) { return { ok: true, result: stop(id, 'connection-cancelled') }; },
+    getStatus(id) { return statuses.get(id) ?? null; },
     getStatuses() { return [...statuses.values()]; },
     forgetStatus(id) {
       statuses.delete(id);

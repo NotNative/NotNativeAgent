@@ -27,7 +27,7 @@ function bootFailureStatus(status) {
 /** Pick a boot runtime without mutating stored preferences. Unhealthy or
  * incompatible remotes fall back to the healthy local desktop server. */
 export async function resolveDesktopBootTarget({
-  config, localRuntime, localAvailable, envTargetUrl = '', probeHost, sshHostIds = [],
+  config, localRuntime, localAvailable, envTargetUrl = '', probeHost, sshHostIds = [], connectedSshHostIds = [],
 }) {
   const hasEnvTarget = typeof envTargetUrl === 'string' && Boolean(envTargetUrl.trim());
   const envTarget = normalizeTarget(envTargetUrl);
@@ -52,7 +52,8 @@ export async function resolveDesktopBootTarget({
   const hostId = config?.defaultHostId;
   if (!hostId || hostId === 'local') return localResult({ localRuntime, localAvailable });
   const host = Array.isArray(config?.hosts) ? config.hosts.find((entry) => entry.id === hostId) : null;
-  if (sshHostIds.includes(hostId) || host?.transport === 'ssh') return localResult({
+  const sshPending = sshHostIds.includes(hostId) || host?.transport === 'ssh';
+  if (sshPending && !connectedSshHostIds.includes(hostId)) return localResult({
     localRuntime, localAvailable,
     bootOutcome: { target: 'remote', status: 'unreachable', hostId, via: 'ssh', reason: 'desktop-ssh-not-connected', localAvailable },
   });
@@ -87,7 +88,7 @@ export async function resolveDesktopBootTarget({
       apiBaseUrl: targetUrl,
       clientToken: host.clientToken ?? null,
       requestHeaders: host.requestHeaders ?? {},
-      runtimeKey: `host:${host.id}`,
+      runtimeKey: host.transport === 'ssh' ? `ssh:${host.id}` : `host:${host.id}`,
     },
     bootOutcome: { target: 'remote', status: 'ok', hostId, url: targetUrl },
   };

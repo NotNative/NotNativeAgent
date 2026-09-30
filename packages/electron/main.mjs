@@ -762,13 +762,22 @@ function probeRemoteHost(options) {
 }
 
 async function resolveBootTarget(config = readStoredHosts()) {
+  const connectedSsh = new Map(desktopSshTransport.getStatuses()
+    .filter((status) => status.phase === 'ready' && typeof status.localUrl === 'string')
+    .map((status) => [status.id, status]));
   const sshIds = new Set(readStoredSshInstances().map((instance) => instance.id));
   for (const host of config.hosts) if (host.transport === 'ssh') sshIds.add(host.id);
+  const connectedSshHostIds = [...connectedSsh.keys()];
+  const hosts = config.hosts.map((host) => {
+    const status = host.transport === 'ssh' ? connectedSsh.get(host.id) : undefined;
+    return status?.localUrl ? { ...host, url: status.localUrl, apiUrl: status.localUrl } : host;
+  });
   return resolveDesktopBootTarget({
-    config, localRuntime: localRuntimeConfig(), localAvailable: true,
+    config: { ...config, hosts }, localRuntime: localRuntimeConfig(), localAvailable: true,
     envTargetUrl: process.env.OPENCHAMBER_SERVER_URL,
     probeHost: probeRemoteHost,
-    sshHostIds: [...sshIds],
+    sshHostIds: [...sshIds].filter((id) => !connectedSsh.has(id)),
+    connectedSshHostIds,
   });
 }
 
@@ -834,8 +843,9 @@ async function switchDesktopHost(hostId) {
   if (typeof process.env.OPENCHAMBER_SERVER_URL === 'string' && process.env.OPENCHAMBER_SERVER_URL.trim()) {
     return { ok: false, error: 'desktop-env-target-active' };
   }
-  if (readStoredSshInstances().some((instance) => instance.id === hostId)
-    || readStoredHosts().hosts.some((host) => host.id === hostId && host.transport === 'ssh')) {
+  const sshHost = readStoredSshInstances().some((instance) => instance.id === hostId)
+    || readStoredHosts().hosts.some((host) => host.id === hostId && host.transport === 'ssh');
+  if (sshHost && desktopSshTransport.getStatus(hostId)?.phase !== 'ready') {
     return { ok: false, error: 'desktop-ssh-not-connected' };
   }
   const current = readStoredHosts();

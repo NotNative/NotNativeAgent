@@ -2,6 +2,20 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-41 SSH runtime adoption (20260930-62)
+
+Ready SSH tunnels can now be probed and selected as active desktop runtimes,
+using an `ssh:<id>` runtime key. Startup and explicit host switching route only
+through the manager's current ready local endpoint; failed health or auth
+checks fall back to local. Disconnecting, removing, or losing the active tunnel
+returns the renderer to local before the endpoint goes away. The adversarial
+audit fixed the bridge result-unwrapping contract, active-instance removal,
+and repeated fallback retry defects. Electron tests pass 153/153; UI tests pass
+1449/1449; workspace typechecks pass. A first parallel Electron test run had a
+single non-reproducing SSH config reader failure; isolated and full reruns pass.
+Password prompting, managed remote install/start, and installed GUI acceptance
+remain open P12 work.
+
 ## 2026-09-30 · P12b-40 External SSH tunnel lifecycle (20260930-61)
 
 Electron can now start an OpenSSH local forward to an already-running
