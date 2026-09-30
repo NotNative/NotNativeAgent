@@ -2,6 +2,7 @@
 import { createPublicKey } from 'node:crypto';
 
 const MAX_SESSION_ID_LENGTH = 500;
+const MAX_HOST_ID_LENGTH = 128;
 const MAX_PAIRING_LENGTH = 16_384;
 
 function parsePairingPayload(url) {
@@ -71,6 +72,18 @@ export function parseDesktopDeepLink(raw) {
   if (url.hostname === 'connect' && (url.pathname === '' || url.pathname === '/')) {
     const payload = parsePairingPayload(url);
     return payload ? { type: 'connect', payload } : null;
+  }
+  if (url.hostname === 'host' && !url.search) {
+    // WHATWG URL parsing normalizes literal and percent-encoded dot segments
+    // before exposing pathname. Parse the original authority/path shape too,
+    // so `host/../saved-id` cannot silently turn into a link for saved-id.
+    const rawHostPath = raw.match(/^openchamber:\/\/[^/?#]*\/([^?#]*)$/iu)?.[1];
+    if (rawHostPath === undefined || rawHostPath.includes('/')) return null;
+    let hostId;
+    try { hostId = decodeURIComponent(rawHostPath); } catch { return null; }
+    if (!hostId || hostId === '.' || hostId === '..' || hostId.length > MAX_HOST_ID_LENGTH
+      || /[\u0000-\u001f\u007f/\\]/u.test(hostId)) return null;
+    return { type: 'host', hostId };
   }
   if (url.hostname !== 'session' || url.search) return null;
   let sessionId;

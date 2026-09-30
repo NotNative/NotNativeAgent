@@ -93,6 +93,18 @@ function receiveDeepLink(link) {
     });
     return;
   }
+  if (link.type === 'host') {
+    if (!app.isReady() || !mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
+      pendingDeepLinks.push(link);
+      if (pendingDeepLinks.length > 20) pendingDeepLinks.shift();
+      if (!mainWindow) revealPending = true;
+      else ensureMainWindow();
+      return;
+    }
+    ensureMainWindow();
+    enqueueHostDeepLink(link.hostId);
+    return;
+  }
   if (link.type === 'connect') {
     if (!app.isReady() || !mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
       pendingDeepLinks.push(link);
@@ -684,6 +696,57 @@ async function resolveBootTarget(config = readStoredHosts()) {
 }
 
 let hostSwitchInProgress = false;
+let hostDeepLinkQueue = Promise.resolve();
+function enqueueHostDeepLink(hostId) {
+  hostDeepLinkQueue = hostDeepLinkQueue
+    .catch(() => undefined)
+    .then(() => applyHostDeepLink(hostId))
+    .catch((error) => { console.error('[shell] host deep link failed:', error); });
+}
+
+async function applyHostDeepLink(hostId) {
+  const outcome = await switchDesktopHost(hostId);
+  if (!outcome.ok) {
+    const reasons = {
+      'desktop-host-not-found': 'The linked instance is not saved on this computer.',
+      'desktop-env-target-active': 'An explicit server URL is active for this launch.',
+      'desktop-hosts-busy': 'A pairing or host update is still in progress. Try the link again shortly.',
+    };
+    const message = reasons[outcome.error] ?? 'The linked instance could not be selected.';
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await dialog.showMessageBox(mainWindow, {
+        type: 'warning', title: 'Could not switch instance', message, buttons: ['OK'], defaultId: 0, cancelId: 0,
+      });
+    }
+    return;
+  }
+  const fallback = outcome.result?.bootOutcome;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      await mainWindow.webContents.loadURL(mainUiUrl());
+    } catch (error) {
+      console.error('[shell] host deep link reload failed:', error);
+      await dialog.showMessageBox(mainWindow, {
+        type: 'warning', title: 'Instance changed; reload needed',
+        message: 'The instance preference changed, but the app could not reload. Reload the window to apply it.',
+        buttons: ['OK'], defaultId: 0, cancelId: 0,
+      });
+      return;
+    }
+    if (fallback?.target === 'remote' && fallback.status !== 'ok') {
+      const status = fallback.status === 'unreachable' ? 'could not be reached'
+        : fallback.status === 'auth' ? 'rejected authentication'
+          : fallback.status === 'wrong-service' ? 'is not a compatible NotNative server'
+            : fallback.status === 'incompatible' ? 'needs a newer desktop client' : 'could not be selected';
+      await dialog.showMessageBox(mainWindow, {
+        type: 'warning', title: 'Instance is unavailable',
+        message: `The linked instance ${status}. The app is using its local instance; the linked instance remains your saved default and will be retried on the next launch.`,
+        buttons: ['OK'], defaultId: 0, cancelId: 0,
+      });
+    }
+  }
+}
+
 async function switchDesktopHost(hostId) {
   if (hostSwitchInProgress) return { ok: false, error: 'desktop-host-switch-busy' };
   if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };

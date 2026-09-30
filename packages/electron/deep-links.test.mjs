@@ -11,6 +11,18 @@ test('accepts only session and focus links with bounded session identifiers', ()
   assert.equal(parseDesktopDeepLink(`openchamber://session/${'x'.repeat(501)}`), null);
 });
 
+test('accepts bounded host-switch links with a single safe saved id', () => {
+  assert.deepEqual(parseDesktopDeepLink('openchamber://host/studio-01'), { type: 'host', hostId: 'studio-01' });
+  assert.deepEqual(parseDesktopDeepLink('openchamber://host/a%3Ab'), { type: 'host', hostId: 'a:b' });
+  assert.deepEqual(parseDesktopDeepLink('openchamber://host/local'), { type: 'host', hostId: 'local' });
+  for (const value of [
+    'openchamber://host/', 'openchamber://host/a%2Fb', 'openchamber://host/%00',
+    'openchamber://host/studio?next=https://evil.test', 'openchamber://host//studio',
+    'openchamber://host/../studio', 'openchamber://host/%2e%2e/studio', 'openchamber://host/studio?',
+    'openchamber://host/.', 'openchamber://host/%2E%2E', `openchamber://host/${'x'.repeat(129)}`,
+  ]) assert.equal(parseDesktopDeepLink(value), null, value);
+});
+
 test('rejects link variants that could smuggle another action or malformed path', () => {
   for (const value of [
     'https://session/ses_1', 'openchamber://user@session/ses_1', 'openchamber://session:99/ses_1',
@@ -20,8 +32,8 @@ test('rejects link variants that could smuggle another action or malformed path'
 });
 
 test('extracts supported links from launch arguments and ignores unrelated arguments', () => {
-  assert.deepEqual(extractDesktopDeepLinks(['--hidden', 'openchamber://session/s1', 'https://example.test', 'openchamber://focus']), [
-    { type: 'session', sessionId: 's1' }, { type: 'focus' },
+  assert.deepEqual(extractDesktopDeepLinks(['--hidden', 'openchamber://session/s1', 'https://example.test', 'openchamber://focus', 'openchamber://host/studio']), [
+    { type: 'session', sessionId: 's1' }, { type: 'focus' }, { type: 'host', hostId: 'studio' },
   ]);
 });
 

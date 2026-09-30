@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-30 · **P12b-26 saved-host deep links.** Added bounded
+  `openchamber://host/<id>` parsing and startup/reload queuing. Links are
+  serialized through the same host-catalog lock and compatibility/auth probe as
+  the settings switch; success reloads the local shell with the newly selected
+  runtime, while missing/busy/override failures show a native warning. Focused
+  parser and IPC checks (16), workspace typecheck, and adversarial review pass.
+
 - 2026-09-30 · **P12b-25 remote instance chooser and live switching.** Added a
   Remote Instances settings page backed by desktop-local IPC. A selection is
   identity/API/auth probed, persisted as the default, and applied to runtime

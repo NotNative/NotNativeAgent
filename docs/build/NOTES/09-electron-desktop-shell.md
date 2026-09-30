@@ -80,7 +80,10 @@ remaining P12 slices ride after it.
   redirects, redeems once, and stores the client token in the validated host
   catalog while holding the shared catalog mutation lock. Before redemption,
   pairing verifies the relay-advertised server id against the direct endpoint's
-  health response. Relay-only import remains pending.
+  health response. Bounded `openchamber://host/<id>` links switch only to an
+  existing saved host through the same identity/API/auth probe and catalog lock;
+  they queue across startup/reload and report failure through a native warning.
+  Relay-only import and switching remain pending.
   The bounded Electron host probe now implements the identity-first,
   compatibility/auth checks and unreachable-only retry policy required by §2.6.
   The server exposes the unauthenticated `/api/version` compatibility contract;
@@ -90,8 +93,9 @@ remaining P12 slices ride after it.
   runtime through local-main-frame IPC.
   The Remote Instances settings page now selects saved direct hosts and
   switches the running renderer after probing; standalone servers admit the
-  exact packaged UI origin for CORS. Remaining: relay-only pairing and
-  `openchamber://host` routing, remaining IPC catalog growth (§3.1), relay-aware
+  exact packaged UI origin for CORS. Saved-host `openchamber://host/<id>` links
+  use the same validated switch path. Remaining: relay-only pairing and
+  remaining IPC catalog growth (§3.1), relay-aware
   boot/transport and multi-instance remote
   (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
   (desktopSshStore seam is already the UI-side contract, P8-6).
@@ -148,8 +152,8 @@ remaining P12 slices ride after it.
   are buffered across splash/startup and renderer reloads, then delivered via
   the existing preload event face. Pairing (`connect`) links now pass through
   native consent and bounded direct redemption. Host selection is available in
-  Remote Instances settings; relay-only pairing and `openchamber://host` links
-  remain deferred. Unknown link actions
+  Remote Instances settings and saved-host deep links; relay-only pairing remains
+  deferred. Unknown link actions
   are ignored.
 - **D-09-29** The deep-link parser recognizes v2 pairing payloads only after
   strict base64url/UTF-8/JSON bounds, expiry checks, and all-candidate shape
@@ -201,6 +205,11 @@ remaining P12 slices ride after it.
   packaged renderer origin for credentialed CORS and browser writes even when
   `NOTNATIVE_DESKTOP_UI_ORIGIN` is unset. A configured exact origin remains
   additionally supported; suffix/lookalike origins receive no CORS trust.
+- **D-09-37** `openchamber://host/<id>` accepts a single bounded saved-host id.
+  The shell queues it across startup and renderer loading, serializes multiple
+  host-link requests, and uses the existing catalog lock and remote probe. A
+  successful switch reloads the local shell so the per-document runtime config
+  is refreshed; missing hosts and switch conflicts show a native warning.
 - **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
   pipeline now stages its runtime JS, license, and platform native binaries
   beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
