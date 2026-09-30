@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:07346f928d8b1e49c7c24fb09adda06992147b20e51ce60a7b1fe58db3feacdb",
+  "source_digest": "sha256:8a724fe234ac24356f723ac0ac265c17427d4680fb6d466fb74c1cf3f159aaba",
   "counts": {
-    "modules": 562,
+    "modules": 564,
     "component_edges": 14
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 152
+      "module_count": 153
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 153
+      "module_count": 154
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 200,
-      "module_count": 85
+      "import_count": 202,
+      "module_count": 86
     },
     {
       "from": "ui-shell",
@@ -405,6 +405,7 @@
         "packages/ui/src/chat/keyboard-policy.ts",
         "packages/ui/src/chat/model-picker.tsx",
         "packages/ui/src/chat/prompt-language.ts",
+        "packages/ui/src/chat/response-style.ts",
         "packages/ui/src/chat/send-planner.ts",
         "packages/ui/src/chat/starters.ts",
         "packages/ui/src/chat/turns.ts",
@@ -699,6 +700,15 @@
       "imports": [
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/response-style.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/store.ts",
+        "packages/ui/src/lib/system-reminders.ts"
       ]
     },
     {
@@ -2759,6 +2769,12 @@
     },
     {
       "path": "packages/ui/src/lib/startupTrace.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/system-reminders.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []

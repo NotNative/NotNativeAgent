@@ -26,15 +26,10 @@ import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
 import { deliverToNewSession } from './composer-draft-pins.ts';
-const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
+import { responseStyleRider } from './response-style.ts';
 import { btwRiderFor } from './btw-context.ts';
-const MAX_LINES = 8;
-
-export interface ComposerServices {
-  engine: SyncEngine;
-  store: (directory?: string) => StoreApi<DirectoryStore>;
-  dispatch: (command: 'undo' | 'redo' | 'timeline' | 'compact') => void;
-}
+const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw']; const MAX_LINES = 8;
+export interface ComposerServices { engine: SyncEngine; store: (directory?: string) => StoreApi<DirectoryStore>; dispatch: (command: 'undo' | 'redo' | 'timeline' | 'compact') => void; }
 
 export type BtwInvocation = { question: string; agent?: string;
   model: { providerID: string; modelID: string }; sendAgent: string };
@@ -314,6 +309,8 @@ export function Composer(props: ComposerProps): ReactNode {
       { type: 'text' as const, text: plan.deliverable.text },
       ...(skillInstruction ? [{ type: 'text' as const, text: skillInstruction, synthetic: true }] : []),
     ];
+    const sessionMessages = sessionID === null ? [] : snapshot.message[sessionID] ?? [];
+    const styleReminder = responseStyleRider(sessionID, sessionMessages, btwRider !== null); if (styleReminder) outgoing.push({ type: 'text' as const, text: styleReminder, synthetic: true });
     if (btwRider) outgoing.unshift({ ...btwRider, type: 'text' as const });
     if (!btwPanelActive) {
       for (const attachment of attachments) {

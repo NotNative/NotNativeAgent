@@ -24,6 +24,25 @@ The shared config-lock queue now consumes rejected bookkeeping outcomes; the
 actual rejected operation still reaches its caller. A deliberate malformed
 context test exposed the previous unhandled-rejection behavior.
 
+## P10-61: system reminders (2026-09-29)
+
+`wrapSystemReminder` trims non-empty input into the canonical wrapper. A text
+prefixed by `<system-reminder>\n` and suffixed by `\n</system-reminder>` is
+passed through unchanged; malformed wrappers are wrapped as ordinary text and
+empty inputs return empty.
+
+The composer now builds the §B.10 response-style reminder once for a new-draft
+delivery or an existing session with no messages in view. It requires
+`responseStyleEnabled == true` and tags it synthetic, positioned after the
+skill rider but before attachments. A non-whitespace custom instruction wins,
+otherwise the registered preset instruction is used, falling back to
+concise for unknown preset storage. When the rider becomes a BTW send,
+`btwSendState` removes it so BTW forks stay reminder-free. Focused wrapper and
+style-selection tests pass, as do adjacent composer suites.
+
+A registered custom preset with a blank instruction intentionally emits no
+rider rather than substituting the unknown-preset concise fallback.
+
 ## P10-60: outside-file grants (2026-09-29)
 
 The §G.5 resolver turns an outside-workspace path into the two-value read
