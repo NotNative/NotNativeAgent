@@ -33,8 +33,10 @@ function tarEntry(name, bytes) {
   write(octal(Math.floor(Date.now() / 1000), 12), 12);
   header.fill(0x20, 148, 156);
   header[156] = '0'.charCodeAt(0);
-  write('ustar\0', 6); write('00', 2);
-  header.write(octal(header.reduce((sum, byte) => sum + byte, 0), 8), 148, 8, 'ascii');
+  header.write('ustar\0', 257, 6, 'ascii');
+  header.write('00', 263, 2, 'ascii');
+  const checksum = header.reduce((sum, byte) => sum + byte, 0);
+  header.write(`${checksum.toString(8).padStart(6, '0')}\0 `, 148, 8, 'ascii');
   const padding = (BLOCK - (bytes.length % BLOCK)) % BLOCK;
   return padding ? [header, bytes, Buffer.alloc(padding)] : [header, bytes];
 }

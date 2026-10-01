@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { gunzipSync } from 'node:zlib';
 import test from 'node:test';
 import { createManagedSshBundle, MANAGED_BUNDLE_LIMIT_BYTES } from './ssh-managed-bundle.mjs';
@@ -41,6 +42,23 @@ test('managed SSH bundle contains server, runtime manifest, launcher, and web as
   assert.match(files.get('start-managed.mjs'), /startServer/);
   assert.equal(files.get('web-dist/index.html'), '<main>ok</main>');
   assert.equal(files.get('web-dist/assets/app.js'), 'console.log("ok")');
+});
+
+test('managed SSH bundle interoperates with the system tar reader and extractor', (t) => {
+  const input = fixture(t);
+  const archive = createManagedSshBundle(input);
+  const listed = spawnSync('tar', ['-tzf', '-'], { input: archive, encoding: 'utf8' });
+  if (listed.error?.code === 'ENOENT') return t.skip('tar executable unavailable');
+  assert.equal(listed.status, 0, listed.stderr || listed.error?.message);
+  assert.match(listed.stdout, /server\.mjs/u);
+  assert.match(listed.stdout, /web-dist\/assets\/app\.js/u);
+
+  const destination = path.join(path.dirname(input.serverBundlePath), 'extracted');
+  mkdirSync(destination);
+  const extracted = spawnSync('tar', ['-xzf', '-', '-C', destination], { input: archive, encoding: 'utf8' });
+  assert.equal(extracted.status, 0, extracted.stderr || extracted.error?.message);
+  assert.equal(readFileSync(path.join(destination, 'server.mjs'), 'utf8'), 'export const server = true;');
+  assert.equal(readFileSync(path.join(destination, 'web-dist', 'assets', 'app.js'), 'utf8'), 'console.log("ok")');
 });
 
 test('managed SSH bundle enforces its uncompressed size bound', (t) => {

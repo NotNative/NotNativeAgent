@@ -3769,4 +3769,11 @@ configuration import only; live SSH transport is still outstanding.
   test` and web test commands both pass (1456/1456 and 1252/1252). Workspace
   typechecks and the web production build pass; adversarial review found no
   config/glob defect. Version 20260930-85.
+- **2026-09-30 · P12 managed SSH archive interoperability.** A real system-tar
+  round trip exposed malformed USTAR headers: the magic/version fields had
+  been written into the checksum area. The builder now writes canonical
+  USTAR magic, version, and checksum fields. Windows bsdtar lists and extracts
+  the generated archive with content checks; adversarial review found no
+  remaining defect. Real remote-host acceptance remains open. Version
+  20260930-86.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |
