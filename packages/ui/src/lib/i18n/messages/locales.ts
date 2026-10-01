@@ -22,20 +22,21 @@ import { deAppearance, frAppearance, zhCNAppearance, zhTWAppearance, ukAppearanc
 import { deSkillsInventory, frSkillsInventory, zhCNSkillsInventory, zhTWSkillsInventory, ukSkillsInventory, esSkillsInventory, ptBRSkillsInventory, koSkillsInventory, plSkillsInventory, jaSkillsInventory, trSkillsInventory } from './locale-skills-inventory.ts';
 import { deMcpInventory, frMcpInventory, zhCNMcpInventory, zhTWMcpInventory, ukMcpInventory, esMcpInventory, ptBRMcpInventory, koMcpInventory, plMcpInventory, jaMcpInventory, trMcpInventory } from './locale-mcp-inventory.ts';
 import { deMcpConfig, frMcpConfig, zhCNMcpConfig, zhTWMcpConfig, ukMcpConfig, esMcpConfig, ptBRMcpConfig, koMcpConfig, plMcpConfig, jaMcpConfig, trMcpConfig } from './locale-mcp-config.ts';
+import { deMcpDraft, frMcpDraft, zhCNMcpDraft, zhTWMcpDraft, ukMcpDraft, esMcpDraft, ptBRMcpDraft, koMcpDraft, plMcpDraft, jaMcpDraft, trMcpDraft } from './locale-mcp-draft.ts';
 import en, { type Dictionary } from './en.ts';
 
 const CATALOGS: Record<string, PartialDictionary> = {
-  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory, ...deMcpInventory, ...deMcpConfig },
-  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory, ...frMcpInventory, ...frMcpConfig },
-  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory, ...zhCNMcpInventory, ...zhCNMcpConfig },
-  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory, ...zhTWMcpInventory, ...zhTWMcpConfig },
-  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory, ...ukMcpInventory, ...ukMcpConfig },
-  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory, ...esMcpInventory, ...esMcpConfig },
-  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory, ...ptBRMcpInventory, ...ptBRMcpConfig },
-  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory, ...koMcpInventory, ...koMcpConfig },
-  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory, ...plMcpInventory, ...plMcpConfig },
-  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory, ...jaMcpInventory, ...jaMcpConfig },
-  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory, ...trMcpInventory, ...trMcpConfig },
+  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory, ...deMcpInventory, ...deMcpConfig, ...deMcpDraft },
+  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory, ...frMcpInventory, ...frMcpConfig, ...frMcpDraft },
+  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory, ...zhCNMcpInventory, ...zhCNMcpConfig, ...zhCNMcpDraft },
+  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory, ...zhTWMcpInventory, ...zhTWMcpConfig, ...zhTWMcpDraft },
+  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory, ...ukMcpInventory, ...ukMcpConfig, ...ukMcpDraft },
+  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory, ...esMcpInventory, ...esMcpConfig, ...esMcpDraft },
+  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory, ...ptBRMcpInventory, ...ptBRMcpConfig, ...ptBRMcpDraft },
+  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory, ...koMcpInventory, ...koMcpConfig, ...koMcpDraft },
+  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory, ...plMcpInventory, ...plMcpConfig, ...plMcpDraft },
+  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory, ...jaMcpInventory, ...jaMcpConfig, ...jaMcpDraft },
+  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory, ...trMcpInventory, ...trMcpConfig, ...trMcpDraft },
 };
 
 /** Full dictionaries: en complete, others merged over en per §H.2 resolve. */

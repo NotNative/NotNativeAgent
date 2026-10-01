@@ -80,6 +80,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  useI18nStore.getState().setLocale('en');
   try { act(() => rootHandle?.unmount()); } finally {
     container?.remove();
     container = null;
@@ -243,6 +244,10 @@ describe('MCP settings page', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     await clickButton('Connect');
     expect(document.body.textContent).toContain('connect denied');
+    await act(async () => { useI18nStore.getState().setLocale('fr'); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('connect denied');
+    expect(document.body.textContent).toContain('Configuration MCP de l’espace de travail');
+    await act(async () => { useI18nStore.getState().setLocale('en'); await Promise.resolve(); });
   });
 
   it('reports a rejected delete without changing the pending candidate', async () => {
@@ -370,6 +375,53 @@ describe('MCP settings page', () => {
       });
     });
     expect(inputByPlaceholder('authorization code').value).toBe('');
+  });
+
+  it('retranslates an import summary while keeping skipped server errors raw', async () => {
+    runtimeFetchMock.mockImplementation((url: unknown, init?: { method?: string }) => {
+      const path = String(url);
+      const method = init?.method ?? 'GET';
+      if (method === 'POST' && path.includes('/api/config/mcp/beta')) return Promise.resolve(jsonResponse({
+        ok: true, requiresRestart: true, restartDeferred: true, message: 'created',
+      }));
+      if (method === 'GET' && path.includes('/api/config/mcp?directory=')) return Promise.resolve(jsonResponse({
+        mcp: { alpha: fixture('alpha', { type: 'local', command: ['demo'] }) },
+      }));
+      if (method === 'GET' && path.includes('/mcp?directory=')) return Promise.resolve(jsonResponse({
+        alpha: { status: 'connected' },
+      }));
+      if (path.includes('/v1/nnd/mcp')) return Promise.resolve(jsonResponse({ version: 1, state: 'configured', servers: [] }));
+      return Promise.reject(new Error('unexpected request: ' + path));
+    });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    const input = document.querySelector<HTMLInputElement>('[data-testid="mcp-import-input"]')!;
+    await act(async () => {
+      Object.defineProperty(input, 'files', {
+        value: [{ text: async () => JSON.stringify({ beta: { type: 'local', command: ['demo'] } }) } as File],
+      });
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 12; index += 1) await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('MCP share import: Created: 1. Restart OpenCode to apply.');
+    await act(async () => {
+      useI18nStore.getState().setLocale('fr');
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('Import de partage MCP : Créés : 1. Redémarrez OpenCode pour l’appliquer.');
+    await act(async () => { useI18nStore.getState().setLocale('en'); await Promise.resolve(); });
+  });
+
+  it('locks the record scope while editing but allows it for a new draft', async () => {
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await clickButton('New');
+    const scopeButtons = (texts: string[]) => [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .filter((node) => texts.includes(node.textContent ?? ''));
+    expect(scopeButtons(['User scope', 'Project scope']).every((node) => !node.disabled)).toBe(true);
+    await clickButton('Cancel');
+    await clickButton('Edit');
+    expect(scopeButtons(['User scope', 'Project scope']).every((node) => node.disabled)).toBe(true);
   });
 
   it('closes a scoped draft when the active directory changes', async () => {

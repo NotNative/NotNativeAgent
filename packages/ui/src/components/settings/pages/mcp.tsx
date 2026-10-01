@@ -25,6 +25,20 @@ import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
 import { NnaMcpInventory } from './mcp-inventory.tsx';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 
+type ActionFeedback = { kind: 'localized'; key: I18nKey; params?: Record<string, unknown> }
+  | { kind: 'raw'; message: string }
+  | { kind: 'importSummary'; created: number; updated: number };
+
+
+function formatActionFeedback(feedback: ActionFeedback, t: (key: I18nKey, params?: Record<string, unknown>) => string): string {
+  if (feedback.kind === 'raw') return feedback.message;
+  if (feedback.kind === 'localized') return t(feedback.key, feedback.params);
+  const summary = [
+    feedback.created > 0 ? t('settings.mcp.import.created', { count: feedback.created }) : null,
+    feedback.updated > 0 ? t('settings.mcp.import.updated', { count: feedback.updated }) : null,
+  ].filter(Boolean).join(', ') || t('settings.mcp.import.noChanges');
+  return t('settings.mcp.notice.importSummary', { summary });
+}
 
 export function McpPage(): ReactNode {
   return (
@@ -56,8 +70,8 @@ function WorkspaceMcpConfig(): ReactNode {
   const [revision, setRevision] = useState(0);
   const [runtimeRevision, setRuntimeRevision] = useState(0);
   const lastActiveDirectory = useRef(activeDirectory);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<ActionFeedback | null>(null);
+  const [actionError, setActionError] = useState<ActionFeedback | null>(null);
   const [authCodeByName, setAuthCodeByName] = useState<Record<string, string>>({});
   const [authUrlByName, setAuthUrlByName] = useState<Record<string, string | undefined>>({});
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
@@ -93,8 +107,12 @@ function WorkspaceMcpConfig(): ReactNode {
       if (epoch === actionEpoch.current) setActionError(null);
       return { result, stale: epoch !== actionEpoch.current };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'MCP action failed';
-      if (epoch === actionEpoch.current) setActionError(message);
+      const message = error instanceof Error ? error.message : undefined;
+      if (epoch === actionEpoch.current) {
+        setActionError(message === undefined
+          ? { kind: 'localized', key: 'settings.mcp.action.failed' }
+          : { kind: 'raw', message });
+      }
       return { result: null, stale: true };
     } finally {
       if (epoch === actionEpoch.current) setPendingName(null);
@@ -121,9 +139,13 @@ function WorkspaceMcpConfig(): ReactNode {
     if (stale || outcome === null) return;
     if (outcome.ok) {
       closeDraft();
-      setNotice(`${candidate.isNew ? 'Created' : 'Updated'} "${candidate.name}". Restart OpenCode to apply.`);
+      setNotice({
+        kind: 'localized',
+        key: candidate.isNew ? 'settings.mcp.notice.created' : 'settings.mcp.notice.updated',
+        params: { name: candidate.name },
+      });
       setRevision((value) => value + 1);
-    } else setActionError(outcome.error);
+    } else setActionError({ kind: 'raw', message: outcome.error });
   }, [activeDirectory, closeDraft, startAction]);
 
 
@@ -133,11 +155,11 @@ function WorkspaceMcpConfig(): ReactNode {
       useMcpConfigStore.getState().deleteEntry(name, activeDirectory));
     if (stale || outcome === null) return;
     if (!outcome.ok) {
-      setActionError(outcome.error);
+      setActionError({ kind: 'raw', message: outcome.error });
       return;
     }
     setDeleteCandidate(null);
-    setNotice(`Deleted "${name}". Restart OpenCode to apply.`);
+    setNotice({ kind: 'localized', key: 'settings.mcp.notice.deleted', params: { name } });
     setRevision((value) => value + 1);
   }, [activeDirectory, startAction]);
 
@@ -147,7 +169,7 @@ function WorkspaceMcpConfig(): ReactNode {
     const actionError = typeof result === 'string'
       ? result
       : result instanceof Object && 'error' in result ? (result as { error?: string }).error : undefined;
-    if (actionError !== undefined) setActionError(actionError);
+    if (actionError !== undefined) setActionError({ kind: 'raw', message: actionError });
     setRevision((value) => value + 1);
   }, [startAction]);
 
@@ -155,27 +177,27 @@ function WorkspaceMcpConfig(): ReactNode {
     const { result, stale } = await startAction(name, () =>
       useMcpStore.getState().startAuth(name, activeDirectory));
     if (stale || result === null) return;
-    if (result.error) setActionError(result.error);
+    if (result.error) setActionError({ kind: 'raw', message: result.error });
     else if (result.authorizationUrl !== undefined) {
       setAuthUrlByName((state) => ({ ...state, [name]: result.authorizationUrl }));
-      setNotice(`Started authorization for "${name}". Complete the browser flow, then paste the code.`);
+      setNotice({ kind: 'localized', key: 'settings.mcp.notice.authorizationStarted', params: { name } });
     } else {
       setAuthUrlByName((state) => ({ ...state, [name]: undefined }));
-      setActionError('authorization URL missing');
+      setActionError({ kind: 'localized', key: 'settings.mcp.error.authorizationUrlMissing' });
     }
   }, [activeDirectory, startAction]);
 
   const completeOAuth = useCallback(async (name: string) => {
     const code = (authCodeByName[name] ?? '').trim();
-    if (code === '') { setActionError('authorization code required'); return; }
+    if (code === '') { setActionError({ kind: 'localized', key: 'settings.mcp.error.authorizationCodeRequired' }); return; }
     const { result, stale } = await startAction(name, () =>
       useMcpStore.getState().completeAuth(name, code, activeDirectory));
     if (stale || result === null) return;
-    if (result !== undefined) setActionError(result);
+    if (result !== undefined) setActionError({ kind: 'raw', message: result });
     else {
       setAuthUrlByName((state) => ({ ...state, [name]: undefined }));
       setAuthCodeByName((state) => ({ ...state, [name]: '' }));
-      setNotice(`Completed authorization for "${name}".`);
+      setNotice({ kind: 'localized', key: 'settings.mcp.notice.authorizationCompleted', params: { name } });
       setRevision((value) => value + 1);
     }
   }, [activeDirectory, authCodeByName, startAction]);
@@ -183,22 +205,20 @@ function WorkspaceMcpConfig(): ReactNode {
   const importShare = useCallback(async (file: File) => {
     let text: string;
     try { text = await file.text(); }
-    catch { setActionError('MCP share file could not be read'); return; }
+    catch { setActionError({ kind: 'localized', key: 'settings.mcp.error.shareFileUnreadable' }); return; }
     const { result, stale } = await startAction('share', () =>
       useMcpConfigStore.getState().importEntries(text, activeDirectory));
     if (stale || result === null) return;
     if (!('created' in result && 'updated' in result)) {
-      setActionError('error' in result ? result.error : 'MCP share import failed');
+      setActionError('error' in result
+        ? { kind: 'raw', message: result.error }
+        : { kind: 'localized', key: 'settings.mcp.error.shareImportFailed' });
       return;
     }
     const failures = result.skipped.map(({ name, error }) => `${name}: ${error}`);
-    if (failures.length > 0) setActionError(failures.join('; '));
+    if (failures.length > 0) setActionError({ kind: 'raw', message: failures.join('; ') });
     else setActionError(null);
-    const summary = [
-      result.created > 0 ? `created ${result.created}` : null,
-      result.updated > 0 ? `updated ${result.updated}` : null,
-    ].filter(Boolean).join(', ') || 'no changes';
-    setNotice(`MCP share import: ${summary}. Restart OpenCode to apply.`);
+    setNotice({ kind: 'importSummary', created: result.created, updated: result.updated });
     setRevision((value) => value + 1);
   }, [activeDirectory, startAction]);
 
@@ -233,8 +253,8 @@ function WorkspaceMcpConfig(): ReactNode {
       {configLoading || statusLoading ? <p role="status" className="text-xs text-muted-foreground">{t('settings.mcp.config.loading')}</p> : null}
       {!configLoading && configError !== undefined ? <p role="alert" className="text-xs text-destructive">{configError}</p> : null}
       {!statusLoading && statusError !== undefined ? <p role="alert" className="text-xs text-destructive">{statusError}</p> : null}
-      {actionError !== null ? <p role="alert" className="text-xs text-destructive">{actionError}</p> : null}
-      {notice !== null ? <p role="status" className="text-xs text-primary">{notice}</p> : null}
+      {actionError !== null ? <p role="alert" className="text-xs text-destructive">{formatActionFeedback(actionError, t)}</p> : null}
+      {notice !== null ? <p role="status" className="text-xs text-primary">{formatActionFeedback(notice, t)}</p> : null}
 
       {!configLoading && !configError && records?.length === 0
         ? <p className="text-xs text-muted-foreground">{t('settings.mcp.config.empty')}</p> : null}
@@ -283,7 +303,7 @@ function WorkspaceMcpConfig(): ReactNode {
                         .then((result) => {
                           if (result.error === undefined && result.warning !== undefined) {
                             const warning = result.warning;
-                            void Promise.resolve().then(() => setNotice(warning));
+                            void Promise.resolve().then(() => setNotice({ kind: 'raw', message: warning }));
                           }
                           return result;
                         }));
@@ -312,7 +332,7 @@ function WorkspaceMcpConfig(): ReactNode {
                             let safe = false;
                             try { safe = ['https:', 'http:'].includes(new URL(authUrlByName[record.name]!).protocol); }
                             catch { safe = false; }
-                            if (!safe) { event.preventDefault(); setActionError('authorization URL is not HTTP or HTTPS'); }
+                            if (!safe) { event.preventDefault(); setActionError({ kind: 'localized', key: 'settings.mcp.error.authorizationUrlProtocol' }); }
                           }}>{t('settings.mcp.config.action.openBrowserAuth')}</a>
                       ) : null}
                     </div>
@@ -327,70 +347,70 @@ function WorkspaceMcpConfig(): ReactNode {
       {draft !== null ? (
         <div className="mt-3 rounded-md border border-primary/40 bg-background/70 p-3" data-testid="mcp-draft">
           <div className="mb-2 text-xs font-medium text-foreground">
-            {draft.isNew ? 'New MCP server' : `Edit ${draft.name}`}
+            {draft.isNew ? t('settings.mcp.draft.title.new') : t('settings.mcp.draft.title.edit', { name: draft.name })}
           </div>
-          <SettingsChipGroup item="mcp.draft.scope" value={draft.scope}
-            options={[{ value: 'user', label: 'User scope' }, { value: 'project', label: 'Project scope' }]}
+          <SettingsChipGroup item="mcp.draft.scope" value={draft.scope} disabled={!draft.isNew}
+            options={[{ value: 'user', label: t('settings.mcp.config.record.userScope') }, { value: 'project', label: t('settings.mcp.config.record.projectScope') }]}
             onChange={(value) => patchDraft({ scope: value as 'user' | 'project' })} />
           {draft.scope === 'project' && activeDirectory === ''
             ? <p className="mt-1 text-xs text-destructive">{t('settings.mcp.config.projectRequired')}</p> : null}
-          <SettingsFieldRow label="Server name" item="mcp.draft.name" helper={draft.isNew ? 'lowercase letters, digits, hyphen, underscore' : 'locked'}>
+          <SettingsFieldRow label={t('settings.mcp.draft.name')} item="mcp.draft.name" helper={draft.isNew ? t('settings.mcp.draft.name.helper.new') : t('settings.mcp.draft.name.helper.locked')}>
             <input type="text" data-testid="mcp-draft-name" className={TEXT_INPUT_CLASS} value={draft.name} disabled={!draft.isNew}
               onChange={(event) => patchDraft({ name: event.target.value.toLowerCase() })} />
           </SettingsFieldRow>
           <SettingsChipGroup item="mcp.draft.transport" value={draft.type}
-            options={[{ value: 'local', label: 'Local' }, { value: 'remote', label: 'Remote' }]}
+            options={[{ value: 'local', label: t('settings.mcp.draft.transport.local') }, { value: 'remote', label: t('settings.mcp.draft.transport.remote') }]}
             onChange={(value) => patchDraft({ type: value as 'local' | 'remote' })} />
           {draft.type === 'local' ? (
-            <SettingsFieldRow label="Command" item="mcp.draft.command" helper="quoted words are preserved">
+            <SettingsFieldRow label={t('settings.mcp.draft.command')} item="mcp.draft.command" helper={t('settings.mcp.draft.command.helper')}>
               <input type="text" data-testid="mcp-draft-command" className={TEXT_INPUT_CLASS} value={draft.command}
                 onChange={(event) => patchDraft({ command: event.target.value })} />
             </SettingsFieldRow>
           ) : (
-            <SettingsFieldRow label="URL" item="mcp.draft.url" helper="HTTP or HTTPS">
+            <SettingsFieldRow label={t('settings.mcp.draft.url')} item="mcp.draft.url" helper={t('settings.mcp.draft.url.helper')}>
               <input type="text" className={TEXT_INPUT_CLASS} value={draft.url}
                 onChange={(event) => patchDraft({ url: event.target.value })} />
             </SettingsFieldRow>
           )}
 
-          <SettingsFieldRow label="Environment rows" item="mcp.draft.environment" helper="key, value; one per line">
+          <SettingsFieldRow label={t('settings.mcp.draft.environmentRows')} item="mcp.draft.environment" helper={t('settings.mcp.draft.environmentRows.helper')}>
             <DraftRows value={draft.environment} onChange={(rows) => patchDraft({ environment: rows })} />
           </SettingsFieldRow>
           {draft.type === 'remote' ? (
-            <SettingsFieldRow label="Request headers" item="mcp.draft.headers" helper="cleared rows are dropped">
+            <SettingsFieldRow label={t('settings.mcp.draft.requestHeaders')} item="mcp.draft.headers" helper={t('settings.mcp.draft.requestHeaders.helper')}>
               <DraftRows value={draft.headers} onChange={(rows) => patchDraft({ headers: rows })} />
             </SettingsFieldRow>
           ) : null}
 
           {draft.type === 'remote' ? (
             <>
-              <SettingsCheckboxRow label="OAuth client" item="mcp.draft.oauth" checked={draft.oauthEnabled}
+              <SettingsCheckboxRow label={t('settings.mcp.draft.oauthClient')} item="mcp.draft.oauth" checked={draft.oauthEnabled}
                 onChange={(checked) => patchDraft({ oauthEnabled: checked })} />
               {draft.oauthEnabled ? (
                 ['clientId', 'clientSecret', 'scope', 'redirectUri'].map((field) => (
-                  <SettingsFieldRow key={field} label={field.replace(/[A-Z]/u, (c) => ' ' + c)} item={`mcp.draft.oauth.${field}`}>
+                  <SettingsFieldRow key={field} label={t(OAUTH_FIELD_LABEL_KEY[field]!)} item={`mcp.draft.oauth.${field}`}>
                     <input type={field === 'clientSecret' ? 'password' : 'text'} className={TEXT_INPUT_CLASS}
                       value={draft.oauth[field] ?? ''}
                       onChange={(event) => patchDraft({ oauth: { ...draft.oauth, [field]: event.target.value } })} />
                   </SettingsFieldRow>
                 ))
               ) : null}
-              <SettingsFieldRow label="Timeout" item="mcp.draft.timeout" helper="milliseconds; empty uses default">
+              <SettingsFieldRow label={t('settings.mcp.draft.timeout')} item="mcp.draft.timeout" helper={t('settings.mcp.draft.timeout.helper')}>
                 <input type="text" className={TEXT_INPUT_CLASS} value={draft.timeout}
                   onChange={(event) => patchDraft({ timeout: event.target.value })} />
               </SettingsFieldRow>
             </>
           ) : null}
-          <SettingsCheckboxRow label="Enabled" item="mcp.draft.enabled" checked={draft.enabled}
+          <SettingsCheckboxRow label={t('settings.mcp.draft.enabled')} item="mcp.draft.enabled" checked={draft.enabled}
             onChange={(checked) => patchDraft({ enabled: checked })} />
 
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <button type="button" className={ACTION_BUTTON_CLASS + ' bg-primary/15 text-primary disabled:opacity-50'}
               disabled={configLoading || statusLoading || pendingName !== null || !canSaveDraft
                 || (draft.scope === 'project' && activeDirectory === '')}
-              onClick={() => void saveDraft(draft)}>Save</button>
+              onClick={() => void saveDraft(draft)}>{t('settings.mcp.draft.action.save')}</button>
             <button type="button" className={ACTION_BUTTON_CLASS} disabled={pendingName !== null}
-              onClick={() => { closeDraft(); setActionError(null); }}>Cancel</button>
+              onClick={() => { closeDraft(); setActionError(null); }}>{t('settings.mcp.draft.action.cancel')}</button>
           </div>
         </div>
       ) : null}
@@ -421,6 +441,13 @@ const STATUS_LABEL_KEY: Record<string, I18nKey> = {
   unverified: 'settings.mcp.status.unverified',
 };
 
+const OAUTH_FIELD_LABEL_KEY: Record<string, I18nKey> = {
+  clientId: 'settings.mcp.draft.oauth.clientId',
+  clientSecret: 'settings.mcp.draft.oauth.clientSecret',
+  scope: 'settings.mcp.draft.oauth.scope',
+  redirectUri: 'settings.mcp.draft.oauth.redirectUri',
+};
+
 const McpName = {
   isName(name: string): boolean {
     return /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/u.test(name);
@@ -430,20 +457,21 @@ const McpName = {
 function DraftRows({ value, onChange }: {
   value: Array<{ key: string; value: string }>; onChange: (rows: Array<{ key: string; value: string }>) => void;
 }): ReactNode {
+  const { t } = useI18n();
   return (
     <div className="w-full max-w-64 space-y-1">
       {value.map((row, index) => (
         <div key={`${index}:${row.key}`} className="flex gap-1">
-          <input type="text" className={TEXT_INPUT_CLASS} value={row.key} placeholder="key"
+          <input type="text" className={TEXT_INPUT_CLASS} value={row.key} placeholder={t('settings.mcp.draft.rows.key')}
             onChange={(event) => onChange(value.map((current, currentIndex) => currentIndex === index
               ? { ...current, key: event.target.value } : current))} />
-          <input type="text" className={TEXT_INPUT_CLASS} value={row.value} placeholder="value"
+          <input type="text" className={TEXT_INPUT_CLASS} value={row.value} placeholder={t('settings.mcp.draft.rows.value')}
             onChange={(event) => onChange(value.map((current, currentIndex) => currentIndex === index
               ? { ...current, value: event.target.value } : current))} />
           <button type="button" className={ACTION_BUTTON_CLASS} onClick={() => onChange(value.filter((_, filteredIndex) => filteredIndex !== index))}>−</button>
         </div>
       ))}
-      <button type="button" className={ACTION_BUTTON_CLASS} onClick={() => onChange([...value, { key: '', value: '' }])}>Add row</button>
+      <button type="button" className={ACTION_BUTTON_CLASS} onClick={() => onChange([...value, { key: '', value: '' }])}>{t('settings.mcp.draft.rows.add')}</button>
     </div>
   );
 }

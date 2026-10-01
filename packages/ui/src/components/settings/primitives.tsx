@@ -118,8 +118,8 @@ export function SettingsRadioGroup({
 }
 
 export function SettingsChipGroup({
-  item, value, options, onChange,
-}: { item?: string; value: string; options: SettingsRadioOption[]; onChange: (value: string) => void }): ReactNode {
+  item, value, options, onChange, disabled,
+}: { item?: string; value: string; options: SettingsRadioOption[]; onChange: (value: string) => void; disabled?: boolean }): ReactNode {
   return anchored(
     item,
     'flex flex-wrap gap-1',
@@ -129,6 +129,7 @@ export function SettingsChipGroup({
         type="button"
         aria-pressed={value === option.value}
         onClick={() => onChange(option.value)}
+        disabled={disabled}
         className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
           value === option.value
             ? 'border-primary/60 bg-primary/15 text-primary'

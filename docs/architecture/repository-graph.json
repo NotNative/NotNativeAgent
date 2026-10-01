@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e932472e80a994acb22b225ff018893ac5001e65c65e95e7dc9928e27d33cf75",
+  "source_digest": "sha256:1bd8186acec7a8a931054dc968e8270d7ffb335a5c3dc935b030a40f7e94ab1e",
   "counts": {
-    "modules": 625,
+    "modules": 626,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 179
+      "module_count": 180
     },
     {
       "id": "ui-shell",
@@ -2383,6 +2383,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-mcp-draft.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2435,6 +2443,7 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-d.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-config.ts",
+        "packages/ui/src/lib/i18n/messages/locale-mcp-draft.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
