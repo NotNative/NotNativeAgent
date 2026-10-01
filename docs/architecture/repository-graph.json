@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:6aa2c1e374b21422bef360b12da1f902144b9fdec5b29b67390d2942b99008bd",
+  "source_digest": "sha256:259eb1770f2cabf10fb14bc779dc4955dfa44bf0bb7322df1c12f8a6ac29b39e",
   "counts": {
-    "modules": 638,
+    "modules": 640,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 192
+      "module_count": 194
     },
     {
       "id": "ui-shell",
@@ -2373,6 +2373,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-shell-ui.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2381,7 +2387,8 @@
         "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/en-providers.ts",
-        "packages/ui/src/lib/i18n/messages/en-remote-instances.ts"
+        "packages/ui/src/lib/i18n/messages/en-remote-instances.ts",
+        "packages/ui/src/lib/i18n/messages/en-shell-ui.ts"
       ]
     },
     {
@@ -2497,6 +2504,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-shell-ui.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en-shell-ui.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2564,6 +2579,7 @@
         "packages/ui/src/lib/i18n/messages/locale-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/locale-providers.ts",
         "packages/ui/src/lib/i18n/messages/locale-remote-instances.ts",
+        "packages/ui/src/lib/i18n/messages/locale-shell-ui.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",

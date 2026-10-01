@@ -123,7 +123,7 @@ export function MainLayout(): ReactNode {
         return;
       }
       if (!sessionID || !store) {
-        toast.message('Nothing selected to ' + command);
+        toast.message(t('shell.toast.nothingSelected', { command }));
         return;
       }
       const snapshot = store.getState();
@@ -138,7 +138,7 @@ export function MainLayout(): ReactNode {
           }
           return -1;
         })();
-        if (lastUserIndex < 0) { toast.message('Nothing to revert yet'); return; }
+        if (lastUserIndex < 0) { toast.message(t('shell.toast.nothingToRevert')); return; }
         const target = messages[lastUserIndex]!;
         const targetText = ((snapshot.part[target.id] ?? []) as { type: string; text?: string }[])
           .filter((part) => part.type === 'text').map((part) => part.text ?? '').join('\n');
@@ -154,16 +154,16 @@ export function MainLayout(): ReactNode {
             }
             window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: { text: targetText } }));
           })
-          .catch(() => toast.error('Failed to revert the conversation'));
+          .catch(() => toast.error(t('shell.toast.revertFailed')));
         return;
       }
       if (command === 'redo') {
         void engine.actions.unrevert(sessionID)
           .then(() => engine.loader.refreshTail({ directory: live.activeDirectory, sessionID, store: engine.childStoreOf(live.activeDirectory) ?? engine.manager.ensureChild(live.activeDirectory) }, 50))
-          .catch(() => toast.error('Failed to redo the reverted slice'));
+          .catch(() => toast.error(t('shell.toast.redoFailed')));
         return;
       }
-      if (command === 'compact') toast.message('Compaction runs harness-side in P4+');
+      if (command === 'compact') toast.message(t('shell.toast.compactHarness'));
     },
   }));
 
@@ -203,12 +203,12 @@ export function MainLayout(): ReactNode {
     rename: (sessionID: string, title: string): Promise<void> => {
       const trimmed = title.trim();
       if (!trimmed) {
-        toast.message('Title unchanged — empty name');
+        toast.message(t('shell.toast.titleEmpty'));
         return Promise.resolve();
       }
       return engine.actions.rename(sessionID, trimmed)
-        .then(() => { toast.success('Session renamed'); })
-        .catch(() => { toast.error('Failed to rename the session'); });
+        .then(() => { toast.success(t('shell.toast.renamed')); })
+        .catch(() => { toast.error(t('shell.toast.renameFailed')); });
     },
     archive: async (sessionID: string, directory: string) => {
       await engine.actions.archive(sessionID, directory);
@@ -255,25 +255,25 @@ export function MainLayout(): ReactNode {
         <header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 bg-neutral-950/80 px-3" data-testid="mini-chat-header" style={{ WebkitAppRegion: 'drag' } as CSSProperties & { WebkitAppRegion: string }}>
           <span className="text-xs font-medium text-neutral-200">NotNative Mini Chat</span>
           <span className="ml-auto" />
-          <button type="button" aria-label="Pin Mini Chat" title="Pin" className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={() => { void togglePinned(); }}>⌖</button>
-          <button type="button" aria-label="Close Mini Chat" title="Close" className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={closeMiniChat}>×</button>
+          <button type="button" aria-label={t('shell.minichat.pinAria')} title={t('shell.minichat.pin')} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={() => { void togglePinned(); }}>⌖</button>
+          <button type="button" aria-label={t('shell.minichat.closeAria')} title={t('shell.minichat.close')} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={closeMiniChat}>×</button>
         </header>
       ) : (
       <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
         <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
         <SessionTabs engine={engine} directory={activeDirectory} />
-        <button type="button" data-testid="mini-chat-open" title="Open Mini Chat" aria-label="Open Mini Chat"
+        <button type="button" data-testid="mini-chat-open" title={t('shell.minichat.openAria')} aria-label={t('shell.minichat.openAria')}
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" onClick={openMiniChat}>▣</button>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
-          {connected ? 'connected' : 'reconnecting'}
+          {connected ? t('shell.status.connected') : t('shell.status.reconnecting')}
         </span>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="diff-toggle"
-          title="Changes"
-          aria-label="Changes"
+          title={t('shell.nav.changes')}
+          aria-label={t('shell.nav.changes')}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'diff' ? '' : 'diff');
@@ -285,8 +285,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="git-toggle"
-          title="Git"
-          aria-label="Git"
+          title={t('shell.nav.git')}
+          aria-label={t('shell.nav.git')}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'git' ? '' : 'git');
@@ -298,8 +298,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="plan-toggle"
-          title="Plan"
-          aria-label="Plan"
+          title={t('shell.nav.plan')}
+          aria-label={t('shell.nav.plan')}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'plan' ? '' : 'plan');
@@ -324,8 +324,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="scheduled-tasks-toggle"
-          title="Scheduled tasks"
-          aria-label="Scheduled tasks"
+          title={t('shell.nav.scheduledTasks')}
+          aria-label={t('shell.nav.scheduledTasks')}
           onClick={openScheduled}
         >
           ◷
@@ -334,8 +334,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="agent-groups-toggle"
-          title="Agent groups"
-          aria-label="Agent groups"
+          title={t('shell.nav.agentGroups')}
+          aria-label={t('shell.nav.agentGroups')}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'agent-groups' ? '' : 'agent-groups');
@@ -347,8 +347,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="worktrees-toggle"
-          title="Worktrees"
-          aria-label="Worktrees"
+          title={t('shell.nav.worktrees')}
+          aria-label={t('shell.nav.worktrees')}
           onClick={() => setWorktreesOpen(!worktreesOpen)}
         >
           ⌥
@@ -357,8 +357,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="multirun-toggle"
-          title="Multi-run"
-          aria-label="Multi-run"
+          title={t('shell.nav.multiRun')}
+          aria-label={t('shell.nav.multiRun')}
           onClick={() => setMultiRunOpen(true)}
         >
           ⧉
@@ -367,8 +367,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="files-toggle"
-          title="Files"
-          aria-label="Files"
+          title={t('shell.nav.files')}
+          aria-label={t('shell.nav.files')}
           onClick={() => {
             setReviewPane('');
             setFilesOpen(!filesOpen);
@@ -380,8 +380,8 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="settings-gear"
-          title="Settings (Ctrl+Comma)"
-          aria-label="Settings"
+          title={t('shell.nav.settingsShortcut')}
+          aria-label={t('shell.nav.settings')}
           onClick={() => openSettings('general')}
         >
           ⚙
