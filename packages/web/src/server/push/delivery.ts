@@ -31,10 +31,9 @@ export class PushDelivery {
     authorized?: (entry: PushSubscriptionRecord) => boolean; send?: typeof sendEncryptedPush;
   }) { this.badges = input.badges ?? new PushBadges(); }
   dispose(): void { this.controller.abort(); }
-  async deliver(notification: PushNotification, eligible: () => boolean = () => true): Promise<{ sent: number; failed: number; skipped: number }> {
+  async deliver(notification: PushNotification, eligible: () => boolean = () => true, queuedRevision = this.badges.checkpoint()): Promise<{ sent: number; failed: number; skipped: number }> {
     if (this.controller.signal.aborted || this.pending >= 32) return { sent: 0, failed: 0, skipped: 1 };
     this.pending += 1;
-    const queuedRevision = this.badges.checkpoint();
     const task = this.tail.then(() => this.deliverNow(notification, eligible, queuedRevision));
     this.tail = task.catch(() => undefined);
     try { return await task; } finally { this.pending -= 1; }

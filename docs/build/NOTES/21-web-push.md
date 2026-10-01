@@ -174,5 +174,15 @@ coverage for older NNA versions without that read. Live browser acceptance
 remains open under doc 03 §5.37. Badge count/reset behavior is implemented;
 installed-browser badge acceptance remains required.
 First-registration public-origin handling is implemented with the validated
-request binding above. Optional model-generated notification text remains open; current event
-delivery uses the shared configured template/fallback classifier.
+request binding above. Enabled events request optional model-generated text
+through NNA's owned notification inference route. Default uses NNA's primary
+route; an explicit Small Model override must reference a profile configured in
+that session and cannot widen the primary route's network trust zone. A changed
+provider configuration can require a new session before the profile is available.
+Only bounded assistant text and the classified fallback enter this tool-free
+request. Strict output validation permits title/body changes only. Failure,
+cancellation, unavailable models, and the five-second deadline preserve the
+shared template/fallback. Two in-flight slots bound outstanding generation.
+Delivery rechecks settings, pending question identity, session identity, and turn
+revisions; later turns invalidate delayed text. Badge clear revisions are captured
+before generation. Model-backed subtasks require a tracked parent projection.

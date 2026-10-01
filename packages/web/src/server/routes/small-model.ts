@@ -132,9 +132,11 @@ async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal
   const selected = await resolveRequestedSmallModel({
     directory, requestModelParts, preferredProviderID, preferredModelID, restrict, ports,
   });
+  signal?.throwIfAborted();
   if (selected instanceof Response) return selected;
   const resolution = selected;
   const credential = await credentialFor(directory, resolution.provider.id, resolution.provider, ports);
+  signal?.throwIfAborted();
   if (resolution.model.id === '') return genericModelFailed();
   if (!wireSupported(resolution.provider.id) || credential === null) {
     return Response.json({

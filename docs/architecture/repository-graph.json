@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:7038e6db38acb6f55c8a518422c17b63180d6a2aa33421e25f47478ed252947a",
+  "source_digest": "sha256:ef4ce7c69886da33adcf1bf6ffc8bc5278334885591d6ae0ac8e122f82c11641",
   "counts": {
-    "modules": 704,
+    "modules": 708,
     "component_edges": 15
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 221
+      "module_count": 224
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 27
+      "module_count": 28
     },
     {
       "id": "foundation",
@@ -130,8 +130,8 @@
     {
       "from": "gates",
       "to": "web-server",
-      "import_count": 19,
-      "module_count": 5
+      "import_count": 21,
+      "module_count": 6
     },
     {
       "from": "runtime-io",
@@ -182,14 +182,14 @@
       "module_count": 3
     },
     {
-      "from": "gates",
-      "to": "runtime-io",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
       "from": "web-server",
       "to": "sync-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
+      "from": "gates",
+      "to": "runtime-io",
       "import_count": 1,
       "module_count": 1
     }
@@ -5632,6 +5632,36 @@
       ]
     },
     {
+      "path": "packages/web/src/server/notifications/model-context.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/desktop-notifications.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/notifications/model-text.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/desktop-notifications.ts",
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/notifications/model-context.ts",
+        "packages/web/src/server/notifications/native-text.ts",
+        "packages/web/src/server/routes/small-model.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/notifications/native-text.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/routes/small-model.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/notifications/pending-snapshot.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5865,6 +5895,7 @@
         "packages/ui/src/sync/desktop-notifications.ts",
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/notifications/model-text.ts",
         "packages/web/src/server/notifications/session-state.ts",
         "packages/web/src/server/push/badge-state.ts",
         "packages/web/src/server/push/delivery.ts",
@@ -6867,6 +6898,7 @@
         "packages/web/src/server/harness/nna.ts",
         "scripts/smoke-http.mjs",
         "scripts/smoke-native-questions.mjs",
+        "scripts/smoke-notification-model.mjs",
         "scripts/smoke-notification-routes.mjs",
         "scripts/smoke-provider-route.mjs",
         "scripts/smoke-review-mode.mjs",
@@ -6955,6 +6987,15 @@
       "entrypoint": false,
       "imports": [
         "scripts/smoke-http.mjs"
+      ]
+    },
+    {
+      "path": "scripts/smoke-notification-model.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/notifications/model-text.ts",
+        "packages/web/src/server/notifications/native-text.ts"
       ]
     },
     {

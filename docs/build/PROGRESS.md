@@ -2,6 +2,30 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Native model notification text · 20261001-39
+
+Enabled desktop events now request bounded notification text through the owned
+NNA session. NNA uses its configured primary route by default; an explicit Small
+Model setting selects a configured session profile/model within the primary
+route's network trust scope. This separate inference offers no tools, grants no
+permissions, and leaves the transcript and live turn unchanged. Older or
+unavailable NNA endpoints, malformed output, cancellation, and deadlines retain
+the deterministic notification wording. Default, Auto-review, and Unattended
+remain the GUI permission choices under NNA's mandatory reviewer.
+
+Only bounded assistant text enters the digest. Generated output can change title
+and body only. Generation has two in-flight slots and a five-second GUI deadline;
+uncooperative work retains its slot until it settles. Eligibility is checked
+again before delivery. Adversarial repairs invalidate delayed text when another
+turn starts, suppress subtask generation without a tracked parent, preserve
+view/reset badge barriers, accept ordinary multiline input, and normalize
+provider failures without exposing upstream prose. Actual source integration
+proves the default route, explicit override, assistant context, and absent tools.
+All 1411 web/server tests, 20 focused UI notification/permission tests, 24
+focused native helper/input/integration tests, and workspace typechecks pass.
+Graphs cover 708 NND modules and 392 NNA modules. Installed-browser acceptance
+and the broader plan remain open.
+
 ## 2026-10-01 · First Web Push registration origin · 20261001-38
 
 Browser registration now submits the actual application origin. NND validates

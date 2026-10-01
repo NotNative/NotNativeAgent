@@ -12,6 +12,7 @@ import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.
 import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
 import { probeNotificationRoutes } from './smoke-notification-routes.mjs';
 import { nativeQuestionProviderReply, probeNativeQuestions } from './smoke-native-questions.mjs';
+import { notificationProviderReply, probeNotificationModel } from './smoke-notification-model.mjs';
 import { json, withTimeout } from './smoke-http.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
@@ -82,6 +83,7 @@ function providerReply(body) {
   let finishReason = 'stop';
   if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: userText.includes('NND_LOOP_FINAL') ? 'complete' : 'continue', note: 'audit smoke note' }) };
   else if (walkthroughProviderReply(body)) delta = { role: 'assistant', content: walkthroughProviderReply(body) };
+  else if (notificationProviderReply(body)) delta = { role: 'assistant', content: notificationProviderReply(body) };
   else if (nativeQuestionProviderReply(body)) {
     delta = nativeQuestionProviderReply(body); finishReason = delta.tool_calls ? 'tool_calls' : 'stop';
   }
@@ -449,6 +451,7 @@ async function main(nnaSource) {
     const sessions = await probe(app, root, provider);
     await probeNotificationRoutes(sessions.parentId);
     await probeNativeQuestions(app);
+    await probeNotificationModel(sessions.parentId, provider.requests);
     await waitForChildSnapshot(root, sessions.childId);
     const stopped = once(spawned, 'exit');
     harness.dispose();

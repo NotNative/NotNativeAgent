@@ -832,6 +832,10 @@
     {
       "version": "20261001-38",
       "content_sha256": "bd1a76c91eca8cf52f0a5be61c36be2278297a973eaf775d7673f7520421d83f"
+    },
+    {
+      "version": "20261001-39",
+      "content_sha256": "48ab74c68449a27d644cbea88f00574597d8310935c079f20d4ad62004f0c825"
     }
   ]
 }

@@ -3,7 +3,7 @@ import type { QueueEnvelope } from '../queue/queue-feed.ts';
 
 export interface NotificationSession {
   status: 'busy' | 'idle' | 'retry'; lastUpdateAt: number; lastStatusChangeAt: number; metadata: Record<string, unknown>;
-  needsInput: boolean; completedAt: number; completedRevision: number;
+  needsInput: boolean; completedAt: number; completedRevision: number; startedRevision: number;
   permissions: Map<string, Record<string, unknown>>; forms: Map<string, Record<string, unknown>>;
 }
 export function notificationSessionId(value: unknown): string | null {
@@ -11,11 +11,12 @@ export function notificationSessionId(value: unknown): string | null {
     && !/[\u0000-\u001f\u007f]/u.test(value) ? value : null;
 }
 export function emptyNotificationSession(now: number): NotificationSession {
-  return { status: 'idle', lastUpdateAt: now, lastStatusChangeAt: 0, metadata: {}, needsInput: false, completedAt: 0, completedRevision: 0, permissions: new Map(), forms: new Map() };
+  return { status: 'idle', lastUpdateAt: now, lastStatusChangeAt: 0, metadata: {}, needsInput: false, completedAt: 0, completedRevision: 0, startedRevision: 0, permissions: new Map(), forms: new Map() };
 }
 export function projectNotificationStatus(state: NotificationSession, value: Record<string, unknown>, now: number): void {
   if (value.type !== 'busy' && value.type !== 'retry' && value.type !== 'idle') return;
   if (value.type !== state.status) {
+    if (state.status === 'idle' && value.type !== 'idle') state.startedRevision += 1;
     state.lastStatusChangeAt = now;
     if (value.type === 'idle') { state.completedAt = now; state.completedRevision += 1; }
   }

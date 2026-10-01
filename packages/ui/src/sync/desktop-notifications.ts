@@ -12,7 +12,7 @@ type NotificationSettings = {
   notificationTemplates?: Record<string, { titleKey?: string; messageKey?: string }>;
 };
 
-type NotificationPayload = { title: string; body: string; kind: NotificationKind; sessionId: string; directory: string; tag: string; requireHidden: boolean };
+export type NotificationPayload = { title: string; body: string; kind: NotificationKind; sessionId: string; directory: string; tag: string; requireHidden: boolean; eventId?: string };
 type DesktopNotificationEvent = { type: string; properties?: Record<string, unknown>; directory?: string };
 
 const DEFAULTS: Record<NotificationKind, { title: string; body: string }> = {
@@ -98,7 +98,7 @@ export function createDesktopNotificationEventHandler(input: {
     const tag = eventId ? `${kind}:${sessionId}:${eventId}` : `${kind}:${sessionId}`;
     try {
       void Promise.resolve(input.notify({ title: template.title, body, kind, sessionId,
-        directory, tag,
+        directory, tag, ...(eventId ? { eventId } : {}),
         requireHidden: settings.notificationMode === 'hidden-only' })).catch(() => undefined);
     } catch { /* notifications are best-effort and never interrupt event sync */ }
   };
