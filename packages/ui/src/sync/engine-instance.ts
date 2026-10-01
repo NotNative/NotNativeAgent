@@ -388,7 +388,10 @@ function buildEngineServices(
     loaderInitializeCreated: (directory, sessionID, store) => ctx.loader.initializeCreatedSession({ directory, sessionID, store }),
     loaderOptimisticAdd: (directory, sessionID, store, item) => ctx.loader.optimisticAdd({ directory, sessionID, store }, item),
     loaderOptimisticRemove: (directory, sessionID, store, messageID) => ctx.loader.optimisticRemove({ directory, sessionID, store }, messageID),
-    loaderOptimisticConfirm: (directory, sessionID, store, messageID) => ctx.loader.optimisticConfirm({ directory, sessionID, store }, messageID),
+    loaderOptimisticConfirm: (directory, sessionID, store, messageID) => {
+      ctx.loader.optimisticConfirm({ directory, sessionID, store }, messageID);
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('notnative:message-sent', { detail: { sessionId: sessionID } }));
+    },
     loaderRefreshTail: (directory, sessionID, store) => ctx.loader.refreshTail({ directory, sessionID, store }, 30),
     waitForConnection,
     onSelectSession: (sessionID, directory) => {

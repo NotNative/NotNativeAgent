@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const source = readFileSync(new URL('../../../public/service-worker.js', import.meta.url), 'utf8');
 
-function worker() {
+function worker(cache?: { match: (key: string) => Promise<Response | undefined>; put: (key: string, response: Response) => Promise<void> }) {
   const handlers = new Map<string, (event: Record<string, unknown>) => void>();
   const self = {
     addEventListener: (name: string, handler: (event: Record<string, unknown>) => void) => handlers.set(name, handler),
@@ -13,8 +13,10 @@ function worker() {
     registration: { showNotification: vi.fn().mockResolvedValue(undefined) },
     clients: { claim: vi.fn().mockResolvedValue(undefined), matchAll: vi.fn().mockResolvedValue([]), openWindow: vi.fn().mockResolvedValue(null) },
     skipWaiting: vi.fn().mockResolvedValue(undefined),
+    navigator: { setAppBadge: vi.fn().mockResolvedValue(undefined), clearAppBadge: vi.fn().mockResolvedValue(undefined) },
+    caches: cache ? { open: async () => cache } : undefined,
   };
-  runInNewContext(source, { self, URL });
+  runInNewContext(source, { self, URL, Response });
   async function dispatch(name: string, fields: Record<string, unknown> = {}) {
     let pending: Promise<unknown> | undefined;
     handlers.get(name)!({ ...fields, waitUntil: (promise: Promise<unknown>) => { pending = promise; } });
@@ -24,6 +26,47 @@ function worker() {
 }
 
 describe('shipped push service worker', () => {
+  it('rejects a second window retired-epoch reset after restart while allowing an intentional instance return', async () => {
+    const { self, dispatch } = worker();
+    const a = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; const b = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const c = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    const report = (epoch: string, runtimeOrigin: string, count: number, window: string) => dispatch('message', {
+      source: { url: `https://nnd.example/${window}` }, data: { type: 'NOTNATIVE_BADGE_STATE', runtimeOrigin, badge: { epoch, count, revision: 2 } },
+    });
+    await report(a, 'https://first.example', 0, 'one');
+    await dispatch('push', { data: { json: () => ({ badge: { epoch: b, count: 1, revision: 1 } }) } });
+    await report(a, 'https://first.example', 3, 'two');
+    expect(self.navigator.setAppBadge).toHaveBeenCalledExactlyOnceWith(1);
+    await report(c, 'https://second.example', 0, 'one');
+    await report(a, 'https://first.example', 3, 'two');
+    expect(self.navigator.setAppBadge).toHaveBeenCalledOnce();
+    await report(b, 'https://first.example', 0, 'one');
+    expect(self.navigator.clearAppBadge).toHaveBeenCalledTimes(3);
+  });
+  it('persists reset revisions so delayed pushes cannot revive unread badges after worker restart', async () => {
+    const saved = new Map<string, Response>();
+    const cache = { match: async (key: string) => saved.get(key)?.clone(), put: async (key: string, response: Response) => { saved.set(key, response); } };
+    const first = worker(cache); const epoch = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    await first.dispatch('push', { data: { json: () => ({ badge: { count: 2, epoch, revision: 2 } }) } });
+    expect(first.self.navigator.setAppBadge).toHaveBeenCalledWith(2);
+    await first.dispatch('message', { source: { url: 'https://nnd.example/' }, data: { type: 'NOTNATIVE_BADGE_STATE', badge: { count: 0, epoch, revision: 3 } } });
+    expect(first.self.navigator.clearAppBadge).toHaveBeenCalledOnce();
+    const restarted = worker(cache);
+    await restarted.dispatch('push', { data: { json: () => ({ badge: { count: 2, epoch, revision: 2 } }) } });
+    expect(restarted.self.navigator.setAppBadge).not.toHaveBeenCalled();
+    expect(restarted.self.registration.showNotification).toHaveBeenCalledOnce();
+  });
+  it('accepts a server restart but ignores retired epochs and foreign window resets', async () => {
+    const { self, dispatch } = worker();
+    const a = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; const b = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const push = (epoch: string, revision: number) => dispatch('push', { data: { json: () => ({ badge: { count: 1, epoch, revision } }) } });
+    await push(a, 20); await push(b, 1); await push(a, 21);
+    expect(self.navigator.setAppBadge).toHaveBeenCalledTimes(2);
+    await dispatch('message', { source: { url: 'https://other.example/' }, data: { type: 'NOTNATIVE_BADGE_STATE', badge: { count: 0, epoch: b, revision: 2 } } });
+    expect(self.navigator.clearAppBadge).not.toHaveBeenCalled();
+    self.navigator.setAppBadge.mockRejectedValue(new Error('denied'));
+    await push(b, 3); expect(self.registration.showNotification).toHaveBeenCalledTimes(4);
+  });
   it('preserves session identity and constructs an encoded local route', async () => {
     const { self, dispatch } = worker();
     await dispatch('push', { data: { json: () => ({ sessionId: 's/a?token=x', url: 'https://attacker.example' }) } });

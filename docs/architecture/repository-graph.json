@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:1800b7d52aac539b36ec6108dbc70833a66d1eb01e9ba0354808afa675f4bde8",
+  "source_digest": "sha256:f1f4f19d3825170afaecb18e18b49753ca50dbc62dac464ce037d53b9b5bff3a",
   "counts": {
-    "modules": 690,
+    "modules": 693,
     "component_edges": 15
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 223
+      "module_count": 225
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 213
+      "module_count": 214
     },
     {
       "id": "web-entry",
@@ -106,7 +106,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 277,
+      "import_count": 278,
       "module_count": 114
     },
     {
@@ -160,8 +160,8 @@
     {
       "from": "runtime-io",
       "to": "sync-engine",
-      "import_count": 6,
-      "module_count": 3
+      "import_count": 7,
+      "module_count": 4
     },
     {
       "from": "harness-facade",
@@ -1480,7 +1480,8 @@
       "imports": [
         "packages/ui/src/lib/api/registry.ts",
         "packages/ui/src/lib/push-presence.ts",
-        "packages/ui/src/lib/runtime-switch.ts"
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/session-badges.ts"
       ]
     },
     {
@@ -2091,6 +2092,15 @@
       "imports": [
         "packages/ui/src/lib/api/push-types.ts",
         "packages/ui/src/lib/git/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/browser-badge.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/push-types.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
       ]
     },
     {
@@ -3135,6 +3145,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/api/push-types.ts",
+        "packages/ui/src/lib/browser-badge.ts",
         "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
@@ -3143,7 +3154,8 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/api/push-types.ts"
+        "packages/ui/src/lib/api/push-types.ts",
+        "packages/ui/src/lib/browser-badge.ts"
       ]
     },
     {
@@ -3401,6 +3413,16 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/session-badges.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/push-types.ts",
+        "packages/ui/src/lib/browser-badge.ts",
+        "packages/ui/src/sync/view-store.ts"
       ]
     },
     {
@@ -5707,11 +5729,18 @@
       ]
     },
     {
+      "path": "packages/web/src/server/push/badge-state.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/web/src/server/push/delivery.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/push/authority.ts",
+        "packages/web/src/server/push/badge-state.ts",
         "packages/web/src/server/push/subscription-schema.ts",
         "packages/web/src/server/push/subscription-store.ts",
         "packages/web/src/server/push/transport.ts",
@@ -5727,6 +5756,7 @@
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/push/authority.ts",
+        "packages/web/src/server/push/badge-state.ts",
         "packages/web/src/server/push/subscription-schema.ts",
         "packages/web/src/server/push/subscription-store.ts",
         "packages/web/src/server/push/visibility.ts"
@@ -5740,6 +5770,7 @@
         "packages/ui/src/sync/desktop-notifications.ts",
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/push/badge-state.ts",
         "packages/web/src/server/push/delivery.ts",
         "packages/web/src/server/push/subscription-store.ts",
         "packages/web/src/server/push/transport.ts",

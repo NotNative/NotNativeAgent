@@ -8,12 +8,14 @@ import { PushSubscriptionStore } from './subscription-store.ts';
 import { PushVisibility } from './visibility.ts';
 import { PushDelivery } from './delivery.ts';
 import { pushSubject } from './transport.ts';
+import { PushBadges } from './badge-state.ts';
 
 export function createPushServices() {
   const store = new PushSubscriptionStore(join(ENV.dataDir, 'push-subscriptions.json'));
   const visibility = new PushVisibility();
-  const delivery = new PushDelivery({ store, visibility, subject: () => pushSubject(process.env.NOTNATIVE_PUSH_SUBJECT) });
-  return { store, visibility, delivery };
+  const badges = new PushBadges();
+  const delivery = new PushDelivery({ store, visibility, badges, subject: () => pushSubject(process.env.NOTNATIVE_PUSH_SUBJECT) });
+  return { store, visibility, badges, delivery };
 }
 
 /** Shares the server-owned harness feed; no browser must be open for events to arrive. */

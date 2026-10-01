@@ -2,6 +2,30 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Ordered notification badges · 20261001-34
+
+Added credential-owned unread counts to encrypted pushes, authenticated badge
+read/reset routes, focused visibility and session-view resets, and confirmed
+prompt-send resets. Counts are bounded and process-local; server restart starts
+a fresh epoch. The worker persists ordered badge state without intercepting
+application fetches. Unsupported badge APIs never hide a push notification.
+
+Adversarial audit repaired queued notifications reviving read activity, Unicode
+payloads exceeding the transport cap, window fallback calls completing out of
+order, and delayed responses reviving retired server epochs across tabs.
+Session resets preserve other queued sessions; byte truncation preserves session
+identity; failed requests and hidden beacons cannot discard successful clears.
+Remembered server origins permit intentional instance returns.
+
+The final UI suite passes 1616 tests, the full server suite passes 1354 tests,
+and the NND-to-NNA source integration smoke passes. Both package typechecks
+and the source quality gates pass. The graph covers 693 production modules.
+Release gates precede the version seal and commit. Removed completed build
+diagnostic logs from the repository root as confirmed scratch artifacts.
+Canonical notification SSE/activity/status/attention/view/message-sent routes,
+optional model text, installed-browser acceptance, and the broader plan remain
+open. Permission modes continue to be owned and reviewed by NNA.
+
 ## 2026-10-01 · Settings and context URL routing · 20261001-33
 
 Added settings aliases/catalog resolution, history normalization, and mounted

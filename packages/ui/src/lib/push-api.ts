@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { runtimeFetch } from './runtime-fetch.ts';
 import type { PushApi } from './api/push-types.ts';
+import { pushBadge } from './browser-badge.ts';
 
 async function pushRequest(path: string, method = 'GET', body?: unknown): Promise<Record<string, unknown>> {
   const response = await runtimeFetch(`/api/push/${path}`, {
     method, credentials: 'include',
     headers: body === undefined ? undefined : { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
-    ...(path === 'visibility' && method === 'POST' ? { signal: AbortSignal.timeout(5_000), keepalive: true } : {}),
+    ...(['visibility', 'badge', 'badge/reset'].includes(path) ? { signal: AbortSignal.timeout(5_000), keepalive: method === 'POST' } : {}),
   });
   if (!response.ok) throw new Error(`Push request failed (${response.status})`);
   const data: unknown = await response.json().catch(() => null);
@@ -30,7 +31,23 @@ export const browserPushApi: PushApi = {
   },
   subscribe: (subscription) => acknowledged('subscribe', 'POST', subscription),
   unsubscribe: (subscription) => acknowledged('subscribe', 'DELETE', subscription),
-  setVisibility: (presence) => acknowledged('visibility', 'POST', presence),
+  async setVisibility(presence) {
+    const data = await pushRequest('visibility', 'POST', presence);
+    if (data.ok !== true) throw new Error('Push visibility was not confirmed');
+    const badge = data.badge === undefined ? undefined : pushBadge(data.badge);
+    if (badge === null) throw new Error('Push badge is invalid');
+    return { ok: true, ...(badge ? { badge } : {}) };
+  },
+  async getBadge() {
+    const data = await pushRequest('badge'); const badge = pushBadge(data.badge);
+    if (data.ok !== true || !badge) throw new Error('Push badge is invalid');
+    return badge;
+  },
+  async resetBadge(sessionId, reason) {
+    const data = await pushRequest('badge/reset', 'POST', { sessionId, reason }); const badge = pushBadge(data.badge);
+    if (data.ok !== true || !badge) throw new Error('Push badge reset was not confirmed');
+    return badge;
+  },
   async getVisibility() {
     const data = await pushRequest('visibility');
     if (data.ok !== true || typeof data.visible !== 'boolean') throw new Error('Push visibility is invalid');

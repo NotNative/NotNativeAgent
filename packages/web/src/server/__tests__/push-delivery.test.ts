@@ -8,6 +8,7 @@ import { PushSubscriptionStore } from '../push/subscription-store.ts';
 import { PushVisibility } from '../push/visibility.ts';
 import { PushDelivery } from '../push/delivery.ts';
 import { pushSubscription } from '../push/subscription-schema.ts';
+import { PushBadges } from '../push/badge-state.ts';
 
 const root = mkdtempSync(join(tmpdir(), 'nnd-push-delivery-'));
 let next = 0;
@@ -24,6 +25,41 @@ async function fixture(count = 1) {
 }
 
 describe('push delivery lifecycle', () => {
+  it('does not revive queued read activity and preserves other sessions after a selected reset', async () => {
+    const item = await fixture(); const badges = new PushBadges();
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const send = vi.fn(async (input) => { await blocked; return await input.beforeDispatch() ? 201 : 0; });
+    const runtime = new PushDelivery({ ...item, badges, authorized: () => true, subject: () => 'mailto:operator@example.com', send });
+    const first = runtime.deliver({ title: 'first', body: 'body', sessionId: 's1' });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    const read = runtime.deliver({ title: 'read', body: 'body', sessionId: 's1' });
+    const unread = runtime.deliver({ title: 'unread', body: 'body', sessionId: 's2' });
+    badges.clear('a'.repeat(64), 's1'); release();
+    expect((await first).skipped).toBe(1); expect((await read).skipped).toBe(1); expect((await unread).sent).toBe(1);
+    expect(send).toHaveBeenCalledTimes(2); expect(badges.snapshot('a'.repeat(64)).count).toBe(1);
+    expect((await runtime.deliver({ title: 'new', body: 'body', sessionId: 's1' })).sent).toBe(1);
+  });
+  it('fits Unicode text, JSON escaping, identity and badge metadata within the encrypted payload limit', async () => {
+    const item = await fixture(); const send = vi.fn(async (input) => {
+      expect(Buffer.byteLength(input.payload)).toBeLessThanOrEqual(3000);
+      const payload = JSON.parse(input.payload);
+      expect(payload.sessionId).toBe('漢'.repeat(256)); expect(payload.badge.count).toBe(1);
+      expect(payload.body.length).toBeGreaterThan(0); return 201;
+    });
+    const runtime = new PushDelivery({ ...item, authorized: () => true, subject: () => 'mailto:operator@example.com', send });
+    expect((await runtime.deliver({ title: '漢'.repeat(120), body: '漢'.repeat(500), tag: '漢'.repeat(200), sessionId: '漢'.repeat(256) })).sent).toBe(1);
+  });
+  it('counts a notification once per credential owner across browser destinations and cancels a reset ticket', async () => {
+    const item = await fixture(3); const badges = new PushBadges();
+    const send = vi.fn(async (input) => { expect(await input.beforeDispatch()).toBe(true); return 201; });
+    const runtime = new PushDelivery({ ...item, badges, authorized: () => true, subject: () => 'mailto:operator@example.com', send });
+    await runtime.deliver({ title: 'title', body: 'body', sessionId: 's1' });
+    expect(send.mock.calls.map(([input]) => JSON.parse(input.payload).badge.count)).toEqual([1, 1, 1]);
+    send.mockImplementation(async (input) => { badges.clear('a'.repeat(64), 's1'); expect(await input.beforeDispatch()).toBe(false); return 0; });
+    expect((await runtime.deliver({ title: 'title', body: 'body', sessionId: 's1' })).skipped).toBe(3);
+    expect(badges.snapshot('a'.repeat(64)).count).toBe(0);
+  });
   it('transmits valid session identity and omits invalid identities', async () => {
     const item = await fixture(); const send = vi.fn().mockResolvedValue(201);
     const runtime = new PushDelivery({ ...item, authorized: () => true, subject: () => 'mailto:operator@example.com', send });

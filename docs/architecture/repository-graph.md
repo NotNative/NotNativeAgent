@@ -37,9 +37,9 @@ graph LR
 |---|---:|---|---|
 | Client sync and state engine | 39 | Harness SDK facade, Runtime adaptation, UI shell | Runtime adaptation, UI shell, Web server |
 | Harness SDK facade | 6 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 223 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| Runtime adaptation | 225 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
 | UI shell | 171 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
-| Web server | 213 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
+| Web server | 214 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
 | Quality gates | 25 | Runtime adaptation, Web server | — |
 | Product foundation | 0 | — | — |
@@ -48,7 +48,7 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 277 | 114 |
+| UI shell | Runtime adaptation | 278 | 114 |
 | UI shell | Client sync and state engine | 79 | 38 |
 | UI shell | Harness SDK facade | 67 | 53 |
 | Client sync and state engine | Harness SDK facade | 52 | 36 |
@@ -57,7 +57,7 @@ graph LR
 | Client sync and state engine | Runtime adaptation | 10 | 8 |
 | Web entrypoints | Web server | 9 | 3 |
 | Web server | Harness SDK facade | 9 | 9 |
-| Runtime adaptation | Client sync and state engine | 6 | 3 |
+| Runtime adaptation | Client sync and state engine | 7 | 4 |
 | Harness SDK facade | Runtime adaptation | 4 | 2 |
 | Client sync and state engine | UI shell | 4 | 3 |
 | Runtime adaptation | UI shell | 3 | 3 |
@@ -71,4 +71,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:1800b7d52aac539b36ec6108dbc70833a66d1eb01e9ba0354808afa675f4bde8`.
+Source fingerprint: `sha256:f1f4f19d3825170afaecb18e18b49753ca50dbc62dac464ce037d53b9b5bff3a`.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { PushApi } from './api/push-types.ts';
+import { beginBrowserBadgeRequest } from './browser-badge.ts';
 
 /** getRandomValues remains available on LAN HTTP pages, unlike randomUUID. */
 export function pushPresenceId(source: Pick<Crypto, 'getRandomValues'>): string {
@@ -20,7 +21,9 @@ export function startPushPresence(input: {
     if (pending || !input.current()) return;
     const visible = desired;
     pending = true;
+    const apply = beginBrowserBadgeRequest();
     void input.api.setVisibility({ visible, clientId: input.clientId, sequence: ++sequence, platform: 'web' })
+      .then((reply) => { if (reply.badge && input.current()) apply(reply.badge, input.window.navigator); })
       .catch(() => undefined).finally(() => {
         pending = false;
         if (visible !== desired && input.current()) send();

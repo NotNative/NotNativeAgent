@@ -100,6 +100,41 @@ Protocol implementation: [web-push](https://github.com/web-push-libs/web-push).
 Independent tests decrypt the actual wire record and verify ES256 VAPID claims;
 these checks prove the transport contract, not live browser acceptance.
 
+## Notification badges
+
+The shared sender includes credential-owned unread counts with a process epoch
+and increasing revision. Counts increment once per eligible notification and
+owner, regardless of the number of browser destinations. State is process-local
+and bounded to 1,000 owners, 256 session buckets per owner, and count 9,999;
+server restart creates a fresh epoch and starts counts at zero.
+Delivery captures the revision when a notification enters the queue. Session
+and aggregate reset barriers invalidate older queued work and in-flight tickets;
+resetting one session preserves queued notifications for other sessions.
+Serialized Unicode payloads stay within the transport byte limit by shortening
+body, tag, and title while preserving session identity and badge metadata.
+
+Authenticated `/api/push/badge` reads the count. `/api/push/badge/reset` accepts
+a bounded session ID and `view` or `message-sent`; it clears only that owner's
+session bucket. Focused visibility clears that owner's aggregate count. The GUI
+reports focused session selection and confirmed prompt sends; runtime changes
+discard late reset responses. These internal routes do not replace the planned
+canonical notification activity/view/message-sent surface.
+
+The worker serializes badge changes and persists revision barriers in its own
+small CacheStorage record. Delayed pushes cannot restore an older cleared count,
+including after worker restart. Retired server epochs are rejected for push;
+same-origin windows can report a current authenticated server response. Browser
+badge failures never prevent notification display. API/application requests
+remain network-owned with no worker fetch interception.
+Window fallback calls are serialized. Responses are ordered by their confirmed
+request sequence; failed requests and hidden beacons cannot discard a successful
+clear. The worker remembers the latest epoch for up to 32 normalized server
+origins. A late response from another tab cannot restore a retired epoch, while
+an intentional return to another instance can restore its remembered current
+epoch. Origin metadata contains no credentials.
+
+Browser contract: [W3C Badging API](https://www.w3.org/TR/badging/).
+
 ## Remaining acceptance
 
 Session links resolve through the authenticated global list or an explicit
@@ -117,7 +152,8 @@ identity queries. Settings history and legacy tab/file context routes are
 implemented in [the workspace router](22-workspace-url-router.md).
 
 Live browser acceptance, notification SSE/activity/view/message-sent route
-parity, and browser badge count/reset behavior remain open under doc 03 §5.37.
+parity remain open under doc 03 §5.37. Badge count/reset behavior is implemented;
+installed-browser badge acceptance remains required.
 Registration does not infer a public server origin from an arbitrary request
 field. Optional model-generated notification text remains open; current event
 delivery uses the shared configured template/fallback classifier.
