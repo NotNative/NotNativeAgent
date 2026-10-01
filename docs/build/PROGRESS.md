@@ -2,6 +2,25 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Persisted passkey origin · 20261001-40
+
+Passkey ceremony verification now adds the validated server-owned public origin
+from canonical or legacy settings to the request origin. Normalized duplicates
+are removed; malformed origins and insecure public HTTP values are excluded.
+The request-derived RP ID, stored credential scope, challenge RP matching,
+required user verification, and cryptographic RP hash remain unchanged.
+
+Real P-256 registration and login prove the extra configured origin works;
+wrong origins and wrong RP hashes fail. Settings tests cover legacy reads,
+canonical precedence, live updates, normalization, and invalid canonical values.
+The adversarial audit found no production defect and repaired the older
+passkey suite's late data-directory setup, with an assertion that all settings
+and auth state use its isolated directory. All 40 focused passkey/public-origin/
+push-origin tests, workspace typechecks, the full 1415-test web/server suite,
+and live NND-to-NNA integration pass. The graph covers 708 modules.
+Real-device acceptance and the broader plan remain open. Release checks and the
+version seal precede commit.
+
 ## 2026-10-01 · Native model notification text · 20261001-39
 
 Enabled desktop events now request bounded notification text through the owned

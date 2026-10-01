@@ -8,6 +8,8 @@
  * exact strings) and re-brackets IPv6 hosts. Scheme rides x-forwarded-proto
  * first hop else the URL protocol.
  */
+import { readPublicOrigin } from '../settings-store.ts';
+import { normalizedPublicOrigin } from '../../push/registration-origin.ts';
 
 const SCHEME_DEFAULT_PORTS: Record<string, string> = { http: '80', https: '443' };
 
@@ -22,7 +24,7 @@ interface SplitHost {
   bracketed: boolean;
 }
 
-export function deriveRpContext(headers: Headers, url: URL): RpContext {
+export function deriveRpContext(headers: Headers, url: URL, publicOrigin: unknown = readPublicOrigin()): RpContext {
   const forwardedHost = headers.get('x-forwarded-host');
   const hostSource = forwardedHost !== null
     ? forwardedHost.split(',')[0]?.trim() ?? ''
@@ -31,7 +33,10 @@ export function deriveRpContext(headers: Headers, url: URL): RpContext {
   const split = splitHostPort(hostSource);
   const suffix = split.port !== '' && SCHEME_DEFAULT_PORTS[scheme] !== split.port ? `:${split.port}` : '';
   const mapped = split.bracketed ? `[${split.host}]` : split.host;
-  return { rpID: split.host, expectedOrigins: [`${scheme}://${mapped}${suffix}`] };
+  const requestOrigin = `${scheme}://${mapped}${suffix}`;
+  const configured = normalizedPublicOrigin(publicOrigin);
+  return { rpID: split.host, expectedOrigins: configured && configured !== requestOrigin
+    ? [requestOrigin, configured] : [requestOrigin] };
 }
 
 export function normalizedRpId(value: unknown): string {

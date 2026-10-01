@@ -183,8 +183,8 @@ SSH -> reverse proxy -> invariants.
   (counter bump visible through it, revoke through it). Tests 15
   (p8-1-passkeys.test.ts). NOT in: client library §2.5 (@simplewebauthn/
   browser + gate UX) rides the pairing/UX slice (E-08-6 family);
-  settings-driven publicOrigin origin allowlist rides the settings
-  runtime (E-08-22).
+  The settings-driven publicOrigin allowlist is now implemented (E-08-22);
+  real-device ceremony acceptance remains required.
 - **P8-2a (delivered this slice)** - relay steps 6/7 primitives:
   `lib/relay/identity.ts` — RelayIdentityStore over `<dataDir>/relay-
   identity.json` {version:1, signing ECDSA P-256, encryption ECDH P-256,
@@ -1419,9 +1419,13 @@ SSH -> reverse proxy -> invariants.
   session cookie exactly like password login" is read to include the
   §2.2 rate limit; /auth/passkey/authenticate/verify attempts/records/
   clears with the same per-IP budget and a 429 carries the same headers.
-- **E-08-22 (publicOrigin slot)**: §2.4's settings-driven additional
-  expected origin is not wired yet — the origin allowlist carries the
-  request origin only until the settings runtime lands (E-08-4 tail).
+- **E-08-22 (publicOrigin slot, implemented 20261001-40)**: §2.4's
+  additional expected origin reads the server-owned canonical/legacy setting
+  at each ceremony operation. Only validated HTTPS or HTTP loopback origins
+  are added, with normalized duplicates removed. The request-derived rpID,
+  credential scope, challenge matching, and required user verification stay
+  intact. Real P-256 registration/login tests prove the configured origin
+  works and wrong origins or RP hashes fail. Real-device acceptance remains.
 - **E-08-23 (relay identity store file)**: section 3.2 stores the signing
   and encryption keypairs in the settings registry; NND keeps them in a
   dedicated atomic dataDir file (relay-identity.json) until the registry

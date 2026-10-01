@@ -15,11 +15,14 @@
  * port; the compare is an exact string match) and the grantedLogin
  * Set-Cookie on the authenticate/verify route.
  */
+import { BOOT_DATA_DIR } from './helpers/env-boot.ts';
 import { createHash, createHmac, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as settingsStore from '../lib/settings-store.ts';
+import { ENV } from '../env.ts';
 import { resetUiAuthForTests, getUiAuthController, UI_SESSION_COOKIE } from '../lib/auth/ui-auth.ts';
 import { createUiPasskeysController, resetPasskeysForTests, getUiPasskeysController, PASSKEYS_DISABLED_TEXT, type UiPasskeysController } from '../lib/auth/ui-passkeys.ts';
 import { deriveRpContext, isLocalRpId, normalizedRpId } from '../lib/auth/rp-context.ts';
@@ -28,7 +31,7 @@ import { resetTunnelAuthForTests, getTunnelAuthController, TUNNEL_COOKIE_NAME } 
 import { registerHarnessAdapter } from '../harness/adapter.ts';
 import { mockHarness } from '../harness/mock/index.ts';
 
-const isolatedDataDir = mkdtempSync(`${tmpdir()}${sep}nnd-p8-passkeys-`);
+const isolatedDataDir = BOOT_DATA_DIR;
 process.env.NOTNATIVE_DATA_DIR = isolatedDataDir;
 delete process.env.NOTNATIVE_UI_PASSWORD;
 const scratchDirs: string[] = [];
@@ -179,6 +182,7 @@ async function registerOne(pk: UiPasskeysController, headers: Headers, url: URL,
 
 describe('rp derivation (doc 08 section 2.4)', () => {
   it('x-forwarded-host wins; normalization strips brackets/ports; local rp set; URL fallback', () => {
+    expect(ENV.dataDir).toBe(isolatedDataDir);
     const rp = deriveRpContext(
       new Headers({ 'x-forwarded-host': 'vpn.example.com, inner.local', 'host': 'localhost:3902' }),
       new URL('http://localhost:3902/auth/x'),
@@ -584,6 +588,29 @@ describe('passkey routes (singleton app, real ceremony at the guards)', () => {
   });
 });
 
+it('REAL ceremony accepts the configured additional origin and still rejects wrong origins and RP hashes', async () => {
+  const reader = vi.spyOn(settingsStore, 'readPublicOrigin').mockReturnValue('https://localhost:8443');
+  setEnvPassword('hunter2');
+  const headers = new Headers({ host: 'localhost:3902' }); const url = new URL('http://localhost:3902/auth/passkey');
+  // Use the real adapter instead of the machine fixture.
+  const { realCeremony } = await import('../lib/auth/webauthn-ceremony.ts');
+  const real = createUiPasskeysController({ dataDir: freshScratch(), uiAuth: getUiAuthController(), ceremony: realCeremony });
+  const auth = syntheticAuthenticator('https://localhost:8443', 'localhost');
+  try {
+    const registration = await real.registerOptions(headers, url);
+    expect((await real.registerVerify(headers, url, { requestId: registration.body.requestId,
+      response: registrationFixture(auth, String(registration.body.challenge)) })).status).toBe(200);
+    const options = await real.authenticationOptions(headers, url);
+    expect((await real.authenticateVerify(headers, url, { requestId: options.body.requestId,
+      response: assertionFixture(auth, String(options.body.challenge), 1) }, '60.0.0.2')).status).toBe(200);
+    for (const [origin, rpID] of [['https://localhost:8444', 'localhost'], ['https://localhost:8443', 'other.example']] as const) {
+      const next = await real.authenticationOptions(headers, url);
+      expect((await real.authenticateVerify(headers, url, { requestId: next.body.requestId,
+        response: assertionFixture({ ...auth, origin, rpID }, String(next.body.challenge), 2) }, '60.0.0.2')).status).toBe(400);
+    }
+  } finally { reader.mockRestore(); clearEnvPassword(); }
+});
+
 /** A server-side synthetic P-256 authenticator: real crypto (node KeyPair),
  * hand-rolled CBOR/COSE bytes for attestation 'none' + ES256 assertions. */
 interface SyntheticAuth {
@@ -704,4 +731,3 @@ function assertionFixture(auth: SyntheticAuth, challenge: string, counter: numbe
     response: { clientDataJSON: b64u(clientData), authenticatorData: b64u(authData), signature: b64u(signature) },
   };
 }
-
