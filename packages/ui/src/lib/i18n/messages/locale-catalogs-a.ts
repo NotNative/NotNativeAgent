@@ -98,6 +98,15 @@ export const de: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Standardbudget auf alle Sitzungen anwenden',
   'settings.chat.defaultBudgetLabel': 'Standardbudget',
   'settings.chat.enableSessionGoals': 'Sitzungsziele aktivieren',
+
+  'settings.search.renderMode': "Chat-Darstellungsmodus",
+  'settings.search.activityRender': "Standard für Aktivitätsdarstellung",
+  'settings.search.userMessageRendering': "Darstellung von Nutzernachrichten",
+  'settings.search.mermaid': "Mermaid-Darstellung",
+  'settings.search.diffLayout': "Diff-Layout",
+  'settings.chat.dynamicDiff': "Dynamisch",
+  'settings.chat.inlineDiff': "Inline",
+  'settings.chat.sideBySideDiff': "Nebeneinander",
 };
 
 export const fr: PartialDictionary = {
@@ -197,6 +206,15 @@ export const fr: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Appliquer le budget par défaut à chaque session',
   'settings.chat.defaultBudgetLabel': 'Budget par défaut',
   'settings.chat.enableSessionGoals': 'Activer les objectifs de session',
+
+  'settings.search.renderMode': "Mode d’affichage de la discussion",
+  'settings.search.activityRender': "Affichage par défaut de l’activité",
+  'settings.search.userMessageRendering': "Affichage des messages utilisateur",
+  'settings.search.mermaid': "Rendu Mermaid",
+  'settings.search.diffLayout': "Disposition du diff",
+  'settings.chat.dynamicDiff': "Dynamique",
+  'settings.chat.inlineDiff': "En ligne",
+  'settings.chat.sideBySideDiff': "Côte à côte",
 };
 
 export const zhCN: PartialDictionary = {
@@ -296,6 +314,15 @@ export const zhCN: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': '将默认预算应用于每个会话',
   'settings.chat.defaultBudgetLabel': '默认预算',
   'settings.chat.enableSessionGoals': '启用会话目标',
+
+  'settings.search.renderMode': "聊天显示模式",
+  'settings.search.activityRender': "活动默认显示方式",
+  'settings.search.userMessageRendering': "用户消息显示方式",
+  'settings.search.mermaid': "Mermaid 渲染",
+  'settings.search.diffLayout': "差异布局",
+  'settings.chat.dynamicDiff': "动态",
+  'settings.chat.inlineDiff': "行内",
+  'settings.chat.sideBySideDiff': "并排",
 };
 
 export const zhTW: PartialDictionary = {
@@ -395,4 +422,13 @@ export const zhTW: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': '將預設預算套用至每個工作階段',
   'settings.chat.defaultBudgetLabel': '預設預算',
   'settings.chat.enableSessionGoals': '啟用工作階段目標',
+
+  'settings.search.renderMode': "聊天顯示模式",
+  'settings.search.activityRender': "活動預設顯示方式",
+  'settings.search.userMessageRendering': "使用者訊息顯示方式",
+  'settings.search.mermaid': "Mermaid 繪製方式",
+  'settings.search.diffLayout': "差異配置",
+  'settings.chat.dynamicDiff': "動態",
+  'settings.chat.inlineDiff': "行內",
+  'settings.chat.sideBySideDiff': "並排",
 };

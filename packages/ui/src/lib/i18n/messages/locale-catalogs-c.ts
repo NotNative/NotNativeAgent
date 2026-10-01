@@ -98,6 +98,15 @@ export const uk: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Застосовувати типовий бюджет до кожної сесії',
   'settings.chat.defaultBudgetLabel': 'Типовий бюджет',
   'settings.chat.enableSessionGoals': 'Увімкнути цілі сесії',
+
+  'settings.search.renderMode': "Режим відображення чату",
+  'settings.search.activityRender': "Типовий вигляд активності",
+  'settings.search.userMessageRendering': "Відображення повідомлень користувача",
+  'settings.search.mermaid': "Відображення Mermaid",
+  'settings.search.diffLayout': "Макет різниці",
+  'settings.chat.dynamicDiff': "Динамічно",
+  'settings.chat.inlineDiff': "Вбудовано",
+  'settings.chat.sideBySideDiff': "Поруч",
 };
 
 export const es: PartialDictionary = {
@@ -197,6 +206,15 @@ export const es: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Aplicar el presupuesto predeterminado a cada sesión',
   'settings.chat.defaultBudgetLabel': 'Presupuesto predeterminado',
   'settings.chat.enableSessionGoals': 'Activar objetivos de sesión',
+
+  'settings.search.renderMode': "Modo de visualización del chat",
+  'settings.search.activityRender': "Visualización predeterminada de la actividad",
+  'settings.search.userMessageRendering': "Visualización de mensajes del usuario",
+  'settings.search.mermaid': "Renderizado de Mermaid",
+  'settings.search.diffLayout': "Diseño de diferencias",
+  'settings.chat.dynamicDiff': "Dinámico",
+  'settings.chat.inlineDiff': "En línea",
+  'settings.chat.sideBySideDiff': "En paralelo",
 };
 
 export const tr: PartialDictionary = {
@@ -296,4 +314,13 @@ export const tr: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Varsayılan bütçeyi her oturuma uygula',
   'settings.chat.defaultBudgetLabel': 'Varsayılan bütçe',
   'settings.chat.enableSessionGoals': 'Oturum hedeflerini etkinleştir',
+
+  'settings.search.renderMode': "Sohbet görüntüleme modu",
+  'settings.search.activityRender': "Etkinlik varsayılan görünümü",
+  'settings.search.userMessageRendering': "Kullanıcı mesajı görüntüleme",
+  'settings.search.mermaid': "Mermaid işleme",
+  'settings.search.diffLayout': "Fark düzeni",
+  'settings.chat.dynamicDiff': "Dinamik",
+  'settings.chat.inlineDiff': "Satır içinde",
+  'settings.chat.sideBySideDiff': "Yan yana",
 };

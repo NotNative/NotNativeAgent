@@ -85,9 +85,9 @@ export function ChatPage(): ReactNode {
             resetValue="dynamic"
             onChange={(value) => diffLayout.set(value as 'dynamic' | 'inline' | 'side-by-side')}
             options={[
-              { value: 'dynamic', label: 'Dynamic' },
-              { value: 'inline', label: 'Inline' },
-              { value: 'side-by-side', label: 'Side-by-side' },
+              { value: 'dynamic', label: t('settings.chat.dynamicDiff') },
+              { value: 'inline', label: t('settings.chat.inlineDiff') },
+              { value: 'side-by-side', label: t('settings.chat.sideBySideDiff') },
             ]}
           />
         </SettingsFieldRow>

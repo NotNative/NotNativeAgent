@@ -98,6 +98,15 @@ export const ptBR: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Aplicar o orçamento padrão a todas as sessões',
   'settings.chat.defaultBudgetLabel': 'Orçamento padrão',
   'settings.chat.enableSessionGoals': 'Ativar metas da sessão',
+
+  'settings.search.renderMode': "Modo de exibição do chat",
+  'settings.search.activityRender': "Exibição padrão da atividade",
+  'settings.search.userMessageRendering': "Exibição de mensagens do usuário",
+  'settings.search.mermaid': "Renderização Mermaid",
+  'settings.search.diffLayout': "Layout do diff",
+  'settings.chat.dynamicDiff': "Dinâmico",
+  'settings.chat.inlineDiff': "Em linha",
+  'settings.chat.sideBySideDiff': "Lado a lado",
 };
 
 export const ko: PartialDictionary = {
@@ -197,6 +206,15 @@ export const ko: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': '기본 예산을 모든 세션에 적용',
   'settings.chat.defaultBudgetLabel': '기본 예산',
   'settings.chat.enableSessionGoals': '세션 목표 사용',
+
+  'settings.search.renderMode': "채팅 표시 모드",
+  'settings.search.activityRender': "활동 기본 표시 방식",
+  'settings.search.userMessageRendering': "사용자 메시지 표시 방식",
+  'settings.search.mermaid': "Mermaid 렌더링",
+  'settings.search.diffLayout': "차이 보기 레이아웃",
+  'settings.chat.dynamicDiff': "동적",
+  'settings.chat.inlineDiff': "인라인",
+  'settings.chat.sideBySideDiff': "나란히",
 };
 
 export const pl: PartialDictionary = {
@@ -296,6 +314,15 @@ export const pl: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': 'Stosuj domyślny budżet do każdej sesji',
   'settings.chat.defaultBudgetLabel': 'Domyślny budżet',
   'settings.chat.enableSessionGoals': 'Włącz cele sesji',
+
+  'settings.search.renderMode': "Tryb wyświetlania czatu",
+  'settings.search.activityRender': "Domyślny widok aktywności",
+  'settings.search.userMessageRendering': "Wyświetlanie wiadomości użytkownika",
+  'settings.search.mermaid': "Renderowanie Mermaid",
+  'settings.search.diffLayout': "Układ różnic",
+  'settings.chat.dynamicDiff': "Dynamiczny",
+  'settings.chat.inlineDiff': "W tekście",
+  'settings.chat.sideBySideDiff': "Obok siebie",
 };
 
 export const ja: PartialDictionary = {
@@ -395,4 +422,13 @@ export const ja: PartialDictionary = {
   'settings.chat.defaultBudgetAllSessions': '既定の予算をすべてのセッションに適用',
   'settings.chat.defaultBudgetLabel': '既定の予算',
   'settings.chat.enableSessionGoals': 'セッション目標を有効にする',
+
+  'settings.search.renderMode': "チャットの表示モード",
+  'settings.search.activityRender': "アクティビティの既定表示",
+  'settings.search.userMessageRendering': "ユーザーメッセージの表示",
+  'settings.search.mermaid': "Mermaid の表示",
+  'settings.search.diffLayout': "差分レイアウト",
+  'settings.chat.dynamicDiff': "動的",
+  'settings.chat.inlineDiff': "インライン",
+  'settings.chat.sideBySideDiff': "左右に並べる",
 };
