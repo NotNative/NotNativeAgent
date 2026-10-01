@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:e7389980cf1f5450861c47c8a2afc394e1fcb3b69ca903f8cc84e68e6a86e21b",
+  "source_digest": "sha256:c7edc4549dc8381936e8fbd1847d831407e009dc2e9936b4708b38d8f713109a",
   "counts": {
-    "modules": 622,
+    "modules": 623,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 177
+      "module_count": 178
     },
     {
       "id": "ui-shell",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 231,
+      "import_count": 232,
       "module_count": 97
     },
     {
@@ -1581,7 +1581,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/stores/useMcpConfigStore.ts",
@@ -2361,6 +2363,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2404,6 +2414,7 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-c.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-d.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
+        "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",
