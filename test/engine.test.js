@@ -412,21 +412,31 @@ test('AC-FAIL-05 shutdown attempts peer cleanup and surfaces a component failure
   assert.equal(output.some((item) => item.type === 'shutdown_complete'), false);
 });
 
-test('active mission expiration cancels a slow provider and terminates with the declared boundary', async () => {
+test('active mission expiration cancels a slow provider and terminates with the declared boundary', async (t) => {
+  // Why: mocked deadlines keep engine setup off the tested expiration clock.
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
   const now = Date.now();
   const mission = {
     id: 'expiring-mission', outcome: 'Wait for the bounded provider response.',
-    not_before: new Date(now - 1_000).toISOString(), expires_at: new Date(now + 300).toISOString(),
+    not_before: new Date(now - 1_000).toISOString(), expires_at: new Date(now + 100).toISOString(),
     revocation_id: 'expiring-mission-1', resources: ['workspace'], targets: ['scope:workspace'],
     side_effects: ['read_only'], credential_refs: [],
     bounds: { max_turns: 2, max_tool_calls: 2, max_duration_ms: 60_000 },
     termination: { suspend_on: [], terminate_on: ['budget_exhaustion', 'expiration', 'disconnect'] },
   };
   let providerAborted = false;
-  const provider = { async *stream(_request, signal) {
+  // Why: record the provider's observed abort at the signal boundary. A pending
+  // async-generator body may be closed by the transport without resuming its frame.
+  const provider = { stream(_request, signal) {
+    signal.addEventListener('abort', () => { providerAborted = true; }, { once: true });
+    // Why: dispatch evidence precedes the mocked mission deadline so setup
+    // cannot consume it and leave the provider cancellation untested.
+    setImmediate(() => t.mock.timers.tick(100));
+    return (async function*() {
     await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
     providerAborted = true;
     throw Object.assign(new Error('aborted at mission boundary'), { code: 'provider_cancelled' });
+    })();
   } };
   const engine = new SessionEngine({
     config: resolveManifest({ persistence: 'ephemeral', provider: {
