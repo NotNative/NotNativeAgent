@@ -10,6 +10,8 @@ vi.mock('../../../lib/desktop-relay-host.ts', () => ({ probeDesktopRelayHost: (r
 vi.mock('../../../lib/runtime-tunnel.ts', () => ({ adoptRelayTunnel: vi.fn() }));
 
 import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
+import { I18nProvider } from '../../I18nProvider.tsx';
+import { useI18nStore } from '../../../lib/i18n/store.ts';
 import { RemoteInstancesPage } from '../pages/remote-instances.tsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -52,11 +54,12 @@ describe('RemoteInstancesPage', () => {
     container?.remove();
     container = null;
     delete window.__NOTNATIVE_DESKTOP_INVOKE__;
+    act(() => useI18nStore.getState().setLocale('en'));
     vi.clearAllMocks();
   });
 
   it('loads the saved catalog and switches the active runtime through native IPC', async () => {
-    await act(async () => { root!.render(<RemoteInstancesPage />); await Promise.resolve(); });
+    await act(async () => { root!.render(<I18nProvider><RemoteInstancesPage /></I18nProvider>); await Promise.resolve(); });
     expect(container?.textContent).toContain('Studio');
     const button = [...container!.querySelectorAll('button')].find((item) => item.textContent === 'Use this instance');
     expect(button).toBeDefined();
@@ -85,13 +88,16 @@ describe('RemoteInstancesPage', () => {
       } };
       return { ok: false, error: 'unexpected-command' };
     });
-    await act(async () => { root!.render(<RemoteInstancesPage />); await Promise.resolve(); });
+    await act(async () => { root!.render(<I18nProvider><RemoteInstancesPage /></I18nProvider>); await Promise.resolve(); });
     const button = [...container!.querySelectorAll('button')].find((item) => item.textContent === 'Use this instance');
     expect(button?.disabled).toBe(false);
     await act(async () => { button!.click(); await Promise.resolve(); await Promise.resolve(); });
     expect(container?.textContent).toContain('The local instance remains active (unreachable).');
     const retry = [...container!.querySelectorAll('button')].find((item) => item.textContent === 'Use this instance');
     expect(retry?.disabled).toBe(false);
+    await act(async () => { useI18nStore.getState().setLocale('de'); await Promise.resolve(); });
+    expect(container?.textContent).toContain('Die Standardeinstellung ist gespeichert');
+    expect(container?.textContent).toContain('nicht erreichbar');
   });
 
   it('probes and switches to a saved relay-only host through the relay tunnel', async () => {
@@ -115,7 +121,7 @@ describe('RemoteInstancesPage', () => {
       } };
       return { ok: false, error: 'unexpected-command' };
     });
-    await act(async () => { root!.render(<RemoteInstancesPage />); await Promise.resolve(); });
+    await act(async () => { root!.render(<I18nProvider><RemoteInstancesPage /></I18nProvider>); await Promise.resolve(); });
     const relayButton = [...container!.querySelectorAll('button')].find((item) => {
       return item.parentElement?.textContent?.includes('Relay') && item.textContent === 'Use this instance';
     });

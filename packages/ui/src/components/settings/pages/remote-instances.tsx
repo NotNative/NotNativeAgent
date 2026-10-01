@@ -5,6 +5,8 @@ import { switchRuntimeEndpoint } from '../../../lib/runtime-switch.ts';
 import { adoptRelayTunnel } from '../../../lib/runtime-tunnel.ts';
 import { probeDesktopRelayHost } from '../../../lib/desktop-relay-host.ts';
 import { DesktopSshCatalog } from './desktop-ssh-catalog.tsx';
+import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { useI18n } from '../../I18nProvider.tsx';
 
 interface DesktopHost {
   id: string;
@@ -92,20 +94,50 @@ function parseCatalog(value: unknown): HostCatalog | null {
   return { hosts, defaultHostId: input.defaultHostId as string | null };
 }
 
+
+const PROBE_STATUS_KEYS: Record<string, I18nKey> = {
+  auth: 'settings.remoteInstances.probe.auth',
+  incompatible: 'settings.remoteInstances.probe.incompatible',
+  'update-recommended': 'settings.remoteInstances.probe.updateRecommended',
+  'wrong-service': 'settings.remoteInstances.probe.wrongService',
+  unreachable: 'settings.remoteInstances.probe.unreachable',
+};
+
+const HOST_SWITCH_ERRORS: Record<string, I18nKey> = {
+  'desktop-env-target-active': 'settings.remoteInstances.error.envTargetActive',
+  'desktop-host-not-found': 'settings.remoteInstances.error.hostNotFound',
+  'desktop-ssh-not-connected': 'settings.remoteInstances.error.sshNotConnected',
+  'desktop-hosts-busy': 'settings.remoteInstances.error.hostsBusy',
+  'desktop-host-switch-busy': 'settings.remoteInstances.error.switchBusy',
+  'desktop-host-changed': 'settings.remoteInstances.error.hostChanged',
+};
+
+const BOOT_STATUS_KEYS: Record<string, I18nKey> = {
+  ok: 'settings.remoteInstances.bootStatus.ok',
+  unreachable: 'settings.remoteInstances.bootStatus.unreachable',
+  incompatible: 'settings.remoteInstances.bootStatus.incompatible',
+  'wrong-service': 'settings.remoteInstances.bootStatus.wrongService',
+  auth: 'settings.remoteInstances.bootStatus.auth',
+  'relay-pending': 'settings.remoteInstances.bootStatus.relayPending',
+};
+
 export function RemoteInstancesPage(): ReactNode {
+  const { t } = useI18n();
   const [catalog, setCatalog] = useState<HostCatalog | null>(null);
   const [activeHostId, setActiveHostId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{
+    key: I18nKey; reasonKey?: I18nKey; statusKey?: I18nKey; params?: Record<string, unknown>;
+  } | null>(null);
 
   const reload = useCallback(async (): Promise<void> => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
-    if (!invoke) { setMessage('Remote instance management is available in the desktop app.'); return; }
+    if (!invoke) { setMessage({ key: 'settings.remoteInstances.desktopOnly' }); return; }
     try {
       const reply = await invoke('desktop_hosts_get');
       const parsed = reply.ok ? parseCatalog(reply.result) : null;
       setCatalog(parsed);
-      if (!reply.ok || parsed === null) setMessage('Could not read saved remote instances.');
+      if (!reply.ok || parsed === null) setMessage({ key: 'settings.remoteInstances.status.readFailed' });
       const boot = await invoke('desktop_boot_config_get');
       const liveRuntimeKey = window.__NOTNATIVE_RUNTIME_KEY__;
       if (liveRuntimeKey === 'local') setActiveHostId('local');
@@ -121,7 +153,7 @@ export function RemoteInstancesPage(): ReactNode {
           && (outcome as { hostId?: unknown }).hostId === '__env') setActiveHostId('__env');
       }
     } catch {
-      setMessage('Could not read saved remote instances.');
+      setMessage({ key: 'settings.remoteInstances.status.readFailed' });
     }
   }, []);
 
@@ -134,10 +166,10 @@ export function RemoteInstancesPage(): ReactNode {
       if (outcome.via !== 'relay') return;
       if (outcome.status === 'ok' && typeof outcome.hostId === 'string') {
         setActiveHostId(outcome.hostId);
-        setMessage('Connected to the saved relay instance.');
+        setMessage({ key: 'settings.remoteInstances.status.relayConnected' });
       } else {
         setActiveHostId('local');
-        setMessage('The saved relay instance could not be reached. The local instance remains active.');
+        setMessage({ key: 'settings.remoteInstances.status.relayUnreachable' });
       }
     };
     window.addEventListener('notnative:desktop-boot-outcome-changed', onBootOutcome);
@@ -148,21 +180,19 @@ export function RemoteInstancesPage(): ReactNode {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
     if (!invoke) return;
     setBusyId(hostId);
-    setMessage('Checking the selected instance…');
+    setMessage({ key: 'settings.remoteInstances.status.checking' });
     try {
       const relayHost = catalog?.hosts.find((host) => host.id === hostId && host.relayOnly);
       if (relayHost) {
-        if (!relayHost.relay) { setMessage('This saved relay descriptor is invalid. Pair the instance again.'); return; }
+        if (!relayHost.relay) { setMessage({ key: 'settings.remoteInstances.status.relayInvalid' }); return; }
         const probe = await probeDesktopRelayHost(relayHost.relay, {
           clientToken: relayHost.clientToken, requestHeaders: relayHost.requestHeaders, keepTunnel: true,
         });
         if (probe.status !== 'ok' || !probe.client) {
-          const statusText: Record<string, string> = {
-            auth: 'rejected authentication', incompatible: 'does not support this desktop API',
-            'update-recommended': 'requires a newer desktop client', 'wrong-service': 'is not the paired server',
-            unreachable: 'could not be reached through the relay',
-          };
-          setMessage(`The selected instance ${statusText[probe.status] ?? 'could not be checked'}.`);
+          setMessage({
+            key: 'settings.remoteInstances.status.selectedUnreachable',
+            reasonKey: PROBE_STATUS_KEYS[probe.status] ?? 'settings.remoteInstances.probe.unknown',
+          });
           return;
         }
         let saved;
@@ -181,20 +211,14 @@ export function RemoteInstancesPage(): ReactNode {
         }
         if (!saved.ok) {
           probe.client.close();
-          const messageByError: Record<string, string> = {
-            'desktop-env-target-active': 'An explicit server URL is active; the saved host cannot be selected in this launch.',
-            'desktop-host-not-found': 'That saved instance no longer exists.',
-            'desktop-ssh-not-connected': 'The SSH instance is saved, but its connection service is not available yet.',
-            'desktop-hosts-busy': 'A pairing operation is updating the saved instances. Try again shortly.',
-            'desktop-host-switch-busy': 'An instance switch is already in progress.',
-            'desktop-host-changed': 'That saved instance changed while it was being checked. Reload the list and try again.',
-          };
-          setMessage(messageByError[saved.error ?? ''] ?? 'Could not switch instances.');
+          setMessage({
+            key: HOST_SWITCH_ERRORS[saved.error ?? ''] ?? 'settings.remoteInstances.error.generic',
+          });
           return;
         }
         const selected = saved.result as { runtime?: unknown; bootOutcome?: unknown } | undefined;
         const runtime = parseRuntime(selected?.runtime);
-        if (!runtime) { probe.client.close(); setMessage('The desktop returned an invalid runtime configuration.'); return; }
+        if (!runtime) { probe.client.close(); setMessage({ key: 'settings.remoteInstances.error.invalidRuntime' }); return; }
         adoptRelayTunnel(relayHost.relay, probe.client);
         await switchRuntimeEndpoint({ ...runtime, relay: relayHost.relay });
         if (typeof selected?.bootOutcome === 'object' && selected.bootOutcome !== null) {
@@ -202,24 +226,19 @@ export function RemoteInstancesPage(): ReactNode {
         }
         setActiveHostId(hostId);
         setCatalog((previous) => previous ? { ...previous, defaultHostId: hostId } : previous);
-        setMessage(`Switched to ${relayHost.label} through the relay.`);
+        setMessage({ key: 'settings.remoteInstances.status.switchedRelay', params: { name: relayHost.label } });
         return;
       }
       const reply = await invoke('desktop_host_switch', { hostId });
       if (!reply.ok) {
-        const messages: Record<string, string> = {
-          'desktop-env-target-active': 'An explicit server URL is active; the saved host cannot be selected in this launch.',
-          'desktop-host-not-found': 'That saved instance no longer exists.',
-          'desktop-ssh-not-connected': 'The SSH instance is saved, but its connection service is not available yet.',
-          'desktop-hosts-busy': 'A pairing operation is updating the saved instances. Try again shortly.',
-          'desktop-host-switch-busy': 'An instance switch is already in progress.',
-        };
-        setMessage(messages[reply.error ?? ''] ?? 'Could not switch instances.');
+        setMessage({
+          key: HOST_SWITCH_ERRORS[reply.error ?? ''] ?? 'settings.remoteInstances.error.generic',
+        });
         return;
       }
       const result = reply.result as { activeHostId?: unknown; bootOutcome?: { status?: unknown }; runtime?: unknown } | undefined;
       const runtime = parseRuntime(result?.runtime);
-      if (runtime === null) { setMessage('The desktop returned an invalid runtime configuration.'); return; }
+      if (runtime === null) { setMessage({ key: 'settings.remoteInstances.error.invalidRuntime' }); return; }
       await switchRuntimeEndpoint(runtime);
       window.__NOTNATIVE_API_BASE_URL__ = runtime.apiBaseUrl;
       window.__NOTNATIVE_CLIENT_TOKEN__ = runtime.clientToken ?? '';
@@ -232,30 +251,49 @@ export function RemoteInstancesPage(): ReactNode {
       setActiveHostId(active);
       if (active !== hostId) {
         setCatalog((previous) => previous ? { ...previous, defaultHostId: hostId } : previous);
-        setMessage(`The saved default is set, but the server could not be reached. The local instance remains active (${String(result?.bootOutcome?.status ?? 'unavailable')}).`);
+        const statusKey = typeof result?.bootOutcome?.status === 'string'
+          ? BOOT_STATUS_KEYS[result.bootOutcome.status] ?? 'settings.remoteInstances.bootStatus.unknown'
+          : 'settings.remoteInstances.bootStatus.unavailable';
+        setMessage({
+          key: 'settings.remoteInstances.status.unreachableSavedDefault',
+          statusKey,
+        });
       } else {
         setCatalog((previous) => previous ? { ...previous, defaultHostId: hostId } : previous);
-        setMessage(`Switched to ${hostId === 'local' ? 'the local instance' : catalog?.hosts.find((host) => host.id === hostId)?.label ?? 'the selected instance'}.`);
+        setMessage({
+          key: 'settings.remoteInstances.status.switched',
+          params: { name: hostId === 'local'
+            ? t('settings.remoteInstances.localServer')
+            : catalog?.hosts.find((host) => host.id === hostId)?.label ?? t('settings.remoteInstances.action.use') },
+        });
       }
     } catch {
-      setMessage('Could not switch instances.');
+      setMessage({ key: 'settings.remoteInstances.error.generic' });
     } finally {
       setBusyId(null);
     }
   };
 
+  const messageText = (() => {
+    if (!message) return null;
+    const messageParams = { ...message.params };
+    if (message.reasonKey) messageParams.reason = t(message.reasonKey);
+    if (message.statusKey) messageParams.status = t(message.statusKey);
+    return t(message.key, messageParams);
+  })();
+
   return (
     <div className="flex flex-col gap-5">
       <SettingsSection item="remote-instances.default">
-        <SettingsGroupTitle>Default instance</SettingsGroupTitle>
-        <p className="mb-3 text-xs text-muted-foreground">Choose which saved server the desktop connects to. Each remote is checked for identity, authentication, and API compatibility before switching.</p>
+        <SettingsGroupTitle>{t('settings.remoteInstances.title')}</SettingsGroupTitle>
+        <p className="mb-3 text-xs text-muted-foreground">{t('settings.remoteInstances.description')}</p>
         <div className="flex items-center justify-between gap-3 rounded border border-border/50 px-3 py-2">
           <div className="min-w-0">
-            <div className="text-sm text-foreground">This computer</div>
-            <div className="truncate text-xs text-muted-foreground">Local desktop server</div>
+            <div className="text-sm text-foreground">{t('settings.remoteInstances.thisComputer')}</div>
+            <div className="truncate text-xs text-muted-foreground">{t('settings.remoteInstances.localServer')}</div>
           </div>
           <button type="button" className="rounded border border-border px-3 py-1.5 text-xs hover:bg-interactive-hover/40" disabled={busyId !== null || catalog === null || activeHostId === 'local'} onClick={() => { void select('local'); }}>
-            {busyId === 'local' ? 'Switching…' : activeHostId === 'local' ? 'Current' : 'Use this instance'}
+            {busyId === 'local' ? t('settings.remoteInstances.action.switching') : activeHostId === 'local' ? t('settings.remoteInstances.action.current') : t('settings.remoteInstances.action.use')}
           </button>
         </div>
         {catalog?.hosts.map((host) => (
@@ -265,12 +303,12 @@ export function RemoteInstancesPage(): ReactNode {
               <div className="truncate text-xs text-muted-foreground">{host.apiUrl ?? host.url}</div>
             </div>
             <button type="button" className="shrink-0 rounded border border-border px-3 py-1.5 text-xs hover:bg-interactive-hover/40" disabled={busyId !== null || activeHostId === host.id} onClick={() => { void select(host.id); }}>
-            {busyId === host.id ? 'Checking…' : activeHostId === host.id ? 'Current' : 'Use this instance'}
+            {busyId === host.id ? t('settings.remoteInstances.action.checking') : activeHostId === host.id ? t('settings.remoteInstances.action.current') : t('settings.remoteInstances.action.use')}
             </button>
           </div>
         ))}
-        {catalog?.hosts.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No paired remote instances yet. Open a pairing link to add one.</p> : null}
-        {message ? <p role="status" className="mt-3 text-xs text-muted-foreground">{message}</p> : null}
+        {catalog?.hosts.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">{t('settings.remoteInstances.empty')}</p> : null}
+        {messageText ? <p role="status" className="mt-3 text-xs text-muted-foreground">{messageText}</p> : null}
         <DesktopSshCatalog />
       </SettingsSection>
     </div>

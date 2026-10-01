@@ -295,6 +295,11 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
+      for (const key of Object.keys(en).filter((candidate) => candidate.startsWith('settings.remoteInstances.'))) {
+        expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
+        const placeholders = (en[key as I18nKey].match(/\{(\w+)\}/gu) ?? []).sort();
+        expect((PARTIAL_CATALOGS[locale]![key as I18nKey]!.match(/\{(\w+)\}/gu) ?? []).sort()).toEqual(placeholders);
+      }
       for (const key of Object.keys(en).filter((candidate) => candidate.startsWith('settings.skills.catalog.'))) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
