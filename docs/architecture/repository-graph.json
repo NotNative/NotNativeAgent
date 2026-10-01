@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:554a87c6c1f75bb79589dd35ae0dd1b820b1f9fbbeee06189d6f9b1bc21856fc",
+  "source_digest": "sha256:325c5bf44f7efcc7a51f993f43b6129d08712e26e098c9225f0bae1bfbd98a9d",
   "counts": {
     "modules": 644,
     "component_edges": 14
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 248,
+      "import_count": 249,
       "module_count": 105
     },
     {
@@ -1245,6 +1245,7 @@
         "packages/ui/src/components/git/session-changes.tsx",
         "packages/ui/src/lib/files/edit-support.ts",
         "packages/ui/src/lib/git/commit-drafts.ts",
+        "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/sync/types.ts"
       ]
     },
