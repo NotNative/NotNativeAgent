@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import en, { type Dictionary, type I18nKey } from './messages/en.ts';
 import { PARTIAL_CATALOGS, dictionaryFor } from './messages/locales.ts';
-import { DEFAULT_LOCALE, detectInitialLocale, writeStoredLocale, type Locale } from './runtime.ts';
+import { BCP47ByLocale, DEFAULT_LOCALE, detectInitialLocale, writeStoredLocale, type Locale } from './runtime.ts';
 
 const catalogCache = new Map<string, Dictionary>();
 catalogCache.set(DEFAULT_LOCALE, en);
@@ -24,6 +24,7 @@ export interface I18nState {
 const initialLocale = detectInitialLocale();
 const initialDictionary = dictionaryFor(initialLocale);
 catalogCache.set(initialLocale, initialDictionary);
+syncDocumentLanguage(initialLocale);
 
 export const useI18nStore = create<I18nState>((set, get) => ({
   locale: initialLocale,
@@ -37,10 +38,12 @@ export const useI18nStore = create<I18nState>((set, get) => ({
       catalogCache.set(locale, dictionary);
       set({ locale, dictionary, loadingLocale: getLocaleMarker(locale) });
       writeStoredLocale(locale);
+      syncDocumentLanguage(locale);
     } catch (error) {
       console.error?.('[i18n] catalog load failed; falling back to en', error);
       set({ locale: DEFAULT_LOCALE, dictionary: en, loadingLocale: null });
       writeStoredLocale(DEFAULT_LOCALE);
+      syncDocumentLanguage(DEFAULT_LOCALE);
       return;
     }
     // Our catalogs are synchronous partials (delta E2); the async loader
@@ -55,9 +58,14 @@ export const useI18nStore = create<I18nState>((set, get) => ({
         console.error?.('[i18n] locale load failed; falling back to en', error);
         set({ locale: DEFAULT_LOCALE, dictionary: en, loadingLocale: null });
         writeStoredLocale(DEFAULT_LOCALE);
+        syncDocumentLanguage(DEFAULT_LOCALE);
       });
   },
 }));
+
+function syncDocumentLanguage(locale: Locale): void {
+  if (typeof document !== 'undefined') document.documentElement.lang = BCP47ByLocale[locale];
+}
 
 function getLocaleMarker(locale: Locale): Locale | null {
   return locale === DEFAULT_LOCALE ? null : locale;

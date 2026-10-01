@@ -2,6 +2,15 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12 web splash uses the stored locale
+
+A small ordered bootstrap module reads the stored locale and updates the splash
+copy and document language before the main app module runs. All locale catalogs
+now translate the loading line, and runtime language changes keep `<html lang>`
+in sync for assistive technology and spellcheck. Adversarial review confirmed
+the ordering and fallback paths; web splash tests (3/3), i18n store tests (9/9),
+and workspace typechecks pass.
+
 ## 2026-09-30 · PWA install prompt and manifest icons
 
 The manifest now supplies 192px and 512px PNG icons, allowing eligible

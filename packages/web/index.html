@@ -23,6 +23,7 @@
         window.process = window.process || { env: {} };
       })();
     </script>
+    <script type="module" src="/src/pwa/splash-locale-entry.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
@@ -33,7 +34,7 @@
           <path d="M32 6 L54 18 L54 46 L32 58 L10 46 L10 18 Z" stroke="currentColor" stroke-width="2" opacity="0.8" />
           <path d="M32 6 L32 32 M54 18 L32 32 M10 18 L32 32" stroke="currentColor" stroke-width="1.5" opacity="0.5" />
         </svg>
-        <div style="margin-top:10px;font-size:13px;opacity:0.75">Starting NotNativeDesktop…</div>
+        <div id="initial-loading-text" style="margin-top:10px;font-size:13px;opacity:0.75">Starting NotNativeDesktop…</div>
       </div>
     </div>
     <div id="root"></div>

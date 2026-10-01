@@ -11,6 +11,7 @@ import type { PartialDictionary } from './en.ts';
 
 export const de: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'NotNativeDesktop wird geladen…',
   'shell.sessions': 'Sitzungen',
   'shell.newSession': 'Neue Sitzung',
   'shell.send': 'Senden',
@@ -20,6 +21,7 @@ export const de: PartialDictionary = {
 
 export const fr: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'Chargement de NotNativeDesktop…',
   'shell.sessions': 'Sessions',
   'shell.newSession': 'Nouvelle session',
   'shell.send': 'Envoyer',
@@ -29,6 +31,7 @@ export const fr: PartialDictionary = {
 
 export const zhCN: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': '正在加载 NotNativeDesktop…',
   'shell.sessions': '会话',
   'shell.newSession': '新建会话',
   'shell.send': '发送',
@@ -38,6 +41,7 @@ export const zhCN: PartialDictionary = {
 
 export const zhTW: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': '正在載入 NotNativeDesktop…',
   'shell.sessions': '工作階段',
   'shell.newSession': '新增工作階段',
   'shell.send': '傳送',
@@ -47,6 +51,7 @@ export const zhTW: PartialDictionary = {
 
 export const uk: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'Завантаження NotNativeDesktop…',
   'shell.sessions': 'Сесії',
   'shell.newSession': 'Нова сесія',
   'shell.send': 'Надіслати',
@@ -56,6 +61,7 @@ export const uk: PartialDictionary = {
 
 export const es: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'Cargando NotNativeDesktop…',
   'shell.sessions': 'Sesiones',
   'shell.newSession': 'Nueva sesión',
   'shell.send': 'Enviar',
@@ -65,6 +71,7 @@ export const es: PartialDictionary = {
 
 export const ptBR: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'Carregando NotNativeDesktop…',
   'shell.sessions': 'Sessões',
   'shell.newSession': 'Nova sessão',
   'shell.send': 'Enviar',
@@ -74,6 +81,7 @@ export const ptBR: PartialDictionary = {
 
 export const ko: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'NotNativeDesktop 불러오는 중…',
   'shell.sessions': '세션',
   'shell.newSession': '새 세션',
   'shell.send': '보내기',
@@ -83,6 +91,7 @@ export const ko: PartialDictionary = {
 
 export const pl: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'Ładowanie NotNativeDesktop…',
   'shell.sessions': 'Sesje',
   'shell.newSession': 'Nowa sesja',
   'shell.send': 'Wyślij',
@@ -92,6 +101,7 @@ export const pl: PartialDictionary = {
 
 export const ja: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'NotNativeDesktop を読み込み中…',
   'shell.sessions': 'セッション',
   'shell.newSession': '新しいセッション',
   'shell.send': '送信',
@@ -101,6 +111,7 @@ export const ja: PartialDictionary = {
 
 export const tr: PartialDictionary = {
   'app.title': 'NotNativeDesktop',
+  'bootstrap.loading': 'NotNativeDesktop yükleniyor…',
   'shell.sessions': 'Oturumlar',
   'shell.newSession': 'Yeni oturum',
   'shell.send': 'Gönder',

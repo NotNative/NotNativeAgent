@@ -42,10 +42,12 @@ describe('store (optimistic switch + cache, §H.2 store.ts)', () => {
     expect(state.locale).toBe('en');
     useI18nStore.getState().setLocale('de');
     expect(useI18nStore.getState().locale).toBe('de');
+    expect(document.documentElement.lang).toBe('de-DE');
     expect(useI18nStore.getState().dictionary['shell.send']).toBe('Senden');
     await Promise.resolve(); // optimistic marker clears after the (sync) load
     expect(useI18nStore.getState().loadingLocale).toBeNull();
     useI18nStore.getState().setLocale('en');
+    expect(document.documentElement.lang).toBe('en-US');
     expect(useI18nStore.getState().dictionary['shell.send']).toBe('Send');
   });
 
