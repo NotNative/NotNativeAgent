@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3a7f4c92613d8e7ab20d1570a85d5a28c8989d5e33a80fb7dce505908e27f5d1",
+  "source_digest": "sha256:e7389980cf1f5450861c47c8a2afc394e1fcb3b69ca903f8cc84e68e6a86e21b",
   "counts": {
-    "modules": 621,
+    "modules": 622,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 176
+      "module_count": 177
     },
     {
       "id": "ui-shell",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 230,
-      "module_count": 96
+      "import_count": 231,
+      "module_count": 97
     },
     {
       "from": "ui-shell",
@@ -1699,7 +1699,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts"
       ]
     },
@@ -2383,6 +2385,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-skills-inventory.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locales.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2396,7 +2406,8 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
-        "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts"
+        "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",
+        "packages/ui/src/lib/i18n/messages/locale-skills-inventory.ts"
       ]
     },
     {

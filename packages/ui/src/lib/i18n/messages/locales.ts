@@ -19,20 +19,21 @@ import { deShortcuts, frShortcuts, zhCNShortcuts, deShortcutLabels, frShortcutLa
 import { zhTWShortcuts, ukShortcuts, esShortcuts, ptBRShortcuts, zhTWShortcutLabels, ukShortcutLabels, esShortcutLabels, ptBRShortcutLabels } from './locale-shortcuts-b.ts';
 import { koShortcuts, plShortcuts, jaShortcuts, trShortcuts, koShortcutLabels, plShortcutLabels, jaShortcutLabels, trShortcutLabels } from './locale-shortcuts-c.ts';
 import { deAppearance, frAppearance, zhCNAppearance, zhTWAppearance, ukAppearance, esAppearance, ptBRAppearance, koAppearance, plAppearance, jaAppearance, trAppearance } from './locale-appearance.ts';
+import { deSkillsInventory, frSkillsInventory, zhCNSkillsInventory, zhTWSkillsInventory, ukSkillsInventory, esSkillsInventory, ptBRSkillsInventory, koSkillsInventory, plSkillsInventory, jaSkillsInventory, trSkillsInventory } from './locale-skills-inventory.ts';
 import en, { type Dictionary } from './en.ts';
 
 const CATALOGS: Record<string, PartialDictionary> = {
-  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance },
-  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance },
-  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance },
-  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance },
-  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance },
-  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance },
-  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance },
-  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance },
-  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance },
-  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance },
-  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance },
+  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory },
+  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory },
+  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory },
+  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory },
+  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory },
+  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory },
+  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory },
+  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory },
+  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory },
+  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory },
+  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory },
 };
 
 /** Full dictionaries: en complete, others merged over en per §H.2 resolve. */
