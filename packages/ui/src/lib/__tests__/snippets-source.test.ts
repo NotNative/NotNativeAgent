@@ -9,7 +9,10 @@ import {
   __resetSnippetsSourceForTests, refreshSnippets, snippetMap, snippetNames, snippetSubscribe,
 } from '../snippets-source.ts';
 
-vi.mock('../snippets-api.ts', () => ({ listSnippets: vi.fn() }));
+vi.mock('../snippets-api.ts', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return { ...actual, listSnippets: vi.fn() };
+});
 
 const list = listSnippets as unknown as Mock;
 
@@ -57,21 +60,25 @@ describe('snippets source store', () => {
     expect(snippetMap().size).toBe(2);
   });
 
-  it('a 200 without the snippets array keeps the roster and never rejects', async () => {
-    // Defect probe: `refreshSnippets` trusted `outcome.snippets` after
-    // `outcome.ok` - and a fulfilment-handler THROW does NOT route into the
-    // sibling rejection handler, so the composer's mount effect
-    // (`void refreshSnippets()`) became an unhandled rejection on any
-    // hostile 200. Malformed payloads fold to the registered failure
-    // posture: the current roster stays, nothing republishes.
+  it('a 200 with a malformed or duplicated roster keeps the roster and never rejects', async () => {
+    // Defect probe: `refreshSnippets` trusted shape only after `outcome.ok`,
+    // so a hostile 200 item could crash the fulfillment callback. Such
+    // payloads fold to the registered failure posture: the current roster
+    // stays, nothing republishes.
     list.mockResolvedValue({ ok: true, snippets: [{ name: 'sig', text: 'sig-text' }] });
     await refreshSnippets();
     const before = snippetMap();
     const snapshots: Map<string, string>[] = [];
     const stop = snippetSubscribe(() => { snapshots.push(snippetMap()); });
-    list.mockResolvedValue({ ok: true }); // hostile body: ok, no array
+    list.mockResolvedValue({ ok: true }); // hostile body: no array
     await expect(refreshSnippets()).resolves.toBe(before);
     expect(snapshots.length).toBe(0);
+    list.mockResolvedValue({ ok: true, snippets: ['not a snippet'] }); // hostile roster item
+    await expect(refreshSnippets()).resolves.toBe(before);
+    expect(snapshots.length).toBe(0);
+    list.mockResolvedValue({ ok: true, snippets: [{ name: 'sig', text: '1' }, { name: 'sig', text: '2' }] });
+    await expect(refreshSnippets()).resolves.toBe(before);
+    expect(snippetNames()).toEqual(['sig']);
     expect(snippetNames()).toEqual(['sig']);
     stop();
   });

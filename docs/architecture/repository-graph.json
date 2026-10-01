@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:1bd8186acec7a8a931054dc968e8270d7ffb335a5c3dc935b030a40f7e94ab1e",
+  "source_digest": "sha256:a1e50c79555ca81ac20c757dd104aabbacd4397fcdaa6c5226f026311e1b1a7a",
   "counts": {
-    "modules": 626,
+    "modules": 627,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 180
+      "module_count": 181
     },
     {
       "id": "ui-shell",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 234,
+      "import_count": 235,
       "module_count": 98
     },
     {
@@ -1724,7 +1724,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/snippets-api.ts",
         "packages/ui/src/lib/snippets-source.ts"
       ]
@@ -2431,6 +2433,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-snippets.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locales.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2448,7 +2458,8 @@
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",
-        "packages/ui/src/lib/i18n/messages/locale-skills-inventory.ts"
+        "packages/ui/src/lib/i18n/messages/locale-skills-inventory.ts",
+        "packages/ui/src/lib/i18n/messages/locale-snippets.ts"
       ]
     },
     {

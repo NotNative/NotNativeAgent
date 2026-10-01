@@ -20,6 +20,22 @@ export interface SnippetRecord {
 export type SnippetFailure = { ok: false; status: number; error: string };
 export type SnippetEnvelope<T> = (T & { ok: true }) | SnippetFailure;
 
+const SNIPPET_NAME = /^[\w-]{1,64}$/u;
+
+export function snippetRecords(value: unknown): value is SnippetRecord[] {
+  if (!Array.isArray(value)) return false;
+  const names = new Set<string>();
+  return value.every((entry): entry is SnippetRecord => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return false;
+    const record = entry as SnippetRecord;
+    if (typeof record.name !== 'string' || !SNIPPET_NAME.test(record.name)) return false;
+    if (typeof record.text !== 'string' || record.text === '') return false;
+    if (names.has(record.name)) return false;
+    names.add(record.name);
+    return true;
+  });
+}
+
 async function apiJson<T>(url: string, init?: RequestInit): Promise<SnippetEnvelope<T>> {
   const response = await runtimeFetch(url, init);
   const body = await response.json().catch(() => ({})) as Record<string, unknown>;

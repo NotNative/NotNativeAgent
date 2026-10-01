@@ -295,6 +295,9 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
+      for (const key of Object.keys(en).filter((candidate) => candidate.startsWith('settings.snippets.'))) {
+        expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
+      }
       for (const key of Object.keys(en).filter((candidate) => candidate.startsWith('shortcuts.label.'))) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }

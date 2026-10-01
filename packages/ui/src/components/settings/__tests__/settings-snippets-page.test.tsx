@@ -14,13 +14,16 @@ vi.mock('sonner', () => ({
     error: vi.fn(), success: vi.fn(), message: vi.fn(), dismiss: vi.fn(),
   }),
 }));
-vi.mock('../../../lib/snippets-api.ts', () => ({
-  listSnippets: vi.fn(), getSnippet: vi.fn(), createSnippet: vi.fn(),
-  patchSnippet: vi.fn(), deleteSnippet: vi.fn(), expandSnippet: vi.fn(),
-}));
+vi.mock('../../../lib/snippets-api.ts', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return { ...actual, listSnippets: vi.fn(), getSnippet: vi.fn(), createSnippet: vi.fn(),
+    patchSnippet: vi.fn(), deleteSnippet: vi.fn(), expandSnippet: vi.fn(),
+  };
+});
 
 import { createSnippet, deleteSnippet, listSnippets, patchSnippet } from '../../../lib/snippets-api.ts';
 import { __resetSnippetsSourceForTests, snippetMap } from '../../../lib/snippets-source.ts';
+import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { SnippetsPage } from '../pages/snippets.tsx';
 
 declare global {
@@ -45,7 +48,7 @@ function mount(): void {
   container = document.createElement('div');
   document.body.appendChild(container);
   rootHandle = createRoot(container);
-  act(() => { rootHandle!.render(<SnippetsPage />); });
+  act(() => { rootHandle!.render(<I18nProvider><SnippetsPage /></I18nProvider>); });
 }
 
 afterEach(() => {
@@ -110,6 +113,14 @@ describe('snippets settings page', () => {
     // alert line nor the empty hint. Shape-hostile folds refuse like a
     // refused request.
     list.mockResolvedValue({ ok: true });
+    mount();
+    await act(async () => { await settle(); });
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('snippet response was malformed');
+    expect(document.querySelectorAll('[data-testid="snippets-row"]').length).toBe(0);
+  });
+
+  it('a malformed 200 with non-record items folds to the alert line', async () => {
+    list.mockResolvedValue({ ok: true, snippets: ['not a snippet'] });
     mount();
     await act(async () => { await settle(); });
     expect(document.querySelector('[role="alert"]')?.textContent).toBe('snippet response was malformed');

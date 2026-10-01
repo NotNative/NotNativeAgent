@@ -8,7 +8,7 @@
  * store published. Failures keep the current roster silently — the picker
  * is best-effort, and unknown `#tokens` already keep their bytes at send.
  */
-import { listSnippets } from './snippets-api.ts';
+import { listSnippets, snippetRecords } from './snippets-api.ts';
 
 let roster: Map<string, string> = new Map();
 const listeners = new Set<() => void>();
@@ -38,7 +38,7 @@ export function snippetNames(): string[] {
 export function refreshSnippets(): Promise<Map<string, string>> {
   return listSnippets().then(
     (outcome) => {
-      if (!outcome.ok || !Array.isArray(outcome.snippets)) return roster;
+      if (!outcome.ok || !snippetRecords(outcome.snippets)) return roster;
       publish(new Map(outcome.snippets.map((entry) => [entry.name, entry.text])));
       return roster;
     },
