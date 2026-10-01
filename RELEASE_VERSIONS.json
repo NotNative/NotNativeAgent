@@ -768,6 +768,10 @@
     {
       "version": "20261001-1",
       "content_sha256": "6bd18d4701ad5a84715fc4a6a25ca338d72301db72be4920121e011409c7abc9"
+    },
+    {
+      "version": "20261001-2",
+      "content_sha256": "db8f8a111472e0f490b6673ae26ca83851035329c136b7a92b49f663f6eebeec"
     }
   ]
 }

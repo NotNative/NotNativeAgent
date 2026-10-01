@@ -194,6 +194,9 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
+      for (const key of Object.keys(en).filter((candidate) => candidate.startsWith('shortcuts.label.'))) {
+        expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
+      }
     }
   });
 
@@ -227,6 +230,7 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(interpolate(de['settings.chat.defaultBudget.helper'], { max: 100000000, step: 50000 })).toBe('1000..100000000 Tokens (Schritt 50000)');
     expect(de['settings.shortcuts.resetAll']).toBe('Alle zurücksetzen');
     expect(interpolate(de['settings.shortcuts.replaceable'], { otherActionId: 'focus_input' })).toBe('focus_input wird ersetzt');
+    expect(dictionaryFor('tr')['shortcuts.label.cycle_agent']).toBe('Ajanı değiştir');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
