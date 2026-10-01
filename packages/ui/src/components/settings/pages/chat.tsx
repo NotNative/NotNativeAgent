@@ -103,14 +103,14 @@ export function ChatPage(): ReactNode {
             options={[{ value: 'steer', label: t('settings.chat.steerInFlightTurn') }, { value: 'queue', label: t('settings.chat.queueFollowups') }]}
           />
         </SettingsFieldRow>
-        <SettingsFieldRow label={t('settings.chat.composerInputHistory')} item="chat.input-history" helper="1..100 messages, default 40">
+        <SettingsFieldRow label={t('settings.chat.composerInputHistory')} item="chat.input-history" helper={t('settings.chat.inputHistory.helper', { max: 100, default: 40 })}>
           <SettingsSelect
             value={historyScope.value ?? 'session'}
             resetValue="session"
             onChange={(value) => historyScope.set(value as 'global' | 'session')}
             options={[{ value: 'session', label: t('settings.chat.perSession') }, { value: 'global', label: t('settings.chat.allSessions') }]}
           />
-          <SettingsNumberInput value={historyLimit.value ?? 40} min={1} max={100} step={1} unit="messages" resetValue={40} onChange={historyLimit.set} />
+          <SettingsNumberInput value={historyLimit.value ?? 40} min={1} max={100} step={1} unit={t('settings.chat.inputHistory.unit')} resetValue={40} onChange={historyLimit.set} />
         </SettingsFieldRow>
         <SettingsCheckboxRow label={t('settings.chat.persistDraft')} item="chat.composer-draft" checked={yes(persistDraft.value, true)} onChange={persistDraft.set} />
         <SettingsCheckboxRow label={t('settings.chat.spellcheck')} item="chat.composer-spellcheck" checked={yes(spellcheck.value, true)} onChange={spellcheck.set} />
@@ -176,7 +176,7 @@ export function ChatPage(): ReactNode {
       <SettingsSection title={t('settings.search.sessionGoal')} item="chat.session-goal">
         <SettingsCheckboxRow label={t('settings.chat.enableSessionGoals')} item="chat.session-goal-enabled" checked={yes(goalEnabled.value, false)} onChange={goalEnabled.set} />
         <SettingsCheckboxRow label={t('settings.chat.defaultBudgetAllSessions')} item="chat.session-goal-default" checked={yes(goalBudgetDefault.value, false)} disabled={!yes(goalEnabled.value, false)} onChange={goalBudgetDefault.set} />
-        <SettingsFieldRow label={t('settings.chat.defaultBudgetLabel')} item="chat.session-goal-budget" helper="1000..100000000 tokens (step 50000)">
+        <SettingsFieldRow label={t('settings.chat.defaultBudgetLabel')} item="chat.session-goal-budget" helper={t('settings.chat.defaultBudget.helper', { max: 100000000, step: 50000 })}>
           <SettingsNumberInput value={goalBudget.value ?? 50000} min={1000} max={100000000} step={50000} onChange={goalBudget.set} />
         </SettingsFieldRow>
       </SettingsSection>

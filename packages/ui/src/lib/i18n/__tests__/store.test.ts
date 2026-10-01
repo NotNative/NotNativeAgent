@@ -120,6 +120,9 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.chat.defaultBudgetAllSessions',
         'settings.chat.defaultBudgetLabel',
         'settings.chat.enableSessionGoals',
+        'settings.chat.inputHistory.helper',
+        'settings.chat.inputHistory.unit',
+        'settings.chat.defaultBudget.helper',
         'settings.notifications.enable',
         'settings.notifications.apiUnavailable',
         'settings.notifications.deliver',
@@ -170,6 +173,9 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.search.followUp']).toBe('Folgeverhalten');
     expect(de['settings.chat.steerInFlightTurn']).toBe('Laufenden Durchlauf steuern');
     expect(de['settings.notifications.enable']).toBe('Benachrichtigungen aktivieren');
+    expect(interpolate(de['settings.chat.inputHistory.helper'], { max: 100, default: 40 })).toBe('1..100 Nachrichten, Standard 40');
+    expect(de['settings.chat.inputHistory.unit']).toBe('Nachrichten');
+    expect(interpolate(de['settings.chat.defaultBudget.helper'], { max: 100000000, step: 50000 })).toBe('1000..100000000 Tokens (Schritt 50000)');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
