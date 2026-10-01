@@ -93,7 +93,7 @@ export function ChatPage(): ReactNode {
         </SettingsFieldRow>
       </SettingsSection>
 
-      <SettingsSection title="Composer & history" item="chat.composer">
+      <SettingsSection title={t('settings.chat.composerHistory')} item="chat.composer">
         <SettingsFieldRow label={t('settings.search.followUp')} item="chat.follow-up">
           <SettingsSelect
             value={followUp.value ?? 'steer'}
@@ -102,26 +102,26 @@ export function ChatPage(): ReactNode {
             options={[{ value: 'steer', label: 'Steer in-flight turn' }, { value: 'queue', label: 'Queue follow-ups' }]}
           />
         </SettingsFieldRow>
-        <SettingsFieldRow label="Composer input history" item="chat.input-history" helper="1..100 messages, default 40">
+        <SettingsFieldRow label={t('settings.chat.composerInputHistory')} item="chat.input-history" helper="1..100 messages, default 40">
           <SettingsSelect
             value={historyScope.value ?? 'session'}
             resetValue="session"
             onChange={(value) => historyScope.set(value as 'global' | 'session')}
-            options={[{ value: 'session', label: 'Per session' }, { value: 'global', label: 'All sessions' }]}
+            options={[{ value: 'session', label: t('settings.chat.perSession') }, { value: 'global', label: t('settings.chat.allSessions') }]}
           />
           <SettingsNumberInput value={historyLimit.value ?? 40} min={1} max={100} step={1} unit="messages" resetValue={40} onChange={historyLimit.set} />
         </SettingsFieldRow>
-        <SettingsCheckboxRow label="Persist draft between sessions" item="chat.composer-draft" checked={yes(persistDraft.value, true)} onChange={persistDraft.set} />
-        <SettingsCheckboxRow label="Spellcheck in the composer" item="chat.composer-spellcheck" checked={yes(spellcheck.value, true)} onChange={spellcheck.set} />
-        <SettingsFieldRow label="Large text paste" item="chat.composer-large-paste">
+        <SettingsCheckboxRow label={t('settings.chat.persistDraft')} item="chat.composer-draft" checked={yes(persistDraft.value, true)} onChange={persistDraft.set} />
+        <SettingsCheckboxRow label={t('settings.chat.spellcheck')} item="chat.composer-spellcheck" checked={yes(spellcheck.value, true)} onChange={spellcheck.set} />
+        <SettingsFieldRow label={t('settings.chat.largeTextPaste')} item="chat.composer-large-paste">
           <SettingsSelect
             value={largeTextPaste.value ?? 'ask'}
             resetValue="ask"
             onChange={(value) => largeTextPaste.set(value as 'ask' | 'attach' | 'inline')}
-            options={[{ value: 'ask', label: 'Ask' }, { value: 'attach', label: 'Attach as file' }, { value: 'inline', label: 'Paste inline' }]}
+            options={[{ value: 'ask', label: t('settings.chat.askLargePaste') }, { value: 'attach', label: t('settings.chat.attachAsFile') }, { value: 'inline', label: t('settings.chat.pasteInline') }]}
           />
         </SettingsFieldRow>
-        <SettingsFieldRow label="Enter key sends" item="chat.composer-enter" helper="First choice writes enterToSend + the configured marker">
+        <SettingsFieldRow label={t('settings.chat.enterKeySends')} item="chat.composer-enter">
           <SettingsSelect
             value={yes(enterToSendConfigured.value, false) ? (yes(enterToSend.value, false) ? 'enter' : 'cmdEnter') : 'unset'}
             resetValue="unset"
@@ -135,9 +135,9 @@ export function ChatPage(): ReactNode {
               enterToSendConfigured.set(true);
             }}
             options={[
-              { value: 'unset', label: 'Platform default' },
-              { value: 'enter', label: 'Enter sends' },
-              { value: 'cmdEnter', label: 'Cmd/Ctrl+Enter sends' },
+              { value: 'unset', label: t('settings.chat.platformDefault') },
+              { value: 'enter', label: t('settings.chat.enterSends') },
+              { value: 'cmdEnter', label: t('settings.chat.modifierEnterSends') },
             ]}
           />
         </SettingsFieldRow>

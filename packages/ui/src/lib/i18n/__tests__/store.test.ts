@@ -70,6 +70,20 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.chat.summary',
         'settings.chat.markdown',
         'settings.chat.plainText',
+        'settings.chat.composerHistory',
+        'settings.chat.composerInputHistory',
+        'settings.chat.perSession',
+        'settings.chat.allSessions',
+        'settings.chat.persistDraft',
+        'settings.chat.spellcheck',
+        'settings.chat.largeTextPaste',
+        'settings.chat.askLargePaste',
+        'settings.chat.attachAsFile',
+        'settings.chat.pasteInline',
+        'settings.chat.enterKeySends',
+        'settings.chat.platformDefault',
+        'settings.chat.enterSends',
+        'settings.chat.modifierEnterSends',
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
@@ -91,6 +105,7 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.appearance.languageFormats']).toBe('Sprache und Formate');
     expect(de['settings.appearance.followSystem']).toBe('System folgen');
     expect(de['settings.chat.sorted']).toBe('Sortiert');
+    expect(de['settings.chat.composerHistory']).toBe('Eingabe und Verlauf');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
       'Środowisko testowe — integracja z NotNativeAgent nie jest jeszcze dostępna',
