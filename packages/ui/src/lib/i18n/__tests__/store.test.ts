@@ -38,6 +38,19 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.page.sessions.title',
         'settings.page.shortcuts.title',
         'settings.search.language',
+        'settings.search.themeMode',
+        'settings.search.lightTheme',
+        'settings.search.darkTheme',
+        'settings.search.reloadThemes',
+        'settings.search.timeFormat',
+        'settings.search.weekStart',
+        'settings.search.fontSize',
+        'settings.search.padding',
+        'settings.search.uiFont',
+        'settings.search.monoFont',
+        'settings.search.editorFontSize',
+        'settings.search.terminalFontSize',
+        'settings.search.keymap',
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
@@ -53,6 +66,10 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.window.title']).toBe('Einstellungen');
     expect(de['settings.page.appearance.title']).toBe('Darstellung');
     expect(de['settings.search.language']).toBe('Sprache');
+    expect(de['settings.search.themeMode']).toBe('Darstellungsmodus');
+    expect(de['settings.search.timeFormat']).toBe('Uhrzeitformat');
+    expect(de['settings.search.keymap']).toBe('Tastaturbelegung des Dateieditors');
+    expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
       'Środowisko testowe — integracja z NotNativeAgent nie jest jeszcze dostępna',
     );
