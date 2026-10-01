@@ -21,20 +21,21 @@ import { koShortcuts, plShortcuts, jaShortcuts, trShortcuts, koShortcutLabels, p
 import { deAppearance, frAppearance, zhCNAppearance, zhTWAppearance, ukAppearance, esAppearance, ptBRAppearance, koAppearance, plAppearance, jaAppearance, trAppearance } from './locale-appearance.ts';
 import { deSkillsInventory, frSkillsInventory, zhCNSkillsInventory, zhTWSkillsInventory, ukSkillsInventory, esSkillsInventory, ptBRSkillsInventory, koSkillsInventory, plSkillsInventory, jaSkillsInventory, trSkillsInventory } from './locale-skills-inventory.ts';
 import { deMcpInventory, frMcpInventory, zhCNMcpInventory, zhTWMcpInventory, ukMcpInventory, esMcpInventory, ptBRMcpInventory, koMcpInventory, plMcpInventory, jaMcpInventory, trMcpInventory } from './locale-mcp-inventory.ts';
+import { deMcpConfig, frMcpConfig, zhCNMcpConfig, zhTWMcpConfig, ukMcpConfig, esMcpConfig, ptBRMcpConfig, koMcpConfig, plMcpConfig, jaMcpConfig, trMcpConfig } from './locale-mcp-config.ts';
 import en, { type Dictionary } from './en.ts';
 
 const CATALOGS: Record<string, PartialDictionary> = {
-  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory, ...deMcpInventory },
-  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory, ...frMcpInventory },
-  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory, ...zhCNMcpInventory },
-  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory, ...zhTWMcpInventory },
-  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory, ...ukMcpInventory },
-  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory, ...esMcpInventory },
-  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory, ...ptBRMcpInventory },
-  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory, ...koMcpInventory },
-  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory, ...plMcpInventory },
-  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory, ...jaMcpInventory },
-  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory, ...trMcpInventory },
+  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory, ...deMcpInventory, ...deMcpConfig },
+  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory, ...frMcpInventory, ...frMcpConfig },
+  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory, ...zhCNMcpInventory, ...zhCNMcpConfig },
+  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory, ...zhTWMcpInventory, ...zhTWMcpConfig },
+  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory, ...ukMcpInventory, ...ukMcpConfig },
+  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory, ...esMcpInventory, ...esMcpConfig },
+  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory, ...ptBRMcpInventory, ...ptBRMcpConfig },
+  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory, ...koMcpInventory, ...koMcpConfig },
+  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory, ...plMcpInventory, ...plMcpConfig },
+  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory, ...jaMcpInventory, ...jaMcpConfig },
+  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory, ...trMcpInventory, ...trMcpConfig },
 };
 
 /** Full dictionaries: en complete, others merged over en per §H.2 resolve. */

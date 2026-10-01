@@ -13,6 +13,7 @@ import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { directoryKey, useMcpStore } from '../../../stores/useMcpStore.ts';
 import { useMcpConfigStore } from '../../../stores/useMcpConfigStore.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
+import { useI18nStore } from '../../../lib/i18n/store.ts';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { McpPage } from '../pages/mcp.tsx';
 
@@ -92,9 +93,37 @@ describe('MCP settings page', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     const config = document.querySelector('[data-testid="mcp-config"]');
     expect(config?.textContent).toContain('alpha');
-    expect(config?.textContent).toContain('user scope');
+    expect(config?.textContent).toContain('User scope');
     expect(config?.textContent).toContain('connected');
     expect(document.body.textContent).not.toContain('demo');
+  });
+
+  it('switches workspace copy while an unknown status keeps raw fallback diagnostics', async () => {
+    runtimeFetchMock.mockImplementation((url: unknown, init?: { method?: string }) => {
+      const path = String(url);
+      const method = init?.method ?? 'GET';
+      if (method === 'GET' && path.includes('/api/config/mcp?directory=')) return Promise.resolve(jsonResponse({
+        mcp: { alpha: fixture('alpha', { type: 'local', command: ['demo'] }) },
+      }));
+      if (method === 'GET' && path.includes('/mcp?directory=')) return Promise.resolve(jsonResponse({
+        alpha: { status: 'unrecognized_status' },
+      }));
+      if (path.includes('/v1/nnd/mcp')) return Promise.resolve(jsonResponse({ version: 1, state: 'configured', servers: [] }));
+      return Promise.reject(new Error('unexpected request: ' + path));
+    });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => {
+      useI18nStore.getState().setLocale('de');
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('Arbeitsbereich-MCP-Konfiguration');
+    expect(document.body.textContent).toContain('nicht geprüft');
+    expect(document.body.textContent).toContain('MCP status failed');
+    await act(async () => {
+      useI18nStore.getState().setLocale('en');
+      await Promise.resolve();
+    });
   });
 
   it('rejects a stale NNA inventory response after a runtime switch', async () => {
@@ -216,6 +245,67 @@ describe('MCP settings page', () => {
     expect(document.body.textContent).toContain('connect denied');
   });
 
+  it('reports a rejected delete without changing the pending candidate', async () => {
+    runtimeFetchMock.mockImplementation((url: unknown, init?: { method?: string }) => {
+      const path = String(url);
+      const method = init?.method ?? 'GET';
+      if (method === 'DELETE' && path.includes('/api/config/mcp/alpha')) {
+        return Promise.resolve({ ...jsonResponse({ error: 'delete denied' }), ok: false, status: 400 });
+      }
+      if (method === 'GET' && path.includes('/api/config/mcp?directory=')) return Promise.resolve(jsonResponse({
+        mcp: { alpha: fixture('alpha', { type: 'local', command: ['demo'] }) },
+      }));
+      if (method === 'GET' && path.includes('/mcp?directory=')) return Promise.resolve(jsonResponse({
+        alpha: { status: 'connected' },
+      }));
+      if (path.includes('/v1/nnd/mcp')) return Promise.resolve(jsonResponse({ version: 1, state: 'configured', servers: [] }));
+      return Promise.reject(new Error('unexpected request: ' + path));
+    });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await clickButton('Delete');
+    await clickButton('Confirm delete');
+    expect(document.body.textContent).toContain('delete denied');
+    expect(document.body.textContent).not.toContain('Deleted "alpha"');
+  });
+
+  it('suppresses a deferred save result after a runtime switch', async () => {
+    let resolvePatch!: (response: Response) => void;
+    runtimeFetchMock.mockImplementation((url: unknown, init?: { method?: string }) => {
+      const path = String(url);
+      const method = init?.method ?? 'GET';
+      if (method === 'PATCH' && path.includes('/api/config/mcp/alpha')) {
+        return new Promise<Response>((resolve) => { resolvePatch = resolve; });
+      }
+      if (method === 'GET' && path.includes('/api/config/mcp?directory=')) return Promise.resolve(jsonResponse({
+        mcp: { alpha: fixture('alpha', { type: 'local', command: ['demo'] }) },
+      }));
+      if (method === 'GET' && path.includes('/mcp?directory=')) return Promise.resolve(jsonResponse({
+        alpha: { status: 'connected' },
+      }));
+      if (path.includes('/v1/nnd/mcp')) return Promise.resolve(jsonResponse({ version: 1, state: 'configured', servers: [] }));
+      return Promise.reject(new Error('unexpected request: ' + path));
+    });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await clickButton('Edit');
+    await clickButton('Save');
+    const listener = onRuntimeEndpointChangedMock.mock.calls[0]![0];
+    await act(async () => {
+      listener({
+        apiBaseUrl: 'http://fresh.test', previousApiBaseUrl: 'http://stale.test',
+        previousRuntimeKey: 'stale', runtimeKey: 'fresh',
+      });
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => {
+      resolvePatch(jsonResponse({ ok: true, requiresRestart: true, restartDeferred: true, message: 'updated' }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).not.toContain('Updated "alpha"');
+  });
+
   it('summarizes an NNA server error while retaining its transport detail', async () => {
     runtimeFetchMock.mockImplementation((url: unknown) => {
       const path = String(url);
@@ -249,6 +339,37 @@ describe('MCP settings page', () => {
     });
     expect(document.body.textContent).toContain('MCP share must be an object map');
     expect(input.value).toBe('');
+  });
+
+  it('clears a pasted OAuth code when the runtime switches', async () => {
+    runtimeFetchMock.mockImplementation((url: unknown) => {
+      const path = String(url);
+      if (path.includes('/api/config/mcp?directory=')) return Promise.resolve(jsonResponse({
+        mcp: { alpha: fixture('alpha', { type: 'remote', url: 'https://example.test', oauth: { clientId: 'id' } }) },
+      }));
+      if (path.includes('/mcp?directory=')) return Promise.resolve(jsonResponse({
+        alpha: { status: 'needs_auth' },
+      }));
+      if (path.includes('/v1/nnd/mcp')) return Promise.resolve(jsonResponse({ version: 1, state: 'configured', servers: [] }));
+      return Promise.reject(new Error('unexpected request: ' + path));
+    });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await clickButton('Authorize');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      const input = inputByPlaceholder('authorization code');
+      setter.call(input, 'stale-runtime-code');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const listener = onRuntimeEndpointChangedMock.mock.calls[0]![0];
+    await act(async () => {
+      listener({
+        apiBaseUrl: 'http://fresh.test', previousApiBaseUrl: 'http://stale.test',
+        previousRuntimeKey: 'stale', runtimeKey: 'fresh',
+      });
+    });
+    expect(inputByPlaceholder('authorization code').value).toBe('');
   });
 
   it('closes a scoped draft when the active directory changes', async () => {

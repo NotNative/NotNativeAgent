@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c7edc4549dc8381936e8fbd1847d831407e009dc2e9936b4708b38d8f713109a",
+  "source_digest": "sha256:85f07e6dd90a5df09b26d92fe068e9a6277516fe219cb172a6f2712ca504a649",
   "counts": {
-    "modules": 623,
+    "modules": 625,
     "component_edges": 14
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 178
+      "module_count": 179
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 161
+      "module_count": 162
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 232,
-      "module_count": 97
+      "import_count": 234,
+      "module_count": 98
     },
     {
       "from": "ui-shell",
@@ -1577,7 +1577,7 @@
       ]
     },
     {
-      "path": "packages/ui/src/components/settings/pages/mcp.tsx",
+      "path": "packages/ui/src/components/settings/pages/mcp-inventory.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
@@ -1585,6 +1585,18 @@
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/mcp.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/mcp-inventory.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/stores/useMcpConfigStore.ts",
         "packages/ui/src/stores/useMcpStore.ts",
@@ -2363,6 +2375,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-mcp-config.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2414,6 +2434,7 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-c.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-d.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
+        "packages/ui/src/lib/i18n/messages/locale-mcp-config.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",

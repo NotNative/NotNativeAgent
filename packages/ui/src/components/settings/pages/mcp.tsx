@@ -5,7 +5,6 @@
  * the NNA inventory intentionally exposes no commands or endpoints.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { harnessClient } from '../../../lib/nnd/client.ts';
 import { directoryKey, useMcpStore } from '../../../stores/useMcpStore.ts';
 import {
   type McpDraft,
@@ -23,21 +22,9 @@ import {
 } from '../primitives.tsx';
 import { useI18n } from '../../I18nProvider.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { NnaMcpInventory } from './mcp-inventory.tsx';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 
-interface McpServer {
-  id: string;
-  transport: 'stdio' | 'streamable_http';
-  enabled: boolean;
-  trusted: boolean;
-}
-
-function validServer(value: unknown): value is McpServer {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const item = value as Record<string, unknown>;
-  return typeof item.id === 'string' && ['stdio', 'streamable_http'].includes(String(item.transport))
-    && typeof item.enabled === 'boolean' && typeof item.trusted === 'boolean';
-}
 
 export function McpPage(): ReactNode {
   return (
@@ -49,6 +36,7 @@ export function McpPage(): ReactNode {
 }
 
 function WorkspaceMcpConfig(): ReactNode {
+  const { t } = useI18n();
   const activeDirectory = useSessionViewStore((state) => state.activeDirectory);
   const source = directoryKey(activeDirectory);
   const configs = useMcpConfigStore((state) => state.configsByDirectory[source]);
@@ -87,6 +75,7 @@ function WorkspaceMcpConfig(): ReactNode {
       setRuntimeRevision((value) => value + 1);
       setNotice(null);
       setActionError(null);
+      setAuthCodeByName({});
       setAuthUrlByName({});
       setDeleteCandidate(null);
       setPendingName(null);
@@ -142,7 +131,11 @@ function WorkspaceMcpConfig(): ReactNode {
     if (!McpName.isName(name)) return;
     const { result: outcome, stale } = await startAction(name, () =>
       useMcpConfigStore.getState().deleteEntry(name, activeDirectory));
-    if (stale || outcome === null || !outcome.ok) return;
+    if (stale || outcome === null) return;
+    if (!outcome.ok) {
+      setActionError(outcome.error);
+      return;
+    }
     setDeleteCandidate(null);
     setNotice(`Deleted "${name}". Restart OpenCode to apply.`);
     setRevision((value) => value + 1);
@@ -216,12 +209,12 @@ function WorkspaceMcpConfig(): ReactNode {
   return (
     <section className="mb-4 rounded-lg border border-border/35 p-3">
       <div className="flex items-center justify-between gap-3">
-        <SettingsGroupTitle>Workspace MCP configuration</SettingsGroupTitle>
+        <SettingsGroupTitle>{t('settings.mcp.config.title')}</SettingsGroupTitle>
         <div className="flex items-center gap-2 text-xs">
           <button type="button" className={ACTION_BUTTON_CLASS + ' min-w-11'} disabled={configLoading || statusLoading}
-            onClick={() => setRevision((value) => value + 1)}>Refresh</button>
+            onClick={() => setRevision((value) => value + 1)}>{t('settings.mcp.config.refresh')}</button>
           <button type="button" className={ACTION_BUTTON_CLASS + ' bg-primary/15 text-primary'} disabled={draft !== null}
-            onClick={() => openDraft(newDraft())}>New</button>
+            onClick={() => openDraft(newDraft())}>{t('settings.mcp.config.new')}</button>
           <input type="file" ref={importFileRef} accept=".json,application/json" className="hidden" data-testid="mcp-import-input"
             disabled={configLoading || statusLoading || draft !== null}
             onChange={(event) => {
@@ -230,21 +223,21 @@ function WorkspaceMcpConfig(): ReactNode {
               if (file) void importShare(file);
             }} />
           <button type="button" className={ACTION_BUTTON_CLASS} disabled={configLoading || statusLoading || draft !== null || pendingName !== null}
-            onClick={() => importFileRef.current?.click()}>Import JSON</button>
+            onClick={() => importFileRef.current?.click()}>{t('settings.mcp.config.importJson')}</button>
         </div>
       </div>
       <p className="mb-2 text-xs text-muted-foreground">
-        OpenCode config changes defer until restart. Connection status is the mock/NNA runtime view, not a guarantee.
+        {t('settings.mcp.config.description')}
       </p>
 
-      {configLoading || statusLoading ? <p role="status" className="text-xs text-muted-foreground">Loading MCP…</p> : null}
+      {configLoading || statusLoading ? <p role="status" className="text-xs text-muted-foreground">{t('settings.mcp.config.loading')}</p> : null}
       {!configLoading && configError !== undefined ? <p role="alert" className="text-xs text-destructive">{configError}</p> : null}
       {!statusLoading && statusError !== undefined ? <p role="alert" className="text-xs text-destructive">{statusError}</p> : null}
       {actionError !== null ? <p role="alert" className="text-xs text-destructive">{actionError}</p> : null}
       {notice !== null ? <p role="status" className="text-xs text-primary">{notice}</p> : null}
 
       {!configLoading && !configError && records?.length === 0
-        ? <p className="text-xs text-muted-foreground">No workspace MCP records. Choose New to add one.</p> : null}
+        ? <p className="text-xs text-muted-foreground">{t('settings.mcp.config.empty')}</p> : null}
 
       {!configLoading && !configError && records?.map((record) => {
         const status = statuses?.[record.name];
@@ -255,11 +248,11 @@ function WorkspaceMcpConfig(): ReactNode {
           <div key={record.name} className="mt-2 rounded-md border border-border/45 p-3" data-testid="mcp-config">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="font-medium text-foreground">{record.name}</div>
-              <span className={STATUS_BADGE_CLASS[statusLabel] ?? STATUS_BADGE_CLASS.unknown}>{statusLabel.replace('_', ' ')}</span>
+              <span className={STATUS_BADGE_CLASS[statusLabel] ?? STATUS_BADGE_CLASS.unknown}>{t(STATUS_LABEL_KEY[statusLabel] ?? 'settings.mcp.status.unverified')}</span>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {record.scope} scope · {record.type === 'local' ? 'local process' : 'remote'} ·
-              {' '}{record.enabled ? 'enabled' : 'disabled'}
+              {record.scope === 'user' ? t('settings.mcp.config.record.userScope') : t('settings.mcp.config.record.projectScope')} · {record.type === 'local' ? t('settings.mcp.config.record.localProcess') : t('settings.mcp.config.record.remote')} ·
+              {' '}{record.enabled ? t('settings.mcp.config.record.enabled') : t('settings.mcp.config.record.disabled')}
             </div>
             {status?.status === 'failed' || status?.status === 'needs_client_registration' ? (
               <div role="alert" className="mt-1 text-xs text-destructive">{{ failed: status.error, needs_client_registration: status.error }[status.status]}</div>
@@ -267,21 +260,21 @@ function WorkspaceMcpConfig(): ReactNode {
 
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <button type="button" className={ACTION_BUTTON_CLASS} disabled={draft !== null || busy}
-                onClick={() => openDraft(draftFromRecord(record))}>Edit</button>
+                onClick={() => openDraft(draftFromRecord(record))}>{t('settings.mcp.config.action.edit')}</button>
 
               {deleteCandidate === record.name ? (
                 <button type="button" className={ACTION_BUTTON_CLASS + ' border-destructive/50 text-destructive'} disabled={busy}
-                  onClick={() => { void confirmDelete(record.name); }}>Confirm delete</button>
+                  onClick={() => { void confirmDelete(record.name); }}>{t('settings.mcp.config.action.confirmDelete')}</button>
               ) : (
                 <button type="button" className={ACTION_BUTTON_CLASS} disabled={draft !== null || busy}
-                  onClick={() => setDeleteCandidate(record.name)}>Delete</button>
+                  onClick={() => setDeleteCandidate(record.name)}>{t('settings.mcp.config.action.delete')}</button>
               )}
 
               {record.enabled ? (
                 <>
                   <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy}
                     onClick={() => { void connectAction(record.name, () => useMcpStore.getState().connect(record.name, activeDirectory)); }}>
-                    Connect
+                    {t('settings.mcp.config.action.connect')}
                   </button>
                   <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy}
                   onClick={() => {
@@ -296,15 +289,15 @@ function WorkspaceMcpConfig(): ReactNode {
                         }));
                   }}
                   >
-                    Test
+                    {t('settings.mcp.config.action.test')}
                   </button>
                   <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy}
                     onClick={() => { void connectAction(record.name, () => useMcpStore.getState().disconnect(record.name, activeDirectory)); }}>
-                    Disconnect
+                    {t('settings.mcp.config.action.disconnect')}
                   </button>
                   {record.type === 'remote' && needsAuth ? (
                     <button type="button" className={ACTION_BUTTON_CLASS + ' bg-primary/15 text-primary'} disabled={busy}
-                      onClick={() => { void startOAuth(record.name); }}>Authorize</button>
+                      onClick={() => { void startOAuth(record.name); }}>{t('settings.mcp.config.action.authorize')}</button>
                   ) : null}
                   {record.type === 'remote' && needsAuth ? (
                     <div className="flex w-full flex-wrap items-center gap-2 pt-1">
@@ -312,7 +305,7 @@ function WorkspaceMcpConfig(): ReactNode {
                         value={authCodeByName[record.name] ?? ''} disabled={busy}
                         onChange={(event) => setAuthCodeByName((state) => ({ ...state, [record.name]: event.target.value }))} />
                       <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy}
-                        onClick={() => void completeOAuth(record.name)}>Complete auth</button>
+                        onClick={() => void completeOAuth(record.name)}>{t('settings.mcp.config.action.completeAuth')}</button>
                       {authUrlByName[record.name] !== undefined ? (
                         <a className={ACTION_LINK_CLASS} href={authUrlByName[record.name]} target="_blank" rel="noreferrer"
                           onClick={(event) => {
@@ -320,7 +313,7 @@ function WorkspaceMcpConfig(): ReactNode {
                             try { safe = ['https:', 'http:'].includes(new URL(authUrlByName[record.name]!).protocol); }
                             catch { safe = false; }
                             if (!safe) { event.preventDefault(); setActionError('authorization URL is not HTTP or HTTPS'); }
-                          }}>Open browser auth</a>
+                          }}>{t('settings.mcp.config.action.openBrowserAuth')}</a>
                       ) : null}
                     </div>
                   ) : null}
@@ -340,7 +333,7 @@ function WorkspaceMcpConfig(): ReactNode {
             options={[{ value: 'user', label: 'User scope' }, { value: 'project', label: 'Project scope' }]}
             onChange={(value) => patchDraft({ scope: value as 'user' | 'project' })} />
           {draft.scope === 'project' && activeDirectory === ''
-            ? <p className="mt-1 text-xs text-destructive">A project workspace is required for project scope.</p> : null}
+            ? <p className="mt-1 text-xs text-destructive">{t('settings.mcp.config.projectRequired')}</p> : null}
           <SettingsFieldRow label="Server name" item="mcp.draft.name" helper={draft.isNew ? 'lowercase letters, digits, hyphen, underscore' : 'locked'}>
             <input type="text" data-testid="mcp-draft-name" className={TEXT_INPUT_CLASS} value={draft.name} disabled={!draft.isNew}
               onChange={(event) => patchDraft({ name: event.target.value.toLowerCase() })} />
@@ -418,13 +411,21 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   unverified: 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground',
 };
 
+const STATUS_LABEL_KEY: Record<string, I18nKey> = {
+  connected: 'settings.mcp.status.connected',
+  disabled: 'settings.mcp.status.disabled',
+  failed: 'settings.mcp.status.failed',
+  needs_auth: 'settings.mcp.status.needsAuth',
+  needs_client_registration: 'settings.mcp.status.needsClientRegistration',
+  unknown: 'settings.mcp.status.unknown',
+  unverified: 'settings.mcp.status.unverified',
+};
+
 const McpName = {
   isName(name: string): boolean {
     return /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/u.test(name);
   },
 };
-
-type InventoryError = { kind: 'localized'; key: I18nKey } | { kind: 'raw'; message: string };
 
 function DraftRows({ value, onChange }: {
   value: Array<{ key: string; value: string }>; onChange: (rows: Array<{ key: string; value: string }>) => void;
@@ -444,79 +445,5 @@ function DraftRows({ value, onChange }: {
       ))}
       <button type="button" className={ACTION_BUTTON_CLASS} onClick={() => onChange([...value, { key: '', value: '' }])}>Add row</button>
     </div>
-  );
-}
-
-function NnaMcpInventory(): ReactNode {
-  const { t } = useI18n();
-  const [servers, setServers] = useState<McpServer[] | null>(null);
-  const [error, setError] = useState<InventoryError | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [revision, setRevision] = useState(0);
-  const requestEpoch = useRef(0);
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
-
-  useEffect(() => {
-    const epoch = ++requestEpoch.current;
-    let current = true;
-    setLoading(true);
-    void harnessClient.getNnaMcpInventory().then((result) => {
-      if (!current || epoch !== requestEpoch.current) return;
-      const inventory = result.data;
-      if (result.error || inventory?.version !== 1 || inventory.state !== 'configured'
-        || !Array.isArray(inventory.servers) || !inventory.servers.every(validServer)) {
-        setServers(null);
-        setError(result.error
-          ? { kind: 'raw', message: result.error }
-          : { kind: 'localized', key: 'settings.mcp.inventory.invalid' });
-      } else {
-        setServers(inventory.servers);
-        setError(null);
-      }
-    }).catch(() => {
-      if (current && epoch === requestEpoch.current) {
-        setServers(null);
-        setError({ kind: 'localized', key: 'settings.mcp.inventory.unavailable' });
-      }
-    }).finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
-  }, [revision]);
-
-  useEffect(() => {
-    const off = onRuntimeEndpointChanged(() => {
-      requestEpoch.current += 1;
-      setServers(null);
-      setError(null);
-      setRevision((value) => value + 1);
-    });
-    return () => { off(); requestEpoch.current += 1; };
-  }, []);
-
-  return (
-    <section className="rounded-lg border border-border/35 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <SettingsGroupTitle>{t('settings.mcp.inventory.title')}</SettingsGroupTitle>
-        <button data-testid="mcp-inventory-refresh" type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>{t('settings.mcp.inventory.refresh')}</button>
-      </div>
-      <p className="text-xs text-muted-foreground">{t('settings.mcp.inventory.description')}</p>
-      {loading ? <p role="status" className="text-xs text-muted-foreground">{t('settings.mcp.inventory.loading')}</p> : null}
-      {!loading && error && error.kind === 'raw' ? (
-        <p role="alert" className="text-xs text-destructive">{t('settings.mcp.inventory.rawErrorAction')} <code>{error.message}</code></p>
-      ) : !loading && error ? (
-        <p role="alert" className="text-xs text-destructive">{t(error.kind === 'raw' ? 'settings.mcp.inventory.rawErrorAction' : error.key)}</p>
-      ) : null}
-      {!loading && servers?.length === 0 ? <p className="text-xs text-muted-foreground">{t('settings.mcp.inventory.empty')}</p> : null}
-      {!loading && servers?.map((server) => (
-        <div key={server.id} className="rounded-md border border-border/40 p-3 text-xs" data-testid="mcp-server">
-          <div className="flex items-center gap-2 font-medium text-foreground">
-            <span>{server.id}</span>
-            <span className={`rounded px-1.5 py-0.5 text-[10px] ${server.enabled ? 'bg-primary/15 text-primary' : 'bg-interactive-hover/40 text-muted-foreground'}`}>
-              {server.enabled ? t('settings.mcp.inventory.enabled') : t('settings.mcp.inventory.disabled')}
-            </span>
-          </div>
-          <div className="mt-1 text-muted-foreground">{server.transport === 'stdio' ? t('settings.mcp.inventory.localProcess') : t('settings.mcp.inventory.httpTransport')} · {server.trusted ? t('settings.mcp.inventory.trusted') : t('settings.mcp.inventory.untrusted')} · {t('settings.mcp.inventory.unverified')}</div>
-        </div>
-      ))}
-    </section>
   );
 }
