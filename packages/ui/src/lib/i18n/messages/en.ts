@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-/**
- * Canonical English dictionary (doc 14 §H.2): the flat dotted key→string map;
- * the exported I18nKey type is the CLOSED key set — non-EN catalogs may only
- * carry subsets. P5-4 scope: shell/boot-notification keys; the settings
- * surfaces grow their namespaces as their pages land (§Letters A–E in
- * PROGRESS).
- */
+import { enNnaRoutes } from './en-nna-routes.ts';
+/** Canonical English dictionary (doc 14 §H.2); I18nKey is the CLOSED key set. */
 
 const en = {
+  ...enNnaRoutes,
   'app.title': 'NotNativeDesktop',
   'shell.sessions': 'Sessions',
   'shell.newSession': 'New session',

@@ -2,9 +2,11 @@
 /** Applies saved provider routing only to NNA sessions created after this action. */
 import { useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
+import { useI18n } from '../../I18nProvider.tsx';
 import { useGlobalSyncStore } from '../../../sync/global-stores.ts';
 
 export function ProviderRouteActivation({ onApplied }: { onApplied: () => void }): ReactNode {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apply = async (): Promise<void> => {
@@ -16,7 +18,7 @@ export function ProviderRouteActivation({ onApplied }: { onApplied: () => void }
       if (result.error || typeof route?.providerID !== 'string' || !route.providerID.trim()
         || typeof route.modelID !== 'string' || !route.modelID.trim()
         || result.data?.existing_sessions_unchanged !== true) {
-        setError(result.error ?? 'NNA did not confirm provider routing activation.');
+        setError(result.error ?? t('settings.providers.route.activation.notConfirmed'));
       } else {
         const previous = useGlobalSyncStore.getState().config;
         const nnd = previous?.nnd && typeof previous.nnd === 'object' && !Array.isArray(previous.nnd)
@@ -28,13 +30,13 @@ export function ProviderRouteActivation({ onApplied }: { onApplied: () => void }
         } });
         onApplied();
       }
-    } catch { setError('NNA route activation is unavailable.'); }
+    } catch { setError(t('settings.providers.route.activation.unavailable')); }
     finally { setBusy(false); }
   };
   return <div className="mt-2">
-    <button type="button" disabled={busy} onClick={() => { void apply(); }}
+    <button type="button" data-testid="activate-provider-routing" disabled={busy} onClick={() => { void apply(); }}
       className="rounded border border-amber-500/40 px-2 py-1 text-xs text-foreground disabled:opacity-50">
-    {busy ? 'Applying routing…' : 'Apply saved provider routing to new sessions'}
+    {busy ? t('settings.providers.route.activation.applying') : t('settings.providers.route.activation.apply')}
     </button>
     {error ? <p role="alert" className="mt-1 text-xs text-destructive">{error}</p> : null}
   </div>;
