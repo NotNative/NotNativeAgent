@@ -2,6 +2,18 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Browser push registration controls · 20261001-29
+
+Added Register, Unsubscribe, and Refresh to notification settings for supported
+secure browsers connected to the application origin. User-click permission
+and root worker validation precede server registration; only acknowledged
+registration is shown as confirmed. Existing browser subscriptions can renew
+their credential ownership. Failed changes remain explicitly unconfirmed.
+Adversarial audit repaired failed-unsubscribe status, stale post-await reads,
+and registration timeout coverage. Fifteen focused tests, the full UI suite
+(1549/1549), and workspace typechecks pass. Visibility heartbeats, event delivery, session navigation,
+and live browser acceptance remain open.
+
 ## 2026-10-01 · PWA push worker · 20261001-28
 
 The shipped service worker displays bounded push notification text, including

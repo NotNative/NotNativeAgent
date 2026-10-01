@@ -13,6 +13,7 @@ import {
 import { useSettingsField } from '../page-helpers.tsx';
 import { useI18n } from '../../I18nProvider.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { BrowserPushControl } from './browser-push-control.tsx';
 
 const TEMPLATE_EVENTS = ['completion', 'error', 'question', 'subtask'] as const;
 type TemplateEvent = (typeof TEMPLATE_EVENTS)[number];
@@ -33,6 +34,7 @@ export function NotificationsPage(): ReactNode {
 
   return (
     <div className="flex flex-col gap-3">
+      <BrowserPushControl />
       <SettingsSection item="notifications.master">
         <SettingsGroupTitle>{t('settings.search.notifications')}</SettingsGroupTitle>
         <SettingsCheckboxRow

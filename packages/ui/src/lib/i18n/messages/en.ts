@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { enReviewMode } from './en-review-mode.ts';
+import { enBrowserPush } from './en-browser-push.ts';
 import enFilesView from './en-files-view.ts';
 import enScheduled from './en-scheduled.ts';
 import enRuntime from './en-runtime.ts';
@@ -17,6 +18,7 @@ import { enProviders } from './en-providers.ts';
 
 const en = {
   ...enReviewMode,
+  ...enBrowserPush,
   ...enDesktopSsh,
   ...enRemoteInstances,
   ...enDesktopGenerals,

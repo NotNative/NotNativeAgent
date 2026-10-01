@@ -42,10 +42,23 @@ navigation depends on the remaining main GUI routing implementation.
 The worker still performs no fetch interception or precaching. Public assets
 are included in the release hash manifest and version seal.
 
+## Browser registration controls
+
+Notification settings expose Register, Unsubscribe, and Refresh for a supported
+secure browser connected to the application origin. Permission is requested
+from the Register click, before worker/network awaits. Registration uses the
+root application worker and the server's VAPID key; only acknowledged server
+registration is reported as confirmed. A subscription found in the browser
+alone is shown as existing and can be re-registered to renew ownership.
+Failed operations retain retry controls and do not claim confirmed state.
+Runtime identity/origin checks prevent continuing against a switched instance.
+Unsubscribe removes the server record before ending the browser subscription;
+server failure leaves the browser subscription available for retry.
+
 ## Remaining delivery slice
 
 Registration alone does not complete Web Push. Encrypted bounded outbound
 delivery, event triggers, expired destination removal, notification settings
-and visibility suppression, user-initiated browser subscription, session
+and visibility suppression, visibility heartbeats, session
 navigation from notifications, and live browser acceptance remain open. Registration
 does not infer a public server origin from an arbitrary request field.
