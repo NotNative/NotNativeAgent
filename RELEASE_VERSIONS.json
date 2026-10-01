@@ -668,6 +668,10 @@
     {
       "version": "20260930-91",
       "content_sha256": "daa10a17346cd67444c0aa885eb6abc2ff0518e90f002eebc769835f08899602"
+    },
+    {
+      "version": "20260930-92",
+      "content_sha256": "de12c631fd0abb9c3c80524311df627f2e40a47233827df0a8f245ced11cb83b"
     }
   ]
 }

@@ -3700,7 +3700,7 @@ configuration import only; live SSH transport is still outstanding.
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
-| D9 | PWA manifest link + install/push hooks | P4/P11 | server endpoint exists; HTML prelude simplified |
+| D9 | PWA manifest link + install/push hooks | P4/P11 | ✅ HTML links the existing manifest endpoint; web and packaged-app routing are tested. Install/push hooks remain open. |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
 | D11 | control-stream consumers | P2 (doc 04) | Baseline sync, queue/interruption, memory, and scheduled-task consumers are shipped; new event types add consumers with their owning slices. |
 | D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |
@@ -3805,3 +3805,10 @@ configuration import only; live SSH transport is still outstanding.
   defects. Full UI tests pass (1458/1458), full web tests pass (1254/1254), both
   package typechecks pass, and the production web build is covered by release
   gates. Version 20260930-91.
+- **2026-09-30 · P4 PWA manifest discovery.** The HTML shell now links the
+  existing manifest endpoint. Adversarial review found the custom Electron UI
+  origin could not serve the API-generated manifest; the protocol now forwards
+  only that exact route, preserving query parameters and HEAD. Manifest route
+  tests pass (2/2), Electron protocol tests pass (6/6), web suite passes
+  (1256/1256), and web typecheck passes. Install/push hooks and service-worker
+  update UX remain open. Version 20260930-92.

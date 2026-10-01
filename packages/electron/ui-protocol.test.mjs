@@ -49,6 +49,30 @@ test('missing file assets fail closed while extensionless client routes get the 
   assert.equal((await handler({ url: 'notnative-ui://app/sessions/active', method: 'GET' })).status, 200);
 });
 
+test('manifest requests from the packaged app origin reach the local server and preserve query and HEAD', async () => {
+  const calls = [];
+  const handler = createUiProtocolHandler({
+    webDistDir: 'web-dist', apiOrigin: 'http://127.0.0.1:57123',
+    fetchFile: async (url, options) => {
+      calls.push({ url, method: options.method });
+      return new Response(options.method === 'HEAD' ? null : '{"name":"Review Desk"}', {
+        headers: { 'content-type': 'application/manifest+json', 'cache-control': 'no-store' },
+      });
+    },
+  });
+  const response = await handler({ url: 'notnative-ui://app/manifest.webmanifest?appName=Review%20Desk', method: 'GET' });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/manifest+json');
+  assert.equal(await response.text(), '{"name":"Review Desk"}');
+  const head = await handler({ url: 'notnative-ui://app/manifest.webmanifest?orientation=portrait-primary', method: 'HEAD' });
+  assert.equal(head.status, 200);
+  assert.equal(head.body, null);
+  assert.deepEqual(calls, [
+    { url: 'http://127.0.0.1:57123/manifest.webmanifest?appName=Review%20Desk', method: 'GET' },
+    { url: 'http://127.0.0.1:57123/manifest.webmanifest?orientation=portrait-primary', method: 'HEAD' },
+  ]);
+});
+
 test('file assets preserve MIME and cache headers, reject symlink escapes, and honor HEAD', async () => {
   const root = path.resolve('web-dist');
   const inside = path.join(root, 'assets', 'app.js');
