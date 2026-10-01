@@ -708,6 +708,10 @@
     {
       "version": "20260930-101",
       "content_sha256": "18ad7da2aafbfb1e34ee244ad4c3a8391053406ba7b2c1c48c7dcd8da4565e14"
+    },
+    {
+      "version": "20260930-102",
+      "content_sha256": "2e859841cc1503481dc958ee46346a91c45bb076ee334313f0626d5402fe96ba"
     }
   ]
 }

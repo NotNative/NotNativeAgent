@@ -51,6 +51,18 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.search.editorFontSize',
         'settings.search.terminalFontSize',
         'settings.search.keymap',
+        'settings.appearance.languageFormats',
+        'settings.appearance.typographySpacing',
+        'settings.appearance.followSystem',
+        'settings.appearance.light',
+        'settings.appearance.dark',
+        'settings.appearance.reloading',
+        'settings.appearance.reloadAction',
+        'settings.appearance.auto',
+        'settings.appearance.monday',
+        'settings.appearance.sunday',
+        'settings.appearance.defaultKeymap',
+        'settings.appearance.vimKeymap',
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
@@ -69,6 +81,8 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.search.themeMode']).toBe('Darstellungsmodus');
     expect(de['settings.search.timeFormat']).toBe('Uhrzeitformat');
     expect(de['settings.search.keymap']).toBe('Tastaturbelegung des Dateieditors');
+    expect(de['settings.appearance.languageFormats']).toBe('Sprache und Formate');
+    expect(de['settings.appearance.followSystem']).toBe('System folgen');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
       'Środowisko testowe — integracja z NotNativeAgent nie jest jeszcze dostępna',

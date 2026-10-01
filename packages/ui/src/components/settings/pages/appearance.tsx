@@ -50,9 +50,9 @@ export function AppearancePage(): ReactNode {
           item="appearance.theme-mode"
           value={mode}
           options={[
-            { value: 'system', label: 'Follow system' },
-            { value: 'light', label: 'Light' },
-            { value: 'dark', label: 'Dark' },
+            { value: 'system', label: t('settings.appearance.followSystem') },
+            { value: 'light', label: t('settings.appearance.light') },
+            { value: 'dark', label: t('settings.appearance.dark') },
           ]}
           onChange={(value) => setMode(value as 'system' | 'light' | 'dark')}
         />
@@ -73,12 +73,12 @@ export function AppearancePage(): ReactNode {
             disabled={themesLoading}
             onClick={() => void reloadThemes()}
           >
-            {themesLoading ? 'Reloading…' : 'Reload themes'}
+            {themesLoading ? t('settings.appearance.reloading') : t('settings.appearance.reloadAction')}
           </button>
         </SettingsFieldRow>
       </SettingsSection>
 
-      <SettingsSection title="Language & formats">
+      <SettingsSection title={t('settings.appearance.languageFormats')}>
         <SettingsFieldRow label={t('settings.search.language')} item="appearance.language">
           <SettingsSelect
             value={locale}
@@ -93,7 +93,7 @@ export function AppearancePage(): ReactNode {
             resetValue="auto"
             onChange={(value) => timeFormat.set(value as TimeFormatPreference)}
             options={[
-              { value: 'auto', label: 'Auto' },
+              { value: 'auto', label: t('settings.appearance.auto') },
               { value: '24h', label: '24 h' },
               { value: '12h', label: '12 h' },
             ]}
@@ -105,15 +105,15 @@ export function AppearancePage(): ReactNode {
             resetValue="auto"
             onChange={(value) => weekStart.set(value as 'auto' | 'sunday' | 'monday')}
             options={[
-              { value: 'auto', label: 'Auto' },
-              { value: 'monday', label: 'Monday' },
-              { value: 'sunday', label: 'Sunday' },
+              { value: 'auto', label: t('settings.appearance.auto') },
+              { value: 'monday', label: t('settings.appearance.monday') },
+              { value: 'sunday', label: t('settings.appearance.sunday') },
             ]}
           />
         </SettingsFieldRow>
       </SettingsSection>
 
-      <SettingsSection title="Typography & spacing">
+      <SettingsSection title={t('settings.appearance.typographySpacing')}>
         <SettingsFieldRow label={t('settings.search.fontSize')} item="appearance.interface-font-size">
           <SettingsNumberInput value={fontSize.value ?? 100} min={50} max={200} step={5} unit="%" resetValue={100} onChange={fontSize.set} />
         </SettingsFieldRow>
@@ -137,7 +137,7 @@ export function AppearancePage(): ReactNode {
         <SettingsFieldRow label={t('settings.search.keymap')} item="appearance.file-editor-keymap">
           <SettingsRadioGroup
             value={fileEditorKeymap.value ?? 'default'}
-            options={[{ value: 'default', label: 'Default' }, { value: 'vim', label: 'Vim' }]}
+            options={[{ value: 'default', label: t('settings.appearance.defaultKeymap') }, { value: 'vim', label: t('settings.appearance.vimKeymap') }]}
             onChange={(value) => fileEditorKeymap.set(value as 'default' | 'vim')}
           />
         </SettingsFieldRow>

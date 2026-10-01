@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:53541a5f7f6f0556c6f7e5b12704342847323a80476e9c20a70c476f544deaab",
+  "source_digest": "sha256:2fc1b9ae7b112968661b07100e41c6d530486776e46999fedcc156dcdddf6bf2",
   "counts": {
-    "modules": 612,
+    "modules": 614,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 167
+      "module_count": 169
     },
     {
       "id": "ui-shell",
@@ -2310,11 +2310,29 @@
       "imports": []
     },
     {
-      "path": "packages/ui/src/lib/i18n/messages/locales.ts",
+      "path": "packages/ui/src/lib/i18n/messages/locale-catalogs-a.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-catalogs-b.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locales.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/i18n/messages/locale-catalogs-a.ts",
+        "packages/ui/src/lib/i18n/messages/locale-catalogs-b.ts"
       ]
     },
     {
