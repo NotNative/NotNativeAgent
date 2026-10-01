@@ -3733,4 +3733,10 @@ configuration import only; live SSH transport is still outstanding.
   overwriting a concurrent PATCH. A two-process regression preserves disjoint
   concurrent updates; focused settings tests (12/12) and web typecheck pass.
   Queue dispatch arbitration and installed GUI acceptance remain open.
+- **2026-09-30 · P13 queue arbitration audit.** Confirmed that two servers can
+  load and dispatch the same persisted head because the in-flight marker is
+  process-local. A simple delivery lock conflicts with the existing restart
+  replay contract, and stale snapshots can still overwrite concurrent queue
+  mutations. Fixing this safely needs a shared mutation protocol and an
+  explicit lifecycle/idempotency policy; no partial lock was retained.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

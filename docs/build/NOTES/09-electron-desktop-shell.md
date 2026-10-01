@@ -577,7 +577,9 @@ remaining P12 slices ride after it.
 - **D-09-24** Settings PATCH handlers serialize read/modify/write across server
   processes with the shared preferences config lock. Lazy seed creation uses
   atomic no-replace publication, so a concurrent first write cannot be
-  clobbered by a delayed GET. Queue delivery still needs cross-process claims.
+  clobbered by a delayed GET. Queue dispatch remains process-local: a plain
+  delivery claim conflicts with restart replay and does not serialize queue
+  mutations, so shared lifecycle/idempotency semantics are still required.
 
 - link head `openchamber://connect?v=2&p=` is SEALED by the pairing suites —
   deep-link registration (P12b) registers the `openchamber` scheme VERBATIM.
