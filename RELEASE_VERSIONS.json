@@ -720,6 +720,10 @@
     {
       "version": "20260930-104",
       "content_sha256": "e6dbfc50e0583570b380f21922e3fdac7defc4da9617978127014fb4e7974fa0"
+    },
+    {
+      "version": "20260930-105",
+      "content_sha256": "deafbf754d8af2ed51d92506b57845bb7a85b39a58f4f850c03463ac788c03cb"
     }
   ]
 }

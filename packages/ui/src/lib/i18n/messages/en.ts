@@ -159,6 +159,8 @@ const en = {
   'settings.search.inputHistory': 'Input history',
   'settings.search.reasoning': 'Reasoning traces',
   'settings.search.streaming': 'Streaming auto-follow',
+  'settings.chat.reasoningStreaming': 'Reasoning & streaming',
+  'settings.chat.collapsibleThinking': 'Collapsible thinking blocks',
   'settings.search.messageAppearance': 'Message appearance',
   'settings.search.toolsFiles': 'Tools and files',
   'settings.search.composer': 'Composer',

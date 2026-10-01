@@ -143,9 +143,9 @@ export function ChatPage(): ReactNode {
         </SettingsFieldRow>
       </SettingsSection>
 
-      <SettingsSection title="Reasoning & streaming">
+      <SettingsSection title={t('settings.chat.reasoningStreaming')}>
         <SettingsCheckboxRow label={t('settings.search.reasoning')} item="chat.reasoning-traces" checked={yes(traces.value, false)} onChange={traces.set} />
-        <SettingsCheckboxRow label="Collapsible thinking blocks" item="chat.reasoning-collapsible" checked={yes(collapsibleThinking.value, true)} disabled={!yes(traces.value, false)} onChange={collapsibleThinking.set} />
+        <SettingsCheckboxRow label={t('settings.chat.collapsibleThinking')} item="chat.reasoning-collapsible" checked={yes(collapsibleThinking.value, true)} disabled={!yes(traces.value, false)} onChange={collapsibleThinking.set} />
         <SettingsCheckboxRow label={t('settings.search.streaming')} item="chat.streaming-follow" checked={yes(autoFollow.value, true)} onChange={autoFollow.set} />
       </SettingsSection>
 

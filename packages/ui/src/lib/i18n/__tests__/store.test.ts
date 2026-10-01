@@ -84,6 +84,10 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.chat.platformDefault',
         'settings.chat.enterSends',
         'settings.chat.modifierEnterSends',
+        'settings.search.reasoning',
+        'settings.search.streaming',
+        'settings.chat.reasoningStreaming',
+        'settings.chat.collapsibleThinking',
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
@@ -106,6 +110,7 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.appearance.followSystem']).toBe('System folgen');
     expect(de['settings.chat.sorted']).toBe('Sortiert');
     expect(de['settings.chat.composerHistory']).toBe('Eingabe und Verlauf');
+    expect(de['settings.chat.reasoningStreaming']).toBe('Begründung und Streaming');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
       'Środowisko testowe — integracja z NotNativeAgent nie jest jeszcze dostępna',
