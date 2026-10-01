@@ -17,6 +17,7 @@ vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { registerRuntimeAPIs } from '../../../lib/api/registry.ts';
 import * as serverFiles from '../../../lib/files/server-api.ts';
+import * as serverGit from '../../../lib/git/server-api.ts';
 import type { RuntimeAPIs } from '../../../lib/api/types.ts';
 import { FilesView } from '../FilesView.tsx';
 import { FileTree } from '../FileTree.tsx';
@@ -58,7 +59,7 @@ let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
 beforeEach(() => {
-  registerRuntimeAPIs({ files: {
+  registerRuntimeAPIs({ git: serverGit, files: {
     listDirectory: serverFiles.listDirectory, search: serverFiles.searchWorkspaceFiles,
     readFileStat: serverFiles.readFileStat, readFileText: serverFiles.readFileText,
     writeFileText: serverFiles.writeFileText, rawAssetUrl: serverFiles.rawAssetUrl,

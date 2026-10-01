@@ -4,11 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../runtime-fetch.ts';
+import { registerRuntimeAPIs } from '../../api/registry.ts';
+import * as serverGit from '../server-api.ts';
+import type { RuntimeAPIs } from '../../api/types.ts';
 import { useGitStore } from '../store.ts';
 
 const fetchMock = vi.mocked(runtimeFetch);
 
 beforeEach(() => {
+  registerRuntimeAPIs({ git: serverGit } as unknown as RuntimeAPIs);
   fetchMock.mockReset();
   useGitStore.getState().__resetForTests();
 });

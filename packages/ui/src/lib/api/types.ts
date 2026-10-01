@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import type { GitApi } from '../git/types.ts';
 /**
  * RuntimeAPIs — the instance-adapter contract (doc 01 §3.3).
  * P0 ships the boot-critical members fully typed; Git grows with doc 06.
@@ -99,10 +100,8 @@ export interface FilesApi {
 
 export interface RuntimeFileStat { path: string; isFile: boolean; exists?: boolean; size: number; mtimeMs: number }
 
-// ── git (~60 methods; exact contract doc 06) ─────────────────────────────────
-export interface GitApi {
-  [method: string]: unknown;
-}
+// ── git (scoped review operations from doc 06) ───────────────────────────────
+export type { GitApi } from '../git/types.ts';
 
 export interface PermissionsApi {
   requestDirectoryAccess(options: { path: string }): Promise<boolean>;

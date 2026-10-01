@@ -71,10 +71,10 @@ land with PA0020), and deltas for the multi-session build.
   are DESKTOP-runtime grants (§2.8); the web build issues none and the
   server 403s grant attempts — grant plumbing lands with P12/doc 08.
 - **E-06-5** (registered P6-2 review): the web RuntimeAPIs adapter exposes
-  all scoped Files methods through the shared server client. Shared UI
-  consumers use a runtime-neutral facade backed by the registered adapter;
-  transport-neutral file errors no longer import the web transport. Git
-  remains a throwing stub with its contract not yet implemented.
+  the scoped Files and 13 existing Git operations through their shared server
+  clients. Shared UI consumers use runtime-neutral facades backed by the
+  registered adapter; Files and Git transport code stays behind the web
+  adapter, and Git status derivation remains pure.
 - **E-06-6** (registered P6-2 review): sidebar tree deltas of §2.9a
   (uploads, marquee names, drag-drop) + gitignored heuristics ride P6-3/the
   sidebar surface; `search` remains bounds-limited (depth 3 / 100 dirs

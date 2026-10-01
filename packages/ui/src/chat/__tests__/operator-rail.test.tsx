@@ -13,6 +13,7 @@ import { harnessClient } from '../../lib/nnd/client.ts';
 import * as runtimeFetch from '../../lib/runtime-fetch.ts';
 import { registerRuntimeAPIs } from '../../lib/api/registry.ts';
 import * as serverFiles from '../../lib/files/server-api.ts';
+import * as serverGit from '../../lib/git/server-api.ts';
 import type { RuntimeAPIs } from '../../lib/api/types.ts';
 import { useGitStore } from '../../lib/git/store.ts';
 
@@ -25,7 +26,7 @@ let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
 beforeEach(() => {
-  registerRuntimeAPIs({ files: {
+  registerRuntimeAPIs({ git: serverGit, files: {
     listDirectory: serverFiles.listDirectory, search: serverFiles.searchWorkspaceFiles,
     readFileStat: serverFiles.readFileStat, readFileText: serverFiles.readFileText,
     writeFileText: serverFiles.writeFileText, rawAssetUrl: serverFiles.rawAssetUrl,

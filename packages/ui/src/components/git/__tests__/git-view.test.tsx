@@ -19,6 +19,9 @@ vi.mock('sonner', () => ({
 }));
 
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
+import { registerRuntimeAPIs } from '../../../lib/api/registry.ts';
+import * as serverGit from '../../../lib/git/server-api.ts';
+import type { RuntimeAPIs } from '../../../lib/api/types.ts';
 import { GitView } from '../GitView.tsx';
 import type { GitStatus } from '../../../lib/git/api.ts';
 import { I18nProvider } from '../../I18nProvider.tsx';
@@ -77,6 +80,7 @@ let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
 beforeEach(() => {
+  registerRuntimeAPIs({ git: serverGit } as unknown as RuntimeAPIs);
   fetchMock.mockImplementation(async (input: string) => route(String(input)));
   useGitStore.getState().__resetForTests();
   __resetReviewRefreshForTests();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 ﻿import type { RuntimeAPIs } from '@notnative/ui/lib/api/types.ts';
 import { createRealTerminalApi } from '@notnative/ui/lib/api/terminal-adapter.ts';
+import * as gitApi from '@notnative/ui/lib/git/server-api.ts';
 import {
   createDirectory as createWorkspaceDirectory,
   deleteEntry,
@@ -39,9 +40,7 @@ export function createWebAPIs(): RuntimeAPIs {
   return {
     runtime: { platform: 'web', isDesktop: false, isVSCode: false, label: 'web' },
     terminal: createRealTerminalApi(), // SLICE-B: the live PTY seam over the terminal lib (doc 07)
-    git: new Proxy({}, { get: (_t, prop) => () => {
-      throw new Error(`git.${String(prop)} is not wired in the web runtime adapter`);
-    } }),
+    git: createWebGitApi(),
     files: {
       listDirectory: listWorkspaceDirectory,
       search: searchWorkspaceFiles,
@@ -86,5 +85,23 @@ export function createWebAPIs(): RuntimeAPIs {
         return ['mock-read', 'mock-echo'];
       },
     },
+  };
+}
+
+function createWebGitApi(): RuntimeAPIs['git'] {
+  return {
+    fetchGitStatus: gitApi.fetchGitStatus,
+    fetchGitBranches: gitApi.fetchGitBranches,
+    checkoutLocalBranch: gitApi.checkoutLocalBranch,
+    createLocalBranch: gitApi.createLocalBranch,
+    fetchGitLog: gitApi.fetchGitLog,
+    fetchGitDiff: gitApi.fetchGitDiff,
+    fetchGitFileDiff: gitApi.fetchGitFileDiff,
+    stageGitFiles: gitApi.stageGitFiles,
+    unstageGitFiles: gitApi.unstageGitFiles,
+    discardGitFiles: gitApi.discardGitFiles,
+    applyGitHunk: gitApi.applyGitHunk,
+    commitChanges: gitApi.commitChanges,
+    syncGitBranch: gitApi.syncGitBranch,
   };
 }

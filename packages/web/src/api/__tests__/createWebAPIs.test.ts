@@ -14,6 +14,14 @@ const fileApi = vi.hoisted(() => ({
 
 vi.mock('@notnative/ui/lib/files/server-api.ts', () => fileApi);
 
+const gitApi = vi.hoisted(() => ({
+  fetchGitStatus: vi.fn(), fetchGitBranches: vi.fn(), checkoutLocalBranch: vi.fn(),
+  createLocalBranch: vi.fn(), fetchGitLog: vi.fn(), fetchGitDiff: vi.fn(),
+  fetchGitFileDiff: vi.fn(), stageGitFiles: vi.fn(), unstageGitFiles: vi.fn(),
+  discardGitFiles: vi.fn(), applyGitHunk: vi.fn(), commitChanges: vi.fn(), syncGitBranch: vi.fn(),
+}));
+vi.mock('@notnative/ui/lib/git/server-api.ts', () => gitApi);
+
 import { createWebAPIs } from '../createWebAPIs.ts';
 
 describe('web RuntimeAPIs files adapter', () => {
@@ -48,5 +56,46 @@ describe('web RuntimeAPIs files adapter', () => {
     expect(fileApi.createDirectory).toHaveBeenCalledWith('D:/workspace', 'src/new');
     expect(fileApi.deleteEntry).toHaveBeenCalledWith('D:/workspace', 'src/old.ts');
     expect(fileApi.renameEntry).toHaveBeenCalledWith('D:/workspace', 'src/old.ts', 'src/new.ts');
+  });
+});
+
+describe('web RuntimeAPIs Git adapter', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('delegates every supported scoped Git operation to the shared server client', async () => {
+    const api = createWebAPIs();
+    const status = { isGitRepository: true, branch: 'main', trackingBehind: 0, trackingAhead: 0, files: [] };
+    gitApi.fetchGitStatus.mockResolvedValue(status);
+    for (const method of Object.keys(gitApi) as (keyof typeof gitApi)[]) {
+      if (method !== 'fetchGitStatus') gitApi[method].mockResolvedValue(undefined);
+    }
+
+    await expect(api.git.fetchGitStatus('D:/work', 'full')).resolves.toBe(status);
+    await api.git.fetchGitBranches('D:/work');
+    await api.git.checkoutLocalBranch('D:/work', 'feature', 'main');
+    await api.git.createLocalBranch('D:/work', 'feature', 'main');
+    await api.git.fetchGitLog('D:/work', 12);
+    await api.git.fetchGitDiff('D:/work', 'a.ts', { staged: true, contextLines: 5 });
+    await api.git.fetchGitFileDiff('D:/work', 'a.ts', false);
+    await api.git.stageGitFiles('D:/work', ['a.ts']);
+    await api.git.unstageGitFiles('D:/work', ['a.ts']);
+    await api.git.discardGitFiles('D:/work', ['a.ts']);
+    await api.git.applyGitHunk('D:/work', 'a.ts', 'patch', 'stage');
+    await api.git.commitChanges('D:/work', 'commit');
+    await api.git.syncGitBranch('D:/work');
+
+    expect(gitApi.fetchGitStatus).toHaveBeenCalledWith('D:/work', 'full');
+    expect(gitApi.fetchGitBranches).toHaveBeenCalledWith('D:/work');
+    expect(gitApi.checkoutLocalBranch).toHaveBeenCalledWith('D:/work', 'feature', 'main');
+    expect(gitApi.createLocalBranch).toHaveBeenCalledWith('D:/work', 'feature', 'main');
+    expect(gitApi.fetchGitLog).toHaveBeenCalledWith('D:/work', 12);
+    expect(gitApi.fetchGitDiff).toHaveBeenCalledWith('D:/work', 'a.ts', { staged: true, contextLines: 5 });
+    expect(gitApi.fetchGitFileDiff).toHaveBeenCalledWith('D:/work', 'a.ts', false);
+    expect(gitApi.stageGitFiles).toHaveBeenCalledWith('D:/work', ['a.ts']);
+    expect(gitApi.unstageGitFiles).toHaveBeenCalledWith('D:/work', ['a.ts']);
+    expect(gitApi.discardGitFiles).toHaveBeenCalledWith('D:/work', ['a.ts']);
+    expect(gitApi.applyGitHunk).toHaveBeenCalledWith('D:/work', 'a.ts', 'patch', 'stage');
+    expect(gitApi.commitChanges).toHaveBeenCalledWith('D:/work', 'commit');
+    expect(gitApi.syncGitBranch).toHaveBeenCalledWith('D:/work');
   });
 });

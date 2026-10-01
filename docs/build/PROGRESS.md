@@ -3696,7 +3696,7 @@ configuration import only; live SSH transport is still outstanding.
 | D2 | Real auth (password/passkey) | P8/P12 | ✅ Local password/passkey auth and desktop credential issuance shipped; relay/tunnel flows retain their separately documented credential limits. |
 | D3 | PWA manifest endpoint, SW update UX | P4 | P0 uses fallback manifest |
 | D4 | GitHub/Linear/push integrations | P3/P4 | API members stubbed behind RuntimeAPIs optional fields |
-| D5 | Git/files RuntimeAPIs bodies | P6 | All shared Files methods now route through RuntimeAPIs; the web adapter supplies the existing scoped server client. Git remains a throwing stub. |
+| D5 | Git/files RuntimeAPIs bodies | P6 | All shared Files methods and 13 existing Git operations route through RuntimeAPIs; the web adapter supplies the scoped server clients. |
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
@@ -3798,3 +3798,10 @@ configuration import only; live SSH transport is still outstanding.
   are transport-neutral. Full UI tests pass (1457/1457), full web tests pass
   (1253/1253), and both package typechecks pass. Git RuntimeAPIs remains
   deferred. Version 20260930-90.
+- **2026-09-30 · P12 Git runtime adapter.** The complete existing 13-operation
+  Git client now has a typed RuntimeAPIs contract and runtime-neutral facade;
+  the web adapter delegates to the existing scoped server client. Git status
+  derivation stays transport-free. The adversarial review found no confirmed
+  defects. Full UI tests pass (1458/1458), full web tests pass (1254/1254), both
+  package typechecks pass, and the production web build is covered by release
+  gates. Version 20260930-91.
