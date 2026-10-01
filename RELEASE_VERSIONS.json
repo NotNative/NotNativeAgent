@@ -828,6 +828,10 @@
     {
       "version": "20261001-37",
       "content_sha256": "1abda2f4354a3bd9a9ae4b16bc4238f1f6e4c19ba8d7f9de30093dcbe13ab846"
+    },
+    {
+      "version": "20261001-38",
+      "content_sha256": "bd1a76c91eca8cf52f0a5be61c36be2278297a973eaf775d7673f7520421d83f"
     }
   ]
 }

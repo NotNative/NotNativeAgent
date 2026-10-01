@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:17c138e75cdd3fc1ac7b9ec4b63fc69762fdad40f43630940b6f01e6b587b49b",
+  "source_digest": "sha256:7038e6db38acb6f55c8a518422c17b63180d6a2aa33421e25f47478ed252947a",
   "counts": {
-    "modules": 703,
+    "modules": 704,
     "component_edges": 15
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 220
+      "module_count": 221
     },
     {
       "id": "web-entry",
@@ -5364,6 +5364,7 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/settings-gate.ts",
+        "packages/web/src/server/push/registration-origin.ts",
         "packages/web/src/server/scheduled/config-lock.ts"
       ]
     },
@@ -5830,6 +5831,16 @@
       ]
     },
     {
+      "path": "packages/web/src/server/push/registration-origin.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/pairing-candidates.ts",
+        "packages/web/src/server/lib/http/request-security.ts",
+        "packages/web/src/server/push/subscription-store.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/push/routes.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5837,8 +5848,10 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/push/authority.ts",
         "packages/web/src/server/push/badge-state.ts",
+        "packages/web/src/server/push/registration-origin.ts",
         "packages/web/src/server/push/subscription-schema.ts",
         "packages/web/src/server/push/subscription-store.ts",
         "packages/web/src/server/push/visibility.ts"
@@ -6789,6 +6802,7 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/lib/http/request-security.ts",
+        "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/terminal/protocol.ts",
         "packages/web/src/server/terminal/records.ts",
         "packages/web/src/server/terminal/session-core.ts"

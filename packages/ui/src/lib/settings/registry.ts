@@ -39,7 +39,7 @@ export interface SettingsField {
   computed?: boolean;
   /** LOCAL_DEVICE_KEYS analog: device-scoped, store-local, never synced. */
   local?: boolean;
-  owner?: 'desktop-shell';
+  owner?: 'desktop-shell' | 'server';
   autoSave?: boolean;
   uiField?: string;
   note?: string;
@@ -60,6 +60,7 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   f('darkThemeId', 'profile', pStr({ max: 128 }), { perSurface: true, uiField: 'theme' }),
 
   // Workspace & instance facts
+  f('publicOrigin', 'instance', pStr({ max: 2048 }), { owner: 'server', note: 'first validated Web Push registration origin; never client-autosaved' }),
   f('lastDirectory', 'instance', pStr({ trim: true, max: 2048 }), { adopt: 'bootstrap-only' }),
   f('homeDirectory', 'instance', pStr({ trim: true, max: 2048 })),
   f('opencodeBinary', 'instance', pStr({ trim: true, max: 2048, allowEmpty: true }), { note: 'harness binary path (brand pass pending, D13); empty clears the override' }),

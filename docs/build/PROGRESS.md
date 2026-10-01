@@ -2,6 +2,29 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · First Web Push registration origin · 20261001-38
+
+Browser registration now submits the actual application origin. NND validates
+the secure/loopback URL and binds it to the request Origin and host/forwarded
+host before storing a subscription. Old clients may omit the field. After a
+successful subscription write, a shared settings lock records the first origin
+and preserves existing configuration. The server-owned registry field cannot
+be overwritten by client autosaves or ordinary settings patches. Terminal
+WebSocket upgrades use the persisted origin.
+
+Focused checks cover authenticated registration, malformed/mismatched origins,
+failed subscription/settings writes, existing legacy settings, competing server
+processes, unrelated settings patches, and a real WebSocket upgrade. Browser
+registration and registry tests pass (21 tests); workspace typechecks pass.
+Adversarial repairs make registration retries reconcile failed or missing
+settings mirrors, advance the mirror digest only after successful persistence,
+preserve legacy origins in the canonical store, and support HTTP loopback
+throughout 127/8. All 44 focused web tests and the full 1393-test web/server
+suite pass. Live NND-to-NNA source integration passes. The refreshed graph
+covers 704 modules; release gates and the version seal precede commit.
+Installed-browser acceptance, optional notification model text, and the broader
+plan remain open.
+
 ## 2026-10-01 · Native NNA operator questions · 20261001-37
 
 Native NND root sessions now use NNA's question broker. The existing GUI cards

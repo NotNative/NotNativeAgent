@@ -65,7 +65,7 @@ export async function enableBrowserPush(): Promise<void> {
     captured.current();
     const data = subscription.toJSON();
     if (!data.endpoint || !data.keys?.p256dh || !data.keys.auth) throw new Error('Browser subscription is incomplete');
-    await captured.api.subscribe({ endpoint: data.endpoint, keys: { p256dh: data.keys.p256dh, auth: data.keys.auth }, platform: 'web' });
+    await captured.api.subscribe({ endpoint: data.endpoint, keys: { p256dh: data.keys.p256dh, auth: data.keys.auth }, platform: 'web', origin: window.location.origin });
     captured.current();
   } finally { working = false; }
 }

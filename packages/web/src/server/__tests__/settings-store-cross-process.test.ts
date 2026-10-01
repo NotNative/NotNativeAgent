@@ -16,7 +16,9 @@ const childScript = [
   // Signal only after module initialization, immediately before the locked
   // write, so the parent-held lock assertion observes real contenders.
   "writeFileSync(process.env.READY_FILE, 'ready');",
-  "await store.writeSettingsPatchLocked(JSON.parse(process.env.PATCH), 'web');",
+  "const patch = JSON.parse(process.env.PATCH);",
+  "if (patch.publicOrigin) await store.recordPublicOriginIfUnset(patch.publicOrigin, () => true);",
+  "else await store.writeSettingsPatchLocked(patch, 'web');",
   "writeFileSync(process.env.DONE_FILE, 'done');",
 ].join('\n');
 
@@ -75,5 +77,16 @@ describe('settings store cross-process writes', () => {
     const doc = JSON.parse(readFileSync(prefs, 'utf8')) as { fields: Record<string, { value?: unknown; surfaces?: Record<string, { value?: unknown }> }> };
     expect(doc.fields.chatRenderMode?.value).toBe('sorted');
     expect(doc.fields.fontSize?.surfaces?.web?.value).toBe(123);
+  });
+  it('keeps exactly one first registration origin across server processes and reloads', async () => {
+    const first = runWriter('publicOrigin', 'https://first.example', 'origin-first');
+    const second = runWriter('publicOrigin', 'https://second.example', 'origin-second');
+    await Promise.all([first.exited, second.exited]);
+    const canonical = JSON.parse(readFileSync(prefs, 'utf8')).fields.publicOrigin.value;
+    expect(['https://first.example', 'https://second.example']).toContain(canonical);
+    expect(JSON.parse(readFileSync(join(scratch, 'settings.json'), 'utf8')).publicOrigin).toBe(canonical);
+    const store = await import('../lib/settings-store.ts');
+    expect(store.readPublicOrigin()).toBe(canonical);
+    expect(store.readMergedSettings('web').chatRenderMode).toBe('sorted');
   });
 });

@@ -25,6 +25,7 @@ import { attachTerminalWebsocket } from '../terminal/wire.ts';
 import { TerminalRuntime } from '../terminal/session-core.ts';
 import type { PtyFactory } from '../terminal/pty-backend.ts';
 import type { Hono as HonoType } from 'hono';
+import { recordPublicOriginIfUnset } from '../lib/settings-store.ts';
 
 const HELLO_WAIT_MS = 1_500;
 const RAW_TIMEOUT_MS = 5_000;
@@ -214,6 +215,14 @@ describe('terminal WS upgrade origin gate (doc 08 section 9, wire.ts)', () => {
       `Origin: http://127.0.0.1:${port}`,
     ]);
     expect(verdict).toBe('refused'); // 'a, b' parses as no origin: the gate must not read this as absent
+  });
+
+  it('uses the persisted first registration origin without requiring proxy headers on later upgrades', async () => {
+    await recordPublicOriginIfUnset('https://registered.example', () => true);
+    const { socket, open, messages } = dialsWith({ origin: 'https://registered.example', host: 'rewritten.internal:3000' });
+    await open;
+    expect(await firstHello(messages)).toMatchObject({ v: 3, t: 'hello' });
+    socket.close();
   });
 
   it('bracketed IPv6 Host/Origin parity upgrades (443 stripped on both sides)', { timeout: 10_000 }, async () => {

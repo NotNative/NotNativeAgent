@@ -38,7 +38,7 @@ describe('browser push registration', () => {
     expect(serviceWorker.register).not.toHaveBeenCalled();
     await pending;
     expect(registration.pushManager.subscribe).toHaveBeenCalledWith(expect.objectContaining({ userVisibleOnly: true, applicationServerKey: expect.any(Uint8Array) }));
-    expect(runtime.push.subscribe).toHaveBeenCalledWith({ endpoint: subscription.endpoint, keys: { p256dh: 'key', auth: 'secret' }, platform: 'web' });
+    expect(runtime.push.subscribe).toHaveBeenCalledWith({ endpoint: subscription.endpoint, keys: { p256dh: 'key', auth: 'secret' }, platform: 'web', origin: window.location.origin });
   });
 
   it('reads existing subscription without prompting or registering it', async () => {

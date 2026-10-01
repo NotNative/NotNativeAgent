@@ -60,6 +60,22 @@ registration is reported as confirmed. A subscription found in the browser
 alone is shown as existing and can be re-registered to renew ownership.
 Failed operations retain retry controls and do not claim confirmed state.
 Runtime identity/origin checks prevent continuing against a switched instance.
+The browser includes its actual application origin during registration. The
+server accepts HTTPS or HTTP loopback origins, rejects credentials, paths,
+queries, fragments, and malformed values, and matches the value to the Origin
+header when present and the request host/first forwarded host. Omitted origins
+remain compatible with older clients.
+
+After a successful subscription write, the server records the first validated
+origin in `preferences.json` and the `settings.json` mirror under the shared
+settings lock. The captured credential authority is rechecked at that boundary.
+Existing configured origins are preserved, including legacy operator settings.
+The registry marks this instance fact as server-owned: client autosaves and
+ordinary settings patches cannot replace it. Terminal upgrades consume the
+persisted origin without requiring forwarded-host headers on every connection.
+Corrupt settings or failed persistence leave an explicit registration failure;
+retry uses the existing browser subscription and reconciles a failed or missing
+legacy mirror. Existing legacy origins enter the canonical store unchanged.
 Unsubscribe removes the server record before ending the browser subscription;
 server failure leaves the browser subscription available for retry.
 
@@ -157,6 +173,6 @@ authoritative pending reads from current NNA and explicit live-event-only
 coverage for older NNA versions without that read. Live browser acceptance
 remains open under doc 03 §5.37. Badge count/reset behavior is implemented;
 installed-browser badge acceptance remains required.
-Registration does not infer a public server origin from an arbitrary request
-field. Optional model-generated notification text remains open; current event
+First-registration public-origin handling is implemented with the validated
+request binding above. Optional model-generated notification text remains open; current event
 delivery uses the shared configured template/fallback classifier.

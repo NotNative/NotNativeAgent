@@ -14,6 +14,7 @@ import { TERMINAL_WS_MAX_PAYLOAD_BYTES, TERMINAL_WS_PATH, encodeFrame } from './
 import { TerminalRuntime } from './session-core.ts';
 import { originAdmittedByHeaders } from '../lib/http/request-security.ts';
 import type { SocketLike } from './records.ts';
+import { readPublicOrigin } from '../lib/settings-store.ts';
 
 export const SERVER_WS_PING_INTERVAL_MS = 15_000;
 export const TERMINAL_WS_CLOSE_GRACE_MS = 1_000; // section 4.8: ws.close() with a 1 s race-fallback
@@ -48,7 +49,7 @@ export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRun
       originHeader: headers.get('origin'),
       hostHeader: headers.get('host'),
       forwardedHostHeader: headers.get('x-forwarded-host'),
-    }, null, process.env.NOTNATIVE_DESKTOP_UI_ORIGIN)) {
+    }, readPublicOrigin(), process.env.NOTNATIVE_DESKTOP_UI_ORIGIN)) {
       socket.destroy();
       return;
     }

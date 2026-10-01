@@ -20,7 +20,7 @@ export interface SnapshotField {
   secret?: boolean;
   computed?: boolean;
   local?: boolean;
-  owner?: 'desktop-shell';
+  owner?: 'desktop-shell' | 'server';
 }
 
 interface RegistrySnapshot {

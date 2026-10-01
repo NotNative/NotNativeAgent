@@ -7,8 +7,10 @@ import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { pushEndpoint, pushSubscription } from './subscription-schema.ts';
 import { PushStoreError, PushSubscriptionStore } from './subscription-store.ts';
 import { PushVisibility } from './visibility.ts';
-import { pushGrant, type PushAuthority } from './authority.ts';
+import { pushAuthorityActive, pushGrant, type PushAuthority } from './authority.ts';
 import { PushBadges } from './badge-state.ts';
+import { pushRegistrationOrigin } from './registration-origin.ts';
+import { recordPublicOriginIfUnset } from '../lib/settings-store.ts';
 type PushRouteApp = Hono<{ Variables: { pushOwner: string; pushAuthority: PushAuthority | undefined } }>;
 
 export function pushCredentialOwner(request: Request): string | null {
@@ -40,8 +42,10 @@ export function createPushRoutes(options: { store?: PushSubscriptionStore; visib
     const body = await readJsonBodyBounded(context.req.raw, 16_384);
     const entry = pushSubscription(body, context.get('pushOwner'), now());
     if (!entry) throw new PushStoreError('Invalid push subscription', 400);
+    const origin = pushRegistrationOrigin(body?.origin, context.req.raw);
     entry.authority = context.get('pushAuthority');
     await store.subscribe(entry);
+    if (origin) await recordPublicOriginIfUnset(origin, () => pushAuthorityActive(entry.authority));
     return { ok: true };
   }));
   app.delete('/api/push/subscribe', async (context) => guarded(async () => {

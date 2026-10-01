@@ -20,6 +20,7 @@ import {
   registrySnapshot,
 } from './settings-gate.ts';
 import type { SurfaceKind } from './settings-gate.ts';
+import { normalizedPublicOrigin } from '../push/registration-origin.ts';
 
 const PREFERENCES_FILE = joinPath(ENV.dataDir, 'preferences.json');
 const SETTINGS_FILE = joinPath(ENV.dataDir, 'settings.json');
@@ -147,9 +148,9 @@ function refreshSettingsMirror(fields: Record<string, StoredFieldValue>): void {
     kept[key] = field.value;
   }
   const digest = JSON.stringify(kept);
-  if (digest === mirrorDigest) return;
-  mirrorDigest = digest;
+  if (digest === mirrorDigest && existsSync(SETTINGS_FILE)) return;
   writeAtomic(SETTINGS_FILE, kept);
+  mirrorDigest = digest;
 }
 
 export interface PatchOutcome {
@@ -222,6 +223,47 @@ export function writeSettingsPatch(patch: Record<string, unknown>, kind: Surface
  * lock, so concurrent desktop/server instances preserve unrelated fields. */
 export function writeSettingsPatchLocked(patch: Record<string, unknown>, kind: SurfaceKind): Promise<PatchOutcome> {
   return withConfigLock(PREFERENCES_FILE, async () => writeSettingsPatch(patch, kind));
+}
+
+/** Security: only validated registration can set this instance fact; normal
+ * settings patches cannot write server-owned registry fields. */
+export function recordPublicOriginIfUnset(origin: string, authorized: () => boolean): Promise<void> {
+  return withConfigLock(PREFERENCES_FILE, async () => {
+    if (!authorized()) throw new Error('Push registration authority expired');
+    if (normalizedPublicOrigin(origin) !== origin) throw new Error('Invalid public origin');
+    seedPreferencesFromSettings();
+    const prefs = preferenceDoc();
+    if (!prefs) throw new Error('Public origin preferences cannot be read');
+    const legacy = readJson(SETTINGS_FILE);
+    if (existsSync(SETTINGS_FILE) && (!legacy || typeof legacy !== 'object' || Array.isArray(legacy))) {
+      throw new Error('Public origin settings cannot be read');
+    }
+    const configured = prefs.fields.publicOrigin?.value;
+    const existing = configured === undefined || configured === null || configured === ''
+      ? (legacy as Record<string, unknown> | undefined)?.publicOrigin : configured;
+    if (existing !== undefined && existing !== null && existing !== '') {
+      if (!normalizedPublicOrigin(existing)) throw new Error('Stored public origin is invalid');
+      // Compatibility: retain a legacy configured origin in the canonical store.
+      if (configured !== existing) {
+        prefs.fields.publicOrigin = { value: existing, updatedAt: new Date().toISOString() };
+        writeAtomic(PREFERENCES_FILE, prefs);
+      }
+      // Invariant: retry must finish a mirror write that failed after canonical persistence.
+      refreshSettingsMirror(prefs.fields);
+      return;
+    }
+    prefs.fields.publicOrigin = { value: origin, updatedAt: new Date().toISOString() };
+    writeAtomic(PREFERENCES_FILE, prefs);
+    refreshSettingsMirror(prefs.fields);
+    notifySettingsWrite(['publicOrigin']);
+  });
+}
+
+export function readPublicOrigin(): string | null {
+  const prefs = preferenceDoc();
+  const legacy = readJson(SETTINGS_FILE) as Record<string, unknown> | undefined;
+  const configured = prefs?.fields.publicOrigin?.value;
+  return normalizedPublicOrigin(configured === undefined || configured === null || configured === '' ? legacy?.publicOrigin : configured);
 }
 
 function canShowOnSurface(key: string, kind: SurfaceKind): boolean {

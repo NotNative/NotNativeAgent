@@ -77,6 +77,6 @@ read establishes `pendingCoverage: 'complete'`.
 
 ## Remaining coverage
 
-Installed-browser push/badge acceptance, optional model-authored notification
-text, and first-registration public-origin handling also remain open in note
-21. Native APNs and mobile remain within the approved mobile deferral.
+Installed-browser push/badge acceptance and optional model-authored notification
+text remain open in note 21. Native APNs and mobile remain within the approved
+mobile deferral.
