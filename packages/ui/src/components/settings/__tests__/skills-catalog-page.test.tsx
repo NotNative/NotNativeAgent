@@ -29,6 +29,7 @@ vi.mock('../../../lib/runtime-switch.ts', async (importOriginal) => {
 import { installSkills, loadSkillCatalog, loadSkillCatalogSource } from '../../../lib/skills-api.ts';
 import { useSkillsCatalogStore } from '../../../stores/useSkillsCatalogStore.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
+import { I18nProvider } from '../../I18nProvider.tsx';
 import { SkillsCatalogPage } from '../pages/skills-catalog.tsx';
 
 const catalogMock = loadSkillCatalog as ReturnType<typeof vi.fn>;
@@ -55,7 +56,7 @@ function mount(): void {
   container = document.createElement('div');
   document.body.appendChild(container);
   rootHandle = createRoot(container);
-  act(() => { rootHandle!.render(<SkillsCatalogPage />); });
+  act(() => { rootHandle!.render(<I18nProvider><SkillsCatalogPage /></I18nProvider>); });
 }
 
 function click(button: Element): void {
@@ -109,7 +110,7 @@ describe('skills catalog settings page', () => {
     const rows = [...document.querySelectorAll('[data-testid="skill-catalog-item"]')];
     expect(rows).toHaveLength(2);
     expect(rows[0]!.textContent).toContain('review description');
-    expect(rows[1]!.textContent).toContain('Installed · project');
+    expect(rows[1]!.textContent).toContain('Installed · Project');
     expect(document.body.textContent).toContain('Workspace: D:/workspace');
   });
 

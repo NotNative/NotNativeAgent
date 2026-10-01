@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:287bd5483b27b7069e23664f78c9901a38589593653f8e4b9469f7b28cf61dfb",
+  "source_digest": "sha256:39924ce26a52656d882aa413fdae5013716f0705e3cf83f51cba80d1659e38aa",
   "counts": {
-    "modules": 633,
+    "modules": 634,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 187
+      "module_count": 188
     },
     {
       "id": "ui-shell",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 239,
+      "import_count": 240,
       "module_count": 101
     },
     {
@@ -1712,7 +1712,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/skills-api.ts",
         "packages/ui/src/stores/useSkillsCatalogStore.ts",
@@ -2483,6 +2485,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-skills-catalog.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-skills-inventory.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2519,6 +2529,7 @@
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",
+        "packages/ui/src/lib/i18n/messages/locale-skills-catalog.ts",
         "packages/ui/src/lib/i18n/messages/locale-skills-inventory.ts",
         "packages/ui/src/lib/i18n/messages/locale-snippets.ts"
       ]

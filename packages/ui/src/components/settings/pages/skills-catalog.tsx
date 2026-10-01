@@ -2,19 +2,32 @@
 /** Configured skill source browsing backed by the P10-37 catalog store. */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
+import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { useSkillsCatalogStore, type SkillInstallOutcome } from '../../../stores/useSkillsCatalogStore.ts';
 import type { SkillConflict, SkillIdentity, SkillTargetSource } from '../../../lib/skills-api.ts';
-import { useSkillsCatalogStore } from '../../../stores/useSkillsCatalogStore.ts';
+import { useI18n } from '../../I18nProvider.tsx';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
 import { SettingsChipGroup, SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
+type CatalogStatusMessage =
+  | { kind: 'raw'; message: string }
+  | { kind: 'localized'; key: I18nKey };
+
+function catalogStatusMessage(outcome: SkillInstallOutcome): CatalogStatusMessage {
+  return outcome.kind === 'cancelled'
+    ? { kind: 'localized', key: 'settings.skills.catalog.cancelled' }
+    : { kind: 'raw', message: outcome.message };
+}
+
 export function SkillsCatalogPage(): ReactNode {
+  const { t } = useI18n();
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [installScope, setInstallScope] = useState<'user' | 'project'>('user');
   const [targetSource, setTargetSource] = useState<SkillTargetSource>('opencode');
   const [installStatus, setInstallStatus] = useState<{
     sourceId: string; directory?: string; scope: 'user' | 'project';
-    target: SkillTargetSource; message: string;
+    target: SkillTargetSource; message: { kind: 'raw'; message: string } | { kind: 'localized'; key: I18nKey };
   } | null>(null);
   const [conflictState, setConflictState] = useState<{
     sourceId: string; directory?: string; scope: 'user' | 'project';
@@ -127,7 +140,8 @@ export function SkillsCatalogPage(): ReactNode {
         setIdentityState(null);
         setInstallStatus({
           sourceId: request.sourceId, directory: request.directory,
-          scope: request.scope, target: request.target, message: outcome.message,
+          scope: request.scope, target: request.target,
+          message: catalogStatusMessage(outcome),
         });
         return;
       }
@@ -136,7 +150,8 @@ export function SkillsCatalogPage(): ReactNode {
         setIdentityState(null);
         setInstallStatus({
           sourceId: request.sourceId, directory: request.directory,
-          scope: request.scope, target: request.target, message: outcome.message,
+          scope: request.scope, target: request.target,
+          message: catalogStatusMessage(outcome),
         });
         void loadSource(request.sourceId, { directory: request.directory, refresh: true });
         return;
@@ -163,7 +178,8 @@ export function SkillsCatalogPage(): ReactNode {
       });
       setInstallStatus({
         sourceId: request.sourceId, directory: request.directory,
-        scope: request.scope, target: request.target, message: outcome.message,
+        scope: request.scope, target: request.target,
+        message: catalogStatusMessage(outcome),
       });
     } finally {
       activeInstallRef.current.delete(requestKey);
@@ -214,12 +230,12 @@ export function SkillsCatalogPage(): ReactNode {
   return (
     <SettingsSection item="skills.catalog">
       <div className="flex items-center justify-between gap-3">
-        <SettingsGroupTitle>Skills catalog</SettingsGroupTitle>
-        <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" data-testid="skills-catalog-refresh" onClick={refresh}>Refresh</button>
+        <SettingsGroupTitle>{t('settings.skills.catalog.title')}</SettingsGroupTitle>
+        <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" data-testid="skills-catalog-refresh" onClick={refresh}>{t('settings.skills.catalog.refresh')}</button>
       </div>
       {lastCatalogError ? <p role="alert" className="text-xs text-destructive">{lastCatalogError}</p> : null}
-      {sources?.length === 0 ? <p className="text-xs text-muted-foreground">No skill catalog sources are configured.</p>
-        : sources === null && !lastCatalogError ? <p role="status" className="text-xs text-muted-foreground">Loading catalog sources…</p>
+      {sources?.length === 0 ? <p className="text-xs text-muted-foreground">{t('settings.skills.catalog.noSources')}</p>
+        : sources === null && !lastCatalogError ? <p role="status" className="text-xs text-muted-foreground">{t('settings.skills.catalog.loadingSources')}</p>
         : (
           <div className="flex flex-wrap items-center gap-2" data-testid="skill-catalog-source-picker">
             {sources?.map((source) => (
@@ -237,25 +253,27 @@ export function SkillsCatalogPage(): ReactNode {
             ))}
           </div>
         )}
-      {activeDirectory ? <p className="mt-2 text-xs text-muted-foreground">Workspace: {activeDirectory}</p> : null}
+      {activeDirectory ? <p className="mt-2 text-xs text-muted-foreground">{t('settings.skills.catalog.workspace', { path: activeDirectory })}</p> : null}
       {lastScanError ? <p role="alert" className="mt-2 text-xs text-destructive">{lastScanError}</p> : null}
-      {installStatusVisible ? <p role="status" className="mt-2 text-xs text-muted-foreground">{installStatus.message}</p> : null}
+      {installStatusVisible ? <p role="status" className="mt-2 text-xs text-muted-foreground">
+        {installStatus.message.kind === 'raw' ? installStatus.message.message : t(installStatus.message.key)}
+      </p> : null}
       {conflictStateVisible && conflictState !== null ? (
         <div className="mt-2 rounded-md border border-border/60 p-3" data-testid="skill-catalog-conflict">
-          <div className="text-xs font-medium text-foreground">Skill already exists</div>
+          <div className="text-xs font-medium text-foreground">{t('settings.skills.catalog.conflictTitle')}</div>
           <div className="mt-1 text-xs text-muted-foreground">{conflictState.skillName} · {conflictState.path}</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip" disabled={conflictPending} onClick={() => resolveConflict('skip')}>Skip</button>
-            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite" disabled={conflictPending} onClick={() => resolveConflict('overwrite')}>Overwrite</button>
-            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip-all" disabled={conflictPending} onClick={() => resolveConflict('skipAll')}>Skip all</button>
-            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite-all" disabled={conflictPending} onClick={() => resolveConflict('overwriteAll')}>Overwrite all</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip" disabled={conflictPending} onClick={() => resolveConflict('skip')}>{t('settings.skills.catalog.conflictSkip')}</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite" disabled={conflictPending} onClick={() => resolveConflict('overwrite')}>{t('settings.skills.catalog.conflictOverwrite')}</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-skip-all" disabled={conflictPending} onClick={() => resolveConflict('skipAll')}>{t('settings.skills.catalog.conflictSkipAll')}</button>
+            <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50" data-testid="skill-catalog-conflict-overwrite-all" disabled={conflictPending} onClick={() => resolveConflict('overwriteAll')}>{t('settings.skills.catalog.conflictOverwriteAll')}</button>
           </div>
         </div>
       ) : null}
       {identityStateVisible && identityState !== null ? (
         <div className="mt-2 rounded-md border border-border/60 p-3" data-testid="skill-catalog-identity">
-          <div className="text-xs font-medium text-foreground">Git authentication is required</div>
-          <div className="mt-1 text-xs text-muted-foreground">Choose a Git identity for {identityState.skillName}.</div>
+          <div className="text-xs font-medium text-foreground">{t('settings.skills.catalog.identityTitle')}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t('settings.skills.catalog.identityPrompt', { skillName: identityState.skillName })}</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {identityState.identities.map((identity) => (
               <button key={identity.id} type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover disabled:opacity-50"
@@ -269,14 +287,14 @@ export function SkillsCatalogPage(): ReactNode {
       <div className="mt-2 flex flex-col gap-2 lg:flex-row">
         <SettingsChipGroup item="skills.catalog.scope" value={installScope} onChange={(value) => setInstallScope(value === 'project' ? 'project' : 'user')}
           options={[
-            { value: 'user', label: 'User' },
-            { value: 'project', label: activeDirectory ? 'Project' : 'Project (no workspace)' },
+            { value: 'user', label: t('settings.skills.catalog.scopeUser') },
+            { value: 'project', label: activeDirectory ? t('settings.skills.catalog.scopeProject') : t('settings.skills.catalog.scopeProjectNoWorkspace') },
           ]}
         />
         <SettingsChipGroup item="skills.catalog.target" value={targetSource} onChange={(value) => setTargetSource(value === 'agents' ? 'agents' : 'opencode')}
           options={[
-            { value: 'opencode', label: 'OpenCode' },
-            { value: 'agents', label: 'Agents' },
+            { value: 'opencode', label: t('settings.skills.catalog.targetOpenCode') },
+            { value: 'agents', label: t('settings.skills.catalog.targetAgents') },
           ]}
         />
       </div>
@@ -287,15 +305,22 @@ export function SkillsCatalogPage(): ReactNode {
         </div>
       )}
       <div className="mt-3 space-y-2">
-        {loading && items === undefined ? <p role="status" className="text-xs text-muted-foreground">Scanning source…</p>
-          : items === undefined && !lastScanError ? <p className="text-xs text-muted-foreground">Select a source to browse its skills.</p>
-          : items !== undefined && items.length === 0 ? <p className="text-xs text-muted-foreground">No skills were discovered in this source.</p>
+        {loading && items === undefined ? <p role="status" className="text-xs text-muted-foreground">{t('settings.skills.catalog.scanLoading')}</p>
+          : items === undefined && !lastScanError ? <p className="text-xs text-muted-foreground">{t('settings.skills.catalog.selectSource')}</p>
+          : items !== undefined && items.length === 0 ? <p className="text-xs text-muted-foreground">{t('settings.skills.catalog.scanEmpty')}</p>
           : items?.map((item) => (
             <div key={item.skillDir} className="rounded-md border border-border/40 p-3 text-xs" data-testid="skill-catalog-item">
               <div className="font-medium text-foreground">{item.skillName}</div>
               <div className="mt-1 text-muted-foreground">{item.description}</div>
                               <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <span>{item.installed.isInstalled ? `Installed${item.installed.scope ? ` · ${item.installed.scope}` : ''}` : 'Not installed'}</span>
+                  <span>{item.installed.isInstalled
+                    ? t('settings.skills.catalog.installed') + (item.installed.scope === null
+                      ? '' : t('settings.skills.catalog.installedScope', {
+                        scope: item.installed.scope === 'project'
+                          ? t('settings.skills.catalog.scopeProject')
+                          : t('settings.skills.catalog.scopeUser'),
+                      }))
+                    : t('settings.skills.catalog.notInstalled')}</span>
                   {!item.installed.isInstalled ? (
                     <button type="button"
                       className="rounded border border-border/60 px-2 py-1 text-xs normal-case text-foreground hover:bg-interactive-hover disabled:opacity-50"
@@ -304,7 +329,7 @@ export function SkillsCatalogPage(): ReactNode {
                         || installingSourceIds.includes(selectedSourceId || '') || activeInstallRef.current.has(`${selectedSourceId}|${item.skillName}`)}
                       onClick={() => { void installSkill(item.skillName); }}
                     >
-                      Install
+                      {t('settings.skills.catalog.install')}
                     </button>
                   ) : null}
                   {!item.installed.isInstalled && pendingInstalls.some((entry) => entry.sourceId === selectedSourceId
@@ -312,7 +337,7 @@ export function SkillsCatalogPage(): ReactNode {
                     && entry.directory === (activeDirectory || undefined)) ? (
                       <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground hover:bg-interactive-hover"
                         data-testid={`cancel-install-${item.skillName}`}
-                        onClick={() => cancelInstall(item.skillName)}>Cancel</button>
+                        onClick={() => cancelInstall(item.skillName)}>{t('settings.skills.catalog.cancel')}</button>
                     ) : null}
                 </div>
             </div>
