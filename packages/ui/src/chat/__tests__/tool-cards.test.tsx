@@ -147,6 +147,14 @@ describe('markdown-lite hardening (W-17)', () => {
     expect(container!.querySelector('pre')?.textContent).toBe('{"a":1}');
   });
 
+  it('uses the active syntax palette for fenced code blocks', () => {
+    mount(<div>{renderMarkdown('```ts\nconst value = 1;\n```')}</div>);
+    const code = document.querySelector('[data-code-lang="ts"]') as HTMLElement;
+    expect(code.style.backgroundColor).toBe('var(--syntax-background)');
+    expect(code.style.color).toBe('var(--syntax-foreground)');
+    expect(code.textContent).toContain('const value = 1;');
+  });
+
   it('garbage input never throws', () => {
     expect(() => renderMarkdown('')).not.toThrow();
     expect(renderMarkdown('plain text only').length).toBe(1);

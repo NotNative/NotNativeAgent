@@ -3722,7 +3722,7 @@ configuration import only; live SSH transport is still outstanding.
 | E3 | 38 preset palettes self-authored seeds | P5-2 done | originals untranscribed (doc gap §M); NOTES/14 C.1/E.2 interpretation recorded |
 | E4 | iframe theme sync + VS Code adapter | defer (P10/P12) | no embedded/vscode surface until those phases |
 | E5 | custom-theme import UX (Appearance→Reload) | P5-3 | ✅ Appearance exposes Reload; the client reloads validated themes from GET /api/config/themes. |
-| E6 | shiki/terminal/diff theme consumers | P6/P7 | Terminal mode/colors follow the active theme (2026-09-30); Shiki and diff consumers remain open. §E.8 conversion contracts recorded in NOTES/14 |
+| E6 | syntax/terminal/diff theme consumers | P6/P7 | ✅ Terminal PTY appearance, fenced-code palette, and diff semantic colors follow the active theme (2026-09-30). No Shiki renderer is present in this build. §E.8 conversion contracts recorded in NOTES/14 |
 
 - **2026-09-30 · P12 managed SSH bundle foundation.** Added a bounded,
   platform-neutral gzip/USTAR payload builder for the verified server bundle,

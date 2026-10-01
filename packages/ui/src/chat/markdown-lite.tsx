@@ -166,8 +166,8 @@ export function MarkdownBlockView({ block, images }: { block: Block; images?: Pr
     case 'p': return <p className="whitespace-pre-wrap break-words text-sm leading-6 text-neutral-200">{renderInline(block.text, images)}</p>;
     case 'code':
       return (
-        <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 bg-neutral-950/80 p-2.5 text-[11.5px] leading-5" data-code-lang={block.lang ?? 'plain'}>
-          <code className="font-mono text-emerald-200/90">{block.text}</code>
+        <pre className="max-h-72 overflow-auto rounded-lg border border-border/40 p-2.5 text-[11.5px] leading-5" style={{ backgroundColor: 'var(--syntax-background)', color: 'var(--syntax-foreground)' }} data-code-lang={block.lang ?? 'plain'}>
+          <code className="font-mono">{block.text}</code>
         </pre>
       );
     case 'ul':
