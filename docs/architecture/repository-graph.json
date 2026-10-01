@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a7739226b62cc7dfef9717bdfc6a7c1b383d18fd1bcb1ba82a45607f2d72d3a0",
+  "source_digest": "sha256:9449bdeb726c5d59525f48fa832f53172810d6f3ac6e12ffe3bd8c61f4b78241",
   "counts": {
-    "modules": 629,
+    "modules": 631,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 183
+      "module_count": 185
     },
     {
       "id": "ui-shell",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 235,
-      "module_count": 98
+      "import_count": 238,
+      "module_count": 101
     },
     {
       "from": "ui-shell",
@@ -1620,6 +1620,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts"
       ]
     },
@@ -1628,6 +1630,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts"
       ]
     },
@@ -1655,11 +1659,13 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/provider-diagnostics.tsx",
         "packages/ui/src/components/settings/pages/provider-profile-editor.tsx",
         "packages/ui/src/components/settings/pages/provider-route-action.tsx",
         "packages/ui/src/components/settings/pages/provider-route-activation.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts"
       ]
     },
@@ -2333,11 +2339,18 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-providers.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/i18n/messages/en-nna-routes.ts"
+        "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
+        "packages/ui/src/lib/i18n/messages/en-providers.ts"
       ]
     },
     {
@@ -2421,6 +2434,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-providers.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2476,6 +2497,7 @@
         "packages/ui/src/lib/i18n/messages/locale-mcp-draft.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
         "packages/ui/src/lib/i18n/messages/locale-nna-routes.ts",
+        "packages/ui/src/lib/i18n/messages/locale-providers.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",

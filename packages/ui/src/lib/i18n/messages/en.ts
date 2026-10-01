@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { enNnaRoutes } from './en-nna-routes.ts';
+import { enProviders } from './en-providers.ts';
 /** Canonical English dictionary (doc 14 §H.2); I18nKey is the CLOSED key set. */
 
 const en = {
   ...enNnaRoutes,
+  ...enProviders,
   'app.title': 'NotNativeDesktop',
   'shell.sessions': 'Sessions',
   'shell.newSession': 'New session',
