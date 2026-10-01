@@ -9,8 +9,6 @@
 import type { PairingScope, PendingPairingRow } from '../../lib/pairing-client.ts';
 import {
   LABEL_MAX_LENGTH,
-  PAIRING_SCOPE_HINTS,
-  PAIRING_SCOPE_LABELS,
   PAIRING_SCOPE_ORDER,
   type PairingText,
 } from './pairingText.ts';
@@ -154,6 +152,12 @@ interface PairingScopeRadiosProps {
 
 function PairingScopeRadios(props: PairingScopeRadiosProps) {
   const { text } = props;
+  const SCOPE_TEXT = {
+    anywhere: { label: text.scopeAnywhereLabel, hint: text.scopeAnywhereHint },
+    local: { label: text.scopeLocalLabel, hint: text.scopeLocalHint },
+    lan: { label: text.scopeLanLabel, hint: text.scopeLanHint },
+  } as const;
+
   return (
     <fieldset className="flex flex-col gap-2 border-0 p-0">
       <legend className="text-xs font-medium text-foreground">{text.scopeLegend}</legend>
@@ -168,8 +172,8 @@ function PairingScopeRadios(props: PairingScopeRadiosProps) {
             onChange={() => props.onChange(option)}
           />
           <span className="flex flex-col">
-            <span>{PAIRING_SCOPE_LABELS[option]}</span>
-            <span className="text-[11px] text-muted-foreground">{PAIRING_SCOPE_HINTS[option]}</span>
+            <span>{SCOPE_TEXT[option].label}</span>
+            <span className="text-[11px] text-muted-foreground">{SCOPE_TEXT[option].hint}</span>
           </span>
         </label>
       ))}

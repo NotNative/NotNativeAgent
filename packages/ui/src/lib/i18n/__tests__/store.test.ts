@@ -339,6 +339,11 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         const placeholders = (en[key].match(/\{(\w+)\}/gu) ?? []).sort();
         expect((PARTIAL_CATALOGS[locale]![key]!.match(/\{(\w+)\}/gu) ?? []).sort()).toEqual(placeholders);
       }
+      for (const key of Object.keys(en).filter((candidate) => candidate.startsWith('pairingUi.')) as I18nKey[]) {
+        expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
+        const placeholders = (en[key].match(/\{(\w+)\}/gu) ?? []).sort();
+        expect((PARTIAL_CATALOGS[locale]![key]!.match(/\{(\w+)\}/gu) ?? []).sort()).toEqual(placeholders);
+      }
     }
   });
 
@@ -373,6 +378,8 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.shortcuts.resetAll']).toBe('Alle zurücksetzen');
     expect(interpolate(de['settings.shortcuts.replaceable'], { otherActionId: 'focus_input' })).toBe('focus_input wird ersetzt');
     expect(dictionaryFor('tr')['shortcuts.label.cycle_agent']).toBe('Ajanı değiştir');
+    expect(dictionaryFor('de')['pairingUi.title']).toBe('Gerät mit diesem Server verbinden');
+    expect(dictionaryFor('de')['pairingUi.scope.local.label']).toBe('Nur dieser Computer');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(

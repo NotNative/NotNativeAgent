@@ -33,6 +33,7 @@ import {
   useRef,
   type Dispatch,
 } from 'react';
+import { useOptionalI18n } from '../../lib/i18n/context.tsx';
 import {
   cancelPairingSession,
   createPairingLink,
@@ -51,6 +52,7 @@ import {
 } from '../../lib/pairing-watch.ts';
 import { browserQrRenderer, renderPairingQr, type QrDataUrlRenderer } from '../../lib/pairing-qr.ts';
 import {
+  PAIRING_KEY,
   describePairingError,
   formatCountdown,
   resolvePairingText,
@@ -127,13 +129,21 @@ export interface PairingController {
 }
 
 export function usePairingDialog(props: PairingDialogProps): PairingController {
-  const text = useMemo(() => resolvePairingText(props.labels), [props.labels]);
+  const i18n = useOptionalI18n();
+  const text = useMemo(() => {
+    if (!i18n) return resolvePairingText(props.labels);
+    const translated = {} as Record<keyof PairingText, string>;
+    for (const key of Object.keys(PAIRING_KEY) as Array<keyof PairingText>) {
+      translated[key] = i18n.t(PAIRING_KEY[key]);
+    }
+    return resolvePairingText(props.labels, translated);
+  }, [i18n, props.labels]);
   const runtime = props.runtime ?? DEFAULT_RUNTIME;
   const now = props.now ?? DEFAULT_CLOCK;
   const [model, dispatch] = useReducer(pairingReducer, undefined, () =>
     initialPairingModel((props.now ?? DEFAULT_CLOCK)()),
   );
-  const live = usePairingLive(props, runtime, now, model);
+  const live = usePairingLive(props, runtime, now, model, text);
 
   const announce = usePairingAnnounce(live, dispatch);
   const refreshPending = usePendingRefresh(live, dispatch);
@@ -174,7 +184,7 @@ function pairingDerived(
   const secondsLeft =
     model.created === null ? null : secondsUntil(model.created.expiresAt, model.tick);
   return {
-    refusal: plan.ok ? '' : scopeRefusalMessage(plan.reason),
+    refusal: plan.ok ? '' : scopeRefusalMessage(plan.reason, live.text),
     shownError: model.error !== '' ? model.error : model.qrError,
     secondsLeft,
     countdown: formatCountdown(secondsLeft),
@@ -211,7 +221,11 @@ async function loadTransports(live: PairingLive, dispatch: Dispatch<PairingActio
     dispatch({ type: 'transports', transports: found, error: '' });
   } catch (caught) {
     if (flow !== live.flow) return;
-    dispatch({ type: 'transports', transports: null, error: describePairingError(caught) });
+    dispatch({
+      type: 'transports',
+      transports: null,
+      error: describePairingError(caught, live.text),
+    });
   }
 }
 
@@ -249,6 +263,11 @@ function usePairingOpen(
     if (!open) return;
     void loadTransports(live, dispatch);
     void refreshPending();
+    return () => {
+      live.flow += 1;
+      live.stop();
+      live.creating = false;
+    };
     // Keyed on `open`: every other value is read through `live`.
   }, [dispatch, live, open, refreshPending]);
 }
@@ -276,12 +295,27 @@ function usePairingCreate(
     live.announced = false;
     live.creating = true;
     live.flow += 1;
+    live.createFlow = live.flow;
+    const requestRuntime = live.runtime;
     dispatch({ type: 'createStart', now: live.now() });
     const flow = live.flow;
     try {
-      const result = await createPairingLink({ scope, transports, label, relayFallback }, live.runtime);
-      live.creating = false;
-      if (flow !== live.flow) return;
+      const result = await createPairingLink({ scope, transports, label, relayFallback }, requestRuntime);
+      if (live.createFlow === flow) live.creating = false;
+      if (flow !== live.flow) {
+        // The route created this session even though close/restart already
+        // abandoned its result. Do not leave that pending secret on the server.
+        void cancelPairingSession(result.response.pairing.id, requestRuntime)
+          .then(async () => {
+            if (requestRuntime === live.runtime) await refreshPending();
+          })
+          .catch(() => {
+            // There is no result view to report to. If the delete could not
+            // reach the server, refresh so the form exposes its pending row.
+            if (requestRuntime === live.runtime) void refreshPending();
+          });
+        return;
+      }
       dispatch({
         type: 'createOk',
         created: describeCreated(result.response, result.link),
@@ -289,9 +323,9 @@ function usePairingCreate(
       });
       void refreshPending();
     } catch (caught) {
-      live.creating = false;
       if (flow !== live.flow) return;
-      dispatch({ type: 'createFailed', error: describePairingError(caught) });
+      if (live.createFlow === flow) live.creating = false;
+      dispatch({ type: 'createFailed', error: describePairingError(caught, live.text) });
     }
   }, [dispatch, live, refreshPending]);
 }
@@ -310,7 +344,7 @@ function usePairingCancel(
       // The watcher sees "seen pending, now absent" and closes as cancelled.
     } catch (caught) {
       if (flow !== live.flow) return;
-      dispatch({ type: 'createFailed', error: describePairingError(caught) });
+      dispatch({ type: 'createFailed', error: describePairingError(caught, live.text) });
     }
   }, [dispatch, live, refreshPending]);
 }
@@ -488,7 +522,7 @@ function usePairingQr(live: PairingLive, dispatch: Dispatch<PairingAction>): voi
         );
       } catch (caught) {
         if (cancelled || flow !== live.flow) return;
-        dispatch({ type: 'qr', dataUrl: null, error: describePairingError(caught) });
+        dispatch({ type: 'qr', dataUrl: null, error: describePairingError(caught, live.text) });
       }
     })();
     return () => {

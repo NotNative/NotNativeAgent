@@ -142,7 +142,7 @@ function PairingStatusLine({ props }: Shared) {
   return (
     <div className="flex flex-row items-center gap-2 text-[11px] text-muted-foreground">
       {props.closeReason !== null ? (
-        <span data-testid="pairing-close-reason">{closeReasonMessage(props.closeReason)}</span>
+        <span data-testid="pairing-close-reason">{closeReasonMessage(props.closeReason, text)}</span>
       ) : props.expired ? null : (
         <span data-testid="pairing-waiting">
           {props.seenPending ? text.waiting : text.waitingForList}

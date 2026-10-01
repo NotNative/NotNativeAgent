@@ -5,10 +5,11 @@
  * Split out of `PairingDialog.tsx` for the same reason as `auth/gateText.ts`:
  * the strings and the arithmetic are testable as data, and keeping them out of
  * the component keeps that file under the repository length gate. These strings
- * are literal English defaults; registering the pairing keys in
- * `lib/i18n/messages/en.ts` is the follow-up that replaces the table (the same
- * deferral the auth gate documents).
+ * are literal English defaults AND registered i18n keys; explicit labels
+ * still have authority, while bare tests retain a stable English fallback.
+ * registered in `lib/i18n/messages/en.ts`.
  */
+import type { I18nKey } from '../../lib/i18n/messages/en.ts';
 import { PairingApiError, type PairingScope } from '../../lib/pairing-client.ts';
 import type { PairingCloseReason } from '../../lib/pairing-watch.ts';
 
@@ -44,10 +45,76 @@ export const PAIRING_TEXT = {
   done: 'Done',
   newPairing: 'New pairing',
   close: 'Close',
+  scopeAnywhereLabel: 'Anywhere',
+  scopeLocalLabel: 'This computer only',
+  scopeLanLabel: 'Home network only',
+  scopeAnywhereHint: 'Relay-first link; the home-network candidate rides along while the fallback is on.',
+  scopeLocalHint: 'Direct over loopback only. The device must reach this machine.',
+  scopeLanHint: 'Direct over the LAN address the server is actually bound to.',
+  closeReasonRedeemed: 'Device connected.',
+  closeReasonCancelled: 'Pairing cancelled.',
+  closeReasonExpired: 'This code expired.',
+  refusalNoLoopback: 'This server is not listening on loopback. Pick home network or the relay.',
+  refusalNoLan: 'No LAN address is available. Pick this computer only or the relay.',
+  refusalRelayUnavailable: 'The encrypted relay is off. Enable it, or accept the home-network fallback.',
+  refusalEmptyScope: 'No transport can carry this pairing.',
+  authSignInAgain: 'Sign in again to manage devices.',
+  pairingSessionGone: 'That pairing session is already gone.',
+  serverUnreachable: 'Cannot reach this server right now.',
 } as const;
 
 /** Widened view of the table: merged overrides are plain `string`s. */
 export type PairingText = { [K in keyof typeof PAIRING_TEXT]: string };
+
+export const PAIRING_KEY: { [K in keyof typeof PAIRING_TEXT]: I18nKey } = {
+  title: 'pairingUi.title',
+  description: 'pairingUi.description',
+  disabled: 'pairingUi.disabled',
+  transportsLoading: 'pairingUi.transportsLoading',
+  scopeLegend: 'pairingUi.scopeLegend',
+  deviceLabel: 'pairingUi.deviceLabel',
+  deviceLabelPlaceholder: 'pairingUi.deviceLabelPlaceholder',
+  deviceLabelHint: 'pairingUi.deviceLabelHint',
+  relayFallback: 'pairingUi.relayFallback',
+  create: 'pairingUi.create',
+  creating: 'pairingUi.creating',
+  pendingTitle: 'pairingUi.pendingTitle',
+  pendingEmpty: 'pairingUi.pendingEmpty',
+  pendingUnnamed: 'pairingUi.pendingUnnamed',
+  viaRelay: 'pairingUi.viaRelay',
+  cancelPending: 'pairingUi.cancelPending',
+  copy: 'pairingUi.copy',
+  copied: 'pairingUi.copied',
+  copyFailed: 'pairingUi.copyFailed',
+  qrAlt: 'pairingUi.qrAlt',
+  qrPending: 'pairingUi.qrPending',
+  qrUnavailable: 'pairingUi.qrUnavailable',
+  expired: 'pairingUi.expired',
+  expiresPrefix: 'pairingUi.expiresPrefix',
+  expiresNow: 'pairingUi.expiresNow',
+  waiting: 'pairingUi.waiting',
+  waitingForList: 'pairingUi.waitingForList',
+  fingerprintPrefix: 'pairingUi.fingerprintPrefix',
+  done: 'pairingUi.done',
+  newPairing: 'pairingUi.newPairing',
+  close: 'pairingUi.close',
+  scopeAnywhereLabel: 'pairingUi.scope.anywhere.label',
+  scopeLocalLabel: 'pairingUi.scope.local.label',
+  scopeLanLabel: 'pairingUi.scope.lan.label',
+  scopeAnywhereHint: 'pairingUi.scope.anywhere.hint',
+  scopeLocalHint: 'pairingUi.scope.local.hint',
+  scopeLanHint: 'pairingUi.scope.lan.hint',
+  closeReasonRedeemed: 'pairingUi.closeReason.redeemed',
+  closeReasonCancelled: 'pairingUi.closeReason.cancelled',
+  closeReasonExpired: 'pairingUi.closeReason.expired',
+  refusalNoLoopback: 'pairingUi.refusal.noLoopback',
+  refusalNoLan: 'pairingUi.refusal.noLan',
+  refusalRelayUnavailable: 'pairingUi.refusal.relayUnavailable',
+  refusalEmptyScope: 'pairingUi.refusal.emptyScope',
+  authSignInAgain: 'pairingUi.error.signInAgain',
+  pairingSessionGone: 'pairingUi.error.sessionGone',
+  serverUnreachable: 'pairingUi.error.unreachable',
+};
 
 export const PAIRING_SCOPE_LABELS: Record<PairingScope, string> = {
   local: 'This computer only',
@@ -92,14 +159,17 @@ export function formatCountdown(seconds: number | null): string {
 }
 
 /** §6.1 step 8 close reasons, in the words the dialog reports them in. */
-export function closeReasonMessage(reason: PairingCloseReason | null): string {
+export function closeReasonMessage(
+  reason: PairingCloseReason | null,
+  text: PairingText = PAIRING_TEXT,
+): string {
   switch (reason) {
     case 'redeemed':
-      return 'Device connected.';
+      return text.closeReasonRedeemed;
     case 'cancelled':
-      return 'Pairing cancelled.';
+      return text.closeReasonCancelled;
     case 'expired':
-      return 'This code expired.';
+      return text.closeReasonExpired;
     case null:
       return '';
   }
@@ -111,16 +181,17 @@ export function closeReasonMessage(reason: PairingCloseReason | null): string {
  */
 export function scopeRefusalMessage(
   reason: 'no-loopback' | 'no-lan' | 'relay-unavailable' | 'empty-scope',
+  text: PairingText = PAIRING_TEXT,
 ): string {
   switch (reason) {
     case 'no-loopback':
-      return 'This server is not listening on loopback. Pick home network or the relay.';
+      return text.refusalNoLoopback;
     case 'no-lan':
-      return 'No LAN address is available. Pick this computer only or the relay.';
+      return text.refusalNoLan;
     case 'relay-unavailable':
-      return 'The encrypted relay is off. Enable it, or accept the home-network fallback.';
+      return text.refusalRelayUnavailable;
     case 'empty-scope':
-      return 'No transport can carry this pairing.';
+      return text.refusalEmptyScope;
   }
 }
 
@@ -129,21 +200,24 @@ export function scopeRefusalMessage(
  * "plan cannot be honoured" sentinel, so its own message is already the right
  * words; 401/403 is a session problem, not a pairing problem.
  */
-export function describePairingError(error: unknown): string {
+export function describePairingError(error: unknown, text: PairingText = PAIRING_TEXT): string {
   if (error instanceof PairingApiError) {
     if (error.status === 0) return error.message;
-    if (error.status === 401 || error.status === 403) return 'Sign in again to manage devices.';
-    if (error.status === 404) return 'That pairing session is already gone.';
+    if (error.status === 401 || error.status === 403) return text.authSignInAgain;
+    if (error.status === 404) return text.pairingSessionGone;
     return error.message;
   }
   if (error instanceof Error && error.message !== '') return error.message;
-  return 'Cannot reach this server right now.';
+  return text.serverUnreachable;
 }
 
 /** Merge caller overrides over the defaults, ignoring present-but-empty keys. */
-export function resolvePairingText(labels?: Partial<PairingText>): PairingText {
-  if (labels === undefined) return PAIRING_TEXT;
-  const merged = { ...PAIRING_TEXT } as Record<keyof PairingText, string>;
+export function resolvePairingText(
+  labels?: Partial<PairingText>,
+  defaults: PairingText = PAIRING_TEXT,
+): PairingText {
+  if (labels === undefined) return defaults;
+  const merged = { ...defaults } as Record<keyof PairingText, string>;
   for (const key of Object.keys(labels) as Array<keyof PairingText>) {
     const value = labels[key];
     if (typeof value === 'string' && value.length > 0) merged[key] = value;

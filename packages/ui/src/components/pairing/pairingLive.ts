@@ -23,6 +23,7 @@ import type {
 } from '../../lib/pairing-client.ts';
 import type { PairingWatchState } from '../../lib/pairing-watch.ts';
 import type { CreatedPairingView, PairingModel } from './pairingReducer.ts';
+import type { PairingText } from './pairingText.ts';
 import type { PairingDialogProps } from './usePairingDialog.ts';
 
 /**
@@ -83,11 +84,13 @@ export function livePairingClient(
  */
 export interface PairingLive {
   props: PairingDialogProps;
+  text: PairingText;
   runtime: PairingRuntime;
   now: () => number;
   model: PairingModel;
   flow: number;
   creating: boolean;
+  createFlow: number;
   stop: () => void;
   announced: boolean;
 }
@@ -97,16 +100,19 @@ export function usePairingLive(
   runtime: PairingRuntime,
   now: () => number,
   model: PairingModel,
+  text: PairingText,
 ): PairingLive {
   const liveRef = useRef<PairingLive | null>(null);
   if (liveRef.current === null) {
     liveRef.current = {
       props,
+      text,
       runtime,
       now,
       model,
       flow: 0,
       creating: false,
+      createFlow: 0,
       stop: () => {},
       announced: false,
     };
@@ -118,5 +124,6 @@ export function usePairingLive(
   live.runtime = runtime;
   live.now = now;
   live.model = model;
+  live.text = text;
   return live;
 }
