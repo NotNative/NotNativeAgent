@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:da271f61fcb6e3a04df83a4dac7b17c1e988c1f531a7c17af7d4ea8f274950da",
+  "source_digest": "sha256:c1e803664ec7fe2f4434431055bdf19dc06f91679fdb9d728a5b80ba8bc9f304",
   "counts": {
-    "modules": 642,
+    "modules": 644,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 196
+      "module_count": 198
     },
     {
       "id": "ui-shell",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 244,
-      "module_count": 103
+      "import_count": 245,
+      "module_count": 104
     },
     {
       "from": "ui-shell",
@@ -1210,7 +1210,9 @@
       "path": "packages/ui/src/components/git/git-dialogs.tsx",
       "component": "ui-shell",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "packages/ui/src/lib/i18n/context.tsx"
+      ]
     },
     {
       "path": "packages/ui/src/components/git/git-file-preview.tsx",
@@ -2362,6 +2364,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2393,6 +2401,7 @@
         "packages/ui/src/lib/i18n/messages/en-agent-groups.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
+        "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/en-providers.ts",
         "packages/ui/src/lib/i18n/messages/en-remote-instances.ts",
@@ -2469,6 +2478,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en-git-ui.ts"
       ]
     },
     {
@@ -2590,6 +2607,7 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
         "packages/ui/src/lib/i18n/messages/locale-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/locale-desktop-ssh.ts",
+        "packages/ui/src/lib/i18n/messages/locale-git-ui.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-config.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-draft.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",

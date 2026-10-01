@@ -649,7 +649,7 @@ describe('GitView (doc 06 §6 v1)', () => {
     const rows = [...document.querySelectorAll('[data-testid="git-history-row"]')];
     expect(rows.length).toBe(2);
     await act(async () => {
-      (document.querySelector('[aria-label="Close Commit history"]') as HTMLButtonElement).click();
+      (document.querySelector('[aria-label="Close: Commit history"]') as HTMLButtonElement).click();
       (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click();
       await new Promise((done) => setTimeout(done, 30));
     });
@@ -658,6 +658,73 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(branchesDialog!.textContent).toContain('feature/next');
     expect(branchesDialog!.textContent).toContain('origin/main');
     expect(branchesDialog!.textContent).toContain('Current');
+  });
+
+  it('reports history transport failure instead of holding stale rows', async () => {
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/log')
+      ? Promise.reject(new Error('history offline')) : route(String(input)));
+    await render();
+    await settle();
+    await act(async () => {
+      (document.querySelector('[data-testid="git-open-history"]') as HTMLButtonElement).click();
+      await new Promise((done) => setTimeout(done, 30));
+    });
+    const alert = document.querySelector('[data-testid="git-history-failed"]');
+    expect(alert?.getAttribute('role')).toBe('alert');
+    expect(alert?.textContent).toBe('Failed to load log.');
+    expect(document.querySelectorAll('[data-testid="git-history-row"]')).toHaveLength(0);
+  });
+
+  it('separates clipboard failure from history load failure and clears stale copied state', async () => {
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(() => Promise.reject(new Error('clipboard denied'))) },
+    });
+    try {
+      await render();
+      await settle();
+      await act(async () => {
+        (document.querySelector('[data-testid="git-open-history"]') as HTMLButtonElement).click();
+        await new Promise((done) => setTimeout(done, 30));
+      });
+      await act(async () => {
+        (document.querySelector('[data-testid="git-history-copy"]') as HTMLButtonElement).click();
+        await Promise.resolve();
+        await new Promise((done) => setTimeout(done, 10));
+      });
+      const alert = document.querySelector('[data-testid="git-history-copy-failed"]');
+      expect(alert?.getAttribute('role')).toBe('alert');
+      expect(alert?.textContent).toBe('Could not copy SHA.');
+      expect(document.querySelector('[data-testid="git-history-failed"]')).toBeNull();
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+    }
+  });
+
+  it('omits the no-op load-more control at the maximum history size', async () => {
+    const largeHistory = Array.from({ length: 500 }, (_, index) => ({
+      ...LOG.commits[0]!,
+      hash: `${index}`.padStart(40, '0'),
+      subject: `commit ${index}`,
+    }));
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/log')
+      ? jsonResponse({ ...LOG, commits: largeHistory }) : route(String(input)));
+    await render();
+    await settle();
+    await act(async () => {
+      (document.querySelector('[data-testid="git-open-history"]') as HTMLButtonElement).click();
+      await new Promise((done) => setTimeout(done, 30));
+    });
+    for (let clickCount = 0; clickCount < 9; clickCount += 1) {
+      await act(async () => {
+        const loadMore = document.querySelector('[data-testid="git-history-load-more"]') as HTMLButtonElement | null;
+        loadMore?.click();
+        await new Promise((done) => setTimeout(done, 5));
+      });
+    }
+    expect(document.querySelectorAll('[data-testid="git-history-row"]')).toHaveLength(500);
+    expect(document.querySelector('[data-testid="git-history-load-more"]')).toBeNull();
   });
 
   it('replays refresh hints into a restat of the visible workbench', async () => {

@@ -29,7 +29,6 @@ export function I18nProvider({ children }: { children?: ReactNode }) {
   const loadingLocale = useI18nStore((state) => state.loadingLocale);
   const setLocale = useI18nStore((state) => state.setLocale);
   const dictionary = useI18nStore((state) => state.dictionary); // subscribe: re-render on locale swap
-  void dictionary;
   const api: I18nApi = useMemo(
     () => ({
       t: translate,
@@ -38,7 +37,7 @@ export function I18nProvider({ children }: { children?: ReactNode }) {
       setLocale,
       label,
     }),
-    [locale, loadingLocale, setLocale],
+    [locale, loadingLocale, setLocale, dictionary],
   );
   return <I18nContext value={api}>{children}</I18nContext>;
 }
