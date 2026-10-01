@@ -65,7 +65,7 @@ export function AppearancePage(): ReactNode {
         <SettingsFieldRow
           label={t('settings.search.reloadThemes')}
           item="appearance.reload-themes"
-          helper="GET /api/config/themes — custom JSON files in the data dir"
+          helper={t('settings.appearance.themesHelper')}
         >
           <button
             type="button"
@@ -94,8 +94,8 @@ export function AppearancePage(): ReactNode {
             onChange={(value) => timeFormat.set(value as TimeFormatPreference)}
             options={[
               { value: 'auto', label: t('settings.appearance.auto') },
-              { value: '24h', label: '24 h' },
-              { value: '12h', label: '12 h' },
+              { value: '24h', label: t('settings.appearance.time24Hours') },
+              { value: '12h', label: t('settings.appearance.time12Hours') },
             ]}
           />
         </SettingsFieldRow>

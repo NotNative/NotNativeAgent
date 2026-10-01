@@ -18,20 +18,21 @@ import { tr } from './locale-catalogs-c.ts';
 import { deShortcuts, frShortcuts, zhCNShortcuts, deShortcutLabels, frShortcutLabels, zhCNShortcutLabels } from './locale-shortcuts-a.ts';
 import { zhTWShortcuts, ukShortcuts, esShortcuts, ptBRShortcuts, zhTWShortcutLabels, ukShortcutLabels, esShortcutLabels, ptBRShortcutLabels } from './locale-shortcuts-b.ts';
 import { koShortcuts, plShortcuts, jaShortcuts, trShortcuts, koShortcutLabels, plShortcutLabels, jaShortcutLabels, trShortcutLabels } from './locale-shortcuts-c.ts';
+import { deAppearance, frAppearance, zhCNAppearance, zhTWAppearance, ukAppearance, esAppearance, ptBRAppearance, koAppearance, plAppearance, jaAppearance, trAppearance } from './locale-appearance.ts';
 import en, { type Dictionary } from './en.ts';
 
 const CATALOGS: Record<string, PartialDictionary> = {
-  de: { ...de, ...deShortcuts, ...deShortcutLabels },
-  fr: { ...fr, ...frShortcuts, ...frShortcutLabels },
-  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels },
-  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels },
-  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels },
-  es: { ...es, ...esShortcuts, ...esShortcutLabels },
-  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels },
-  ko: { ...ko, ...koShortcuts, ...koShortcutLabels },
-  pl: { ...pl, ...plShortcuts, ...plShortcutLabels },
-  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels },
-  tr: { ...tr, ...trShortcuts, ...trShortcutLabels },
+  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance },
+  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance },
+  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance },
+  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance },
+  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance },
+  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance },
+  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance },
+  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance },
+  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance },
+  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance },
+  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance },
 };
 
 /** Full dictionaries: en complete, others merged over en per §H.2 resolve. */

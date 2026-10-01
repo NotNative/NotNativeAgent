@@ -3891,3 +3891,7 @@ configuration import only; live SSH transport is still outstanding.
   shortcut action names now have translations across the 11 partial locales.
   The adversarial review corrected two misleading translations, and catalog
   tests enforce coverage for every `shortcuts.label.*` key. Version 20261001-2.
+- **2026-10-01 · Appearance format copy.** The custom-theme endpoint helper and
+  24-hour/12-hour format labels are translated in all partial catalogs while
+  preserving the exact API route and stored values. The catalog parity test
+  and full UI suite pass (1464/1464). Version 20261001-3.
