@@ -12,6 +12,12 @@ import {
   listScheduledTasks, parseTaskRunEvent, type ScheduledTaskView,
 } from '../../lib/scheduled-tasks-api.ts';
 import { subscribeControlEvents } from '../../lib/nnd/events.ts';
+import {
+  interpolateText,
+  scheduleStatusLabel,
+  useScheduledText,
+  type ScheduledText,
+} from './scheduledText.ts';
 
 export interface TaskList {
   tasks: ScheduledTaskView[];
@@ -39,7 +45,12 @@ async function loadTaskList(
 /** C.10 live refresh (one subscription per project, lifecycle-safe): a
  * task-ran event on the open project reloads the list; a late subscription
  * resolution after a switch/unmount only runs its close. */
-function useTaskRanFanout(projectId: string, viewIdRef: RefObject<string>, refresh: (id: string) => void): void {
+function useTaskRanFanout(
+  projectId: string,
+  viewIdRef: RefObject<string>,
+  refresh: (id: string) => void,
+  text: ScheduledText,
+): void {
   useEffect(() => {
     if (projectId === '') return;
     let cancelled = false;
@@ -47,7 +58,10 @@ function useTaskRanFanout(projectId: string, viewIdRef: RefObject<string>, refre
     void subscribeControlEvents((frame) => {
       const ran = parseTaskRunEvent(frame);
       if (ran === null || ran.projectId !== projectId) return;
-      toast.message(`${ran.taskId} ${ran.status}`, { description: `${ran.projectId} · scheduled task` });
+      toast.message(interpolateText(text.ranToastTitle, {
+        taskId: ran.taskId,
+        status: scheduleStatusLabel(ran.status, text),
+      }), { description: interpolateText(text.ranToastDescription, { projectId: ran.projectId }) });
       refresh(ran.projectId);
     }).then((close) => {
       if (cancelled) close();
@@ -57,10 +71,11 @@ function useTaskRanFanout(projectId: string, viewIdRef: RefObject<string>, refre
       cancelled = true;
       dispose?.();
     };
-  }, [projectId, refresh]);
+  }, [projectId, refresh, text]);
 }
 
 export function useScheduledTaskList(projectId: string): TaskList {
+  const text = useScheduledText();
   const [tasks, setTasks] = useState<ScheduledTaskView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,33 +102,38 @@ export function useScheduledTaskList(projectId: string): TaskList {
   }, []);
 
   useEffect(() => {
+    if (viewIdRef.current !== projectId) {
+      setTasks([]);
+      setError(null);
+      setBusyTaskId('');
+    }
     viewIdRef.current = projectId;
     refresh(projectId);
   }, [projectId, refresh]);
 
   // C.10 live refresh: a task-ran event on this project reloads the list.
-  useTaskRanFanout(projectId, viewIdRef, refresh);
+  useTaskRanFanout(projectId, viewIdRef, refresh, text);
 
   const busy = useCallback((id: string, work: () => Promise<unknown>): Promise<void> => {
     setBusyTaskId(id);
     return work().then((outcome) => {
       setBusyTaskId('');
-      foldOutcome(outcome);
+      foldOutcome(outcome, text);
       refresh(projectId);
     }, (requestError: unknown) => {
       setBusyTaskId('');
       toast.error(String(requestError).slice(0, 160));
     });
-  }, [projectId, refresh]);
+  }, [projectId, refresh, text]);
 
   return { tasks, loading, error, busyTaskId, busy, refresh };
 }
 
 /** The wire fold puts `{ok:false,error}` on every refusal; surface it once.
  * `null`/`{ok:true}`/run bodies the worker already toasted are silent. */
-function foldOutcome(outcome: unknown): void {
+function foldOutcome(outcome: unknown, text: ScheduledText): void {
   if (outcome !== null && typeof outcome === 'object' && (outcome as { ok?: unknown }).ok === false) {
     const message = (outcome as { error?: unknown }).error;
-    toast.error(typeof message === 'string' ? message : 'the change did not land');
+    toast.error(typeof message === 'string' ? message : text.changeRejected);
   }
 }

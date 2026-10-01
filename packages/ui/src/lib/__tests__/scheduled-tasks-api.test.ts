@@ -159,6 +159,12 @@ describe('scheduled-tasks-api routes (doc 03 §5.16)', () => {
     expect(outcome).toEqual({ ok: false, status: 500, error: 'scheduled-task request failed (500)' });
   });
 
+  it('folds a malformed null JSON failure body instead of crashing', async () => {
+    call.mockResolvedValueOnce(json(400, null));
+    expect(await listScheduledTasks('alpha'))
+      .toEqual({ ok: false, status: 400, error: 'scheduled-task request failed (400)' });
+  });
+
   it('a JSON error body survives even on 500 (sync/persist failures keep their detail)', async () => {
     call.mockResolvedValueOnce(json(500, { error: 'scheduled task sync failed: lock held' }));
     const outcome = await deleteScheduledTask('alpha', 't1');

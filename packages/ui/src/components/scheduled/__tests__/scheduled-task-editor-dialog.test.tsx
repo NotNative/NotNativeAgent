@@ -49,7 +49,10 @@ vi.mock('../../../lib/nnd/events.ts', () => ({
   subscribeControlEvents: vi.fn(() => new Promise(() => undefined)),
 }));
 vi.mock('../../../lib/server-api.ts', () => ({ fsSearch: vi.fn() }));
-vi.mock('../../../lib/snippets-api.ts', () => ({ listSnippets: vi.fn() }));
+vi.mock('../../../lib/snippets-api.ts', () => ({
+  listSnippets: vi.fn(),
+  snippetRecords: () => true,
+}));
 
 const upsert = upsertScheduledTask as unknown as Mock;
 const list = listScheduledTasks as unknown as Mock;
@@ -331,6 +334,17 @@ describe('ScheduledTaskEditorDialog (doc 12 §H, E-09-28)', () => {
     expect(upsert).toHaveBeenCalledTimes(1);
   });
 
+  it('a transport rejection ends saving and keeps the editor editable', async () => {
+    upsert.mockRejectedValueOnce(new Error('offline'));
+    renderEditor(taskView());
+    click('task-save');
+    expect((document.querySelector('[data-testid="task-save"]') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { await settle(); });
+    expect(toast.error).toHaveBeenCalledWith('Error: offline');
+    expect((document.querySelector('[data-testid="task-save"]') as HTMLButtonElement).disabled).toBe(false);
+    expect(document.querySelector('[data-testid="task-editor-dialog"]')).not.toBeNull();
+  });
+
   it('a resolved fsSearch from a swapped-out trigger publishes nothing (kind guard)', async () => {
     let resolveFirst: (files: { path: string }[]) => void = () => undefined;
     files.mockImplementationOnce(() => new Promise((resolve) => {
@@ -388,6 +402,15 @@ describe('ScheduledTaskEditorDialog (doc 12 §H, E-09-28)', () => {
     await act(async () => { await settle(); });
     const body = editorBody();
     expect(body.execution).toEqual({ prompt: '', providerID: '', modelID: '' });
+  });
+
+  it('shows the no-model state when providers exist without model choices', async () => {
+    renderEditor(null, noSaved, servicesFor(stubStore({
+      provider: [{ id: 'empty', name: 'Empty', models: {} }], command: [], agent: [],
+    })));
+    const select = document.querySelector('[data-testid="execution-model-select"]') as HTMLSelectElement;
+    expect(select.textContent).toContain('no models configured');
+    expect(select.value).toBe('');
   });
 
   it('an in-flight save resolving after unmount stays silent (no unmounted-setState error)', async () => {
@@ -487,5 +510,28 @@ describe('editor entry points in the tasks dialog (E-09-28)', () => {
     expect(document.querySelector('[data-testid="task-new"]')).toBeNull();
     expect(document.querySelector('[data-testid="task-edit"]')).toBeNull();
     expect(document.querySelector('[data-testid="scheduled-tasks-dialog"]')).not.toBeNull();
+  });
+
+  it('an editor opened on one project saves and refreshes that project only', async () => {
+    useGlobalSyncStore.setState({
+      projects: [
+        { id: 'proj2', worktree: 'C:/repo2' },
+        { id: 'proj1', worktree: 'C:/repo' },
+      ],
+    });
+    renderTasksDialog(true);
+    await act(async () => { await settle(); });
+    click('task-edit');
+    await act(async () => {
+      const select = document.querySelector<HTMLSelectElement>('[data-testid="scheduled-project-select"]')!;
+      select.value = 'proj2';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    list.mockClear();
+    click('task-save');
+    await act(async () => { await settle(); });
+    expect(upsert.mock.calls.at(-1)?.[0]).toBe('proj1');
+    expect(list.mock.calls.length).toBe(0);
   });
 });

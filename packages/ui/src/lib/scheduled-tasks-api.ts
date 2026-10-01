@@ -85,7 +85,8 @@ export type ApiFailure = { ok: false; status: number; error: string };
 
 async function apiJson<T>(url: string, init?: RequestInit): Promise<(T & { ok: true }) | ApiFailure> {
   const response = await runtimeFetch(url, init);
-  const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+  const parsed = await response.json().catch(() => null) as unknown;
+  const body = parsed !== null && typeof parsed === 'object' ? parsed as Record<string, unknown> : {};
   if (!response.ok) {
     return { ok: false, status: response.status, error: typeof body.error === 'string' ? body.error : `scheduled-task request failed (${response.status})` };
   }

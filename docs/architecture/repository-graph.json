@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a7f7e4f388ed9945f41fceb2dc3c3c62dc080b75389584baec7b53b13c200261",
+  "source_digest": "sha256:011ad2f3bb421078e3fec03ad802a892a32eab405811fa3ae219d84450aedc52",
   "counts": {
-    "modules": 647,
+    "modules": 649,
     "component_edges": 14
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 201
+      "module_count": 202
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 162
+      "module_count": 163
     },
     {
       "id": "web-server",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 254,
-      "module_count": 105
+      "import_count": 259,
+      "module_count": 106
     },
     {
       "from": "ui-shell",
@@ -1424,6 +1424,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/scheduled/scheduledText.ts",
         "packages/ui/src/lib/format/time.ts",
         "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts"
@@ -1446,6 +1447,7 @@
         "packages/ui/src/components/scheduled/schedule-form.ts",
         "packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx",
         "packages/ui/src/components/scheduled/scheduled-task-schedule-editor.tsx",
+        "packages/ui/src/components/scheduled/scheduledText.ts",
         "packages/ui/src/components/settings/page-helpers.tsx",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts"
@@ -1458,6 +1460,7 @@
       "imports": [
         "packages/ui/src/chat/composer-bits.tsx",
         "packages/ui/src/chat/prompt-language.ts",
+        "packages/ui/src/components/scheduled/scheduledText.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts",
         "packages/ui/src/lib/server-api.ts",
@@ -1469,6 +1472,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/scheduled/scheduledText.ts",
         "packages/ui/src/lib/nnd/events.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts"
       ]
@@ -1479,6 +1483,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/scheduled/schedule-form.ts",
+        "packages/ui/src/components/scheduled/scheduledText.ts",
         "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/lib/i18n/runtime.ts",
         "packages/ui/src/lib/i18n/store.ts",
@@ -1491,12 +1496,24 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/composer.tsx",
-        "packages/ui/src/components/scheduled/schedule-form.ts",
         "packages/ui/src/components/scheduled/scheduled-task-editor-dialog.tsx",
         "packages/ui/src/components/scheduled/scheduled-task-list.ts",
+        "packages/ui/src/components/scheduled/scheduledText.ts",
         "packages/ui/src/lib/format/time.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts",
         "packages/ui/src/sync/global-stores.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/scheduled/scheduledText.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/format/time.ts",
+        "packages/ui/src/lib/i18n/context.tsx",
+        "packages/ui/src/lib/i18n/intl.ts",
+        "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/scheduled-tasks-api.ts"
       ]
     },
     {
@@ -2571,6 +2588,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-scheduled.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-shell-ui.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2650,6 +2675,7 @@
         "packages/ui/src/lib/i18n/messages/locale-pairing.ts",
         "packages/ui/src/lib/i18n/messages/locale-providers.ts",
         "packages/ui/src/lib/i18n/messages/locale-remote-instances.ts",
+        "packages/ui/src/lib/i18n/messages/locale-scheduled.ts",
         "packages/ui/src/lib/i18n/messages/locale-shell-ui.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",

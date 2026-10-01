@@ -16,16 +16,23 @@ import {
   upsertScheduledTask, type ScheduledTaskView, type TaskSchedule, type TaskState,
 } from '../../lib/scheduled-tasks-api.ts';
 import { useScheduledTaskList } from './scheduled-task-list.ts';
-import { scheduleLabel } from './schedule-form.ts';
 import { ScheduledTaskEditorDialog } from './scheduled-task-editor-dialog.tsx';
 import type { ComposerServices } from '../../chat/composer.tsx';
 import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 import { formatDateTimeForPreference } from '../../lib/format/time.ts';
+import {
+  interpolateText,
+  scheduleLabel,
+  scheduleStatusLabel,
+  useScheduledText,
+  type ScheduledText,
+} from './scheduledText.ts';
 
 export const SCHEDULED_OPEN_EVENT = 'nnd:scheduled-tasks-open';
 export const FILES_OPEN_EVENT = 'nnd:files-open';
 
 type TaskListBusy = (id: string, work: () => Promise<unknown>) => Promise<void>;
+type EditingState = { projectId: string; task: ScheduledTaskView | null };
 
 function normPath(path: string): string {
   return path.replaceAll('\\', '/');
@@ -69,7 +76,7 @@ export function ScheduledTasksDialog({ directory, onClose, services }: Scheduled
 
   const [projectId, setProjectId] = useState('');
   const list = useScheduledTaskList(projectId);
-  const [editing, setEditing] = useState<ScheduledTaskView | 'new' | null>(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
 
   // Default selection: the active directory's project, else the first.
   useEffect(() => {
@@ -84,13 +91,17 @@ export function ScheduledTasksDialog({ directory, onClose, services }: Scheduled
       <TasksPanel roster={roster} projectId={projectId} onProjectChange={setProjectId}
         tasks={list.tasks} loading={list.loading} error={list.error} busyTaskId={list.busyTaskId}
         busy={list.busy} onClose={onClose} directory={directory}
-        onHeaderNew={services === undefined ? null : () => setEditing('new')}
-        onEdit={services === undefined ? null : (task) => setEditing(task)} />
+        onHeaderNew={services === undefined || projectId.length === 0 ? null : () => setEditing({ projectId, task: null })}
+        onEdit={services === undefined ? null : (task) => setEditing({ projectId, task })} />
       {services !== undefined && editing !== null ? (
-        <ScheduledTaskEditorDialog projectId={projectId} directory={directory}
-          task={editing === 'new' ? null : editing} services={services}
+        <ScheduledTaskEditorDialog projectId={editing.projectId} directory={directory}
+          task={editing.task} services={services}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); list.refresh(projectId); }} />
+          onSaved={() => {
+            const savedProjectId = editing.projectId;
+            setEditing(null);
+            if (savedProjectId === projectId) list.refresh(projectId);
+          }} />
       ) : null}
     </>
   );
@@ -114,41 +125,44 @@ interface TasksPanelProps {
 function TasksPanel({
   roster, projectId, onProjectChange, tasks, loading, error, busyTaskId, busy, onClose, directory, onHeaderNew, onEdit,
 }: TasksPanelProps): ReactNode {
+  const text = useScheduledText();
   return (
-    <div role="dialog" aria-label="Scheduled tasks" tabIndex={0} data-testid="scheduled-tasks-dialog"
+    <div role="dialog" aria-label={text.title} tabIndex={0} data-testid="scheduled-tasks-dialog"
       className="absolute inset-0 z-30 flex items-start justify-center bg-black/50 p-10"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}>
       <div className="flex max-h-[75vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-neutral-950 p-3">
-        <TasksHeader roster={roster} projectId={projectId} onProjectChange={onProjectChange} onClose={onClose}
-          onHeaderNew={onHeaderNew} />
+      <TasksHeader roster={roster} projectId={projectId} onProjectChange={onProjectChange} onClose={onClose}
+          onHeaderNew={onHeaderNew} text={text} />
         {error !== null ? <div className="p-3 text-[12px] text-red-300" data-testid="scheduled-error">{error}</div> : null}
         {!loading && error === null && tasks.length === 0 ? (
-          <div className="p-4 text-[12px] text-neutral-600" data-testid="scheduled-empty">No scheduled tasks for this project yet</div>
+          <div className="p-4 text-[12px] text-neutral-600" data-testid="scheduled-empty">{text.empty}</div>
         ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <TaskRows tasks={tasks} projectId={projectId} directory={directory} busyTaskId={busyTaskId} busy={busy} onEdit={onEdit} />
+          <TaskRows tasks={tasks} projectId={projectId} directory={directory} busyTaskId={busyTaskId} busy={busy}
+            onEdit={onEdit} text={text} />
         </div>
         <footer className="mt-2 border-t border-white/10 pt-2 text-[10px] text-neutral-600">
-          {tasks.length} task{tasks.length === 1 ? '' : 's'} · loop tasks are driven by their .agents/loops file · the list refreshes when a run lands
+          {interpolateText(tasks.length === 1 ? text.taskCountOne : text.taskCountMany, { count: tasks.length })} · {text.footerLoopFiles}
         </footer>
       </div>
     </div>
   );
 }
 
-function TasksHeader({ roster, projectId, onProjectChange, onClose, onHeaderNew }: {
+function TasksHeader({ roster, projectId, onProjectChange, onClose, onHeaderNew, text }: {
   roster: Array<{ id: string; worktree: string }>;
   projectId: string;
   onProjectChange: (id: string) => void;
   onClose: () => void;
   onHeaderNew: (() => void) | null;
+  text: ScheduledText;
 }): ReactNode {
   return (
     <div className="mb-2 flex items-center gap-2">
-      <strong className="text-[13px] text-neutral-100">Scheduled tasks</strong>
-      <select aria-label="Project" data-testid="scheduled-project-select" value={projectId}
+      <strong className="text-[13px] text-neutral-100">{text.title}</strong>
+      <select aria-label={text.projectLabel} data-testid="scheduled-project-select" value={projectId}
         onChange={(event) => onProjectChange(event.target.value)}
         className="ml-auto rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200 outline-none">
         {roster.map((project) => (
@@ -156,10 +170,10 @@ function TasksHeader({ roster, projectId, onProjectChange, onClose, onHeaderNew 
         ))}
       </select>
       {onHeaderNew !== null ? (
-        <button type="button" data-testid="task-new" title="New scheduled task"
-          className="rounded bg-sky-800 px-2 py-1 text-[11px] text-white hover:bg-sky-700" onClick={onHeaderNew}>+ new</button>
+        <button type="button" data-testid="task-new" title={text.newTaskTitle}
+          className="rounded bg-sky-800 px-2 py-1 text-[11px] text-white hover:bg-sky-700" onClick={onHeaderNew}>{text.newButton}</button>
       ) : null}
-      <button type="button" aria-label="Close scheduled tasks" className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
+      <button type="button" aria-label={text.close} className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
     </div>
   );
 }
@@ -171,19 +185,20 @@ interface TaskRowsProps {
   busyTaskId: string;
   busy: TaskListBusy;
   onEdit: ((task: ScheduledTaskView) => void) | null;
+  text: ScheduledText;
 }
 
-function TaskRows({ tasks, projectId, directory, busyTaskId, busy, onEdit }: TaskRowsProps): ReactNode {
+function TaskRows({ tasks, projectId, directory, busyTaskId, busy, onEdit, text }: TaskRowsProps): ReactNode {
   return (
     <>
       {tasks.map((task) => (
-        <TaskRow key={task.id} task={task}
+        <TaskRow key={task.id} task={task} text={text}
           directory={directory} busy={busyTaskId === task.id}
           onToggle={() => void busy(task.id, () => toggleTask(projectId, task))}
-          onRun={() => void busy(task.id, () => runNow(projectId, task.id, task.name).then(() => undefined))}
+          onRun={() => void busy(task.id, () => runNow(projectId, task.id, task.name, text).then(() => undefined))}
           onDelete={() => void busy(task.id, () => deleteScheduledTask(projectId, task.id))}
           onLoopDelete={() => void busy(task.id, () => deleteLoopFile(projectId, task.id))}
-          onLoopEdit={() => openLoopFile(directory, task.loopFile ?? '', task.name)}
+          onLoopEdit={() => openLoopFile(directory, task.loopFile ?? '', task.name, text)}
           onEdit={onEdit === null ? null : () => onEdit(task)}
         />
       ))}
@@ -192,6 +207,7 @@ function TaskRows({ tasks, projectId, directory, busyTaskId, busy, onEdit }: Tas
 }
 
 interface TaskRowProps {
+  text: ScheduledText;
   task: ScheduledTaskView;
   directory: string;
   busy: boolean;
@@ -204,21 +220,22 @@ interface TaskRowProps {
 }
 
 function TaskRow({
-  task, directory, busy, onToggle, onRun, onDelete, onLoopDelete, onLoopEdit, onEdit,
+  task, text, directory, busy, onToggle, onRun, onDelete, onLoopDelete, onLoopEdit, onEdit,
 }: TaskRowProps): ReactNode {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const loop = task.loopFile !== undefined;
   const loopWithin = loop && withinDir(task.loopFile ?? '', directory);
   return (
     <div className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-white/5" data-testid="scheduled-task-row">
-      <button type="button" aria-label={`Toggle ${task.name}`} data-testid="task-toggle"
+      <button type="button" aria-label={interpolateText(text.toggle, { name: task.name })} data-testid="task-toggle"
         disabled={busy}
+        aria-pressed={task.enabled}
         className={`mt-0.5 rounded px-1.5 py-0.5 text-[10px] ${task.enabled ? 'bg-emerald-900/50 text-emerald-300' : 'bg-neutral-800 text-neutral-500'} disabled:opacity-40`}
         onClick={onToggle}>
-        {task.enabled ? 'on' : 'off'}
+        {task.enabled ? text.on : text.off}
       </button>
-      <TaskNameBlock task={task} />
-      <RowActions task={task} busy={busy} loop={loop} loopWithin={Boolean(loopWithin)}
+      <TaskNameBlock task={task} text={text} />
+      <RowActions task={task} text={text} busy={busy} loop={loop} loopWithin={Boolean(loopWithin)}
         confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete}
         onToggle={onToggle} onRun={onRun} onDelete={onDelete} onLoopDelete={onLoopDelete} onLoopEdit={onLoopEdit}
         onEdit={onEdit} />
@@ -226,31 +243,32 @@ function TaskRow({
   );
 }
 
-function TaskNameBlock({ task }: { task: ScheduledTaskView }): ReactNode {
+function TaskNameBlock({ task, text }: { task: ScheduledTaskView; text: ScheduledText }): ReactNode {
   return (
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-neutral-200">{task.name}</span>
-        <span className={`rounded px-1.5 py-0.5 text-[9px] uppercase ${badgeClass(task.state.lastStatus)}`} data-testid="task-badge">{task.state.lastStatus}</span>
+        <span className={`rounded px-1.5 py-0.5 text-[9px] uppercase ${badgeClass(task.state.lastStatus)}`} data-testid="task-badge">{scheduleStatusLabel(task.state.lastStatus, text)}</span>
         {task.loopFile !== undefined ? (
-          <span className="rounded bg-indigo-900/40 px-1.5 py-0.5 text-[9px] text-indigo-300" title={task.loopFile} data-testid="task-loop-chip">loop</span>
+          <span className="rounded bg-indigo-900/40 px-1.5 py-0.5 text-[9px] text-indigo-300" title={task.loopFile} data-testid="task-loop-chip">{text.loopChip}</span>
         ) : null}
-        {task.execution.goalEnabled ? <span className="rounded bg-sky-900/40 px-1.5 py-0.5 text-[9px] text-sky-300">goal</span> : null}
+        {task.execution.goalEnabled ? <span className="rounded bg-sky-900/40 px-1.5 py-0.5 text-[9px] text-sky-300">{text.goalChip}</span> : null}
       </div>
-      <div className="text-[10px] text-neutral-500">{scheduleLabel(task.schedule)}</div>
+      <div className="text-[10px] text-neutral-500">{scheduleLabel(task.schedule, text)}</div>
       <div className="text-[10px] text-neutral-600">
-        {atText(task.state.nextRunAt, 'next')}{task.state.nextRunAt !== undefined && task.state.lastRunAt !== undefined ? ' · ' : ''}
-        {atText(task.state.lastRunAt, 'last')}
+        {atText(task.state.nextRunAt, text.next)}{task.state.nextRunAt !== undefined && task.state.lastRunAt !== undefined ? ' · ' : ''}
+        {atText(task.state.lastRunAt, text.last)}
       </div>
     </div>
   );
 }
 
 function RowActions({
-  task, busy, loop, loopWithin, confirmDelete, setConfirmDelete,
+  task, text, busy, loop, loopWithin, confirmDelete, setConfirmDelete,
   onToggle, onRun, onDelete, onLoopDelete, onLoopEdit, onEdit,
 }: {
   task: ScheduledTaskView;
+  text: ScheduledText;
   busy: boolean;
   loop: boolean;
   loopWithin: boolean;
@@ -265,21 +283,21 @@ function RowActions({
 }): ReactNode {
   return (
     <>
-      <button type="button" aria-label={`Run ${task.name} now`} data-testid="task-run" disabled={busy}
-        className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 hover:bg-neutral-700 disabled:opacity-40" onClick={onRun}>run</button>
+      <button type="button" aria-label={interpolateText(text.runAria, { name: task.name })} data-testid="task-run" disabled={busy}
+        className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 hover:bg-neutral-700 disabled:opacity-40" onClick={onRun}>{text.run}</button>
       {onEdit !== null ? (
-        <button type="button" aria-label={`Edit ${task.name}`} data-testid="task-edit" disabled={busy}
-          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" onClick={onEdit}>task</button>
+        <button type="button" aria-label={interpolateText(text.editAria, { name: task.name })} data-testid="task-edit" disabled={busy}
+          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" onClick={onEdit}>{text.edit}</button>
       ) : null}
       {loop ? (
-        <button type="button" aria-label={`Edit loop file for ${task.name}`} data-testid="task-loop-edit" disabled={busy || !loopWithin}
-          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" title={task.loopFile} onClick={onLoopEdit}>edit</button>
+        <button type="button" aria-label={interpolateText(text.loopEditAria, { name: task.name })} data-testid="task-loop-edit" disabled={busy || !loopWithin}
+          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" title={task.loopFile} onClick={onLoopEdit}>{text.loopEdit}</button>
       ) : null}
       {loop && confirmDelete ? (
-        <button type="button" aria-label={`Confirm deleting the loop file of ${task.name}`} data-testid="task-loop-confirm"
-          className="rounded bg-red-900/60 px-2 py-1 text-[10px] text-red-100" onClick={() => { setConfirmDelete(false); onLoopDelete(); }}>delete file?</button>
+        <button type="button" aria-label={interpolateText(text.loopDeleteAria, { name: task.name })} data-testid="task-loop-confirm"
+          className="rounded bg-red-900/60 px-2 py-1 text-[10px] text-red-100" onClick={() => { setConfirmDelete(false); onLoopDelete(); }}>{text.loopDelete}</button>
       ) : null}
-      <button type="button" aria-label={`Delete ${task.name}`} data-testid="task-delete" disabled={busy}
+      <button type="button" aria-label={interpolateText(text.deleteAria, { name: task.name })} data-testid="task-delete" disabled={busy}
         className="rounded px-2 py-1 text-[10px] text-neutral-500 hover:text-red-300 disabled:opacity-40"
         onClick={loop ? () => setConfirmDelete(true) : () => onDelete()}>×</button>
     </>
@@ -292,15 +310,16 @@ function toggleTask(projectId: string, task: ScheduledTaskView): Promise<unknown
   return upsertScheduledTask(projectId, { ...task, enabled: !task.enabled });
 }
 
-async function runNow(projectId: string, taskId: string, name: string): Promise<unknown> {
+async function runNow(projectId: string, taskId: string, name: string, text: ScheduledText): Promise<unknown> {
   const outcome = await runScheduledTask(projectId, taskId);
   if ('error' in outcome) {
-    toast.error(`${name}: ${outcome.error}`);
+    toast.error(interpolateText(text.runFailed, { name, error: outcome.error }));
     return null;
   }
-  if (outcome.status === 'success') toast.success(`${name} completed`);
-  else toast.message(`${name} ended with ${outcome.status}`);
-  if (outcome.persistError !== undefined) toast.error(`${name}: persistence delayed (${outcome.persistError})`);
+  const localizedStatus = scheduleStatusLabel(outcome.status, text);
+  if (outcome.status === 'success') toast.success(interpolateText(text.runCompleted, { name }));
+  else toast.message(interpolateText(text.runEnded, { name, status: localizedStatus }));
+  if (outcome.persistError !== undefined) toast.error(interpolateText(text.persistenceDelayed, { name, error: outcome.persistError }));
   return null;
 }
 
@@ -308,10 +327,10 @@ async function runNow(projectId: string, taskId: string, name: string): Promise<
  * pane is mounted at the active session directory (MainLayout), so the
  * handoff must be relative to THAT root - a file inside the project worktree
  * but outside the active directory cannot be opened from here. */
-function openLoopFile(directory: string, loopFile: string, name: string): void {
+function openLoopFile(directory: string, loopFile: string, name: string, text: ScheduledText): void {
   if (loopFile.length === 0) return;
   if (directory.length === 0 || !withinDir(loopFile, directory)) {
-    toast.message(`${name}: the loop file ${loopFile} is outside this workspace — toggle it here instead`);
+    toast.message(interpolateText(text.loopOutsideWorkspace, { name, loopFile }));
     return;
   }
   window.dispatchEvent(new CustomEvent(FILES_OPEN_EVENT, {

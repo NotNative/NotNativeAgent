@@ -13,15 +13,20 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import type { TaskSchedule } from '../../lib/scheduled-tasks-api.ts';
 import {
   CRON_EXAMPLES, PILL_CATALOG, cronShapeOk, emptyDraft, localeFirstDay,
-  previewLine, timePillLabel, toggleMember, weekdayLabels, weekdayOrder, zoneChoices,
+  timePillLabel, toggleMember, weekdayLabels, weekdayOrder, zoneChoices,
 } from './schedule-form.ts';
+import { previewLine, useScheduledText, type ScheduledText } from './scheduledText.ts';
 import { useI18nStore } from '../../lib/i18n/store.ts';
 import { BCP47ByLocale } from '../../lib/i18n/runtime.ts';
 import { useCurrentIntlLocale } from '../../lib/i18n/intl.ts';
 
-const KINDS: Array<{ kind: TaskSchedule['kind']; label: string }> = [
-  { kind: 'daily', label: 'daily' }, { kind: 'weekly', label: 'weekly' },
-  { kind: 'once', label: 'once' }, { kind: 'cron', label: 'cron' },
+const KINDS: Array<{ kind: TaskSchedule['kind']; labelKey: keyof ScheduledText }> = [
+  { kind: 'daily', labelKey: 'kindDaily' }, { kind: 'weekly', labelKey: 'kindWeekly' },
+  { kind: 'once', labelKey: 'kindOnce' }, { kind: 'cron', labelKey: 'kindCron' },
+];
+const EXAMPLE_LABEL_KEYS: Array<keyof ScheduledText> = [
+  'exampleHourly', 'exampleEvery15', 'exampleWeekdays9',
+  'exampleMondays', 'exampleMonthlyFirst',
 ];
 
 export interface ScheduledScheduleEditorProps {
@@ -54,14 +59,15 @@ export function ScheduledScheduleEditor({
 }
 
 function KindTabs({ value, onChange }: { value: TaskSchedule; onChange: (next: TaskSchedule) => void }): ReactNode {
+  const text = useScheduledText();
   return (
-    <div className="flex gap-1" role="tablist" aria-label="Schedule kind">
-      {KINDS.map(({ kind, label }) => (
+    <div className="flex gap-1" role="tablist" aria-label={text.scheduleKind}>
+      {KINDS.map(({ kind, labelKey }) => (
         <button key={kind} type="button" role="tab" aria-selected={value.kind === kind}
           data-testid={`schedule-kind-${kind}`}
           className={`rounded px-2 py-1 text-[11px] ${value.kind === kind ? 'bg-neutral-800 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200'}`}
           onClick={() => onChange(emptyDraft(kind, value.timezone))}>
-          {label}
+          {text[labelKey]}
         </button>
       ))}
     </div>
@@ -71,9 +77,10 @@ function KindTabs({ value, onChange }: { value: TaskSchedule; onChange: (next: T
 function ZoneSelect({ value, onChange }: { value: TaskSchedule; onChange: (next: TaskSchedule) => void }): ReactNode {
   const choices = zoneChoices();
   const listed = choices.includes(value.timezone);
+  const text = useScheduledText();
   return (
     <label className="flex items-center gap-2 text-[11px] text-neutral-400">
-      <span>Timezone</span>
+      <span>{text.timezone}</span>
       <select value={value.timezone} data-testid="schedule-zone-select"
         onChange={(event) => onChange({ ...value, timezone: event.target.value })}
         className="max-w-full rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200">
@@ -109,12 +116,13 @@ function WeeklyFields({ value, onChange, timePreference }: {
   onChange: (next: TaskSchedule) => void;
   timePreference: 'auto' | '12h' | '24h';
 }): ReactNode {
+  const text = useScheduledText();
   const storeLocale = BCP47ByLocale[useI18nStore.getState().locale] ?? BCP47ByLocale.en;
   const labels = weekdayLabels(storeLocale);
   const order = weekdayOrder(localeFirstDay(storeLocale));
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1" data-testid="weekday-chips" aria-label="Weekdays">
+      <div className="flex flex-wrap gap-1" data-testid="weekday-chips" aria-label={text.weekdays}>
         {order.map((day) => (
           <button key={day} type="button" data-testid={`weekday-${day}`}
             className={`rounded px-2 py-0.5 text-[10px] ${value.weekdays.includes(day) ? 'bg-indigo-900/60 text-indigo-200' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'}`}
@@ -147,20 +155,21 @@ function OnceFields({ value, onChange }: { value: TaskSchedule & { kind: 'once' 
 }
 
 function CronFields({ value, onChange }: { value: TaskSchedule & { kind: 'cron' }; onChange: (next: TaskSchedule) => void }): ReactNode {
+  const text = useScheduledText();
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <input value={value.cron} data-testid="cron-input" aria-label="Cron expression" spellCheck={false}
+        <input value={value.cron} data-testid="cron-input" aria-label={text.cronAria} spellCheck={false}
           onChange={(event) => onChange({ ...value, cron: event.target.value })}
           className="min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
-        {!cronShapeOk(value.cron) ? <span className="text-[10px] text-amber-300" data-testid="cron-invalid">5-6 cron fields</span> : null}
+        {!cronShapeOk(value.cron) ? <span className="text-[10px] text-amber-300" data-testid="cron-invalid">{text.cronInvalid}</span> : null}
       </div>
       <div className="flex flex-wrap gap-1" data-testid="cron-examples">
-        {CRON_EXAMPLES.map((example) => (
+        {CRON_EXAMPLES.map((example, index) => (
           <button key={example.cron} type="button" data-testid="cron-example"
             className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400 hover:text-neutral-200"
             onClick={() => onChange({ ...value, cron: example.cron })}>
-            {example.label}
+            {text[EXAMPLE_LABEL_KEYS[index] ?? 'exampleHourly']}
           </button>
         ))}
       </div>
@@ -174,23 +183,29 @@ function PreviewBlock({ value, preview, timePreference, delayMs }: {
   timePreference: 'auto' | '12h' | '24h';
   delayMs: number;
 }): ReactNode {
+  const text = useScheduledText();
   const [slots, setSlots] = useState<number[]>([]);
-  const [note, setNote] = useState('');
+  const [failed, setFailed] = useState(false);
   const sequence = useRef(0);
   const draft = JSON.stringify(value);
   useEffect(() => {
     sequence.current += 1;
     const mine = sequence.current;
+    setFailed(false);
     const timer = setTimeout(() => {
       void preview(value).then((outcome) => {
         if (sequence.current !== mine) return;
         if (outcome.ok) {
           setSlots(outcome.slots);
-          setNote('');
+          setFailed(false);
         } else {
           setSlots([]);
-          setNote('preview unavailable');
+          setFailed(true);
         }
+      }).catch(() => {
+        if (sequence.current !== mine) return;
+        setSlots([]);
+        setFailed(true);
       });
     }, delayMs);
     return () => clearTimeout(timer);
@@ -198,11 +213,11 @@ function PreviewBlock({ value, preview, timePreference, delayMs }: {
   }, [draft, delayMs]);
   return (
     <div className="rounded-lg border border-white/10 bg-neutral-900/60 p-2 text-[10px]" data-testid="schedule-preview">
-      <div className="text-neutral-500">next runs</div>
+      <div className="text-neutral-500">{text.nextRuns}</div>
       {slots.map((at) => (
-        <div key={at} className="text-neutral-300" data-testid="schedule-preview-slot">{previewLine(at, value.timezone, timePreference)}</div>
+        <div key={at} className="text-neutral-300" data-testid="schedule-preview-slot">{previewLine(at, value.timezone, timePreference, text)}</div>
       ))}
-      {slots.length === 0 ? <div className="text-neutral-600">{note.length > 0 ? note : 'computing...'}</div> : null}
+      {slots.length === 0 ? <div className="text-neutral-600">{failed ? text.previewUnavailable : text.computing}</div> : null}
     </div>
   );
 }

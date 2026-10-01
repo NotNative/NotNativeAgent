@@ -17,6 +17,7 @@ import {
 import { ScheduledScheduleEditor } from './scheduled-task-schedule-editor.tsx';
 import { ExecutionEditor } from './scheduled-task-execution-editor.tsx';
 import { emptyDraft, systemZone } from './schedule-form.ts';
+import { useScheduledText } from './scheduledText.ts';
 import { useSettingsField } from '../settings/page-helpers.tsx';
 import type { ComposerServices } from '../../chat/composer.tsx';
 import type { Provider } from '../../lib/nnd/types.ts';
@@ -57,6 +58,7 @@ export function ScheduledTaskEditorDialog({
   const commandNames = (snapshot.command ?? []).map((entry) => entry.name);
   const agentNames = (snapshot.agent ?? []).map((entry) => entry.name);
   const format = useSettingsField<'auto' | '12h' | '24h'>('timeFormatPreference');
+  const text = useScheduledText();
 
   const [name, setName] = useState(task?.name ?? '');
   const [enabled, setEnabled] = useState(task?.enabled ?? true);
@@ -70,7 +72,7 @@ export function ScheduledTaskEditorDialog({
   useEffectForSeed(execution, task, providers, setExecution);
 
   async function save(): Promise<void> {
-    if (name.trim().length === 0) { setBlocked('a name is required'); return; }
+    if (name.trim().length === 0) { setBlocked(text.nameRequired); return; }
     const base = task ?? {};
     const variantKept = task !== null && task.execution.providerID === execution.providerID
       && task.execution.modelID === execution.modelID;
@@ -91,14 +93,21 @@ export function ScheduledTaskEditorDialog({
       },
     };
     setSaving(true);
-    const outcome = await upsertScheduledTask(projectId, input);
+    let outcome: Awaited<ReturnType<typeof upsertScheduledTask>>;
+    try {
+      outcome = await upsertScheduledTask(projectId, input);
+    } catch (requestError) {
+      setSaving(false);
+      toast.error(String(requestError).slice(0, 160));
+      return;
+    }
     setSaving(false);
-    if (outcome.ok) { toast.success(task === null ? 'task scheduled' : 'task updated'); onSaved(outcome.task); return; }
+    if (outcome.ok) { toast.success(task === null ? text.saved : text.updated); onSaved(outcome.task); return; }
     toast.error(outcome.error.slice(0, 160));
   }
 
   return (
-    <div role="dialog" aria-label="Task editor" tabIndex={0} data-testid="task-editor-dialog"
+    <div role="dialog" aria-label={text.editorTitle} tabIndex={0} data-testid="task-editor-dialog"
       className="absolute inset-0 z-40 flex items-start justify-center bg-black/60 p-8"
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
@@ -108,12 +117,12 @@ export function ScheduledTaskEditorDialog({
       }}>
       <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/10 bg-neutral-950 p-4">
         <div className="mb-3 flex items-center gap-2">
-          <strong className="text-[13px] text-neutral-100">{task === null ? 'New scheduled task' : 'Edit scheduled task'}</strong>
-          <button type="button" aria-label="Close task editor" data-testid="task-editor-close"
+          <strong className="text-[13px] text-neutral-100">{task === null ? text.newTask : text.editTask}</strong>
+          <button type="button" aria-label={text.closeEditor} data-testid="task-editor-close"
             className="ml-auto rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
         </div>
         <label className="mb-3 flex items-center gap-2 text-[11px] text-neutral-400">
-          <span>Name</span>
+          <span>{text.name}</span>
           <input value={name} data-testid="task-name-input"
             onChange={(event) => { setName(event.target.value); setBlocked(''); }}
             className="min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-100" />
@@ -128,10 +137,10 @@ export function ScheduledTaskEditorDialog({
         <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
           <button type="button" data-testid="task-enabled-chip" aria-pressed={enabled}
             className={`rounded px-2 py-1 text-[11px] ${enabled ? 'bg-emerald-900/50 text-emerald-300' : 'bg-neutral-800 text-neutral-400'}`}
-            onClick={() => setEnabled(!enabled)}>{enabled ? 'enabled' : 'disabled'}</button>
+            onClick={() => setEnabled(!enabled)}>{enabled ? text.enabled : text.disabled}</button>
           <button type="button" data-testid="task-save" disabled={saving}
             className="ml-auto rounded bg-sky-800 px-3 py-1 text-[12px] text-white hover:bg-sky-700 disabled:opacity-40"
-            onClick={() => void save()}>{saving ? 'saving...' : 'Save'}</button>
+            onClick={() => void save()}>{saving ? text.saving : text.save}</button>
         </div>
       </div>
     </div>

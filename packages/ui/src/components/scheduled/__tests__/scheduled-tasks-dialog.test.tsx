@@ -156,12 +156,14 @@ describe('ScheduledTasksDialog (doc 12 §H rows)', () => {
         schedule: { kind: 'cron', cron: '30 9 * * *', timezone: 'Europe/Berlin' },
         state: { createdAt: 1, updatedAt: 2, lastStatus: 'error' },
       }),
+      task('t3', { schedule: { kind: 'weekly', times: ['09:00'], weekdays: [0, 1], timezone: 'UTC' } }),
     ] });
     await render();
     const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="scheduled-task-row"]')];
-    expect(rows.length).toBe(2);
+    expect(rows.length).toBe(3);
     expect(document.body.textContent).toContain('daily 09:00 · UTC');
     expect(document.body.textContent).toContain('cron 30 9 * * * · Europe/Berlin');
+    expect(document.body.textContent).toContain('weekly Sun, Mon at 09:00 · UTC');
     expect(row(0).textContent).toContain('idle');
     expect(row(0).textContent).toContain('next');
     expect(row(1).textContent).toContain('error');
@@ -402,7 +404,7 @@ describe('ScheduledTasksDialog staleness + contract edges (audit pins)', () => {
       task('o1', { schedule: { kind: 'once', date: '2026-09-30', time: '08:15', timezone: 'UTC' } }),
     ] });
     await render();
-    expect(document.body.textContent).toContain('weekly Sun,Sat at 09:00 · UTC');
+    expect(document.body.textContent).toContain('weekly Sun, Sat at 09:00 · UTC');
     expect(document.body.textContent).toContain('once 2026-09-30 08:15 · UTC');
   });
 });

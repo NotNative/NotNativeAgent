@@ -12,6 +12,7 @@ import {
   formatDateTimeForPreference, canonicalizeTimezone, type TimeFormatPreference,
 } from '../../lib/format/time.ts';
 import type { TaskSchedule } from '../../lib/scheduled-tasks-api.ts';
+import { SCHEDULED_TEXT, interpolateText, type ScheduledText } from './scheduledText.ts';
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -128,24 +129,29 @@ export function toggleMember<T>(list: T[], item: T, keep = 1): T[] {
 
 /** The schedule summary the list rows render (moved here for the editor's
  * reuse: the rows and the editor header show the same text). */
-export function scheduleLabel(schedule: TaskSchedule): string {
-  const zone = ` · ${schedule.timezone}`;
-  if (schedule.kind === 'daily') return `daily ${schedule.times.join(', ')}${zone}`;
-  if (schedule.kind === 'once') return `once ${schedule.date} ${schedule.time}${zone}`;
+export function scheduleLabel(schedule: TaskSchedule, text: ScheduledText = SCHEDULED_TEXT): string {
+  const zone = interpolateText(text.scheduleZone, { zone: schedule.timezone });
+  if (schedule.kind === 'daily') return interpolateText(text.dailySchedule, { times: schedule.times.join(', ') }) + zone;
+  if (schedule.kind === 'once') return interpolateText(text.onceSchedule, { date: schedule.date, time: schedule.time }) + zone;
   if (schedule.kind === 'weekly') {
-    const days = schedule.weekdays.map((day) => WEEKDAYS[day] ?? '?').join(',');
-    return `weekly ${days} at ${schedule.times.join(', ')}${zone}`;
+    const formatter = new Intl.DateTimeFormat(getCurrentIntlLocale(), { weekday: 'short', timeZone: 'UTC' });
+    const days = schedule.weekdays.map((day) => (
+      day >= 0 && day <= 6 ? formatter.format(new Date(Date.UTC(2020, 0, 5 + day))) : '?'
+    )).join(', ');
+    return interpolateText(text.weeklySchedule, { days, times: schedule.times.join(', ') }) + zone;
   }
-  return `cron ${schedule.cron}${zone}`;
+  return interpolateText(text.cronSchedule, { cron: schedule.cron }) + zone;
 }
 
 /** One preview line: the viewer-zone date + the wall time INSIDE the
  * schedule zone (the slot that will actually arm), per preference. */
-export function previewLine(at: number, zone: string, preference: TimeFormatPreference): string {
+export function previewLine(
+  at: number, zone: string, preference: TimeFormatPreference, text: ScheduledText = SCHEDULED_TEXT,
+): string {
   const viewer = formatDateTimeForPreference(at, preference, { year: 'numeric', month: 'short', day: '2-digit' });
   const hour12 = preference === '12h' ? true : preference === '24h' ? false : undefined;
   const wall = new Intl.DateTimeFormat(getCurrentIntlLocale(), {
     hour: 'numeric', minute: '2-digit', hour12, timeZone: zone,
   }).format(new Date(at));
-  return `${viewer} (${wall} in ${zone})`;
+  return interpolateText(text.previewAtZone, { wall, zone });
 }

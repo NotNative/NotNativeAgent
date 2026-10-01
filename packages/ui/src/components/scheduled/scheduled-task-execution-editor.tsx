@@ -17,6 +17,7 @@ import { fsSearch, type FsEntry } from '../../lib/server-api.ts';
 import { snippetNames } from '../../lib/snippets-source.ts';
 import type { Provider } from '../../lib/nnd/types.ts';
 import type { TaskExecution } from '../../lib/scheduled-tasks-api.ts';
+import { useScheduledText } from './scheduledText.ts';
 
 type PickerState = { trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void };
 const MODEL_SEP = '::';
@@ -30,6 +31,7 @@ export function ExecutionEditor({ execution, onChange, providers, commands, agen
   agents: string[];
   directory: string;
 }): ReactNode {
+  const text = useScheduledText();
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
@@ -37,10 +39,10 @@ export function ExecutionEditor({ execution, onChange, providers, commands, agen
         <AgentSelect execution={execution} onChange={onChange} agents={agents} />
       </div>
       <PromptField execution={execution} onChange={onChange} commands={commands} agents={agents} directory={directory} />
-      <LabelledCheck label="Run as goal" testid="execution-goal" checked={execution.goalEnabled === true}
+      <LabelledCheck label={text.runAsGoal} testid="execution-goal" checked={execution.goalEnabled === true}
         onToggle={(next) => onChange({ ...execution, goalEnabled: next || undefined, goalTokenBudget: next ? execution.goalTokenBudget : undefined })} />
       {execution.goalEnabled === true ? <GoalBudget execution={execution} onChange={onChange} /> : null}
-      <LabelledCheck label="Auto-accept permissions" testid="execution-auto-accept"
+      <LabelledCheck label={text.autoAcceptPermissions} testid="execution-auto-accept"
         checked={execution.permissionAutoAccept === true}
         onToggle={(next) => onChange({ ...execution, permissionAutoAccept: next || undefined })} />
     </div>
@@ -68,8 +70,11 @@ function ModelSelect({ execution, onChange, providers }: {
   onChange: (next: TaskExecution) => void;
   providers: Provider[];
 }): ReactNode {
+  const text = useScheduledText();
   const listed = providers.some((provider) =>
     execution.providerID === provider.id && execution.modelID in provider.models);
+  const hasChoices = providers.some((provider) => Object.keys(provider.models).length > 0);
+  const customPair = execution.providerID.length > 0 || execution.modelID.length > 0;
   const pick = (raw: string): void => {
     const index = raw.lastIndexOf(MODEL_SEP);
     if (index <= 0) return;
@@ -77,12 +82,12 @@ function ModelSelect({ execution, onChange, providers }: {
   };
   return (
     <label className="flex items-center gap-1 text-[11px] text-neutral-400">
-      <span>Model</span>
+      <span>{text.model}</span>
       <select data-testid="execution-model-select" value={modelValue(execution)}
         onChange={(event) => pick(event.target.value)}
         className="max-w-64 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200">
-        {!listed && execution.modelID.length > 0 ? <option value={modelValue(execution)}>{modelValue(execution)}</option> : null}
-        {providers.length === 0 ? <option value="">{execution.modelID.length === 0 ? 'no models configured' : ''}</option> : null}
+        {!listed && customPair ? <option value={modelValue(execution)}>{modelValue(execution)}</option> : null}
+        {!hasChoices && !customPair ? <option value="">{text.noModels}</option> : null}
         {providers.map((provider) => (
           <optgroup key={provider.id} label={provider.name || provider.id}>
             {Object.keys(provider.models).map((modelID) => (
@@ -102,9 +107,10 @@ function AgentSelect({ execution, onChange, agents }: {
 }): ReactNode {
   const current = execution.agent ?? 'build';
   const listed = agents.includes(current);
+  const text = useScheduledText();
   return (
     <label className="flex items-center gap-1 text-[11px] text-neutral-400">
-      <span>Agent</span>
+      <span>{text.agent}</span>
       <select data-testid="execution-agent-select" value={current}
         onChange={(event) => onChange({ ...execution, agent: event.target.value || undefined })}
         className="max-w-48 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200">
@@ -116,9 +122,10 @@ function AgentSelect({ execution, onChange, agents }: {
 }
 
 function GoalBudget({ execution, onChange }: { execution: TaskExecution; onChange: (next: TaskExecution) => void }): ReactNode {
+  const text = useScheduledText();
   return (
     <label className="flex items-center gap-2 text-[11px] text-neutral-400">
-      <span>Goal token budget</span>
+      <span>{text.goalBudget}</span>
       <input type="number" min={1000} step={1000} data-testid="execution-goal-budget"
         value={execution.goalTokenBudget ?? ''}
         onChange={(event) => {
@@ -157,6 +164,7 @@ function PromptField({ execution, onChange, commands, agents, directory }: {
   agents: string[];
   directory: string;
 }): ReactNode {
+  const text = useScheduledText();
   const [picker, setPicker] = useState<PickerState | null>(null);
   // Insert closures must operate on the LATEST document: the picker survives
   // renders, so the prop snapshot it would otherwise capture goes stale.
@@ -202,7 +210,7 @@ function PromptField({ execution, onChange, commands, agents, directory }: {
     <div className="relative">
       <PickerPopup picker={picker} />
       <textarea value={execution.prompt} onChange={onPromptInput} onKeyDown={escapeHatch}
-        data-testid="task-prompt-input" rows={3} placeholder="What should the run do? (@file /command #snippet)"
+        data-testid="task-prompt-input" rows={3} placeholder={text.promptPlaceholder}
         className="w-full resize-y rounded-lg border border-white/10 bg-neutral-900 p-2 text-[12px] text-neutral-100 outline-none" />
     </div>
   );
