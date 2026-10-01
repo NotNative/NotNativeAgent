@@ -558,9 +558,9 @@ remaining P12 slices ride after it.
   GUI rendering, actual NSIS installation, and non-Windows platforms still
   need acceptance coverage.
 - Dual-instance sharing of ~/.notnative-desktop (packaged + dev `pnpm start`):
-  queue dispatch and settings writes assume one server; occurrence-claim
-  machinery exists only for scheduled tasks (lands P9-3). Cross-process
-  arbitration is a P13 integration-verify item.
+  settings mutations use a shared config lock and lazy seeding publishes with
+  atomic no-replace semantics (P13). Queue dispatch arbitration remains open;
+  occurrence-claim machinery exists only for scheduled tasks (P9-3).
 - Port handoff race: selectPort test-binds then closes before the server
   binds — a second process can win the gap (~ms). Failure mode is a clean
   boot abort with main.log evidence, not a wrong-port bind.
@@ -573,6 +573,11 @@ remaining P12 slices ride after it.
   NotNativeDesktop; uninstall leaves logs+prefs (standard Electron posture).
 
 ## C. Facts pinned by probe (doc-09 rows we must honor byte-exact)
+
+- **D-09-24** Settings PATCH handlers serialize read/modify/write across server
+  processes with the shared preferences config lock. Lazy seed creation uses
+  atomic no-replace publication, so a concurrent first write cannot be
+  clobbered by a delayed GET. Queue delivery still needs cross-process claims.
 
 - link head `openchamber://connect?v=2&p=` is SEALED by the pairing suites —
   deep-link registration (P12b) registers the `openchamber` scheme VERBATIM.

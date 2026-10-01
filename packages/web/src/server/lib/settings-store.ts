@@ -6,9 +6,10 @@
  * The server seeds preferences.json once from settings.json, never touches an
  * unparseable preferences.json, and writes are atomic tmp+rename (§5.14).
  */
-import { existsSync, readFileSync, renameSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync, mkdirSync, statSync, linkSync, unlinkSync } from 'node:fs';
 import { join as joinPath } from 'node:path';
 import { ENV } from '../env.ts';
+import { withConfigLock } from '../scheduled/config-lock.ts';
 import {
   fieldPerSurface,
   fieldSurfaces,
@@ -74,7 +75,21 @@ export function seedPreferencesFromSettings(): void {
       fields[key] = { value, updatedAt: now };
     }
   }
-  writeAtomic(PREFERENCES_FILE, { version: 1, fields } satisfies PreferenceDoc);
+  // Seeding can be triggered by a synchronous GET in a different process
+  // from a locked writer. Publish with no-replace semantics: a plain atomic
+  // rename here could overwrite the writer's just-patched document if both
+  // observed the file as missing.
+  mkdirSync(ENV.dataDir, { recursive: true });
+  const tmp = `${PREFERENCES_FILE}.seed-${process.pid}-${Date.now()}`;
+  writeFileSync(tmp, `${JSON.stringify({ version: 1, fields } satisfies PreferenceDoc, null, 2)}\n`,
+    { encoding: 'utf8', mode: 0o600 });
+  try {
+    linkSync(tmp, PREFERENCES_FILE);
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'EEXIST') throw error;
+  } finally {
+    try { unlinkSync(tmp); } catch { /* cleanup only */ }
+  }
 }
 
 function surfaceEntry(field: StoredFieldValue, kind: SurfaceKind): unknown {
@@ -201,6 +216,13 @@ export function writeSettingsPatch(patch: Record<string, unknown>, kind: Surface
   refreshSettingsMirror(prefs.fields);
   notifySettingsWrite(Object.keys(patch).filter((key) => !dropped.includes(key)));
   return { settings: readMergedSettings(kind), kind, dropped };
+}
+
+/** Cross-process read/modify/write boundary for HTTP settings mutations.
+ * Each process rereads the canonical file only after acquiring the shared
+ * lock, so concurrent desktop/server instances preserve unrelated fields. */
+export function writeSettingsPatchLocked(patch: Record<string, unknown>, kind: SurfaceKind): Promise<PatchOutcome> {
+  return withConfigLock(PREFERENCES_FILE, async () => writeSettingsPatch(patch, kind));
 }
 
 function canShowOnSurface(key: string, kind: SurfaceKind): boolean {

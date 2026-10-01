@@ -8,7 +8,7 @@ import { ENV } from '../env.ts';
 import { publishControlEvent, subscribeControlEvents } from '../lib/bus.ts';
 import { CONTROL_EVENTS } from '../lib/harnessNaming.ts';
 import { resolveSurfaceKind } from '../lib/settings-gate.ts';
-import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
+import { readMergedSettings, writeSettingsPatchLocked } from '../lib/settings-store.ts';
 import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
 import { getTunnelService } from '../lib/tunnels/tunnel-service.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
@@ -38,7 +38,7 @@ export function createNotNativeRoutes({ desktopUpdater }: { desktopUpdater?: Des
     if (typeof body !== 'object' || body === null || Array.isArray(body)) {
       return c.json({ error: 'settings patch must be a JSON object' }, 400);
     }
-    const outcome = writeSettingsPatch(body as Record<string, unknown>, kind);
+    const outcome = await writeSettingsPatchLocked(body as Record<string, unknown>, kind);
     wireTunnelSettings(body as Record<string, unknown>); // §4.5 runtime TTL re-clamps ride settings writes
     return c.json({ settings: outcome.settings, source: 'web' });
   });

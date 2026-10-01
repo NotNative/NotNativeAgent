@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3be9ee907386f723d149ade58fd9650910bbfec836fa15a908aa3b40ebddeabd",
+  "source_digest": "sha256:c378ddd1ef2828baa8963bcff4e919d888ad5745bfa42dd3d164123831d99179",
   "counts": {
     "modules": 599,
     "component_edges": 14
@@ -4561,7 +4561,8 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts",
-        "packages/web/src/server/lib/settings-gate.ts"
+        "packages/web/src/server/lib/settings-gate.ts",
+        "packages/web/src/server/scheduled/config-lock.ts"
       ]
     },
     {

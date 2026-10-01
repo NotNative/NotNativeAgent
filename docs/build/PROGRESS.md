@@ -3726,4 +3726,11 @@ configuration import only; live SSH transport is still outstanding.
   records per-instance remote ownership and rediscovers the existing server
   after a desktop restart. Real remote-host acceptance and portable tar
   interoperability remain to verify.
+- **2026-09-30 · P13 shared settings arbitration.** Settings mutations from
+  both HTTP route families now take the shared cross-process config lock and
+  reread the canonical document after acquiring it. Lazy preference seeding
+  publishes with atomic no-replace semantics, preventing an unlocked GET from
+  overwriting a concurrent PATCH. A two-process regression preserves disjoint
+  concurrent updates; focused settings tests (12/12) and web typecheck pass.
+  Queue dispatch arbitration and installed GUI acceptance remain open.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

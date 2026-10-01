@@ -12,7 +12,7 @@ import { dirname, join as joinPath } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type { Hono, Context } from 'hono';
 import { ENV } from '../env.ts';
-import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
+import { readMergedSettings, writeSettingsPatchLocked } from '../lib/settings-store.ts';
 import { resolveSurfaceKind } from '../lib/settings-gate.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
@@ -77,7 +77,7 @@ export function registerSettingsRoutes(app: Hono): void {
     }
     const patch = body as Record<string, unknown>;
     const kind = resolveSurfaceKind(c.req.query('surface'), undefined);
-    const outcome = writeSettingsPatch(patch, kind);
+    const outcome = await writeSettingsPatchLocked(patch, kind);
     wireTunnelSettings(patch); // §4.5 runtime TTL re-clamps ride settings writes
     return c.json({ ...deferredRestart(), settings: outcome.settings });
   });
