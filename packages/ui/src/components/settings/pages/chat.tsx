@@ -149,13 +149,13 @@ export function ChatPage(): ReactNode {
         <SettingsCheckboxRow label={t('settings.search.streaming')} item="chat.streaming-follow" checked={yes(autoFollow.value, true)} onChange={autoFollow.set} />
       </SettingsSection>
 
-      <SettingsSection title="Message appearance" item="chat.message-appearance">
-        <SettingsCheckboxRow label="Sticky user message header" item="chat.sticky-user-header" checked={yes(stickyUserHeader.value, false)} onChange={stickyUserHeader.set} />
-        <SettingsCheckboxRow label="Prompt navigator rail" item="chat.prompt-navigator" checked={yes(promptNavigator.value, false)} onChange={promptNavigator.set} />
-        <SettingsCheckboxRow label="Wide chat layout" item="chat.wide-layout" checked={yes(wideLayout.value, false)} onChange={wideLayout.set} />
-        <SettingsCheckboxRow label="Collapsible user messages" item="chat.collapsible-user-messages" checked={yes(collapsibleUserMessages.value, true)} onChange={collapsibleUserMessages.set} />
-        <SettingsCheckboxRow label="Per-part assistant message actions" item="chat.split-actions" checked={yes(splitActions.value, false)} onChange={splitActions.set} />
-        <SettingsCheckboxRow label="Wrap long code lines" item="chat.code-line-wrap" checked={yes(lineWrap.value, false)} onChange={lineWrap.set} />
+      <SettingsSection title={t('settings.search.messageAppearance')} item="chat.message-appearance">
+        <SettingsCheckboxRow label={t('settings.chat.stickyUserHeader')} item="chat.sticky-user-header" checked={yes(stickyUserHeader.value, false)} onChange={stickyUserHeader.set} />
+        <SettingsCheckboxRow label={t('settings.chat.promptNavigator')} item="chat.prompt-navigator" checked={yes(promptNavigator.value, false)} onChange={promptNavigator.set} />
+        <SettingsCheckboxRow label={t('settings.chat.wideLayout')} item="chat.wide-layout" checked={yes(wideLayout.value, false)} onChange={wideLayout.set} />
+        <SettingsCheckboxRow label={t('settings.chat.collapsibleUserMessages')} item="chat.collapsible-user-messages" checked={yes(collapsibleUserMessages.value, true)} onChange={collapsibleUserMessages.set} />
+        <SettingsCheckboxRow label={t('settings.chat.splitActions')} item="chat.split-actions" checked={yes(splitActions.value, false)} onChange={splitActions.set} />
+        <SettingsCheckboxRow label={t('settings.chat.lineWrap')} item="chat.code-line-wrap" checked={yes(lineWrap.value, false)} onChange={lineWrap.set} />
       </SettingsSection>
 
       <SettingsSection title="Tools & files" item="chat.tools-and-files">
