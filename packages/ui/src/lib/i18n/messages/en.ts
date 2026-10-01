@@ -3,6 +3,7 @@ import { enNnaRoutes } from './en-nna-routes.ts';
 import { enDesktopSsh } from './en-desktop-ssh.ts';
 import enRemoteInstances from './en-remote-instances.ts';
 import enDesktopGenerals from './en-desktop-generals.ts';
+import enAgentGroups from './en-agent-groups.ts';
 import enShellUi from './en-shell-ui.ts';
 import { enProviders } from './en-providers.ts';
 /** Canonical English dictionary (doc 14 §H.2); I18nKey is the CLOSED key set. */
@@ -12,6 +13,7 @@ const en = {
   ...enRemoteInstances,
   ...enDesktopGenerals,
   ...enShellUi,
+  ...enAgentGroups,
   ...enNnaRoutes,
   ...enProviders,
   'app.title': 'NotNativeDesktop',

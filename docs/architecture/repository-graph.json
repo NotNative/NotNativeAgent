@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:259eb1770f2cabf10fb14bc779dc4955dfa44bf0bb7322df1c12f8a6ac29b39e",
+  "source_digest": "sha256:da271f61fcb6e3a04df83a4dac7b17c1e988c1f531a7c17af7d4ea8f274950da",
   "counts": {
-    "modules": 640,
+    "modules": 642,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 194
+      "module_count": 196
     },
     {
       "id": "ui-shell",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 243,
+      "import_count": 244,
       "module_count": 103
     },
     {
@@ -984,6 +984,7 @@
       "imports": [
         "packages/ui/src/chat/composer.tsx",
         "packages/ui/src/lib/agent-groups/store.ts",
+        "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/server-api.ts",
@@ -2343,6 +2344,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-agent-groups.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2383,12 +2390,21 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/i18n/messages/en-agent-groups.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/en-providers.ts",
         "packages/ui/src/lib/i18n/messages/en-remote-instances.ts",
         "packages/ui/src/lib/i18n/messages/en-shell-ui.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-agent-groups.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en-agent-groups.ts"
       ]
     },
     {
@@ -2565,6 +2581,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/i18n/messages/locale-agent-groups.ts",
         "packages/ui/src/lib/i18n/messages/locale-appearance.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-a.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-b.ts",

@@ -9,6 +9,7 @@ import type { Session } from '../../../lib/nnd/types.ts';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { useGlobalSessionStatusStore } from '../../../sync/global-stores.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
+import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { useAgentGroupsStore } from '../../../lib/agent-groups/store.ts';
 import { AgentManagerView } from '../AgentManagerView.tsx';
 
@@ -71,13 +72,15 @@ function render(props: {
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => root!.render(
-    <AgentManagerView
-      currentDirectory={props.currentDirectory}
-      onClose={vi.fn()}
-      onOpenSession={props.onOpenSession ?? vi.fn()}
-      projectRoot="C:/project"
-      services={props.services}
-    />,
+    <I18nProvider>
+      <AgentManagerView
+        currentDirectory={props.currentDirectory}
+        onClose={vi.fn()}
+        onOpenSession={props.onOpenSession ?? vi.fn()}
+        projectRoot="C:/project"
+        services={props.services}
+      />,
+    </I18nProvider>
   ));
 }
 
@@ -160,7 +163,7 @@ it('clears selections whose projected run no longer exists', () => {
 
 it('deletes selected sessions, forces local branch cleanup, disposes reads, and resets the current directory', async () => {
   deleteSessionMock.mockResolvedValue(undefined);
-  (serverApi.removeWorktree as unknown as Mock).mockResolvedValue({ ok: true, branch: 'good' });
+  (serverApi.removeWorktree as unknown as Mock).mockResolvedValue({ ok: true, branch: null });
   snapshot([groupEntry('good')]);
   const deleteSessionAction = vi.fn(async () => undefined);
   const disposeDirectory = vi.fn();
@@ -173,6 +176,7 @@ it('deletes selected sessions, forces local branch cleanup, disposes reads, and 
   act(() => click(container?.querySelector('[data-testid="agent-run-select"]') ?? null));
   await runClick('[data-testid="agent-remove-worktrees"]');
 
+  expect(window.confirm).toHaveBeenCalledWith('Delete 1 selected session(s) and their worktrees?');
   expect(deleteSessionAction).toHaveBeenCalledWith('good', 'C:/wt-good');
   expect(serverApi.removeWorktree).toHaveBeenCalledWith('C:/project', 'C:/wt-good', true);
   expect(disposeDirectory).toHaveBeenCalledWith('C:/wt-good');
@@ -184,6 +188,8 @@ it('deletes selected sessions, forces local branch cleanup, disposes reads, and 
     status: 'ready',
     groups: [],
   });
+  expect(((toast.error as unknown) as Mock).mock.calls.flat().map((message: unknown) => String(message)))
+    .toContain('Removed 2 item(s); 1 failed: C:/wt-good: Failed to delete local branch good');
 });
 
 it('keeps groups when the worktree cleanup API reports failure', async () => {
@@ -200,7 +206,8 @@ it('keeps groups when the worktree cleanup API reports failure', async () => {
   await runClick('[data-testid="agent-remove-worktrees"]');
 
   expect(disposeDirectory).not.toHaveBeenCalled();
-  expect(((toast.error as unknown) as Mock).mock.calls.flat().some((message: unknown) => String(message).includes('dirty worktree'))).toBe(true);
+  const toastMessages = ((toast.error as unknown) as Mock).mock.calls.flat().map((message: unknown) => String(message));
+  expect(toastMessages).toContain('Removed 1 item(s); 1 failed: C:/wt-good: dirty worktree');
   expect(useSessionViewStore.getState()).toMatchObject({
     activeDirectory: 'C:/wt-good/nested',
     currentSessionId: 'good',

@@ -15,6 +15,7 @@ import {
 } from '../../lib/agent-groups/store.ts';
 import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
 import { useSessionViewStore } from '../../sync/view-store.ts';
+import { useI18n, type I18nKey } from '../../lib/i18n/context.tsx';
 
 const IDLE_GROUPS = { status: 'idle' as const, groups: [], errors: [], loadedAt: 0 };
 
@@ -28,6 +29,7 @@ export interface AgentManagerViewProps {
 
 export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
   const services = props.services;
+  const { t } = useI18n();
   const projectKey = normalizeDirectory(props.projectRoot);
   const currentDirectoryKey = normalizeDirectory(props.currentDirectory);
   const snapshot = useSyncExternalStore(
@@ -67,7 +69,10 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
 
   async function removeSelected(withWorktrees: boolean): Promise<void> {
     if (busy || selectedEntries.length === 0 || services === undefined) return;
-    if (!window.confirm(`Delete ${selectedEntries.length} selected session${selectedEntries.length === 1 ? '' : 's'}${withWorktrees ? ' and their worktrees' : ''}?`)) return;
+    const confirmMessageKey: I18nKey = withWorktrees
+      ? 'agentGroups.confirmWorktrees'
+      : 'agentGroups.confirmSessions';
+    if (!window.confirm(t(confirmMessageKey, { count: selectedEntries.length }))) return;
     setBusy(true);
     try {
       const result = await deleteAgentGroupSessions(
@@ -80,7 +85,7 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
             if (!outcome.ok) throw new Error(outcome.error);
             return {
               removed: true,
-              branchError: worktreeBranch !== null && outcome.branch === null ? `failed to delete local branch ${worktreeBranch}` : undefined,
+              branchError: worktreeBranch !== null && outcome.branch === null ? t('agentGroups.branchError', { branch: worktreeBranch }) : undefined,
             };
           },
           disposeDirectory: (directory) => services.engine.manager.disposeDirectory(directory),
@@ -95,7 +100,11 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
         ...result.failedWorktrees.map(({ path, error }) => `${path}: ${error}`),
         ...result.failedBranches.map(({ path, error }) => `${path}: ${error}`),
       ];
-      if (failures.length > 0) toast.error(`Removed ${result.deletedSessionIds.length + result.removedWorktrees.length} item(s); ${failures.length} failed: ${failures.join('; ')}`);
+      if (failures.length > 0) toast.error(t('agentGroups.failureSummary', {
+        removed: result.deletedSessionIds.length + result.removedWorktrees.length,
+        failed: failures.length,
+        details: failures.join('; '),
+      }));
       await useAgentGroupsStore.getState().loadGroups(projectKey, true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
@@ -108,28 +117,28 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
     <section className="flex min-w-0 flex-1 flex-col bg-neutral-950" data-testid="agent-manager">
       <header className="flex min-h-12 items-center justify-between gap-3 border-b border-white/10 px-3">
         <div className="min-w-0">
-          <div className="truncate text-sm text-neutral-100">Agent Groups</div>
-          <div className="text-[11px] text-neutral-500">{allSessions.length} runs · {activeCount} active</div>
+          <div className="truncate text-sm text-neutral-100">{t('agentGroups.title')}</div>
+          <div className="text-[11px] text-neutral-500">{t('agentGroups.summary', { runs: allSessions.length, active: activeCount })}</div>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" disabled={busy || selectedCount === 0} data-testid="agent-remove-sessions" className="rounded border border-white/10 px-2 py-1 text-[11px] text-neutral-300 hover:bg-white/5 disabled:opacity-50" onClick={() => void removeSelected(false)}>
-            Delete sessions
+            {t('agentGroups.deleteSessions')}
           </button>
           <button type="button" disabled={busy || selectedCount === 0} data-testid="agent-remove-worktrees" className="rounded bg-red-950 px-2 py-1 text-[11px] text-red-200 hover:bg-red-900 disabled:opacity-50" onClick={() => void removeSelected(true)}>
-            Delete + worktrees
+            {t('agentGroups.deleteWorktrees')}
           </button>
-          <button type="button" aria-label="Close agent groups" data-testid="agent-close" className="rounded px-2 py-1 text-neutral-500 hover:text-neutral-100" disabled={busy} onClick={props.onClose}>X</button>
+          <button type="button" aria-label={t('agentGroups.close')} data-testid="agent-close" className="rounded px-2 py-1 text-neutral-500 hover:text-neutral-100" disabled={busy} onClick={props.onClose}>X</button>
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        {snapshot.status === 'loading' ? <div className="text-xs text-neutral-500">Loading groups…</div> : null}
+        {snapshot.status === 'loading' ? <div className="text-xs text-neutral-500">{t('agentGroups.loading')}</div> : null}
         {snapshot.errors.length > 0 ? (
           <div className="mb-3 rounded bg-red-950/50 p-2 text-[11px] text-red-200" data-testid="agent-errors">
             {snapshot.errors.map((error) => <div key={error}>{error}</div>)}
           </div>
         ) : null}
         {snapshot.groups.length === 0 && snapshot.status !== 'loading' ? (
-          <div className="rounded bg-white/[0.03] px-3 py-4 text-sm text-neutral-500">No worktree groups yet.</div>
+          <div className="rounded bg-white/[0.03] px-3 py-4 text-sm text-neutral-500">{t('agentGroups.empty')}</div>
         ) : (
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
             {snapshot.groups.map((group) => (
@@ -137,7 +146,7 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm text-neutral-100">{group.name}</div>
-                    <div className="text-[10px] text-neutral-500">{group.sessionCount} runs</div>
+                    <div className="text-[10px] text-neutral-500">{t('agentGroups.groupRuns', { count: group.sessionCount })}</div>
                   </div>
                   <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-100" onClick={() => {
                     const groupKeys = group.sessions.map(selectionKey);
@@ -151,7 +160,7 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
                       return next;
                     });
                   }}>
-                    {group.sessions.every((entry) => selected.has(selectionKey(entry))) ? 'Clear' : 'Select'}
+                    {group.sessions.every((entry) => selected.has(selectionKey(entry))) ? t('agentGroups.clear') : t('agentGroups.select')}
                   </button>
                 </div>
                 <div className="mt-2 space-y-2">
@@ -165,13 +174,13 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
                         <label className="flex items-start gap-2">
                           <input type="checkbox" checked={selected.has(key)} onChange={() => toggle(entry)} data-testid="agent-run-select" />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[12px] text-neutral-200">{entry.session.title || 'Untitled run'}</span>
+                            <span className="block truncate text-[12px] text-neutral-200">{entry.session.title || t('agentGroups.untitled')}</span>
                             <span className="block truncate text-[10px] text-neutral-600">{entry.worktreeBranch ?? entry.worktreePath} · {entry.session.directory}</span>
                           </span>
-                          <span aria-label={active ? 'Run is active' : 'Run is idle'} className={active ? 'h-2 w-2 shrink-0 rounded-full bg-sky-400' : 'h-2 w-2 shrink-0 rounded-full bg-neutral-700'} data-testid={active ? 'agent-active-dot' : undefined} />
+                          <span aria-label={active ? t('agentGroups.active') : t('agentGroups.idle')} className={active ? 'h-2 w-2 shrink-0 rounded-full bg-sky-400' : 'h-2 w-2 shrink-0 rounded-full bg-neutral-700'} data-testid={active ? 'agent-active-dot' : undefined} />
                         </label>
                         <button type="button" className={current ? 'mt-2 w-full rounded bg-white/10 px-2 py-1 text-[11px] text-neutral-100' : 'mt-2 w-full rounded bg-white/5 px-2 py-1 text-[11px] text-neutral-300 hover:bg-white/10'} onClick={() => props.onOpenSession(entry.session)}>
-                          Open chat
+                          {t('agentGroups.openChat')}
                         </button>
                       </div>
                     );
