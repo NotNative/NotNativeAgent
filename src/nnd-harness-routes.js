@@ -124,10 +124,14 @@ function openEventStream(request, response, context) {
 
 async function dispatchBootstrapRequest(request, response, context) {
   const path = context.url.pathname;
-  if (!['/global/health', '/path', '/config', '/project', '/project/current', '/session/status', '/v1/nnd/mcp', '/v1/nnd/skills', '/v1/nnd/agents'].includes(path)) return false;
+  if (!['/global/health', '/path', '/config', '/project', '/project/current', '/session/status', '/v1/nnd/pending', '/v1/nnd/mcp', '/v1/nnd/skills', '/v1/nnd/agents'].includes(path)) return false;
   if (request.method !== 'GET') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
   requireIntegrationPermission(context.principal, 'nnd.read');
   const workspace = trustedWorkspace(context.nndWorkspaceRoot);
+  if (path === '/v1/nnd/pending') {
+    if (!context.nndEngineHost?.pendingRequests) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
+    return send(response, 200, context.nndEngineHost.pendingRequests(context.principal));
+  }
   if (path === '/global/health') return send(response, 200, { healthy: true, version: '1.18.31' });
   if (path === '/path') return send(response, 200, { home: '', state: '', config: '', worktree: workspace, directory: workspace });
   if (path === '/v1/nnd/mcp') {

@@ -4,6 +4,7 @@ import { CanonicalIngress } from './ingress.js';
 import { configuredModelProjection, latestTurnNeedsInput } from './nnd-session-description.js';
 import { nndPhaseFromOutput, shouldClearNndToolPhase } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
+import { pendingRequests } from './nnd-pending-requests.js';
 
 const TRANSCRIPT_LIMIT = 200;
 const TRANSCRIPT_CHARS = 262_144;
@@ -169,6 +170,14 @@ export class NndSessionRegistry {
       }
     }
     return statuses;
+  }
+
+  pendingRequests(principal) {
+    const sessions = Object.create(null);
+    for (const record of this.#sessions.values()) {
+      if (samePrincipal(record, principal)) sessions[record.sessionId] = pendingRequests(record.engine);
+    }
+    return sessions;
   }
 
   #notify(type, record, payload = null) {

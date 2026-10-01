@@ -127,7 +127,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'elevation_request_invalid', 'elevation_result_invalid', 'elevation_result_unavailable',
     'elevation_secret_argument_forbidden', 'elevation_timeout_invalid', 'engine_output_required',
     'engine_settlement_invalid', 'environment_boolean_invalid', 'execution_capabilities_invalid',
-    'nnd_engine_unavailable', 'nnd_manifest_unavailable', 'nnd_session_capacity', 'nnd_context_capacity', 'nnd_session_unavailable',
+    'nnd_engine_unavailable', 'nnd_pending_unavailable', 'nnd_manifest_unavailable', 'nnd_session_capacity', 'nnd_context_capacity', 'nnd_session_unavailable',
     'nnd_goal_audit_busy', 'nnd_goal_audit_unavailable',
     'nnd_walkthrough_busy', 'nnd_walkthrough_unavailable',
     'nnd_skills_unavailable',

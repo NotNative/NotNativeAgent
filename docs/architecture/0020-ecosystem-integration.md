@@ -68,6 +68,20 @@ and `unattended`. Review and hard policy remain mandatory in all choices.
 The NND connection has no permission-decision voice, so `prompt` is unavailable;
 there is no full-control bypass posture. This root-session setting does not
 change NNA's separately governed delegated-child policy.
+
+Authenticated `GET /v1/nnd/pending` requires `nnd.read` and observes the
+complete owned root/child request set, including archived roots. It returns
+`coverage: complete`, per-session permission/form arrays, and explicit
+`unsupported` or `observe-only` capabilities. The current NND engines have
+no interactive brokers and report unsupported empty arrays; this does not
+clear semantic needs-input or governance attention. A missing or failed
+broker observation is an error, never an empty request set. Live broker
+snapshots expose bounded request identities and question batches, without
+permission argument summaries, and grant no settlement authority. Completed
+child display snapshots have no live broker. NND reconnects can therefore
+replace stale display requests from engine state without replaying old
+questions or inventing approval. Engine restart recovery does not resurrect
+an interactive broker promise from transcript text.
 - Session owner/affinity metadata and directory-less sessions.
 - Identity/entitlement header slot (entitlement-neutral local token now; NNO
   principal pass-through later).

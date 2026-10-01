@@ -66,7 +66,8 @@ export class InteractivePermissionBroker {
   }
 
   snapshot() {
-    return Object.freeze([...this.#pending.values()].map((item) => Object.freeze({
+    const now = Date.now();
+    return Object.freeze([...this.#pending.values()].filter((item) => !item.settled && item.expiresAt > now).map((item) => Object.freeze({
       token: item.token, requestId: item.request.id, tool: item.request.toolName,
       expiresAt: item.expiresAt, summary: safeToolArguments(item.request.args),
     })));

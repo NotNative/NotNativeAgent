@@ -20,6 +20,7 @@ import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
+import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { requirePrincipal, samePrincipal, restoreNndContexts, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -338,6 +339,7 @@ export class NndEngineHost {
     }
     return statuses;
   }
+  pendingRequests(principal) { requirePrincipal(principal); return ownedPendingRequests(this.#contexts, this.childSessions, principal, samePrincipal); }
   messages(sessionId, principal, { all = false } = {}) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
     if (!this.#contexts.has(sessionId)) {
@@ -381,7 +383,6 @@ export class NndEngineHost {
     this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
     return { closed: true };
   }
-
   async shutdown() {
     const contexts = [...this.#contexts.values()];
     const settled = await Promise.allSettled(contexts.map((context) => context.engine.shutdown({
@@ -393,7 +394,6 @@ export class NndEngineHost {
     const failed = settled.find((result) => result.status === 'rejected');
     if (failed) throw failed.reason;
   }
-
   async #commitCatalogChange(change, commit) {
     if (!this.catalogPath) { change(new Map(this.#contexts)); commit(); return; }
     // Keep the durable write and its in-memory commit in one serialized unit.
