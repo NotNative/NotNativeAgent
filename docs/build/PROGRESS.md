@@ -2,6 +2,30 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Settings and context URL routing · 20261001-33
+
+Added settings aliases/catalog resolution, history normalization, and mounted
+Back/Forward page changes. Settings take precedence over session/tab/file;
+serialization retains host parameters and hashes while writing only the
+current settings section or session. Forced desktop/mobile URLs preserve
+their surface parameter and accept routes; embedded/token/mini-chat/VS Code
+surfaces keep their separate identity scope.
+
+Legacy Git, Diff, Terminal, and Files links now open the operator rail within
+chat. Cold links wait for the resolved/displayed session and directory.
+File links reveal the stacked diff entry using the current workspace prefix;
+unavailable targets have visible feedback. Git/Diff panes remain mounted,
+and new file links restore All scope before selecting staged/working targets.
+
+Adversarial audit repaired retained-directory selection resets, settings
+replaying consumed legacy links, cold bootstrap discarding context intent,
+narrowed diff scopes hiding valid files, and diff pane state loss. Actual
+OperatorRail/SettingsWindow and diff regressions pass; the full UI suite
+passes 1606 tests, and final forced-surface routing checks pass 48 focused
+tests. Quality, integration smoke, and release gates are required before
+sealing. Server notification route parity, badges, optional model text,
+live browser acceptance, and the broader build plan remain open.
+
 ## 2026-10-01 · Session links from push notifications · 20261001-32
 
 Encrypted notification payloads carry bounded session IDs. The worker builds

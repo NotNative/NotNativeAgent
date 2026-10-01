@@ -124,14 +124,14 @@ afterEach(() => {
   __resetReviewRefreshForTests();
 });
 
-async function render(): Promise<void> {
+async function render(focusPath?: string): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   rootHandle = createRoot(container);
   await act(async () => {
     rootHandle!.render(
       <I18nProvider>
-        <DiffView directory={DIR} visible />
+        <DiffView directory={DIR} visible focusPath={focusPath} />
       </I18nProvider>,
     );
     await Promise.resolve();
@@ -158,6 +158,34 @@ function clickRow(path: string): void {
 }
 
 describe('DiffView (doc 06 §5 v1)', () => {
+  it('reveals a new staged-only link after the retained pane narrowed to Working', async () => {
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/status')
+      ? jsonResponse({ ...STATUS, workspacePrefix: '' }) : route(String(input)));
+    await render(); await settle();
+    await act(async () => (document.querySelector('[data-testid="diff-scope-working"]') as HTMLButtonElement).click());
+    expect(entriesOf().some((entry) => entry.path === 'staged.ts')).toBe(false);
+    await act(async () => rootHandle!.render(<I18nProvider><DiffView directory={DIR} visible focusPath="staged.ts" focusRevision={2} /></I18nProvider>));
+    await settle();
+    expect(entriesOf().some((entry) => entry.path === 'staged.ts')).toBe(true);
+    expect(document.body.textContent).not.toContain('linked file has no available diff');
+  });
+  it('reveals a linked nested-workspace file beyond default expansion and permits later collapse', async () => {
+    const status = { ...STATUS, workspacePrefix: 'nested/', files: Array.from({ length: 12 }, (_, index) => ({ path: `nested/file${index}.ts`, index: ' ', working_dir: 'M' })) };
+    fetchMock.mockImplementation(async (input: string, init?: RequestInit) => String(input).includes('/api/git/status') ? jsonResponse(status) : route(String(input), init));
+    await render('file11.ts'); await settle();
+    const target = [...document.querySelectorAll<HTMLElement>('[data-testid="diff-entry"]')].find((entry) => entry.dataset.path === 'nested/file11.ts')!;
+    expect(target.querySelector('[data-testid="diff-viewer"]')).not.toBeNull();
+    await act(async () => clickRow('nested/file11.ts'));
+    expect(target.querySelector('[data-testid="diff-viewer"]')).toBeNull();
+    await act(async () => rootHandle!.render(<I18nProvider><DiffView directory={DIR} visible focusPath="file11.ts" focusRevision={2} /></I18nProvider>));
+    await settle();
+    expect(target.querySelector('[data-testid="diff-viewer"]')).not.toBeNull();
+  });
+  it('reports an unavailable linked file instead of selecting another diff', async () => {
+    fetchMock.mockImplementation(async (input: string, init?: RequestInit) => String(input).includes('/api/git/status') ? jsonResponse({ ...STATUS, workspacePrefix: '' }) : route(String(input), init));
+    await render('missing.ts'); await settle();
+    expect(container?.querySelector('[role="status"]')?.textContent).toContain('no available diff');
+  });
   it('renders per-scope entries; one file can appear in BOTH stacks with its own diff', async () => {
     await render();
     const both = entriesOf().filter((entry) => entry.path === 'both.ts');

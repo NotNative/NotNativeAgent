@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9733a300eebe0e5a22bc51f4bcb0c1c7a48d4cde7043d1bfe8c8ce2abba2467e",
+  "source_digest": "sha256:1800b7d52aac539b36ec6108dbc70833a66d1eb01e9ba0354808afa675f4bde8",
   "counts": {
-    "modules": 687,
+    "modules": 690,
     "component_edges": 15
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 222
+      "module_count": 223
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 169
+      "module_count": 171
     },
     {
       "id": "web-server",
@@ -106,14 +106,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 273,
-      "module_count": 112
+      "import_count": 277,
+      "module_count": 114
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 78,
-      "module_count": 37
+      "import_count": 79,
+      "module_count": 38
     },
     {
       "from": "ui-shell",
@@ -178,8 +178,8 @@
     {
       "from": "runtime-io",
       "to": "ui-shell",
-      "import_count": 2,
-      "module_count": 2
+      "import_count": 3,
+      "module_count": 3
     },
     {
       "from": "gates",
@@ -328,6 +328,7 @@
         "packages/ui/src/chat/timeline-dialog.tsx",
         "packages/ui/src/chat/transcript.tsx",
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/components/use-context-route.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/sync/global-stores.ts",
@@ -671,8 +672,10 @@
         "packages/ui/src/chat/use-operator-rail-width.ts",
         "packages/ui/src/chat/walkthrough-preview.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",
+        "packages/ui/src/components/diff/DiffView.tsx",
         "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
+        "packages/ui/src/components/use-context-route.ts",
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/git/commit-drafts.ts",
         "packages/ui/src/lib/runtime-switch.ts",
@@ -1132,6 +1135,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/diff/DiffViewer.tsx",
+        "packages/ui/src/components/git/session-change-evidence.ts",
         "packages/ui/src/lib/git/diff-scroll-anchor.ts",
         "packages/ui/src/lib/i18n/context.tsx"
       ]
@@ -1345,6 +1349,7 @@
         "packages/ui/src/components/settings/window.tsx",
         "packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
+        "packages/ui/src/components/use-workspace-route.ts",
         "packages/ui/src/components/workspace-identity.tsx",
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/files/tabs-store.ts",
@@ -1984,6 +1989,26 @@
         "packages/ui/src/lib/theme/storage.ts",
         "packages/ui/src/lib/theme/themes.ts",
         "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/use-context-route.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/workspace-route.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/use-workspace-route.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/search.ts",
+        "packages/ui/src/lib/session-route.ts",
+        "packages/ui/src/lib/workspace-route.ts",
+        "packages/ui/src/sync/view-store.ts"
       ]
     },
     {
@@ -3401,6 +3426,7 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/workspace-route.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/view-store.ts"
@@ -3903,6 +3929,15 @@
       "imports": [
         "packages/ui/src/lib/theme/color.ts",
         "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/workspace-route.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/search.ts",
+        "packages/ui/src/lib/session-route.ts"
       ]
     },
     {

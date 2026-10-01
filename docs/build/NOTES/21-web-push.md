@@ -113,7 +113,8 @@ Boot restoration cannot override a linked session, and boot directory
 hydration preserves an already selected session's directory. Session selection
 updates the browser query, and popstate applies links without pushing history.
 Settings links take precedence; hosted/embedded/VS Code surfaces keep their
-identity queries. Full settings/tab/file bidirectional routing remains open.
+identity queries. Settings history and legacy tab/file context routes are
+implemented in [the workspace router](22-workspace-url-router.md).
 
 Live browser acceptance, notification SSE/activity/view/message-sent route
 parity, and browser badge count/reset behavior remain open under doc 03 §5.37.

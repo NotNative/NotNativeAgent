@@ -78,9 +78,11 @@ interface SearchResult {
 
 let highlightTimer: number | null = null;
 
-export function SettingsWindow({ initialPage, onClose }: { initialPage?: SettingsPageSlug; onClose: () => void }): ReactNode {
+export function SettingsWindow({ initialPage, onClose, onPageChange }: { initialPage?: SettingsPageSlug; onClose: () => void; onPageChange?: (page: SettingsPageSlug) => void }): ReactNode {
   const { t } = useI18n();
   const [page, setPage] = useState<SettingsPageSlug>(initialPage ?? 'general');
+  useEffect(() => { if (initialPage) setPage(initialPage); }, [initialPage]);
+  const navigate = useCallback((next: SettingsPageSlug): void => { setPage(next); onPageChange?.(next); }, [onPageChange]);
   const [query, setQuery] = useState('');
   const [pendingJump, setPendingJump] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -118,8 +120,8 @@ export function SettingsWindow({ initialPage, onClose }: { initialPage?: Setting
   const jumpTo = useCallback((result: SearchResult): void => {
     setPendingJump(result.id);
     setQuery('');
-    setPage(result.page);
-  }, []);
+    navigate(result.page);
+  }, [navigate]);
 
   // §G.1: refuse to close while a nested machine (recorder) owns input.
   const requestClose = useCallback((): void => {
@@ -130,7 +132,7 @@ export function SettingsWindow({ initialPage, onClose }: { initialPage?: Setting
   return (
     <SettingsDialog
       page={page}
-      query={{ query, setQuery, searchResults: results, jumpTo, setPage }}
+      query={{ query, setQuery, searchResults: results, jumpTo, setPage: navigate }}
       requestClose={requestClose}
       highlight={highlight}
     />

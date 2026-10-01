@@ -123,10 +123,20 @@ it('keeps the session route on same-instance transport switches and ordinary cle
   window.dispatchEvent(new CustomEvent('notnative:runtime-endpoint-will-change', { detail: { runtimeKey: 'remote' } }));
   expect(window.location.search).toBe('?session=s1');
 });
-it.each(['settings=appearance', 'miniChat=1', 'ocPanel=session-chat', 'surface=desktop', 'nn_url_token=secret'])('preserves %s', (query) => {
+it.each(['settings=appearance', 'miniChat=1', 'ocPanel=session-chat', 'nn_url_token=secret'])('preserves %s', (query) => {
   window.history.replaceState({}, '', `/?${query}&session=s1`); stop = mountSessionRoute(failure);
   useSessionViewStore.setState({ currentSessionId: 's2' });
   expect(window.location.search).toBe(`?${query}&session=s1`); expect(harnessClient.getSession).not.toHaveBeenCalled();
+});
+it.each(['desktop', 'mobile'])('routes sessions on forced %s surfaces while preserving host identity', async (surface) => {
+  window.history.replaceState({}, '', `/?surface=${surface}&session=s1#anchor`);
+  vi.mocked(harnessClient.getSession).mockResolvedValue({ data: { id: 's1', directory: '/other' } as never });
+  stop = mountSessionRoute(failure); await settle();
+  expect(harnessClient.getSession).toHaveBeenCalledExactlyOnceWith('s1', { directory: '' });
+  expect(useSessionViewStore.getState().currentSessionId).toBe('s1');
+  useSessionViewStore.setState({ currentSessionId: 's2' });
+  expect(window.location.search).toBe(`?surface=${surface}&session=s2`);
+  expect(window.location.hash).toBe('#anchor');
 });
 it('rejects empty, oversized and control-bearing IDs', () => {
   for (const value of ['', ' s1', 's1\n', 'x'.repeat(257), null]) expect(routeSessionId(value)).toBeNull();

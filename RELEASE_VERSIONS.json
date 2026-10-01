@@ -808,6 +808,10 @@
     {
       "version": "20261001-32",
       "content_sha256": "9eadf8058b7635407888a3179a29b38f1b331e842adf23846ca7cc71854487f5"
+    },
+    {
+      "version": "20261001-33",
+      "content_sha256": "f29f13a23c79615d172c05adb7598306bfd9d90614139fee4360ffd2be58c63d"
     }
   ]
 }

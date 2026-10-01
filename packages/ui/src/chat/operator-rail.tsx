@@ -8,6 +8,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
+import { DiffView } from '../components/diff/DiffView.tsx';
 import { WorktreesView } from '../components/worktrees/WorktreesView.tsx';
 import { OperatorFiles } from './operator-files.tsx';
 import { ActivitySurface } from './operator-activity-surface.tsx';
@@ -26,6 +27,7 @@ import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
 import { maxRailWidth } from './operator-rail-width.ts';
 import { useOperatorRailWidth } from './use-operator-rail-width.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
+import { useContextRoute } from '../components/use-context-route.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'files' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
@@ -107,6 +109,10 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
   const panels = panelState.key === preferencesKey ? panelState.value : readPanelPreferences(preferencesKey);
   const [customizing, setCustomizing] = useState(false);
   const [reviewRequest, setReviewRequest] = useState<ReviewRequest | null>(null);
+  const [diffRoute, setDiffRoute] = useState<{ identity: string; path: string | null; revision: number } | null>(null);
+  const [changesMode, setChangesMode] = useState<'git' | 'diff'>('git');
+  const retainedDiff = diffRoute?.identity === changesIdentity;
+  const routedDiff = retainedDiff && changesMode === 'diff';
   const reviewIdentity = useRef(changesIdentity);
   useEffect(() => {
     // A jump belongs to the workspace/runtime where Activity authored it.
@@ -144,6 +150,18 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
     if (selection.key !== selectionKey) return;
     try { localStorage.setItem(selectionKey, selection.surface); } catch { /* optional device preference */ }
   }, [selection.key, selection.surface, selectionKey]);
+  // Apply links after restoring project preferences so those effects cannot
+  // overwrite a newly routed pane during a retained rail's project switch.
+  useContextRoute(directory, walkthroughSessionId, (request) => {
+    if (request.tab === 'chat') { setPanelOpen(false); return; }
+    const requested: Surface = request.tab === 'git' || request.tab === 'diff' ? 'changes' : request.tab;
+    if (!panels.visible.includes(requested)) changePanels({ ...panels, visible: [...panels.visible, requested] });
+    setSelection({ key: selectionKey, surface: requested });
+    setPanelOpen(true);
+    if (request.tab === 'diff') setDiffRoute({ identity: changesIdentity, path: request.file, revision: request.revision });
+    if (request.tab === 'diff' || request.tab === 'git') setChangesMode(request.tab);
+    setReviewRequest(null);
+  });
   // Keep opened views mounted across rail surfaces. A project switch remounts
   // Notes, while the single dirty-draft lease above survives that remount.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
@@ -286,16 +304,18 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
           useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
           if (compactOpen) onCloseCompact?.();
         }} onReviewPath={(path) => {
+          setChangesMode('git');
           setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
         {changesOpenedKey === changesIdentity || surface === 'changes' ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
-          <GitView key={changesIdentity} directory={directory} draftScope={commitDraftScope(getRuntimeKey(), directory)} visible={surface === 'changes' && paneVisible} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
+          <div className={routedDiff || surface !== 'changes' ? 'hidden' : 'h-full min-h-0'}><GitView key={changesIdentity} directory={directory} draftScope={commitDraftScope(getRuntimeKey(), directory)} visible={surface === 'changes' && paneVisible && !routedDiff} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
             activityStore={store} sessionID={walkthroughSessionId}
           onOpenWalkthrough={() => {
             if (!panels.visible.includes('walkthrough')) changePanels({ ...panels, visible: [...panels.visible, 'walkthrough'] });
             setSelection({ key: selectionKey, surface: 'walkthrough' });
-          }} />
+          }} /></div>
+          {retainedDiff ? <div className={routedDiff ? 'h-full min-h-0' : 'hidden'}><DiffView key={changesIdentity} directory={directory} visible={surface === 'changes' && paneVisible && routedDiff} focusPath={diffRoute.path} focusRevision={diffRoute.revision} /></div> : null}
         </div> : null}
         {filesOpenedKey === changesIdentity || surface === 'files' ? <div className={surface === 'files' ? 'h-full min-h-0' : 'hidden'}><OperatorFiles key={changesIdentity} directory={directory} visible={surface === 'files' && paneVisible} /></div> : null}
         {worktreesOpenedKey === changesIdentity || surface === 'worktrees' ? <div className={surface === 'worktrees' ? 'h-full min-h-0' : 'hidden'}>

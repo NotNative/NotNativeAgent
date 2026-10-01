@@ -29,6 +29,7 @@ import { SessionGoalControls } from './session-goal-controls.tsx';
 import { useSettingsStore } from '../lib/settings/store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
+import { useContextRoute } from '../components/use-context-route.ts';
 
 /** H.2/E.3/E.4 band: recap text and/or suggestion chip; chips only fill. */
 function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string | null } }): ReactNode {
@@ -87,6 +88,10 @@ export function ChatView(props: ChatViewProps): ReactNode {
   }, []);
   const [expanded, setExpanded] = useState(false);
   const [compactSurfaceOpen, setCompactSurfaceOpen] = useState(false);
+  useContextRoute(shown?.directory, shown?.sessionID, (request) => {
+    setExpanded(false);
+    setCompactSurfaceOpen(request.tab !== 'chat' && !(window.matchMedia?.('(min-width: 1100px)').matches ?? false));
+  });
   const chatRoot = useRef<HTMLElement>(null);
   const compactOpenButton = useRef<HTMLButtonElement>(null);
   const focusReturnOnOpen = useRef(false);

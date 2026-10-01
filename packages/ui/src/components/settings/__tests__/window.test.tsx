@@ -91,6 +91,18 @@ afterEach(() => {
 });
 
 describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
+  it('reflects route page changes in a retained dialog and reports sidebar navigation', async () => {
+    await renderWindow('appearance');
+    const changed = vi.fn();
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider>
+      <SettingsWindow initialPage="notifications" onClose={() => undefined} onPageChange={changed} />
+    </ThemeProvider></I18nProvider>));
+    expect(document.querySelector('[data-settings-item="appearance.interface-font-size"]')).toBeNull();
+    const appearance = [...document.querySelectorAll('nav button')].find((button) => button.textContent === 'Appearance') as HTMLButtonElement;
+    await act(async () => appearance.click());
+    expect(changed).toHaveBeenCalledWith('appearance');
+    expect(document.querySelector('[data-settings-item="appearance.interface-font-size"]')).not.toBeNull();
+  });
   it('mounts the dialog chrome with the grouped nav', async () => {
     await renderWindow('appearance');
     const win = document.querySelector('[data-testid="settings-window"]');

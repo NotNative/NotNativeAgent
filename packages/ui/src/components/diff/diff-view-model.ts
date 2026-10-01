@@ -56,6 +56,7 @@ export interface DiffModel {
   renderAnywayOf: (path: string, staged: boolean) => boolean;
   isExpanded: (path: string) => boolean;
   toggle: (path: string) => void;
+  reveal: (path: string) => void;
   setScope: (scope: Scope) => void;
   renderAnyway: (path: string, staged: boolean) => void;
   inFlight: InFlight;
@@ -115,6 +116,7 @@ export function useDiffModel(deps: DiffModelDeps): DiffModel {
     diffsOf: (path: string, staged: boolean) => diffs[diffKeyOf(path, staged)],
     renderAnywayOf: (path: string, staged: boolean) => expandAnyway.has(diffKeyOf(path, staged)),
     isExpanded: (path: string) => expanded.has(path),
+    reveal: (path: string) => setExpanded((current) => current.has(path) ? current : new Set(current).add(path)),
     toggle: (path: string) => setExpanded((current) => {
       const next = new Set(current);
       if (next.has(path)) next.delete(path);

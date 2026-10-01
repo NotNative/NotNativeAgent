@@ -33,7 +33,7 @@ import type { Session } from '../lib/nnd/types.ts';
 import { useScheduledShellWiring } from './scheduled/scheduled-shell-wiring.tsx';
 import { useFilesViewTabsStore } from '../lib/files/tabs-store.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
-import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
+import { type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import { WorkspaceIdentity } from './workspace-identity.tsx';
@@ -42,6 +42,7 @@ import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
 import { useKeybind } from '../lib/shortcuts/hooks.ts';
 import { usePushPresence } from './push-presence.tsx';
 import { mountSessionRoute, notifySessionRouteNavigation } from '../lib/session-route.ts';
+import { useWorkspaceRoute } from './use-workspace-route.ts';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -61,15 +62,14 @@ export function MainLayout(): ReactNode {
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
-  const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
   const [filesOpen, setFilesOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal' | 'agent-groups'>('');
   const [worktreesOpen, setWorktreesOpen] = useState(false);
   const [harnessDirectory, setHarnessDirectory] = useState('');
 
-  const closeSettings = useCallback(() => setSettingsPage(null), []);
-  const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
+  const showChat = useCallback(() => { setFilesOpen(false); setReviewPane(''); setArchiveOpen(false); }, []);
+  const { settingsPage, closeSettings, openSettings } = useWorkspaceRoute(runtimeKey, showChat);
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [multiRunOpen, setMultiRunOpen] = useState(false);
   const [fusionTarget, setFusionTarget] = useState<{ trigger: Session; identity: NonNullable<ReturnType<typeof fusionIdentityFromSession>> } | null>(null);
@@ -426,7 +426,7 @@ export function MainLayout(): ReactNode {
         )) : null}
       </div>
       {settingsPage !== null ? (
-        <SettingsWindow initialPage={settingsPage} onClose={closeSettings} />
+        <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} />
       ) : null}
       {worktreesOpen ? (
         <WorktreesView projectRoot={activeDirectory} onClose={() => setWorktreesOpen(false)} />
@@ -454,14 +454,6 @@ export function MainLayout(): ReactNode {
       <Toaster position="bottom-right" />
     </div>
   );
-}
-
-/** `?settings=<slug>` deep link (PWA manifest shortcut target). */
-function slugFromLocation(): SettingsPageSlug | null {
-  if (typeof window === 'undefined') return null;
-  const raw = new URLSearchParams(window.location.search).get('settings');
-  if (raw === null || raw.length === 0) return null;
-  return (BUILT_PAGE_SLUGS as readonly string[]).includes(raw) ? (raw as SettingsPageSlug) : null;
 }
 
 function normalizeDirectoryInput(directory: string): string {

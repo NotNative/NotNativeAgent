@@ -16,6 +16,7 @@ import {
   type DiffModel, type Scope, type StackEntry,
 } from './diff-view-model';
 import { useI18n } from '../../lib/i18n/context.tsx';
+import { repoPathFromWorkspace } from '../git/session-change-evidence.ts';
 
 interface AnchorPending {
   path: string;
@@ -25,18 +26,22 @@ interface AnchorPending {
 
 type AnchorPendingRef = { current: AnchorPending | null };
 
-export function DiffView({ directory, visible }: { directory: string; visible: boolean }): ReactNode {
+export function DiffView({ directory, visible, focusPath, focusRevision = 0 }: { directory: string; visible: boolean; focusPath?: string | null; focusRevision?: number }): ReactNode {
   const { t } = useI18n();
   const model = useDiffModel({ directory, visible });
   const [expandAll, setExpandAll] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const anchorPendingRef: AnchorPendingRef = anchorPendingRefFactory();
+  const linkedPath = focusPath && model.status ? repoPathFromWorkspace(model.status.workspacePrefix, focusPath) : null;
   useAnchorRestore(containerRef, anchorPendingRef, model.entries);
+  useLinkedDiffPath(containerRef, model, directory, linkedPath, visible, focusRevision);
 
   return (
     <div className="flex h-full min-h-0 gap-3 px-3 pb-3 pt-2" data-testid="diff-view">
       <Sidebar model={model} />
       <div ref={containerRef} className="min-w-0 flex-1 overflow-y-auto" data-testid="diff-scroll">
+        {focusPath && model.status && (!linkedPath || !model.status.files.some((item) => item.path === linkedPath))
+          ? <p role="status" className="px-3 py-2 text-xs text-neutral-400">The linked file has no available diff in this workspace.</p> : null}
         <div className="mb-2 flex items-center gap-2 px-1">
           <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[11px] text-primary disabled:opacity-40" disabled={model.inFlight !== null} onClick={() => void model.stageAll()}>{t('diffUi.stageAll')}</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setExpandAll(!expandAll)}>{t('diffUi.expandAll')}</button>
@@ -56,6 +61,31 @@ export function DiffView({ directory, visible }: { directory: string; visible: b
       </div>
     </div>
   );
+}
+
+function useLinkedDiffPath(container: React.RefObject<HTMLDivElement | null>, model: DiffModel, directory: string, path: string | null | undefined, visible: boolean, revision: number): void {
+  const revealed = useRef<string | null>(null);
+  const prepared = useRef<string | null>(null);
+  useEffect(() => {
+    if (!visible || !path) return;
+    const identity = `${directory}\0${path}\0${revision}`;
+    if (prepared.current !== identity) {
+      prepared.current = identity;
+      if (model.scope !== 'all') { model.setScope('all'); return; }
+    }
+    if (!model.entries.some((item) => item.entry.path === path)) return;
+    if (revealed.current === identity) return;
+    revealed.current = identity;
+    model.reveal(path);
+    let pending = true;
+    const frame = requestAnimationFrame(() => {
+      pending = false;
+      for (const section of container.current?.querySelectorAll<HTMLElement>('[data-diff-section]') ?? []) {
+        if (section.dataset.path === path) { section.scrollIntoView?.({ block: 'start' }); break; }
+      }
+    });
+    return () => { cancelAnimationFrame(frame); if (pending) revealed.current = null; };
+  }, [directory, path, visible, model.entries, model.scope, revision]);
 }
 
 function anchorPendingRefFactory(): AnchorPendingRef {
