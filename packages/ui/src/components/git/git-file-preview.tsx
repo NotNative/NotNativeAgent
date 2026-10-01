@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { fetchGitDiff, type GitStatus } from '../../lib/git/api.ts';
 import { fileDiffFromPatch, isBinaryPatch, LARGE_DIFF_CHANGED_LINES, type FileDiffMetadata } from '../../lib/git/diff-model.ts';
 import { DiffViewer } from '../diff/DiffViewer.tsx';
+import { useI18n } from '../../lib/i18n/context.tsx';
 
 const MAX_PREVIEW_PATCH_CHARS = 1_000_000;
 type Preview = { state: 'loading' } | { state: 'error' } | { state: 'empty' }
@@ -12,6 +13,7 @@ type Preview = { state: 'loading' } | { state: 'error' } | { state: 'empty' }
 export function GitFilePreview({ directory, path, staged, revision, onClose }: {
   directory: string; path: string; staged: boolean; revision: GitStatus | null; onClose: () => void;
 }): ReactNode {
+  const { t } = useI18n();
   const [preview, setPreview] = useState<Preview>({ state: 'loading' });
   const [renderLarge, setRenderLarge] = useState(false);
   useEffect(() => {
@@ -36,16 +38,16 @@ export function GitFilePreview({ directory, path, staged, revision, onClose }: {
     data-path={path} data-scope={staged ? 'staged' : 'working'}>
     <header className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
       <span className="min-w-0 flex-1 truncate text-xs text-foreground" title={path}>{path}</span>
-      <span className="text-[10px] text-muted-foreground">{staged ? 'staged' : 'working'}</span>
-      <button type="button" aria-label="Close diff preview" className="text-xs text-muted-foreground hover:text-foreground" onClick={onClose}>×</button>
+      <span className="text-[10px] text-muted-foreground">{staged ? t('gitUi.staged') : t('gitUi.working')}</span>
+      <button type="button" aria-label={t('gitUi.closeDiffPreview')} className="text-xs text-muted-foreground hover:text-foreground" onClick={onClose}>×</button>
     </header>
     <div className="max-h-[45vh] overflow-auto p-2 text-xs" data-testid="git-file-preview-body">
-      {preview.state === 'loading' ? 'Loading diff…' : null}
-      {preview.state === 'error' ? 'Diff unavailable.' : null}
-      {preview.state === 'empty' ? 'No textual diff is available for this file.' : null}
-      {preview.state === 'binary' ? 'Binary file — no textual diff available.' : null}
-      {preview.state === 'large' || tooManyLines && !renderLarge ? <div>Large diff — preview paused.
-        {preview.state === 'ready' ? <button type="button" className="ml-2 text-primary underline" onClick={() => setRenderLarge(true)}>Render anyway</button> : null}
+      {preview.state === 'loading' ? <div role="status">{t('gitUi.loadingDiff')}</div> : null}
+      {preview.state === 'error' ? <div role="status">{t('gitUi.diffUnavailable')}</div> : null}
+      {preview.state === 'empty' ? <div role="status">{t('gitUi.noTextualDiff')}</div> : null}
+      {preview.state === 'binary' ? <div role="status">{t('gitUi.binaryNoDiff')}</div> : null}
+      {preview.state === 'large' || tooManyLines && !renderLarge ? <div><div role="status">{t('gitUi.largeDiffPaused')} </div>
+         {preview.state === 'ready' ? <button type="button" className="ml-2 text-primary underline" onClick={() => setRenderLarge(true)}>{t('gitUi.renderAnyway')}</button> : null}
       </div> : null}
       {preview.state === 'ready' && (!tooManyLines || renderLarge) ? <DiffViewer fileName={path} fileDiff={preview.diff}
         renderSideBySide={false} wrapLines /> : null}

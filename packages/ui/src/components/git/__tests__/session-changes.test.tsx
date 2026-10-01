@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import type { GitStatus } from '../../../lib/git/api.ts';
 import { createDirectoryStore } from '../../../sync/child-store.ts';
+import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { SessionChanges } from '../session-changes.tsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -34,8 +35,8 @@ describe('SessionChanges', () => {
     document.body.appendChild(element);
     root = createRoot(element);
     const onOpen = vi.fn();
-    await act(async () => { root!.render(<SessionChanges store={store} directory={directory} sessionID="selected"
-      status={status} stale={false} visible onOpen={onOpen} />); });
+    await act(async () => { root!.render(<I18nProvider><SessionChanges store={store} directory={directory} sessionID="selected"
+      status={status} stale={false} visible onOpen={onOpen} /></I18nProvider>); });
     expect(list).not.toHaveBeenCalled();
     expect(element.textContent).toContain('No recorded session-touched files');
     await act(async () => { store.getState().patch({ config: { nnd: { engine: 'nna' } } }); });
@@ -55,8 +56,8 @@ describe('SessionChanges', () => {
     element = document.createElement('div');
     document.body.appendChild(element);
     root = createRoot(element);
-    await act(async () => { root!.render(<SessionChanges store={store} directory={directory} sessionID="selected"
-      status={status} stale visible onOpen={vi.fn()} />); });
+    await act(async () => { root!.render(<I18nProvider><SessionChanges store={store} directory={directory} sessionID="selected"
+      status={status} stale visible onOpen={vi.fn()} /></I18nProvider>); });
     expect(element.textContent).toContain('Saved activity unavailable; live evidence may be incomplete.');
     expect(element.querySelector<HTMLButtonElement>('button[aria-label="View current diff for session-touched work.ts"]')?.disabled).toBe(true);
   });
@@ -77,8 +78,8 @@ describe('SessionChanges', () => {
       { path: 'legacy.ts', index: ' ', working_dir: 'M' },
     ] };
     element = document.createElement('div'); document.body.appendChild(element); root = createRoot(element);
-    await act(async () => { root!.render(<SessionChanges store={store} directory={directory} sessionID="selected"
-      status={current} stale={false} visible onOpen={vi.fn()} />); });
+    await act(async () => { root!.render(<I18nProvider><SessionChanges store={store} directory={directory} sessionID="selected"
+      status={current} stale={false} visible onOpen={vi.fn()} /></I18nProvider>); });
     expect(element.querySelectorAll('button[aria-label^="View current diff"]')).toHaveLength(3);
     await act(async () => { [...element!.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === 'Last turn')?.click(); });

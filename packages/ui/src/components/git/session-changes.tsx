@@ -6,11 +6,13 @@ import type { GitStatus } from '../../lib/git/api.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../../sync/activity-snapshot.ts';
 import { latestTurnRequestID } from '../../sync/activity-log.ts';
 import { sessionChangedFiles } from './session-change-evidence.ts';
+import { useI18n } from '../../lib/i18n/context.tsx';
 
 export function SessionChanges({ store, directory, sessionID, status, stale, visible, onOpen }: {
   store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; status: GitStatus;
   stale: boolean; visible: boolean; onOpen: (path: string, staged: boolean) => void;
 }): ReactNode {
+  const { t } = useI18n();
   // Config can arrive after this pane mounts. Subscribe to the whole directory
   // snapshot so becoming an NNA source also starts saved-activity recovery.
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
@@ -35,25 +37,25 @@ export function SessionChanges({ store, directory, sessionID, status, stale, vis
     turnScoped ? turnRequestID : undefined);
   return <section className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-2" data-testid="git-session-changes">
     <div className="flex items-center justify-between gap-2 px-1">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-sky-300">{turnScoped ? 'Touched in last turn' : 'Touched in this session'} · {files.length}</h3>
-      <div role="group" aria-label="Scope file evidence" className="flex gap-1 text-[10px]">
-        <button type="button" aria-pressed={!turnScoped} className={!turnScoped ? 'text-sky-300' : 'text-muted-foreground'} onClick={() => setScope('session')}>Session</button>
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-sky-300">{turnScoped ? t('gitUi.lastTurnTouched') : t('gitUi.sessionTouched')} · {files.length}</h3>
+      <div role="group" aria-label={t('gitUi.evidenceScope')} className="flex gap-1 text-[10px]">
+        <button type="button" aria-pressed={!turnScoped} className={!turnScoped ? 'text-sky-300' : 'text-muted-foreground'} onClick={() => setScope('session')}>{t('gitUi.sessionScope')}</button>
         <button type="button" disabled={!turnRequestID} aria-pressed={turnScoped} className={turnScoped ? 'text-sky-300' : 'text-muted-foreground disabled:opacity-40'}
-          title={!turnRequestID ? 'No authored turn identity is available' : undefined} onClick={() => setScope('turn')}>Last turn</button>
+          title={!turnRequestID ? t('gitUi.noTurnIdentity') : undefined} onClick={() => setScope('turn')}>{t('gitUi.lastTurnScope')}</button>
       </div>
     </div>
-    <p className="px-1 py-1 text-[10px] text-muted-foreground">Recorded tool evidence matched to current Git changes. Diffs may also contain later edits.</p>
+    <p className="px-1 py-1 text-[10px] text-muted-foreground">{t('gitUi.evidenceNote')}</p>
     {nnaSource && historyStatus === 'unavailable' ? <p role="status" className="px-1 py-1 text-[10px] text-amber-300">
-      Saved activity unavailable; live evidence may be incomplete. <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>Retry</button>
+      {t('gitUi.activityUnavailable')} <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>{t('gitUi.retry')}</button>
     </p> : null}
-    {stale ? <p className="px-1 text-[10px] text-amber-300">Git status is stale; refresh before opening a diff.</p> : null}
+    {stale ? <p className="px-1 text-[10px] text-amber-300">{t('gitUi.staleEvidence')}</p> : null}
     {files.length === 0 ? <p className="px-1 py-1 text-[11px] text-muted-foreground">{historyStatus === 'loading'
-      ? 'Loading recorded session file evidence…' : `No recorded ${turnScoped ? 'last-turn' : 'session-touched'} files match current Changes.`}</p> : files.map((file) =>
+      ? t('gitUi.loadingEvidence') : turnScoped ? t('gitUi.noLastTurnFiles') : t('gitUi.noSessionFiles')}</p> : files.map((file) =>
       <div key={file.path} className="flex items-center gap-2 px-1 py-0.5 text-xs">
         <button type="button" disabled={stale} className="min-w-0 flex-1 truncate text-left text-foreground hover:text-primary disabled:opacity-40"
-          title={file.path} aria-label={`View current diff for session-touched ${file.path}`}
+          title={file.path} aria-label={t('gitUi.viewSessionDiff', { path: file.path })}
           onClick={() => onOpen(file.path, file.working ? false : file.staged)}>{file.path}</button>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{file.working && file.staged ? 'working + staged' : file.working ? 'working' : 'staged'}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{file.working && file.staged ? t('gitUi.workingAndStaged') : file.working ? t('gitUi.working') : t('gitUi.staged')}</span>
       </div>)}
   </section>;
 }

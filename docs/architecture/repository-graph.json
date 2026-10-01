@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c1e803664ec7fe2f4434431055bdf19dc06f91679fdb9d728a5b80ba8bc9f304",
+  "source_digest": "sha256:554a87c6c1f75bb79589dd35ae0dd1b820b1f9fbbeee06189d6f9b1bc21856fc",
   "counts": {
     "modules": 644,
     "component_edges": 14
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 245,
-      "module_count": 104
+      "import_count": 248,
+      "module_count": 105
     },
     {
       "from": "ui-shell",
@@ -1221,14 +1221,17 @@
       "imports": [
         "packages/ui/src/components/diff/DiffViewer.tsx",
         "packages/ui/src/lib/git/api.ts",
-        "packages/ui/src/lib/git/diff-model.ts"
+        "packages/ui/src/lib/git/diff-model.ts",
+        "packages/ui/src/lib/i18n/context.tsx"
       ]
     },
     {
       "path": "packages/ui/src/components/git/git-view-chrome.tsx",
       "component": "ui-shell",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "packages/ui/src/lib/i18n/context.tsx"
+      ]
     },
     {
       "path": "packages/ui/src/components/git/GitView.tsx",
@@ -1261,6 +1264,7 @@
       "imports": [
         "packages/ui/src/components/git/session-change-evidence.ts",
         "packages/ui/src/lib/git/api.ts",
+        "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/types.ts"
