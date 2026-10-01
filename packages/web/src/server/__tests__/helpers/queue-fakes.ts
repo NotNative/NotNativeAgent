@@ -102,10 +102,10 @@ export class FakeQueueHarness implements HarnessAdapter {
     return this.heldResolvers.length;
   }
 
-  releaseHeldSends(): void {
+  releaseHeldSends(status = 204): void {
     const resolvers = [...this.heldResolvers];
     this.heldResolvers = [];
-    for (const resolvePromise of resolvers) resolvePromise(new Response(null, { status: 204 }));
+    for (const resolvePromise of resolvers) resolvePromise(new Response(null, { status }));
   }
 }
 

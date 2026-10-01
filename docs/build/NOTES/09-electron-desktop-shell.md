@@ -558,9 +558,12 @@ remaining P12 slices ride after it.
   GUI rendering, actual NSIS installation, and non-Windows platforms still
   need acceptance coverage.
 - Dual-instance sharing of ~/.notnative-desktop (packaged + dev `pnpm start`):
-  settings mutations use a shared config lock and lazy seeding publishes with
-  atomic no-replace semantics (P13). Queue dispatch arbitration remains open;
-  occurrence-claim machinery exists only for scheduled tasks (P9-3).
+  settings and queue mutations refresh under shared config locks; settings
+  seeding uses atomic no-replace publication. Per-session OS-visible dispatch
+  claims prevent concurrent sends and protect active heads from cross-process
+  take/delete/eviction. Delivery remains at-least-once across a crash after
+  upstream acceptance but before durable removal. Holds and retry backoff
+  remain per-runtime; occurrence-claim machinery exists for scheduled tasks.
 - Port handoff race: selectPort test-binds then closes before the server
   binds — a second process can win the gap (~ms). Failure mode is a clean
   boot abort with main.log evidence, not a wrong-port bind.
@@ -577,9 +580,12 @@ remaining P12 slices ride after it.
 - **D-09-24** Settings PATCH handlers serialize read/modify/write across server
   processes with the shared preferences config lock. Lazy seed creation uses
   atomic no-replace publication, so a concurrent first write cannot be
-  clobbered by a delayed GET. Queue dispatch remains process-local: a plain
-  delivery claim conflicts with restart replay and does not serialize queue
-  mutations, so shared lifecycle/idempotency semantics are still required.
+  clobbered by a delayed GET. Queue management mutations serialize and refresh
+  the canonical file; per-session claims serialize dispatch, retain the active
+  item against take/delete/reorder/eviction, and release on disposal so restart
+  can replay the durable head. Delivery is at-least-once if upstream accepts a
+  POST before the sender can durably remove it. Holds and backoff remain
+  per-runtime by the queue contract.
 
 - link head `openchamber://connect?v=2&p=` is SEALED by the pairing suites —
   deep-link registration (P12b) registers the `openchamber` scheme VERBATIM.

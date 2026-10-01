@@ -3735,15 +3735,25 @@ configuration import only; live SSH transport is still outstanding.
   web tests pass (1248/1248) and web typecheck passes.
   Queue dispatch arbitration and installed GUI acceptance remain open.
 - **2026-09-30 · P13 queue arbitration audit.** Confirmed that two servers can
-  load and dispatch the same persisted head because the in-flight marker is
-  process-local. A simple delivery lock conflicts with the existing restart
-  replay contract, and stale snapshots can still overwrite concurrent queue
-  mutations. Fixing this safely needs a shared mutation protocol and an
-  explicit lifecycle/idempotency policy; no partial lock was retained.
+  load and dispatch the same persisted head because the in-flight marker was
+  process-local. The follow-up implementation adds shared queue mutation locks
+  and per-session dispatch claims; restart remains at-least-once if a send was
+  accepted upstream before its durable removal.
 - **2026-09-30 · P13 origin-gate smoke precision.** Adversarial review found
   that the source smoke's rejected request used `text/plain`, allowing the
   content-type validator to mask a missing origin check. It now sends valid
   JSON with `Origin: null`; the NNA source integration smoke passes with that
   isolated assertion. The in-process smoke still does not cover NND's listener,
   auth middleware, Electron, or installed GUI behavior.
+- **2026-09-30 · P13 cross-process queue arbitration.** Queue API reads and
+  mutations now refresh and serialize under the queue file's shared lock.
+  Per-session OS-visible claims prevent simultaneous sends and protect the
+  active head from take, delete, reorder, clear, and capacity eviction across
+  runtimes. Claims survive ordinary retries, release on disposal so durable
+  items can replay after restart, and are reclaimed when the owner PID exits.
+  Adversarial review fixed reorder/head mismatch, deleted-session claim leaks,
+  and stale failure retries. Queue suites pass (78/78); full web suite passes
+  (1251/1251); workspace typechecks pass. Delivery is at-least-once across an
+  upstream-accepted POST whose acknowledgment is lost. Holds/backoff remain
+  per-runtime by the existing queue contract.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

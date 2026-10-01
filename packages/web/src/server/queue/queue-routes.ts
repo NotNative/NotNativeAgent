@@ -42,12 +42,6 @@ async function readBody(c: Context): Promise<Record<string, unknown> | null> {
   return readJsonBodyBounded(c.req.raw, QUEUE_BODY_MAX_CHARS);
 }
 
-function sessionDirectory(sessionId: string, runtime: MessageQueueRuntime): string {
-  // directoryOf, not the snapshot: a memory-only emptied entry (E-09-6) is
-  // snapshot-invisible but §D.5 still names its directory in every reply.
-  return runtime.store.directoryOf(sessionId) ?? '';
-}
-
 async function enqueueHandler(c: Context, runtime: MessageQueueRuntime): Promise<Response> {
   const sessionId = c.req.param('id') ?? '';
   const body = await readBody(c);
@@ -57,7 +51,7 @@ async function enqueueHandler(c: Context, runtime: MessageQueueRuntime): Promise
   const item = body.item;
   if (item === null || typeof item !== 'object' || Array.isArray(item)) return invalid(c, 'item must be an object');
   try {
-    const { revision, itemId } = runtime.enqueueItem(sessionId, directory, item);
+    const { revision, itemId } = await runtime.enqueueItemShared(sessionId, directory, item);
     return c.json({ revision, session: directory, itemId });
   } catch (error) {
     if (error instanceof QueueItemValidationError) return invalid(c, error.message);
@@ -65,11 +59,11 @@ async function enqueueHandler(c: Context, runtime: MessageQueueRuntime): Promise
   }
 }
 
-function takeItemHandler(c: Context, runtime: MessageQueueRuntime): Response {
+async function takeItemHandler(c: Context, runtime: MessageQueueRuntime): Promise<Response> {
   const params = c.req.param();
   const sessionId = params.id ?? '';
   const itemId = params.itemId ?? '';
-  const outcome = runtime.takeItem(sessionId, itemId);
+  const outcome = await runtime.takeItemShared(sessionId, itemId);
   if (outcome.kind === 'inFlight') return c.json({ error: 'queued item is in flight' }, 409);
   if (outcome.kind === 'unknown') return c.json({ error: `queued item not found: ${itemId}` }, 404);
   return c.json({
@@ -79,8 +73,8 @@ function takeItemHandler(c: Context, runtime: MessageQueueRuntime): Response {
   });
 }
 
-function takeAllHandler(c: Context, runtime: MessageQueueRuntime): Response {
-  const outcome = runtime.takeAllItems(c.req.param('id') ?? '');
+async function takeAllHandler(c: Context, runtime: MessageQueueRuntime): Promise<Response> {
+  const outcome = await runtime.takeAllItemsShared(c.req.param('id') ?? '');
   if (outcome.kind === 'unknown') return c.json({ error: 'queued session not found' }, 404);
   return c.json({
     revision: outcome.revision,
@@ -97,17 +91,18 @@ async function orderHandler(c: Context, runtime: MessageQueueRuntime): Promise<R
   if (!Array.isArray(itemIds) || itemIds.some((id) => typeof id !== 'string' || id === '')) {
     return invalid(c, 'itemIds must be an array of item ids');
   }
-  const outcome = runtime.reorderItems(sessionId, itemIds as string[]);
-  if (outcome === 'unknown') return c.json({ error: 'queued session not found' }, 404);
-  if (outcome === 'incomplete') return invalid(c, 'itemIds must be a complete permutation of the current queue');
-  return c.json({ revision: runtime.currentRevision(), session: sessionDirectory(sessionId, runtime) });
+  const result = await runtime.reorderItemsShared(sessionId, itemIds as string[]);
+  if (result.outcome === 'unknown') return c.json({ error: 'queued session not found' }, 404);
+  if (result.outcome === 'inFlight') return c.json({ error: 'in-flight queued item must remain first' }, 409);
+  if (result.outcome === 'incomplete') return invalid(c, 'itemIds must be a complete permutation of the current queue');
+  return c.json({ revision: result.revision, session: result.directory });
 }
 
-function deleteItemHandler(c: Context, runtime: MessageQueueRuntime): Response {
+async function deleteItemHandler(c: Context, runtime: MessageQueueRuntime): Promise<Response> {
   const params = c.req.param();
   const sessionId = params.id ?? '';
   const itemId = params.itemId ?? '';
-  const outcome = runtime.deleteItem(sessionId, itemId);
+  const outcome = await runtime.deleteItemShared(sessionId, itemId);
   if (outcome.kind === 'inFlight') return c.json({ error: 'queued item is in flight' }, 409);
   if (outcome.kind === 'unknown') return c.json({ error: `queued item not found: ${itemId}` }, 404);
   return c.json({ revision: outcome.revision, session: outcome.directory }); // directory-named even on the last item (§D.5)
@@ -130,7 +125,7 @@ export type QueueRuntimeProvider = () => MessageQueueRuntime;
 export function createMessageQueueRoutes(runtimeProvider: MessageQueueRuntime | QueueRuntimeProvider): Hono {
   const resolve = typeof runtimeProvider === 'function' ? runtimeProvider : () => runtimeProvider;
   const app = new Hono();
-  app.get('/api/message-queue', (c) => c.json({ revision: resolve().currentRevision(), sessions: resolve().snapshotSessions() }));
+  app.get('/api/message-queue', async (c) => c.json(await resolve().snapshotSessionsShared()));
   app.post('/api/message-queue/sessions/:id/items', (c) => enqueueHandler(c, resolve()));
   app.post('/api/message-queue/sessions/:id/items/:itemId/take', (c) => takeItemHandler(c, resolve()));
   app.post('/api/message-queue/sessions/:id/take', (c) => takeAllHandler(c, resolve()));
@@ -141,8 +136,8 @@ export function createMessageQueueRoutes(runtimeProvider: MessageQueueRuntime | 
   return app;
 }
 
-function clearSessionHandler(c: Context, runtime: MessageQueueRuntime): Response {
-  const outcome = runtime.deleteSessionQueue(c.req.param('id') ?? '');
+async function clearSessionHandler(c: Context, runtime: MessageQueueRuntime): Promise<Response> {
+  const outcome = await runtime.deleteSessionQueueShared(c.req.param('id') ?? '');
   if (outcome.kind === 'unknown') return c.json({ error: 'queued session not found' }, 404);
   return c.json({ revision: outcome.revision, session: outcome.directory });
 }

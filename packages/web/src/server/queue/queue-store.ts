@@ -9,8 +9,9 @@
  * overwrite the user's data. A hard READ failure disables writes (the
  * in-memory queue stays; a later successful load re-enables) — a fetch
  * failure must never masquerade as an authoritative empty success.
- * Deliberately in-memory: in-flight ids, holds, backoff tracking, abort
- * timestamps, and directory memory for emptied queues.
+ * Per-runtime in-memory: holds, backoff tracking, and abort timestamps.
+ * Per-session dispatch claims are OS-visible beside this file; process-local
+ * sending IDs project those claims into snapshots.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -118,6 +119,17 @@ export class MessageQueueStore {
     this.sessions = loaded;
     this.revision = read.doc.revision;
     return 'loaded';
+  }
+
+  /** Refresh persisted authority while retaining process-local directory
+   * memory for queues that were emptied by this store (E-09-6). */
+  refreshPreservingEmpty(): 'loaded' | 'missing' | 'quarantined' | 'disabled' {
+    const empty = [...this.sessions.entries()].filter(([, entry]) => entry.items.length === 0);
+    const result = this.load();
+    for (const [sessionId, entry] of empty) {
+      if (!this.sessions.has(sessionId)) this.sessions.set(sessionId, entry);
+    }
+    return result;
   }
 
   /** Post-failure recovery probe (§D.2): a successful read re-enables
@@ -256,13 +268,14 @@ export class MessageQueueStore {
   }
 
   /** §D.2 ordering mutator: `itemIds` must hold every current id exactly once. */
-  reorder(sessionId: string, itemIds: string[]): 'applied' | 'incomplete' | 'missing' {
+  reorder(sessionId: string, itemIds: string[], pinnedHeadId: string | null = null): 'applied' | 'incomplete' | 'missing' | 'inFlight' {
     const entry = this.sessions.get(sessionId);
     if (!entry) return 'missing';
     if (itemIds.length !== entry.items.length) return 'incomplete';
     const seen = new Set(itemIds);
     if (seen.size !== itemIds.length) return 'incomplete';
     for (const id of itemIds) if (!entry.items.some((item) => item.id === id)) return 'incomplete';
+    if (pinnedHeadId !== null && itemIds[0] !== pinnedHeadId) return 'inFlight';
     const byId = new Map(entry.items.map((item) => [item.id, item]));
     entry.items = itemIds.map((id) => byId.get(id)).map((item) => item!) as QueueItem[];
     return 'applied';

@@ -11,6 +11,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { join as joinPath } from 'node:path';
 import { ENV } from '../env.ts';
+import { withConfigLock } from '../scheduled/config-lock.ts';
 
 export interface SnippetRecord {
   name: string;
@@ -99,33 +100,38 @@ export async function writeSnippet(record: SnippetRecord, dataDir: string = ENV.
 export async function deleteSnippet(name: string, dataDir: string = ENV.dataDir): Promise<boolean> {
   if (!snippetNameOk(name)) return false;
   const target = joinPath(snippetsDirFor(dataDir), `${name}.json`);
-  if (!existsSync(target)) return false;
-  const fault = (error: unknown): string | null =>
-    (error as NodeJS.ErrnoException & { code?: string })?.code ?? null;
-  try {
-    await unlink(target);
-  } catch (error) {
-    const code = fault(error);
-    // A racing DELETE already removed the file between the existence probe
-    // and the unlink: that is a lost race, not a server fault - 404.
-    if (code === 'ENOENT') return false;
-    // Windows: the winner's in-flight unlink (or an AV probe) surfaces as a
-    // sharing violation (EPERM). Fold it ONLY when the file is gone by a
-    // fresh probe; a still-present target is a genuine permission fault.
-    if (code === 'EPERM') {
-      if (!existsSync(target)) return false;
-      try {
-        await unlink(target);
-        return true;
-      } catch (retry) {
-        const retryCode = fault(retry);
-        if (retryCode === 'ENOENT' || (retryCode === 'EPERM' && !existsSync(target))) return false;
-        throw retry;
+  return withConfigLock(target, async () => {
+    // Serialize the existence check and unlink. Windows may report two
+    // simultaneous unlink requests as successful while the entry is pending
+    // deletion, which otherwise lets both DELETE handlers claim the win.
+    if (!existsSync(target)) return false;
+    const fault = (error: unknown): string | null =>
+      (error as NodeJS.ErrnoException & { code?: string })?.code ?? null;
+    try {
+      await unlink(target);
+    } catch (error) {
+      const code = fault(error);
+      // A competing process can still remove the entry after this lock's
+      // stale-recovery boundary, so retain the lost-race handling.
+      if (code === 'ENOENT') return false;
+      // Windows: the winner's in-flight unlink (or an AV probe) surfaces as a
+      // sharing violation (EPERM). Fold it ONLY when the file is gone by a
+      // fresh probe; a still-present target is a genuine permission fault.
+      if (code === 'EPERM') {
+        if (!existsSync(target)) return false;
+        try {
+          await unlink(target);
+          return true;
+        } catch (retry) {
+          const retryCode = fault(retry);
+          if (retryCode === 'ENOENT' || (retryCode === 'EPERM' && !existsSync(target))) return false;
+          throw retry;
+        }
       }
+      throw error;
     }
-    throw error;
-  }
-  return true;
+    return true;
+  });
 }
 
 /** `#name` tokens over a known roster expand; unknown tokens keep their

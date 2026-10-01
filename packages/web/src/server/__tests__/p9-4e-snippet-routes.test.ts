@@ -229,21 +229,37 @@ describe('P9-4e-i audit pins (reserved names, traversal, races, enlargement pari
     } finally { store.cleanup(); }
   });
 
-  it('concurrent double DELETE folds the lost race to 404, never 500', async () => {
+  it('concurrent double DELETE has one winner even when Windows unlinks both requests successfully', async () => {
     await post('/api/config/snippets/racy', { text: 'racy body' });
-    const responses = await Promise.all([
-      call('/api/config/snippets/racy', { method: 'DELETE' }),
-      call('/api/config/snippets/racy', { method: 'DELETE' }),
-    ]);
-    // An unhandled unlink ENOENT would surface as a 500 in the multiset.
-    expect(responses.map((entry) => entry.status).sort((a, b) => a - b)).toEqual([200, 404]);
-    for (const response of responses) {
-      if (response.status === 200) {
-        expect(await response.json()).toEqual({ success: true });
-      } else {
-        expect(await response.json()).toEqual({ error: 'snippet not found' });
-      }
-    }
+    const realUnlink = unlinkMock.getMockImplementation()!;
+    let entered!: () => void;
+    let release!: () => void;
+    const unlinkEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const firstUnlinkHeld = new Promise<void>((resolve) => { release = resolve; });
+    unlinkMock.mockImplementationOnce(async (...args: Parameters<typeof unlinkMock>) => {
+      entered();
+      await firstUnlinkHeld;
+      return realUnlink(...args);
+    });
+    // If the second call reaches unlink, model Windows accepting another
+    // unlink while the first deletion is pending. The file lock must keep it
+    // from claiming a second successful DELETE.
+    unlinkMock.mockImplementationOnce(async () => undefined);
+    const first = deleteSnippet('racy');
+    await unlinkEntered;
+    // Calling the store operation directly avoids route-level async lookup
+    // timing; without arbitration both calls reach unlink while the first is
+    // held, deterministically exercising Windows' duplicate-success case.
+    const second = deleteSnippet('racy');
+    release();
+    const responses = await Promise.all([first, second]);
+    // Both one-shot behaviors are scoped to this simulated contention.
+    unlinkMock.mockReset();
+    unlinkMock.mockImplementation(realUnlink);
+    // Simulate Windows' successful pending-delete behavior deterministically:
+    // once the first request owns the file lock and removes it, the second
+    // observes absence instead of reporting a second successful deletion.
+    expect(responses.sort()).toEqual([false, true]);
   });
 
   it('the EPERM fold: a gone-by-probe race folds to the 404 arm; an open window retries', async () => {

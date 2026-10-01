@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9a8a237f2c7c78e5b677d9fc3ffee9b4ee4c5be37f46e11c28296141ff363078",
+  "source_digest": "sha256:8b0bbe8336d4119009b51bc4bde1fbb1f5fefabcc1e62f1103a551edf76e67f7",
   "counts": {
-    "modules": 599,
+    "modules": 602,
     "component_edges": 14
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 202
+      "module_count": 205
     },
     {
       "id": "web-entry",
@@ -4951,6 +4951,12 @@
       ]
     },
     {
+      "path": "packages/web/src/server/queue/queue-dispatch-claims.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/web/src/server/queue/queue-dispatch.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -4998,6 +5004,20 @@
       ]
     },
     {
+      "path": "packages/web/src/server/queue/queue-runtime-timing.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/queue/queue-runtime-utils.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/queue/queue-runtime-timing.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/queue/queue-runtime.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5007,11 +5027,15 @@
         "packages/web/src/server/lib/bus.ts",
         "packages/web/src/server/lib/harnessNaming.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/queue/queue-dispatch-claims.ts",
         "packages/web/src/server/queue/queue-dispatch.ts",
         "packages/web/src/server/queue/queue-feed.ts",
         "packages/web/src/server/queue/queue-hooks.ts",
         "packages/web/src/server/queue/queue-item.ts",
-        "packages/web/src/server/queue/queue-store.ts"
+        "packages/web/src/server/queue/queue-runtime-timing.ts",
+        "packages/web/src/server/queue/queue-runtime-utils.ts",
+        "packages/web/src/server/queue/queue-store.ts",
+        "packages/web/src/server/scheduled/config-lock.ts"
       ]
     },
     {
@@ -5702,7 +5726,8 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/env.ts"
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/scheduled/config-lock.ts"
       ]
     },
     {
