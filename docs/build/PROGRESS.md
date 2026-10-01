@@ -36,7 +36,9 @@ and visible sessions receive appearance updates when the theme changes. The
 existing terminal appearance route carries those updates to Mode 2031-aware
 applications. Adversarial review found no confirmed defects; focused terminal
 tests (6/6), UI typecheck, and diff checks pass. Shiki and diff consumers remain
-open under E6.
+under E6. The existing diff renderer already uses semantic theme colors; the
+fenced-code palette and PTY appearance completed the current consumers in
+release `20260930-95`. No Shiki renderer exists in this build.
 
 ## 2026-09-30 · P12b-51 authenticated desktop updater bridge (20260930-78)
 

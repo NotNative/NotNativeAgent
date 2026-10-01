@@ -163,7 +163,7 @@ verbatim per P5-1 (they are design-system internals, not brand seams).
 | E3 | 38-preset palette contents self-authored seeds | P5-2 | original JSONs untranscribed (doc gap §M) |
 | E4 | iframe/embedded theme sync + VS Code adapter | defer | no embedded/VS Code surfaces until P10/P12 |
 | E5 | custom theme import UX (Settings→Appearance reload) | P5-3 done | Appearance exposes Reload; the client reloads validated themes from GET /api/config/themes |
-| E6 | shiki/terminal/diff theme consumers | P6/P7 | contract noted §E.8 |
+| E6 | syntax/terminal/diff theme consumers | P6/P7 | ✅ Current syntax, terminal, and diff consumers use active theme tokens (2026-09-30); no Shiki renderer exists in this build. §E.8 conversion contracts recorded. |
 | E7 | splash shells speak the stored locale (§H.4 readStoredLocaleForBootstrap wired into HTML splash) | P12 | ✅ Ordered web bootstrap sets stored locale before the app module; locale changes also update the document language (2026-09-30). |
 | E8 | `getCurrentIntlLocale()` glue (BCP47ByLocale → Intl consumers, §H.2 intl.ts) | P6+ | ✅ Shared BCP 47 helper is used by date/time/money, schedules, activity timestamps, token counts, and goal budgets; subscribed consumers repaint on locale changes (2026-09-30). |
 | E9 | `useI18n.ts` as a separate hook file | folded into context.tsx | doc parity note; single export surface kept |
