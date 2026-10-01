@@ -107,6 +107,10 @@ export const uk: PartialDictionary = {
   'settings.chat.dynamicDiff': "Динамічно",
   'settings.chat.inlineDiff': "Вбудовано",
   'settings.chat.sideBySideDiff': "Поруч",
+
+  'settings.search.followUp': "Поведінка подальших повідомлень",
+  'settings.chat.steerInFlightTurn': "Спрямовувати поточний хід",
+  'settings.chat.queueFollowups': "Додавати подальші повідомлення в чергу",
 };
 
 export const es: PartialDictionary = {
@@ -215,6 +219,10 @@ export const es: PartialDictionary = {
   'settings.chat.dynamicDiff': "Dinámico",
   'settings.chat.inlineDiff': "En línea",
   'settings.chat.sideBySideDiff': "En paralelo",
+
+  'settings.search.followUp': "Comportamiento de seguimiento",
+  'settings.chat.steerInFlightTurn': "Guiar el turno en curso",
+  'settings.chat.queueFollowups': "Poner los seguimientos en cola",
 };
 
 export const tr: PartialDictionary = {
@@ -323,4 +331,8 @@ export const tr: PartialDictionary = {
   'settings.chat.dynamicDiff': "Dinamik",
   'settings.chat.inlineDiff': "Satır içinde",
   'settings.chat.sideBySideDiff': "Yan yana",
+
+  'settings.search.followUp': "Takip davranışı",
+  'settings.chat.steerInFlightTurn': "Süren turu yönlendir",
+  'settings.chat.queueFollowups': "Takip mesajlarını sıraya al",
 };

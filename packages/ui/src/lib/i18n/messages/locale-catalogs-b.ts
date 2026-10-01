@@ -107,6 +107,10 @@ export const ptBR: PartialDictionary = {
   'settings.chat.dynamicDiff': "Dinâmico",
   'settings.chat.inlineDiff': "Em linha",
   'settings.chat.sideBySideDiff': "Lado a lado",
+
+  'settings.search.followUp': "Comportamento de acompanhamento",
+  'settings.chat.steerInFlightTurn': "Orientar o turno em andamento",
+  'settings.chat.queueFollowups': "Colocar acompanhamentos na fila",
 };
 
 export const ko: PartialDictionary = {
@@ -215,6 +219,10 @@ export const ko: PartialDictionary = {
   'settings.chat.dynamicDiff': "동적",
   'settings.chat.inlineDiff': "인라인",
   'settings.chat.sideBySideDiff': "나란히",
+
+  'settings.search.followUp': "후속 동작",
+  'settings.chat.steerInFlightTurn': "진행 중인 차례 조정",
+  'settings.chat.queueFollowups': "후속 메시지 대기열에 추가",
 };
 
 export const pl: PartialDictionary = {
@@ -323,6 +331,10 @@ export const pl: PartialDictionary = {
   'settings.chat.dynamicDiff': "Dynamiczny",
   'settings.chat.inlineDiff': "W tekście",
   'settings.chat.sideBySideDiff': "Obok siebie",
+
+  'settings.search.followUp': "Sposób obsługi kolejnych wiadomości",
+  'settings.chat.steerInFlightTurn': "Steruj trwającą turą",
+  'settings.chat.queueFollowups': "Dodawaj kolejne wiadomości do kolejki",
 };
 
 export const ja: PartialDictionary = {
@@ -431,4 +443,8 @@ export const ja: PartialDictionary = {
   'settings.chat.dynamicDiff': "動的",
   'settings.chat.inlineDiff': "インライン",
   'settings.chat.sideBySideDiff': "左右に並べる",
+
+  'settings.search.followUp': "フォローアップの動作",
+  'settings.chat.steerInFlightTurn': "進行中のターンを調整",
+  'settings.chat.queueFollowups': "フォローアップをキューに追加",
 };

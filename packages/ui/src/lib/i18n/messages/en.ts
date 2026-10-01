@@ -159,6 +159,8 @@ const en = {
   'pwa.install.action': 'Install',
   'pwa.install.dismiss': 'Dismiss',
   'settings.search.followUp': 'Follow-up behavior',
+  'settings.chat.steerInFlightTurn': 'Steer in-flight turn',
+  'settings.chat.queueFollowups': 'Queue follow-ups',
   'settings.search.inputHistory': 'Input history',
   'settings.search.reasoning': 'Reasoning traces',
   'settings.search.streaming': 'Streaming auto-follow',

@@ -107,6 +107,10 @@ export const de: PartialDictionary = {
   'settings.chat.dynamicDiff': "Dynamisch",
   'settings.chat.inlineDiff': "Inline",
   'settings.chat.sideBySideDiff': "Nebeneinander",
+
+  'settings.search.followUp': "Folgeverhalten",
+  'settings.chat.steerInFlightTurn': "Laufenden Durchlauf steuern",
+  'settings.chat.queueFollowups': "Folgeaktionen einreihen",
 };
 
 export const fr: PartialDictionary = {
@@ -215,6 +219,10 @@ export const fr: PartialDictionary = {
   'settings.chat.dynamicDiff': "Dynamique",
   'settings.chat.inlineDiff': "En ligne",
   'settings.chat.sideBySideDiff': "Côte à côte",
+
+  'settings.search.followUp': "Comportement des suivis",
+  'settings.chat.steerInFlightTurn': "Orienter le tour en cours",
+  'settings.chat.queueFollowups': "Mettre les suivis en file",
 };
 
 export const zhCN: PartialDictionary = {
@@ -323,6 +331,10 @@ export const zhCN: PartialDictionary = {
   'settings.chat.dynamicDiff': "动态",
   'settings.chat.inlineDiff': "行内",
   'settings.chat.sideBySideDiff': "并排",
+
+  'settings.search.followUp': "后续行为",
+  'settings.chat.steerInFlightTurn': "引导当前轮次",
+  'settings.chat.queueFollowups': "将后续消息加入队列",
 };
 
 export const zhTW: PartialDictionary = {
@@ -431,4 +443,8 @@ export const zhTW: PartialDictionary = {
   'settings.chat.dynamicDiff': "動態",
   'settings.chat.inlineDiff': "行內",
   'settings.chat.sideBySideDiff': "並排",
+
+  'settings.search.followUp': "後續行為",
+  'settings.chat.steerInFlightTurn': "引導目前回合",
+  'settings.chat.queueFollowups': "將後續訊息加入佇列",
 };

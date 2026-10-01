@@ -99,7 +99,7 @@ export function ChatPage(): ReactNode {
             value={followUp.value ?? 'steer'}
             resetValue="steer"
             onChange={(value) => followUp.set(value as 'steer' | 'queue')}
-            options={[{ value: 'steer', label: 'Steer in-flight turn' }, { value: 'queue', label: 'Queue follow-ups' }]}
+            options={[{ value: 'steer', label: t('settings.chat.steerInFlightTurn') }, { value: 'queue', label: t('settings.chat.queueFollowups') }]}
           />
         </SettingsFieldRow>
         <SettingsFieldRow label={t('settings.chat.composerInputHistory')} item="chat.input-history" helper="1..100 messages, default 40">

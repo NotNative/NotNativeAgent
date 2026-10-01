@@ -97,6 +97,9 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.chat.lineWrap',
         'settings.search.toolsFiles',
         'settings.search.renderMode',
+        'settings.search.followUp',
+        'settings.chat.steerInFlightTurn',
+        'settings.chat.queueFollowups',
         'settings.search.activityRender',
         'settings.search.userMessageRendering',
         'settings.search.mermaid',
@@ -145,6 +148,8 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.chat.defaultBudgetLabel']).toBe('Standardbudget');
     expect(de['settings.search.renderMode']).toBe('Chat-Darstellungsmodus');
     expect(de['settings.chat.sideBySideDiff']).toBe('Nebeneinander');
+    expect(de['settings.search.followUp']).toBe('Folgeverhalten');
+    expect(de['settings.chat.steerInFlightTurn']).toBe('Laufenden Durchlauf steuern');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
