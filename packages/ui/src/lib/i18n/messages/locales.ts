@@ -26,20 +26,21 @@ import { deMcpDraft, frMcpDraft, zhCNMcpDraft, zhTWMcpDraft, ukMcpDraft, esMcpDr
 import { deSnippets, frSnippets, zhCNSnippets, zhTWSnippets, ukSnippets, esSnippets, ptBRSnippets, koSnippets, plSnippets, jaSnippets, trSnippets } from './locale-snippets.ts';
 import { deNnaRoutes, frNnaRoutes, zhCNNnaRoutes, zhTWNnaRoutes, ukNnaRoutes, esNnaRoutes, ptBRNnaRoutes, koNnaRoutes, plNnaRoutes, jaNnaRoutes, trNnaRoutes } from './locale-nna-routes.ts';
 import { deProviders, frProviders, zhCNProviders, zhTWProviders, ukProviders, esProviders, ptBRProviders, koProviders, plProviders, jaProviders, trProviders } from './locale-providers.ts';
+import { deDesktopSsh, frDesktopSsh, zhCNDesktopSsh, zhTWDesktopSsh, ukDesktopSsh, esDesktopSsh, ptBRDesktopSsh, koDesktopSsh, plDesktopSsh, jaDesktopSsh, trDesktopSsh } from './locale-desktop-ssh.ts';
 import en, { type Dictionary } from './en.ts';
 
 const CATALOGS: Record<string, PartialDictionary> = {
-  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory, ...deMcpInventory, ...deMcpConfig, ...deMcpDraft, ...deSnippets, ...deNnaRoutes, ...deProviders },
-  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory, ...frMcpInventory, ...frMcpConfig, ...frMcpDraft, ...frSnippets, ...frNnaRoutes, ...frProviders },
-  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory, ...zhCNMcpInventory, ...zhCNMcpConfig, ...zhCNMcpDraft, ...zhCNSnippets, ...zhCNNnaRoutes, ...zhCNProviders },
-  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory, ...zhTWMcpInventory, ...zhTWMcpConfig, ...zhTWMcpDraft, ...zhTWSnippets, ...zhTWNnaRoutes, ...zhTWProviders },
-  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory, ...ukMcpInventory, ...ukMcpConfig, ...ukMcpDraft, ...ukSnippets, ...ukNnaRoutes, ...ukProviders },
-  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory, ...esMcpInventory, ...esMcpConfig, ...esMcpDraft, ...esSnippets, ...esNnaRoutes, ...esProviders },
-  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory, ...ptBRMcpInventory, ...ptBRMcpConfig, ...ptBRMcpDraft, ...ptBRSnippets, ...ptBRNnaRoutes, ...ptBRProviders },
-  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory, ...koMcpInventory, ...koMcpConfig, ...koMcpDraft, ...koSnippets, ...koNnaRoutes, ...koProviders },
-  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory, ...plMcpInventory, ...plMcpConfig, ...plMcpDraft, ...plSnippets, ...plNnaRoutes, ...plProviders },
-  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory, ...jaMcpInventory, ...jaMcpConfig, ...jaMcpDraft, ...jaSnippets, ...jaNnaRoutes, ...jaProviders },
-  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory, ...trMcpInventory, ...trMcpConfig, ...trMcpDraft, ...trSnippets, ...trNnaRoutes, ...trProviders },
+  de: { ...de, ...deShortcuts, ...deShortcutLabels, ...deAppearance, ...deSkillsInventory, ...deMcpInventory, ...deMcpConfig, ...deMcpDraft, ...deSnippets, ...deNnaRoutes, ...deProviders, ...deDesktopSsh },
+  fr: { ...fr, ...frShortcuts, ...frShortcutLabels, ...frAppearance, ...frSkillsInventory, ...frMcpInventory, ...frMcpConfig, ...frMcpDraft, ...frSnippets, ...frNnaRoutes, ...frProviders, ...frDesktopSsh },
+  'zh-CN': { ...zhCN, ...zhCNShortcuts, ...zhCNShortcutLabels, ...zhCNAppearance, ...zhCNSkillsInventory, ...zhCNMcpInventory, ...zhCNMcpConfig, ...zhCNMcpDraft, ...zhCNSnippets, ...zhCNNnaRoutes, ...zhCNProviders, ...zhCNDesktopSsh },
+  'zh-TW': { ...zhTW, ...zhTWShortcuts, ...zhTWShortcutLabels, ...zhTWAppearance, ...zhTWSkillsInventory, ...zhTWMcpInventory, ...zhTWMcpConfig, ...zhTWMcpDraft, ...zhTWSnippets, ...zhTWNnaRoutes, ...zhTWProviders, ...zhTWDesktopSsh },
+  uk: { ...uk, ...ukShortcuts, ...ukShortcutLabels, ...ukAppearance, ...ukSkillsInventory, ...ukMcpInventory, ...ukMcpConfig, ...ukMcpDraft, ...ukSnippets, ...ukNnaRoutes, ...ukProviders, ...ukDesktopSsh },
+  es: { ...es, ...esShortcuts, ...esShortcutLabels, ...esAppearance, ...esSkillsInventory, ...esMcpInventory, ...esMcpConfig, ...esMcpDraft, ...esSnippets, ...esNnaRoutes, ...esProviders, ...esDesktopSsh },
+  'pt-BR': { ...ptBR, ...ptBRShortcuts, ...ptBRShortcutLabels, ...ptBRAppearance, ...ptBRSkillsInventory, ...ptBRMcpInventory, ...ptBRMcpConfig, ...ptBRMcpDraft, ...ptBRSnippets, ...ptBRNnaRoutes, ...ptBRProviders, ...ptBRDesktopSsh },
+  ko: { ...ko, ...koShortcuts, ...koShortcutLabels, ...koAppearance, ...koSkillsInventory, ...koMcpInventory, ...koMcpConfig, ...koMcpDraft, ...koSnippets, ...koNnaRoutes, ...koProviders, ...koDesktopSsh },
+  pl: { ...pl, ...plShortcuts, ...plShortcutLabels, ...plAppearance, ...plSkillsInventory, ...plMcpInventory, ...plMcpConfig, ...plMcpDraft, ...plSnippets, ...plNnaRoutes, ...plProviders, ...plDesktopSsh },
+  ja: { ...ja, ...jaShortcuts, ...jaShortcutLabels, ...jaAppearance, ...jaSkillsInventory, ...jaMcpInventory, ...jaMcpConfig, ...jaMcpDraft, ...jaSnippets, ...jaNnaRoutes, ...jaProviders, ...jaDesktopSsh },
+  tr: { ...tr, ...trShortcuts, ...trShortcutLabels, ...trAppearance, ...trSkillsInventory, ...trMcpInventory, ...trMcpConfig, ...trMcpDraft, ...trSnippets, ...trNnaRoutes, ...trProviders, ...trDesktopSsh },
 };
 
 /** Full dictionaries: en complete, others merged over en per §H.2 resolve. */
