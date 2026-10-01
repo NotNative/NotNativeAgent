@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:51d9fb6a6965b57e31fa874c35d9ac2fd8fa4ca545f7b80588a0a232a9819b41",
+  "source_digest": "sha256:80209fcfa6e04531e440fcebbb25655e3e603456c85f8e4cf58a1f95f8448e06",
   "counts": {
-    "modules": 388,
+    "modules": 390,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 111
+      "module_count": 113
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 201,
-      "module_count": 89
+      "import_count": 207,
+      "module_count": 91
     },
     {
       "from": "experience-engine",
@@ -150,7 +150,7 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 43,
+      "import_count": 44,
       "module_count": 17
     },
     {
@@ -238,6 +238,12 @@
       "module_count": 4
     },
     {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 10,
+      "module_count": 5
+    },
+    {
       "from": "opencode-surface",
       "to": "foundation",
       "import_count": 10,
@@ -254,12 +260,6 @@
       "to": "foundation",
       "import_count": 9,
       "module_count": 8
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 8,
-      "module_count": 4
     },
     {
       "from": "integrations",
@@ -956,6 +956,7 @@
         "src/ids.js",
         "src/mcp-manager.js",
         "src/memory.js",
+        "src/nnd-questions.js",
         "src/notifications/telegram.js",
         "src/permission-broker.js",
         "src/persistence/reviewer-ledger.js",
@@ -1956,6 +1957,7 @@
         "src/nnd-parent-child-activity.js",
         "src/nnd-pending-requests.js",
         "src/nnd-phase-activity.js",
+        "src/nnd-questions.js",
         "src/nnd-review-mode.js",
         "src/nnd-session-description.js",
         "src/nnd-session-helpers.js",
@@ -1999,6 +2001,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-question-routes.js",
         "src/opencode/protocol.js",
         "src/secret-broker-server.js"
       ]
@@ -2064,6 +2067,26 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/nnd-question-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-questions.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-session-helpers.js",
+        "src/question-broker.js"
+      ]
     },
     {
       "path": "src/nnd-review-mode.js",

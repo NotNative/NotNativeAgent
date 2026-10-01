@@ -21,6 +21,7 @@ import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
+import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
 import { requirePrincipal, samePrincipal, restoreNndContexts, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -104,7 +105,7 @@ export class NndEngineHost {
         goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
         goalRevision: restoring ? options.goalRevision : 0, goalTurnReceipts: [], goalTurnReceiptsTruncated: false,
         archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
-        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false, goalArming: 0,
+        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true, questions: Boolean(engine.questionBroker) }), closing: false, goalArming: 0,
         reviewMode: options.reviewMode ?? 'default', reviewRevision: options.reviewRevision ?? 0, reviewArming: 0 };
       if (restoring) this.#contexts.set(sessionId, context);
       else await this.#commitCatalogChange(
@@ -190,13 +191,11 @@ export class NndEngineHost {
   async clearGoal(sessionId, principal, expectedId, expectedRevision) {
     return this.#writeGoal(sessionId, principal, null, expectedId, expectedRevision);
   }
-
   async #writeGoal(sessionId, principal, goal, expectedId, expectedRevision) {
     const context = this.#owned(sessionId, principal);
     return commitNndGoal(context, sessionId, goal, expectedId, expectedRevision,
       (change, commit) => this.#commitCatalogChange(change, commit), (...args) => this.#publish(...args));
   }
-
   submitAsync(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
     // Keep a pre-goal prompt from starting between the arming CAS snapshot and
@@ -251,6 +250,7 @@ export class NndEngineHost {
       const context = this.#contexts.get(sessionId);
       const turn = context?.liveTurn;
       if (!context || context.closing || !turn || record?.session_id !== sessionId) return;
+      if (observeNndQuestion(context, record, (type, properties) => this.#publish(context, type, properties))) return;
       if (record.turn_id) {
         if (turn.turnId && turn.turnId !== record.turn_id) return;
         turn.turnId ??= record.turn_id;
@@ -340,6 +340,8 @@ export class NndEngineHost {
     return statuses;
   }
   pendingRequests(principal) { requirePrincipal(principal); return ownedPendingRequests(this.#contexts, this.childSessions, principal, samePrincipal); }
+  questions(principal) { return listNndQuestions(this.#contexts, principal); }
+  settleQuestion(token, principal, body, action) { return settleNndQuestion(this.#contexts, token, principal, body, action); }
   messages(sessionId, principal, { all = false } = {}) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
     if (!this.#contexts.has(sessionId)) {
@@ -411,7 +413,6 @@ export class NndEngineHost {
     this.catalogWrites = transaction;
     await transaction;
   }
-
   #owned(sessionId, principal, allowClosing = false) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
@@ -421,7 +422,6 @@ export class NndEngineHost {
     }
     return context;
   }
-
   #publishCompletion(context, turn, rejected) {
     if (context.closing) return;
     if (turn.opened) this.#publish(context, 'message.removed', { sessionID: context.sessionId, messageID: turn.messageId }, true);

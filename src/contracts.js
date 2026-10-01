@@ -45,7 +45,7 @@ export function validateCommand(value, options = {}) {
   if (!isRecord(value)) throw new ContractError('invalid_command', 'command must be an object');
   requireExternalId(value.request_id);
   const permissionDecision = value.type === 'permission_decision' && options.interactive === true;
-  const questionCommand = QUESTION_COMMANDS.has(value.type) && options.interactive === true;
+  const questionCommand = QUESTION_COMMANDS.has(value.type) && (options.interactive === true || options.questions === true);
   if (!INPUT_TYPES.has(value.type) && !permissionDecision && !questionCommand) {
     throw new ContractError('unknown_control', 'unknown or unsupported control message');
   }
@@ -119,9 +119,9 @@ function validateQuestionResponse(value) {
     throw new ContractError('question_request_invalid', 'answers must be a non-empty matrix of at most 8 rows');
   }
   for (const row of answers) {
-    if (!Array.isArray(row) || row.length < 1 || row.length > 8
+    if (!Array.isArray(row) || row.length < 1 || row.length > 16
       || row.some((label) => typeof label !== 'string' || label.trim().length === 0 || label.length > 256)) {
-      throw new ContractError('question_request_invalid', 'answers rows must be 1 to 8 bounded label strings');
+      throw new ContractError('question_request_invalid', 'answers rows must be 1 to 16 bounded label strings');
     }
   }
 }

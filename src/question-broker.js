@@ -14,7 +14,7 @@ const MAX_OPTIONS = 16;
 const MAX_TEXT = 4_096;
 const MAX_LABEL = 256;
 const MAX_ANSWER_ROWS = 8;
-const MAX_ANSWER_COLUMNS = 8;
+const MAX_ANSWER_COLUMNS = MAX_OPTIONS;
 
 export class QuestionBroker {
   #pending = new Map();
@@ -59,6 +59,11 @@ export class QuestionBroker {
   answer(command, principal) {
     const pending = this.requirePending(command.question_token);
     const answers = requireAnswerMatrix(command.answers);
+    if (answers.length !== pending.batch.length || answers.some((row, index) => {
+      const question = pending.batch[index];
+      return !question.multiple && row.length !== 1 || new Set(row).size !== row.length
+        || !question.custom && row.some((label) => !question.options.some((option) => option.label === label));
+    })) throw new ContractError('question_request_invalid', 'answers must match each question and its choices');
     this.#settle(pending, {
       status: 'succeeded', payload: JSON.stringify(answers), reasonCode: 'operator_answered',
       principal, completedAt: Date.now(), metadata: { answers },
@@ -136,6 +141,10 @@ function requireQuestion(item) {
     throw new ContractError('question_batch_invalid', `questions[].options must be 1 to ${MAX_OPTIONS} options`);
   }
   const options = item.options.map((option, index) => optionRecord(option, index));
+  // Invariant: labels are the operator selection and answer wire identities.
+  if (new Set(options.map((option) => option.label)).size !== options.length) {
+    throw new ContractError('question_batch_invalid', 'question option labels must be unique');
+  }
   return Object.freeze({
     question, header: optionalText(item?.header, MAX_LABEL) ?? question.slice(0, 64),
     options, multiple: item?.multiple === true, custom: item?.custom === true,
@@ -159,7 +168,7 @@ export function requireAnswerMatrix(answers) {
 
 function answerRow(row, rowIndex) {
   if (!Array.isArray(row) || row.length === 0 || row.length > MAX_ANSWER_COLUMNS) {
-    throw new ContractError('question_request_invalid', 'each answers row must be 1 to 8 labels');
+    throw new ContractError('question_request_invalid', 'each answers row must be 1 to 16 labels');
   }
   const labels = row.map((label) => requiredText(label, MAX_LABEL, 'answers[][]', 'question_request_invalid'));
   return Object.freeze(labels);

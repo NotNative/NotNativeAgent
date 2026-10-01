@@ -12,6 +12,7 @@ export class CanonicalIngress {
       throw new ContractError('ingress_capacity_invalid', 'idempotency capacity must be a positive integer');
     }
     this.interactive = options.interactive === true;
+    this.questions = options.questions === true;
   }
 
   async submit(rawCommand, principal = 'stdio-host') {
@@ -24,7 +25,7 @@ export class CanonicalIngress {
   // agent turn.  The NND compatibility API is deliberately asynchronous, but
   // it must still share this ingress's validation and idempotency window.
   start(rawCommand, principal = 'stdio-host') {
-    const command = validateCommand(rawCommand, { interactive: this.interactive });
+    const command = validateCommand(rawCommand, { interactive: this.interactive, questions: this.questions });
     const prior = this.#seen.get(command.request_id);
     if (prior) {
       return {

@@ -72,9 +72,10 @@ change NNA's separately governed delegated-child policy.
 Authenticated `GET /v1/nnd/pending` requires `nnd.read` and observes the
 complete owned root/child request set, including archived roots. It returns
 `coverage: complete`, per-session permission/form arrays, and explicit
-`unsupported` or `observe-only` capabilities. The current NND engines have
-no interactive brokers and report unsupported empty arrays; this does not
-clear semantic needs-input or governance attention. A missing or failed
+`unsupported` or `observe-only` capabilities. Native NND root engines expose
+question forms as observe-only and permissions as unsupported. Headless and
+delegated engines retain their own supported capabilities; unsupported arrays
+do not clear semantic needs-input or governance attention. A missing or failed
 broker observation is an error, never an empty request set. Live broker
 snapshots expose bounded request identities and question batches, without
 permission argument summaries, and grant no settlement authority. Completed
@@ -88,23 +89,29 @@ an interactive broker promise from transcript text.
 
 ## Mid-turn operator questions
 
-The OpenCode-wire surface (OpenChamber-compatible serve mode) exposes one
+The native NND and OpenCode-wire surfaces expose one
 operator-question contract, owned by the engine and voice-rendered per surface:
 
 1. An unanswered question pauses indefinitely. It never times out into denial;
    only an authenticated `question_response`, an explicit `question_decline`,
    or turn abort settles it. The interactive permission broker's bounded
    approval window deliberately does not apply.
-2. `question_response` and `question_decline` are canonical interactive-only
-   commands. They travel the same authenticated ingress as `permission_decision`
-   (wire: `/question/:id/reply` and `/question/:id/reject`) and are unknown
-   controls elsewhere.
+2. `question_response` and `question_decline` are canonical commands enabled
+   by an operator-question voice. Native NND reads use `GET /question` with
+   `nnd.read`; replies and declines use `/question/:id/reply` and `/reject`
+   with `nnd.session.submit` and the owning principal/workspace scope. This
+   question voice does not enable `permission_decision`. Headless engines
+   without a question voice reject these controls.
 3. The question broker is engine-internal and surface-neutral. Surfaces observe
    asked/settled events and render the transport voice; the broker decides
    nothing about rendering.
 4. The batch shape keeps OpenCode question-tool parity: one to eight questions,
    one to sixteen labelled options each, answers as a row-per-question matrix
-   of bounded labels. Bounds fail closed; partial answers never coerce.
+   of bounded labels. Option labels are unique. Answers cover every question,
+   obey single/multiple selection and declared choices unless custom input is
+   enabled. Bounds fail closed; partial answers never coerce. Native reply
+   bodies allow 256 KiB for the bounded matrix after UTF-8/JSON encoding;
+   other integration routes retain their existing 96 KiB limit.
 5. Review posture never gates questions. Asking is operator speech, not an
    effect; an answer supplies exactly the choice it states and grants no
    execution authority. Authority remains reviewer-governed as in ADR 0002.

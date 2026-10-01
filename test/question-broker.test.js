@@ -121,6 +121,11 @@ test('batch bounds reject malformed questions at the broker boundary', async () 
   }) }, new AbortController().signal), { code: 'question_batch_invalid' });
   await assert.rejects(broker.ask({ id: 't', args: batch({ options: [{ label: ' ' }] }) },
     new AbortController().signal), { code: 'question_batch_invalid' });
+  await assert.rejects(broker.ask({ id: 't', args: batch({ options: [
+    { label: 'Continue', description: 'Use the staging target' },
+    { label: 'Continue', description: 'Use the production target' },
+  ] }) }), { code: 'question_batch_invalid' });
+  assert.deepEqual(broker.snapshot(), []);
 });
 
 test('settlement of unknown or stale tokens is rejected', async () => {
@@ -137,13 +142,13 @@ test('settlement of unknown or stale tokens is rejected', async () => {
 
 test('answer matrices are bounded and labelled', async () => {
   const { broker } = await askBroker();
-  const wait = broker.ask({ id: 'tool-1', args: batch() }, new AbortController().signal);
+  const wait = broker.ask({ id: 'tool-1', args: batch({ multiple: true }) }, new AbortController().signal);
   const pending = broker.snapshot()[0];
   assert.throws(() => broker.answer({ question_token: pending.token, answers: [] }, 'op'),
     { code: 'question_request_invalid' });
   assert.throws(() => broker.answer({ question_token: pending.token, answers: [[' ']] }, 'op'),
     { code: 'question_request_invalid' });
-  assert.throws(() => broker.answer({ question_token: pending.token, answers: [Array.from({ length: 9 }, (_, i) => `l${i}`)] }, 'op'),
+  assert.throws(() => broker.answer({ question_token: pending.token, answers: [Array.from({ length: 17 }, (_, i) => `l${i}`)] }, 'op'),
     { code: 'question_request_invalid' });
   broker.answer({ question_token: pending.token, answers: [['left', 'right']] }, 'op');
   const settled = await wait;

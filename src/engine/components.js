@@ -5,6 +5,7 @@ import { McpManager } from '../mcp-manager.js';
 import { ModelRouter } from '../provider/router.js';
 import { InteractivePermissionBroker } from '../permission-broker.js';
 import { QuestionBroker } from '../question-broker.js';
+import { nndQuestionBroker } from '../nnd-questions.js';
 import { ProviderRunner } from '../provider/runner.js';
 import { RoutedSemanticReviewer } from '../provider/model-reviewer.js';
 import { ReviewerLedger } from '../persistence/reviewer-ledger.js';
@@ -302,6 +303,7 @@ function permissionBroker(engine, options) {
 
 function questionBroker(engine, options) {
   if (options.questionBroker) return options.questionBroker;
+  if (engine.surface === 'nnd') return nndQuestionBroker(engine);
   if (engine.surface !== 'interactive_tui') return null;
   return new QuestionBroker({ output: engine.output });
 }

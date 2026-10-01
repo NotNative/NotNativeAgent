@@ -3,11 +3,13 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
+import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
 const MESSAGE_LIMIT_MAX = 200;
 const LIVE_BOUNDARY_PREFIX = 'nnd-live-boundary:';
 export async function dispatchNndHarnessRequest(request, response, context) {
   if (openEventStream(request, response, context)) return true;
+  if (await dispatchNndQuestionRequest(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
   const match = ROUTE.exec(context.url.pathname); if (!match) return false;
   const host = context.nndEngineHost; if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');

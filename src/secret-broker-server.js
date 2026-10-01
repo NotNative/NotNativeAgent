@@ -83,11 +83,11 @@ export async function dispatchSecretBrokerRequest(request, response, context) {
   return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
 }
 
-export async function readJsonBody(request) {
+export async function readJsonBody(request, maxBytes = BODY_LIMIT) {
   let size = 0; const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > BODY_LIMIT) throw new ContractError('request_too_large', 'integration request exceeds size bound');
+    if (size > maxBytes) throw new ContractError('request_too_large', 'integration request exceeds size bound');
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
@@ -128,7 +128,7 @@ function failure(code, message) { return { error: { code, message } }; }
 function failureStatus(code) {
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
-  if (code.includes('not_found') || code === 'provider_missing' || code === 'nnd_session_unavailable') return 404;
+  if (code.includes('not_found') || code === 'provider_missing' || code === 'nnd_session_unavailable' || code === 'question_unknown') return 404;
   if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy'].includes(code)) return 409;
   if (code === 'nnd_goal_audit_unavailable') return 503;
   if (code === 'nnd_pending_unavailable') return 503;
