@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9ab3491781ee2aba68f04d29aa67b96f00990d8746be0686475ad821a9dc7c4e",
+  "source_digest": "sha256:4ddb4ea5515701338b4a7aaf12ddb671d90521ad013154db872215dc338317e7",
   "counts": {
-    "modules": 607,
+    "modules": 608,
     "component_edges": 14
   },
   "components": [
@@ -42,7 +42,7 @@
       "id": "web-entry",
       "label": "Web entrypoints",
       "ownership": "Owns Vite entry, base components, and browser adapter factory.",
-      "module_count": 9
+      "module_count": 10
     },
     {
       "id": "gates",
@@ -3904,8 +3904,15 @@
       "component": "web-entry",
       "entrypoint": true,
       "imports": [
-        "packages/web/src/api/createWebAPIs.ts"
+        "packages/web/src/api/createWebAPIs.ts",
+        "packages/web/src/pwa/update-ux.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/pwa/update-ux.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/agent-tool/memory-actions.ts",

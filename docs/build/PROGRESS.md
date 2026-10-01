@@ -3694,7 +3694,7 @@ configuration import only; live SSH transport is still outstanding.
 |---|---|---|---|
 | D1 | Mock harness semantics | P1 (doc 02) | P0 ships `/health`,`/auth/*`,`/api` proxy + control SSE only |
 | D2 | Real auth (password/passkey) | P8/P12 | ✅ Local password/passkey auth and desktop credential issuance shipped; relay/tunnel flows retain their separately documented credential limits. |
-| D3 | PWA manifest endpoint, SW update UX | P4 | P0 uses fallback manifest |
+| D3 | PWA manifest endpoint, SW update UX | P4 | ✅ Web manifest endpoint is linked; browser-only service-worker updates show a user-approved Reload action. |
 | D4 | GitHub/Linear/push integrations | P3/P4 | API members stubbed behind RuntimeAPIs optional fields |
 | D5 | Git/files RuntimeAPIs bodies | P6 | All shared Files methods and 13 existing Git operations route through RuntimeAPIs; the web adapter supplies the scoped server clients. |
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
@@ -3812,3 +3812,9 @@ configuration import only; live SSH transport is still outstanding.
   tests pass (2/2), Electron protocol tests pass (6/6), web suite passes
   (1256/1256), and web typecheck passes. Install/push hooks and service-worker
   update UX remain open. Version 20260930-92.
+- **2026-09-30 · P4 PWA update UX.** Browser-hosted web sessions register an
+  update-only worker and can explicitly activate a waiting version from an
+  accessible toast. The worker leaves fetch/auth traffic network-owned.
+  Adversarial review fixed cross-tab activation and superseded-waiter races;
+  full web tests pass (1260/1260), web typecheck passes, and release gates pass.
+  Version 20260930-93.

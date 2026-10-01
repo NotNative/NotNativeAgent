@@ -12,6 +12,7 @@ import {
 } from '@notnative/ui/lib/runtimeSurface.ts';
 import { renderMainApp } from '@notnative/ui/main';
 import { createWebAPIs } from './api/createWebAPIs.ts';
+import { registerPwaUpdateUX } from './pwa/update-ux.ts';
 
 
 const surface = resolveHostedSurface();
@@ -66,7 +67,10 @@ async function startApplication(): Promise<void> {
   }
 
   const rootElement = document.getElementById('root');
-  if (rootElement) renderMainApp(rootElement);
+  if (rootElement) {
+    renderMainApp(rootElement);
+    registerPwaUpdateUX();
+  }
 }
 
 void startApplication();
