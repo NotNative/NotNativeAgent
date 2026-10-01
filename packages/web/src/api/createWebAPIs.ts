@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 ﻿import type { RuntimeAPIs } from '@notnative/ui/lib/api/types.ts';
 import { createRealTerminalApi } from '@notnative/ui/lib/api/terminal-adapter.ts';
-
-const notReady = (member: string) => () => {
-  throw new Error(member + ' is not wired in the P0 web shell yet');
-};
+import {
+  createDirectory as createWorkspaceDirectory,
+  listDirectory as listWorkspaceDirectory,
+  searchWorkspaceFiles,
+} from '@notnative/ui/lib/files/api.ts';
 
 async function loadSettings(): Promise<{ settings: Record<string, unknown>; source: 'desktop' | 'web' }> {
   try {
@@ -32,11 +33,13 @@ export function createWebAPIs(): RuntimeAPIs {
   return {
     runtime: { platform: 'web', isDesktop: false, isVSCode: false, label: 'web' },
     terminal: createRealTerminalApi(), // SLICE-B: the live PTY seam over the terminal lib (doc 07)
-    git: new Proxy({}, { get: (_t, prop) => notReady(`git.${String(prop)}`) }),
+    git: new Proxy({}, { get: (_t, prop) => () => {
+      throw new Error(`git.${String(prop)} is not wired in the web runtime adapter`);
+    } }),
     files: {
-      listDirectory: notReady('files.listDirectory'),
-      search: notReady('files.search'),
-      createDirectory: notReady('files.createDirectory'),
+      listDirectory: listWorkspaceDirectory,
+      search: searchWorkspaceFiles,
+      createDirectory: createWorkspaceDirectory,
     },
 
     settings: { load: loadSettings, save: saveSettings },

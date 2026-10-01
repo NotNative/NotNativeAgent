@@ -3696,7 +3696,7 @@ configuration import only; live SSH transport is still outstanding.
 | D2 | Real auth (password/passkey) | P8/P12 | ✅ Local password/passkey auth and desktop credential issuance shipped; relay/tunnel flows retain their separately documented credential limits. |
 | D3 | PWA manifest endpoint, SW update UX | P4 | P0 uses fallback manifest |
 | D4 | GitHub/Linear/push integrations | P3/P4 | API members stubbed behind RuntimeAPIs optional fields |
-| D5 | Git/files RuntimeAPIs bodies | P6 | Git and files remain typed throwing stubs; terminal has a live adapter. |
+| D5 | Git/files RuntimeAPIs bodies | P6 | Required files list/search/create methods now have a web adapter; Git remains a throwing stub and optional file methods remain unwired. |
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
@@ -3785,3 +3785,10 @@ configuration import only; live SSH transport is still outstanding.
   Git/files. The current `pnpm dev` loop was exercised on isolated ports: the
   API health route and Vite UI both returned HTTP 200. Focused evidence suites
   passed (143 tests across UI, web, and Electron). Version 20260930-88.
+- **2026-09-30 · P12 web RuntimeAPIs files adapter.** The required scoped
+  directory-list, search, and directory-create methods now delegate through
+  the web runtime adapter to the shared filesystem client. The full web suite
+  passes (1253/1253) and workspace typechecks pass. The rendered Files view
+  still calls that shared client directly; moving its consumers behind the
+  RuntimeAPIs seam and wiring Git/optional file methods remain open. Version
+  20260930-89.
