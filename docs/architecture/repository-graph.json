@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:65ddf3d0d382c45d23b4b7e44452894cef7b1dee6d4c4bad9e5d830f8e674fbb",
+  "source_digest": "sha256:bccef7cfb46b945c21dcef011a9f4fb9bca82da9d74b1293f2c2c5084d40c764",
   "counts": {
     "modules": 615,
     "component_edges": 14
@@ -1534,7 +1534,8 @@
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/page-helpers.tsx",
-        "packages/ui/src/components/settings/primitives.tsx"
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/stores/useMessageQueueStore.ts"
       ]
     },
     {

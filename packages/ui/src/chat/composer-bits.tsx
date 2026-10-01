@@ -8,7 +8,7 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import type { AutocompleteTrigger } from './prompt-language.ts';
 import type { DraftAttachment } from './drafts.ts';
-import { useMessageQueueStore, queueKey } from '../stores/useMessageQueueStore.ts';
+import { useMessageQueueStore, queueKey, normalizeFollowUpBehavior } from '../stores/useMessageQueueStore.ts';
 import { setSettingsField, useSettingsStore } from '../lib/settings/store.ts';
 import { toast } from 'sonner';
 import { starterInsertText, removeStarter, type Starter } from './starters.ts';
@@ -138,7 +138,7 @@ export function QueueChipsRow({ directory, sessionID, onPop }: { directory: stri
   const items = useSyncExternalStore(subscribe, readItems);
   const sending = useSyncExternalStore(subscribe, readSending);
   const followUpRaw = useSettingsStore((state) => state.doc['followUpBehavior']);
-  const followUp = followUpRaw === 'steer' ? 'steer' : 'queue';
+  const followUp = normalizeFollowUpBehavior(followUpRaw);
   if (sessionID === null || items.length === 0) return null;
   return (
     <div className="px-1 pt-1" data-testid="queue-chips-row" data-follow-up={followUp}>

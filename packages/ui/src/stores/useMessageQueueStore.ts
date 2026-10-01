@@ -41,6 +41,11 @@ interface QueueSessionSnapshot {
 }
 
 export type FollowUpBehavior = 'steer' | 'queue';
+export const DEFAULT_FOLLOW_UP_BEHAVIOR: FollowUpBehavior = 'queue';
+
+export function normalizeFollowUpBehavior(value: unknown): FollowUpBehavior {
+  return value === 'steer' ? 'steer' : DEFAULT_FOLLOW_UP_BEHAVIOR;
+}
 
 interface MessageQueueState {
   status: 'idle' | 'loading' | 'ready' | 'error';

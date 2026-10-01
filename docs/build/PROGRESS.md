@@ -3856,3 +3856,9 @@ configuration import only; live SSH transport is still outstanding.
   Adversarial review fixed cross-tab activation and superseded-waiter races;
   full web tests pass (1260/1260), web typecheck passes, and release gates pass.
   Version 20260930-93.
+- **2026-09-30 · Follow-up behavior default consistency.** Chat settings,
+  composer sending, and queue status now share the documented `queue` default
+  when the saved preference is absent or invalid. Regression coverage verifies
+  unset, explicit `steer`, invalid legacy values, and reset behavior. The
+  adversarial audit confirmed the prior UI/send mismatch and found no remaining
+  defects after the fix. Full UI tests pass (1464/1464). Version 20260930-110.

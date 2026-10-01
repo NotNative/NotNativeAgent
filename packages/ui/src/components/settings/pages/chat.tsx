@@ -12,6 +12,7 @@ import {
 } from '../primitives.tsx';
 import { useSettingsField } from '../page-helpers.tsx';
 import { useI18n } from '../../I18nProvider.tsx';
+import { DEFAULT_FOLLOW_UP_BEHAVIOR, normalizeFollowUpBehavior } from '../../../stores/useMessageQueueStore.ts';
 
 export function ChatPage(): ReactNode {
   const { t } = useI18n();
@@ -96,8 +97,8 @@ export function ChatPage(): ReactNode {
       <SettingsSection title={t('settings.chat.composerHistory')} item="chat.composer">
         <SettingsFieldRow label={t('settings.search.followUp')} item="chat.follow-up">
           <SettingsSelect
-            value={followUp.value ?? 'steer'}
-            resetValue="steer"
+            value={normalizeFollowUpBehavior(followUp.value)}
+            resetValue={DEFAULT_FOLLOW_UP_BEHAVIOR}
             onChange={(value) => followUp.set(value as 'steer' | 'queue')}
             options={[{ value: 'steer', label: t('settings.chat.steerInFlightTurn') }, { value: 'queue', label: t('settings.chat.queueFollowups') }]}
           />

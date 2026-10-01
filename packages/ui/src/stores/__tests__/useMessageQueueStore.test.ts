@@ -18,6 +18,8 @@ import { runtimeFetch } from '../../lib/runtime-fetch.ts';
 import {
   __resetMessageQueueStoreForTests,
   applySnapshotForTests,
+  DEFAULT_FOLLOW_UP_BEHAVIOR,
+  normalizeFollowUpBehavior,
   queueKey,
   useMessageQueueStore,
 } from '../useMessageQueueStore.ts';
@@ -40,6 +42,16 @@ const SERVER_ITEM = (id: string, content = id) => ({
   preview: content.slice(0, 5),
   sendConfig: { providerID: 'nnd-mock', modelID: 'mock-smart' },
   attachments: [],
+});
+
+describe('follow-up behavior normalization (§D.7 default queue)', () => {
+  it('defaults unset and invalid values to queue while preserving explicit steer', () => {
+    expect(DEFAULT_FOLLOW_UP_BEHAVIOR).toBe('queue');
+    expect(normalizeFollowUpBehavior(undefined)).toBe('queue');
+    expect(normalizeFollowUpBehavior('queue')).toBe('queue');
+    expect(normalizeFollowUpBehavior('steer')).toBe('steer');
+    expect(normalizeFollowUpBehavior('immediate')).toBe('queue');
+  });
 });
 
 beforeEach(() => {

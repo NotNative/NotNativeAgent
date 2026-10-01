@@ -22,7 +22,7 @@ import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
 import { refreshSnippets, snippetMap, snippetSubscribe } from '../lib/snippets-source.ts';
-import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
+import { useMessageQueueStore, normalizeFollowUpBehavior } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
 import { deliverToNewSession } from './composer-draft-pins.ts';
@@ -244,7 +244,7 @@ export function Composer(props: ComposerProps): ReactNode {
     restoreSnapshot.current = { text, attachments };
     const tokens = tokenizePrompt(shell ? `!${text}` : text, { commands: commandSet, skills: skillSet, snippets, agents: new Set(agentNames) });
     const skillInstruction = skillInstructionFrom(tokens);
-    const followUp = settingsValue('followUpBehavior') === 'steer' ? 'steer' : 'queue'; // §D.7 default queue
+    const followUp = normalizeFollowUpBehavior(settingsValue('followUpBehavior')); // §D.7 default queue
     const plan = planSend({
       text: composed,
       queued: [],
