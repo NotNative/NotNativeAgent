@@ -81,8 +81,7 @@ export function seedPreferencesFromSettings(): void {
   // observed the file as missing.
   mkdirSync(ENV.dataDir, { recursive: true });
   const tmp = `${PREFERENCES_FILE}.seed-${process.pid}-${Date.now()}`;
-  writeFileSync(tmp, `${JSON.stringify({ version: 1, fields } satisfies PreferenceDoc, null, 2)}\n`,
-    { encoding: 'utf8', mode: 0o600 });
+  writeFileSync(tmp, `${JSON.stringify({ version: 1, fields } satisfies PreferenceDoc, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   try {
     linkSync(tmp, PREFERENCES_FILE);
   } catch (error) {

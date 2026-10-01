@@ -3731,7 +3731,8 @@ configuration import only; live SSH transport is still outstanding.
   reread the canonical document after acquiring it. Lazy preference seeding
   publishes with atomic no-replace semantics, preventing an unlocked GET from
   overwriting a concurrent PATCH. A two-process regression preserves disjoint
-  concurrent updates; focused settings tests (12/12) and web typecheck pass.
+  concurrent updates; the seed publisher was verified on Windows/NTFS. Full
+  web tests pass (1248/1248) and web typecheck passes.
   Queue dispatch arbitration and installed GUI acceptance remain open.
 - **2026-09-30 · P13 queue arbitration audit.** Confirmed that two servers can
   load and dispatch the same persisted head because the in-flight marker is
