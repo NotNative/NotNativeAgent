@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * RuntimeAPIs — the instance-adapter contract (doc 01 §3.3).
- * P0 ships the boot-critical members fully typed; git and optional files
- * methods grow with docs 06/07. Terminal is typed exactly (§3.4) and ships as
- * a throwing stub until doc 07.
+ * P0 ships the boot-critical members fully typed; Git grows with doc 06.
+ * Required and optional Files methods are typed at the shared adapter seam.
+ * Terminal is typed exactly (§3.4) and ships as a throwing stub until doc 07.
  */
 
 export interface RuntimeDescriptor {
@@ -88,8 +88,16 @@ export interface RuntimeFileEntry { name: string; path: string; isDirectory: boo
 export interface FilesApi {
   listDirectory(directory: string, path?: string, force?: boolean): Promise<RuntimeFileEntry[]>;
   search(directory: string, query: string, limit?: number): Promise<RuntimeFileEntry[]>;
+  readFileStat(directory: string, path: string, optional?: boolean): Promise<RuntimeFileStat | null>;
+  readFileText(directory: string, path: string, fresh?: boolean): Promise<string>;
+  writeFileText(directory: string, path: string, content: string, expectedContent?: string): Promise<void>;
+  rawAssetUrl(directory: string, path: string, download?: boolean): string;
   createDirectory(directory: string, path: string): Promise<void>;
+  deleteEntry(directory: string, path: string): Promise<void>;
+  renameEntry(directory: string, oldPath: string, newPath: string): Promise<void>;
 }
+
+export interface RuntimeFileStat { path: string; isFile: boolean; exists?: boolean; size: number; mtimeMs: number }
 
 // ── git (~60 methods; exact contract doc 06) ─────────────────────────────────
 export interface GitApi {

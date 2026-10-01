@@ -3,9 +3,15 @@
 import { createRealTerminalApi } from '@notnative/ui/lib/api/terminal-adapter.ts';
 import {
   createDirectory as createWorkspaceDirectory,
+  deleteEntry,
   listDirectory as listWorkspaceDirectory,
+  rawAssetUrl,
+  readFileStat,
+  readFileText,
+  renameEntry,
   searchWorkspaceFiles,
-} from '@notnative/ui/lib/files/api.ts';
+  writeFileText,
+} from '@notnative/ui/lib/files/server-api.ts';
 
 async function loadSettings(): Promise<{ settings: Record<string, unknown>; source: 'desktop' | 'web' }> {
   try {
@@ -39,7 +45,13 @@ export function createWebAPIs(): RuntimeAPIs {
     files: {
       listDirectory: listWorkspaceDirectory,
       search: searchWorkspaceFiles,
+      readFileStat,
+      readFileText,
+      writeFileText,
+      rawAssetUrl,
       createDirectory: createWorkspaceDirectory,
+      deleteEntry,
+      renameEntry,
     },
 
     settings: { load: loadSettings, save: saveSettings },

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:be199953b53d52cfe3179f74a6fb8dc6490f3455129a571d3a47512ae722ccf2",
+  "source_digest": "sha256:ec471ff58068127763b33c28e26e2acf14f1e12015d95725e81d2133d4f331be",
   "counts": {
-    "modules": 602,
+    "modules": 604,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 161
+      "module_count": 163
     },
     {
       "id": "ui-shell",
@@ -2109,9 +2109,9 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/runtime-auth.ts",
-        "packages/ui/src/lib/runtime-fetch.ts",
-        "packages/ui/src/lib/runtime-url.ts"
+        "packages/ui/src/lib/api/registry.ts",
+        "packages/ui/src/lib/api/types.ts",
+        "packages/ui/src/lib/files/errors.ts"
       ]
     },
     {
@@ -2136,10 +2136,27 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/files/errors.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/files/positions.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/files/server-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/files/errors.ts",
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/files/tabs-store.ts",

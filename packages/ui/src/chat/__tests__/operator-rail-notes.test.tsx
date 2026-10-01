@@ -20,6 +20,9 @@ import { OperatorRail, resolveContextProjectId } from '../operator-rail.tsx';
 import { useSessionViewStore } from '../../sync/view-store.ts';
 import { I18nProvider } from '../../components/I18nProvider.tsx';
 import { runtimeFetch } from '../../lib/runtime-fetch.ts';
+import { registerRuntimeAPIs } from '../../lib/api/registry.ts';
+import * as serverFiles from '../../lib/files/server-api.ts';
+import type { RuntimeAPIs } from '../../lib/api/types.ts';
 import { getProjectContext } from '../../lib/project-context-api.ts';
 import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 
@@ -30,6 +33,13 @@ let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
 beforeEach(() => {
+  registerRuntimeAPIs({ files: {
+    listDirectory: serverFiles.listDirectory, search: serverFiles.searchWorkspaceFiles,
+    readFileStat: serverFiles.readFileStat, readFileText: serverFiles.readFileText,
+    writeFileText: serverFiles.writeFileText, rawAssetUrl: serverFiles.rawAssetUrl,
+    createDirectory: serverFiles.createDirectory, deleteEntry: serverFiles.deleteEntry,
+    renameEntry: serverFiles.renameEntry,
+  } } as unknown as RuntimeAPIs);
   vi.mocked(getProjectContext).mockReset().mockResolvedValue({ version: 2, notes: [], todos: [], plans: [], todosRevision: 'a'.repeat(64) });
   vi.mocked(runtimeFetch).mockImplementation(async () => ({ ok: false, status: 404, text: async () => '', clone: () => ({ json: async () => ({ error: 'File not found', reason: 'not-found' }) }) }) as Response);
 });

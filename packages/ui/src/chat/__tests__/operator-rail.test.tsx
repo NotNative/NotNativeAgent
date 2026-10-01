@@ -11,6 +11,9 @@ import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
 import * as runtimeSwitch from '../../lib/runtime-switch.ts';
 import { harnessClient } from '../../lib/nnd/client.ts';
 import * as runtimeFetch from '../../lib/runtime-fetch.ts';
+import { registerRuntimeAPIs } from '../../lib/api/registry.ts';
+import * as serverFiles from '../../lib/files/server-api.ts';
+import type { RuntimeAPIs } from '../../lib/api/types.ts';
 import { useGitStore } from '../../lib/git/store.ts';
 
 vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
@@ -21,7 +24,16 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
-beforeEach(() => { useSessionViewStore.setState({ currentSessionId: null, activeDirectory: 'D:/work' }); });
+beforeEach(() => {
+  registerRuntimeAPIs({ files: {
+    listDirectory: serverFiles.listDirectory, search: serverFiles.searchWorkspaceFiles,
+    readFileStat: serverFiles.readFileStat, readFileText: serverFiles.readFileText,
+    writeFileText: serverFiles.writeFileText, rawAssetUrl: serverFiles.rawAssetUrl,
+    createDirectory: serverFiles.createDirectory, deleteEntry: serverFiles.deleteEntry,
+    renameEntry: serverFiles.renameEntry,
+  } } as unknown as RuntimeAPIs);
+  useSessionViewStore.setState({ currentSessionId: null, activeDirectory: 'D:/work' });
+});
 
 afterEach(() => {
   act(() => rootHandle?.unmount());

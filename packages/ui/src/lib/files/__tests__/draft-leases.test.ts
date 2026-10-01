@@ -5,13 +5,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../runtime-fetch.ts';
+import { registerRuntimeAPIs } from '../../api/registry.ts';
+import * as serverFiles from '../server-api.ts';
+import type { RuntimeAPIs } from '../../api/types.ts';
 import { __resetDraftLeasesForTests, forgetDraftLease, inspectDraftLeaseOnDisk, readDraftLease, rememberDraftLease, type DraftLease } from '../draft-leases.ts';
 
 const fetchMock = vi.mocked(runtimeFetch);
 const lease: DraftLease = { draft: 'new text\n', baseline: 'old text\n', lineEnding: '\n',
   stat: { size: 9, mtimeMs: 100 }, autoSaveEnabled: true };
 
-beforeEach(() => { __resetDraftLeasesForTests(); fetchMock.mockReset(); });
+beforeEach(() => {
+  registerRuntimeAPIs({ files: {
+    listDirectory: serverFiles.listDirectory, search: serverFiles.searchWorkspaceFiles,
+    readFileStat: serverFiles.readFileStat, readFileText: serverFiles.readFileText,
+    writeFileText: serverFiles.writeFileText, rawAssetUrl: serverFiles.rawAssetUrl,
+    createDirectory: serverFiles.createDirectory, deleteEntry: serverFiles.deleteEntry,
+    renameEntry: serverFiles.renameEntry,
+  } } as unknown as RuntimeAPIs);
+  __resetDraftLeasesForTests();
+  fetchMock.mockReset();
+});
 
 describe('session file draft leases', () => {
   it('isolates runtime, workspace and path, and cannot clear a newer draft with an old save', () => {

@@ -660,6 +660,10 @@
     {
       "version": "20260930-89",
       "content_sha256": "6d204ddd736d1d36f6550655e3bc6a0e4438c42ccad7de10439ac4dc3c769bcf"
+    },
+    {
+      "version": "20260930-90",
+      "content_sha256": "24e520746809872f715e6cc5b20dd7f86e4219f50b6f7b4b8a388d8aec27c36d"
     }
   ]
 }

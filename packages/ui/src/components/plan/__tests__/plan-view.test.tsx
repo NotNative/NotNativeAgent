@@ -14,6 +14,9 @@ import { createRoot, type Root } from 'react-dom/client';
 vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
+import { registerRuntimeAPIs } from '../../../lib/api/registry.ts';
+import * as serverFiles from '../../../lib/files/server-api.ts';
+import type { RuntimeAPIs } from '../../../lib/api/types.ts';
 import { PlanView, sessionPlanFile } from '../PlanView.tsx';
 import { sessionPlanPath, planEpochFor } from '../../../lib/plan/save-queue.ts';
 import { I18nProvider } from '../../I18nProvider.tsx';
@@ -83,6 +86,13 @@ let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
 
 beforeEach(() => {
+  registerRuntimeAPIs({ files: {
+    listDirectory: serverFiles.listDirectory, search: serverFiles.searchWorkspaceFiles,
+    readFileStat: serverFiles.readFileStat, readFileText: serverFiles.readFileText,
+    writeFileText: serverFiles.writeFileText, rawAssetUrl: serverFiles.rawAssetUrl,
+    createDirectory: serverFiles.createDirectory, deleteEntry: serverFiles.deleteEntry,
+    renameEntry: serverFiles.renameEntry,
+  } } as unknown as RuntimeAPIs);
   writeBodyLog = [];
   orderLog = [];
   writeHold = null;

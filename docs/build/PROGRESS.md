@@ -3696,7 +3696,7 @@ configuration import only; live SSH transport is still outstanding.
 | D2 | Real auth (password/passkey) | P8/P12 | ✅ Local password/passkey auth and desktop credential issuance shipped; relay/tunnel flows retain their separately documented credential limits. |
 | D3 | PWA manifest endpoint, SW update UX | P4 | P0 uses fallback manifest |
 | D4 | GitHub/Linear/push integrations | P3/P4 | API members stubbed behind RuntimeAPIs optional fields |
-| D5 | Git/files RuntimeAPIs bodies | P6 | Required files list/search/create methods now have a web adapter; Git remains a throwing stub and optional file methods remain unwired. |
+| D5 | Git/files RuntimeAPIs bodies | P6 | All shared Files methods now route through RuntimeAPIs; the web adapter supplies the existing scoped server client. Git remains a throwing stub. |
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
@@ -3792,3 +3792,9 @@ configuration import only; live SSH transport is still outstanding.
   still calls that shared client directly; moving its consumers behind the
   RuntimeAPIs seam and wiring Git/optional file methods remain open. Version
   20260930-89.
+- **2026-09-30 · P12 Files runtime-neutral facade.** All shared UI Files
+  consumers now call through the registered RuntimeAPIs adapter, and the web
+  adapter implements the complete existing Files client surface. File errors
+  are transport-neutral. Full UI tests pass (1457/1457), full web tests pass
+  (1253/1253), and both package typechecks pass. Git RuntimeAPIs remains
+  deferred. Version 20260930-90.
