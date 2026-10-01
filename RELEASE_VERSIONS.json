@@ -648,6 +648,14 @@
     {
       "version": "20260930-86",
       "content_sha256": "e99b623bcd32d2d07843e9bcf79317faabc7ee769d1da783ed2b410cbb0f1301"
+    },
+    {
+      "version": "20260930-87",
+      "content_sha256": "652ba8a23d035e3188373de967525a49073f6da5700f6d0e0cd049206bc8a0e9"
+    },
+    {
+      "version": "20260930-88",
+      "content_sha256": "4538c36f6d1df35b9ed1815b44a0a9b70496601909df488422f6e33f5b98a4d9"
     }
   ]
 }

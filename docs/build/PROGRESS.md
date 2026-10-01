@@ -3693,34 +3693,36 @@ configuration import only; live SSH transport is still outstanding.
 | # | Item | Phase landing | Note |
 |---|---|---|---|
 | D1 | Mock harness semantics | P1 (doc 02) | P0 ships `/health`,`/auth/*`,`/api` proxy + control SSE only |
-| D2 | Real auth (password/passkey) | P11 (doc 08) | P0 ships allow-all session + url-token mint |
+| D2 | Real auth (password/passkey) | P8/P12 | ✅ Local password/passkey auth and desktop credential issuance shipped; relay/tunnel flows retain their separately documented credential limits. |
 | D3 | PWA manifest endpoint, SW update UX | P4 | P0 uses fallback manifest |
 | D4 | GitHub/Linear/push integrations | P3/P4 | API members stubbed behind RuntimeAPIs optional fields |
-| D5 | Terminal/git/files RuntimeAPIs bodies | P6/P7 | throwing stubs with typed contracts now |
-| D6 | Electron globals/boot outcome | P12 | types now, behavior later |
-| D7 | dev loop (`pnpm dev`) verification | user terminal | agent sandbox blocks esbuild/vite spawns; prod-build path verified instead |
-| D8 | `system` theme variant via matchMedia | P5 (doc 14) | system currently renders dark |
+| D5 | Git/files RuntimeAPIs bodies | P6 | Git and files remain typed throwing stubs; terminal has a live adapter. |
+| D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
+| D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
+| D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
 | D9 | PWA manifest link + install/push hooks | P4/P11 | server endpoint exists; HTML prelude simplified |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
-| D11 | control-stream consumers | P2 (doc 04) | subscribed in App, handlers minimal |
+| D11 | control-stream consumers | P2 (doc 04) | Baseline sync, queue/interruption, memory, and scheduled-task consumers are shipped; new event types add consumers with their owning slices. |
 | D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |
 | D13 | seam renames | P1 | `x-nnd-directory`, stdout line `notnativeagent server listening on <URL>`, `NNA_*` env, `notnative:*` control events — coordinated pass pending NNA |
 | D14 | mock scope boundary | P1 | mock = §12.1 + early §12.2 items; lifecycle/spawn/Basic-auth (P-01/03/22) belong to the future NNA adapter, not the mock |
 | D15 | wire-name duplication | P1 | `server/lib/harnessNaming.ts` mirrors `ui/lib/nna/constants.ts`; both files change together |
 | D16 | WS event bridges | P2 (doc 04) | P1 ships SSE only; §9.4 WS frame vocabulary recorded in NOTES/02 |
-| E1 | typographyWatcher static-sheet substitution | P5-1 done | identical values; rem-root scaling (applyTypography) lands P5-3 |
+| E1 | typographyWatcher static-sheet substitution | P5-1..3 done | ✅ Static-sheet values match; root `rem` scaling and appearance application are implemented in settings/apply. |
 | E2 | non-EN locales partial catalogs w/ en fallback | P5-4 | per-locale parity = authoring work; resolve chain per doc 14 §H.2 |
 | E3 | 38 preset palettes self-authored seeds | P5-2 done | originals untranscribed (doc gap §M); NOTES/14 C.1/E.2 interpretation recorded |
 | E4 | iframe theme sync + VS Code adapter | defer (P10/P12) | no embedded/vscode surface until those phases |
-| E5 | custom-theme import UX (Appearance→Reload) | P5-3 | GET /api/config/themes + client gate live; page comes with settings UI |
+| E5 | custom-theme import UX (Appearance→Reload) | P5-3 | ✅ Appearance exposes Reload; the client reloads validated themes from GET /api/config/themes. |
+| E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |
 
 - **2026-09-30 · P12 managed SSH bundle foundation.** Added a bounded,
   platform-neutral gzip/USTAR payload builder for the verified server bundle,
   settings registry, runtime manifest, launcher, and web assets. The builder
   preflights source metadata, caps total archive size and entry count, and
   rejects symlinks and unsafe archive paths. This prepares artifact transfer;
-  managed SSH installation/start orchestration is still pending. Focused tests
-  cover bundle contents and resource bounds.
+  managed SSH setup/start now consumes the payload through the transport and
+  lifecycle. Focused tests cover bundle contents and resource bounds; real
+  remote-host acceptance remains open.
 
 - **2026-09-30 · P12 managed SSH artifact transfer.** Added a bounded SSH
   uploader that streams the archive on stdin to a fixed remote `tar` command,
@@ -3731,8 +3733,8 @@ configuration import only; live SSH transport is still outstanding.
   opt-in. Managed mode requires a Unix-like remote with Node.js 22.18+ plus
   npm or bun; the normal tunnel health check gates ready status. `keepRunning`
   records per-instance remote ownership and rediscovers the existing server
-  after a desktop restart. Real remote-host acceptance and portable tar
-  interoperability remain to verify.
+  after a desktop restart. Portable tar interoperability is verified against
+  Windows bsdtar; real remote-host acceptance remains open.
 - **2026-09-30 · P13 shared settings arbitration.** Settings mutations from
   both HTTP route families now take the shared cross-process config lock and
   reread the canonical document after acquiring it. Lazy preference seeding
@@ -3740,7 +3742,8 @@ configuration import only; live SSH transport is still outstanding.
   overwriting a concurrent PATCH. A two-process regression preserves disjoint
   concurrent updates; the seed publisher was verified on Windows/NTFS. Full
   web tests pass (1248/1248) and web typecheck passes.
-  Queue dispatch arbitration and installed GUI acceptance remain open.
+  Queue dispatch arbitration is now delivered; installed GUI acceptance
+  remains open.
 - **2026-09-30 · P13 queue arbitration audit.** Confirmed that two servers can
   load and dispatch the same persisted head because the in-flight marker was
   process-local. The follow-up implementation adds shared queue mutation locks
@@ -3776,4 +3779,9 @@ configuration import only; live SSH transport is still outstanding.
   the generated archive with content checks; adversarial review found no
   remaining defect. Real remote-host acceptance remains open. Version
   20260930-86.
-| E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |
+- **2026-09-30 · Deferred-register evidence refresh.** Reconciled auth,
+  desktop boot, system-theme, event-consumer, typography, and custom-theme rows
+  with current implementation and tests; narrowed the RuntimeAPIs stub row to
+  Git/files. The current `pnpm dev` loop was exercised on isolated ports: the
+  API health route and Vite UI both returned HTTP 200. Focused evidence suites
+  passed (143 tests across UI, web, and Electron). Version 20260930-88.
