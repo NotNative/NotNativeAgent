@@ -7,6 +7,11 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/u;
 // accounting merely because it contains a dot or colon.
 const REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
+export function nndGoalContextEvidence(context) {
+  return nndGoalEvidence(context.sessionId, context.engine.transcript, context.goalTurnReceipts,
+    context.goalTurnReceiptsTruncated || context.engine.resumeBoundary?.hasMore === true);
+}
+
 /** Safe, bounded NNA turn receipt; no provider response or failure detail crosses this seam. */
 export function nndGoalTurnReceipt(record) {
   if (!record || !['turn_result', 'turn_outcome'].includes(record.type)

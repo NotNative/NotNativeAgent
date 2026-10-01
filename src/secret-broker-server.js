@@ -138,6 +138,10 @@ function failureStatus(code) {
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
   if (code === 'nnd_walkthrough_context_large') return 413;
+  if (code === 'nnd_notification_busy') return 409;
+  if (code === 'nnd_notification_unavailable') return 503;
+  if (code === 'nnd_notification_timeout') return 504;
+  if (code.startsWith('nnd_notification_output_') || code === 'nnd_notification_tool_violation') return 502;
   return code === 'internal_failure' ? 500 : 400;
 }
 function securityHeaders(response) {

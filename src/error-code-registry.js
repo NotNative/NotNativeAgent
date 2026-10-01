@@ -79,6 +79,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_message_cursor_invalid',
     'nnd_goal_invalid', 'nnd_goal_conflict', 'nnd_goal_audit_invalid', 'nnd_goal_audit_conflict',
     'nnd_walkthrough_invalid', 'nnd_walkthrough_context_large',
+    'nnd_notification_invalid',
     'nnd_model_override_unsupported', 'nnd_agent_override_unsupported',
   ]),
   extension: Object.freeze([
@@ -89,6 +90,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'subscriber_output_too_large',
   ]),
   internal: Object.freeze([
+    'nnd_notification_busy',
     'active_child', 'active_turn_required', 'already_initialized',
     'attachment_busy', 'attachment_cancelled', 'attachment_cleanup_failed',
     'attachment_command_invalid', 'attachment_empty_observation', 'attachment_integrity_invalid',
@@ -268,6 +270,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_goal_audit_timeout', 'nnd_goal_audit_tool_violation',
     'nnd_walkthrough_output_invalid', 'nnd_walkthrough_output_large',
     'nnd_walkthrough_timeout', 'nnd_walkthrough_tool_violation',
+    'nnd_notification_output_invalid', 'nnd_notification_timeout',
+    'nnd_notification_tool_violation', 'nnd_notification_unavailable',
     'duplicate_provider', 'missing_provider', 'model_required',
     'model_runtime_route_invalid', 'no_eligible_vision_route', 'provider_bootstrap_command_invalid',
     'provider_bootstrap_file_invalid', 'provider_bootstrap_file_too_large', 'provider_cancelled',

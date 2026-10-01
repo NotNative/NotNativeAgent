@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:80209fcfa6e04531e440fcebbb25655e3e603456c85f8e4cf58a1f95f8448e06",
+  "source_digest": "sha256:4f7652275fb8987373c3cebae51525a4284b16d353fb9b916d5068c01fa936c0",
   "counts": {
-    "modules": 390,
+    "modules": 392,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 113
+      "module_count": 115
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 207,
-      "module_count": 91
+      "import_count": 211,
+      "module_count": 93
     },
     {
       "from": "experience-engine",
@@ -209,6 +209,12 @@
     },
     {
       "from": "foundation",
+      "to": "integrations",
+      "import_count": 12,
+      "module_count": 6
+    },
+    {
+      "from": "foundation",
       "to": "persistence",
       "import_count": 11,
       "module_count": 9
@@ -236,12 +242,6 @@
       "to": "reliability-engine",
       "import_count": 11,
       "module_count": 4
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 10,
-      "module_count": 5
     },
     {
       "from": "opencode-surface",
@@ -1954,6 +1954,7 @@
         "src/nnd-goal-audit.js",
         "src/nnd-goal-evidence.js",
         "src/nnd-goal.js",
+        "src/nnd-notification.js",
         "src/nnd-parent-child-activity.js",
         "src/nnd-pending-requests.js",
         "src/nnd-phase-activity.js",
@@ -2001,6 +2002,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-notification-routes.js",
         "src/nnd-question-routes.js",
         "src/opencode/protocol.js",
         "src/secret-broker-server.js"
@@ -2019,6 +2021,24 @@
       "imports": [
         "src/ids.js",
         "src/memory.js"
+      ]
+    },
+    {
+      "path": "src/nnd-notification-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-notification.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {

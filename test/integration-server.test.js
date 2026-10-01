@@ -709,6 +709,23 @@ test('NND walkthrough endpoint requires its own generation permission and forwar
   } finally { await service.close(); }
 });
 
+test('notification text requires its dedicated grant and forwards authenticated session scope', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-notification-route-')); const calls = [];
+  const host = { async generateNotification(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: '{"title":"T","body":"B"}' }; } };
+  const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
+  const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/notification-text';
+  const body = { kind: 'completion', title: 'Finished', body: 'Done', assistantText: 'Checked' };
+  try {
+    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['nnd.notification.generate']))).status, 405);
+    assert.equal(calls.length, 0);
+    assert.equal((await request(base, path, principal(['nnd.notification.generate']), { method: 'POST', body })).status, 200);
+    assert.equal(calls[0].sessionId, 'session_test'); assert.equal(calls[0].actor.subjectId, 'u_test'); assert.deepEqual(calls[0].body, body);
+    host.generateNotification = async () => { throw new ContractError('nnd_notification_unavailable', 'missing route'); };
+    assert.equal((await request(base, path, principal(['nnd.notification.generate']), { method: 'POST', body })).status, 503);
+  } finally { await service.close(); }
+});
+
 async function request(base, path, actor, options = {}) {
   const response = await fetch(`${base}${path}`, {
     method: options.method ?? 'GET',

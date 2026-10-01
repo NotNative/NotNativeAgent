@@ -173,3 +173,19 @@ echoes the revision. NNA does not assert that a model's anchors or prose are
 correct: NND must resolve aliases against its own snapshot, reject unknown
 anchors, and verify the revision before showing a generated walkthrough.
 This route does not mutate a session transcript or invoke an agent turn.
+
+`POST /v1/nnd/sessions/:id/notification-text` is a separate model-only call
+requiring `nnd.notification.generate` and the session's original owner/workspace
+grant. Input contains kind (completion, error, question, or subtask), title
+(120 characters), body (1000 characters), and assistantText (6000 characters).
+Ordinary multiline body/context is accepted. An optional `model` selector uses
+`profile/model` from that session's configured profiles; it cannot widen the
+primary route's network trust zone. Otherwise the configured primary route is
+used. NNA owns endpoints and credentials. The call offers no tools, uses the
+provider scheduler, caps output at 256 tokens or the lower configured cap, and
+has a five-second deadline. Two calls may be in flight globally and one per
+session. Invalid output and tool attempts fail; provider failures return generic
+unavailability. Valid output contains only title/body (120/500 characters) plus
+provider/model attribution. NND must retain deterministic fallback text when
+generation is unavailable and recheck event eligibility before display. This
+route neither grants permission nor mutates a transcript or live agent turn.

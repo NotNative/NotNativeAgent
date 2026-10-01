@@ -16,9 +16,10 @@ import { persistAtomicJson } from './persistence/atomic-json.js';
 import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
 import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
 import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
-import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
+import { nndGoalContextEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
+import { runNndNotification } from './nnd-notification.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
@@ -179,11 +180,8 @@ export class NndEngineHost {
   goal(sessionId, principal) { const context = this.#owned(sessionId, principal); return { goal: context.goal, revision: context.goalRevision }; }
   auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
   generateWalkthrough(sessionId, principal, body) { return runNndWalkthrough(this.#owned(sessionId, principal), body); }
-  goalEvidence(sessionId, principal) {
-    const context = this.#owned(sessionId, principal);
-    return nndGoalEvidence(sessionId, context.engine.transcript, context.goalTurnReceipts,
-      context.goalTurnReceiptsTruncated || context.engine.resumeBoundary?.hasMore === true);
-  }
+  generateNotification(sessionId, principal, body) { return runNndNotification(this.#owned(sessionId, principal), body); }
+  goalEvidence(sessionId, principal) { return nndGoalContextEvidence(this.#owned(sessionId, principal)); }
   async setGoal(sessionId, principal, value, expectedId, expectedRevision) {
     const goal = validatedNndGoal(value);
     return this.#writeGoal(sessionId, principal, goal, expectedId, expectedRevision);
@@ -444,7 +442,6 @@ export class NndEngineHost {
         'notice', 'failed', 'Context estimate could not be saved');
     });
   }
-
   #activity(context, id, kind, status, summary, evidenceMessageID, toolEvidence) {
     this.#publish(context, 'nnd.activity', { id, sessionID: context.sessionId, kind, status, summary, time: Date.now(),
       ...(evidenceMessageID ? { evidenceMessageID } : {}), ...(toolEvidence ? { toolEvidence } : {}) });

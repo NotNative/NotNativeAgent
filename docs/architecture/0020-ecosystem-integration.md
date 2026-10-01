@@ -204,6 +204,14 @@ and cannot change delegated work if a GUI subscriber fails.
 
 ## Related surface ADRs
 
+The owned notification-text inference route requires its own
+`nnd.notification.generate` grant. It supplies no tools or permission-decision
+authority and does not alter a live turn or transcript. NNA validates bounded
+untrusted context and strict title/body output, owns provider credentials, and
+limits explicit configured-profile selection to the primary route's network
+trust zone or an inward zone. NND remains responsible for deterministic fallback
+and checking that the event is still eligible when generation finishes.
+
 ADR 0018 (web operator surface) and ADR 0019 (native desktop surface) describe the
 pre-ecosystem console direction. With this decision, NNA's own web console modules
 (`web/console-*`) reconcile against the NND package: they either retire, remain the
