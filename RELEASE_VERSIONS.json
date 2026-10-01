@@ -788,6 +788,10 @@
     {
       "version": "20261001-27",
       "content_sha256": "3ddc669f0fb9176f2af4bc66b27a8dbd16bc5618bafc7576c19ae124c9eff38b"
+    },
+    {
+      "version": "20261001-28",
+      "content_sha256": "550240eec3072c978277604202ca3c4a10883ced0ff26ac8b6e8d005f026df7f"
     }
   ]
 }

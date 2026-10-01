@@ -2,6 +2,18 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · PWA push worker · 20261001-28
+
+The shipped service worker displays bounded push notification text, including
+a visible fallback for missing or malformed data. Clicking focuses a clean
+application home window or opens one; payload fields cannot select external
+destinations, credential URLs, or overwrite a hosted conversation surface.
+No fetch interception or precaching was introduced, and update activation
+still requires the Reload action. Release hashes now cover shipped public
+PWA assets. Adversarial audit found no confirmed defects; all ten worker
+tests and web typechecks pass. Session routing, browser subscription controls,
+outbound delivery, and live push acceptance remain open.
+
 ## 2026-10-01 · PWA push registration foundation · 20261001-27
 
 Added durable P-256 VAPID identity, bounded subscription POST/DELETE, and

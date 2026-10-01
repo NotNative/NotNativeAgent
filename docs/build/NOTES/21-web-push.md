@@ -31,10 +31,21 @@ acknowledgements, and propagates failures.
 Protocol references: [VAPID RFC 8292](https://www.rfc-editor.org/rfc/rfc8292.html)
 and the [W3C Push API](https://www.w3.org/TR/push-api/).
 
+## Push service worker
+
+The shipped worker displays a notification for every received push, with
+bounded title/body/tag fields and a product fallback for missing or malformed
+JSON. Payload URLs and image fields are ignored. Click handling reuses a
+clean application home window or opens the same-origin home; it preserves
+hosted conversation surfaces and credential query URLs. Session-specific
+navigation depends on the remaining main GUI routing implementation.
+The worker still performs no fetch interception or precaching. Public assets
+are included in the release hash manifest and version seal.
+
 ## Remaining delivery slice
 
 Registration alone does not complete Web Push. Encrypted bounded outbound
 delivery, event triggers, expired destination removal, notification settings
-and visibility suppression, user-initiated browser subscription, service-worker
-push/click handling, and live browser acceptance remain open. Registration
+and visibility suppression, user-initiated browser subscription, session
+navigation from notifications, and live browser acceptance remain open. Registration
 does not infer a public server origin from an arbitrary request field.

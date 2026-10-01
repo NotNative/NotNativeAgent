@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const errors = [];
 const EXCLUDED_RELEASE_PREFIXES = Object.freeze(['node_modules/', 'dist/', '.git/', '.pnpm/', 'coverage/']);
-const INCLUDED_RELEASE_PREFIXES = Object.freeze(['packages/ui/src/', 'packages/web/src/', 'packages/web/index.html', 'packages/web/vite.config.ts', 'packages/web/tsconfig.ui.json', 'packages/web/tsconfig.server.json', 'packages/ui/tsconfig.json', 'packages/ui/vitest.config.ts', 'scripts/', 'docs/architecture/', 'docs/build/', 'docs/planning/']);
+const INCLUDED_RELEASE_PREFIXES = Object.freeze(['packages/ui/src/', 'packages/web/src/', 'packages/web/public/', 'packages/web/index.html', 'packages/web/vite.config.ts', 'packages/web/tsconfig.ui.json', 'packages/web/tsconfig.server.json', 'packages/ui/tsconfig.json', 'packages/ui/vitest.config.ts', 'scripts/', 'docs/architecture/', 'docs/build/', 'docs/planning/']);
 const INCLUDED_ROOT_FILES = new Set(['package.json', 'README.md', 'VERSION', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', 'tsconfig.base.json']);
 const MANIFEST = 'RELEASE_MANIFEST.sha256';
 const LEDGER = 'RELEASE_VERSIONS.json';
