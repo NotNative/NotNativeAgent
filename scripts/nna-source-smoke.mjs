@@ -11,6 +11,7 @@ import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeG
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
 import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
 import { probeNotificationRoutes } from './smoke-notification-routes.mjs';
+import { nativeQuestionProviderReply, probeNativeQuestions } from './smoke-native-questions.mjs';
 import { json, withTimeout } from './smoke-http.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
@@ -81,6 +82,9 @@ function providerReply(body) {
   let finishReason = 'stop';
   if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: userText.includes('NND_LOOP_FINAL') ? 'complete' : 'continue', note: 'audit smoke note' }) };
   else if (walkthroughProviderReply(body)) delta = { role: 'assistant', content: walkthroughProviderReply(body) };
+  else if (nativeQuestionProviderReply(body)) {
+    delta = nativeQuestionProviderReply(body); finishReason = delta.tool_calls ? 'tool_calls' : 'stop';
+  }
   else if (messages[0]?.content?.includes('isolated tool-permission decision')) {
     const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
     const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');
@@ -444,6 +448,7 @@ async function main(nnaSource) {
     const app = createApp();
     const sessions = await probe(app, root, provider);
     await probeNotificationRoutes(sessions.parentId);
+    await probeNativeQuestions(app);
     await waitForChildSnapshot(root, sessions.childId);
     const stopped = once(spawned, 'exit');
     harness.dispose();

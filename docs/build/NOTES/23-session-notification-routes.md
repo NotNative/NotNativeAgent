@@ -65,8 +65,9 @@ removing stale settled entries. Failed, malformed, or mismatched observations
 fail the refresh rather than becoming empty maps. Pending requests retain
 attention after view receipts; metadata needs-input remains independent.
 
-The current NNA NND engine surface has no interactive brokers. Its pending
-read explicitly reports those request types as unsupported, with empty arrays.
+Native NNA NND root engines expose question forms as observe-only and permission
+requests as unsupported. Questions use NNA's authenticated reply/decline routes;
+their observation capability grants no permission-decision authority.
 An unavailable broker is an observation error. Broker snapshots on supported
 engine surfaces expose bounded identities and forms without permission argument
 summaries or decision authority. NNA restart recovery does not recreate pending

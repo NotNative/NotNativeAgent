@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:969ae74052d7e467ee93a1a95914f52fceb96ec0b401cc3a8e08f45aaac17007",
+  "source_digest": "sha256:17c138e75cdd3fc1ac7b9ec4b63fc69762fdad40f43630940b6f01e6b587b49b",
   "counts": {
-    "modules": 702,
+    "modules": 703,
     "component_edges": 15
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 26
+      "module_count": 27
     },
     {
       "id": "foundation",
@@ -6852,6 +6852,7 @@
         "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna.ts",
         "scripts/smoke-http.mjs",
+        "scripts/smoke-native-questions.mjs",
         "scripts/smoke-notification-routes.mjs",
         "scripts/smoke-provider-route.mjs",
         "scripts/smoke-review-mode.mjs",
@@ -6933,6 +6934,14 @@
       "component": "gates",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "scripts/smoke-native-questions.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/smoke-http.mjs"
+      ]
     },
     {
       "path": "scripts/smoke-notification-routes.mjs",

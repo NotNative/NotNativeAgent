@@ -2,6 +2,34 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Native NNA operator questions · 20261001-37
+
+Native NND root sessions now use NNA's question broker. The existing GUI cards
+receive asked/settled events, submit authenticated answers or declines, and
+recover pending forms from the canonical snapshot. Turn cancellation clears
+the pending form. The question voice grants no permission-decision authority;
+the Context permission selector retains Default, Auto-review, and Unattended,
+with mandatory review in every mode and no Full control bypass.
+
+Broker validation now requires complete answers, unique selections, valid
+declared choices, and single/multiple selection rules, with up to sixteen
+choices per row. Adversarial repairs reject duplicate option labels before
+parking work and give bounded native replies a 256 KiB transport allowance
+so valid escaped/Unicode answers do not remain stuck behind the general cap.
+
+The 27 focused NNA tests pass, as do nine GUI blocking-card tests and nineteen
+permission-selector/client tests. Actual
+NND-to-NNA integration verifies asked/settled SSE identities, answer, decline,
+cancellation, authoritative pending recovery, permission-mode writes, rejected
+Full control/stale writes, and restored choices after an actual restart. NND
+quality gates pass for 703 modules; NNA's graph covers 390 modules. Full NNA
+checks pass: 1642 tests, 1639 passing and three platform skips. NND release
+gates and sealing precede commit. NNA advances
+to development snapshot `20261001-4`; public-release platform evidence and
+hashes remain pending. Installed-browser acceptance, optional notification
+model text, first-registration public-origin handling, and the broader plan
+remain open.
+
 ## 2026-10-01 · Authoritative pending-request recovery · 20261001-36
 
 Added NNA's scoped `GET /v1/nnd/pending` read for owned root/child sessions,
