@@ -159,6 +159,21 @@ async function invokeBridge(core: Core, command: string, payload?: unknown): Pro
   return await core.bridge.invoke(command, payload);
 }
 
+function configInstances(reply: unknown): DesktopSshInstance[] {
+  if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
+    throw new Error('desktopSshConfig returned no configuration object');
+  }
+  const records = (reply as { instances?: unknown }).instances;
+  if (!Array.isArray(records)) throw new Error('desktopSshConfig returned a malformed roster');
+  const finalized = records.map((row) => normalizeSshInstance(row));
+  if (finalized.some((row) => row === null)) throw new Error('desktopSshConfig returned an invalid instance');
+  const rows = finalized as DesktopSshInstance[];
+  if (new Set(rows.map((row) => row.id)).size !== rows.length) {
+    throw new Error('desktopSshConfig returned duplicate instance ids');
+  }
+  return rows;
+}
+
 async function loadConfig(core: Core): Promise<void> {
   if (core.bridge === null) {
     core.state = { ...core.state, loaded: true, instances: [], statuses: {}, lastError: SSH_BRIDGE_UNAVAILABLE };
@@ -166,12 +181,11 @@ async function loadConfig(core: Core): Promise<void> {
     return;
   }
   try {
-    const reply = (await core.bridge.invoke('desktopSshConfig')) as unknown;
-    const rows = (reply as { instances?: unknown[] } | null)?.instances ?? [];
+    const rows = configInstances(await core.bridge.invoke('desktopSshConfig'));
     core.state = {
       ...core.state,
       loaded: true,
-      instances: (Array.isArray(rows) ? rows : []).map((row) => normalizeSshInstance(row)).filter((row): row is DesktopSshInstance => row !== null),
+      instances: rows,
       lastError: null,
     };
     startListening(core);

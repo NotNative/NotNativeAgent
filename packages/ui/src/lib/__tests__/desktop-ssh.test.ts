@@ -248,7 +248,7 @@ describe('S7.3 store phases and pushed events', () => {
     const bridge: DesktopSshBridge = {
       invoke: async (command, payload) => {
         invokes.push({ command, payload });
-        return command === SSH_BRIDGE_COMMANDS.createFromCommand ? { id: 'ssh-9' } : null;
+        return command === SSH_BRIDGE_COMMANDS.createFromCommand ? { id: 'ssh-9' } : { instances: [] };
       },
       listenStatus: (handler) => { sink = handler as (row: unknown) => void; return () => { sink = null; }; },
       readSshConfig: async () => SAMPLE_CONFIG,
@@ -341,16 +341,43 @@ describe('S7.3 store phases and pushed events', () => {
     expect(store.statuses['a']?.phase).toBe('master_connecting');
   });
 
+  it('malformed or duplicate config rosters fail without partial adoption', async () => {
+    const { bridge } = fakeBridge();
+    for (const reply of [null, [], {}, { instances: 'no' }, { instances: [{ id: 'bad', sshCommand: 7 }] }]) {
+      const store = createDesktopSshStore({ ...bridge, invoke: async () => reply });
+      await store.loadConfig();
+      expect(store.loaded).toBe(false);
+      expect(store.instances).toEqual([]);
+      expect(store.lastError).toContain('desktopSshConfig');
+    }
+    const duplicateStore = createDesktopSshStore({
+      ...bridge,
+      invoke: async () => ({ instances: [instance({ id: 'same' }), instance({ id: 'same' })] }),
+    });
+    await duplicateStore.loadConfig();
+    expect(duplicateStore.loaded).toBe(false);
+    expect(duplicateStore.lastError).toContain('duplicate');
+    const emptyStore = createDesktopSshStore({
+      ...bridge,
+      invoke: async () => ({ instances: [] }),
+    });
+    await emptyStore.loadConfig();
+    expect(emptyStore.loaded).toBe(true);
+    expect(emptyStore.instances).toEqual([]);
+    expect(emptyStore.lastError).toBeNull();
+  });
+
   it('a bridge refusal without an id stays traceable through lastError', async () => {
     const { bridge } = fakeBridge();
-    let reply: unknown = {};
+    let createReply: unknown = {};
+    const configReply: unknown = { instances: [] };
     const store = createDesktopSshStore({
       ...bridge,
-      invoke: async () => reply,
+      invoke: async (command) => (command === 'desktopSshConfig' ? configReply : createReply),
     });
     expect(await store.createFromCommand('ssh atlas')).toBeNull();
     expect(store.lastError).toContain(SSH_BRIDGE_COMMANDS.createFromCommand);
-    reply = { id: 'ssh-9' };
+    createReply = { id: 'ssh-9' };
     expect(await store.createFromCommand('ssh atlas')).toBe('ssh-9');
     expect(store.lastError).toBeNull();
   });
