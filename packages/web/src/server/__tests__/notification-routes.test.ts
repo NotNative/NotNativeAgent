@@ -14,8 +14,8 @@ afterAll(() => rmSync(authRoot, { recursive: true, force: true }));
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 function fixture() {
   let now = 1000;
-  const fetch = vi.fn(async (path: string) => Response.json(path === '/session' ? [{ id: 's1' }, { id: 's2' }] : {}));
-  const sessions = new NotificationSessions(() => now, fetch); const badges = new PushBadges();
+  const fetch = vi.fn(async (path: string) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }, { id: 's2' }] : {}));
+  const sessions = new NotificationSessions(() => now, (path) => path === '/v1/nnd/pending' ? Promise.resolve(new Response(null, { status: 404 })) : fetch(path)); const badges = new PushBadges();
   const app = createNotificationRoutes({ sessions, badges, owner: (request) => request.headers.get('x-owner') });
   const call = (path: string, owner = 'a', body?: unknown) => app.request(path, { headers: { 'x-owner': owner },
     ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }) });
@@ -25,10 +25,10 @@ function fixture() {
 
 it('retains owned active archived sessions present only in the status index and prunes them when no longer covered', async () => {
   const item = fixture();
-  item.fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's1' }] : { archived: { type: 'busy' } }));
+  item.fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : { archived: { type: 'busy' } }));
   expect(await (await item.call('/api/sessions/archived/status')).json()).toMatchObject({ sessionId: 'archived', status: 'busy' });
   expect(await (await item.call('/api/session-activity')).json()).toMatchObject({ archived: { type: 'busy' } });
-  item.tick(2000); item.fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's1' }] : {}));
+  item.tick(2000); item.fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : {}));
   expect((await item.call('/api/sessions/archived/status')).status).toBe(404);
 });
 
@@ -49,8 +49,8 @@ it('rejects an expired credential after awaited snapshot loading without committ
   let now = 100_000; const auth = new uiAuth.UiAuthController({ dataDir: join(authRoot, 'write'), now: () => now, resolvePassword: () => 'password' });
   vi.spyOn(uiAuth, 'getUiAuthController').mockReturnValue(auth);
   let release!: () => void; const hold = new Promise<void>((resolve) => { release = resolve; });
-  const fetch = vi.fn(async (path: string) => { await hold; return Response.json(path === '/session' ? [{ id: 's1' }] : {}); });
-  const sessions = new NotificationSessions(() => now, fetch);
+  const fetch = vi.fn(async (path: string) => { await hold; return Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : {}); });
+  const sessions = new NotificationSessions(() => now, (path) => path === '/v1/nnd/pending' ? Promise.resolve(new Response(null, { status: 404 })) : fetch(path));
   const app = createNotificationRoutes({ sessions, badges: new PushBadges() }); const credential = auth.issueSessionToken(1000);
   const pending = app.request('/api/sessions/s1/view', { method: 'POST', headers: { cookie: `oc_ui_session=${credential.token}` }, body: '{}' });
   await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2)); now += 1001; release();
@@ -58,17 +58,17 @@ it('rejects an expired credential after awaited snapshot loading without committ
 });
 
 it('orders completion and read markers within one millisecond and keeps actively viewed completions read', async () => {
-  const fetch = vi.fn(async (path: string) => Response.json(path === '/session' ? [{ id: 's1' }] : {}));
-  const sessions = new NotificationSessions(() => 1000, fetch);
+  const fetch = vi.fn(async (path: string) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : {}));
+  const sessions = new NotificationSessions(() => 1000, (path) => path === '/v1/nnd/pending' ? Promise.resolve(new Response(null, { status: 404 })) : fetch(path));
   await sessions.refresh(); sessions.receipts.view('a', 's1', true, {}); sessions.receipts.view('a', 's1', false, {});
   const emit = (type: string) => sessions.observe({ payload: { id: type, type: 'session.status', properties: { sessionID: 's1', status: { type } } } });
   emit('busy'); emit('idle'); expect(sessions.attention('a', 's1')?.needsAttention).toBe(true);
   sessions.receipts.view('a', 's1', true, {}, sessions.get('s1')!.completedRevision);
   emit('busy'); emit('idle'); sessions.receipts.view('a', 's1', false, {});
   expect(sessions.attention('a', 's1')?.needsAttention).toBe(false);
-  fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's1' }] : { s1: { type: 'busy' } }));
+  fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : { s1: { type: 'busy' } }));
   await sessions.refresh(true);
-  fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's1' }] : {}));
+  fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : {}));
   await sessions.refresh(true); expect(sessions.attention('a', 's1')?.needsAttention).toBe(true);
 });
 
@@ -90,7 +90,7 @@ it('preserves retry metadata and status-change time across polling and marks res
   const item = fixture(); await item.sessions.refresh();
   item.emit('session.status', { sessionID: 's1', status: { type: 'retry', attempt: 2, message: 'waiting', next: 2000 } });
   const changed = item.sessions.attention('a', 's1')!.lastStatusChangeAt;
-  item.fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's1', metadata: { nnd: { attention: { kind: 'needs_input' } } } }]
+  item.fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's1', metadata: { nnd: { attention: { kind: 'needs_input' } } } }]
     : { s1: { type: 'retry', attempt: 3, message: 'again', next: 4000 } }));
   item.tick(2000); const status = await (await item.call('/api/sessions/status')).json() as Record<string, unknown>;
   expect(status).toMatchObject({ sessions: { s1: { status: 'retry', metadata: { attempt: 3, message: 'again', next: 4000 } } }, pendingCoverage: 'live-events-only' });
@@ -108,11 +108,11 @@ it('returns validation errors for malformed receipts and does not acknowledge a 
 
 it('round-trips prototype-shaped session ids and does not fabricate inherited sessions', async () => {
   const item = fixture();
-  item.fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: '__proto__' }] : {}));
+  item.fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: '__proto__' }] : {}));
   expect(await (await item.call('/api/sessions/status')).json()).toMatchObject({ sessions: { ['__proto__']: { status: 'idle' } } });
   expect((await item.call('/api/sessions/__proto__/status')).status).toBe(200);
   expect((await item.call('/api/sessions/constructor/status')).status).toBe(404);
-  item.tick(2000); item.fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's1' }, {}] : {}));
+  item.tick(2000); item.fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's1' }, {}] : {}));
   expect((await item.call('/api/sessions/status')).status).toBe(503);
   expect(item.sessions.get('__proto__')).toBeDefined();
 });
@@ -155,11 +155,11 @@ it('fails closed on missing sessions, malformed snapshots and a racing delete, a
   item.tick(2000); item.fetch.mockImplementation(async () => Response.json('invalid'));
   expect((await item.call('/api/sessions/status')).status).toBe(503);
   item.fetch.mockImplementation(async (path) => {
-    if (path === '/session') item.emit('session.deleted', { info: { id: 's1' } });
-    return Response.json(path === '/session' ? [{ id: 's1' }] : {});
+    if (path === '/session?archived=true') item.emit('session.deleted', { info: { id: 's1' } });
+    return Response.json(path === '/session?archived=true' ? [{ id: 's1' }] : {});
   });
   expect((await item.call('/api/sessions/status')).status).toBe(503); expect(item.sessions.get('s1')).toBeUndefined();
-  item.fetch.mockImplementation(async (path) => Response.json(path === '/session' ? [{ id: 's3' }] : {}));
+  item.fetch.mockImplementation(async (path) => Response.json(path === '/session?archived=true' ? [{ id: 's3' }] : {}));
   await item.sessions.refresh(); expect(item.sessions.get('s2')).toBeUndefined(); expect(item.sessions.get('s3')).toBeDefined();
 });
 

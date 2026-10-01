@@ -2,6 +2,7 @@
 import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 import type { QueueEnvelope } from '../queue/queue-feed.ts';
 import { SessionReceipts } from './session-receipts.ts';
+import { pendingSnapshot } from './pending-snapshot.ts';
 import { emptyNotificationSession, notificationSessionId, projectNotificationEvent, projectNotificationStatus, projectSessionInfo, type NotificationSession } from './session-projection.ts';
 
 export type NotificationEvent = { type: string; properties: Record<string, unknown> };
@@ -11,6 +12,7 @@ export class NotificationSessions {
   private pendingRefresh: Promise<void> | null = null;
   private refreshedAt = -Infinity;
   private revision = 0;
+  private pendingCoverage: 'complete' | 'live-events-only' = 'live-events-only';
   readonly receipts: SessionReceipts;
   constructor(private readonly now: () => number = Date.now, private readonly fetch: (path: string) => Promise<Response> =
     (path) => callHarness(harnessRequest(path, null, { signal: AbortSignal.timeout(5000) }))) { this.receipts = new SessionReceipts(now); }
@@ -50,7 +52,7 @@ export class NotificationSessions {
       if (state.permissions.size || state.forms.size) pending[id] = { permissions: [...state.permissions.values()], forms: [...state.forms.values()] };
       activity[id] = { type: state.status === 'idle' ? 'idle' : 'busy' };
     }
-    return { statusSessions, attentionSessions, pending, pendingCoverage: 'live-events-only' as const, activity, serverTime: this.now() };
+    return { statusSessions, attentionSessions, pending, pendingCoverage: this.pendingCoverage, activity, serverTime: this.now() };
   }
   attention(owner: string, id: string) {
     const state = this.sessions.get(id); if (!state) return null;
@@ -59,9 +61,12 @@ export class NotificationSessions {
       needsAttention: state.needsInput || !!state.permissions.size || !!state.forms.size || !viewed && state.completedRevision > (receipt?.seenRevision ?? 0) };
   }
   private async load(revision: number): Promise<void> {
-    const [listReply, statusReply] = await Promise.all([this.fetch('/session'), this.fetch('/session/status')]);
+    const [listReply, statusReply, pendingReply] = await Promise.all([
+      this.fetch('/session?archived=true'), this.fetch('/session/status'), this.fetch('/v1/nnd/pending'),
+    ]);
     if (!listReply.ok || !statusReply.ok) throw new Error('NNA session snapshot is unavailable');
     const list: unknown = await listReply.json(); const statuses: unknown = await statusReply.json();
+    const requests = await pendingSnapshot(pendingReply);
     if (!Array.isArray(list) || !statuses || typeof statuses !== 'object' || Array.isArray(statuses)) throw new Error('NNA session snapshot is invalid');
     if (list.some((info) => !info || typeof info !== 'object' || Array.isArray(info) || !notificationSessionId(info.id))
       || new Set(list.map((info) => info.id)).size !== list.length) throw new Error('NNA session list is invalid');
@@ -72,9 +77,15 @@ export class NotificationSessions {
     const listed = new Map<string, Record<string, unknown>>(list.map((info) => [info.id, info]));
     const covered = new Set([...listed.keys(), ...Object.keys(statuses)]);
     if (covered.size > 5000) throw new Error('NNA combined snapshot exceeds the notification coverage limit');
+    if (requests && (requests.size !== covered.size || [...covered].some((id) => !requests.has(id)))) throw new Error('NNA pending snapshot changed during refresh');
     for (const id of covered) {
       const known = this.sessions.has(id); const state = this.ensure(id); const info = listed.get(id);
       if (info) projectSessionInfo(state, info);
+      if (requests) {
+        const row = requests.get(id)!;
+        state.permissions = new Map(row.permissions.map((item) => [item.id as string, { ...item, sessionID: id }]));
+        state.forms = new Map(row.forms.map((item) => [item.id as string, { ...item, sessionID: id }]));
+      }
       const status = Object.hasOwn(statuses, id) ? (statuses as Record<string, Record<string, unknown>>)[id]! : { type: 'idle' };
       const completed = state.completedRevision; projectNotificationStatus(state, status, this.now());
       if (completed !== state.completedRevision) this.receipts.observeCompletion(id, state.completedRevision);
@@ -82,6 +93,7 @@ export class NotificationSessions {
     }
     for (const id of this.sessions.keys()) if (!covered.has(id)) { this.sessions.delete(id); this.receipts.remove(id); }
     this.refreshedAt = this.now();
+    this.pendingCoverage = requests ? 'complete' : 'live-events-only';
   }
   private ensure(id: string): NotificationSession {
     let state = this.sessions.get(id);

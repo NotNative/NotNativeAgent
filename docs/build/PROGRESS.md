@@ -2,6 +2,39 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Authoritative pending-request recovery · 20261001-36
+
+Added NNA's scoped `GET /v1/nnd/pending` read for owned root/child sessions,
+including archived roots. It projects bounded broker identities and forms,
+omits permission argument summaries, and grants no decision authority.
+Unsupported request types are explicit; missing observations fail with 503.
+Completed children have no live broker, and restart recovery never recreates
+broker promises from transcript text. The current native NND engine surface
+has no interactive question or permission broker; native question asking
+remains unavailable rather than being silently emulated by the GUI.
+
+NND refreshes archived-inclusive sessions, statuses, and pending requests
+together. Matching complete coverage replaces stale local maps and restores
+missed forms. Failed, malformed, or mismatched snapshots preserve an explicit
+failure. Older NNA versions retain live-event-only coverage after a 404.
+Metadata needs-input attention remains independent of request support and
+view receipts.
+
+Adversarial repairs removed settled/expired permissions from broker snapshots
+while output was blocked, rejected coerced capability values and unrenderable
+forms, and corrected native observation failures from 400 to 503. Six focused
+NNA pending tests and 16 NND notification tests pass. The full NND server suite
+passes 1370 tests; typechecks, quality gates, and source integration pass,
+including complete coverage after an actual NNA restart with restored parent
+and child sessions. The unchanged UI retains its verified 1618-test suite.
+
+NND's graph covers 702 modules. NNA advances to development snapshot
+`20261001-3`, with its graph/language report refreshed and full checks required
+before commit; public-release platform evidence and hashes remain pending.
+NND release gates and sealing precede commit. Native question journeys,
+installed-browser acceptance, optional model notification text,
+first-registration public-origin handling, and the broader plan remain open.
+
 ## 2026-10-01 · Session notification routes · 20261001-35
 
 Added authenticated session activity, status, attention, snapshot, view,
@@ -3957,7 +3990,7 @@ configuration import only; live SSH transport is still outstanding.
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
-| D9 | PWA manifest link + install/push hooks | P4/P11 | Manifest, icons, install prompt, browser registration, worker display, presence, encrypted event delivery, and session click links are implemented. Notification stream/activity/view/message-sent parity, badges, optional model-authored notification text, and live browser acceptance remain open. |
+| D9 | PWA manifest link + install/push hooks | P4/P11 | Manifest, icons, install prompt, browser registration, worker display, presence, encrypted event delivery, session links, notification SSE/activity/status/attention/view/message-sent routes, authoritative pending reads, and ordered badges are implemented. Optional model notification text, first-registration public-origin handling, and installed-browser acceptance remain open. |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
 | D11 | control-stream consumers | P2 (doc 04) | Baseline sync, queue/interruption, memory, and scheduled-task consumers are shipped; new event types add consumers with their owning slices. |
 | D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |

@@ -18,6 +18,8 @@ export async function probeNotificationRoutes(parentId) {
   try {
     await withTimeout(connected, 5000, 'notification feed did not connect');
     const status = await json(call, '/api/sessions/status', 200);
+    assert.equal(status.pendingCoverage, 'complete');
+    assert.deepEqual(status.pending, {});
     assert.equal(status.sessions[parentId].status, 'idle');
     const snapshot = await json(call, '/api/sessions/snapshot', 200);
     assert.ok(snapshot.attentionSessions[parentId]);

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:0ebb906ec625b060cef87834941b4841f42dcee7055daf7c362b9dd034ecdf1e",
+  "source_digest": "sha256:969ae74052d7e467ee93a1a95914f52fceb96ec0b401cc3a8e08f45aaac17007",
   "counts": {
-    "modules": 701,
+    "modules": 702,
     "component_edges": 15
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 219
+      "module_count": 220
     },
     {
       "id": "web-entry",
@@ -5631,6 +5631,14 @@
       ]
     },
     {
+      "path": "packages/web/src/server/notifications/pending-snapshot.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/notifications/session-projection.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/notifications/routes.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5666,6 +5674,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/notifications/pending-snapshot.ts",
         "packages/web/src/server/notifications/session-projection.ts",
         "packages/web/src/server/notifications/session-receipts.ts",
         "packages/web/src/server/queue/queue-adapter-calls.ts",

@@ -14,7 +14,7 @@ status-change timestamp, last confirmed user-message receipt, current view
 lease, and attention. An unknown initial status-change time is zero.
 
 Initial reads and reconnects refresh from NNA through the harness adapter.
-Concurrent refreshes share one request pair. Invalid, unavailable, oversized,
+Concurrent refreshes share one list/status/pending request group. Invalid, unavailable, oversized,
 paginated, or concurrently superseded snapshots fail with 503 instead of
 claiming idle or complete state. Live events update the same projection; a
 session deletion removes its projection and local receipts. Maps and leases
@@ -55,14 +55,26 @@ client bearer. Status frames derive attention for the receiving credential;
 receipt updates notify other windows. Revocation/expiry and slow consumers
 close the stream. Cancellation removes subscriptions and heartbeat timers.
 
-## Remaining coverage
+## Pending recovery
 
-The pending request map currently has `pendingCoverage: 'live-events-only'`.
-NNA exposes question replies/rejections but no authoritative restored pending
-form read endpoint. Empty observed pending data therefore does not prove that
-no restored blocker exists. Metadata attention still projects needs-input and
-approval states. Exact pending snapshot recovery remains required before full
-notification-route acceptance can be claimed.
+NNA's authenticated `/v1/nnd/pending` read observes all owned root and child
+sessions, including archived roots. NND requests the archived-inclusive list
+and verifies that its pending coverage matches the list/status identity set.
+Complete snapshots replace local pending maps, restoring missed forms and
+removing stale settled entries. Failed, malformed, or mismatched observations
+fail the refresh rather than becoming empty maps. Pending requests retain
+attention after view receipts; metadata needs-input remains independent.
+
+The current NNA NND engine surface has no interactive brokers. Its pending
+read explicitly reports those request types as unsupported, with empty arrays.
+An unavailable broker is an observation error. Broker snapshots on supported
+engine surfaces expose bounded identities and forms without permission argument
+summaries or decision authority. NNA restart recovery does not recreate pending
+broker promises from transcript text. Older NNA versions that return 404 keep
+the explicit `pendingCoverage: 'live-events-only'` limitation; the current native
+read establishes `pendingCoverage: 'complete'`.
+
+## Remaining coverage
 
 Installed-browser push/badge acceptance, optional model-authored notification
 text, and first-registration public-origin handling also remain open in note

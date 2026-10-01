@@ -820,6 +820,10 @@
     {
       "version": "20261001-35",
       "content_sha256": "c45dc218b31ea50fb06a1142dfcba98e7c83b4b59a0b27054b8512c29fb10722"
+    },
+    {
+      "version": "20261001-36",
+      "content_sha256": "724edbe2fe050a3ca9018320cd73db1a128c3c7c72f9723241a9374fb1448205"
     }
   ]
 }

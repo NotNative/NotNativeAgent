@@ -296,6 +296,10 @@ async function probeRestoredSession(app, { parentId, childId }) {
     ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
   }));
   await probeRestoredReviewMode(call, json, parentId);
+  const pending = await json(call, '/api/sessions/status', 200);
+  assert.equal(pending.pendingCoverage, 'complete', 'restarted NNA must supply authoritative pending coverage');
+  assert.deepEqual(pending.pending, {});
+  assert.ok(pending.sessions[parentId] && pending.sessions[childId], 'pending recovery must cover restored parent and child');
   assert.deepEqual((await json(call, '/api/session?roots=true', 200)).map((item) => item.id), [parentId]);
   assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [childId]);
   assert.deepEqual((await json(call, `/api/session/${parentId}/children`, 200)).map((item) => item.id), [childId]);
