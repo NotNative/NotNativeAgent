@@ -83,6 +83,21 @@ export const de: PartialDictionary = {
   'shell.send': 'Senden',
   'shell.noSession': 'Keine Sitzung ausgewählt',
   'shell.recovery.retry': 'Erneut versuchen',
+
+  'settings.search.toolsFiles': 'Werkzeuge und Dateien',
+  'settings.chat.showToolFileIcons': 'Dateisymbole bei Werkzeugen anzeigen',
+  'settings.chat.showTurnChangedFiles': 'In diesem Durchlauf geänderte Dateien anzeigen',
+  'settings.chat.showDotfiles': 'Versteckte Dateien in Verzeichnisbäumen anzeigen',
+  'settings.chat.previewFilesBeforeAttach': 'Dateien vor dem Anhängen in der Vorschau anzeigen',
+  'settings.search.sessionAssist': 'Sitzungsunterstützung',
+  'settings.chat.draftStartersVisible': 'Entwurfsvorschläge anzeigen',
+  'settings.chat.allowPromptingSubagent': 'Nachrichten an Subagent-Sitzungen erlauben',
+  'settings.chat.showAssistantRecaps': 'Zusammenfassungen des Assistenten anzeigen',
+  'settings.chat.showFollowupSuggestions': 'Vorschläge für Rückfragen anzeigen',
+  'settings.search.sessionGoal': 'Sitzungsziele',
+  'settings.chat.defaultBudgetAllSessions': 'Standardbudget auf alle Sitzungen anwenden',
+  'settings.chat.defaultBudgetLabel': 'Standardbudget',
+  'settings.chat.enableSessionGoals': 'Sitzungsziele aktivieren',
 };
 
 export const fr: PartialDictionary = {
@@ -167,6 +182,21 @@ export const fr: PartialDictionary = {
   'shell.send': 'Envoyer',
   'shell.noSession': 'Aucune session sélectionnée',
   'shell.recovery.retry': 'Réessayer',
+
+  'settings.search.toolsFiles': 'Outils et fichiers',
+  'settings.chat.showToolFileIcons': 'Afficher les icônes de fichier des outils',
+  'settings.chat.showTurnChangedFiles': 'Afficher les fichiers modifiés pendant le tour',
+  'settings.chat.showDotfiles': 'Afficher les fichiers cachés dans les arborescences',
+  'settings.chat.previewFilesBeforeAttach': 'Prévisualiser les fichiers avant de les joindre',
+  'settings.search.sessionAssist': 'Assistance de session',
+  'settings.chat.draftStartersVisible': 'Afficher les suggestions de démarrage',
+  'settings.chat.allowPromptingSubagent': 'Autoriser les messages aux sessions de sous-agents',
+  'settings.chat.showAssistantRecaps': 'Afficher les récapitulatifs de l’assistant',
+  'settings.chat.showFollowupSuggestions': 'Afficher les suggestions de suivi',
+  'settings.search.sessionGoal': 'Objectifs de session',
+  'settings.chat.defaultBudgetAllSessions': 'Appliquer le budget par défaut à chaque session',
+  'settings.chat.defaultBudgetLabel': 'Budget par défaut',
+  'settings.chat.enableSessionGoals': 'Activer les objectifs de session',
 };
 
 export const zhCN: PartialDictionary = {
@@ -251,6 +281,21 @@ export const zhCN: PartialDictionary = {
   'shell.send': '发送',
   'shell.noSession': '未选择会话',
   'shell.recovery.retry': '重试',
+
+  'settings.search.toolsFiles': '工具和文件',
+  'settings.chat.showToolFileIcons': '显示工具文件图标',
+  'settings.chat.showTurnChangedFiles': '显示本轮更改的文件',
+  'settings.chat.showDotfiles': '在目录树中显示隐藏文件',
+  'settings.chat.previewFilesBeforeAttach': '附加前预览打开的文件',
+  'settings.search.sessionAssist': '会话辅助',
+  'settings.chat.draftStartersVisible': '显示草稿起始建议',
+  'settings.chat.allowPromptingSubagent': '允许向子代理会话发送消息',
+  'settings.chat.showAssistantRecaps': '显示助手回顾',
+  'settings.chat.showFollowupSuggestions': '显示后续建议',
+  'settings.search.sessionGoal': '会话目标',
+  'settings.chat.defaultBudgetAllSessions': '将默认预算应用于每个会话',
+  'settings.chat.defaultBudgetLabel': '默认预算',
+  'settings.chat.enableSessionGoals': '启用会话目标',
 };
 
 export const zhTW: PartialDictionary = {
@@ -335,4 +380,19 @@ export const zhTW: PartialDictionary = {
   'shell.send': '傳送',
   'shell.noSession': '未選擇工作階段',
   'shell.recovery.retry': '重試',
+
+  'settings.search.toolsFiles': '工具與檔案',
+  'settings.chat.showToolFileIcons': '顯示工具檔案圖示',
+  'settings.chat.showTurnChangedFiles': '顯示本輪變更的檔案',
+  'settings.chat.showDotfiles': '在目錄樹中顯示隱藏檔案',
+  'settings.chat.previewFilesBeforeAttach': '附加前預覽已開啟的檔案',
+  'settings.search.sessionAssist': '工作階段輔助',
+  'settings.chat.draftStartersVisible': '顯示草稿起始建議',
+  'settings.chat.allowPromptingSubagent': '允許向子代理工作階段傳送訊息',
+  'settings.chat.showAssistantRecaps': '顯示助理摘要',
+  'settings.chat.showFollowupSuggestions': '顯示後續建議',
+  'settings.search.sessionGoal': '工作階段目標',
+  'settings.chat.defaultBudgetAllSessions': '將預設預算套用至每個工作階段',
+  'settings.chat.defaultBudgetLabel': '預設預算',
+  'settings.chat.enableSessionGoals': '啟用工作階段目標',
 };

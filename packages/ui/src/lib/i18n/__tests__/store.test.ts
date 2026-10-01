@@ -95,6 +95,20 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.chat.collapsibleUserMessages',
         'settings.chat.splitActions',
         'settings.chat.lineWrap',
+        'settings.search.toolsFiles',
+        'settings.chat.showToolFileIcons',
+        'settings.chat.showTurnChangedFiles',
+        'settings.chat.showDotfiles',
+        'settings.chat.previewFilesBeforeAttach',
+        'settings.search.sessionAssist',
+        'settings.chat.draftStartersVisible',
+        'settings.chat.allowPromptingSubagent',
+        'settings.chat.showAssistantRecaps',
+        'settings.chat.showFollowupSuggestions',
+        'settings.search.sessionGoal',
+        'settings.chat.defaultBudgetAllSessions',
+        'settings.chat.defaultBudgetLabel',
+        'settings.chat.enableSessionGoals',
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
@@ -119,6 +133,8 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.chat.composerHistory']).toBe('Eingabe und Verlauf');
     expect(de['settings.chat.reasoningStreaming']).toBe('Begründung und Streaming');
     expect(de['settings.search.messageAppearance']).toBe('Nachrichtenerscheinung');
+    expect(de['settings.search.toolsFiles']).toBe('Werkzeuge und Dateien');
+    expect(de['settings.chat.defaultBudgetLabel']).toBe('Standardbudget');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(

@@ -158,24 +158,24 @@ export function ChatPage(): ReactNode {
         <SettingsCheckboxRow label={t('settings.chat.lineWrap')} item="chat.code-line-wrap" checked={yes(lineWrap.value, false)} onChange={lineWrap.set} />
       </SettingsSection>
 
-      <SettingsSection title="Tools & files" item="chat.tools-and-files">
-        <SettingsCheckboxRow label="Show tool file icons" item="chat.tool-file-icons" checked={yes(toolIcons.value, true)} onChange={toolIcons.set} />
-        <SettingsCheckboxRow label="Show turn changed files" item="chat.turn-changed-files" checked={yes(changedFiles.value, true)} onChange={changedFiles.set} />
-        <SettingsCheckboxRow label="Show dotfiles in directory trees" item="chat.dotfiles" checked={yes(dotfiles.value, false)} onChange={dotfiles.set} />
-        <SettingsCheckboxRow label="Preview open files before attaching" item="chat.file-viewer-preview" checked={yes(filePreview.value, false)} onChange={filePreview.set} />
+      <SettingsSection title={t('settings.search.toolsFiles')} item="chat.tools-and-files">
+        <SettingsCheckboxRow label={t('settings.chat.showToolFileIcons')} item="chat.tool-file-icons" checked={yes(toolIcons.value, true)} onChange={toolIcons.set} />
+        <SettingsCheckboxRow label={t('settings.chat.showTurnChangedFiles')} item="chat.turn-changed-files" checked={yes(changedFiles.value, true)} onChange={changedFiles.set} />
+        <SettingsCheckboxRow label={t('settings.chat.showDotfiles')} item="chat.dotfiles" checked={yes(dotfiles.value, false)} onChange={dotfiles.set} />
+        <SettingsCheckboxRow label={t('settings.chat.previewFilesBeforeAttach')} item="chat.file-viewer-preview" checked={yes(filePreview.value, false)} onChange={filePreview.set} />
       </SettingsSection>
 
-      <SettingsSection title="Session assistance" item="chat.session-assist">
-        <SettingsCheckboxRow label="Draft starters visible" item="chat.draft-starters" checked={yes(startersVisible.value, true)} onChange={startersVisible.set} />
-        <SettingsCheckboxRow label="Allow prompting subagent sessions" item="chat.subagent-prompting" checked={yes(subagentPrompting.value, false)} onChange={subagentPrompting.set} />
-        <SettingsCheckboxRow label="Show assistant recaps" item="chat.session-recap" checked={yes(recapEnabled.value, true)} onChange={recapEnabled.set} />
-        <SettingsCheckboxRow label="Show follow-up suggestions" item="chat.session-suggestion" checked={yes(suggestionEnabled.value, true)} onChange={suggestionEnabled.set} />
+      <SettingsSection title={t('settings.search.sessionAssist')} item="chat.session-assist">
+        <SettingsCheckboxRow label={t('settings.chat.draftStartersVisible')} item="chat.draft-starters" checked={yes(startersVisible.value, true)} onChange={startersVisible.set} />
+        <SettingsCheckboxRow label={t('settings.chat.allowPromptingSubagent')} item="chat.subagent-prompting" checked={yes(subagentPrompting.value, false)} onChange={subagentPrompting.set} />
+        <SettingsCheckboxRow label={t('settings.chat.showAssistantRecaps')} item="chat.session-recap" checked={yes(recapEnabled.value, true)} onChange={recapEnabled.set} />
+        <SettingsCheckboxRow label={t('settings.chat.showFollowupSuggestions')} item="chat.session-suggestion" checked={yes(suggestionEnabled.value, true)} onChange={suggestionEnabled.set} />
       </SettingsSection>
 
-      <SettingsSection title="Session goals" item="chat.session-goal">
-        <SettingsCheckboxRow label={t('settings.search.sessionGoal')} item="chat.session-goal-enabled" checked={yes(goalEnabled.value, false)} onChange={goalEnabled.set} />
-        <SettingsCheckboxRow label="Default budget applied to every session" item="chat.session-goal-default" checked={yes(goalBudgetDefault.value, false)} disabled={!yes(goalEnabled.value, false)} onChange={goalBudgetDefault.set} />
-        <SettingsFieldRow label="Default budget" item="chat.session-goal-budget" helper="1000..100000000 tokens (step 50000)">
+      <SettingsSection title={t('settings.search.sessionGoal')} item="chat.session-goal">
+        <SettingsCheckboxRow label={t('settings.chat.enableSessionGoals')} item="chat.session-goal-enabled" checked={yes(goalEnabled.value, false)} onChange={goalEnabled.set} />
+        <SettingsCheckboxRow label={t('settings.chat.defaultBudgetAllSessions')} item="chat.session-goal-default" checked={yes(goalBudgetDefault.value, false)} disabled={!yes(goalEnabled.value, false)} onChange={goalBudgetDefault.set} />
+        <SettingsFieldRow label={t('settings.chat.defaultBudgetLabel')} item="chat.session-goal-budget" helper="1000..100000000 tokens (step 50000)">
           <SettingsNumberInput value={goalBudget.value ?? 50000} min={1000} max={100000000} step={50000} onChange={goalBudget.set} />
         </SettingsFieldRow>
       </SettingsSection>
