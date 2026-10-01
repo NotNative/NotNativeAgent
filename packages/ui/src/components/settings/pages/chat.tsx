@@ -13,13 +13,12 @@ import {
 import { useSettingsField } from '../page-helpers.tsx';
 import { useI18n } from '../../I18nProvider.tsx';
 
-const RENDER_MODES = [
-  { value: 'sorted', label: 'Sorted' },
-  { value: 'live', label: 'Live' },
-];
-
 export function ChatPage(): ReactNode {
   const { t } = useI18n();
+  const renderModes = [
+    { value: 'sorted', label: t('settings.chat.sorted') },
+    { value: 'live', label: t('settings.chat.live') },
+  ];
   const chatRenderMode = useSettingsField<'sorted' | 'live'>('chatRenderMode');
   const activity = useSettingsField<'collapsed' | 'summary'>('activityRenderMode');
   const userMessageRendering = useSettingsField<'markdown' | 'plain'>('userMessageRenderingMode');
@@ -58,12 +57,12 @@ export function ChatPage(): ReactNode {
 
   return (
     <div className="flex flex-col gap-3">
-      <SettingsSection title="Rendering">
+      <SettingsSection title={t('settings.chat.rendering')}>
         <SettingsFieldRow label={t('settings.search.renderMode')} item="chat.render-mode">
-          <SettingsRadioGroup value={chatRenderMode.value ?? 'live'} options={RENDER_MODES} onChange={(value) => chatRenderMode.set(value as 'sorted' | 'live')} />
+          <SettingsRadioGroup value={chatRenderMode.value ?? 'live'} options={renderModes} onChange={(value) => chatRenderMode.set(value as 'sorted' | 'live')} />
         </SettingsFieldRow>
         <SettingsFieldRow label={t('settings.search.activityRender')} item="chat.activity-default">
-          <SettingsRadioGroup value={activity.value ?? 'collapsed'} options={[{ value: 'collapsed', label: 'Collapsed' }, { value: 'summary', label: 'Summary' }]} onChange={(value) => activity.set(value as 'collapsed' | 'summary')} />
+          <SettingsRadioGroup value={activity.value ?? 'collapsed'} options={[{ value: 'collapsed', label: t('settings.chat.collapsed') }, { value: 'summary', label: t('settings.chat.summary') }]} onChange={(value) => activity.set(value as 'collapsed' | 'summary')} />
         </SettingsFieldRow>
         <SettingsFieldRow label={t('settings.search.userMessageRendering')} item="chat.user-message-rendering">
           {/*
@@ -74,7 +73,7 @@ export function ChatPage(): ReactNode {
             value={userMessageRendering.value ?? 'markdown'}
             resetValue="markdown"
             onChange={(value) => userMessageRendering.set(value as 'markdown' | 'plain')}
-            options={[{ value: 'markdown', label: 'Markdown' }, { value: 'plain', label: 'Plain text' }]}
+            options={[{ value: 'markdown', label: t('settings.chat.markdown') }, { value: 'plain', label: t('settings.chat.plainText') }]}
           />
         </SettingsFieldRow>
         <SettingsFieldRow label={t('settings.search.mermaid')} item="chat.mermaid">
