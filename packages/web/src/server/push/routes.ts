@@ -7,6 +7,7 @@ import { getUiAuthController } from '../lib/auth/ui-auth.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { pushEndpoint, pushSubscription } from './subscription-schema.ts';
 import { PushStoreError, PushSubscriptionStore } from './subscription-store.ts';
+import { PushVisibility } from './visibility.ts';
 
 export function pushCredentialOwner(request: Request): string | null {
   const grant = getUiAuthController().authenticate(request.headers, new URL(request.url), request.method, false);
@@ -20,7 +21,7 @@ export function createPushRoutes(options: { store?: PushSubscriptionStore; owner
   const store = options.store ?? new PushSubscriptionStore(join(ENV.dataDir, 'push-subscriptions.json'));
   const ownerOf = options.owner ?? pushCredentialOwner;
   const now = options.now ?? Date.now;
-  const visible = new Map<string, number>();
+  const visibility = new PushVisibility(now);
   app.use('/api/push/*', async (context, next) => {
     await next();
     context.header('cache-control', 'no-store');
@@ -48,16 +49,11 @@ export function createPushRoutes(options: { store?: PushSubscriptionStore; owner
   }));
   app.post('/api/push/visibility', async (context) => guarded(async () => {
     const body = await readJsonBodyBounded(context.req.raw, 1_024);
-    if (typeof body?.visible !== 'boolean') throw new PushStoreError('visible must be a boolean', 400);
-    const owner = context.get('pushOwner');
-    visible.delete(owner);
-    if (body.visible) visible.set(owner, now());
-    while (visible.size > 1_000) visible.delete(visible.keys().next().value!);
+    visibility.update(context.get('pushOwner'), body);
     return { ok: true };
   }));
   app.get('/api/push/visibility', (context) => {
-    const stamp = visible.get(context.get('pushOwner'));
-    return Response.json({ ok: true, visible: stamp !== undefined && now() - stamp < 30_000 });
+    return Response.json({ ok: true, visible: visibility.visible(context.get('pushOwner')) });
   });
   return app;
 }

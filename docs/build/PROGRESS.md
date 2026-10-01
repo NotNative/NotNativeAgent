@@ -2,6 +2,22 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Multi-window push presence · 20261001-30
+
+The mounted shell reports focused visibility immediately and every 20 seconds,
+using a separate lease for each surface. The server aggregates leases per
+authenticated owner, expires visibility after 30 seconds, and rejects stale
+sequence writes while retaining bounded ordering tombstones for five minutes.
+Hidden tabs cannot clear visible tabs. Five-second HTTP deadlines, serialized
+writes, runtime guards, and teardown release keep reporting bounded.
+Adversarial audit fixed insecure LAN HTTP nonce generation and pagehide
+visibility resurrection; pageshow restores BFCache reporting. Focused UI
+tests pass (13/13), web registration/presence tests pass (28/28), and the
+full web suite passes (1306/1306). Full UI tests pass (1555/1555) and workspace
+typechecks pass. Outbound notification generation and
+delivery, sender suppression, session click routing, and live acceptance
+remain open.
+
 ## 2026-10-01 · Browser push registration controls · 20261001-29
 
 Added Register, Unsubscribe, and Refresh to notification settings for supported

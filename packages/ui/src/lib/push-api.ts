@@ -7,6 +7,7 @@ async function pushRequest(path: string, method = 'GET', body?: unknown): Promis
     method, credentials: 'include',
     headers: body === undefined ? undefined : { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    ...(path === 'visibility' && method === 'POST' ? { signal: AbortSignal.timeout(5_000), keepalive: true } : {}),
   });
   if (!response.ok) throw new Error(`Push request failed (${response.status})`);
   const data: unknown = await response.json().catch(() => null);

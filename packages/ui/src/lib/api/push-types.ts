@@ -9,6 +9,6 @@ export interface PushApi {
   getVapidPublicKey(): Promise<{ publicKey: string }>;
   subscribe(subscription: PushSubscriptionInput): Promise<{ ok: true }>;
   unsubscribe(subscription: { endpoint: string }): Promise<{ ok: true }>;
-  setVisibility(presence: { visible: boolean; platform?: string }): Promise<{ ok: true }>;
+  setVisibility(presence: { visible: boolean; platform?: string; clientId?: string; sequence?: number }): Promise<{ ok: true }>;
   getVisibility(): Promise<{ ok: true; visible: boolean }>;
 }

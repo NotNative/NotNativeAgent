@@ -24,6 +24,13 @@ authentication secrets, HTTPS endpoints, collection sizes, and body sizes
 are validated at the owning boundary. Visibility is a bounded in-memory lease
 and expires after 30 seconds without a heartbeat.
 
+Visibility now aggregates per-window leases within each authenticated owner.
+`clientId` identifies a mounted surface and `sequence` orders its reports;
+hidden or delayed reports from one tab cannot clear another visible tab.
+Ordering tombstones expire after five minutes, and capacity is bounded to
+32 surfaces per owner and 1,000 owners without evicting active leases.
+Legacy `{visible}` callers retain an independent legacy lease.
+
 The shared RuntimeAPIs Push member now has a typed browser adapter for these
 routes. Its fetch path uses the active runtime and credentials, validates
 acknowledgements, and propagates failures.
@@ -55,10 +62,18 @@ Runtime identity/origin checks prevent continuing against a switched instance.
 Unsubscribe removes the server record before ending the browser subscription;
 server failure leaves the browser subscription available for retry.
 
+The mounted shell reports focused visibility immediately and every 20 seconds.
+Writes are serialized, coalesced to the latest state, and bounded by a
+five-second HTTP deadline. Page closure and shell disposal release the lease;
+crashes are handled by lease expiry. BFCache restores reporting on pageshow.
+Runtime changes do not send old cleanup reports into the newly selected
+instance. LAN HTTP pages use getRandomValues nonces without requiring the
+secure-context-only randomUUID API.
+
 ## Remaining delivery slice
 
 Registration alone does not complete Web Push. Encrypted bounded outbound
 delivery, event triggers, expired destination removal, notification settings
-and visibility suppression, visibility heartbeats, session
+and visibility suppression in the sender, session
 navigation from notifications, and live browser acceptance remain open. Registration
 does not infer a public server origin from an arbitrary request field.

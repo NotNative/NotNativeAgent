@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9f7417ce96cfadd2d3ddca653f1e194978992dff39cc623b1784adb1e88eaa0e",
+  "source_digest": "sha256:08f7a146a0a3bd2c38914c1f0df7b961214b20afa1c8743b2c93a36da0e91313",
   "counts": {
-    "modules": 679,
+    "modules": 682,
     "component_edges": 14
   },
   "components": [
@@ -24,19 +24,19 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 220
+      "module_count": 221
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 168
+      "module_count": 169
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 208
+      "module_count": 209
     },
     {
       "id": "web-entry",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 269,
-      "module_count": 111
+      "import_count": 272,
+      "module_count": 112
     },
     {
       "from": "ui-shell",
@@ -1328,6 +1328,7 @@
         "packages/ui/src/components/files/FilesView.tsx",
         "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/plan/PlanView.tsx",
+        "packages/ui/src/components/push-presence.tsx",
         "packages/ui/src/components/scheduled/scheduled-shell-wiring.tsx",
         "packages/ui/src/components/scheduled/scheduled-tasks-dialog.tsx",
         "packages/ui/src/components/settings/search.ts",
@@ -1453,6 +1454,16 @@
         "packages/ui/src/lib/files/api.ts",
         "packages/ui/src/lib/inline-comments.ts",
         "packages/ui/src/lib/plan/save-queue.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/push-presence.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/registry.ts",
+        "packages/ui/src/lib/push-presence.ts",
         "packages/ui/src/lib/runtime-switch.ts"
       ]
     },
@@ -3089,6 +3100,14 @@
       "imports": [
         "packages/ui/src/lib/api/push-types.ts",
         "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/push-presence.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/push-types.ts"
       ]
     },
     {
@@ -5627,7 +5646,8 @@
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/push/subscription-schema.ts",
-        "packages/web/src/server/push/subscription-store.ts"
+        "packages/web/src/server/push/subscription-store.ts",
+        "packages/web/src/server/push/visibility.ts"
       ]
     },
     {
@@ -5643,6 +5663,14 @@
       "imports": [
         "packages/web/src/server/push/subscription-schema.ts",
         "packages/web/src/server/scheduled/config-lock.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/push/visibility.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/push/subscription-store.ts"
       ]
     },
     {

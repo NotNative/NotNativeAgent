@@ -40,6 +40,7 @@ import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
 import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
 import { useKeybind } from '../lib/shortcuts/hooks.ts';
+import { usePushPresence } from './push-presence.tsx';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -50,6 +51,7 @@ function subscribeRuntimeKey(notify: () => void): () => void {
  * SettingsWindow (gear / mod+, / ?settings=<slug>) and the P6-1 FilesView
  * (Files button; full surface with the tree over the chat column). */
 export function MainLayout(): ReactNode {
+  usePushPresence();
   const engine = mountEngine();
   const miniChat = readMiniChatLaunch(typeof window === 'undefined' ? '' : window.location.search).enabled;
   const { t } = useI18n();
