@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:6a2af71e2470e5d0cac3f69fdba7b9fd305eff89f9823b2dae75328bca8314b0",
+  "source_digest": "sha256:f1376fd6a421ca44854fac3b4ded888c8ecd26a938231eeb047b3caa64401b95",
   "counts": {
-    "modules": 617,
+    "modules": 620,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 172
+      "module_count": 175
     },
     {
       "id": "ui-shell",
@@ -2351,6 +2351,30 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locales.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2360,7 +2384,10 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-b.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-c.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-d.ts",
-        "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts"
+        "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
+        "packages/ui/src/lib/i18n/messages/locale-shortcuts-a.ts",
+        "packages/ui/src/lib/i18n/messages/locale-shortcuts-b.ts",
+        "packages/ui/src/lib/i18n/messages/locale-shortcuts-c.ts"
       ]
     },
     {

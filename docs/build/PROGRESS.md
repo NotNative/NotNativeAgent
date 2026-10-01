@@ -3883,3 +3883,7 @@ configuration import only; live SSH transport is still outstanding.
   labels/units now use catalog strings across all 11 partial locales. Catalog
   coverage is pinned without changing retention bounds or transport values.
   Version 20260930-115.
+- **2026-10-01 · Shortcut recorder localization.** Shortcut category headings
+  and recorder-dialog feedback/actions now use dedicated catalog modules for
+  all 11 partial locales. Catalog coverage and replacement-label interpolation
+  are pinned in i18n tests. Version 20261001-1.

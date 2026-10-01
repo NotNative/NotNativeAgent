@@ -252,6 +252,9 @@ const en = {
   'settings.shortcuts.replaceable': 'Will replace {otherActionId}',
   'settings.shortcuts.maxKeys': 'Too many keys — record a different chord',
   'settings.shortcuts.risky': 'Browsers may reserve this combo (Ctrl+T/W/N/L…)',
+  'settings.shortcuts.clear': 'Clear',
+  'settings.shortcuts.cancel': 'Cancel',
+  'settings.shortcuts.confirm': 'Confirm',
   // Files surface (doc 06 §2): tree, tabs, dialogs, editor statuses.
   'filesView.tree.search.placeholder': 'Search files...',
   'filesView.tree.actions.clearSearch': 'Clear search',

@@ -152,6 +152,26 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.sessions.retentionAction',
         'settings.sessions.archive',
         'settings.sessions.delete',
+        'settings.search.shortcutsSession',
+        'settings.search.shortcutsModels',
+        'settings.search.shortcutsPanels',
+        'settings.search.shortcutsNavigation',
+        'settings.search.shortcutsApplication',
+        'settings.shortcuts.edit',
+        'settings.shortcuts.reset',
+        'settings.shortcuts.resetAll',
+        'settings.shortcuts.unassigned',
+        'settings.shortcuts.recording',
+        'settings.shortcuts.sequenceHint',
+        'settings.shortcuts.conflict',
+        'settings.shortcuts.conflictInternal',
+        'settings.shortcuts.conflictPrefix',
+        'settings.shortcuts.replaceable',
+        'settings.shortcuts.maxKeys',
+        'settings.shortcuts.risky',
+        'settings.shortcuts.clear',
+        'settings.shortcuts.cancel',
+        'settings.shortcuts.confirm',
         'settings.notifications.enable',
         'settings.notifications.apiUnavailable',
         'settings.notifications.deliver',
@@ -205,6 +225,8 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(interpolate(de['settings.chat.inputHistory.helper'], { max: 100, default: 40 })).toBe('1..100 Nachrichten, Standard 40');
     expect(de['settings.chat.inputHistory.unit']).toBe('Nachrichten');
     expect(interpolate(de['settings.chat.defaultBudget.helper'], { max: 100000000, step: 50000 })).toBe('1000..100000000 Tokens (Schritt 50000)');
+    expect(de['settings.shortcuts.resetAll']).toBe('Alle zurücksetzen');
+    expect(interpolate(de['settings.shortcuts.replaceable'], { otherActionId: 'focus_input' })).toBe('focus_input wird ersetzt');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(

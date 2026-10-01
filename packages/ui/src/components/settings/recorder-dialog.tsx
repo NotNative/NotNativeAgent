@@ -114,10 +114,10 @@ export function ShortcutRecordingDialog({
             className="rounded border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
             onClick={() => setState((current) => recorderReset(current))}
           >
-            Clear
+            {t('settings.shortcuts.clear')}
           </button>
           <button type="button" className="rounded px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground" onClick={onCancel}>
-            Cancel
+            {t('settings.shortcuts.cancel')}
           </button>
           <button
             type="button"
@@ -128,7 +128,7 @@ export function ShortcutRecordingDialog({
               if (!result.blocked) onConfirm(result.overrides);
             }}
           >
-            Confirm
+            {t('settings.shortcuts.confirm')}
           </button>
         </div>
       </div>

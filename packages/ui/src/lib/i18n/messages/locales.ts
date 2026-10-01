@@ -15,10 +15,23 @@ import { uk, es } from './locale-catalogs-c.ts';
 import { ptBR, ko, pl } from './locale-catalogs-b.ts';
 import { ja } from './locale-catalogs-e.ts';
 import { tr } from './locale-catalogs-c.ts';
+import { deShortcuts, frShortcuts, zhCNShortcuts } from './locale-shortcuts-a.ts';
+import { zhTWShortcuts, ukShortcuts, esShortcuts, ptBRShortcuts } from './locale-shortcuts-b.ts';
+import { koShortcuts, plShortcuts, jaShortcuts, trShortcuts } from './locale-shortcuts-c.ts';
 import en, { type Dictionary } from './en.ts';
 
 const CATALOGS: Record<string, PartialDictionary> = {
-  de, fr, 'zh-CN': zhCN, 'zh-TW': zhTW, uk, es, 'pt-BR': ptBR, ko, pl, ja, tr,
+  de: { ...de, ...deShortcuts },
+  fr: { ...fr, ...frShortcuts },
+  'zh-CN': { ...zhCN, ...zhCNShortcuts },
+  'zh-TW': { ...zhTW, ...zhTWShortcuts },
+  uk: { ...uk, ...ukShortcuts },
+  es: { ...es, ...esShortcuts },
+  'pt-BR': { ...ptBR, ...ptBRShortcuts },
+  ko: { ...ko, ...koShortcuts },
+  pl: { ...pl, ...plShortcuts },
+  ja: { ...ja, ...jaShortcuts },
+  tr: { ...tr, ...trShortcuts },
 };
 
 /** Full dictionaries: en complete, others merged over en per §H.2 resolve. */
