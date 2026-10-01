@@ -9,9 +9,11 @@
  */
 import type { PartialDictionary } from './en.ts';
 
-import { de, fr, zhCN, zhTW } from './locale-catalogs-a.ts';
+import { de, fr, zhCN } from './locale-catalogs-a.ts';
+import { zhTW } from './locale-catalogs-d.ts';
 import { uk, es } from './locale-catalogs-c.ts';
-import { ptBR, ko, pl, ja } from './locale-catalogs-b.ts';
+import { ptBR, ko, pl } from './locale-catalogs-b.ts';
+import { ja } from './locale-catalogs-e.ts';
 import { tr } from './locale-catalogs-c.ts';
 import en, { type Dictionary } from './en.ts';
 

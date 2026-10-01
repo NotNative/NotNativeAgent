@@ -120,6 +120,25 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
         'settings.chat.defaultBudgetAllSessions',
         'settings.chat.defaultBudgetLabel',
         'settings.chat.enableSessionGoals',
+        'settings.notifications.enable',
+        'settings.notifications.apiUnavailable',
+        'settings.notifications.deliver',
+        'settings.notifications.always',
+        'settings.notifications.hiddenOnly',
+        'settings.notifications.onCompletion',
+        'settings.notifications.onError',
+        'settings.notifications.onQuestion',
+        'settings.notifications.onSubtask',
+        'settings.notifications.harnessUpdates',
+        'settings.notifications.templates',
+        'settings.notifications.page.template.defaults.completion.title',
+        'settings.notifications.page.template.defaults.completion.message',
+        'settings.notifications.page.template.defaults.error.title',
+        'settings.notifications.page.template.defaults.error.message',
+        'settings.notifications.page.template.defaults.question.title',
+        'settings.notifications.page.template.defaults.question.message',
+        'settings.notifications.page.template.defaults.subtask.title',
+        'settings.notifications.page.template.defaults.subtask.message',
       ]) {
         expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
       }
@@ -150,6 +169,7 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
     expect(de['settings.chat.sideBySideDiff']).toBe('Nebeneinander');
     expect(de['settings.search.followUp']).toBe('Folgeverhalten');
     expect(de['settings.chat.steerInFlightTurn']).toBe('Laufenden Durchlauf steuern');
+    expect(de['settings.notifications.enable']).toBe('Benachrichtigungen aktivieren');
     expect(dictionaryFor('fr')['settings.chat.lineWrap']).toBe('Activer le retour à la ligne des longues lignes de code');
     expect(dictionaryFor('fr')['settings.search.keymap']).toBe('Configuration des touches de l’éditeur de fichiers');
     expect(dictionaryFor('pl')['shell.mockBanner']).toBe(

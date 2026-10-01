@@ -3862,3 +3862,9 @@ configuration import only; live SSH transport is still outstanding.
   unset, explicit `steer`, invalid legacy values, and reset behavior. The
   adversarial audit confirmed the prior UI/send mismatch and found no remaining
   defects after the fix. Full UI tests pass (1464/1464). Version 20260930-110.
+- **2026-09-30 · Notification settings localization.** The notifications
+  settings labels, delivery modes, unavailable-API helper, event toggles, and
+  template heading and default notification previews now use catalog keys
+  translated in all 11 partial locales. Catalog coverage and German
+  translation-key coverage are pinned by i18n tests.
+  Version 20260930-112.
