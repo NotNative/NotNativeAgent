@@ -14,10 +14,10 @@
  * inline-comment draft store (source 'terminal') and refocuses the composer.
  * Project-action orchestration + URL preview are registered to doc 12/13.
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-  closeTerminalSession, createTerminalSession, forceKillTerminals, restartTerminalSession, resizeTerminalSession,
+  closeTerminalSession, createTerminalSession, forceKillTerminals, restartTerminalSession, resizeTerminalSession, updateTerminalAppearance,
 } from '../../lib/server-api.ts';
 import { observeTerminalSessions } from '../../lib/terminal/observer.ts';
 import {
@@ -31,6 +31,7 @@ import { useI18n } from '../I18nProvider.tsx';
 import { useInlineCommentDrafts } from '../../lib/comments/drafts.ts';
 import { useActiveSessionKey } from '../comments/useActiveSessionKey.ts';
 import { FOCUS_EVENT_NAME } from '../comments/focus-chat.ts';
+import { useTheme } from '../ThemeProvider.tsx';
 
 const PROVISIONAL_SIZE = { cols: 80, rows: 24 };
 const EMPTY_TABS: TerminalTab[] = [];
@@ -42,9 +43,12 @@ export function TerminalView({ directory, visible, compact = false }: TerminalVi
   const tabs = useTerminalStore((state) => state.dirs[key]?.tabs ?? EMPTY_TABS);
   const activeTabId = useTerminalStore((state) => state.dirs[key]?.activeTabId ?? '');
   const active = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const { variant, theme } = useTheme();
+  const appearance = useMemo(() => ({ themeMode: variant, terminalBackground: theme.colors.surface.background, terminalForeground: theme.colors.surface.foreground }), [theme, variant]);
   useTerminalBootstrap(directory);
   useTerminalObserver(directory, key, visible);
-  useTerminalCreate(directory, visible, active);
+  useTerminalCreate(directory, visible, active, appearance);
+  useTerminalAppearance(tabs, visible, appearance);
   useTerminalStream(directory, key, active, visible);
   if (active === null) return null;
   return (
@@ -79,7 +83,9 @@ function useTerminalObserver(directory: string, key: string, visible: boolean): 
  * (Set) so a fast tab switch cannot double-create. A failed create marked
  * exited is NEVER re-created automatically (the app-wide failed-create
  * loop): the user retries via the + tab button. */
-function useTerminalCreate(directory: string, visible: boolean, active: TerminalTab | null): void {
+type TerminalAppearance = { themeMode: 'light' | 'dark'; terminalBackground: string; terminalForeground: string };
+
+function useTerminalCreate(directory: string, visible: boolean, active: TerminalTab | null, appearance: TerminalAppearance): void {
   const flights = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!visible || active === null) return undefined;
@@ -87,7 +93,7 @@ function useTerminalCreate(directory: string, visible: boolean, active: Terminal
     if (flights.current.has(active.id)) return undefined;
     flights.current.add(active.id);
     patchTabLifecycle(directory, active.id, 'starting');
-    void createTerminalSession({ cwd: directory, sessionId: active.id, ...PROVISIONAL_SIZE, themeMode: 'dark' })
+    void createTerminalSession({ cwd: directory, sessionId: active.id, ...PROVISIONAL_SIZE, ...appearance })
     .then(async (created) => {
       if (!created.ok) patchTabLifecycle(directory, active.id, 'exited');
       else if (terminalTabStillExists(directory, active.id)) {
@@ -101,7 +107,16 @@ function useTerminalCreate(directory: string, visible: boolean, active: Terminal
       })
       .finally(() => { flights.current.delete(active.id); });
     return undefined;
-  }, [active, directory, visible]);
+  }, [active, appearance, directory, visible]);
+}
+
+function useTerminalAppearance(tabs: TerminalTab[], visible: boolean, appearance: TerminalAppearance): void {
+  useEffect(() => {
+    if (!visible) return;
+    for (const sessionId of new Set(tabs.flatMap((tab) => tab.terminalSessionId ? [tab.terminalSessionId] : []))) {
+      void updateTerminalAppearance(sessionId, appearance).catch(() => undefined);
+    }
+  }, [appearance, tabs, visible]);
 }
 
 function terminalTabStillExists(directory: string, tabId: string): boolean {

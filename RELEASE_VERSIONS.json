@@ -676,6 +676,10 @@
     {
       "version": "20260930-93",
       "content_sha256": "fe31fe6a83cb3e7df01465a8a6718c10ad36e8f68106ac33ced7400e148bb797"
+    },
+    {
+      "version": "20260930-94",
+      "content_sha256": "9000ddf67ac5e9e27e2b0d5e7386a98986167460f11915683c0726d64229cf3e"
     }
   ]
 }

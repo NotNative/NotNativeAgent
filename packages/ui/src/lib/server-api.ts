@@ -202,6 +202,13 @@ export async function resizeTerminalSession(sessionId: string, cols: number, row
   return response.ok;
 }
 
+export async function updateTerminalAppearance(sessionId: string, appearance: { themeMode?: 'light' | 'dark'; terminalBackground?: string; terminalForeground?: string }): Promise<boolean> {
+  const response = await runtimeFetch(`/api/terminal/${encodeURIComponent(sessionId)}/appearance`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(appearance),
+  });
+  return response.ok;
+}
+
 export async function restartTerminalSession(sessionId: string, options: { cwd?: string; cols?: number; rows?: number } = {}): Promise<boolean> {
   const response = await runtimeFetch(`/api/terminal/${encodeURIComponent(sessionId)}/restart`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(options),

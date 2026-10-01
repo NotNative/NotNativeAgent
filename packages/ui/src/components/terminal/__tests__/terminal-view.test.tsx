@@ -24,13 +24,19 @@ vi.mock('../../../lib/server-api.ts', () => ({
   touchTerminalSessions: vi.fn(async () => true),
   restartTerminalSession: vi.fn(async () => true),
   resizeTerminalSession: vi.fn(async () => true),
+  updateTerminalAppearance: vi.fn(async () => true),
   forceKillTerminals: vi.fn(async () => ({ ok: true, killedCount: 1 })),
 }));
+vi.mock('../../ThemeProvider.tsx', () => ({
+  ThemeProvider: ({ children }: { children: ReactNode }) => children,
+  useTheme: () => ({ variant: 'dark', theme: { colors: { surface: { background: '#101010', foreground: '#eeeeee' } } } }),
+}));
 
-import { closeTerminalSession, createTerminalSession, forceKillTerminals, listTerminalSessions, touchTerminalSessions } from '../../../lib/server-api.ts';
+import { closeTerminalSession, createTerminalSession, forceKillTerminals, listTerminalSessions, touchTerminalSessions, updateTerminalAppearance } from '../../../lib/server-api.ts';
 import { TerminalView } from '../TerminalView.tsx';
 import { TerminalKeepaliveOwner } from '../TerminalKeepaliveOwner.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
+import { ThemeProvider } from '../../ThemeProvider.tsx';
 import { __resetTerminalsForTests, getTerminalBuffer, normalizeTerminalDirectory, useTerminalStore } from '../../../lib/terminal/store.ts';
 import { setTerminalTransportFactory, __resetTerminalTransportForTests } from '../../../lib/terminal/transport-singleton.ts';
 
@@ -83,7 +89,7 @@ async function renderView(): Promise<void> {
   document.body.appendChild(container);
   rootHandle = createRoot(container);
   await act(async () => {
-    rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible /></I18nProvider>);
+    rootHandle!.render(<I18nProvider><ThemeProvider><TerminalView directory={DIR} visible /></ThemeProvider></I18nProvider>);
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -136,13 +142,13 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider><TerminalView directory={DIR} visible={false} /></ThemeProvider></I18nProvider>));
     expect(listTerminalSessions).not.toHaveBeenCalled();
     expect(createTerminalSession).not.toHaveBeenCalled();
-    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider><TerminalView directory={DIR} visible /></ThemeProvider></I18nProvider>));
     expect(listTerminalSessions).toHaveBeenCalledTimes(1);
     expect(createTerminalSession).toHaveBeenCalledTimes(1);
-    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider><TerminalView directory={DIR} visible={false} /></ThemeProvider></I18nProvider>));
     window.dispatchEvent(new Event('focus'));
     expect(listTerminalSessions).toHaveBeenCalledTimes(1);
   });
@@ -158,8 +164,8 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<I18nProvider><TerminalKeepaliveOwner /><TerminalView directory={DIR} visible={false} /></I18nProvider>));
-    await act(async () => rootHandle!.render(<I18nProvider><TerminalKeepaliveOwner /><TerminalView directory={otherDirectory} visible={false} /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider><TerminalKeepaliveOwner /><TerminalView directory={DIR} visible={false} /></ThemeProvider></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider><TerminalKeepaliveOwner /><TerminalView directory={otherDirectory} visible={false} /></ThemeProvider></I18nProvider>));
     await act(async () => vi.advanceTimersByTime(10 * 60_000));
     expect(touchTerminalSessions).toHaveBeenCalledExactlyOnceWith(['background-session', 'other-session']);
     expect(listTerminalSessions).not.toHaveBeenCalled();
@@ -180,9 +186,11 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
     expect(request.cwd).toBe(DIR);
     expect(request.cols).toBe(80);
     expect(request.rows).toBe(24);
+    expect(request).toMatchObject({ themeMode: 'dark', terminalBackground: '#101010', terminalForeground: '#eeeeee' });
     const key = normalizeTerminalDirectory(DIR);
     const tab = useTerminalStore.getState().dirs[key]!.tabs[0]!;
     expect(request.sessionId).toBe(tab.id); // section F1 step 5: sessionId = tabId
+    expect(updateTerminalAppearance).toHaveBeenCalledWith(request.sessionId, { themeMode: 'dark', terminalBackground: '#101010', terminalForeground: '#eeeeee' });
 
     const attach = sentFrames().find((frame) => frame.t === 'attach');
     expect(attach).toEqual({ v: 3, t: 'attach', s: request.sessionId });
@@ -265,7 +273,7 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
     document.body.appendChild(container);
     rootHandle = createRoot(container);
     await act(async () => {
-      rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible compact /></I18nProvider>);
+      rootHandle!.render(<I18nProvider><ThemeProvider><TerminalView directory={DIR} visible compact /></ThemeProvider></I18nProvider>);
       await new Promise((done) => setTimeout(done, 10));
     });
     expect((document.querySelector('[data-testid="terminal-input"]') as HTMLInputElement).className).toContain('basis-full');

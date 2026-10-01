@@ -2,6 +2,15 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P7 terminal appearance follows the active theme
+
+Terminal PTYs now receive the resolved theme mode and surface colors at creation,
+and visible sessions receive appearance updates when the theme changes. The
+existing terminal appearance route carries those updates to Mode 2031-aware
+applications. Adversarial review found no confirmed defects; focused terminal
+tests (6/6), UI typecheck, and diff checks pass. Shiki and diff consumers remain
+open under E6.
+
 ## 2026-09-30 · P12b-51 authenticated desktop updater bridge (20260930-78)
 
 The embedded server now passes authenticated `/api/openchamber/update-check`
@@ -3713,7 +3722,7 @@ configuration import only; live SSH transport is still outstanding.
 | E3 | 38 preset palettes self-authored seeds | P5-2 done | originals untranscribed (doc gap §M); NOTES/14 C.1/E.2 interpretation recorded |
 | E4 | iframe theme sync + VS Code adapter | defer (P10/P12) | no embedded/vscode surface until those phases |
 | E5 | custom-theme import UX (Appearance→Reload) | P5-3 | ✅ Appearance exposes Reload; the client reloads validated themes from GET /api/config/themes. |
-| E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |
+| E6 | shiki/terminal/diff theme consumers | P6/P7 | Terminal mode/colors follow the active theme (2026-09-30); Shiki and diff consumers remain open. §E.8 conversion contracts recorded in NOTES/14 |
 
 - **2026-09-30 · P12 managed SSH bundle foundation.** Added a bounded,
   platform-neutral gzip/USTAR payload builder for the verified server bundle,
