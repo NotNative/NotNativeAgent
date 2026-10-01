@@ -3763,4 +3763,10 @@ configuration import only; live SSH transport is still outstanding.
   (1251/1251); workspace typechecks pass. Delivery is at-least-once across an
   upstream-accepted POST whose acknowledgment is lost. Holds/backoff remain
   per-runtime by the existing queue contract.
+- **2026-09-30 · P13 Windows test-worker bound.** Vitest now caps package suites
+  at four workers by default. The unbounded UI command exhausted this host's
+  memory and OS threads; with the cap, the normal `pnpm --filter @notnative/ui
+  test` and web test commands both pass (1456/1456 and 1252/1252). Workspace
+  typechecks and the web production build pass; adversarial review found no
+  config/glob defect. Version 20260930-85.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

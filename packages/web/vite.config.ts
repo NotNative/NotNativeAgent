@@ -1,7 +1,8 @@
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, type ProxyOptions } from 'vite';
+import { defineConfig } from 'vitest/config';
+import type { ProxyOptions } from 'vite';
 
 const apiTarget = `http://127.0.0.1:${process.env.NOTNATIVE_HMR_API_PORT ?? '3902'}`;
 
@@ -46,4 +47,9 @@ export default defineConfig({
     },
   },
   build: { outDir: 'dist', emptyOutDir: true },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{ts,tsx,js}'],
+    maxWorkers: 4,
+  },
 });
