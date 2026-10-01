@@ -2,6 +2,18 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P12b-51 authenticated desktop updater bridge (20260930-78)
+
+The embedded server now passes authenticated `/api/openchamber/update-check`
+and `/api/openchamber/update-install` calls to Electron's native updater. Install
+rechecks and downloads before acknowledging, then starts the restart after the
+HTTP response; update-status polling exposes late installer failures and
+supports retry. The adversarial audit fixed a shared pending-update race,
+late-failure visibility, and retry lockout. Full Electron tests pass (203/203
+with two Windows symlink tests skipped), full web tests pass (1,247/1,247),
+workspace typechecks pass, and the artifacts-only Windows package builds.
+Packaged GUI acceptance and actual NSIS installation remain outstanding.
+
 ## 2026-09-30 · P13 source integration verification (20260930-77)
 
 The local server smoke passes through health, auth, session creation, prompt
@@ -167,7 +179,7 @@ configuration import only; live SSH transport is still outstanding.
 | P9 autonomy | 12 | ✅ done 2026-09-30 (goals, scheduled tasks, snippets/starters, message queue UI, multi-run/fusion, session orchestration, live goal/scheduled feedback, adversarial reviews; full web/UI releases through 20260930-2) |
 | P10 knowledge/context | 15 | ✅ done 2026-09-30 (isolated context storage and durable migration, notes/plans/todos, shared plans, agent memory/tool/runtime, session knowledge/riding, context pins, skills/catalog/install, MCP config/runtime, obligatory context, file/image guards, system reminders, BTW, and H.2 assist generation; adversarial reviews, web/UI suites, and graph/quality gates) |
 | P11 preview | 13 | 🔶 Windows dev-server discovery, loopback readiness probe, isolated Electron guest, bounded DOM snapshot, identity-bound broker IPC, governed NNA browser open/snapshot/inspect/click/scroll/type/capture/history, user element/region/freehand screenshot drafts, server-owned staged/unstaged diff snapshots, explicit NNA model explanation, and the secure raw dev-tunnel host/direct/relay panel seam delivered 2026-09-30; walkthrough source selectors, generation lifecycle, UI lifecycle wiring, durable identity-bound cache, model selection/readiness, cache-backed metadata, direct model transport, rich chapter/stop schema, and strict provider response-schema requests delivered 2026-09-30; installed-GUI acceptance remains |
-| P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, source installer, and launch-at-login delivered; native-window walkthrough and remaining P12b surfaces pending |
+| P12 Electron | 09 | 🔶 installable Windows x64 shell, in-process web service, native terminal bundle, tray, source installer, launch-at-login, remote SSH lifecycle, password token issuance, Mini Chat, native updater controls, and authenticated server updater bridge delivered; packaged installation and native-window GUI acceptance remain |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
 

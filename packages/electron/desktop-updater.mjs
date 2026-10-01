@@ -17,6 +17,7 @@ export function createDesktopUpdater({
   let pendingUpdate = null;
   let configured = false;
   let activeInstall = null;
+  let lastInstallError = null;
   const updaterListeners = [];
 
   function listen(event, handler) {
@@ -99,6 +100,7 @@ export function createDesktopUpdater({
       throw new Error('Desktop update requires NotNativeDesktop.app to be installed in /Applications');
     }
     if (activeInstall) throw new Error('Desktop update installation is already in progress');
+    lastInstallError = null;
     return new Promise((resolve, reject) => {
       const attempt = { settled: false, failed: false, timer: null, onError: null };
       activeInstall = attempt;
@@ -118,6 +120,7 @@ export function createDesktopUpdater({
         attempt.failed = true;
         try { onInstallRollback(); } catch { /* app remains usable */ }
         const failure = new Error(`Unable to install desktop update: ${errorText(error)}`, { cause: error });
+        lastInstallError = failure.message;
         try { onInstallError(failure); } catch { /* error reporting must not block rollback */ }
         // Keep the error listener beyond the IPC grace window. Some installer
         // failures arrive after quitAndInstall returns; dropping it would leave
@@ -157,5 +160,8 @@ export function createDesktopUpdater({
     for (const [event, handler] of updaterListeners.splice(0)) autoUpdater.removeListener(event, handler);
   }
 
-  return { setup, check, download, install, getPending, capability, dispose };
+  function getInstallError() { return lastInstallError; }
+  function clearInstallError() { lastInstallError = null; }
+
+  return { setup, check, download, install, getPending, getInstallError, clearInstallError, capability, dispose };
 }

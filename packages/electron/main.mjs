@@ -1154,7 +1154,14 @@ async function startServerAndProbe() {
   // The managed NNA mode waits for its child readiness line before it can
   // publish a server handle.  Await both the legacy synchronous shape and the
   // current Promise-returning server boot contract before probing /health.
-  serverHandle = await module.startServer();
+  const desktopUpdaterBridge = desktopUpdater ? {
+    check: (...args) => desktopUpdater.check(...args),
+    download: (...args) => desktopUpdater.download(...args),
+    install: (...args) => desktopUpdater.install(...args),
+    getInstallError: () => desktopUpdater.getInstallError(),
+    clearInstallError: () => desktopUpdater.clearInstallError(),
+  } : undefined;
+  serverHandle = await module.startServer(desktopUpdaterBridge ? { desktopUpdater: desktopUpdaterBridge } : undefined);
   console.log(`[shell] server handle bound to port ${serverHandle.port}`);
   return waitForHealth(localOrigin());
 }

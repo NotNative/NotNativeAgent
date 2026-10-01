@@ -1,5 +1,16 @@
 # NOTES 09 - Electron desktop shell
 
+P12b-51 completes the authenticated server-to-desktop updater path. The
+embedded server receives the packaged Electron updater callbacks and exposes
+the documented `/api/openchamber/update-check` and
+`/api/openchamber/update-install` routes behind the API auth gate. Install
+rechecks and downloads the selected package, acknowledges before scheduling
+`quitAndInstall`, and reports synchronous or late installer failures through
+status polling. Polls during an active operation do not mutate Electron's
+shared pending-update state; a reported late failure clears on retry. Standalone
+servers retain their safe unavailable/unsupported response. Source and GUI
+acceptance remain separate from this route-level verification.
+
 P12b-49 adds `ssh-remote-command.mjs`, a bounded remote shell-script runner
 for the managed SSH work. It derives the executable, options, and destination
 from the validated catalog command, uses a fixed `sh -s` remote command, and
@@ -200,11 +211,9 @@ remaining P12 slices ride after it.
   The Remote Instances page now edits SSH commands and imports direct `Host`
   aliases from the local SSH config through a bounded main-frame-only read;
   the external SSH connect/disconnect tunnel and status production now work.
-  Remaining: managed SSH install/start, password-token issuance/persistence,
-  plus general IPC catalog growth (§3.1),
-  boot/transport and multi-instance remote
-  (§2.3/2.8), updater (§9), Mini Chat (§4.6), and SSH bridge body
-  (desktopSshStore seam is already the UI-side contract, P8-6).
+  Remaining implementation acceptance: installed GUI walkthrough and NSIS
+  install/upgrade validation. Managed SSH remote-host acceptance and cross-
+  process arbitration remain separately tracked in NOTES/20 and section B2.
 
 - **D-09-45** SSH definitions are parsed as argv without invoking a shell.
   Executable config/provider hooks, remote-command options, and config-file flags are rejected, secrets

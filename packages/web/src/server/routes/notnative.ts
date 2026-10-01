@@ -16,9 +16,12 @@ import { sseResponse } from '../lib/sse.ts';
 
 const CONTROL_HEARTBEAT_MS = 45_000;
 const SERVER_STARTED_AT = new Date().toISOString();
+type DesktopUpdateInfo = { available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null };
+type DesktopUpdater = { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void };
 
-export function createNotNativeRoutes(): Hono {
+export function createNotNativeRoutes({ desktopUpdater }: { desktopUpdater?: DesktopUpdater } = {}): Hono {
   const app = new Hono();
+  let installState: { phase: 'idle' | 'starting' | 'restarting' | 'failed'; version?: string; error?: string } = { phase: 'idle' };
 
   // SSE control stream (§5.4): unnamed data frames `{type:"notnative:*", properties}`
   // — onmessage-compatible; comment heartbeats keep intermediaries alive only.
@@ -59,10 +62,12 @@ export function createNotNativeRoutes(): Hono {
       tunnelUrl,
     });
   });
-  app.get('/api/notnative/update-check', (c) => updateCheck(c));
-  app.post('/api/notnative/update-install', (c) =>
-    c.json({ error: 'self-update is not available in this build', code: 'UPDATE_UNSUPPORTED' }, 400),
-  );
+  for (const path of ['/api/openchamber/update-check', '/api/notnative/update-check']) {
+    app.get(path, (c) => updateCheck(c, desktopUpdater, installState));
+  }
+  for (const path of ['/api/openchamber/update-install', '/api/notnative/update-install']) {
+    app.post(path, (c) => installDesktopUpdate(c, desktopUpdater, () => installState, (next) => { installState = next; }));
+  }
   // PWA manifest endpoint (client builds the <link> against this; fallback blob exists)
   app.get('/manifest.webmanifest', (c) => pwaManifest(c));
   return app;
@@ -82,13 +87,73 @@ function controlStream(c: Context): Response {
   }, c.req.raw.signal);
 }
 
-function updateCheck(c: Context): Response {
-  // UI update polling contract (doc 01 §4.5). Self-update machinery lands with P4/P12.
-  return c.json({
-    available: false,
-    currentVersion: ENV.version,
-    nextSuggestedCheckInSec: 3600,
-  });
+async function updateCheck(c: Context, updater: DesktopUpdater | undefined,
+  installState: { phase: 'idle' | 'starting' | 'restarting' | 'failed'; version?: string; error?: string }): Promise<Response> {
+  const lateInstallError = updater?.getInstallError?.();
+  if (c.req.query('updateStatus') === 'true' && lateInstallError) {
+    return c.json({ code: 'DESKTOP_UPDATE_RESTART_FAILED', error: lateInstallError }, 503);
+  }
+  if (c.req.query('updateStatus') === 'true' && installState.phase === 'failed') {
+    return c.json({ code: 'DESKTOP_UPDATE_RESTART_FAILED', error: installState.error ?? 'Desktop update failed' }, 503);
+  }
+  if (!updater) return c.json({ available: false, currentVersion: ENV.version, nextSuggestedCheckInSec: 3600 });
+  // check() mutates electron-updater's shared pendingUpdate. Calling it while
+  // download/install is underway can clear or replace the exact artifact the
+  // install request is using. Return the active operation's known target.
+  if (installState.phase !== 'idle') {
+    return c.json({ available: Boolean(installState.version), currentVersion: ENV.version,
+      version: installState.version ?? null, updateOwner: 'electron-updater', nextSuggestedCheckInSec: 3600,
+      ...(c.req.query('updateStatus') === 'true' ? { updateStatus: installState.phase,
+        ...(installState.version ? { targetVersion: installState.version } : {}) } : {}) });
+  }
+  try {
+    const result = await updater.check();
+    return c.json({ ...result, currentVersion: result.currentVersion || ENV.version,
+      updateOwner: result.available ? 'electron-updater' : undefined,
+      nextSuggestedCheckInSec: 3600,
+      ...(c.req.query('updateStatus') === 'true' ? { updateStatus: installState.phase,
+        ...(installState.version ? { targetVersion: installState.version } : {}) } : {}) });
+  } catch (error) {
+    return c.json({ code: 'DESKTOP_UPDATE_CHECK_FAILED', error: error instanceof Error ? error.message : 'Desktop update check failed' }, 503);
+  }
+}
+
+async function installDesktopUpdate(c: Context, updater: DesktopUpdater | undefined,
+  getState: () => { phase: 'idle' | 'starting' | 'restarting' | 'failed'; version?: string; error?: string },
+  setState: (state: { phase: 'idle' | 'starting' | 'restarting' | 'failed'; version?: string; error?: string }) => void): Promise<Response> {
+  if (!updater) return c.json({ error: 'Self-update is not available in this build', code: 'UPDATE_UNSUPPORTED' }, 400);
+  const previousLateFailure = updater.getInstallError?.();
+  if ((getState().phase === 'starting' || getState().phase === 'restarting') && !previousLateFailure) {
+    return c.json({ error: 'A desktop update is already starting', code: 'UPDATE_ALREADY_IN_PROGRESS' }, 409);
+  }
+  if (previousLateFailure) setState({ phase: 'idle' });
+  updater.clearInstallError?.();
+  setState({ phase: 'starting' });
+  try {
+    const result = await updater.check();
+    if (!result.available || !result.version) {
+      setState({ phase: 'idle' });
+      return c.json({ success: false, error: 'No desktop update is available', code: 'UPDATE_NOT_AVAILABLE' }, 409);
+    }
+    const targetVersion = result.version;
+    setState({ phase: 'starting', version: targetVersion });
+    await updater.download();
+    // Let Hono return the acknowledgement before quitAndInstall can close the
+    // embedded host's socket. Subsequent updateStatus polls surface late errors.
+    setTimeout(() => {
+      setState({ phase: 'restarting', version: targetVersion });
+      void updater.install().catch((error: unknown) => {
+        setState({ phase: 'failed', version: targetVersion,
+          error: error instanceof Error ? error.message : 'Unable to install desktop update' });
+      });
+    }, 100);
+    return c.json({ success: true, message: 'Desktop update is starting', version: targetVersion,
+      autoRestart: true, updateOwner: 'electron-updater' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to install desktop update';
+    setState({ phase: 'failed', error: message });
+    return c.json({ error: message, code: 'DESKTOP_UPDATE_RESTART_FAILED' }, 503);
+  }
 }
 
 function pwaManifest(c: Context): Response {

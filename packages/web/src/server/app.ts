@@ -164,7 +164,8 @@ function registerHarnessProxy(app: Hono): void {
 
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
   browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
-  agentToolCallbackSecret?: string }) {
+  agentToolCallbackSecret?: string;
+  desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void } }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
 
@@ -191,7 +192,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // their bespoke headers (login/reset) run un-wrapped; every later /api
   // surface + the harness proxy rides behind it.
   app.use('/api/*', apiAuthGate);
-  registerApiSurfaces(app, terminal, options?.harnessPort);
+  registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater);
 
   registerHarnessProxy(app);
 
@@ -300,8 +301,11 @@ export function errorHygiene(error: unknown, c: Context): Response {
 /** NND-owned /api surfaces (P4/P6/P7 slices): registered between the auth
  * gate and the harness-proxy catch-all (Hono matches in registration
  * order, doc 03 §5.14/§5.13 — nothing may register after the proxy). */
-function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?: number): void {
-  app.route('/', createNotNativeRoutes());
+type DesktopUpdateInfo = { available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null };
+
+function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?: number,
+  desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }): void {
+  app.route('/', createNotNativeRoutes({ desktopUpdater }));
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.17 session orchestration: server-side create/send/fork/archive.

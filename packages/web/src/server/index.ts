@@ -33,7 +33,13 @@ import { attachTerminalWebsocket } from './terminal/wire.ts';
 import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tunnel.ts';
 import type { Server as HttpServer } from 'node:http';
 
-export async function startServer(): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
+export async function startServer(options?: { desktopUpdater?: {
+  check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
+  download: () => Promise<unknown>;
+  install: () => Promise<unknown>;
+  getInstallError?: () => string | null;
+  clearInstallError?: () => void;
+} }): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   const browserControl = new BrowserControlBroker();
   const browserCallbackSecret = randomBytes(32).toString('base64url');
   const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
@@ -47,7 +53,7 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
   try {
     localNna = await configureHarness(browserCallback, agentToolCallback);
     return await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
-      agentToolCallback ? agentToolCallbackSecret : undefined);
+      agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater);
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.
@@ -58,11 +64,14 @@ export async function startServer(): Promise<{ port: number; browserControl: Bro
 }
 
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
-  browserCallbackSecret: string | undefined, agentToolCallbackSecret: string | undefined):
+  browserCallbackSecret: string | undefined, agentToolCallbackSecret: string | undefined,
+  desktopUpdater?: { check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
+    download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }):
   Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
+    ...(desktopUpdater ? { desktopUpdater } : {}),
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
     ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
