@@ -12,3 +12,4 @@ packages/electron/resources/web-dist/
 packages/electron/build-stamp.json
 packages/electron/install-mode.txt
 *.tsbuildinfo
+/.agents-workspace/
