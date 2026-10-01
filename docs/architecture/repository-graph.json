@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:325c5bf44f7efcc7a51f993f43b6129d08712e26e098c9225f0bae1bfbd98a9d",
+  "source_digest": "sha256:361fa72bb94fb3eb37e5cab34e32427bcae496f4dc2497a9cbb82c63d0510931",
   "counts": {
-    "modules": 644,
+    "modules": 646,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 198
+      "module_count": 200
     },
     {
       "id": "ui-shell",
@@ -102,7 +102,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 249,
+      "import_count": 252,
       "module_count": 105
     },
     {
@@ -1096,7 +1096,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/files/edit-support.ts"
+        "packages/ui/src/lib/files/edit-support.ts",
+        "packages/ui/src/lib/i18n/context.tsx"
       ]
     },
     {
@@ -1105,7 +1106,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/diff/DiffViewer.tsx",
-        "packages/ui/src/lib/git/diff-scroll-anchor.ts"
+        "packages/ui/src/lib/git/diff-scroll-anchor.ts",
+        "packages/ui/src/lib/i18n/context.tsx"
       ]
     },
     {
@@ -1113,7 +1115,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/git/diff-model.ts"
+        "packages/ui/src/lib/git/diff-model.ts",
+        "packages/ui/src/lib/i18n/context.tsx"
       ]
     },
     {
@@ -2369,6 +2372,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-diff-ui.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2406,6 +2415,7 @@
         "packages/ui/src/lib/i18n/messages/en-agent-groups.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
+        "packages/ui/src/lib/i18n/messages/en-diff-ui.ts",
         "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/en-providers.ts",
@@ -2479,6 +2489,14 @@
     },
     {
       "path": "packages/ui/src/lib/i18n/messages/locale-desktop-ssh.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-diff-ui.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
@@ -2612,6 +2630,7 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
         "packages/ui/src/lib/i18n/messages/locale-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/locale-desktop-ssh.ts",
+        "packages/ui/src/lib/i18n/messages/locale-diff-ui.ts",
         "packages/ui/src/lib/i18n/messages/locale-git-ui.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-config.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-draft.ts",

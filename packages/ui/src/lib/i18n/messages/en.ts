@@ -6,6 +6,7 @@ import enDesktopGenerals from './en-desktop-generals.ts';
 import enAgentGroups from './en-agent-groups.ts';
 import enGitUi from './en-git-ui.ts';
 import enShellUi from './en-shell-ui.ts';
+import enDiffUi from './en-diff-ui.ts';
 import { enProviders } from './en-providers.ts';
 /** Canonical English dictionary (doc 14 §H.2); I18nKey is the CLOSED key set. */
 
@@ -18,6 +19,7 @@ const en = {
   ...enGitUi,
   ...enNnaRoutes,
   ...enProviders,
+  ...enDiffUi,
   'app.title': 'NotNativeDesktop',
   'shell.sessions': 'Sessions',
   'shell.newSession': 'New session',

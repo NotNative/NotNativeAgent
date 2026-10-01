@@ -15,28 +15,31 @@ import {
   useDiffModel, LARGE_DIFF_GATE, statusSymbolOf,
   type DiffModel, type Scope, type StackEntry,
 } from './diff-view-model';
+import { useI18n } from '../../lib/i18n/context.tsx';
 
 interface AnchorPending {
   path: string;
+  staged: boolean;
   oldViewportOffset: number;
 }
 
 type AnchorPendingRef = { current: AnchorPending | null };
 
 export function DiffView({ directory, visible }: { directory: string; visible: boolean }): ReactNode {
+  const { t } = useI18n();
   const model = useDiffModel({ directory, visible });
   const [expandAll, setExpandAll] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const anchorPendingRef: AnchorPendingRef = anchorPendingRefFactory();
-  useAnchorRestore(containerRef, anchorPendingRef, model.entries.length);
+  useAnchorRestore(containerRef, anchorPendingRef, model.entries);
 
   return (
     <div className="flex h-full min-h-0 gap-3 px-3 pb-3 pt-2" data-testid="diff-view">
       <Sidebar model={model} />
       <div ref={containerRef} className="min-w-0 flex-1 overflow-y-auto" data-testid="diff-scroll">
         <div className="mb-2 flex items-center gap-2 px-1">
-          <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[11px] text-primary disabled:opacity-40" disabled={model.inFlight !== null} onClick={() => void model.stageAll()}>Stage all changes</button>
-          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setExpandAll(!expandAll)}>Expand all</button>
+          <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[11px] text-primary disabled:opacity-40" disabled={model.inFlight !== null} onClick={() => void model.stageAll()}>{t('diffUi.stageAll')}</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setExpandAll(!expandAll)}>{t('diffUi.expandAll')}</button>
         </div>
         {model.entries.map((item) => (
           <EntryRow
@@ -48,7 +51,7 @@ export function DiffView({ directory, visible }: { directory: string; visible: b
           />
         ))}
         {model.status !== null && model.status.files.length === 0 ? (
-          <div className="px-3 py-6 text-center text-xs text-muted-foreground">Working tree clean, no changes to display</div>
+          <div className="px-3 py-6 text-center text-xs text-muted-foreground">{t('diffUi.cleanTree')}</div>
         ) : null}
       </div>
     </div>
@@ -59,9 +62,9 @@ function anchorPendingRefFactory(): AnchorPendingRef {
   return { current: null };
 }
 
-function diffSectionElement(container: HTMLElement, path: string): HTMLElement | null {
+function diffSectionElementFor(container: HTMLElement, path: string, scope: string): HTMLElement | null {
   for (const section of container.querySelectorAll<HTMLElement>('[data-diff-section]')) {
-    if (section.dataset.path === path) return section;
+    if (section.dataset.path === path && section.dataset.scope === scope) return section;
   }
   return null;
 }
@@ -72,20 +75,23 @@ function diffSectionElement(container: HTMLElement, path: string): HTMLElement |
 function useAnchorRestore(
   containerRef: React.RefObject<HTMLDivElement | null>,
   pendingRef: AnchorPendingRef,
-  entryCount: number,
+  entries: StackEntry[],
 ): void {
   useEffect(() => {
     const pending = pendingRef.current;
     const container = containerRef.current;
     if (pending === null || container === null) return undefined;
+    let cancelled = false;
     let frames = 0;
+    let handle = 0;
     const tick = (): void => {
+      if (cancelled) return;
       frames += 1;
       if (frames < 2) {
-        window.requestAnimationFrame(tick);
+        handle = window.requestAnimationFrame(tick);
         return;
       }
-      const section = diffSectionElement(container, pending.path);
+      const section = diffSectionElementFor(container, pending.path, pending.staged ? 'staged' : 'working');
       if (section !== null) {
         const viewportOffset = container.getBoundingClientRect().top;
         const currentTopOffset = section.getBoundingClientRect().top - viewportOffset;
@@ -94,18 +100,21 @@ function useAnchorRestore(
       }
       pendingRef.current = null;
     };
-    const handle = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(handle);
-  }, [entryCount, containerRef, pendingRef]);
+    handle = window.requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(handle);
+    };
+  }, [entries, containerRef, pendingRef]);
 }
 
-function captureAnchor(containerRef: React.RefObject<HTMLDivElement | null>, pendingRef: AnchorPendingRef, path: string): void {
+function captureAnchor(containerRef: React.RefObject<HTMLDivElement | null>, pendingRef: AnchorPendingRef, path: string, staged: boolean): void {
   const container = containerRef.current;
   if (container === null) return;
-  const section = diffSectionElement(container, path);
+  const section = diffSectionElementFor(container, path, staged ? 'staged' : 'working');
   if (section === null) return;
   const viewportOffset = container.getBoundingClientRect().top;
-  pendingRef.current = { path, oldViewportOffset: section.getBoundingClientRect().top - viewportOffset };
+  pendingRef.current = { path, staged, oldViewportOffset: section.getBoundingClientRect().top - viewportOffset };
 }
 
 function symbolColor(symbol: string): string {
@@ -116,14 +125,15 @@ function symbolColor(symbol: string): string {
 }
 
 function Sidebar({ model }: { model: DiffModel }): ReactNode {
+  const { t } = useI18n();
   const scopes: Array<{ key: Scope; label: string }> = [
-    { key: 'all', label: `All: ${model.counts.total}` },
-    { key: 'working', label: `Working: ${model.counts.working}` },
-    { key: 'staged', label: `Staged: ${model.counts.staged}` },
+    { key: 'all', label: t('diffUi.scopeAll', { count: model.counts.total }) },
+    { key: 'working', label: t('diffUi.scopeWorking', { count: model.counts.working }) },
+    { key: 'staged', label: t('diffUi.scopeStaged', { count: model.counts.staged }) },
   ];
   return (
     <div className="w-64 shrink-0 rounded-lg border border-border/60 bg-card/40">
-      <div className="flex flex-wrap gap-1 px-2 py-1.5" role="group" aria-label="Select change scope" data-testid="diff-scope-selector">
+      <div className="flex flex-wrap gap-1 px-2 py-1.5" role="group" aria-label={t('diffUi.scopeSelector')} data-testid="diff-scope-selector">
         {scopes.map((entry) => (
           <button
             key={entry.key}
@@ -163,6 +173,7 @@ interface EntryRowProps {
 }
 
 function EntryRow({ model, entry, containerRef, anchorPendingRef }: EntryRowProps): ReactNode {
+  const { t } = useI18n();
   const diff = model.diffsOf(entry.entry.path, entry.staged);
   const changedLines = (diff?.metadata?.insertionCount ?? 0) + (diff?.metadata?.deletionCount ?? 0);
   const gated = changedLines > LARGE_DIFF_GATE;
@@ -178,23 +189,23 @@ function EntryRow({ model, entry, containerRef, anchorPendingRef }: EntryRowProp
           <span className="mr-1 inline-block w-3 text-center" style={{ color: symbolColor(symbol) }}>{symbol}</span>
           {entry.entry.path}
         </button>
-        <span className="text-[10px] text-muted-foreground">{staged ? 'staged' : 'working'}</span>
+        <span className="text-[10px] text-muted-foreground">{staged ? t('gitUi.staged') : t('gitUi.working')}</span>
         <button type="button" disabled={busy} className="rounded border border-border/60 px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="diff-entry-stage-toggle" onClick={() => void model.stageToggle(entry.entry, staged)}>
-          {staged ? 'Unstage' : 'Stage'}
+          {staged ? t('gitUi.unstageButton') : t('gitUi.stageButton')}
         </button>
       </header>
       {isOpen && gated && !overrides ? (
         <div className="p-3 text-xs text-muted-foreground" data-testid="diff-large-gate">
-          {`Large diff (${changedLines} changed lines)`} — rendering may be slow.
-          <button type="button" className="ml-2 rounded border border-border/60 px-2 py-0.5 text-[11px] text-foreground hover:text-primary" data-testid="diff-render-anyway" onClick={() => model.renderAnyway(entry.entry.path, entry.staged)}>Render anyway</button>
+          {t('diffUi.largeDiff', { count: changedLines })}
+          <button type="button" className="ml-2 rounded border border-border/60 px-2 py-0.5 text-[11px] text-foreground hover:text-primary" data-testid="diff-render-anyway" onClick={() => model.renderAnyway(entry.entry.path, entry.staged)}>{t('gitUi.renderAnyway')}</button>
         </div>
       ) : isOpen ? (
         <div className="px-3 pb-2">
-          {diff === undefined ? <div className="text-xs text-muted-foreground" data-testid="diff-loading">Loading...</div>
-            : diff.error !== null ? <div className="text-xs text-status-error">{diff.error}</div>
-              : diff.binary ? <div className="text-xs text-muted-foreground">Binary file — no diff available</div>
+          {diff === undefined ? <div className="text-xs text-muted-foreground" data-testid="diff-loading">{t('diffUi.loading')}</div>
+            : diff.error !== null ? <div className="text-xs text-status-error">{t('diffUi.failedToLoad')}</div>
+              : diff.binary ? <div className="text-xs text-muted-foreground">{t('gitUi.binaryNoDiff')}</div>
                 : diff.metadata !== null && diff.metadata.hunks.length === 0 ? (
-                  <div className="text-xs text-muted-foreground" data-testid="diff-no-hunks">No textual diff is available for this file.</div>
+                  <div className="text-xs text-muted-foreground" data-testid="diff-no-hunks">{t('gitUi.noTextualDiff')}</div>
                 ) : (
                   <DiffViewer
                     fileName={entry.entry.path}
@@ -209,7 +220,7 @@ function EntryRow({ model, entry, containerRef, anchorPendingRef }: EntryRowProp
                           <HunkButton kind="stage" index={hunkIndex} busy={busy} onClick={() => void model.hunkAction(entry.entry, staged, hunkIndex, 'stage')} />
                         )}
                         <HunkButton kind="discard" index={hunkIndex} busy={busy} onClick={() => {
-                          captureAnchor(containerRef, anchorPendingRef, entry.entry.path);
+                          captureAnchor(containerRef, anchorPendingRef, entry.entry.path, staged);
                           void model.hunkAction(entry.entry, staged, hunkIndex, 'discard');
                         }} />
                       </span>
@@ -230,16 +241,17 @@ interface HunkButtonProps {
 }
 
 function HunkButton({ kind, index, busy, onClick }: HunkButtonProps): ReactNode {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       disabled={busy}
-      aria-label={`${kind} hunk ${index + 1}`}
+      aria-label={t(`diffUi.hunk${kind === 'stage' ? 'Stage' : kind === 'unstage' ? 'Unstage' : 'Discard'}Aria`, { number: index + 1 })}
       data-testid={`diff-hunk-${kind}-${index}`}
       className="rounded border border-border/60 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
       onClick={onClick}
     >
-      {kind}
+      {t(`diffUi.hunk${kind === 'stage' ? 'Stage' : kind === 'unstage' ? 'Unstage' : 'Discard'}Label`)}
     </button>
   );
 }

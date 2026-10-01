@@ -22,6 +22,7 @@ import {
   LARGE_DIFF_CHANGED_LINES, type FileDiffMetadata,
 } from '../../lib/git/diff-model';
 import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
+import { useI18n } from '../../lib/i18n/context.tsx';
 
 export type Scope = 'all' | 'working' | 'staged';
 export type InFlight = null | 'hunk' | 'group';
@@ -34,7 +35,7 @@ export interface StackEntry {
 export interface EntryDiff {
   metadata: FileDiffMetadata | null;
   binary: boolean;
-  error: string | null;
+  error: 'failed' | 'unavailable' | null;
 }
 
 export type RefBox<T> = { current: T | null };
@@ -70,6 +71,7 @@ export interface DiffModelDeps {
 
 /** Model = state + composition; actions delegate to module functions. */
 export function useDiffModel(deps: DiffModelDeps): DiffModel {
+  const { t } = useI18n();
   const { directory, visible } = deps;
   const getDiff = useGitStore((state) => state.getDiff);
 
@@ -82,7 +84,9 @@ export function useDiffModel(deps: DiffModelDeps): DiffModel {
 
   const refreshStatus = useCallback((): void => {
     useGitStore.getState().invalidateStatus(directory);
-    void useGitStore.getState().ensureStatus(directory, 'light').then((next) => setStatus(next));
+    void useGitStore.getState().ensureStatus(directory, 'light')
+      .then((next) => setStatus(next))
+      .catch(() => undefined);
   }, [directory]);
 
   // §13#1 + §11.3: hint replay wipes the touched scopes locally before the restat.
@@ -105,7 +109,19 @@ export function useDiffModel(deps: DiffModelDeps): DiffModel {
   // Entry pipeline (§5.6.a): fetch patch (context 3) + model, per scope key.
   useDiffPipeline({ directory, visible, entries, diffs, getDiff, setDiffs });
 
-  const actions = useDiffActions({ directory, entries, setInFlight, setStatus, wipeHinted: clearHintedDiffs });
+  const actions = useDiffActions({
+    directory,
+    entries,
+    setInFlight,
+    setStatus,
+    wipeHinted: clearHintedDiffs,
+    messages: {
+      stageFailed: t('gitUi.stageFailed'),
+      unstageFailed: t('gitUi.unstageFailed'),
+      hunkUnavailable: t('diffUi.hunkUnavailable'),
+      hunkFailed: t('diffUi.hunkFailed'),
+    },
+  });
 
   return {
     scope,
@@ -175,7 +191,9 @@ function useDiffStatusFeed(deps: {
 
   useEffect(() => {
     if (!visible || directory.length === 0) return undefined;
-    void ensureStatus(directory, 'light').then((next) => setStatus(next));
+    void ensureStatus(directory, 'light')
+      .then((next) => setStatus(next))
+      .catch(() => undefined);
     return undefined;
   }, [visible, directory, ensureStatus, setStatus]);
 
@@ -184,7 +202,9 @@ function useDiffStatusFeed(deps: {
     if (!visible || directory.length === 0) return undefined;
     const poll = window.setInterval(() => {
       if (document.hidden) return;
-      void ensureStatus(directory, 'light').then((next) => setStatus(next));
+      void ensureStatus(directory, 'light')
+        .then((next) => setStatus(next))
+        .catch(() => undefined);
     }, GIT_STATUS_POLL_INTERVAL_MS);
     return () => window.clearInterval(poll);
   }, [visible, directory, ensureStatus, setStatus]);
@@ -203,21 +223,22 @@ function useDiffActions(deps: {
   setInFlight: (value: InFlight) => void;
   setStatus: (status: GitStatus | null) => void;
   wipeHinted: (paths: string[] | null) => void;
+  messages: { stageFailed: string; unstageFailed: string; hunkUnavailable: string; hunkFailed: string };
 }): { stageAll: () => Promise<void>; stageToggle: (entry: GitStatusFile, staged: boolean) => Promise<void>; hunkAction: (entry: GitStatusFile, staged: boolean, hunkIndex: number, action: string) => Promise<void> } {
-  const { directory, entries, setInFlight, setStatus, wipeHinted } = deps;
+  const { directory, entries, setInFlight, setStatus, wipeHinted, messages } = deps;
 
   const stageAll = useCallback(async (): Promise<void> => {
     const working = entries.filter((item) => !item.staged).map((item) => item.entry.path);
-    await stageEntries(directory, working, 'stage', setInFlight, setStatus, (touched) => wipeHinted(touched));
-  }, [directory, entries, setInFlight, setStatus, wipeHinted]);
+    await stageEntries(directory, working, 'stage', setInFlight, setStatus, (touched) => wipeHinted(touched), messages.stageFailed);
+  }, [directory, entries, setInFlight, setStatus, wipeHinted, messages.stageFailed]);
 
   const stageToggle = useCallback(async (entry: GitStatusFile, staged: boolean): Promise<void> => {
-    await stageEntries(directory, [entry.path], staged ? 'unstage' : 'stage', setInFlight, setStatus, (touched) => wipeHinted(touched));
-  }, [directory, setInFlight, setStatus, wipeHinted]);
+    await stageEntries(directory, [entry.path], staged ? 'unstage' : 'stage', setInFlight, setStatus, (touched) => wipeHinted(touched), messages.stageFailed, messages.unstageFailed);
+  }, [directory, setInFlight, setStatus, wipeHinted, messages.stageFailed, messages.unstageFailed]);
 
   const hunkAction = useCallback(async (entry: GitStatusFile, staged: boolean, hunkIndex: number, action: string): Promise<void> => {
-    await runHunkAction(directory, entry.path, staged, hunkIndex, action, setInFlight, setStatus, (touched) => wipeHinted(touched));
-  }, [directory, setInFlight, setStatus, wipeHinted]);
+    await runHunkAction(directory, entry.path, staged, hunkIndex, action, setInFlight, setStatus, (touched) => wipeHinted(touched), messages.hunkUnavailable, messages.hunkFailed);
+  }, [directory, setInFlight, setStatus, wipeHinted, messages.hunkUnavailable, messages.hunkFailed]);
 
   return { stageAll, stageToggle, hunkAction };
 }
@@ -260,7 +281,7 @@ function useDiffPipeline(deps: {
         try {
           const patch = await getDiff(directory, item.entry.path, item.staged, 3);
           if (patch === null) {
-            setDiffs((record) => ({ ...record, [key]: { metadata: null, binary: false, error: 'Failed to load diff' } }));
+            setDiffs((record) => ({ ...record, [key]: { metadata: null, binary: false, error: 'failed' } }));
             return;
           }
           if (isBinaryPatch(patch)) {
@@ -269,7 +290,7 @@ function useDiffPipeline(deps: {
           }
           setDiffs((record) => ({ ...record, [key]: { metadata: fileDiffFromPatch(item.entry.path, patch), binary: false, error: null } }));
         } catch {
-          setDiffs((record) => ({ ...record, [key]: { metadata: null, binary: false, error: 'Failed to load diff' } }));
+          setDiffs((record) => ({ ...record, [key]: { metadata: null, binary: false, error: 'failed' } }));
         }
       })();
     }
@@ -285,12 +306,16 @@ async function stageEntries(
   setInFlight: (value: InFlight) => void,
   setStatus: (status: GitStatus | null) => void,
   wipe?: (touchedPaths: string[]) => void,
+  stageFailed = 'Failed to stage file',
+  unstageFailed = 'Failed to unstage file',
 ): Promise<void> {
   if (paths.length === 0) return;
   setInFlight('group');
-  const before = await useGitStore.getState().ensureStatus(directory, 'light');
-  const moved = before !== null ? useGitStore.getState().moveStatusPathsOptimistically(directory, paths, direction) : null;
+  let before: GitStatus | null = null;
+  let moved: GitStatus | null = null;
   try {
+    before = await useGitStore.getState().ensureStatus(directory, 'light');
+    moved = before !== null ? useGitStore.getState().moveStatusPathsOptimistically(directory, paths, direction) : null;
     if (direction === 'stage') await stageGitFiles(directory, paths);
     else await unstageGitFiles(directory, paths);
     useGitStore.getState().bumpIndexRevision(directory);
@@ -300,7 +325,7 @@ async function stageEntries(
     publishReviewRefresh(directory, paths, 'git-mutation');
   } catch {
     if (before !== null && moved !== null) useGitStore.getState().restoreStatus(directory, before);
-    toast.error(direction === 'stage' ? 'Failed to stage file' : 'Failed to unstage file');
+    toast.error(direction === 'stage' ? stageFailed : unstageFailed);
   } finally {
     setInFlight(null);
   }
@@ -316,20 +341,22 @@ async function runHunkAction(
   setInFlight: (value: InFlight) => void,
   setStatus: (status: GitStatus | null) => void,
   wipe?: (touchedPaths: string[]) => void,
+  hunkUnavailable = 'This hunk is no longer available. Refresh the diff band and try again.',
+  hunkFailed = 'Git operation failed',
 ): Promise<void> {
-  const displayPatch = await useGitStore.getState().getDiff(directory, path, staged, 3);
-  const refreshed = await fetchGitDiff(directory, path, { staged, contextLines: 3 });
-  if (displayPatch === null || refreshed === null || !haveMatchingPatchVersions(displayPatch, refreshed.diff)) {
-    toast.error('This hunk is no longer available. Refresh the diff band and try again.');
-    return;
-  }
-  const patch = extractHunkPatch(displayPatch, hunkIndex);
-  if (patch === null) {
-    toast.error('This hunk is no longer available. Refresh the diff band and try again.');
-    return;
-  }
   setInFlight('hunk');
   try {
+    const displayPatch = await useGitStore.getState().getDiff(directory, path, staged, 3);
+    const refreshed = await fetchGitDiff(directory, path, { staged, contextLines: 3 });
+    if (displayPatch === null || refreshed === null || !haveMatchingPatchVersions(displayPatch, refreshed.diff)) {
+      toast.error(hunkUnavailable);
+      return;
+    }
+    const patch = extractHunkPatch(displayPatch, hunkIndex);
+    if (patch === null) {
+      toast.error(hunkUnavailable);
+      return;
+    }
     await applyGitHunk(directory, path, patch, rawAction as 'stage' | 'unstage' | 'discard');
     useGitStore.getState().clearDiffCache(directory, [path]);
     useGitStore.getState().bumpIndexRevision(directory);
@@ -337,6 +364,8 @@ async function runHunkAction(
     scheduleGitReconcile(directory);
     setStatus(await useGitStore.getState().ensureStatus(directory, 'full'));
     publishReviewRefresh(directory, [path], 'git-mutation');
+  } catch {
+    toast.error(hunkFailed);
   } finally {
     setInFlight(null);
   }

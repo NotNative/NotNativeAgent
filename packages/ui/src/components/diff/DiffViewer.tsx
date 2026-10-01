@@ -8,6 +8,7 @@
  */
 import type { ReactNode } from 'react';
 import type { DiffHunk, DiffRow, FileDiffMetadata } from '../../lib/git/diff-model.ts';
+import { useI18n } from '../../lib/i18n/context.tsx';
 
 export interface DiffViewerProps {
   fileName: string;
@@ -58,15 +59,16 @@ export function pairSideBySide(hunk: DiffHunk): DiffSideRows {
 }
 
 export function DiffViewer({ fileName, fileDiff, original, modified, renderSideBySide, wrapLines, hunkActions }: DiffViewerProps): ReactNode {
+  const { t } = useI18n();
   if (fileDiff === null) {
     if (original !== undefined && modified !== undefined) {
       return (
         <div className="p-3 text-xs text-muted-foreground" data-testid="diff-fallback">
-          {fileName} — full-document diff requires the parsed patch (E19 model); showing summary only.
+          {t('diffUi.parseFallback')}
         </div>
       );
     }
-    return <div className="p-3 text-xs text-status-error">Failed to load diff</div>;
+    return <div className="p-3 text-xs text-status-error">{t('diffUi.failedToLoad')}</div>;
   }
   const holdClass = wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto';
   return (
