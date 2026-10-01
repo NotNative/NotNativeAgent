@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs';
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
+import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
+import { json, withTimeout } from './smoke-http.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
@@ -192,6 +194,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
   assert.deepEqual(created.metadata.nnd.configuredModel, { providerID: 'primary', modelID: 'test' });
   assert.equal(created.metadata.nnd.governance?.reviewPosture, 'auto-review', 'NND session must retain NNA auto-review');
   const id = created.id;
+  await probeReviewMode(call, json, id);
   assert.match(id, /^ses_[A-Za-z0-9_-]+$/u);
   const createdEvent = await nextEvent();
   assert.equal(createdEvent.payload.type, 'session.created');
@@ -291,6 +294,7 @@ async function probeRestoredSession(app, { parentId, childId }) {
   const call = (path, init = {}) => app.fetch(new Request(`http://nnd.local${path}`, {
     ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
   }));
+  await probeRestoredReviewMode(call, json, parentId);
   assert.deepEqual((await json(call, '/api/session?roots=true', 200)).map((item) => item.id), [parentId]);
   assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [childId]);
   assert.deepEqual((await json(call, `/api/session/${parentId}/children`, 200)).map((item) => item.id), [childId]);
@@ -364,15 +368,6 @@ async function waitForCompletedTurn(nextEvent, id, promptId, observe = () => {})
   }
 }
 
-async function withTimeout(operation, timeoutMs, message) {
-  let timer;
-  try {
-    return await Promise.race([operation, new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-    })]);
-  } finally { clearTimeout(timer); }
-}
-
 async function waitForReply(call, id, marker) {
   const deadline = Date.now() + 15_000;
   for (;;) {
@@ -403,15 +398,6 @@ function eventReader(reader) {
       if (pending.length > 65_536) throw new Error('NNA event frame exceeded smoke bound');
     }
   };
-}
-
-async function json(call, path, initOrStatus, expectedStatus) {
-  const init = typeof initOrStatus === 'number' ? undefined : initOrStatus;
-  const status = typeof initOrStatus === 'number' ? initOrStatus : expectedStatus;
-  const response = await call(path, init);
-  const body = await response.json().catch(() => null);
-  assert.equal(response.status, status, `${path}: ${JSON.stringify(body)}`);
-  return body;
 }
 
 async function main(nnaSource) {

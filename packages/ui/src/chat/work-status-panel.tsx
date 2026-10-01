@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ReviewModeControl } from './review-mode-control.tsx';
 /**
  * Work-status panel (doc 05 §E.9, P3c): labelled rows grouped into presence-
  * collapsed sections. Desktop-only (hidden <desktop widths via the chat-area
@@ -274,6 +275,8 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
         <h2 className={`truncate font-medium text-neutral-200 ${expanded ? 'text-base' : 'text-sm'}`}>{selectedSession.title}</h2>
         {routeLabel ? <p className="mt-1 truncate text-xs text-neutral-500">{routeLabel}</p> : null}
       </header> : null}
+      {configuredModel.nnaConfigured && selectedSession && !selectedSession.parentID ? <ReviewModeControl sessionID={sessionID}
+        busy={statusById[sessionID]?.type !== undefined && statusById[sessionID]?.type !== 'idle'} /> : null}
       {(nnaContext || context.tokens || expanded && messages.length > 0) ? <section className={`rounded-lg border border-white/10 bg-neutral-900/40 ${expanded ? 'p-4' : 'p-3'}`} aria-label="Session usage" data-testid="context-usage-summary">
         <h3 className="text-xs font-medium text-neutral-300">Session usage</h3>
         {nnaContext || context.tokens ? <div className="mt-3">

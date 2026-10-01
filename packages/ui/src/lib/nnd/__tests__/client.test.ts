@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runtimeFetch } from '../../runtime-fetch.ts';
 import { harnessClient, normalizeDirectory } from '../client.ts';
 
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
+beforeEach(() => vi.mocked(runtimeFetch).mockReset());
 
 describe('normalizeDirectory (HP-4)', () => {
   it('unifies separators, uppercases drive, trims trailing slashes', () => {
@@ -10,6 +11,27 @@ describe('normalizeDirectory (HP-4)', () => {
     expect(normalizeDirectory('/home/user/dev/')).toBe('/home/user/dev');
     expect(normalizeDirectory('c:/lower')).toBe('C:/lower');
     expect(normalizeDirectory('  spaced/path  ')).toBe('spaced/path');
+  });
+});
+
+describe('NNA-owned permission mode contract', () => {
+  it('encodes session identity and sends the expected revision to the authenticated proxy', async () => {
+    const fetcher = vi.mocked(runtimeFetch); fetcher.mockClear();
+    fetcher.mockImplementation(async () => new Response('{}', { status: 200 }));
+    await harnessClient.getSessionReviewMode('session/a');
+    expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/nnd/sessions/session%2Fa/review-mode');
+    await harnessClient.setSessionReviewMode('session/a', 'auto-review', 4);
+    expect(fetcher.mock.calls[1]?.[0]).toBe('/api/v1/nnd/sessions/session%2Fa/review-mode');
+    expect(fetcher.mock.calls[1]?.[1]?.method).toBe('PUT');
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({ mode: 'auto-review', expected_revision: 4 });
+  });
+  it('returns a readable error envelope when response body reading fails', async () => {
+    const response = new Response('{}', { status: 200 });
+    vi.spyOn(response, 'text').mockRejectedValue(new Error('connection closed'));
+    vi.mocked(runtimeFetch).mockResolvedValueOnce(response);
+    const result = await harnessClient.getSessionReviewMode('s1');
+    expect(result.error).toContain('connection closed');
+    expect(result.data).toBeUndefined();
   });
 });
 

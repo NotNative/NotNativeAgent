@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { enReviewMode } from './en-review-mode.ts';
 import enFilesView from './en-files-view.ts';
 import enScheduled from './en-scheduled.ts';
 import enRuntime from './en-runtime.ts';
@@ -15,6 +16,7 @@ import { enProviders } from './en-providers.ts';
 /** Canonical English dictionary (doc 14 §H.2); I18nKey is the CLOSED key set. */
 
 const en = {
+  ...enReviewMode,
   ...enDesktopSsh,
   ...enRemoteInstances,
   ...enDesktopGenerals,

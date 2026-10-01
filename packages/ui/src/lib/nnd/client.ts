@@ -7,6 +7,7 @@
  * methods carry the percent-encoded header (+ `uri` marker when encoded).
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
+import type { ReviewMode, ReviewModeSnapshot } from './review-mode.ts';
 import { getRealtimeBaseUrl } from '../runtime-url.ts';
 import {
   DEFAULT_BASE_URL,
@@ -141,7 +142,12 @@ async function request<T>(
     return { error: `${operation} failed: ${String(error)}` }; // transport failure (§11.8), no invented status
   }
 
-  const body = await readBody(response);
+  let body: unknown;
+  try {
+    body = await readBody(response);
+  } catch (error) {
+    return { error: `${operation} failed: ${String(error)}`, response: { status: response.status }, headers: response.headers };
+  }
   if (!response.ok) {
     const message =
       (body as { error?: { message?: string } } | null)?.error?.message ??
@@ -207,6 +213,12 @@ export const harnessClient = {
   },
   async getSessionGoal(sessionId: string): Promise<HarnessResult<{ goal: unknown | null; revision: number }>> {
     return request('getSessionGoal', `/v1/nnd/sessions/${sid(sessionId)}/goal`);
+  },
+  async getSessionReviewMode(sessionId: string): Promise<HarnessResult<ReviewModeSnapshot>> {
+    return request('getSessionReviewMode', `/v1/nnd/sessions/${sid(sessionId)}/review-mode`);
+  },
+  async setSessionReviewMode(sessionId: string, mode: ReviewMode, revision: number): Promise<HarnessResult<ReviewModeSnapshot>> {
+    return request('setSessionReviewMode', `/v1/nnd/sessions/${sid(sessionId)}/review-mode`, { ...post({ mode, expected_revision: revision }), method: 'PUT' });
   },
   async getSessionGoalEvidence(sessionId: string): Promise<HarnessResult<{
     session_id: string; latest_request_id: string | null; window_truncated: boolean;

@@ -2,6 +2,25 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · NNA-owned session permission selector
+
+Added a permission-mode control to the Context rail for NNA-owned root
+sessions. NNA supplies Default, Auto-review, and Unattended; Default resolves
+to Auto-review. Full-control bypass and Prompt are not offered by this
+connection. The choice is owned and persisted by NNA, constrained by the
+authenticated session/workspace scope, idle state, and revision. The GUI
+uses confirmed responses and requires refresh after a failed/uncertain save.
+An older server exposes no editable control, and stale responses after
+runtime/session changes do not repaint the current session.
+
+The integration smoke checks switching, rejection of unsupported modes and
+stale writes, restart persistence, and reset to Default against source NNA.
+Full UI tests pass (1523/1523) and workspace typechecks pass. NNA's focused
+authorization/recovery tests and source quality gates pass; its full suite
+passed 1625 tests with three skips, and both stale graph checks passed after
+regeneration. NNA is a development snapshot `20261001-2`; native platform
+conformance and public release hashes remain pending there.
+
 ## 2026-10-01 · Handoff repair and NNA permission authority
 
 Reconciled the intervening localization work through `20261001-24`: skills,

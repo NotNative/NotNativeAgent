@@ -95,6 +95,24 @@ scheduled flags are stripped during normalization. Governance projection
 remains the source for the displayed review posture. Historical planning
 references to an NND auto-accept runtime are superseded by this authority rule.
 
+### Session permission mode integration
+
+The Context rail exposes NNA's `GET/PUT /v1/nnd/sessions/:id/review-mode`
+for an owned root session. NNA supplies the allowed modes, current choice,
+effective posture, and revision. A write needs `nnd.session.update`, the
+authenticated owner/workspace scope, a matching revision, and an idle session.
+NNA persists the choice and emits `session.updated`; NND never stores a
+parallel permission policy. Older servers and delegated sessions expose no
+editable mode control. Runtime/session changes discard stale UI responses.
+
+`default` resolves to NNA's startup posture, currently `auto-review`.
+`auto-review` explicitly selects that reviewer posture. `unattended` keeps
+mandatory review and denies unresolved escalations. No `full-control` mode
+exists. `prompt` is an NNA Console posture but is unavailable on the NND
+connection because it has no authenticated permission-decision transport.
+The choice applies to the selected root session; NNA's delegated-child policy
+remains independently governed. Failed writes require refresh before retry.
+
 ## Acceptance evidence
 
 - Absence of a capability never exposes its control.
