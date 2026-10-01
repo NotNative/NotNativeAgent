@@ -27,23 +27,23 @@ export function GeneralPage(): ReactNode {
     <div className="flex flex-col gap-3">
       <SettingsSection item="general.tools">
         <SettingsGroupTitle>{t('settings.search.agentTools')}</SettingsGroupTitle>
-        <SettingsCheckboxRow label="Agent control tool" item="general.tools.control" checked={yes(agentControlTool.value, true)} onChange={agentControlTool.set} />
-        <SettingsCheckboxRow label="Agent web tool" item="general.tools.web" checked={yes(agentWebTool.value, true)} onChange={agentWebTool.set} />
-        <SettingsCheckboxRow label="Agent memory tool" item="general.tools.memory" checked={yes(agentMemoryTool.value, true)} onChange={agentMemoryTool.set} />
+        <SettingsCheckboxRow label={t('settings.general.agentControlTool')} item="general.tools.control" checked={yes(agentControlTool.value, true)} onChange={agentControlTool.set} />
+        <SettingsCheckboxRow label={t('settings.general.agentWebTool')} item="general.tools.web" checked={yes(agentWebTool.value, true)} onChange={agentWebTool.set} />
+        <SettingsCheckboxRow label={t('settings.general.agentMemoryTool')} item="general.tools.memory" checked={yes(agentMemoryTool.value, true)} onChange={agentMemoryTool.set} />
       </SettingsSection>
 
       <SettingsSection item="general.harness">
         <SettingsGroupTitle>{t('settings.search.harnessBinary')}</SettingsGroupTitle>
-        <SettingsFieldRow label="Harness CLI binary path" item="general.harness.binary" helper="Empty = harness default resolution">
+        <SettingsFieldRow label={t('settings.general.harnessBinaryPath')} item="general.harness.binary" helper={t('settings.general.harnessBinaryDefault')}>
           <SettingsTextInput
             value={binary.value ?? ''}
-            placeholder="e.g. /usr/local/bin/notnativeagent"
+            placeholder={t('settings.general.harnessBinaryExample')}
             max={2048}
             onCommit={binary.set}
             resetValue=""
           />
         </SettingsFieldRow>
-        <SettingsCheckboxRow label="Confirm harness restarts" item="general.harness.restart-confirm" checked={yes(restartConfirm.value, true)} onChange={restartConfirm.set} />
+        <SettingsCheckboxRow label={t('settings.general.confirmHarnessRestarts')} item="general.harness.restart-confirm" checked={yes(restartConfirm.value, true)} onChange={restartConfirm.set} />
       </SettingsSection>
 
       {window.__NOTNATIVE_ELECTRON__ ? <LaunchAtLoginControl /> : null}
@@ -52,10 +52,10 @@ export function GeneralPage(): ReactNode {
       <SettingsSection>
         <SettingsGroupTitle>{t('settings.search.reportUsage')}</SettingsGroupTitle>
         <SettingsCheckboxRow
-          label="Share anonymous usage reports"
+          label={t('settings.general.shareUsageReports')}
           item="general.telemetry"
           checked={yes(reportUsage.value, false)}
-          helper="Telemetry consent (§§F.5 reportUsage)"
+          helper={t('settings.general.usageReportConsent')}
           onChange={reportUsage.set}
         />
       </SettingsSection>
