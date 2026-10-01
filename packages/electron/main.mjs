@@ -1002,6 +1002,7 @@ function appFileUrlPrefix() {
 
 const relayPairingBridge = createRelayPairingBridge({ getWindow: () => mainWindow });
 const managedSshRuntime = createManagedSshRuntime({
+  getVersion: () => app.getVersion(),
   getBundlePaths: () => {
     const serverBundlePath = resolveServerBundle();
     return {

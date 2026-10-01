@@ -15,7 +15,7 @@ loopback-only detached server, and stops it when `keepRunning` is false. The
 transport requires the existing tunnel health probe to succeed before
 reporting ready. Managed mode needs explicit `uploadBundleOverSsh`, a
 Unix-like remote, Node.js 22.18+, and npm or bun. Real remote-host acceptance,
-portable tar interoperability, and reconnect behavior for `keepRunning` need
-verification. `keepRunning` currently reuses session metadata only within the
-same desktop process; after an app restart the remote process may remain and
-need manual cleanup before reconnecting. No remote host is contacted by tests.
+portable tar interoperability need verification. `keepRunning` writes
+per-instance PID, port, and bundle ownership metadata, allowing later desktop
+processes to reuse a matching remote server and stop stale servers before
+replacing them. No remote host is contacted by tests.

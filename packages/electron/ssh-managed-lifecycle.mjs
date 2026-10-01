@@ -3,6 +3,7 @@ import { parseDesktopSshCommand } from './ssh-instances.mjs';
 
 function validId(value) { return typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/u.test(value); }
 function validPort(value) { return Number.isInteger(value) && value >= 1 && value <= 65_535; }
+function validVersion(value) { return typeof value === 'string' && /^[A-Za-z0-9.+_-]{1,64}$/u.test(value); }
 
 /** Remote dependency setup and detached server lifecycle for uploaded bundles. */
 export function createManagedSshLifecycle({ runRemoteScript } = {}) {
@@ -14,9 +15,42 @@ export function createManagedSshLifecycle({ runRemoteScript } = {}) {
     if (!validId(transferId) || !validId(instance?.id)) throw new Error('managed-ssh-id-invalid');
   }
 
-  async function installAndStart(instance, { transferId, port }) {
+  async function findRunning(instance, version) {
+    try { parseDesktopSshCommand(instance?.sshCommand); }
+    catch { throw new Error('desktop-ssh-instance-invalid'); }
+    if (!validId(instance?.id)) throw new Error('managed-ssh-id-invalid');
+    if (!validVersion(version)) throw new Error('managed-ssh-version-invalid');
+    const script = [
+      'set -eu',
+      `data="$HOME/.notnative-desktop/data/${instance.id}"`,
+      'state="$data/managed-server"',
+      'if [ -f "$state" ]; then',
+      '  IFS=" " read -r pid port transferId existingVersion <"$state" || true',
+      '  case "$pid" in (*[!0-9]*|"") pid="";; esac',
+      '  case "$port" in (*[!0-9]*|"") port="";; esac',
+      '  case "$transferId" in (*[!A-Za-z0-9_-]*|"") transferId="";; esac',
+      '  case "$existingVersion" in (*[!A-Za-z0-9.+_-]*|"") existingVersion="";; esac',
+      '  if [ -n "$pid" ] && [ -n "$port" ] && [ -n "$transferId" ] && kill -0 "$pid" 2>/dev/null; then',
+      '    root="$HOME/.notnative-desktop/managed/$transferId"',
+      '    command=$(ps -ww -p "$pid" -o args= 2>/dev/null || true)',
+      '    case "$command" in *"$root/start-managed.mjs"*) printf "NOTNATIVE_EXISTING_PID=%s PORT=%s ID=%s VERSION=%s\\n" "$pid" "$port" "$transferId" "$existingVersion";; esac',
+      '  fi',
+      'fi',
+      '',
+    ].join('\n');
+    const result = await runRemoteScript(instance, script);
+    if (result.code !== 0) throw new Error('managed-ssh-session-query-failed');
+    // Three-field state files were written by earlier builds. Still discover
+    // them so the runtime can stop the old server before attempting a new
+    // version on its occupied port.
+    const found = /^NOTNATIVE_EXISTING_PID=(\d+) PORT=(\d+) ID=([A-Za-z0-9_-]{1,64}) VERSION=([A-Za-z0-9.+_-]{0,64})$/mu.exec(result.stdout);
+    return found ? { transferId: found[3], pid: Number(found[1]), port: Number(found[2]), version: found[4] || null, reused: true } : null;
+  }
+
+  async function installAndStart(instance, { transferId, port, version }) {
     validate(instance, transferId);
     if (!validPort(port)) throw new Error('managed-ssh-port-invalid');
+    if (!validVersion(version)) throw new Error('managed-ssh-version-invalid');
     const method = ['auto', 'npm', 'bun'].includes(instance.remoteOpenchamber?.installMethod)
       ? instance.remoteOpenchamber.installMethod : 'auto';
     const script = [
@@ -38,6 +72,8 @@ export function createManagedSshLifecycle({ runRemoteScript } = {}) {
       `nohup env NOTNATIVE_PORT=${port} NOTNATIVE_HOST=127.0.0.1 NOTNATIVE_DIST_DIR="$root/web-dist" NOTNATIVE_DATA_DIR="$data" node "$root/start-managed.mjs" >"$root/server.log" 2>&1 </dev/null &`,
       'pid=$!',
       'printf "%s\\n" "$pid" >"$root/server.pid"',
+      `printf "%s %s %s %s\\n" "$pid" "${port}" "${transferId}" "${version}" >"$data/managed-server.tmp"`,
+      'mv -f -- "$data/managed-server.tmp" "$data/managed-server"',
       'sleep 1',
       'kill -0 "$pid"',
       `printf 'NOTNATIVE_STARTED_PID=%s PORT=${port}\\n' "$pid"`,
@@ -60,18 +96,23 @@ export function createManagedSshLifecycle({ runRemoteScript } = {}) {
       '  IFS= read -r pid <"$pidfile" || true',
       '  case "$pid" in (*[!0-9]*|"") pid="";; esac',
       '  if [ -n "$pid" ]; then',
-      '    command=$(ps -p "$pid" -o args= 2>/dev/null || true)',
+      '    command=$(ps -ww -p "$pid" -o args= 2>/dev/null || true)',
       '    case "$command" in *"$root/start-managed.mjs"*)',
       '      kill "$pid" 2>/dev/null || true',
       '      attempt=0',
       '      while [ "$attempt" -lt 20 ] && kill -0 "$pid" 2>/dev/null; do sleep 0.25; attempt=$((attempt + 1)); done',
       '      if kill -0 "$pid" 2>/dev/null; then',
-      '        command=$(ps -p "$pid" -o args= 2>/dev/null || true)',
+      '        command=$(ps -ww -p "$pid" -o args= 2>/dev/null || true)',
       '        case "$command" in *"$root/start-managed.mjs"*) kill -9 "$pid" 2>/dev/null || true;; esac',
       '      fi',
       '      ;; esac',
       '  fi',
       '  rm -f -- "$pidfile"',
+      'fi',
+      `state="$HOME/.notnative-desktop/data/${instance.id}/managed-server"`,
+      'if [ -f "$state" ]; then',
+      '  IFS=" " read -r statePid statePort stateTransfer <"$state" || true',
+      '  if [ "$stateTransfer" = "' + transferId + '" ]; then rm -f -- "$state"; fi',
       'fi',
       'rm -rf -- "$root"',
       '',
@@ -81,5 +122,5 @@ export function createManagedSshLifecycle({ runRemoteScript } = {}) {
     return true;
   }
 
-  return { installAndStart, stop };
+  return { findRunning, installAndStart, stop };
 }
