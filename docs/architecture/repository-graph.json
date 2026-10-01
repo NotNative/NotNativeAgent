@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3411f4d534ba8b13b56e12c1122037f17ce0f9493bd91ff1c79cbc339dee2d27",
+  "source_digest": "sha256:c6ed2b3f232d3eaf315907acf45bb75ef2841b997a90bd4e186d210aee0260b9",
   "counts": {
-    "modules": 608,
+    "modules": 609,
     "component_edges": 14
   },
   "components": [
@@ -42,7 +42,7 @@
       "id": "web-entry",
       "label": "Web entrypoints",
       "ownership": "Owns Vite entry, base components, and browser adapter factory.",
-      "module_count": 10
+      "module_count": 11
     },
     {
       "id": "gates",
@@ -3906,8 +3906,15 @@
       "entrypoint": true,
       "imports": [
         "packages/web/src/api/createWebAPIs.ts",
+        "packages/web/src/pwa/install-ux.ts",
         "packages/web/src/pwa/update-ux.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/pwa/install-ux.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/pwa/update-ux.ts",

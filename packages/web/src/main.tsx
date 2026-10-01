@@ -13,6 +13,7 @@ import {
 import { renderMainApp } from '@notnative/ui/main';
 import { createWebAPIs } from './api/createWebAPIs.ts';
 import { registerPwaUpdateUX } from './pwa/update-ux.ts';
+import { registerPwaInstallUX } from './pwa/install-ux.ts';
 
 
 const surface = resolveHostedSurface();
@@ -60,6 +61,7 @@ async function startApplication(): Promise<void> {
   installRuntimeFetchBridge();
   registerRuntimeAPIs(createWebAPIs());
   watchHostedSurfaceViewport(surface);
+  registerPwaInstallUX();
 
   if (surface === 'mobile') {
     // Delta P0: mobile app tree (doc 11) is long-term deferred; renders desktop tree.

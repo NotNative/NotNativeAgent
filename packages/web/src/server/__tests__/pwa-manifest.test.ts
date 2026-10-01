@@ -17,6 +17,15 @@ describe('PWA manifest discovery', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     await expect(response.json()).resolves.toMatchObject({
       name: 'Review Desk', short_name: 'Review Desk', orientation: 'landscape-primary', display: 'standalone',
+      icons: [
+        { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
     });
+    for (const [name, size] of [['icon-192.png', 192], ['icon-512.png', 512]] as const) {
+      const png = await readFile(new URL(`../../../public/pwa/${name}`, import.meta.url));
+      expect(png.readUInt32BE(16)).toBe(size);
+      expect(png.readUInt32BE(20)).toBe(size);
+    }
   });
 });

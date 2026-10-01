@@ -175,7 +175,10 @@ function pwaManifest(c: Context): Response {
     theme_color: '#edb449',
     categories: ['developer', 'tools', 'productivity'],
     lang: 'en',
-    icons: [],
+      icons: [
+        { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      ],
     shortcuts: [{ name: 'Appearance Settings', url: '/?settings=appearance' }],
   };
   return c.body(JSON.stringify(manifest), 200, {

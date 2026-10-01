@@ -2,6 +2,16 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · PWA install prompt and manifest icons
+
+The manifest now supplies 192px and 512px PNG icons, allowing eligible
+browsers to raise `beforeinstallprompt`. Browser surfaces show an explicit
+Install/Dismiss toast; accepted, declined, and failed native prompts retire
+the consumed event, and dismissal is scoped to the tab session. The auditor
+fixed the stale-toast/consumed-prompt case and confirmed prompt actions cannot
+be submitted twice. Push notifications remain open. Full web tests pass
+(1264/1264), web typecheck and production build pass, and release gates pass.
+
 ## 2026-09-30 · P7 terminal appearance follows the active theme
 
 Terminal PTYs now receive the resolved theme mode and surface colors at creation,
@@ -3709,7 +3719,7 @@ configuration import only; live SSH transport is still outstanding.
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
-| D9 | PWA manifest link + install/push hooks | P4/P11 | ✅ HTML links the existing manifest endpoint; web and packaged-app routing are tested. Install/push hooks remain open. |
+| D9 | PWA manifest link + install/push hooks | P4/P11 | ✅ Manifest endpoint/link, 192px/512px icons, and browser Install/Dismiss prompt shipped; packaged-app routing tested. Push notifications remain open. |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
 | D11 | control-stream consumers | P2 (doc 04) | Baseline sync, queue/interruption, memory, and scheduled-task consumers are shipped; new event types add consumers with their owning slices. |
 | D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |
