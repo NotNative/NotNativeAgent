@@ -28,49 +28,47 @@ export function SessionsPage(): ReactNode {
   return (
     <div className="flex flex-col gap-3">
       <SettingsSection item="sessions.defaults">
-        <SettingsGroupTitle>Defaults</SettingsGroupTitle>
+        <SettingsGroupTitle>{t('settings.sessions.defaults')}</SettingsGroupTitle>
         <SettingsInset>
           <div className="text-[11px] leading-relaxed text-muted-foreground">
-            Default model/agent/variant, the small-model override, and the walkthrough model pickers
-            write into the agent harness configuration (doc 14 §F.4 HARNESS PORT). They land with the
-            Providers/Agents surfaces — registered, not silently dropped.
+            {t('settings.sessions.defaultsNote')}
           </div>
         </SettingsInset>
       </SettingsSection>
 
       <SettingsSection>
-        <SettingsGroupTitle>Behavior</SettingsGroupTitle>
-        <SettingsCheckboxRow label="Show a confirmation before deleting a session" item="sessions.deletion-dialog" checked={yes(showDeletionDialog.value, true)} onChange={showDeletionDialog.set} />
-        <SettingsCheckboxRow label={t('settings.search.toolsFiles') + ' — preview open files'} item="sessions.file-preview" checked={yes(filePreview.value, false)} onChange={filePreview.set} />
-        <SettingsFieldRow label="Message stream transport" item="sessions.message-transport" helper="auto lets the instance decide (ws preferred, sse fallback)">
+        <SettingsGroupTitle>{t('settings.sessions.behavior')}</SettingsGroupTitle>
+        <SettingsCheckboxRow label={t('settings.sessions.confirmDelete')} item="sessions.deletion-dialog" checked={yes(showDeletionDialog.value, true)} onChange={showDeletionDialog.set} />
+        <SettingsCheckboxRow label={t('settings.sessions.previewOpenFiles')} item="sessions.file-preview" checked={yes(filePreview.value, false)} onChange={filePreview.set} />
+        <SettingsFieldRow label={t('settings.sessions.messageTransport')} item="sessions.message-transport" helper={t('settings.sessions.messageTransportHelper')}>
           <SettingsSelect
             value={messageTransport.value ?? 'auto'}
             resetValue="auto"
             onChange={(value) => messageTransport.set(value as 'auto' | 'ws' | 'sse')}
             options={[
-              { value: 'auto', label: 'Auto' },
+              { value: 'auto', label: t('settings.sessions.transportAuto') },
               { value: 'ws', label: 'WebSocket' },
-              { value: 'sse', label: 'Server-sent events' },
+              { value: 'sse', label: t('settings.sessions.transportSse') },
             ]}
           />
         </SettingsFieldRow>
       </SettingsSection>
 
       <SettingsSection item="sessions.retention">
-        <SettingsGroupTitle>{t('settings.search.retention')}</SettingsGroupTitle>
-        <SettingsCheckboxRow label="Auto-delete sessions" item="sessions.auto-delete" checked={yes(autoDeleteEnabled.value, false)} onChange={autoDeleteEnabled.set} />
-        <SettingsFieldRow label="Delete sessions older than" item="sessions.auto-delete-days">
-          <SettingsNumberInput value={autoDeleteAfterDays.value ?? 30} min={1} max={365} step={1} unit="days" resetValue={30} onChange={autoDeleteAfterDays.set} disabled={!autoDeleteEnabled.value} />
+        <SettingsGroupTitle>{t('settings.sessions.retention')}</SettingsGroupTitle>
+        <SettingsCheckboxRow label={t('settings.sessions.autoDelete')} item="sessions.auto-delete" checked={yes(autoDeleteEnabled.value, false)} onChange={autoDeleteEnabled.set} />
+        <SettingsFieldRow label={t('settings.sessions.deleteOlderThan')} item="sessions.auto-delete-days">
+          <SettingsNumberInput value={autoDeleteAfterDays.value ?? 30} min={1} max={365} step={1} unit={t('settings.sessions.days')} resetValue={30} onChange={autoDeleteAfterDays.set} disabled={!autoDeleteEnabled.value} />
         </SettingsFieldRow>
-        <SettingsCheckboxRow label="Only archive; never hard-delete" item="sessions.retention-archived" checked={yes(retentionArchived.value, false)} onChange={retentionArchived.set} />
-        <SettingsFieldRow label="Retention action" item="sessions.retention-action">
+        <SettingsCheckboxRow label={t('settings.sessions.archiveOnly')} item="sessions.retention-archived" checked={yes(retentionArchived.value, false)} onChange={retentionArchived.set} />
+        <SettingsFieldRow label={t('settings.sessions.retentionAction')} item="sessions.retention-action">
           <SettingsSelect
             value={retentionAction.value ?? 'archive'}
             resetValue="archive"
             onChange={(value) => retentionAction.set(value as 'archive' | 'delete')}
             options={[
-              { value: 'archive', label: 'Archive' },
-              { value: 'delete', label: 'Delete' },
+              { value: 'archive', label: t('settings.sessions.archive') },
+              { value: 'delete', label: t('settings.sessions.delete') },
             ]}
           />
         </SettingsFieldRow>

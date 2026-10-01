@@ -3747,7 +3747,7 @@ configuration import only; live SSH transport is still outstanding.
 | D15 | wire-name duplication | P1 | `server/lib/harnessNaming.ts` mirrors `ui/lib/nna/constants.ts`; both files change together |
 | D16 | WS event bridges | P2 (doc 04) | P1 ships SSE only; §9.4 WS frame vocabulary recorded in NOTES/02 |
 | E1 | typographyWatcher static-sheet substitution | P5-1..3 done | ✅ Static-sheet values match; root `rem` scaling and appearance application are implemented in settings/apply. |
-| E2 | non-EN locales partial catalogs w/ en fallback | P5-4 | Shell status/connection/recovery, settings navigation/search, Appearance, Notifications, General, and Chat controls/helpers are localized across all 11 partial catalogs (2026-09-30); remaining catalog parity is authoring work per doc 14 §H.2 |
+| E2 | non-EN locales partial catalogs w/ en fallback | P5-4 | Shell status/connection/recovery, settings navigation/search, Appearance, Notifications, General, Sessions, and Chat controls/helpers are localized across all 11 partial catalogs (2026-09-30); remaining catalog parity is authoring work per doc 14 §H.2 |
 | E3 | 38 preset palettes self-authored seeds | P5-2 done | originals untranscribed (doc gap §M); NOTES/14 C.1/E.2 interpretation recorded |
 | E4 | iframe theme sync + VS Code adapter | defer (P10/P12) | no embedded/vscode surface until those phases |
 | E5 | custom-theme import UX (Appearance→Reload) | P5-3 | ✅ Appearance exposes Reload; the client reloads validated themes from GET /api/config/themes. |
@@ -3878,3 +3878,8 @@ configuration import only; live SSH transport is still outstanding.
   localized catalog keys across all 11 partial locales. Catalog coverage is
   pinned in the i18n tests; input state and reset behavior are unchanged.
   Version 20260930-114.
+- **2026-09-30 · Sessions settings localization.** Session defaults guidance,
+  deletion and file-preview controls, message transport options, and retention
+  labels/units now use catalog strings across all 11 partial locales. Catalog
+  coverage is pinned without changing retention bounds or transport values.
+  Version 20260930-115.
