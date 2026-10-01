@@ -3740,4 +3740,10 @@ configuration import only; live SSH transport is still outstanding.
   replay contract, and stale snapshots can still overwrite concurrent queue
   mutations. Fixing this safely needs a shared mutation protocol and an
   explicit lifecycle/idempotency policy; no partial lock was retained.
+- **2026-09-30 · P13 origin-gate smoke precision.** Adversarial review found
+  that the source smoke's rejected request used `text/plain`, allowing the
+  content-type validator to mask a missing origin check. It now sends valid
+  JSON with `Origin: null`; the NNA source integration smoke passes with that
+  isolated assertion. The in-process smoke still does not cover NND's listener,
+  auth middleware, Electron, or installed GUI behavior.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

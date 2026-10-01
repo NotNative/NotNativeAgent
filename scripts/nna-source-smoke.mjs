@@ -184,7 +184,7 @@ async function probe(app, workspace, provider) {
 }
 
 async function probeSession(call, workspace, nextEvent, provider) {
-  const blocked = await call('/api/session', { method: 'POST', headers: { origin: 'null', 'content-type': 'text/plain' }, body: '{}' });
+  const blocked = await call('/api/session', { method: 'POST', headers: { origin: 'null', 'content-type': 'application/json' }, body: '{}' }); // valid JSON isolates the Origin gate
   assert.equal(blocked.status, 403);
   const created = await json(call, '/api/session', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Source bridge smoke' }),
