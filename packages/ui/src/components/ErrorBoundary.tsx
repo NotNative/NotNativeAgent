@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { translate } from '../lib/i18n/store.ts';
 
 interface Props {
   children?: ReactNode;
@@ -21,12 +22,12 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       return (
         <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-          <h2 style={{ fontSize: 16 }}>NotNativeDesktop hit an error</h2>
+          <h2 style={{ fontSize: 16 }}>{translate('errorBoundary.title')}</h2>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>
             {String(this.state.error)}
           </pre>
           <button onClick={() => this.reload()} type="button">
-            Reload
+            {translate('errorBoundary.reload')}
           </button>
         </div>
       );

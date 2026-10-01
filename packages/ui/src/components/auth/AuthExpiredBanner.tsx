@@ -19,6 +19,7 @@
  *    cache credentials, or guess a redirect.
  */
 import { useCallback, type ReactNode } from 'react';
+import { useOptionalI18n } from '../../lib/i18n/context.tsx';
 import { useAuthSessionStore } from '../../lib/runtime-auth-expiry.ts';
 import type { AuthSessionState } from '../../lib/runtime-auth-expiry.ts';
 
@@ -64,9 +65,15 @@ export function AuthExpiredBanner({
     beginReauthentication();
     onBeginLogin?.();
   }, [beginReauthentication, onBeginLogin]);
+  const i18n = useOptionalI18n();
+  const labels = {
+    title: i18n?.t('authUi.expired.title') ?? DEFAULT_LABELS.title,
+    body: i18n?.t('authUi.expired.body') ?? DEFAULT_LABELS.body,
+    action: i18n?.t('authUi.expired.action') ?? DEFAULT_LABELS.action,
+  };
 
   if (!visible) return null;
-  const text = { ...DEFAULT_LABELS, ...(label ?? {}) };
+  const text = { ...labels, ...(label ?? {}) };
   return (
     <div
       role="status"

@@ -37,6 +37,7 @@ import {
   listBuiltInThemes,
 } from '../lib/theme/themes.ts';
 import type { Theme, ThemeVariant } from '../lib/theme/types.ts';
+import { useOptionalI18n } from '../lib/i18n/context.tsx';
 
 export interface ThemeTitle {
   id: string;
@@ -310,7 +311,8 @@ function scheduleFramePair(onDone: () => void): { cancel: () => void } {
 
 export function useTheme(): ThemeApi {
   const api = useContext(ThemeContext);
-  if (!api) throw new Error('useTheme outside ThemeProvider');
+  const i18n = useOptionalI18n();
+  if (!api) throw new Error(i18n?.t('themeUi.outsideProvider') ?? 'useTheme outside ThemeProvider');
   return api;
 }
 
