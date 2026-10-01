@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:ec2e0497597b40239da9dc5edd24604b1fc268adfdef792c802d683b9dd62e25",
+  "source_digest": "sha256:b787c1b1f098c66bf448551241c220b22e9b4a9f2e6edd77934ee7762313f70f",
   "counts": {
-    "modules": 671,
+    "modules": 676,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 216
+      "module_count": 218
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 205
+      "module_count": 208
     },
     {
       "id": "web-entry",
@@ -2002,6 +2002,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/api/push-types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/api/registry.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2025,6 +2031,7 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/api/push-types.ts",
         "packages/ui/src/lib/git/types.ts"
       ]
     },
@@ -3044,6 +3051,15 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/push-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/push-types.ts",
         "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
@@ -4549,6 +4565,7 @@
         "packages/web/src/server/preview/browser-control-callback.ts",
         "packages/web/src/server/preview/dev-servers.ts",
         "packages/web/src/server/preview/probe-url.ts",
+        "packages/web/src/server/push/routes.ts",
         "packages/web/src/server/queue/queue-routes.ts",
         "packages/web/src/server/routes/agent-memory.ts",
         "packages/web/src/server/routes/agent-tool.ts",
@@ -5571,6 +5588,33 @@
       "imports": [
         "packages/web/src/server/project-context/context-store.ts",
         "packages/web/src/server/project-context/todo-schema.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/push/routes.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/push/subscription-schema.ts",
+        "packages/web/src/server/push/subscription-store.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/push/subscription-schema.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/push/subscription-store.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/push/subscription-schema.ts",
+        "packages/web/src/server/scheduled/config-lock.ts"
       ]
     },
     {

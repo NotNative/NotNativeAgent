@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { browserPushApi } from '@notnative/ui/lib/push-api.ts';
 ﻿import type { RuntimeAPIs } from '@notnative/ui/lib/api/types.ts';
 import { createRealTerminalApi } from '@notnative/ui/lib/api/terminal-adapter.ts';
 import * as gitApi from '@notnative/ui/lib/git/server-api.ts';
@@ -39,6 +40,7 @@ async function saveSettings(changes: Record<string, unknown>): Promise<Record<st
 export function createWebAPIs(): RuntimeAPIs {
   return {
     runtime: { platform: 'web', isDesktop: false, isVSCode: false, label: 'web' },
+    push: browserPushApi,
     terminal: createRealTerminalApi(), // SLICE-B: the live PTY seam over the terminal lib (doc 07)
     git: createWebGitApi(),
     files: {

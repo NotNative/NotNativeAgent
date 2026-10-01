@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { GitApi } from '../git/types.ts';
+import type { PushApi } from './push-types.ts';
 /**
  * RuntimeAPIs — the instance-adapter contract (doc 01 §3.3).
  * P0 ships the boot-critical members fully typed; Git grows with doc 06.
@@ -144,7 +145,7 @@ export interface RuntimeAPIs {
   // optional adapters (doc 01): github/linear/push/diagnostics/clientAuth/editor/vscode/worktrees
   github?: unknown;
   linear?: unknown;
-  push?: unknown;
+  push?: PushApi;
   diagnostics?: { downloadLogs(): Promise<{ fileName: string; content: string }> };
   clientAuth?: unknown;
   worktrees?: unknown;

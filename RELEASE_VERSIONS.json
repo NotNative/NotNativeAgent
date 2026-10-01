@@ -784,6 +784,10 @@
     {
       "version": "20261001-26",
       "content_sha256": "1067c0e0502384b81f8a5fa26b7dae6c17fcfc6cfd39ba7471a8dc714b86e82f"
+    },
+    {
+      "version": "20261001-27",
+      "content_sha256": "3ddc669f0fb9176f2af4bc66b27a8dbd16bc5618bafc7576c19ae124c9eff38b"
     }
   ]
 }

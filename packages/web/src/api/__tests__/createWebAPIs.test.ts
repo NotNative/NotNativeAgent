@@ -23,6 +23,13 @@ const gitApi = vi.hoisted(() => ({
 vi.mock('@notnative/ui/lib/git/server-api.ts', () => gitApi);
 
 import { createWebAPIs } from '../createWebAPIs.ts';
+import { browserPushApi } from '@notnative/ui/lib/push-api.ts';
+
+describe('web RuntimeAPIs push adapter', () => {
+  it('exposes the shared runtime-authenticated browser push contract', () => {
+    expect(createWebAPIs().push).toBe(browserPushApi);
+  });
+});
 
 describe('web RuntimeAPIs files adapter', () => {
   beforeEach(() => vi.clearAllMocks());

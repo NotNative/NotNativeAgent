@@ -45,6 +45,7 @@ import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-s
 import { registerProbeUrlRoutes } from './preview/probe-url.ts';
 import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
 import { createVersionRoutes } from './routes/version.ts';
+import { createPushRoutes } from './push/routes.ts';
 import type { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
 
@@ -306,6 +307,7 @@ type DesktopUpdateInfo = { available: boolean; currentVersion: string; version?:
 function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?: number,
   desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }): void {
   app.route('/', createNotNativeRoutes({ desktopUpdater }));
+  app.route('/', createPushRoutes());
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.17 session orchestration: server-side create/send/fork/archive.

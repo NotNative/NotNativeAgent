@@ -2,6 +2,20 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · PWA push registration foundation · 20261001-27
+
+Added durable P-256 VAPID identity, bounded subscription POST/DELETE, and
+visibility leases behind the API auth boundary. Subscription ownership is
+bound to UI/client credentials; anonymous open access cannot register push.
+The store uses locked atomic updates, preserves keys across restart, and
+fails closed on corrupt documents. Added the typed RuntimeAPIs browser Push
+adapter. Adversarial review fixed variable-width private-scalar persistence,
+credential expiry during request parsing, and subscription ownership renewal.
+Renewal requires both existing browser subscription keys. UI tests pass
+(1534/1534), web tests pass (1287/1287), and workspace typechecks pass.
+Outbound delivery, notification triggers, browser controls, service-worker
+handling, and live delivery acceptance remain required under D9/P4.
+
 ## 2026-10-01 · NNA-owned session permission selector
 
 Added a permission-mode control to the Context rail for NNA-owned root

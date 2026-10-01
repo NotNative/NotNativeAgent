@@ -5,8 +5,8 @@ ff3cf819a5ddf0e551d608142584439011c70a96bdf0add899261b1662e1467e *docs/architect
 368cf30b7dfbdccfcb5bf09a1de0d2d559b0296273c569d5877eaa51d54575ab *docs/architecture/dependency-registry.json
 659969cd5574bb4edd2e388f72674b51283b24621b820ea8c98532b8a137f4bf *docs/architecture/nnd-terminology.json
 7bb44f94e22e9189926f336474ba8d6b2c4d7b29d799b31da7360503328c9159 *docs/architecture/README.md
-9231729693ce371b2c516332335764804304be280b50558297ce8f51c775aea3 *docs/architecture/repository-graph.json
-97ec75a6f1d51f040d306fa07787a600deafc318702e989208df96ba29b36ae4 *docs/architecture/repository-graph.md
+8b0a79b48b803625875e5c2622ebecc4bd02e05a65922d6a22dc8be8c87db0bb *docs/architecture/repository-graph.json
+3fdb9078d04366303adec6e85dedc8a7e1e112ceb2f8ca503c65405a0db89be7 *docs/architecture/repository-graph.md
 e405bb1cf362a38c1ca46b7d6da474e9da565cf5edc873fc15305bd56ad723b0 *docs/build/DECISIONS.md
 2bb60004f219ca66cf41bcf8a7d1268219a19d88180fdabf6247ceffeca5d32e *docs/build/EVALUATION.md
 addd4ffa70f5047445950803c63235ec90eaf3f6c1614b39bb6e4591b8acef7f *docs/build/GUI-PLAN.md
@@ -32,10 +32,11 @@ d4037fd45284dad5f6fd367476f87855c9625b8e68ee99318db7eb3fb3f6b970 *docs/build/NOT
 8329f2ed378680ef4ba2b37957e200baee282672bc000bbe2fb80cf4260f764e *docs/build/NOTES/18-nna-operator-surface-contract.md
 f5f82e48610e230a866efac231db09de7e82231a9cb408c824c4bef7e9dde054 *docs/build/NOTES/19-nna-local-harness-launch.md
 897c30e1791505c4f1c9fb1c28e66e63f6dcf772469e2128692c0d55ccb94287 *docs/build/NOTES/20-managed-ssh-bundle.md
+1e86b12763c65b02e747dd11cfdbebd9d893b3b5fef24d69ee1e3abfa1c1a346 *docs/build/NOTES/21-web-push.md
 777552b12440de2f77328fe2408f93b8e92c806950a73c5808554c1fd140e4af *docs/build/NOTES/p12b-review-band-notes.md
 41aa66c05bf5a154db57c5928532ff28de17a0172420c5395fca71c770577bad *docs/build/NOTES/p12b-session-product-notes.md
 d9b1a430d4dcf82ed3f30e77bbd1336c63738946b985ff66221c6eef02c69e5f *docs/build/PLAN.md
-a670e50948f9f4c15c2106513edf8f966ac733754d4a6c1b8f40b424a74738ab *docs/build/PROGRESS.md
+e7320c2c0b949f540b07e702690e7a7642902ff1959b34d1541917c1b1306157 *docs/build/PROGRESS.md
 fdcdc1ac8a3a519a85d9ba9e8f8ebb3d350f22c3a1c8899a546ee7030a962dfb *docs/planning/00-INDEX.md
 247db0e602d1fa55c9a1f6b03f68d164f9d62377ed122c54845262abb1f02ce4 *docs/planning/01-architecture-and-app-shell.md
 95b41b6649e3fb113530679c7b205549dd9e32cfc6bdd91d401b041904dfd75e *docs/planning/02-opencode-harness-contract.md
@@ -52,7 +53,7 @@ af0ca86fb619203dde2e97bb15838bf2bac1dc31a61fd74bd17f7bc7566256e0 *docs/planning/
 0bad0612a9010dbcf1a4026ad8b2621f9d99b2edc762f3f4a1788c0f59a88eed *docs/planning/13-preview-and-inspection.md
 a4c51e68981b876ca247023291f9ddec1f2bb45ed95e9f875005e80d70b2551a *docs/planning/14-theme-settings-system.md
 389ded477fdb975bd55909f1bb5db8b2f0bbe360bfe6a36243ef7a72d66f1601 *docs/planning/15-knowledge-context-skills.md
-0bd308120097b4ea8e1399acce89734b9a7f12b4a6823283b55b8f54bd96f023 *package.json
+2913d170ce23a807d752c30accc39cc1bad3c9e8e8028fef035222a0e6b90779 *package.json
 ccf889e33708d72789a05b803725d95765ed793a28e6f1d971acd8c012057d18 *packages/ui/src/App.tsx
 4f8ba3e404c817fef847b47c58f606e0c9aedf84b36989481443def2fe1beccf *packages/ui/src/chat/__tests__/archive-view.test.tsx
 543386b6508789731f3f947fcd23e727f6c65a111001485b8fe58d8b5faeb264 *packages/ui/src/chat/__tests__/blocking-cards.test.tsx
@@ -307,6 +308,7 @@ c053f512dcd76dce45a2e2438b74e3d6daefde7e9103cd53c17ee96a8d677289 *packages/ui/sr
 84629a0a2a1771bb5cafa05993895289d6983515bdb3dc62f3600ef7c83db5e4 *packages/ui/src/lib/__tests__/pairing.test.ts
 3ec144a503d687a8d4f9b35179b83adb2e2516c91ce023b61e0bfc9df70b11a1 *packages/ui/src/lib/__tests__/passkeys.test.ts
 bc28bf8ef6a4d0b576ce3d8d0d292c9fabcf98e1ab50fbfbb540952c89e0ab3f *packages/ui/src/lib/__tests__/project-context-api.test.ts
+9f6bb6cc915db505e47be2b4d16201cb13eddbc14efad0165169e5634178be44 *packages/ui/src/lib/__tests__/push-api.test.ts
 57e596e3c5a570c712d1dfb7bfeafe43b38a76ea30faa25ce19f01a2e7db0865 *packages/ui/src/lib/__tests__/redact-url.test.ts
 e89d1394856fafbf0d19b8e50163a2ad009da3e48caeaf190f0963499b237c9c *packages/ui/src/lib/__tests__/runtime-auth-expiry.test.ts
 c3809bfbb42e3773d501dc1ba0a9008a24d18f55d148e974d7febe165ed817cd *packages/ui/src/lib/__tests__/runtime-auth.test.ts
@@ -326,9 +328,10 @@ a79443510abebd6b1309ca8373d2dbfa96e82db741f4284db117f0ba8e29179f *packages/ui/sr
 047cf7c318c37d47a9cb1055eac05bf51e35b7da658700600e0920d26973ba5d *packages/ui/src/lib/agent-memory-api.ts
 d126262837fc4e01a535a0e8acfe7840c5d2f3e5b0d6e347018a134c5d731030 *packages/ui/src/lib/agent-memory-events.ts
 0c3de89cd4e7ec0c1b8e248413d4bb973903c22f190f4eb14d1f1b5403745ee8 *packages/ui/src/lib/api/__tests__/terminal-adapter.test.ts
+b9ec1d3da122e82628affdc027206e62efc833fab1eae8e1edb5110dd90166d6 *packages/ui/src/lib/api/push-types.ts
 227ee2b59db0ee1504f107e7d473f596bbf5e8d848df8394db6224e180aa260e *packages/ui/src/lib/api/registry.ts
 b588a8a73c8bd04ecb964990785049dd02399fbf0c7afd32eaaed95a9893ed01 *packages/ui/src/lib/api/terminal-adapter.ts
-6218599380cbc6fb5dd0c84cafdd2dc1e94d9959f35e5a0857687fef77129776 *packages/ui/src/lib/api/types.ts
+e5212bc990c6bc196a3d9ad053c0a0bff6c6987090a3b7a5231fd6f7ce2e1be7 *packages/ui/src/lib/api/types.ts
 73b8031468ed466c6399b7068c1bb74770a08566bc284d39beac7b046b5b0f40 *packages/ui/src/lib/browser/__tests__/annotation-capture.test.ts
 59052ed980f80971aab2e7d596160b3b39b136d2bd3724b92a88e44bd61f7d9f *packages/ui/src/lib/browser/__tests__/desktop-capture-action.test.ts
 56017851b4f066cbd20892c112cd67be7f93887a2844d71c6efe3647a7a41d81 *packages/ui/src/lib/browser/__tests__/dev-tunnel.test.ts
@@ -494,6 +497,7 @@ d140d118341c0cfaf8d435bf0171efac3554b6a705f7fd3961e3129b649c60a1 *packages/ui/sr
 748887a283ab958129444ec91ebaecf9fc57cd58c7c2d63f22575554249449dc *packages/ui/src/lib/plan/save-queue.ts
 116d77805b291cbeaad1ae7312b043faad92d54c2928de616c504103f79d8db9 *packages/ui/src/lib/platform.ts
 02756daa8b5be0a7f2929d548f1057a8c699cf368da5c218e99d1e955326aacd *packages/ui/src/lib/project-context-api.ts
+903f1fa4329e244910e4f33f6ac3a2f5c1bbaabb652ffd0a0c7187bd9aa5d280 *packages/ui/src/lib/push-api.ts
 582e490d48f66d68ba589b2ff722026b515f0d9f63132aa837493f3615e6373f *packages/ui/src/lib/redact-url.ts
 18370629d389e596a687be1ac6b3aa5b19c8f1bc4e0f4db47953adcf6d2d0505 *packages/ui/src/lib/relay/__tests__/fake-host.ts
 fbbad6df6cfddda0afab2afecc088c2e6342c36c8c67fa4923edb379ee47682d *packages/ui/src/lib/relay/__tests__/relay-primitives.test.ts
@@ -677,8 +681,8 @@ ea26299df012161ad020d746fbc51af4385e94dad91353c360993d6b103076a6 *packages/ui/sr
 b70b98038313c35639aed764c874b90e575eb157129696efadd31341d050c3b6 *packages/ui/tsconfig.json
 7530819c72565660bd8f4c04dd54e10492b6aa3a166ae4e5e381122a247e4bb1 *packages/ui/vitest.config.ts
 5555cc9a3d6b67e7d85f5504c4252f34fb2d09c8b839fa5c6cce7938094bbb7f *packages/web/index.html
-6c6039f89c7f4d977a1daebf3cf08ef5b7559334a538108036971579555e51a6 *packages/web/src/api/__tests__/createWebAPIs.test.ts
-f1efd195d2f4e051194258ee6572e3c08089e3f4042c1928773e3cc1c8045f04 *packages/web/src/api/createWebAPIs.ts
+ad07bffc84ae23c38f2e7f10887e4721619e8e138379bade8d3e64a96cc422a7 *packages/web/src/api/__tests__/createWebAPIs.test.ts
+cf951ac0c9bb356ebd3c37fb2481f88c23fc3c19473003cad8ab2ae283e71f8c *packages/web/src/api/createWebAPIs.ts
 ef4db13fbf730745b01c81987b9b766b4bd0372d59ac1514ec666ad5a323cdb1 *packages/web/src/cli/args.ts
 5dc700c022604c49362acc14ba0cde74d8054b235a857793d4af80caa468e54c *packages/web/src/cli/bin.ts
 bc7674e762af78df6fbf597b1c8871ea514e2d053277f30d83b11e5d702e441d *packages/web/src/cli/connect-url-command.ts
@@ -803,6 +807,7 @@ a8f3c5efb3cb278bbd9ebc3a4b6dc8438ffe7099f45eac9b3ccf851a01264303 *packages/web/s
 a192694a72e7b7c04b43999bd08f3e69c1bef88729c33031bfcbd8d3b607b127 *packages/web/src/server/__tests__/p9-5d-magic-prompt-routes.test.ts
 00daea7cd4f603285700b8834872ba815c686af2e020f8745bf3c57ba53809a2 *packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts
 29e9eb8d7f6cc2a41b8e0bf8de8261ace55c9aed286fbe5f07e9364139f220c8 *packages/web/src/server/__tests__/preview-frame-guard.test.ts
+8029b25e5a84699c290df3df2b7db757351083ff4ae963ee25ad6791029c25ce *packages/web/src/server/__tests__/push-registration.test.ts
 9c8203fb8856759793f1009b25b2fff6ae853716a492d92f3c2f928668e0e7c9 *packages/web/src/server/__tests__/pwa-manifest.test.ts
 5ed480d44340c6bd7ee8f089b84df7e6b893a336bd3a78beeb95afee455046ed *packages/web/src/server/__tests__/settings-store-cross-process.test.ts
 f3a68f12068b3cdf446bcd08061b7d498df16cfcfb53ca8a4d07993769b59fef *packages/web/src/server/__tests__/version-route.test.ts
@@ -811,7 +816,7 @@ ba8d748dc8d18e0af3537bdcb7a75a85b87d0927db004a37b6105cfe7c73158a *packages/web/s
 0ede89e56597043078e65237b91c05dba76814c4e15bfb43ffb25e6142314b7b *packages/web/src/server/agent-tool/memory-delivery.ts
 a418b6a0c0b2e020b436afd9f6dbe0c91bcff5d5181909a9d3b0ef62189c85fa *packages/web/src/server/agent-tool/memory-events.ts
 7b0ebe617e1d6d9dbb4083d2f2873ae62d0d4c2b2e090e664c6917656b6a280d *packages/web/src/server/agent-tool/memory-render.ts
-83370d8e366b3fb1a760b6eb912193846c7c36a471af2e1cfa4b748d5542c434 *packages/web/src/server/app.ts
+b5b70d7d0238285c1662d2afc65899f099259ad9db6527fb8c892b5111ff0fe6 *packages/web/src/server/app.ts
 37a6e8d8520c0f5de890570037303671976ae5c61999a373e1b4a3f2609d2fb5 *packages/web/src/server/context/context-obligatory-runtime.ts
 c90cddd824acb523fd03042391ca849b622fbdd8541901d76d38fe2a0120c531 *packages/web/src/server/context/nna-context-obligatory-ports.ts
 7cebab0aabd651642823eb7ab7d2a5644b90d87ca3708ef8c9a318d97a58202e *packages/web/src/server/context/obligatory-messages.ts
@@ -930,6 +935,9 @@ f90725a98fa14b3f0f2dbcc9d7dcf0eaa3435092fff121c35be6f0bb286adf08 *packages/web/s
 2a7de0e662fae5e3f27a175b9d1231e7e396e287888a26de2e3a3b20999eab4a *packages/web/src/server/project-context/shared-plans.ts
 a59a4058e71b0c09afe13589f062c44bd6572d229d11957091d2ce181a8076d2 *packages/web/src/server/project-context/todo-schema.ts
 62bc37ca8c3fcbe5ba1f1ad4f74ffc71db7e02c5691e83dec45ec9ef4b98fac4 *packages/web/src/server/project-context/workspace-import.ts
+4c8b13f9f1dfd24ee3f9b60442a3a383035f705d8b5135e7452b6fe107cfe6fe *packages/web/src/server/push/routes.ts
+6bd06acc353f18da97760fdef42d6ceffa9a3cea88a4c189225753fe780050ce *packages/web/src/server/push/subscription-schema.ts
+01e8998d514f2b88ee146932dcbce9989580ff6fb89c1bf5fbd388eb29e1d853 *packages/web/src/server/push/subscription-store.ts
 c6c42a32eb73a30543f507006f94b0dec0e422877e5ee496c34bc6a036fbf2ef *packages/web/src/server/queue/queue-adapter-calls.ts
 41ae5b3151f49b139de8c10e6f19cdcca8ff8a2f6df24eea4d596e624a4251e8 *packages/web/src/server/queue/queue-dispatch-claims.ts
 172b96c44b8510ae2afaa3da4c7dceb505c0b650adc9245450c3395d4d7327e2 *packages/web/src/server/queue/queue-dispatch.ts
@@ -1051,4 +1059,4 @@ e5e91435f0cd1c16919a0303ed5deb028ff7dda2ddf7d6fb8d0ec8cc6dfcb5a7 *scripts/smoke-
 7d1a741bbc75a1eb040f655b3fe3ad9f05f064039325720c308f71c100b44b9b *scripts/web-css-gate.mjs
 9dc68711721df6346e5d1e1ab33e131fa1acaf8fb4391e723d275f7571afb2cf *scripts/web-serve.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-4f45ae9e4a4a323df58e4e0b47b5e82c28e645f1cec1def5fc088f5cb88126b0 *VERSION
+55e0940cc5cd71324ddf55201e77c52a82e0c67f46c42b589c3d08f841ee3d1f *VERSION
