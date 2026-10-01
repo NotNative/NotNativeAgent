@@ -9,6 +9,7 @@ const GOAL_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal$/u;
 const GOAL_EVIDENCE_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-evidence$/u;
 const GOAL_AUDIT_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-audit$/u;
 const WALKTHROUGH_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/walkthrough$/u;
+const REVIEW_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/review-mode$/u;
 
 export async function dispatchNndOperatorRequest(request, response, context) {
   const capability = SESSION_ROUTE.exec(context.url.pathname);
@@ -17,11 +18,13 @@ export async function dispatchNndOperatorRequest(request, response, context) {
   const goalEvidence = GOAL_EVIDENCE_ROUTE.exec(context.url.pathname);
   const goalAudit = GOAL_AUDIT_ROUTE.exec(context.url.pathname);
   const walkthrough = WALKTHROUGH_ROUTE.exec(context.url.pathname);
-  if (!capability && !steer && !goal && !goalEvidence && !goalAudit && !walkthrough) return false;
-  const encoded = (capability ?? steer ?? goal ?? goalEvidence ?? goalAudit ?? walkthrough)[1];
+  const review = REVIEW_ROUTE.exec(context.url.pathname);
+  if (!capability && !steer && !goal && !goalEvidence && !goalAudit && !walkthrough && !review) return false;
+  const encoded = (capability ?? steer ?? goal ?? goalEvidence ?? goalAudit ?? walkthrough ?? review)[1];
   let sessionId;
   try { sessionId = decodeURIComponent(encoded); requireExternalId(sessionId, 'session_id'); }
   catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
+  if (review) return dispatchReviewRequest(request, response, context, sessionId);
   if (goal) return dispatchGoalRequest(request, response, context, sessionId);
   if (goalEvidence) {
     if (request.method !== 'GET') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
@@ -57,6 +60,18 @@ export async function dispatchNndOperatorRequest(request, response, context) {
     const body = await readJsonBody(request);
     return send(response, 202, await session.steer(body, context.principal));
   }
+}
+
+async function dispatchReviewRequest(request, response, context, sessionId) {
+  const host = context.nndEngineHost;
+  if (!host?.reviewMode) throw new ContractError('nnd_engine_unavailable', 'NND review mode is unavailable');
+  if (request.method === 'GET') {
+    requireIntegrationPermission(context.principal, 'nnd.read');
+    return send(response, 200, host.reviewMode(sessionId, context.principal));
+  }
+  if (request.method !== 'PUT') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+  requireIntegrationPermission(context.principal, 'nnd.session.update');
+  return send(response, 200, await host.setReviewMode(sessionId, context.principal, await readJsonBody(request)));
 }
 
 async function dispatchGoalRequest(request, response, context, sessionId) {

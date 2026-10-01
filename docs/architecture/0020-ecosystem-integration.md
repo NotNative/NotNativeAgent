@@ -55,6 +55,19 @@ clients always authenticate against the target instance's configured surface.
   semantics for remote durability.
 - The 13-state projection machine becomes the sole turn-state authority on the wire.
 - Permission-mode get/set as a governance-owned, session-scoped capability.
+
+NND-owned root contexts expose authenticated `GET/PUT
+/v1/nnd/sessions/:id/review-mode`. Reads need `nnd.read`; writes need
+`nnd.session.update`, the owning principal/workspace scope, an idle session,
+and the current revision. NNA persists the choice before changing its engine
+posture and publishes the resulting `session.updated`. Failed persistence
+does not change the running posture; stale writes fail rather than overwrite.
+
+Available choices are `default` (startup `auto-review`), explicit `auto-review`,
+and `unattended`. Review and hard policy remain mandatory in all choices.
+The NND connection has no permission-decision voice, so `prompt` is unavailable;
+there is no full-control bypass posture. This root-session setting does not
+change NNA's separately governed delegated-child policy.
 - Session owner/affinity metadata and directory-less sessions.
 - Identity/entitlement header slot (entitlement-neutral local token now; NNO
   principal pass-through later).

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:545ee9737e13bddcce7a4089f9f65070b76b02b5efe14521cd75587c6fa90ff0",
+  "source_digest": "sha256:16c7e6091f7e673127d607f5dc052967f35cd035df682d3306f154fc053b0919",
   "counts": {
-    "modules": 386,
+    "modules": 387,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 109
+      "module_count": 110
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 194,
-      "module_count": 87
+      "import_count": 197,
+      "module_count": 88
     },
     {
       "from": "experience-engine",
@@ -1955,6 +1955,7 @@
         "src/nnd-goal.js",
         "src/nnd-parent-child-activity.js",
         "src/nnd-phase-activity.js",
+        "src/nnd-review-mode.js",
         "src/nnd-session-description.js",
         "src/nnd-session-helpers.js",
         "src/nnd-session-registry.js",
@@ -2053,6 +2054,15 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/nnd-review-mode.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-session-description.js"
+      ]
     },
     {
       "path": "src/nnd-session-description.js",

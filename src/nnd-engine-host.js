@@ -19,7 +19,8 @@ import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
-import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
+import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
+import { requirePrincipal, samePrincipal, restoreNndContexts, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
@@ -62,14 +63,7 @@ export class NndEngineHost {
     try { records = JSON.parse(source); } catch { throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid'); }
     if (!Array.isArray(records) || records.length > this.limit) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
     try {
-      for (const record of records) {
-        if (!validCatalogRecord(record)) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
-        await this.#createContext(record.sessionId, { subjectId: record.subjectId, workspaceIds: record.workspaceIds }, {
-        title: record.title, directory: record.directory, createdAt: record.createdAt,
-          updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
-          goal: record.goal ?? null, goalRevision: record.goalRevision ?? 0, contextUsage: record.contextUsage ?? null,
-        }, true);
-      }
+      await restoreNndContexts(records, (sessionId, principal, options) => this.#createContext(sessionId, principal, options, true));
       for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
         this.childSessions.restoreCompleted?.(snapshot);
         this.#childActivity.set(snapshot.sessionId, snapshot.activity);
@@ -100,6 +94,7 @@ export class NndEngineHost {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
       }
       await engine.initialize();
+      if (restoring) engine.reviewPosture = options.reviewMode === 'unattended' ? 'unattended' : 'auto-review';
       const createdAt = restoring ? options.createdAt : Date.now();
       const activity = restoring ? await loadActivity(this.catalogPath, sessionId, createdAt) : [];
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
@@ -108,7 +103,8 @@ export class NndEngineHost {
         goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
         goalRevision: restoring ? options.goalRevision : 0, goalTurnReceipts: [], goalTurnReceiptsTruncated: false,
         archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
-        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false, goalArming: 0 };
+        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false, goalArming: 0,
+        reviewMode: options.reviewMode ?? 'default', reviewRevision: options.reviewRevision ?? 0, reviewArming: 0 };
       if (restoring) this.#contexts.set(sessionId, context);
       else await this.#commitCatalogChange(
         (contexts) => contexts.set(sessionId, context),
@@ -126,13 +122,19 @@ export class NndEngineHost {
   }
   async submit(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
+    if (context.reviewArming > 0) throw new ContractError('nnd_session_unavailable', 'review mode change is pending');
     return context.ingress.submit(command, principal);
+  }
+  reviewMode(sessionId, principal) { return reviewModeSnapshot(this.#owned(sessionId, principal)); }
+  setReviewMode(sessionId, principal, body) {
+    const context = this.#owned(sessionId, principal);
+    return commitReviewMode(context, body, (change, commit) => this.#commitCatalogChange(change, commit),
+      () => this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true));
   }
   async abort(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
     return context.ingress.submit({ version: '1.0', type: 'cancel', request_id: newId('nnd_abort') }, principal);
   }
-
   async rename(sessionId, principal, value) {
     const context = this.#owned(sessionId, principal);
     if (typeof value !== 'string' || !value.trim() || value.length > 256 || /[\u0000-\u001f\u007f]/u.test(value)) {
@@ -153,7 +155,6 @@ export class NndEngineHost {
     this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     return describe(context);
   }
-
   async setArchived(sessionId, principal, value) {
     const context = this.#owned(sessionId, principal);
     if (!Number.isSafeInteger(value) || value < 0) {
@@ -173,7 +174,6 @@ export class NndEngineHost {
     this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     return describe(context);
   }
-
   goal(sessionId, principal) { const context = this.#owned(sessionId, principal); return { goal: context.goal, revision: context.goalRevision }; }
   auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
   generateWalkthrough(sessionId, principal, body) { return runNndWalkthrough(this.#owned(sessionId, principal), body); }
@@ -200,7 +200,7 @@ export class NndEngineHost {
     const context = this.#owned(sessionId, principal);
     // Keep a pre-goal prompt from starting between the arming CAS snapshot and
     // its durable catalog commit; otherwise that turn could be charged to the goal.
-    if (context.goalArming > 0) return { accepted: false, reason: 'busy' };
+    if (context.goalArming > 0 || context.reviewArming > 0) return { accepted: false, reason: 'busy' };
     const previousTurn = context.liveTurn;
     // Why: ingress can be pending before Engine.submit() exposes its active
     // turn. A second prompt must not replace that turn's output recipient.
