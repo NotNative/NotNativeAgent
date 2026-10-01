@@ -112,6 +112,7 @@ describe('parseLoopFile (C.8 format)', () => {
     expect(parsed.definition?.schedule.timezone).toBe('UTC');
     expect(parsed.definition?.execution).not.toHaveProperty('goalEnabled');
     expect(parsed.definition?.execution).not.toHaveProperty('variant');
+    expect(parsed.definition?.execution).not.toHaveProperty('permissionAutoAccept');
   });
 });
 

@@ -118,9 +118,6 @@
     "gitIdentityProfiles": {
       "scope": "instance"
     },
-    "permissionAutoAccept": {
-      "scope": "instance"
-    },
     "agentControlToolEnabled": {
       "scope": "instance"
     },

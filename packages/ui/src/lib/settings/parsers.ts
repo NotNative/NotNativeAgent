@@ -162,17 +162,6 @@ export function pGitIdentityProfiles(): ParserFn<Array<{ id: string; name: strin
   };
 }
 
-/** §F.5 permissionAutoAccept: `{sessions: Record<id,bool>, revision: int>=0}`. */
-export function pPermissionAccept(): ParserFn<{ sessions: Record<string, boolean>; revision: number }> {
-  return (v) => {
-    if (!isObj(v)) return null;
-    const sessions = pRecord(pBool(), { maxEntries: 256 })(v.sessions);
-    const revision = pInt(0)(v.revision);
-    if (sessions === null || revision === null) return null;
-    return { sessions, revision };
-  };
-}
-
 export interface NotificationTemplate {
   titleKey?: string;
   messageKey?: string;

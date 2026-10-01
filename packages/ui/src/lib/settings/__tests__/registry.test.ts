@@ -16,6 +16,10 @@ const snapshotPath = resolve(here, '../../../../../web/src/server/lib/settings-r
 const renderScript = resolve(here, '../../../../../../scripts/registry-render.mjs');
 
 describe('settings registry (doc 14 §F.1/§F.4)', () => {
+  it('drops legacy NND permission auto-accept settings', () => {
+    expect(getSettingsField('permissionAutoAccept')).toBeNull();
+    expect(parseSettingsDocument({ permissionAutoAccept: { sessions: { s1: true }, revision: 2 } })).toEqual({});
+  });
   it('checked-in snapshot equals a fresh render (stale = regenerate gate)', async () => {
     const { renderSnapshot } = await import(renderScript);
     const committed = JSON.parse(readFileSync(snapshotPath, 'utf8')) as {

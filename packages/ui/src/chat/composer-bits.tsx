@@ -65,8 +65,6 @@ export function DraftStarterChips({ directory, currentText, starters, onApply }:
 export interface ComposerFooterProps {
   busy: boolean;
   canSend: boolean;
-  autoAccept: boolean;
-  onAutoAccept: () => void;
   onStop: () => void;
   agent: string;
   agents: string[];
@@ -95,11 +93,6 @@ export function ComposerFooter(props: ComposerFooterProps): ReactNode {
             event.target.value = '';
           }} />
         </label>
-        {!props.configuredByNna ? <button type="button" aria-pressed={props.autoAccept} aria-label={props.autoAccept ? 'Disable permission auto-accept' : 'Enable permission auto-accept'}
-          className={`rounded px-2 py-1 text-[11px] ${props.autoAccept ? 'bg-sky-600/25 text-sky-300' : 'text-neutral-500 hover:text-neutral-200'}`}
-          onClick={props.onAutoAccept}>
-          auto-accept: {props.autoAccept ? 'on' : 'off'}
-        </button> : null}
         {props.busy ? (
           <button type="button" aria-label="Stop generating" className="rounded px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/10" onClick={props.onStop}>
             stop

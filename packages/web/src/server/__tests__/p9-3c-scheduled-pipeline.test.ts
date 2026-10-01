@@ -331,19 +331,20 @@ describe('scheduled pipeline (C.6)', () => {
     }
   });
 
-  it('proceeds when the ready poll fails, when the emitter throws, and flags unwired auto-accept', async () => {
+  it('proceeds on readiness and emitter failures while ignoring legacy auto-accept', async () => {
     const { harness, calls } = makeHarness();
     const { deps, warnings } = makeDeps(harness, {
       waitForReady: async () => false, emitRunning: () => { throw new Error('bus closed'); },
     });
-    const outcome = await pipelineMod.createScheduledRunPipeline(deps)(runRequest(), makeTask({
+    const task = makeTask({
       execution: executionPatch({ permissionAutoAccept: true }),
-    }));
+    });
+    expect(task.execution).not.toHaveProperty('permissionAutoAccept');
+    const outcome = await pipelineMod.createScheduledRunPipeline(deps)(runRequest(), task);
     expect(outcome.sessionID).toBe('sess-1');
     expect(calls.creates).toHaveLength(1);
     expect(warnings.some((m) => m.includes('not ready within the scheduled poll window'))).toBe(true);
     expect(warnings.some((m) => m.includes('running event refused'))).toBe(true);
-    expect(warnings.some((m) => m.includes('auto-accept not wired'))).toBe(true);
   });
 
   it('fails the run on a missing worktree, a missing session id, or a rejected dispatch', async () => {

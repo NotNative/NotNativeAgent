@@ -36,9 +36,9 @@ graph LR
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
 | Client sync and state engine | 39 | Harness SDK facade, Runtime adaptation, UI shell | Runtime adaptation, UI shell |
-| Harness SDK facade | 4 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 203 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
-| UI shell | 163 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
+| Harness SDK facade | 5 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
+| Runtime adaptation | 215 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| UI shell | 166 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 205 | Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
 | Quality gates | 23 | Runtime adaptation, Web server | — |
@@ -48,10 +48,10 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 263 | 108 |
-| UI shell | Client sync and state engine | 77 | 37 |
-| UI shell | Harness SDK facade | 64 | 52 |
-| Client sync and state engine | Harness SDK facade | 51 | 36 |
+| UI shell | Runtime adaptation | 264 | 109 |
+| UI shell | Client sync and state engine | 78 | 37 |
+| UI shell | Harness SDK facade | 65 | 52 |
+| Client sync and state engine | Harness SDK facade | 52 | 36 |
 | Quality gates | Web server | 15 | 4 |
 | Runtime adaptation | Harness SDK facade | 9 | 6 |
 | Client sync and state engine | Runtime adaptation | 9 | 8 |
@@ -70,4 +70,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:c2cf1fc7598d0bc1dab301964a897f4d78c2b3e30046d34fd7a3bfe9bd888b6b`.
+Source fingerprint: `sha256:2802d905a27a7c035d6ddda6bad7d7ff98409bcf051a75d4872fc7c98b58a9a6`.

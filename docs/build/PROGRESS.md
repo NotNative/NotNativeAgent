@@ -2,6 +2,33 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Handoff repair and NNA permission authority
+
+Reconciled the intervening localization work through `20261001-24`: skills,
+MCP, snippets, provider profiles/routes, desktop connections, shell, agent
+groups, Git/diff, pairing, scheduled tasks, and runtime fallbacks. Those
+commits were not sealed in the release ledger; this repair establishes the
+next verified release without inventing historical release hashes.
+
+Split oversized catalogs and UI functions, preserving catalog values and
+behavior. Adversarial review found and fixed Git dialog mounted-state guards
+that stalled branch switching and clipboard feedback under StrictMode.
+Updated stale test fixtures to supply i18n context and valid provider inventory.
+
+NNA owns permission settings, scope, and mandatory auto-review. Removed the
+unfinished NND auto-accept runtime, composer/scheduled controls, remembered
+approval action, shortcut declaration, and settings registry entry. Legacy
+scheduled flags are stripped. NNA permission cards cannot submit interactive
+decisions; compatibility request failures preserve the pending card for retry.
+The source integration smoke now checks NNA's projected auto-review posture.
+Historical auto-accept implementation gaps are superseded by this contract.
+
+Source integration verification passes against the current NotNativeAgent
+checkout. Installed GUI, actual updater installation, remote-host acceptance,
+push notifications, and remaining localization parity are still open.
+Full UI tests pass (1510/1510), full web tests pass (1267/1267), and the final
+adversarial audit found no further concrete defects. Version `20261001-25`.
+
 ## 2026-09-30 · P6/P7 Intl formatting follows the active locale
 
 Added a shared BCP 47 adapter for date, time, currency, schedule previews,

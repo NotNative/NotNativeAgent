@@ -17,6 +17,7 @@ import {
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
 import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
 import { useCommitDraftStore } from '../../lib/git/commit-drafts.ts';
+import { Centered, EmptyLine } from './git-empty-state.tsx';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
 import { BranchTracking, StatusFailure, gitError, symbolColorOf } from './git-view-chrome.tsx';
@@ -408,14 +409,6 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
   );
 }
 
-function Centered({ label, testid }: { label: string; testid: string }): ReactNode {
-  return (
-    <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground" data-testid={testid}>
-      {label}
-    </div>
-  );
-}
-
 function Section({
   title, sectionId, count, accent, primaryLabel, onPrimary, children,
 }: {
@@ -501,8 +494,4 @@ function FileRow({ entry, staged, selected, mutationDisabled, onOpen, onStageTog
       </button>
     </div>
   );
-}
-
-function EmptyLine({ label }: { label: string }): ReactNode {
-  return <div className="px-2 py-1 text-[11px] text-muted-foreground">{label}</div>;
 }

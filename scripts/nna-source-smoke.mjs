@@ -29,7 +29,6 @@ if (!source) {
     process.exitCode = 1;
   });
 }
-
 async function startProvider() {
   let completions = 0;
   const requests = [];
@@ -191,6 +190,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
   }, 201);
   assert.equal(created.directory, workspace);
   assert.deepEqual(created.metadata.nnd.configuredModel, { providerID: 'primary', modelID: 'test' });
+  assert.equal(created.metadata.nnd.governance?.reviewPosture, 'auto-review', 'NND session must retain NNA auto-review');
   const id = created.id;
   assert.match(id, /^ses_[A-Za-z0-9_-]+$/u);
   const createdEvent = await nextEvent();

@@ -146,6 +146,28 @@ function messagesEcho(sessionID: string, messageID: string): { info: { id: strin
 }
 
 describe('blocking requests (§E.4)', () => {
+  it('rejects remembered approvals without sending or removing the request', async () => {
+    const store = freshStore({ permission: { s1: [request()] } });
+    const children = new Map([['D:/owning', store]]);
+    await expect(replyToPermission(services(), children, 's1', request(), 'always')).rejects.toThrow('Remembered');
+    expect(callsFor('replyToPermission')).toHaveLength(0);
+    expect(store.getState().permission.s1).toHaveLength(1);
+  });
+
+  it('prevents direct interactive decisions for the NNA runtime', async () => {
+    const store = freshStore({ config: { nnd: { engine: 'nna' } }, permission: { s1: [request()] } });
+    const children = new Map([['D:/owning', store]]);
+    await expect(replyToPermission(services(), children, 's1', request(), 'once')).rejects.toThrow('NNA owns');
+    expect(callsFor('replyToPermission')).toHaveLength(0);
+    expect(store.getState().permission.s1).toHaveLength(1);
+  });
+
+  it('retains the pending request after a failed reply so the operator can retry', async () => {
+    configureHarness({ replyToPermission: () => ({ error: 'offline', response: { status: 503 } }) });
+    const store = freshStore({ permission: { s1: [request()] } });
+    await expect(replyToPermission(services(), new Map([['D:/owning', store]]), 's1', request(), 'once')).rejects.toThrow('offline');
+    expect(store.getState().permission.s1).toHaveLength(1);
+  });
   it('routes by the session RECORD directory (ownership, not containment)', async () => {
     configureHarness({
       replyToPermission: (call) => {

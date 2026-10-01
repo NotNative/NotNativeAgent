@@ -30,7 +30,6 @@ import {
   useEffect,
   useMemo,
   useReducer,
-  useRef,
   type Dispatch,
 } from 'react';
 import { useOptionalI18n } from '../../lib/i18n/context.tsx';
@@ -50,7 +49,8 @@ import {
   type PairingPollResult,
   type PairingWatchState,
 } from '../../lib/pairing-watch.ts';
-import { browserQrRenderer, renderPairingQr, type QrDataUrlRenderer } from '../../lib/pairing-qr.ts';
+import type { QrDataUrlRenderer } from '../../lib/pairing-qr.ts';
+import { usePairingQr } from './usePairingQr.ts';
 import {
   PAIRING_KEY,
   describePairingError,
@@ -493,42 +493,5 @@ function usePairingClock(
   }, [announce, expiresAt, settled, tick]);
 }
 
-/**
- * The QR is rendered for exactly the link we offer as text, and only while it
- * can still be redeemed. A failed render clears the image rather than keeping
- * the previous code, which may already be spent.
- */
-function usePairingQr(live: PairingLive, dispatch: Dispatch<PairingAction>): void {
-  const link = live.model.created?.link ?? '';
-  const settled = live.model.closeReason !== null;
-  const { renderQr } = live.props;
-  const encodedRef = useRef('');
-  useEffect(() => {
-    if (link === '' || settled) return;
-    // The link is unique per pairing, so this is "already encoded this code".
-    if (encodedRef.current === link) return;
-    encodedRef.current = link;
-    const flow = live.flow;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const renderer = renderQr === undefined ? await browserQrRenderer() : renderQr;
-        const outcome = await renderPairingQr(link, renderer);
-        if (cancelled || flow !== live.flow) return;
-        dispatch(
-          outcome.ok
-            ? { type: 'qr', dataUrl: outcome.dataUrl, error: '' }
-            : { type: 'qr', dataUrl: null, error: outcome.error.message },
-        );
-      } catch (caught) {
-        if (cancelled || flow !== live.flow) return;
-        dispatch({ type: 'qr', dataUrl: null, error: describePairingError(caught, live.text) });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [dispatch, link, live, renderQr, settled]);
-}
 
 export default usePairingDialog;

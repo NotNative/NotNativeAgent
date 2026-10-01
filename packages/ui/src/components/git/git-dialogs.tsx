@@ -40,9 +40,12 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
   const live = useRef(true);
   const copiedTimer = useRef<number | undefined>(undefined);
 
-  useEffect(() => () => {
-    live.current = false;
-    if (copiedTimer.current !== undefined) window.clearTimeout(copiedTimer.current);
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+      if (copiedTimer.current !== undefined) window.clearTimeout(copiedTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -134,41 +137,9 @@ function GitBranchesDialog({ directory, onClose, onSwitchBranch, switchingDisabl
   directory: string; onClose: () => void; onSwitchBranch?: (branch: string, expectedBranch: string, create?: boolean) => Promise<void>; switchingDisabled: boolean;
 }): ReactNode {
   const { t } = useI18n();
-  const [branches, setBranches] = useState<GitBranch | null>(null);
-  const [failed, setFailed] = useState(false);
+  const { branches, failed, pending, switchError, runBranchAction } = useBranchActions(directory, onClose, onSwitchBranch, switchingDisabled);
   const [query, setQuery] = useState('');
   const [newBranch, setNewBranch] = useState('');
-  const [pending, setPending] = useState<string | null>(null);
-  const [switchError, setSwitchError] = useState('');
-  const live = useRef(true);
-
-  useEffect(() => () => { live.current = false; }, []);
-
-  useEffect(() => {
-    let live = true;
-    setBranches(null);
-    setFailed(false);
-    void fetchGitBranches(directory).then((result) => {
-      if (!live) return;
-      if (result === null) {
-        setFailed(true);
-        return;
-      }
-      setBranches(result);
-    }).catch(() => { if (live) setFailed(true); });
-    return () => {
-      live = false;
-    };
-  }, [directory]);
-
-  const runBranchAction = async (branch: string, create = false): Promise<void> => {
-    if (!branches?.current || !onSwitchBranch || pending || switchingDisabled) return;
-    setSwitchError('');
-    setPending(branch);
-    try { await onSwitchBranch(branch, branches.current, create); if (live.current) onClose(); }
-    catch (error) { if (live.current) setSwitchError(error instanceof Error ? error.message : t('gitUi.branches.switchFailed')); }
-    finally { if (live.current) setPending(null); }
-  };
 
   const search = query.trim().toLocaleLowerCase();
   const matches = (name: string): boolean => name.toLocaleLowerCase().includes(search);
@@ -204,6 +175,54 @@ function GitBranchesDialog({ directory, onClose, onSwitchBranch, switchingDisabl
       ) : null}
     </DialogShell>
   );
+}
+
+/** Load branch state and retain the action lifecycle until the dialog closes. */
+function useBranchActions(
+  directory: string,
+  onClose: () => void,
+  onSwitchBranch: ((branch: string, expectedBranch: string, create?: boolean) => Promise<void>) | undefined,
+  switchingDisabled: boolean,
+) {
+  const { t } = useI18n();
+  const [branches, setBranches] = useState<GitBranch | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState('');
+  const live = useRef(true);
+
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    setBranches(null);
+    setFailed(false);
+    void fetchGitBranches(directory).then((result) => {
+      if (!live) return;
+      if (result === null) {
+        setFailed(true);
+        return;
+      }
+      setBranches(result);
+    }).catch(() => { if (live) setFailed(true); });
+    return () => {
+      live = false;
+    };
+  }, [directory]);
+
+  const runBranchAction = async (branch: string, create = false): Promise<void> => {
+    if (!branches?.current || !onSwitchBranch || pending || switchingDisabled) return;
+    setSwitchError('');
+    setPending(branch);
+    try { await onSwitchBranch(branch, branches.current, create); if (live.current) onClose(); }
+    catch (error) { if (live.current) setSwitchError(error instanceof Error ? error.message : t('gitUi.branches.switchFailed')); }
+    finally { if (live.current) setPending(null); }
+  };
+
+  return { branches, failed, pending, switchError, runBranchAction };
 }
 
 function BranchGroup({ groupId, label, names, current, onSwitch, switchingDisabled = false, pending = null }: {

@@ -71,7 +71,7 @@ export interface DiffModelDeps {
 
 /** Model = state + composition; actions delegate to module functions. */
 export function useDiffModel(deps: DiffModelDeps): DiffModel {
-  const { t } = useI18n();
+  const messages = useDiffMessages();
   const { directory, visible } = deps;
   const getDiff = useGitStore((state) => state.getDiff);
 
@@ -89,18 +89,7 @@ export function useDiffModel(deps: DiffModelDeps): DiffModel {
       .catch(() => undefined);
   }, [directory]);
 
-  // §13#1 + §11.3: hint replay wipes the touched scopes locally before the restat.
-  const clearHintedDiffs = useCallback((paths: string[] | null): void => {
-    useGitStore.getState().clearDiffCache(directory, paths === null ? undefined : paths);
-    setDiffs((current) => {
-      const next = { ...current };
-      for (const key of Object.keys(next)) {
-        const [path] = key.split('|');
-        if (paths === null || (path !== undefined && paths.includes(path))) delete next[key];
-      }
-      return next;
-    });
-  }, [directory]);
+  const clearHintedDiffs = useHintedDiffClear(directory, setDiffs);
 
   useDiffStatusFeed({ directory, visible, setStatus, refreshStatus, clearHintedDiffs });
 
@@ -115,12 +104,7 @@ export function useDiffModel(deps: DiffModelDeps): DiffModel {
     setInFlight,
     setStatus,
     wipeHinted: clearHintedDiffs,
-    messages: {
-      stageFailed: t('gitUi.stageFailed'),
-      unstageFailed: t('gitUi.unstageFailed'),
-      hunkUnavailable: t('diffUi.hunkUnavailable'),
-      hunkFailed: t('diffUi.hunkFailed'),
-    },
+    messages,
   });
 
   return {
@@ -144,6 +128,36 @@ export function useDiffModel(deps: DiffModelDeps): DiffModel {
     stageToggle: actions.stageToggle,
     hunkAction: actions.hunkAction,
   };
+}
+
+/** Resolve feedback when the active language changes. */
+function useDiffMessages() {
+  const { t } = useI18n();
+  return {
+    stageFailed: t('gitUi.stageFailed'),
+    unstageFailed: t('gitUi.unstageFailed'),
+    hunkUnavailable: t('diffUi.hunkUnavailable'),
+    hunkFailed: t('diffUi.hunkFailed'),
+  };
+}
+
+/** Invalidate the shared and local patch caches together on a refresh hint. */
+function useHintedDiffClear(
+  directory: string,
+  setDiffs: (update: (current: Record<string, EntryDiff>) => Record<string, EntryDiff>) => void,
+): (paths: string[] | null) => void {
+  // §13#1 + §11.3: hint replay wipes the touched scopes locally before the restat.
+  return useCallback((paths: string[] | null): void => {
+    useGitStore.getState().clearDiffCache(directory, paths === null ? undefined : paths);
+    setDiffs((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(next)) {
+        const [path] = key.split('|');
+        if (paths === null || (path !== undefined && paths.includes(path))) delete next[key];
+      }
+      return next;
+    });
+  }, [directory, setDiffs]);
 }
 
 /** Stacked entries + counts + the §5.4 first-paint expansion (6/6/4/2). */

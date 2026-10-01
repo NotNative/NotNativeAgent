@@ -8,7 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
@@ -100,16 +100,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function render(compact = false): Promise<void> {
+async function render(compact = false, strictMode = false): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   rootHandle = createRoot(container);
   await act(async () => {
-    rootHandle!.render(
-      <I18nProvider>
-        <GitView directory={DIR} visible compact={compact} />
-      </I18nProvider>,
-    );
+    const view = <I18nProvider><GitView directory={DIR} visible compact={compact} /></I18nProvider>;
+    rootHandle!.render(strictMode ? <StrictMode>{view}</StrictMode> : view);
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -215,7 +212,7 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(document.querySelector('[data-testid="git-file-row"]')).toBeNull();
   });
 
-  it('searches local branches and switches deliberately, refreshing the Changes header', async () => {
+  it.each([false, true])('searches local branches and switches deliberately, refreshing the Changes header (StrictMode=%s)', async (strictMode) => {
     let branch = 'main';
     fetchMock.mockImplementation(async (input: string, init?: RequestInit) => {
       const url = String(input);
@@ -228,7 +225,7 @@ describe('GitView (doc 06 §6 v1)', () => {
       }
       return route(url);
     });
-    await render();
+    await render(false, strictMode);
     await settle();
     await act(async () => { (document.querySelector('[data-testid="git-open-branches"]') as HTMLButtonElement).click(); });
     await settle();
@@ -675,14 +672,14 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(document.querySelectorAll('[data-testid="git-history-row"]')).toHaveLength(0);
   });
 
-  it('separates clipboard failure from history load failure and clears stale copied state', async () => {
+  it.each([false, true])('separates clipboard failure from history load failure and clears stale copied state (StrictMode=%s)', async (strictMode) => {
     const originalClipboard = navigator.clipboard;
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn(() => Promise.reject(new Error('clipboard denied'))) },
     });
     try {
-      await render();
+      await render(false, strictMode);
       await settle();
       await act(async () => {
         (document.querySelector('[data-testid="git-open-history"]') as HTMLButtonElement).click();

@@ -148,14 +148,6 @@ function recordKnowledge(deps: ScheduledPipelineDeps, ctx: DispatchContext, sess
   }
 }
 
-/** A6.7 (auto-accept runtime) is not wired in NND yet: the toggle cannot
- *  auto-approve the first permission this slice (registered C.6 step 6 gap). */
-function noteAutoAccept(deps: ScheduledPipelineDeps, task: ScheduledTask, sessionId: string): void {
-  if (task.execution.permissionAutoAccept === true) {
-    deps.log.warn(`scheduled auto-accept not wired; session ${sessionId} prompts for permissions normally`);
-  }
-}
-
 /** B.7 goal planting: objective file first over the clamp, then the payload
  *  write with fresh-revision tolerance. Failure is warn-only (C.6 step 8). */
 async function plantGoal(
@@ -280,7 +272,6 @@ async function runScheduledPipeline(deps: ScheduledPipelineDeps, request: RunReq
   if (sessionId === '') throw new Error('harness session create returned no session id');
   const ctx: DispatchContext = { request, task, sessionId, directory, startedAt };
   emitRunning(deps, ctx);
-  noteAutoAccept(deps, task, sessionId);
   const route = task.execution.prompt.startsWith('/') ? await slashRoute(deps, directory, task.execution.prompt) : null;
   if (route !== null) await dispatchCommandRoute(deps, ctx, route.name, route.template);
   else await dispatchPromptRoute(deps, ctx);

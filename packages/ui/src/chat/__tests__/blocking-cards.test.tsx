@@ -13,6 +13,7 @@ import type { StoreApi } from 'zustand/vanilla';
 
 import { BlockingCardsColumn } from '../blocking-cards.tsx';
 import type { DirectoryStore } from '../../sync/types.ts';
+import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -30,9 +31,9 @@ const BASH_REQUEST = {
   always: ['pnpm test'],
 };
 
-function storeWith(permission: unknown[], question: unknown[]): StoreApi<DirectoryStore> {
+function storeWith(permission: unknown[], question: unknown[], config: DirectoryStore['config'] = null): StoreApi<DirectoryStore> {
   const snapshot = {
-    command: [], agent: [], provider: [], message: {}, part: {},
+    command: [], agent: [], provider: [], message: {}, part: {}, config,
     permission: { [SESSION]: permission }, question: { [SESSION]: question },
   } as unknown as DirectoryStore;
   return { subscribe: () => () => undefined, getState: () => snapshot } as unknown as StoreApi<DirectoryStore>;
@@ -69,6 +70,7 @@ async function keyOnColumn(key: string, alt = true, shift = false): Promise<void
 }
 
 afterEach(() => {
+  act(() => { useGlobalSyncStore.setState({ config: null }); });
   act(() => { rootHandle?.unmount(); });
   container?.remove();
   container = null;
@@ -87,15 +89,29 @@ describe('permission card §F.2', () => {
     expect(card.textContent).toContain('pnpm test*');
   });
 
-  it('Alt+Enter = allow once, Alt+Shift+Enter = always, Alt+Backspace = reject', async () => {
+  it('Alt+Enter allows once, Alt+Shift+Enter grants nothing, Alt+Backspace rejects', async () => {
     const harness = engineWith();
     mount(storeWith([BASH_REQUEST], []), harness.engine);
     await keyOnColumn('Enter');
     expect(harness.perms).toHaveBeenCalledWith(SESSION, expect.objectContaining({ id: 'perm_1' }), 'once');
     await keyOnColumn('Enter', true, true);
-    expect(harness.perms).toHaveBeenLastCalledWith(SESSION, expect.anything(), 'always');
+    expect(harness.perms).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('[data-testid="permission-allow-always"]')).toBeNull();
     await keyOnColumn('Backspace');
     expect(harness.perms).toHaveBeenLastCalledWith(SESSION, expect.anything(), 'reject');
+  });
+
+  it.each(['directory', 'global'] as const)('defers decisions to the NNA reviewer identified by %s config', async (source) => {
+    const harness = engineWith();
+    const config = { nnd: { engine: 'nna' } };
+    if (source === 'global') useGlobalSyncStore.setState({ config });
+    mount(storeWith([BASH_REQUEST], [], source === 'directory' ? config : null), harness.engine);
+    expect(document.querySelector('[data-testid="permission-allow-once"]')).toBeNull();
+    expect(document.querySelector('[data-testid="permission-deny"]')).toBeNull();
+    expect(document.querySelector('[data-testid="permission-card"]')?.textContent).toContain('NNA reviews permissions');
+    await keyOnColumn('Enter');
+    await keyOnColumn('Backspace');
+    expect(harness.perms).not.toHaveBeenCalled();
   });
 
   it('edit body shows the path and the diff preview; buttons answer through the engine', async () => {

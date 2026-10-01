@@ -6,7 +6,7 @@
  * /api/fs/search, `/` rides the command registry, `#snippet` rides the
  * snippet source roster (E-09-28 (d) parity with the composer's `#`
  * picker, P9-4e-ii), the goal toggle + token budget, and the
- * auto-accept/enabled
+ * enabled
  * chips. Click-to-pick only - keyboard picker navigation stays a composer
  * concern (E-09-28 (d)).
  */
@@ -42,9 +42,6 @@ export function ExecutionEditor({ execution, onChange, providers, commands, agen
       <LabelledCheck label={text.runAsGoal} testid="execution-goal" checked={execution.goalEnabled === true}
         onToggle={(next) => onChange({ ...execution, goalEnabled: next || undefined, goalTokenBudget: next ? execution.goalTokenBudget : undefined })} />
       {execution.goalEnabled === true ? <GoalBudget execution={execution} onChange={onChange} /> : null}
-      <LabelledCheck label={text.autoAcceptPermissions} testid="execution-auto-accept"
-        checked={execution.permissionAutoAccept === true}
-        onToggle={(next) => onChange({ ...execution, permissionAutoAccept: next || undefined })} />
     </div>
   );
 }

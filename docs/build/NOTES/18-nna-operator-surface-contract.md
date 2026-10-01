@@ -81,6 +81,20 @@ idempotent operation id and NNA-authorized action; each resolves through one
 correlated receipt or denial. A stale page, expired grant, or replayed request
 is denied rather than applied to the current page.
 
+## Permission review authority (2026-10-01)
+
+NNA owns permission settings, scope, and its mandatory auto-reviewer. NND
+does not create a parallel auto-accept policy or send automatic permission
+approvals. NNA's Prompt, Auto-review, and Unattended postures all retain
+review, revalidation, audit, and hard policy; scoped preauthorization must be
+explicitly supported and authorized by NNA, never inferred from an NND toggle.
+
+The unfinished NND auto-accept runtime was removed. Composer and scheduled
+task auto-accept controls and the shortcut declaration were removed; legacy
+scheduled flags are stripped during normalization. Governance projection
+remains the source for the displayed review posture. Historical planning
+references to an NND auto-accept runtime are superseded by this authority rule.
+
 ## Acceptance evidence
 
 - Absence of a capability never exposes its control.

@@ -57,7 +57,6 @@ export function Composer(props: ComposerProps): ReactNode {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<DraftAttachment[]>([]);
   const [agent, setAgent] = useState('build');
-  const [autoAccept, setAutoAccept] = useState(false);
   const [shell, setShell] = useState(false);
   const [queueChips, setQueueChips] = useState<QueuedMessage[]>([]);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
@@ -91,7 +90,6 @@ export function Composer(props: ComposerProps): ReactNode {
     setAttachments(draft.attachments);
     textRef.current = draft.text;
     attachmentsRef.current = draft.attachments;
-    setAutoAccept(draft.autoAccept);
     setQueueChips(draft.queue);
     restoringRef.current = false;
   }, [directory, sessionKey]);
@@ -107,12 +105,11 @@ export function Composer(props: ComposerProps): ReactNode {
   // refresh keeps the current roster and the picker stays whatever it was.
   useEffect(() => { void refreshSnippets(); }, []);
 
-  const persist = useCallback((nextText: string, nextAttachments: DraftAttachment[], nextAutoAccept: boolean, queue?: QueuedMessage[]) => {
+  const persist = useCallback((nextText: string, nextAttachments: DraftAttachment[], queue?: QueuedMessage[]) => {
     if (restoringRef.current) return;
     saveDraft(directory, sessionKey, {
       text: nextText,
       attachments: nextAttachments,
-      autoAccept: nextAutoAccept,
       queue: queue ?? (sessionKey === 'draft' ? readDraft(directory, 'draft').queue : readDraft(directory, sessionID ?? '').queue),
     });
   }, [directory, sessionKey, sessionID]);
@@ -130,7 +127,7 @@ export function Composer(props: ComposerProps): ReactNode {
       const next = appended && base.length > 0 ? `${base}\n\n${incoming}` : incoming;
       textRef.current = next;
       setText(next);
-      persist(next, attachmentsRef.current, autoAccept);
+      persist(next, attachmentsRef.current);
       detail.accept?.();
       requestAnimationFrame(() => {
         editorRef.current?.focus();
@@ -143,7 +140,7 @@ export function Composer(props: ComposerProps): ReactNode {
     };
     const annotationHandler = shell ? () => undefined : createAnnotationHandler({
       targetKey, text: textRef, attachments: attachmentsRef, accepted: acceptedAnnotations,
-      editor: editorRef, persist, setText, setAttachments, autoAccept,
+      editor: editorRef, persist, setText, setAttachments,
     });
     window.addEventListener('nnd:composer-fill', handler);
     window.addEventListener('nnd:composer-focus', focusHandler);
@@ -155,7 +152,7 @@ export function Composer(props: ComposerProps): ReactNode {
       window.removeEventListener('nnd:composer-annotation-target', targetHandler);
       window.removeEventListener('nnd:composer-annotation', annotationHandler);
     };
-  }, [autoAccept, directory, persist, sessionKey, shell]);
+  }, [directory, persist, sessionKey, shell]);
 
   const subscribeStatus = useGlobalSessionStatusStore.subscribe;
   const statusById = useSyncExternalStore(subscribeStatus, () => useGlobalSessionStatusStore.getState().statusById);
@@ -229,7 +226,7 @@ export function Composer(props: ComposerProps): ReactNode {
 
   function updateText(next: string, caret?: number): void {
     setText(next);
-    persist(next, attachments, autoAccept);
+    persist(next, attachments);
     if (caret !== undefined) requestAnimationFrame(() => editorRef.current?.setSelectionRange(caret, caret));
   }
 
@@ -264,7 +261,7 @@ export function Composer(props: ComposerProps): ReactNode {
     void tokens;
     if (plan.localCommand) {
       setText('');
-      persist('', attachments, autoAccept);
+      persist('', attachments);
       if (plan.localCommand.name === 'btw') {
         if (sessionID && props.onRunBtw) {
           props.onRunBtw(sessionID, { question: composed.replace(/^\/btw\b\s*/iu, ''), model, sendAgent });
@@ -295,8 +292,8 @@ export function Composer(props: ComposerProps): ReactNode {
         composed,
         liveQueue: readDraft(directory, sessionKey).queue,
         setQueueChips: setQueueChips,
-        saveDraftQueue: (queue) => saveDraft(directory, sessionKey, { text: '', attachments: [], autoAccept, queue }),
-        clearComposer: () => { setText(''); setAttachments([]); persist('', [], autoAccept); },
+        saveDraftQueue: (queue) => saveDraft(directory, sessionKey, { text: '', attachments: [], queue }),
+        clearComposer: () => { setText(''); setAttachments([]); persist('', []); },
         restoreComposer: () => { setText(restoreSnapshot.current.text); setAttachments(restoreSnapshot.current.attachments); },
         sendConfig: { ...model, agent: sendAgent },
         recordHistory: () => recordSend({ directory, sessionID, text: composed, attachments: [], scope: 'session', attachmentTarget: 'scoped' }),
@@ -323,13 +320,13 @@ export function Composer(props: ComposerProps): ReactNode {
         attachments: btwPanelActive ? [] : attachments, scope: 'session', attachmentTarget: 'scoped' });
       setText('');
       setAttachments([]);
-      persist('', [], autoAccept);
+      persist('', []);
       recallRef.current = { list: [], position: -1, liveText: '' };
     } catch (error) {
       if (!sessionID) {
         // draft send failure returns the column to the draft and keeps the prompt
         useSessionViewStore.getState().setCurrentSession(null);
-        saveDraft(directory, 'draft', { text: restoreSnapshot.current.text, attachments: restoreSnapshot.current.attachments, autoAccept, queue: readDraft(directory, 'draft').queue });
+        saveDraft(directory, 'draft', { text: restoreSnapshot.current.text, attachments: restoreSnapshot.current.attachments, queue: readDraft(directory, 'draft').queue });
       }
       setText(restoreSnapshot.current.text);
       setAttachments(restoreSnapshot.current.attachments);
@@ -439,7 +436,7 @@ export function Composer(props: ComposerProps): ReactNode {
     })).then((next) => {
       const merged = dedupeNames([...attachments, ...next.filter((a) => a.dataUrl)]);
       setAttachments(merged);
-      persist(text, merged, autoAccept);
+      persist(text, merged);
     }).catch(() => toast.error('Attachment failed'));
   }
 
@@ -454,9 +451,9 @@ export function Composer(props: ComposerProps): ReactNode {
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
       data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : undefined)}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments, autoAccept); }} /> : null}
+      {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments); }} /> : null}
       {sessionKey === 'draft' && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
-      <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next, autoAccept); }} />
+      <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next); }} />
       <PickerPopup picker={picker} />
       {modelPickerOpen && !nnaConfigured && !configUnavailable ? (
         <ModelPicker
@@ -479,8 +476,6 @@ export function Composer(props: ComposerProps): ReactNode {
       <ComposerFooter
         busy={busy}
         canSend={canSend}
-        autoAccept={autoAccept}
-        onAutoAccept={() => { const next = !autoAccept; setAutoAccept(next); persist(text, attachments, next); }}
         onStop={() => sessionID && void services.engine.actions.abort(sessionID)}
         agent={agent}
         agents={agentNames}

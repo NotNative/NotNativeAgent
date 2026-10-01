@@ -159,9 +159,8 @@ function normalizeExecution(raw: unknown): Execution | null {
     && shape.goalTokenBudget <= TOKEN_BUDGET_MAX) {
     execution.goalTokenBudget = shape.goalTokenBudget;
   } else delete execution.goalTokenBudget;
-  if (typeof shape.permissionAutoAccept === 'boolean') {
-    execution.permissionAutoAccept = shape.permissionAutoAccept;
-  } else delete execution.permissionAutoAccept;
+  // Legacy NND auto-accept flags cannot override NNA's review policy.
+  delete execution.permissionAutoAccept;
   return execution;
 }
 

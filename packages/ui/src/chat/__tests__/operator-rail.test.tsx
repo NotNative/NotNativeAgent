@@ -57,15 +57,15 @@ describe('OperatorRail', () => {
     const older = ['context', 'activity', 'changes', 'walkthrough', 'notes', 'browser', 'terminal'];
     window.localStorage.setItem(key, JSON.stringify({ order: older, visible: older.filter((id) => id !== 'notes') }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Worktrees"]')).not.toBeNull();
     expect(document.querySelector('nav button[aria-label="Files"]')).not.toBeNull();
     expect(document.querySelector('nav button[aria-label="Notes"]')).toBeNull();
     act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
     act(() => (document.querySelector('input[aria-label="Show Worktrees"]') as HTMLInputElement).click());
     expect(document.querySelector('nav button[aria-label="Worktrees"]')).toBeNull();
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/other" />));
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/other" /></I18nProvider>));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Worktrees"]')).toBeNull();
     expect(document.querySelector('nav button[aria-label="Files"]')).not.toBeNull();
   });
@@ -76,12 +76,12 @@ describe('OperatorRail', () => {
     const older = ['context', 'activity', 'changes', 'worktrees', 'walkthrough', 'notes', 'browser', 'terminal'];
     window.localStorage.setItem(key, JSON.stringify({ order: older, visible: older }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Files"]')).not.toBeNull();
     act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
     act(() => (document.querySelector('input[aria-label="Show Files"]') as HTMLInputElement).click());
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/other" />));
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/other" /></I18nProvider>));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Files"]')).toBeNull();
   });
 
@@ -128,7 +128,7 @@ describe('OperatorRail', () => {
     vi.stubGlobal('innerWidth', 1280);
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     const dockWidth = rail.style.width;
     act(() => (document.querySelector('button[aria-label="Maximize operator panel"]') as HTMLButtonElement).click());
@@ -153,7 +153,7 @@ describe('OperatorRail', () => {
   it('explains absent Context projections and summarizes the latest authored tool event', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Select a session');
     act(() => useSessionViewStore.setState({ currentSessionId: 's1', activeDirectory: 'D:/work' }));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('not available for this session');
@@ -179,7 +179,7 @@ describe('OperatorRail', () => {
     const store = createDirectoryStore({ session: [{ id: 's1', time: { created: 1, updated: 2 } }] as never,
       activity: [{ id: 'turn-1', sessionID: 's1', time, kind: 'turn', status: 'completed', summary: 'Turn completed' }] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="context-reading-column"]')?.className).toContain('max-w-4xl');
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const stamp = document.querySelector('[data-testid="activity-timestamp"]') as HTMLTimeElement;
@@ -195,7 +195,7 @@ describe('OperatorRail', () => {
       { id: 'old-tool', sessionID: 'old', time: 1, kind: 'tool', status: 'completed', summary: 'Old project tool' },
     ] }));
     act(() => useSessionViewStore.setState({ currentSessionId: 'old', activeDirectory: 'D:/work' }));
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Old project tool');
     act(() => useSessionViewStore.setState({ currentSessionId: 'new', activeDirectory: 'D:/other' }));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Select a session');
@@ -214,15 +214,15 @@ describe('OperatorRail', () => {
       { id: 'new-tool', sessionID: 'new', time: 2, kind: 'tool', status: 'completed', summary: 'New column tool' },
     ] });
     act(() => useSessionViewStore.setState({ currentSessionId: 'old', activeDirectory: 'D:/work' }));
-    act(() => rootHandle!.render(<OperatorRail store={oldStore} engine={{} as never}
-      directory="D:/work" displayedSessionID="old" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={oldStore} engine={{} as never}
+      directory="D:/work" displayedSessionID="old" /></I18nProvider>));
     act(() => useSessionViewStore.setState({ currentSessionId: 'new', activeDirectory: 'D:/other' }));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Old column tool');
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).not.toContain('New column tool');
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Old column tool');
-    act(() => rootHandle!.render(<OperatorRail store={newStore} engine={{} as never}
-      directory="D:/other" displayedSessionID="new" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={newStore} engine={{} as never}
+      directory="D:/other" displayedSessionID="new" /></I18nProvider>));
     expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('New column tool');
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('New column tool');
@@ -234,7 +234,7 @@ describe('OperatorRail', () => {
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
     act(() => (document.querySelector('button[aria-label="Move Activity up"]') as HTMLButtonElement).click());
     expect([...document.querySelectorAll('nav[aria-label="Operator surfaces"] button[aria-pressed]')].map((button) => button.getAttribute('aria-label')).slice(0, 2)).toEqual(['Activity', 'Context']);
@@ -248,12 +248,12 @@ describe('OperatorRail', () => {
     expect((document.querySelector('input[aria-label="Show Activity"]') as HTMLInputElement).disabled).toBe(true);
     const key = 'nnd.operator-rail.panels:local:nnd.operator-rail.surface:D:/work';
     expect(JSON.parse(window.localStorage.getItem(key)!).visible).toEqual(['activity']);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/other" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/other" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Context"]')).not.toBeNull();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Context"]')).toBeNull();
     runtime = 'host:other';
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('nav button[aria-label="Context"]')).not.toBeNull();
   });
 
@@ -263,7 +263,7 @@ describe('OperatorRail', () => {
       order: ['activity', 'activity', 'alien'], visible: ['activity', 'alien', 'activity'],
     }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
     expect([...document.querySelectorAll('section[aria-label="Customize operator panels"] input[type="checkbox"]')]).toHaveLength(9);
     expect([...document.querySelectorAll('nav[aria-label="Operator surfaces"] button[aria-pressed]')].map((button) => button.getAttribute('aria-label'))).toEqual(['Activity']);
@@ -278,7 +278,7 @@ describe('OperatorRail', () => {
     const key = 'nnd.operator-rail.panels:local:nnd.operator-rail.surface:D:/work';
     window.localStorage.setItem(key, JSON.stringify({ order: ['context', 'changes'], visible: ['context', 'changes'] }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    await act(async () => { rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />); });
+    await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>); });
     await act(async () => (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click());
     await act(async () => (document.querySelector('[data-testid="git-open-walkthrough"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Walkthrough');
@@ -295,7 +295,7 @@ describe('OperatorRail', () => {
     }), { headers: { 'content-type': 'application/json' } }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     const view = document.querySelector('[data-testid="git-view"]')!;
     const textarea = view.querySelector('textarea') as HTMLTextAreaElement;
@@ -311,7 +311,7 @@ describe('OperatorRail', () => {
     expect(view.parentElement?.className).not.toContain('hidden');
     expect(textarea.value).toBe('Keep this draft');
     runtime = 'host:other';
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     const otherRuntimeView = document.querySelector('[data-testid="git-view"]')!;
     expect(otherRuntimeView).not.toBe(view);
@@ -329,14 +329,14 @@ describe('OperatorRail', () => {
     const store = createDirectoryStore({ activity: [{ id: 'write', sessionID: 's1', time: 1, kind: 'tool',
       status: 'completed', summary: 'file written', toolEvidence: { reviewPath: 'work.ts', reviewDirectory: 'D:/work' } }] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     await act(async () => { ([...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
       .find((button) => button.textContent === 'Review file in Changes') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(document.querySelector('button[aria-label="View diff for work.ts (working)"]')?.getAttribute('aria-pressed')).toBe('true');
 
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/other" />));
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/other" /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(document.querySelector('button[aria-label="View diff for work.ts (working)"]')?.getAttribute('aria-pressed')).toBe('false');
   });
@@ -347,7 +347,7 @@ describe('OperatorRail', () => {
       isGitRepository: true, workspacePrefix: '', branch: 'main', files: [], trackingAhead: 0, trackingBehind: 0,
     }), { headers: { 'content-type': 'application/json' } }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => { (document.querySelector('button[aria-label="Changes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     await act(async () => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="git-view"]')).not.toBeNull();
@@ -369,14 +369,14 @@ describe('OperatorRail', () => {
     }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Context');
     runtime = 'host:other';
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Activity');
     expect(window.localStorage.getItem(projectKey)).toBe('context');
     runtime = 'local';
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Context');
   });
 
@@ -384,7 +384,7 @@ describe('OperatorRail', () => {
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Terminal"]') as HTMLButtonElement).click());
     const terminal = document.querySelector('[data-testid="terminal-keepalive-controller"]');
     expect(terminal?.getAttribute('data-visible')).toBe('true');
@@ -406,7 +406,7 @@ describe('OperatorRail', () => {
     ] } as never);
     const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    await act(async () => { rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />); });
+    await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>); });
     await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(history).toHaveBeenCalledWith('s1', { directory: 'D:/work' });
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Saved turn completed');
@@ -417,7 +417,7 @@ describe('OperatorRail', () => {
     vi.spyOn(harnessClient, 'listActivity').mockImplementation(() => new Promise((resolve) => { finish = resolve; }) as never);
     const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('Select a session');
     await act(async () => useSessionViewStore.setState({ currentSessionId: 's1' }));
@@ -445,7 +445,7 @@ describe('OperatorRail', () => {
       .mockResolvedValueOnce({ data: [{ id: 'saved-turn', sessionID: 's1', time: 12, kind: 'turn', status: 'completed', summary: 'Recovered turn' }] } as never);
     const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(document.querySelector('[data-testid="operator-activity"]')?.textContent).toContain('Saved activity unavailable');
     expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('could not be loaded');
@@ -468,7 +468,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
     expect(rail.style.width).toBe('341px');
@@ -493,13 +493,13 @@ describe('OperatorRail', () => {
     act(() => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
     expect(rail.style.width).toBe('405px');
     activeRuntime = 'host:other';
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(rail.style.width).toBe('341px');
     activeRuntime = 'local';
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(rail.style.width).toBe('405px');
     expect([...Array(window.localStorage.length)].map((_, index) => window.localStorage.key(index)).some((key) => key?.includes('nnd.operator-rail.width:local:'))).toBe(true);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen /></I18nProvider>));
     expect(rail.style.width).toBe('');
   });
   it('tracks a pointer drag back to its starting width', () => {
@@ -507,7 +507,7 @@ describe('OperatorRail', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
     act(() => separator.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 500, bubbles: true })));
@@ -526,7 +526,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('41px');
     expect(rail.className).toContain('flex');
@@ -548,7 +548,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div'); document.body.appendChild(container);
     rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.className).toContain('hidden');
     expect(rail.style.width).toBe('');
@@ -556,7 +556,7 @@ describe('OperatorRail', () => {
     viewport = 1100;
     vi.stubGlobal('innerWidth', viewport);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(rail.isConnected).toBe(false);
     const dock = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(dock.className).toContain('flex');
@@ -571,27 +571,27 @@ describe('OperatorRail', () => {
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/first" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('41px');
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(rail.style.width).toBe('341px');
     expect(window.localStorage.getItem('nnd.operator-rail.open:local:nnd.operator-rail.surface:D:/first')).toBe('open');
 
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/second" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/second" /></I18nProvider>));
     expect(rail.style.width).toBe('41px');
     act(() => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
     act(() => (document.querySelector('button[aria-label="Close operator panel"]') as HTMLButtonElement).click());
     expect(window.localStorage.getItem('nnd.operator-rail.open:local:nnd.operator-rail.surface:D:/second')).toBe('closed');
 
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/first" /></I18nProvider>));
     expect(rail.style.width).toBe('341px');
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Activity');
     runtime = 'host:other';
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/first" /></I18nProvider>));
     expect(rail.style.width).toBe('41px');
     runtime = 'local';
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/first" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/first" /></I18nProvider>));
     expect(rail.style.width).toBe('341px');
   });
   it('does not save an untouched viewport default as a panel preference', () => {
@@ -605,14 +605,14 @@ describe('OperatorRail', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
     const openKey = 'nnd.operator-rail.open:local:nnd.operator-rail.surface:D:/work';
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect((document.querySelector('[data-testid="operator-rail"]') as HTMLElement).style.width).toBe('41px');
     expect(window.localStorage.getItem(openKey)).toBeNull();
     act(() => rootHandle!.unmount());
     wide = true;
     vi.stubGlobal('innerWidth', 1600);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect((document.querySelector('[data-testid="operator-rail"]') as HTMLElement).style.width).not.toBe('41px');
     expect(window.localStorage.getItem(openKey)).toBeNull();
   });
@@ -624,7 +624,7 @@ describe('OperatorRail', () => {
     document.body.appendChild(container);
     rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/wide" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/wide" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('1241px');
     vi.stubGlobal('innerWidth', 1100);
@@ -635,7 +635,7 @@ describe('OperatorRail', () => {
     act(() => window.dispatchEvent(new Event('resize')));
     expect(rail.style.width).toBe('1241px');
     window.localStorage.setItem('nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/narrow:context', '300');
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/narrow" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/narrow" /></I18nProvider>));
     expect(rail.style.width).toBe('341px');
   });
   it('lets an older narrow preference return to responsive fitting without replacing widths in other workspaces', () => {
@@ -648,7 +648,7 @@ describe('OperatorRail', () => {
     window.localStorage.setItem(otherKey, '420');
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('341px');
     act(() => (document.querySelector('button[aria-label="Fit operator panel to window"]') as HTMLButtonElement).click());
@@ -662,9 +662,9 @@ describe('OperatorRail', () => {
     act(() => window.dispatchEvent(new Event('resize')));
     expect(rail.style.width).toBe('1241px');
     expect(window.localStorage.getItem(narrowKey)).toBeNull();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/other" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/other" /></I18nProvider>));
     expect(rail.style.width).toBe('461px');
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(rail.style.width).toBe('1241px');
   });
   it('does not pin the viewport cap when Fit is used in a narrow desktop window', () => {
@@ -674,7 +674,7 @@ describe('OperatorRail', () => {
     const key = 'nnd.operator-rail.width:local:nnd.operator-rail.surface:D:/work:context';
     window.localStorage.setItem(key, '500');
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('332px');
     act(() => (document.querySelector('button[aria-label="Fit operator panel to window"]') as HTMLButtonElement).click());
@@ -692,7 +692,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('497px'); // 456px panel + 41px dock; 480px chat remains beside the sidebar.
     const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
@@ -712,9 +712,9 @@ describe('OperatorRail', () => {
     document.body.appendChild(container);
     rootHandle = createRoot(container);
     const store = createDirectoryStore();
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click());
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
     expect(rail.style.width).toBe('332px');
     expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toContain('Notes');
@@ -731,13 +731,13 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const terminal = document.querySelector('[data-testid="terminal-keepalive-controller"]');
     expect(terminal?.getAttribute('data-visible')).toBe('true');
     act(() => change?.({ matches: false } as MediaQueryListEvent));
     expect(document.querySelector('[data-testid="terminal-keepalive-controller"]')).toBe(terminal);
     expect(terminal?.getAttribute('data-visible')).toBe('false');
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen /></I18nProvider>));
     expect(terminal?.getAttribute('data-visible')).toBe('true');
   });
   it('keeps an opened terminal mounted but not visible while focus mode suppresses the rail', () => {
@@ -747,10 +747,10 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const terminal = document.querySelector('[data-testid="terminal-keepalive-controller"]');
     expect(terminal?.getAttribute('data-visible')).toBe('true');
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" suppressed />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" suppressed /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]')!;
     expect(rail.className).toContain('hidden');
     expect(rail.className).not.toContain('xl:flex');
@@ -763,7 +763,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen onCloseCompact={close} />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen onCloseCompact={close} /></I18nProvider>));
     const rail = document.querySelector('[data-testid="operator-rail"]')!;
     expect(rail.className).toContain('w-full xl:w-[300px]');
     expect(rail.className).not.toContain('hidden xl:flex');
@@ -778,7 +778,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(context.textContent).toContain('25.0% estimated');
     expect(context.textContent).toContain('4,000 tokens');
@@ -792,7 +792,7 @@ describe('OperatorRail', () => {
       phase: 'awaiting_approval', secret: 'never render',
     } } }, time: { created: 1, updated: 1 } }] as never });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const panel = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(panel.textContent).toContain('Reviewing tool use');
     expect(panel.textContent).not.toContain('never render');
@@ -812,7 +812,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(context.textContent).toContain('auto-review');
     expect(context.textContent).toContain('Needs attention');
@@ -834,7 +834,7 @@ describe('OperatorRail', () => {
       todo: { s1: [{ content: 'stale compatibility todo', status: 'pending', priority: 'low' }] } as never,
     });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const panel = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(panel.textContent).toContain('Build the desktop');
     expect(panel.textContent).toContain('Connect work rail');
@@ -859,7 +859,7 @@ describe('OperatorRail', () => {
       todo: { s1: [{ content: 'stale compatibility todo', status: 'pending', priority: 'low' }] } as never,
     });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="work-status-panel"]')!.textContent).not.toContain('stale compatibility todo');
   });
 
@@ -872,7 +872,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(context.textContent).toContain('Configured route');
     expect(context.textContent).toContain('local · code-main');
@@ -892,7 +892,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(context.textContent).not.toContain('root-only');
     expect(context.textContent).toContain('delegated · child-only');
@@ -908,7 +908,7 @@ describe('OperatorRail', () => {
       { id: 's2', metadata: { nnd: { activeTools: { count: 1, names: ['edit'] } } }, time: { created: 1, updated: 2 } },
     ] as never });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const panel = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(panel.textContent).toContain('Running tools (1)');
     expect(panel.textContent).toContain('shell_run');
@@ -932,7 +932,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="work-status-panel"]')!.textContent).toContain('25.0% estimated');
 
     act(() => useSessionViewStore.getState().setCurrentSession('s2'));
@@ -950,7 +950,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const subagents = document.querySelector('[data-testid="ws-subagents"]')!;
     expect(subagents.textContent).toContain('No live status');
     expect(subagents.textContent).not.toContain('Done');
@@ -992,7 +992,7 @@ describe('OperatorRail', () => {
       { id: 'child', parentID: 'parent', title: 'Explorer', time: { created: 2, updated: 2 } },
     ] as never });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     const open = document.querySelector('[aria-label="Open Explorer subagent transcript"]') as HTMLButtonElement;
     expect(open).toBeTruthy();
     expect(open.textContent).toContain('No live status');
@@ -1008,7 +1008,7 @@ describe('OperatorRail', () => {
     ] as never });
     const closeCompact = vi.fn();
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen onCloseCompact={closeCompact} />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen onCloseCompact={closeCompact} /></I18nProvider>));
     act(() => (document.querySelector('[aria-label="Open Explorer subagent transcript"]') as HTMLButtonElement).click());
     expect(useSessionViewStore.getState().currentSessionId).toBe('child');
     expect(closeCompact).toHaveBeenCalledOnce();
@@ -1023,7 +1023,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     expect(document.querySelector('[data-testid="operator-rail"]')).not.toBeNull();
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Applied patch');
@@ -1048,7 +1048,7 @@ describe('OperatorRail', () => {
           summary: 'Subagent completed', childSessionID: 's2' },
       ] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const links = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
       .filter((button) => button.textContent === 'Open subagent transcript');
@@ -1070,7 +1070,7 @@ describe('OperatorRail', () => {
     const anchor = document.createElement('div'); anchor.id = 'message-prompt_a';
     const scroll = vi.fn(); anchor.scrollIntoView = scroll; document.body.appendChild(anchor);
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const links = [...document.querySelectorAll('[data-testid="activity-rows"] button')];
     expect(links).toHaveLength(1);
@@ -1087,7 +1087,7 @@ describe('OperatorRail', () => {
         target: 'D:/work/check.js', effect: 'read_only', elapsedMs: 25, exitCode: 0,
       } }] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const detail = document.querySelector('[data-testid="activity-tool-evidence"]') as HTMLDetailsElement;
     expect(detail.open).toBe(false);
@@ -1108,7 +1108,7 @@ describe('OperatorRail', () => {
     const anchor = document.createElement('div'); anchor.id = 'message-prompt_a';
     const scroll = vi.fn(); anchor.scrollIntoView = scroll; document.body.appendChild(anchor);
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="activity-tool-evidence"]')).toBeNull();
     const link = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
@@ -1130,7 +1130,7 @@ describe('OperatorRail', () => {
         toolEvidence: { target: 'src/other.js' } },
     ] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const jumps = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
       .filter((button) => button.textContent === 'Review file in Changes');
@@ -1146,7 +1146,7 @@ describe('OperatorRail', () => {
         toolEvidence: { reviewPath: 'src/check.js', reviewDirectory: 'D:/old-work' } },
     ] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/new-work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/new-work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('old file written');
     expect([...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
@@ -1162,7 +1162,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     act(() => ([...document.querySelectorAll('[data-testid="operator-activity"] button')].find((button) => button.textContent === 'Failures') as HTMLButtonElement).click());
     const activity = document.querySelector('[data-testid="operator-activity"]')!;
@@ -1182,7 +1182,7 @@ describe('OperatorRail', () => {
       { id: 'normal', sessionID: 's1', time: 3, kind: 'turn', status: 'completed', summary: 'Turn completed' },
     ] });
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const rows = document.querySelector('[data-testid="activity-rows"]')!;
     expect(rows.querySelectorAll('li')[0]!.className).toContain('border-amber');
@@ -1205,7 +1205,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const activity = document.querySelector('[data-testid="operator-activity"]')!;
     const rows = document.querySelector('[data-testid="activity-rows"]') as HTMLOListElement;
@@ -1255,10 +1255,10 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/alpha" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/alpha" /></I18nProvider>));
     expect((document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
 
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/beta" />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/beta" /></I18nProvider>));
     expect((document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
     expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/beta')).toBe('context');
     expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/alpha')).toBe('activity');
@@ -1270,7 +1270,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory={'d:\\same-project'} />));
+    act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory={'d:\\same-project'} /></I18nProvider>));
     expect((document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
   });
 });

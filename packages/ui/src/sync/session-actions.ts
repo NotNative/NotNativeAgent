@@ -14,6 +14,8 @@ import { truncateAtMessageId, messagesBefore } from './message-ordering.ts';
 import { getStaleRunningToolMessageID } from './materialization.ts';
 import type { EngineServices } from './session-lifecycle.ts';
 import { getSessionKnowledge, recordSessionKnowledgeDelivered } from '../lib/session-knowledge-api.ts';
+import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
+import { useGlobalSyncStore } from './global-stores.ts';
 
 export interface SendFailureRecord {
   at: number;
@@ -289,11 +291,17 @@ export async function replyToPermission(
   request: PermissionRequest,
   reply: 'once' | 'always' | 'reject',
 ): Promise<void> {
+  if (reply === 'always') throw new Error('Remembered permission approvals are not supported');
+  if (nnaOwnsPermissionReview(useGlobalSyncStore.getState().config)
+    || [...childStores.values()].some((store) => (store.getState().permission[sessionID]?.some((item) => item.id === request.id))
+      && nnaOwnsPermissionReview(store.getState().config))) {
+    throw new Error('NNA owns permission review for this runtime');
+  }
   const directory = resolveDirectoryForBlockingRequest(engine, 'permission', sessionID, childStores);
   const result = await harnessClient.replyToPermission(request.id, reply, undefined, directory ? { directory } : undefined);
   const settled = !result.error || isNotFound(result.error, result.response?.status);
-  removeLocalPermission(childStores, sessionID, request.id);
   if (!settled) throw new Error(result.error);
+  removeLocalPermission(childStores, sessionID, request.id);
   if (isNotFound(result.error, result.response?.status)) {
     // already settled elsewhere: converge the trailing tool via materialization
     const stale = findStaleRunningToolStore(childStores, sessionID);

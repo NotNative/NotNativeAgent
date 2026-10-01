@@ -38,7 +38,6 @@ export const SHORTCUT_SCHEMA: readonly GroupDecl[] = [
       custom('switch_session_previous', 'mod+alt+arrowleft', 'shortcuts.label.switch_session_previous'),
       custom('switch_session_next', 'mod+alt+arrowright', 'shortcuts.label.switch_session_next'),
       custom('rename_current_session', 'mod+k r', 'shortcuts.label.rename_current_session'),
-      custom('toggle_permission_auto_accept', 'mod+k a', 'shortcuts.label.toggle_permission_auto_accept'),
       custom('close_session_tab', 'alt+w', 'shortcuts.label.close_session_tab'),
       custom('open_draft_project_picker', 'mod+k p', 'shortcuts.label.open_draft_project_picker'),
       custom('open_draft_worktree_picker', 'mod+k g', 'shortcuts.label.open_draft_worktree_picker'),

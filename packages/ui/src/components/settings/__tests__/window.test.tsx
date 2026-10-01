@@ -173,7 +173,7 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
       if (url.endsWith('/v1/provider-profiles') && init?.method === 'POST') {
         const body = JSON.parse(String(init.body));
         writes.push({ url, method: 'POST', body });
-        profiles = [...profiles, { ...body, active: false }];
+        profiles = [...profiles, { ...body, active: true }];
         return Promise.resolve(new Response(JSON.stringify({ profile: body }), { status: 201 }));
       }
       if (url.endsWith('/v1/provider-profiles/local') && init?.method === 'PATCH') {
@@ -238,7 +238,7 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
   it('provider route drift distinguishes disk configuration from running NNA', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
       profiles: [{ profile_id: 'new', endpoint: 'http://127.0.0.1:11434/v1', model: 'new-model', active: true },
-        { profile_id: 'old', endpoint: 'http://127.0.0.1:2244/v1', model: 'old-model', active: false }],
+        { profile_id: 'old', endpoint: 'http://127.0.0.1:2244/v1', model: 'old-model', active: true }],
       configured_primary_route: { providerID: 'new', modelID: 'new-model' },
       runtime_route: { providerID: 'old', modelID: 'old-model' },
     }), { status: 200 })));
@@ -274,8 +274,8 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
         return Promise.resolve(new Response(JSON.stringify({ configured_primary_route: { providerID: 'new', modelID: 'new-model' }, runtime_route: { providerID: 'old', modelID: 'old-model' } }), { status: 200 }));
       }
       return Promise.resolve(new Response(JSON.stringify({
-        profiles: [{ profile_id: 'old', endpoint: 'http://127.0.0.1:11434/v1', model: 'old-model', active: selected === 'old' },
-          { profile_id: 'new', endpoint: 'http://127.0.0.1:2244/v1', model: 'new-model', active: selected === 'new' }],
+        profiles: [{ profile_id: 'old', endpoint: 'http://127.0.0.1:11434/v1', model: 'old-model', active: true },
+          { profile_id: 'new', endpoint: 'http://127.0.0.1:2244/v1', model: 'new-model', active: true }],
         configured_primary_route: { providerID: selected, modelID: `${selected}-model` },
         runtime_route: { providerID: 'old', modelID: 'old-model' },
       }), { status: 200 }));

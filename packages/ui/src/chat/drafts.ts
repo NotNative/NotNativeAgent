@@ -30,13 +30,12 @@ export interface QueuedMessage {
 export interface DraftRecord {
   text: string;
   attachments: DraftAttachment[];
-  autoAccept: boolean;
   queue: QueuedMessage[];
   projectContextPins: { notes: string[]; plans: string[] };
   updatedAt: number;
 }
 
-const EMPTY: DraftRecord = { text: '', attachments: [], autoAccept: false, queue: [],
+const EMPTY: DraftRecord = { text: '', attachments: [], queue: [],
   projectContextPins: { notes: [], plans: [] }, updatedAt: 0 };
 
 type DraftStore = Record<string, DraftRecord | { tombstone: true }>;
@@ -70,12 +69,14 @@ export function draftKey(directory: string, sessionKey: DraftSessionKey): string
 export function readDraft(directory: string, sessionKey: DraftSessionKey): DraftRecord {
   const value = readStore()[draftKey(directory, sessionKey)];
   if (!value || 'tombstone' in value) return { ...EMPTY };
-  return { ...EMPTY, ...value };
+  // Old drafts may carry NND's removed permission switch. Never round-trip it.
+  const { autoAccept: _legacyPermissionSwitch, ...draft } = value as DraftRecord & { autoAccept?: unknown };
+  return { ...EMPTY, ...draft };
 }
 
 export function saveDraft(directory: string, sessionKey: DraftSessionKey,
   partial: Omit<DraftRecord, 'updatedAt' | 'projectContextPins'> & { projectContextPins?: DraftRecord['projectContextPins'] }): void {
-  const record = partial as Omit<DraftRecord, 'updatedAt'>;
+  const { autoAccept: _legacyPermissionSwitch, ...record } = partial as Omit<DraftRecord, 'updatedAt'> & { autoAccept?: unknown };
   const store = readStore();
   store[draftKey(directory, sessionKey)] = {
     ...record,

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c2cf1fc7598d0bc1dab301964a897f4d78c2b3e30046d34fd7a3bfe9bd888b6b",
+  "source_digest": "sha256:2802d905a27a7c035d6ddda6bad7d7ff98409bcf051a75d4872fc7c98b58a9a6",
   "counts": {
-    "modules": 650,
+    "modules": 666,
     "component_edges": 14
   },
   "components": [
@@ -18,19 +18,19 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 4
+      "module_count": 5
     },
     {
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 203
+      "module_count": 215
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 163
+      "module_count": 166
     },
     {
       "id": "web-server",
@@ -102,25 +102,25 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 263,
-      "module_count": 108
+      "import_count": 264,
+      "module_count": 109
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 77,
+      "import_count": 78,
       "module_count": 37
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 64,
+      "import_count": 65,
       "module_count": 52
     },
     {
       "from": "sync-engine",
       "to": "harness-facade",
-      "import_count": 51,
+      "import_count": 52,
       "module_count": 36
     },
     {
@@ -233,7 +233,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts"
       ]
@@ -1221,6 +1223,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/git/git-empty-state.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/components/git/git-file-preview.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -1245,6 +1253,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/git/git-dialogs.tsx",
+        "packages/ui/src/components/git/git-empty-state.tsx",
         "packages/ui/src/components/git/git-file-preview.tsx",
         "packages/ui/src/components/git/git-view-chrome.tsx",
         "packages/ui/src/components/git/session-change-evidence.ts",
@@ -1401,10 +1410,22 @@
         "packages/ui/src/components/pairing/pairingLive.ts",
         "packages/ui/src/components/pairing/pairingReducer.ts",
         "packages/ui/src/components/pairing/pairingText.ts",
+        "packages/ui/src/components/pairing/usePairingQr.ts",
         "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/lib/pairing-client.ts",
         "packages/ui/src/lib/pairing-qr.ts",
         "packages/ui/src/lib/pairing-watch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/usePairingQr.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/pairingLive.ts",
+        "packages/ui/src/components/pairing/pairingReducer.ts",
+        "packages/ui/src/components/pairing/pairingText.ts",
+        "packages/ui/src/lib/pairing-qr.ts"
       ]
     },
     {
@@ -1591,8 +1612,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
-        "packages/ui/src/components/settings/primitives.tsx",
-        "packages/ui/src/lib/i18n/messages/en.ts"
+        "packages/ui/src/components/settings/pages/use-desktop-update.ts",
+        "packages/ui/src/components/settings/primitives.tsx"
       ]
     },
     {
@@ -1792,6 +1813,14 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/provider-route-activation.tsx",
         "packages/ui/src/lib/nnd/client.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/use-desktop-update.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
       ]
     },
     {
@@ -2403,6 +2432,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-files-view.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2415,6 +2450,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-pairing.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-providers.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2422,6 +2463,18 @@
     },
     {
       "path": "packages/ui/src/lib/i18n/messages/en-remote-instances.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/en-runtime.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/en-scheduled.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
@@ -2441,10 +2494,14 @@
         "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
         "packages/ui/src/lib/i18n/messages/en-diff-ui.ts",
+        "packages/ui/src/lib/i18n/messages/en-files-view.ts",
         "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
+        "packages/ui/src/lib/i18n/messages/en-pairing.ts",
         "packages/ui/src/lib/i18n/messages/en-providers.ts",
         "packages/ui/src/lib/i18n/messages/en-remote-instances.ts",
+        "packages/ui/src/lib/i18n/messages/en-runtime.ts",
+        "packages/ui/src/lib/i18n/messages/en-scheduled.ts",
         "packages/ui/src/lib/i18n/messages/en-shell-ui.ts"
       ]
     },
@@ -2529,11 +2586,37 @@
       ]
     },
     {
-      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui.ts",
+      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui-1.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en-git-ui.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui-2.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en-git-ui.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui-3.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en-git-ui.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/locale-git-ui-1.ts",
+        "packages/ui/src/lib/i18n/messages/locale-git-ui-2.ts",
+        "packages/ui/src/lib/i18n/messages/locale-git-ui-3.ts"
       ]
     },
     {
@@ -2569,11 +2652,28 @@
       ]
     },
     {
-      "path": "packages/ui/src/lib/i18n/messages/locale-pairing.ts",
+      "path": "packages/ui/src/lib/i18n/messages/locale-pairing-1.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-pairing-2.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-pairing.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/locale-pairing-1.ts",
+        "packages/ui/src/lib/i18n/messages/locale-pairing-2.ts"
       ]
     },
     {
@@ -2601,11 +2701,37 @@
       ]
     },
     {
-      "path": "packages/ui/src/lib/i18n/messages/locale-scheduled.ts",
+      "path": "packages/ui/src/lib/i18n/messages/locale-scheduled-1.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-scheduled-2.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-scheduled-3.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-scheduled.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/locale-scheduled-1.ts",
+        "packages/ui/src/lib/i18n/messages/locale-scheduled-2.ts",
+        "packages/ui/src/lib/i18n/messages/locale-scheduled-3.ts"
       ]
     },
     {
@@ -2809,6 +2935,14 @@
       "imports": [
         "packages/ui/src/lib/runtime-auth.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/permission-policy.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
       ]
     },
     {
@@ -4132,8 +4266,10 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/session-knowledge-api.ts",
+        "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/materialization.ts",
         "packages/ui/src/sync/message-ordering.ts",
         "packages/ui/src/sync/session-lifecycle.ts",

@@ -88,7 +88,6 @@ export function ScheduledTaskEditorDialog({
         agent: execution.agent && execution.agent.length > 0 ? execution.agent : undefined,
         goalEnabled: execution.goalEnabled === true ? true : undefined,
         goalTokenBudget: execution.goalEnabled === true ? execution.goalTokenBudget : undefined,
-        permissionAutoAccept: execution.permissionAutoAccept === true ? true : undefined,
         variant: variantKept ? task?.execution.variant : undefined,
       },
     };

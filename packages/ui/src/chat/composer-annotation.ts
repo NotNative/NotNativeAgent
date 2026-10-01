@@ -30,10 +30,9 @@ interface HandoffState {
   attachments: { current: DraftAttachment[] };
   accepted: { current: Set<string> };
   editor: { current: HTMLTextAreaElement | null };
-  persist: (text: string, attachments: DraftAttachment[], autoAccept: boolean) => void;
+  persist: (text: string, attachments: DraftAttachment[]) => void;
   setText: (text: string) => void;
   setAttachments: (attachments: DraftAttachment[]) => void;
-  autoAccept: boolean;
 }
 
 export function createAnnotationHandler(state: HandoffState): (event: Event) => void {
@@ -43,7 +42,7 @@ export function createAnnotationHandler(state: HandoffState): (event: Event) => 
     if (detail.repeat) { detail.accept(); return; }
     const nextAttachments = [...state.attachments.current, detail.attachment];
     const nextText = state.text.current ? `${state.text.current}\n\n${detail.text}` : detail.text;
-    state.persist(nextText, nextAttachments, state.autoAccept);
+    state.persist(nextText, nextAttachments);
     state.text.current = nextText;
     state.attachments.current = nextAttachments;
     state.setAttachments(nextAttachments);

@@ -81,7 +81,7 @@ describe('draft project-context pins', () => {
       expect(input.projectContextPins).toEqual({ notes: ['note-1'], plans: ['plan-1'] });
       return { id: 'session_1', metadata: { nnd: { configuredModel: { providerID: 'primary', modelID: 'test' } } } };
     });
-    saveDraft('/proj', 'draft', { text: '', attachments: [], autoAccept: false, queue: [],
+    saveDraft('/proj', 'draft', { text: '', attachments: [], queue: [],
       projectContextPins: { notes: ['note-1'], plans: ['plan-1'] } });
     await renderComposer({ send, createSessionAction });
     await typeAndSubmit('start here');
@@ -92,7 +92,7 @@ describe('draft project-context pins', () => {
   it('keeps draft pins when the materializing session cannot be created', async () => {
     const send = vi.fn(async () => undefined);
     const createSessionAction = vi.fn(async () => { throw new Error('offline'); });
-    saveDraft('/proj', 'draft', { text: '', attachments: [], autoAccept: false, queue: [],
+    saveDraft('/proj', 'draft', { text: '', attachments: [], queue: [],
       projectContextPins: { notes: ['note-1'], plans: [] } });
     await renderComposer({ send, createSessionAction });
     await typeAndSubmit('retry');
@@ -105,7 +105,7 @@ describe('draft project-context pins', () => {
   it('lets a draft-target note panel update its pin set without clearing the note body', async () => {
     const note = { id: 'note-1', body: 'Draft pin note', createdAt: 1, updatedAt: 1, source: 'manual' as const };
     vi.mocked(getProjectContext).mockResolvedValue({ ...emptyContext, notes: [note] });
-    saveDraft('/proj', 'draft', { text: 'Keep this draft', attachments: [], autoAccept: false, queue: [] });
+    saveDraft('/proj', 'draft', { text: 'Keep this draft', attachments: [], queue: [] });
     await act(async () => {
       root!.render(<ContextNotes projectId="p1" visible draftPins={{ notes: [], plans: [] }}
         onToggleNotePin={(noteID, pinned) => {
