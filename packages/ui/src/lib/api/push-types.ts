@@ -13,5 +13,6 @@ export interface PushApi {
   getVisibility(): Promise<{ ok: true; visible: boolean }>;
   getBadge?(): Promise<PushBadge>;
   resetBadge?(sessionId: string, reason: 'view' | 'message-sent'): Promise<PushBadge>;
+  setSessionViewed?(sessionId: string, viewed: boolean, clientId: string, sequence: number): Promise<{ badge?: PushBadge }>;
 }
 export interface PushBadge { count: number; epoch: string; revision: number }

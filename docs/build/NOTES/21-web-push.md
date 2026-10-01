@@ -151,8 +151,11 @@ Settings links take precedence; hosted/embedded/VS Code surfaces keep their
 identity queries. Settings history and legacy tab/file context routes are
 implemented in [the workspace router](22-workspace-url-router.md).
 
-Live browser acceptance, notification SSE/activity/view/message-sent route
-parity remain open under doc 03 §5.37. Badge count/reset behavior is implemented;
+The canonical notification SSE/activity/status/attention/view/message-sent
+surface is implemented in [note 23](23-session-notification-routes.md), with
+explicit live-event-only pending coverage until NNA provides restored pending
+reads. Live browser acceptance and exact pending snapshot recovery remain open
+under doc 03 §5.37. Badge count/reset behavior is implemented;
 installed-browser badge acceptance remains required.
 Registration does not infer a public server origin from an arbitrary request
 field. Optional model-generated notification text remains open; current event

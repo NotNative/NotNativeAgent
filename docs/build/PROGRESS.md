@@ -2,6 +2,35 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Session notification routes · 20261001-35
+
+Added authenticated session activity, status, attention, snapshot, view,
+unview, message-sent, and notification SSE routes. The server seeds from
+NNA's owned list/status index and shares the existing NNA event feed.
+Credential-owned view leases cover focused selection, multi-window ordering,
+heartbeat expiry, and BFCache restoration. Confirmed sends and views clear
+only the selected session's badge. Unresolved NNA blockers remain attention
+sources after viewing.
+
+Adversarial repairs preserve retry metadata and transition timestamps, handle
+prototype-shaped IDs, return invalid receipts as 400, recheck credentials
+after awaits and during streaming, broadcast owner-specific attention, use
+monotonic completion/read markers, and retain active archived sessions.
+Malformed, racing, or unavailable NNA snapshots fail explicitly.
+
+Full UI tests pass (1618/1618), full server tests pass (1367/1367), and source
+integration with current NNA passes. The permission selector was verified
+again with 19 focused GUI/client tests: Context exposes NNA's Default,
+Auto-review, and Unattended modes; Default resolves to Auto-review and every
+mode keeps the reviewer active. NNA rejects Full control and stale writes,
+owns idle-only changes, and restores the choice after restart.
+
+The graph covers 701 production modules and source quality gates pass.
+Release gates and the version seal precede commit. Pending forms are labeled
+`live-events-only`: exact restored pending reads remain an NNA integration
+gap. Installed-browser acceptance, optional notification model text,
+first-registration public-origin handling, and the broader plan remain open.
+
 ## 2026-10-01 · Ordered notification badges · 20261001-34
 
 Added credential-owned unread counts to encrypted pushes, authenticated badge

@@ -2,6 +2,7 @@
 import { runtimeFetch } from './runtime-fetch.ts';
 import type { PushApi } from './api/push-types.ts';
 import { pushBadge } from './browser-badge.ts';
+import { sessionNotificationReceipt } from './session-notification-api.ts';
 
 async function pushRequest(path: string, method = 'GET', body?: unknown): Promise<Record<string, unknown>> {
   const response = await runtimeFetch(`/api/push/${path}`, {
@@ -44,10 +45,9 @@ export const browserPushApi: PushApi = {
     return badge;
   },
   async resetBadge(sessionId, reason) {
-    const data = await pushRequest('badge/reset', 'POST', { sessionId, reason }); const badge = pushBadge(data.badge);
-    if (data.ok !== true || !badge) throw new Error('Push badge reset was not confirmed');
-    return badge;
+    return (await sessionNotificationReceipt(sessionId, reason === 'view' ? 'view' : 'message-sent')).badge!;
   },
+  setSessionViewed: (sessionId, viewed, clientId, sequence) => sessionNotificationReceipt(sessionId, viewed ? 'view' : 'unview', { clientId, sequence }),
   async getVisibility() {
     const data = await pushRequest('visibility');
     if (data.ok !== true || typeof data.visible !== 'boolean') throw new Error('Push visibility is invalid');

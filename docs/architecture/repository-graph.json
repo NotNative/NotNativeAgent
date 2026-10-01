@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f1f4f19d3825170afaecb18e18b49753ca50dbc62dac464ce037d53b9b5bff3a",
+  "source_digest": "sha256:0ebb906ec625b060cef87834941b4841f42dcee7055daf7c362b9dd034ecdf1e",
   "counts": {
-    "modules": 693,
+    "modules": 701,
     "component_edges": 15
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 225
+      "module_count": 227
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 214
+      "module_count": 219
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 25
+      "module_count": 26
     },
     {
       "id": "foundation",
@@ -130,8 +130,8 @@
     {
       "from": "gates",
       "to": "web-server",
-      "import_count": 15,
-      "module_count": 4
+      "import_count": 19,
+      "module_count": 5
     },
     {
       "from": "runtime-io",
@@ -160,8 +160,8 @@
     {
       "from": "runtime-io",
       "to": "sync-engine",
-      "import_count": 7,
-      "module_count": 4
+      "import_count": 8,
+      "module_count": 5
     },
     {
       "from": "harness-facade",
@@ -3146,7 +3146,8 @@
       "imports": [
         "packages/ui/src/lib/api/push-types.ts",
         "packages/ui/src/lib/browser-badge.ts",
-        "packages/ui/src/lib/runtime-fetch.ts"
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/session-notification-api.ts"
       ]
     },
     {
@@ -3422,6 +3423,7 @@
       "imports": [
         "packages/ui/src/lib/api/push-types.ts",
         "packages/ui/src/lib/browser-badge.ts",
+        "packages/ui/src/lib/session-views.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },
@@ -3442,6 +3444,16 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/session-notification-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/push-types.ts",
+        "packages/ui/src/lib/browser-badge.ts",
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/session-route.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -3451,6 +3463,16 @@
         "packages/ui/src/lib/workspace-route.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/persist-cache.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/session-views.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/push-types.ts",
+        "packages/ui/src/lib/browser-badge.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },
@@ -4689,6 +4711,7 @@
         "packages/web/src/server/lib/relay/identity.ts",
         "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/static.ts",
+        "packages/web/src/server/notifications/routes.ts",
         "packages/web/src/server/preview/browser-control-broker.ts",
         "packages/web/src/server/preview/browser-control-callback.ts",
         "packages/web/src/server/preview/dev-servers.ts",
@@ -5608,6 +5631,56 @@
       ]
     },
     {
+      "path": "packages/web/src/server/notifications/routes.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/notifications/session-projection.ts",
+        "packages/web/src/server/notifications/session-state.ts",
+        "packages/web/src/server/notifications/stream.ts",
+        "packages/web/src/server/push/authority.ts",
+        "packages/web/src/server/push/badge-state.ts",
+        "packages/web/src/server/push/subscription-store.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/notifications/session-projection.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/queue/queue-feed.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/notifications/session-receipts.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/push/visibility.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/notifications/session-state.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/notifications/session-projection.ts",
+        "packages/web/src/server/notifications/session-receipts.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
+        "packages/web/src/server/queue/queue-feed.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/notifications/stream.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/notifications/session-state.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/preview/browser-control-broker.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5770,6 +5843,7 @@
         "packages/ui/src/sync/desktop-notifications.ts",
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/notifications/session-state.ts",
         "packages/web/src/server/push/badge-state.ts",
         "packages/web/src/server/push/delivery.ts",
         "packages/web/src/server/push/subscription-store.ts",
@@ -6769,6 +6843,7 @@
         "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna.ts",
         "scripts/smoke-http.mjs",
+        "scripts/smoke-notification-routes.mjs",
         "scripts/smoke-provider-route.mjs",
         "scripts/smoke-review-mode.mjs",
         "scripts/smoke-walkthrough.mjs"
@@ -6849,6 +6924,18 @@
       "component": "gates",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "scripts/smoke-notification-routes.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/app.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/push/runtime.ts",
+        "packages/web/src/server/queue/queue-feed.ts",
+        "scripts/smoke-http.mjs"
+      ]
     },
     {
       "path": "scripts/smoke-provider-route.mjs",

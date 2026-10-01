@@ -13,8 +13,9 @@ export function usePushPresence(): void {
     if (!api || typeof window === 'undefined' || !['http:', 'https:'].includes(window.location.protocol)) return;
     if (!window.crypto?.getRandomValues) return;
     const current = () => runtime === identity();
-    const stopPresence = startPushPresence({ api, clientId: pushPresenceId(window.crypto), current, window, document });
-    const stopBadges = startSessionBadges(api, current);
+    const clientId = pushPresenceId(window.crypto);
+    const stopPresence = startPushPresence({ api, clientId, current, window, document });
+    const stopBadges = startSessionBadges(api, current, clientId);
     return () => { stopBadges(); stopPresence(); };
   }, [runtime]);
 }

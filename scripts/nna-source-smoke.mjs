@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs';
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
 import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
+import { probeNotificationRoutes } from './smoke-notification-routes.mjs';
 import { json, withTimeout } from './smoke-http.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
@@ -438,6 +439,7 @@ async function main(nnaSource) {
     }));
     const app = createApp();
     const sessions = await probe(app, root, provider);
+    await probeNotificationRoutes(sessions.parentId);
     await waitForChildSnapshot(root, sessions.childId);
     const stopped = once(spawned, 'exit');
     harness.dispose();

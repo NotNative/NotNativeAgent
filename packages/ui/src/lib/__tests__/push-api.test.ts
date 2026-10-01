@@ -32,17 +32,17 @@ describe('browserPushApi', () => {
     const badge = { count: 3, epoch: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', revision: 7 };
     respond({ ok: true, badge });
     await expect(browserPushApi.getBadge!()).resolves.toEqual(badge);
-    respond({ ok: true, badge: { ...badge, count: 0, revision: 8 } });
+    respond({ success: true, sessionId: 's1', messageSent: true, badge: { ...badge, count: 0, revision: 8 } });
     await expect(browserPushApi.resetBadge!('s1', 'message-sent')).resolves.toMatchObject({ count: 0, revision: 8 });
     const [url, init] = nativeFetch.mock.calls.at(-1)!;
-    expect(url).toBe('https://first.example/api/push/badge/reset');
-    expect(JSON.parse(init.body)).toEqual({ sessionId: 's1', reason: 'message-sent' });
+    expect(url).toBe('https://first.example/api/sessions/s1/message-sent');
+    expect(JSON.parse(init.body)).toEqual({});
     expect(init.headers.get('authorization')).toBe('Bearer first-token');
     expect(init.signal).toBeInstanceOf(AbortSignal); expect(init.keepalive).toBe(true);
     for (const invalid of [{ ...badge, count: -1 }, { ...badge, revision: 1.5 }, { ...badge, epoch: 'unknown' }]) {
       respond({ ok: true, badge: invalid }); await expect(browserPushApi.getBadge!()).rejects.toThrow('invalid');
     }
-    respond({ ok: false, badge }); await expect(browserPushApi.resetBadge!('s1', 'view')).rejects.toThrow('not confirmed');
+    respond({ success: false, badge }); await expect(browserPushApi.resetBadge!('s1', 'view')).rejects.toThrow('not confirmed');
   });
   it('uses the current instance and credentials on each request', async () => {
     respond({ publicKey });
