@@ -56,7 +56,7 @@ export interface DesktopSshInstance {
 }
 
 export const SSH_PHASES = [
-  'idle', 'config_resolved', 'auth_check', 'master_connecting', 'remote_probe',
+  'idle', 'config_resolved', 'auth_check', 'remote_installing', 'master_connecting', 'remote_probe',
   'installing', 'updating', 'server_detecting', 'server_starting', 'forwarding',
   'ready', 'degraded', 'error',
 ] as const;

@@ -27,7 +27,11 @@ test('remote runner invokes only parsed destination and a fixed shell command, s
     });
   } });
   const result = await run({ sshCommand: 'ssh -p 2222 deploy@remote.example' }, 'printf safe');
-  assert.deepEqual(invoked.slice(0, 2), ['ssh.exe', ['-p', '2222', '-T', 'deploy@remote.example', 'sh -s']]);
+  assert.deepEqual(invoked.slice(0, 2), ['ssh.exe', [
+    '-p', '2222', '-o', 'ClearAllForwardings=yes', '-o', 'ForwardAgent=no', '-o', 'ForwardX11=no', '-o', 'PermitLocalCommand=no',
+    '-o', 'StdinNull=no', '-o', 'SessionType=default',
+    '-T', 'deploy@remote.example', 'sh -s',
+  ]]);
   assert.equal(invoked[2].shell, false);
   assert.equal(received, 'printf safe');
   assert.equal(result.stdout, 'remote-output');
@@ -40,6 +44,8 @@ test('runner rejects unsafe SSH configurations, oversized scripts, and shell val
   await assert.rejects(run({ sshCommand: 'ssh -o ProxyCommand=bad host' }, 'true'), /instance-invalid/u);
   await assert.rejects(run({ sshCommand: 'ssh -o StdinNull=yes host' }, 'true'), /instance-invalid/u);
   await assert.rejects(run({ sshCommand: 'ssh -o SessionType=none host' }, 'true'), /instance-invalid/u);
+  await assert.rejects(run({ sshCommand: 'ssh -o ForwardAgent=yes host' }, 'true'), /forwarding-options-unsupported/u);
+  await assert.rejects(run({ sshCommand: 'ssh -A host' }, 'true'), /forwarding-options-unsupported/u);
   await assert.rejects(run({ sshCommand: 'ssh host' }, 'x'.repeat(256 * 1024 + 1)), /too-large/u);
   assert.equal(spawned, false);
   assert.throws(() => shellQuote('secret\ncommand'), /invalid/u);

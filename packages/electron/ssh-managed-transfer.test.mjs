@@ -28,9 +28,12 @@ test('uploader streams archive bytes to a fixed tar command under a unique priva
   assert.equal(invocation[0], 'ssh.exe');
   assert.deepEqual(invocation[1].slice(0, 2), ['-p', '2222']);
   assert.ok(invocation[1].includes('ClearAllForwardings=yes'));
+  assert.ok(invocation[1].includes('StdinNull=no'));
+  assert.ok(invocation[1].includes('SessionType=default'));
   assert.equal(invocation[1].at(-2), 'deploy@host');
   assert.ok(invocation[1].at(-1).includes('mkdir --'));
   assert.ok(invocation[1].at(-1).includes('tar -xzf -'));
+  assert.ok(invocation[1].at(-1).includes('trap'));
   assert.equal(invocation[2].shell, false);
   assert.strictEqual(transmitted, archive);
   assert.match(result.remoteDirectory, /^~\/\.notnative-desktop\/managed\//);

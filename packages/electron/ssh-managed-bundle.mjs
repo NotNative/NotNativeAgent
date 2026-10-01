@@ -63,7 +63,7 @@ export function createManagedSshBundle({ serverBundlePath, settingsRegistryPath,
   const entries = [
     sourceFile('server.mjs', serverBundlePath),
     sourceFile('settings-registry.json', settingsRegistryPath),
-    { name: 'package.json', bytes: Buffer.from('{"private":true,"type":"module","dependencies":{"node-pty":"^1.1.0"}}\n') },
+    { name: 'package.json', bytes: Buffer.from('{"private":true,"type":"module","dependencies":{"node-pty":"^1.1.0"},"trustedDependencies":["node-pty"]}\n') },
     { name: 'start-managed.mjs', bytes: Buffer.from([
       "const { startServer } = await import('./server.mjs');",
       'const server = await startServer();',

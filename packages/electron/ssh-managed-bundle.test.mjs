@@ -37,7 +37,7 @@ test('managed SSH bundle contains server, runtime manifest, launcher, and web as
   const files = unpack(createManagedSshBundle(fixture(t)));
   assert.equal(files.get('server.mjs'), 'export const server = true;');
   assert.equal(files.get('settings-registry.json'), '{}');
-  assert.match(files.get('package.json'), /node-pty/);
+  assert.match(files.get('package.json'), /"trustedDependencies":\["node-pty"\]/u);
   assert.match(files.get('start-managed.mjs'), /startServer/);
   assert.equal(files.get('web-dist/index.html'), '<main>ok</main>');
   assert.equal(files.get('web-dist/assets/app.js'), 'console.log("ok")');

@@ -55,7 +55,7 @@ test('connect reports ready only after health succeeds through the SSH tunnel an
   assert.equal(child.killed, true);
 });
 
-test('rejects managed mode honestly instead of claiming an unimplemented remote install is ready', async () => {
+test('managed mode requires explicit artifact upload before remote setup', async () => {
   const statuses = [];
   const transport = createDesktopSshTransport({
     getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed' } })],
@@ -65,6 +65,113 @@ test('rejects managed mode honestly instead of claiming an unimplemented remote 
   assert.equal(result.error, 'desktop-ssh-managed-mode-unavailable');
   assert.equal(statuses.at(-1).phase, 'error');
   assert.equal(statuses.at(-1).requiresUserAction, true);
+});
+
+test('managed transport uploads and starts before opening the tunnel, then stops on disconnect when configured', async () => {
+  const order = [];
+  const child = new EventEmitter(); child.kill = () => { child.killed = true; };
+  const transport = createDesktopSshTransport({
+    getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed', uploadBundleOverSsh: true, keepRunning: false, preferredPort: 57124 } })],
+    managedRuntime: {
+      start: async (_instance, options) => { order.push(['start', options.port]); return { transferId: 'transfer-123' }; },
+      stop: async (_instance, session) => { order.push(['stop', session.transferId]); },
+    },
+    spawnProcess: () => { order.push(['tunnel']); return child; },
+    fetchImpl: async () => { order.push(['health']); return healthyResponse(); },
+    chooseLocalPort: async () => 48123,
+  });
+  const result = await transport.connect('remote-1');
+  assert.equal(result.ok, true);
+  assert.deepEqual(order, [['start', 57124], ['tunnel'], ['health']]);
+  transport.disconnect('remote-1');
+  assert.equal(child.killed, true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(order.at(-1), ['stop', 'transfer-123']);
+});
+
+test('managed keepRunning reuses its server when the same desktop process reconnects', async () => {
+  let starts = 0;
+  let stops = 0;
+  const makeChild = () => { const child = new EventEmitter(); child.kill = () => {}; return child; };
+  const transport = createDesktopSshTransport({
+    getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed', uploadBundleOverSsh: true, keepRunning: true, preferredPort: 57123 } })],
+    managedRuntime: {
+      start: async () => { starts += 1; return { transferId: 'transfer-123', port: 57123 }; },
+      stop: async () => { stops += 1; },
+    },
+    spawnProcess: makeChild,
+    fetchImpl: async () => healthyResponse(),
+    chooseLocalPort: async () => 48123,
+  });
+  assert.equal((await transport.connect('remote-1')).ok, true);
+  transport.disconnect('remote-1');
+  assert.equal(stops, 0);
+  assert.equal((await transport.connect('remote-1')).ok, true);
+  assert.equal(starts, 1);
+  transport.disconnect('remote-1');
+  assert.equal(stops, 0);
+});
+
+test('a failed managed health probe cleans up a server even when keepRunning is true', async () => {
+  const stops = [];
+  let clock = 0;
+  const transport = createDesktopSshTransport({
+    getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed', uploadBundleOverSsh: true, keepRunning: true } })],
+    managedRuntime: { start: async () => ({ transferId: 'transfer-123' }), stop: async (_instance, session) => stops.push(session.transferId) },
+    spawnProcess: () => { const child = new EventEmitter(); child.kill = () => {}; return child; },
+    fetchImpl: async () => ({ ok: false }),
+    chooseLocalPort: async () => 48123,
+    now: () => clock,
+    sleep: async (duration) => { clock += duration; },
+  });
+  const result = await transport.connect('remote-1');
+  assert.equal(result.ok, false);
+  assert.deepEqual(stops, ['transfer-123']);
+});
+
+test('a tunnel process spawn failure cleans up a managed server when keepRunning is false', async () => {
+  const stops = [];
+  const transport = createDesktopSshTransport({
+    getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed', uploadBundleOverSsh: true, keepRunning: false } })],
+    managedRuntime: { start: async () => ({ transferId: 'transfer-123' }), stop: async (_instance, session) => stops.push(session.transferId) },
+    spawnProcess: () => { throw new Error('ssh executable missing'); },
+    chooseLocalPort: async () => 48123,
+  });
+  const result = await transport.connect('remote-1');
+  assert.equal(result.error, 'ssh executable missing');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(stops, ['transfer-123']);
+});
+
+test('an SSH tunnel exit after readiness stops a non-persistent managed server', async () => {
+  const stops = [];
+  const child = new EventEmitter(); child.kill = () => {};
+  const transport = createDesktopSshTransport({
+    getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed', uploadBundleOverSsh: true, keepRunning: false } })],
+    managedRuntime: { start: async () => ({ transferId: 'transfer-123' }), stop: async (_instance, session) => stops.push(session.transferId) },
+    spawnProcess: () => child,
+    fetchImpl: async () => healthyResponse(),
+    chooseLocalPort: async () => 48123,
+  });
+  assert.equal((await transport.connect('remote-1')).ok, true);
+  child.emit('exit', 255);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(stops, ['transfer-123']);
+  assert.equal(transport.getStatus('remote-1').phase, 'error');
+});
+
+test('a synchronous managed cleanup error does not break disconnect state', () => {
+  const child = new EventEmitter(); child.kill = () => {};
+  const transport = createDesktopSshTransport({
+    getInstances: () => [instance({ remoteOpenchamber: { mode: 'managed', uploadBundleOverSsh: true, keepRunning: false } })],
+    managedRuntime: { start: async () => ({ transferId: 'transfer-123' }), stop: () => { throw new Error('remote unavailable'); } },
+    spawnProcess: () => child,
+    fetchImpl: async () => healthyResponse(),
+    chooseLocalPort: async () => 48123,
+  });
+  return transport.connect('remote-1').then(() => {
+    assert.equal(transport.disconnect('remote-1').result.phase, 'idle');
+  });
 });
 
 test('reports a failed remote health probe and terminates the SSH process', async () => {

@@ -3695,5 +3695,9 @@ configuration import only; live SSH transport is still outstanding.
   stages each attempt under a fresh private directory, and enforces SSH
   forwarding/agent/X11 restrictions. Transfer is now implemented and tested;
   remote dependency installation, startup supervision, and readiness handoff
-  still remain.
+  are now connected to the SSH transport and exposed through an explicit UI
+  opt-in. Managed mode requires a Unix-like remote with Node.js 22.18+ plus
+  npm or bun; the normal tunnel health check gates ready status. `keepRunning`
+  reuses the process-local session; discovery after restarting the desktop app
+  and real remote-host acceptance remain to verify.
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

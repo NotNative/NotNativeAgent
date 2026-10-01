@@ -3,7 +3,9 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { parseDesktopSshCommand } from './ssh-instances.mjs';
 
-const MAX_ARCHIVE_BYTES = 128 * 1024 * 1024;
+// gzip can be slightly larger than the bounded raw tar for incompressible
+// assets; leave room for deflate block overhead while keeping a hard cap.
+const MAX_ARCHIVE_BYTES = 129 * 1024 * 1024;
 const MAX_STDERR_BYTES = 32 * 1024;
 const FORBIDDEN_FORWARDING_OPTIONS = new Set([
   'clearallforwardings', 'dynamicforward', 'forwardagent', 'forwardx11',
@@ -58,11 +60,12 @@ export function createManagedSshBundleUploader({ spawnProcess = nodeSpawn, platf
     // The per-attempt leaf must not already exist. `mkdir -p` on the leaf
     // would merge a retry into stale contents (and follows a pre-existing
     // symlink), so only the fixed parent is created recursively.
-    const remoteCommand = `umask 077 && mkdir -p -- ${remoteParent} && mkdir -- ${remotePath} && tar -xzf - -C ${remotePath}`;
+    const remoteCommand = `leaf=${remotePath}; trap 'rm -rf -- "$leaf"; exit 1' HUP INT TERM; umask 077 && mkdir -p -- ${remoteParent} && mkdir -- "$leaf" && if tar -xzf - -C "$leaf"; then trap - HUP INT TERM; else status=$?; rm -rf -- "$leaf"; exit "$status"; fi`;
     const args = [
       ...parsed.args,
       '-o', 'ClearAllForwardings=yes', '-o', 'ForwardAgent=no', '-o', 'ForwardX11=no',
-      '-o', 'PermitLocalCommand=no', '-T', parsed.destination, remoteCommand,
+      '-o', 'PermitLocalCommand=no', '-o', 'StdinNull=no', '-o', 'SessionType=default',
+      '-T', parsed.destination, remoteCommand,
     ];
     return new Promise((resolve, reject) => {
       let child;
@@ -96,7 +99,7 @@ export function createManagedSshBundleUploader({ spawnProcess = nodeSpawn, platf
           finish(new Error(`managed-ssh-transfer-failed-${Number.isInteger(code) ? code : 'unknown'}`));
           return;
         }
-        finish(null, { remoteDirectory: `~/.notnative-desktop/managed/${id}`, stderr: Buffer.concat(stderr).toString('utf8'), signal: signal ?? null });
+        finish(null, { transferId: id, remoteDirectory: `~/.notnative-desktop/managed/${id}`, stderr: Buffer.concat(stderr).toString('utf8'), signal: signal ?? null });
       });
       child.stdin?.once('error', () => {
         try { child.kill(); } catch {}

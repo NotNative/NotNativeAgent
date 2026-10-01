@@ -25,6 +25,11 @@ describe('DesktopSshCatalog', () => {
     invoke = vi.fn(async (command: string, payload?: unknown) => {
       if (command === 'desktopSshConfig') return { ok: true, result: { instances } };
       if (command === 'desktopSshRefreshStatuses') return { ok: true, result: [] };
+      if (command === 'desktopSshUpsertInstance') {
+        const { instance } = payload as { instance: Record<string, unknown> };
+        instances = instances.map((entry) => entry.id === instance.id ? instance : entry);
+        return { ok: true, result: { instances } };
+      }
       if (command === 'desktop_host_switch') {
         const { hostId } = payload as { hostId: string };
         const needsLogin = hostId === 'ssh-1';
@@ -86,6 +91,23 @@ describe('DesktopSshCatalog', () => {
     });
     expect(invoke).toHaveBeenCalledWith('desktopSshRemoveInstance', { id: 'ssh-1' });
     expect(container?.textContent).toContain('No SSH instances saved.');
+  });
+
+  it('requires explicit opt-in before configuring managed SSH installation', async () => {
+    instances = [{ id: 'ssh-1', sshCommand: 'ssh dev@atlas.example', nickname: 'Atlas' }];
+    await act(async () => { root!.render(<DesktopSshCatalog />); await Promise.resolve(); await Promise.resolve(); });
+    const installToggle = [...container!.querySelectorAll('label')]
+      .find((label) => label.textContent?.includes('Install this desktop build over SSH'))
+      ?.querySelector('input');
+    expect(installToggle?.checked).toBe(false);
+    await act(async () => {
+      installToggle!.click();
+      await Promise.resolve(); await Promise.resolve();
+    });
+    const saved = invoke.mock.calls.find(([command]) => command === 'desktopSshUpsertInstance')?.[1] as { instance: { remoteOpenchamber: Record<string, unknown> } };
+    expect(saved.instance.remoteOpenchamber).toMatchObject({ mode: 'managed', uploadBundleOverSsh: true });
+    expect(container?.textContent).toContain('Keep the remote server running after disconnect');
+    expect(container?.textContent).toContain('Install & connect');
   });
 
   it('locks alias creation while the native write is pending', async () => {

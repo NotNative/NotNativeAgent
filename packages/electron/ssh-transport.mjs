@@ -103,10 +103,12 @@ export function createDesktopSshTransport({
   sleep = (duration) => new Promise((resolve) => setTimeout(resolve, duration)),
   now = Date.now,
   platform = process.platform,
+  managedRuntime = null,
 } = {}) {
   if (typeof getInstances !== 'function') throw new TypeError('getInstances is required');
   const processes = new Map();
   const statuses = new Map();
+  const persistentManagedSessions = new Map();
   const pendingAttempts = new Map();
   // Removing an instance can race an in-flight connect promise. Keep the id
   // tombstoned until a later explicit connect so that its cancellation path
@@ -128,7 +130,23 @@ export function createDesktopSshTransport({
     current.cancelled = true;
     processes.delete(id);
     try { current.child?.kill(); } catch {}
+    if (current.managedSession && current.instance?.remoteOpenchamber.keepRunning === true) {
+      persistentManagedSessions.set(id, { instance: current.instance, session: current.managedSession });
+    }
+    stopManaged(current);
     return publish(id, 'idle', { ...current.status, detail, startedByUs: false });
+  }
+
+  function stopManaged(record, { force = false } = {}) {
+    if (!record.managedSession || !record.instance || (!force && record.instance.remoteOpenchamber.keepRunning !== false)
+      || typeof managedRuntime?.stop !== 'function') return;
+    const session = record.managedSession;
+    record.managedSession = null;
+    for (const [id, persistent] of persistentManagedSessions) {
+      if (persistent.session === session) persistentManagedSessions.delete(id);
+    }
+    try { Promise.resolve(managedRuntime.stop(record.instance, session)).catch(() => {}); }
+    catch { /* cleanup must never interrupt disconnect or failure reporting */ }
   }
 
   async function waitForHealth(id, record, url, deadline) {
@@ -185,11 +203,13 @@ export function createDesktopSshTransport({
       if (!instance) { release(); return { ok: false, error: 'desktop-ssh-instance-not-found' }; }
       instance = sanitizeDesktopSshInstance(instance);
     } catch { release(); return { ok: false, error: 'desktop-ssh-instance-invalid' }; }
-    if (instance.remoteOpenchamber.mode !== 'external') {
+    const managedMode = instance.remoteOpenchamber.mode === 'managed';
+    if (managedMode && (!instance.remoteOpenchamber.uploadBundleOverSsh || typeof managedRuntime?.start !== 'function')) {
       release();
-      publish(id, 'error', { detail: 'managed-remote-start-not-implemented', retryAttempt, requiresUserAction: true });
+      publish(id, 'error', { detail: 'managed-remote-upload-not-enabled', retryAttempt, requiresUserAction: true });
       return { ok: false, error: 'desktop-ssh-managed-mode-unavailable' };
     }
+    record.instance = instance;
 
     const remotePort = instance.remoteOpenchamber.preferredPort ?? DEFAULT_REMOTE_PORT;
     if (!validPort(remotePort)) { release(); return { ok: false, error: 'desktop-ssh-remote-port-invalid' }; }
@@ -207,6 +227,35 @@ export function createDesktopSshTransport({
     }
     if (cancelled()) return { ok: false, error: 'desktop-ssh-connect-cancelled' };
 
+    if (managedMode) {
+      publish(id, 'remote_installing', { remotePort, retryAttempt, startedByUs: true });
+      const persistent = persistentManagedSessions.get(id);
+      const reusable = persistent?.instance.remoteOpenchamber.keepRunning === true
+        && persistent.session.port === remotePort
+        && instance.remoteOpenchamber.keepRunning === true;
+      if (persistent && !reusable) {
+        persistentManagedSessions.delete(id);
+        try { await managedRuntime.stop(persistent.instance, persistent.session); } catch { /* replace stale managed process */ }
+      }
+      if (reusable) {
+        record.managedSession = persistent.session;
+        persistentManagedSessions.delete(id);
+      } else {
+        try {
+          record.managedSession = await managedRuntime.start(instance, { port: remotePort });
+        } catch (error) {
+          release();
+          const reason = error instanceof Error ? error.message : 'desktop-ssh-managed-start-failed';
+          publish(id, 'error', { detail: reason, retryAttempt, requiresUserAction: true, startedByUs: false });
+          return { ok: false, error: 'desktop-ssh-managed-start-failed' };
+        }
+      }
+      if (cancelled()) {
+        stopManaged({ ...record, instance: { ...instance, remoteOpenchamber: { ...instance.remoteOpenchamber, keepRunning: false } } });
+        return { ok: false, error: 'desktop-ssh-connect-cancelled' };
+      }
+    }
+
     const localUrl = `http://127.0.0.1:${localPort}`;
     const detail = { localUrl, localPort, remotePort, startedByUs: true, retryAttempt };
     publish(id, 'master_connecting', detail);
@@ -214,6 +263,7 @@ export function createDesktopSshTransport({
     try { args = makeSshArgs(instance, localPort, remotePort); }
     catch (error) {
       release();
+      stopManaged(record, { force: true });
       publish(id, 'error', { ...detail, detail: error.message, requiresUserAction: true });
       return { ok: false, error: error.message };
     }
@@ -227,6 +277,7 @@ export function createDesktopSshTransport({
       record.child = child;
     } catch (error) {
       release();
+      stopManaged(record, { force: true });
       const reason = error instanceof Error ? error.message : 'desktop-ssh-process-spawn-failed';
       publish(id, 'error', { ...detail, detail: reason, startedByUs: false, requiresUserAction: true });
       return { ok: false, error: reason };
@@ -236,6 +287,10 @@ export function createDesktopSshTransport({
       if (processes.get(id) !== record || record.cancelled) return;
       record.exitError = new Error(`desktop-ssh-process-exited-${code ?? 'unknown'}`);
       processes.delete(id);
+      if (record.managedSession && record.instance.remoteOpenchamber.keepRunning === true) {
+        persistentManagedSessions.set(id, { instance: record.instance, session: record.managedSession });
+      }
+      stopManaged(record);
       publish(id, 'error', { ...detail, detail: record.exitError.message, startedByUs: false });
     });
 
@@ -263,6 +318,7 @@ export function createDesktopSshTransport({
           requiresUserAction: reason !== 'desktop-ssh-connect-cancelled',
         });
       }
+      if (reason !== 'desktop-ssh-connect-cancelled') stopManaged(record, { force: true });
       return { ok: false, error: reason };
     }
   }

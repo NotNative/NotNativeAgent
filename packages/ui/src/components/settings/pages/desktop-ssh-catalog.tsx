@@ -125,6 +125,27 @@ export function DesktopSshCatalog(): ReactNode {
     } finally { busyRef.current = false; setBusy(false); }
   };
 
+  const configureManaged = async (instance: (typeof store.instances)[number], enabled: boolean): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await store.upsert({ ...instance, remoteOpenchamber: {
+        ...instance.remoteOpenchamber,
+        mode: enabled ? 'managed' : 'external',
+        uploadBundleOverSsh: enabled,
+      } });
+    } finally { busyRef.current = false; setBusy(false); }
+  };
+
+  const configureKeepRunning = async (instance: (typeof store.instances)[number], keepRunning: boolean): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try { await store.upsert({ ...instance, remoteOpenchamber: { ...instance.remoteOpenchamber, keepRunning } }); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+
   const activeRuntimeKey = window.__NOTNATIVE_RUNTIME_KEY__ ?? '';
   const activeSshHostId = activeRuntimeKey.startsWith('ssh:') ? activeRuntimeKey.slice(4) : '';
   const activeSshPhase = activeSshHostId ? store.statuses[activeSshHostId]?.phase ?? '' : '';
@@ -138,7 +159,7 @@ export function DesktopSshCatalog(): ReactNode {
   return (
     <section className="mt-5 border-t border-border/50 pt-4" aria-labelledby="desktop-ssh-catalog-title">
       <h3 id="desktop-ssh-catalog-title" className="text-sm font-medium text-foreground">SSH instances</h3>
-      <p className="mb-3 mt-1 text-xs text-muted-foreground">Connect to an existing OpenChamber server through an SSH key or agent. The tunnel targets remote port 57123; password prompts and remote installation are not supported yet.</p>
+      <p className="mb-3 mt-1 text-xs text-muted-foreground">Connect to an existing server or opt in to upload and install this desktop build over SSH. Managed installation needs a Unix-like remote with Node.js 22.18+ and npm or bun.</p>
       {!bridgeAvailable ? <p className="text-xs text-muted-foreground">SSH instances are available in the desktop app.</p> : (
         <>
           <form className="flex flex-col gap-2" onSubmit={(event) => { void add(event); }}>
@@ -166,11 +187,25 @@ export function DesktopSshCatalog(): ReactNode {
           ))}
           {store.instances.map((instance) => {
             const status = store.statuses[instance.id];
-            const connecting = ['config_resolved', 'auth_check', 'master_connecting', 'remote_probe', 'installing', 'updating', 'server_detecting', 'server_starting', 'forwarding'].includes(status?.phase ?? '');
+            const connecting = ['config_resolved', 'auth_check', 'remote_installing', 'master_connecting', 'remote_probe', 'installing', 'updating', 'server_detecting', 'server_starting', 'forwarding'].includes(status?.phase ?? '');
             return <div key={instance.id} className="mt-2 flex items-center justify-between gap-3 rounded border border-border/50 px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-sm text-foreground">{instance.nickname || instance.sshParsed.destination}</div>
                 <div className="truncate text-xs text-muted-foreground">{instance.sshCommand}</div>
+                <label className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={instance.remoteOpenchamber.mode === 'managed' && instance.remoteOpenchamber.uploadBundleOverSsh}
+                    disabled={busy || connecting || activeSshHostId === instance.id}
+                    onChange={(event) => { void configureManaged(instance, event.currentTarget.checked); }} />
+                  Install this desktop build over SSH
+                </label>
+                {instance.remoteOpenchamber.mode === 'managed' ? (
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <input type="checkbox" checked={instance.remoteOpenchamber.keepRunning}
+                      disabled={busy || connecting || activeSshHostId === instance.id}
+                      onChange={(event) => { void configureKeepRunning(instance, event.currentTarget.checked); }} />
+                    Keep the remote server running after disconnect
+                  </label>
+                ) : null}
                 {status ? (
                   <div role="status" className="mt-1 truncate text-xs text-muted-foreground">
                     {status.phase === 'ready'
@@ -188,7 +223,7 @@ export function DesktopSshCatalog(): ReactNode {
                 ) : connecting ? (
                   <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'cancel'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Cancel</button>
                 ) : (
-                  <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'connect'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Connect tunnel</button>
+                  <button type="button" disabled={busy} onClick={() => { void transportAction(instance.id, 'connect'); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">{instance.remoteOpenchamber.mode === 'managed' ? 'Install & connect' : 'Connect tunnel'}</button>
                 )}
               <button type="button" disabled={busy} onClick={() => { void remove(instance.id); }} className="rounded border border-border px-2 py-1 text-xs hover:bg-interactive-hover/40 disabled:opacity-50">Remove</button>
               </div>

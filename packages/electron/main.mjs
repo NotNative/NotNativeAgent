@@ -29,6 +29,7 @@ import { isExpectedRelayDefault, matchesExpectedRelayHost, readDesktopHostsConfi
 import { reconcileDesktopSshHosts, sanitizeDesktopSshInstances } from './ssh-instances.mjs';
 import { readDesktopSshConfigTree } from './ssh-config-reader.mjs';
 import { createDesktopSshTransport } from './ssh-transport.mjs';
+import { createManagedSshRuntime } from './ssh-managed-runtime.mjs';
 import { createDesktopPasswordLogin } from './desktop-password-login.mjs';
 import { createDesktopUpdater } from './desktop-updater.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
@@ -1000,8 +1001,19 @@ function appFileUrlPrefix() {
 }
 
 const relayPairingBridge = createRelayPairingBridge({ getWindow: () => mainWindow });
+const managedSshRuntime = createManagedSshRuntime({
+  getBundlePaths: () => {
+    const serverBundlePath = resolveServerBundle();
+    return {
+      serverBundlePath,
+      settingsRegistryPath: path.join(path.dirname(serverBundlePath), 'settings-registry.json'),
+      webDistPath: resolveDistDir(),
+    };
+  },
+});
 const desktopSshTransport = createDesktopSshTransport({
   getInstances: readStoredSshInstances,
+  managedRuntime: managedSshRuntime,
   emitStatus: (status) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('openchamber:emit', { event: 'openchamber:ssh-instance-status', detail: status });

@@ -5,6 +5,21 @@ import { parseDesktopSshCommand } from './ssh-instances.mjs';
 const MAX_SCRIPT_BYTES = 256 * 1024;
 const MAX_STDOUT_BYTES = 512 * 1024;
 const MAX_STDERR_BYTES = 32 * 1024;
+const FORBIDDEN_SSH_FLAGS = new Set(['-A', '-D', '-L', '-R', '-X', '-Y']);
+const FORBIDDEN_SSH_OPTIONS = new Set([
+  'clearallforwardings', 'dynamicforward', 'forwardagent', 'forwardx11', 'localforward',
+  'permitlocalcommand', 'remoteforward',
+]);
+
+function safeRemoteCommandArgs(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (FORBIDDEN_SSH_FLAGS.has(arg) || [...FORBIDDEN_SSH_FLAGS].some((flag) => arg.startsWith(flag) && arg !== flag)) return false;
+    const option = arg === '-o' ? args[index + 1] : arg.startsWith('-o') && arg.length > 2 ? arg.slice(2) : null;
+    if (option && FORBIDDEN_SSH_OPTIONS.has(option.trim().split(/[=\s]/u, 1)[0].toLowerCase())) return false;
+  }
+  return true;
+}
 
 export function shellQuote(value) {
   const text = String(value);
@@ -20,8 +35,14 @@ export function createSshRemoteCommandRunner({ spawnProcess = nodeSpawn, platfor
     let parsed;
     try { parsed = parseDesktopSshCommand(instance?.sshCommand); }
     catch { return Promise.reject(new Error('desktop-ssh-instance-invalid')); }
+    if (!safeRemoteCommandArgs(parsed.args)) return Promise.reject(new Error('desktop-ssh-command-forwarding-options-unsupported'));
     const executable = platform === 'win32' ? 'ssh.exe' : 'ssh';
-    const args = [...parsed.args, '-T', parsed.destination, 'sh -s'];
+    const args = [
+      ...parsed.args,
+      '-o', 'ClearAllForwardings=yes', '-o', 'ForwardAgent=no', '-o', 'ForwardX11=no', '-o', 'PermitLocalCommand=no',
+      '-o', 'StdinNull=no', '-o', 'SessionType=default',
+      '-T', parsed.destination, 'sh -s',
+    ];
     return new Promise((resolve, reject) => {
       let child;
       try { child = spawnProcess(executable, args, { shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }); }

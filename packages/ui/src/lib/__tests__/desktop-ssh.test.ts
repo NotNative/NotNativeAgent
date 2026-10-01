@@ -210,7 +210,8 @@ describe('S7.3 store phases and pushed events', () => {
   });
 
   it('phases are exactly the S7.3 machine and unknown phases are rejected', () => {
-    expect([...SSH_PHASES].join(' ')).toBe('idle config_resolved auth_check master_connecting remote_probe installing updating server_detecting server_starting forwarding ready degraded error');
+    expect([...SSH_PHASES].join(' ')).toBe('idle config_resolved auth_check remote_installing master_connecting remote_probe installing updating server_detecting server_starting forwarding ready degraded error');
+    expect(normalizeStatus({ id: 'managed', phase: 'remote_installing', updatedAtMs: 50, startedByUs: true })?.phase).toBe('remote_installing');
     expect(isSshPhase('ready')).toBe(true);
     expect(isSshPhase('running')).toBe(false);
     expect(status({ id: 'a', phase: 'ready' })?.phase).toBe('ready');

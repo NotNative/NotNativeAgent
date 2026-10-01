@@ -9,7 +9,13 @@ paths, and bounds both the resulting tar size and its entry count.
 
 The uploader streams this payload over SSH stdin into a fresh private remote
 directory using a fixed `tar` command. It rejects invalid SSH configuration
-and bounds the archive, transfer duration, and diagnostics. This does not
-install remote runtime dependencies or start/supervise the server; readiness
-handoff for managed mode remains follow-up work. No remote host is contacted
-by the builder or uploader.
+and bounds the archive, transfer duration, and diagnostics. The lifecycle
+helper installs `node-pty` with the configured npm/bun method, starts a
+loopback-only detached server, and stops it when `keepRunning` is false. The
+transport requires the existing tunnel health probe to succeed before
+reporting ready. Managed mode needs explicit `uploadBundleOverSsh`, a
+Unix-like remote, Node.js 22.18+, and npm or bun. Real remote-host acceptance,
+portable tar interoperability, and reconnect behavior for `keepRunning` need
+verification. `keepRunning` currently reuses session metadata only within the
+same desktop process; after an app restart the remote process may remain and
+need manual cleanup before reconnecting. No remote host is contacted by tests.
