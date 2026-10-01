@@ -39,7 +39,7 @@ describe('server-owned walkthrough snapshot', () => {
     expect(first.binaryFiles).toBe(1);
     writeFileSync(join(repo, 'both.txt'), 'working changed\n');
     expect(getWalkthroughSnapshot(repo).signature).not.toBe(first.signature);
-  });
+  }, 15_000);
 
   it('returns a retryable stale failure rather than a mixed capture on concurrent edit', () => {
     writeFileSync(join(repo, 'both.txt'), 'before\n');

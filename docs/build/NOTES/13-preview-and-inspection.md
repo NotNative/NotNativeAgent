@@ -1,5 +1,20 @@
 # 13 — Preview and inspection build notes
 
+# P11-33: direct small-model walkthrough transport (2026-09-30)
+
+Walkthrough generation uses the bounded small-model transport for OpenAI,
+Anthropic, and Google, binding the request, readiness result, cache entry, and
+generation job to the selected provider/model identity. The system instruction
+is sent separately for Google as `systemInstruction`; this matters because the
+diff digest is untrusted code and the model must be told not to follow embedded
+instructions. Google structured output uses `generationConfig.responseFormat`
+with JSON MIME type and schema. Schema refusal can fall back to JSON mode for
+providers that support it. Provider error bodies remain secret-free and bounded.
+
+The regression captures the Google request payload and verifies both the
+system instruction and response schema. The direct walkthrough and shared
+small-model suites pass 23/23, and the full web suite passes 1252/1252.
+
 # P11-31: walkthrough model readiness (2026-09-30)
 
 The Walkthrough pane now resolves one authoritative model snapshot from NND's

@@ -3658,8 +3658,15 @@ configuration import only; live SSH transport is still outstanding.
   readiness/context budget checks, and cache/job identity bound to the selected
   model. The legacy NNA transport remains available to existing injected route
   callers. UI reports unsupported providers explicitly. Adversarial review found
-  no confirmed defects. Web/UI typechecks passed; full quality gate and graph
-  refresh run after versioning. Tests were not run.
+  the Google request omitted `systemInstruction`, so the direct request lost the
+  instruction treating diff text as untrusted; it now carries the instruction
+  alongside the structured response format. The focused walkthrough and
+  small-model tests pass (23/23), the full web suite passes (1252/1252), and
+  the UI suite passes (1456/1456) with workspace typechecks green. The snapshot
+  integration test now has a 15-second budget because Windows Git process
+  contention exceeded its former 5-second default during the full suite.
+  Quality gates and the 602-module graph pass; artifacts-only Electron packaging
+  succeeds at version 20260930-84.
 
 - **2026-09-30 · P12 packaged UI protocol.** Packaged Electron now serves UI
   assets through `notnative-ui://app`, with root-confined path resolution,

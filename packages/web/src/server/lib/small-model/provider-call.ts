@@ -127,6 +127,7 @@ function body(input: DirectCallInput, wire: 'openai' | 'anthropic' | 'google'): 
   }
   return {
     contents: [{ role: 'user', parts: [{ text: input.prompt }] }],
+    ...(input.system === '' ? {} : { systemInstruction: { parts: [{ text: input.system }] } }),
     generationConfig: {
       maxOutputTokens: input.maxOutputTokens,
       thinkingConfig: { thinkingBudget: 0 },

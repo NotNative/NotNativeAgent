@@ -636,6 +636,10 @@
     {
       "version": "20260930-8",
       "content_sha256": "b83626c7ca70b01baa17297cfcfd8ab7a2dce0c2aa14fd8206d99ce8e76fbc3f"
+    },
+    {
+      "version": "20260930-84",
+      "content_sha256": "fa6244819cc1b614236be44a58e37a47ddf0c8d8399dc77771a9da74375e0803"
     }
   ]
 }
