@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:368153a778fbe62a7c8324d4d82f5aa5d9693d5aa9083e71912ca648ad9a9d4d",
+  "source_digest": "sha256:6aa2c1e374b21422bef360b12da1f902144b9fdec5b29b67390d2942b99008bd",
   "counts": {
-    "modules": 636,
+    "modules": 638,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 190
+      "module_count": 192
     },
     {
       "id": "ui-shell",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 241,
-      "module_count": 101
+      "import_count": 243,
+      "module_count": 103
     },
     {
       "from": "ui-shell",
@@ -1556,7 +1556,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/components/settings/primitives.tsx"
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts"
       ]
     },
     {
@@ -1576,7 +1578,9 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/components/settings/primitives.tsx"
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts"
       ]
     },
     {
@@ -2339,6 +2343,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2367,6 +2377,7 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/i18n/messages/en-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/en-desktop-ssh.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/en-providers.ts",
@@ -2415,6 +2426,14 @@
     },
     {
       "path": "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/messages/locale-desktop-generals.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
@@ -2537,6 +2556,7 @@
         "packages/ui/src/lib/i18n/messages/locale-catalogs-c.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-d.ts",
         "packages/ui/src/lib/i18n/messages/locale-catalogs-e.ts",
+        "packages/ui/src/lib/i18n/messages/locale-desktop-generals.ts",
         "packages/ui/src/lib/i18n/messages/locale-desktop-ssh.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-config.ts",
         "packages/ui/src/lib/i18n/messages/locale-mcp-draft.ts",

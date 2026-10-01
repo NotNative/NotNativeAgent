@@ -3,7 +3,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { I18nProvider } from '../../I18nProvider.tsx';
 import { DesktopUpdateControl } from '../pages/desktop-update-control.tsx';
+import { useI18nStore } from '../../../lib/i18n/store.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -31,7 +33,7 @@ describe('DesktopUpdateControl', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    await act(async () => { root!.render(<DesktopUpdateControl />); });
+    await act(async () => { root!.render(<I18nProvider><DesktopUpdateControl /></I18nProvider>); });
     const button = (): HTMLButtonElement => container!.querySelector('button')!;
     await act(async () => { button().click(); await Promise.resolve(); });
     expect(updater.check).toHaveBeenCalledOnce();
@@ -64,11 +66,11 @@ describe('DesktopUpdateControl', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    await act(async () => { root!.render(<DesktopUpdateControl />); });
+    await act(async () => { root!.render(<I18nProvider><DesktopUpdateControl /></I18nProvider>); });
     const click = async (): Promise<void> => act(async () => { container!.querySelector('button')!.click(); await Promise.resolve(); });
     await click();
     await click();
-    expect(container.textContent).toContain('network interrupted');
+    expect(container.textContent).toContain('Desktop update operation failed.');
     expect(container.querySelector('button')?.textContent).toBe('Download update');
     await click();
     expect(attempts).toBe(2);

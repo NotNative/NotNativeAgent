@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useState, type ReactNode } from 'react';
+import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
 import { SettingsCheckboxRow, SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
+import { useI18n } from '../../I18nProvider.tsx';
 
 type LoginItem = { supported: boolean; enabled: boolean };
 
@@ -13,9 +15,10 @@ function loginItemResult(result: unknown): LoginItem | null {
 }
 
 export function LaunchAtLoginControl(): ReactNode {
+  const { t } = useI18n();
   const [value, setValue] = useState<LoginItem | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<I18nKey | null>(null);
 
   useEffect(() => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
@@ -25,9 +28,9 @@ export function LaunchAtLoginControl(): ReactNode {
       if (!active) return;
       const result = reply.ok ? loginItemResult(reply.result) : null;
       setValue(result);
-      if (!reply.ok || result === null) setError(reply.error ?? 'Could not read the launch-at-login setting.');
+      if (!reply.ok || result === null) setError('settings.launchAtLogin.error.read');
     }).catch(() => {
-      if (active) setError('Could not read the launch-at-login setting.');
+      if (active) setError('settings.launchAtLogin.error.read');
     });
     return () => { active = false; };
   }, []);
@@ -40,10 +43,10 @@ export function LaunchAtLoginControl(): ReactNode {
     try {
       const reply = await invoke('desktop_set_launch_at_login', { enabled });
       const result = reply.ok ? loginItemResult(reply.result) : null;
-      setValue(result);
-      if (!reply.ok || result === null) setError(reply.error ?? 'Could not update the launch-at-login setting.');
+      if (result) setValue(result);
+      if (!reply.ok || result === null) setError('settings.launchAtLogin.error.update');
     } catch {
-      setError('Could not update the launch-at-login setting.');
+      setError('settings.launchAtLogin.error.update');
     } finally {
       setBusy(false);
     }
@@ -51,13 +54,13 @@ export function LaunchAtLoginControl(): ReactNode {
 
   return (
     <SettingsSection item="general.startup">
-      <SettingsGroupTitle>Startup</SettingsGroupTitle>
+      <SettingsGroupTitle>{t('settings.launchAtLogin.title')}</SettingsGroupTitle>
       <SettingsCheckboxRow
-        label="Launch at login"
+        label={t('settings.launchAtLogin.label')}
         item="general.startup.launch-at-login"
         checked={value?.enabled ?? false}
         disabled={value === null || !value.supported || busy}
-        helper={error ?? (value?.supported ? 'Starts NotNativeDesktop in the tray.' : 'This platform does not support launch at login.')}
+        helper={error ? t(error) : value?.supported ? t('settings.launchAtLogin.helperStarts') : t('settings.launchAtLogin.helperUnsupported')}
         onChange={(enabled) => { void change(enabled); }}
       />
     </SettingsSection>
