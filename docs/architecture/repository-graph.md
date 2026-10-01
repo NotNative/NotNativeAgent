@@ -37,7 +37,7 @@ graph LR
 |---|---:|---|---|
 | Client sync and state engine | 39 | Harness SDK facade, Runtime adaptation, UI shell | Runtime adaptation, UI shell, Web server |
 | Harness SDK facade | 6 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 221 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| Runtime adaptation | 222 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
 | UI shell | 169 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 213 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
@@ -48,18 +48,18 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 272 | 112 |
+| UI shell | Runtime adaptation | 273 | 112 |
 | UI shell | Client sync and state engine | 78 | 37 |
 | UI shell | Harness SDK facade | 67 | 53 |
 | Client sync and state engine | Harness SDK facade | 52 | 36 |
 | Quality gates | Web server | 15 | 4 |
-| Runtime adaptation | Harness SDK facade | 9 | 6 |
-| Client sync and state engine | Runtime adaptation | 9 | 8 |
+| Runtime adaptation | Harness SDK facade | 10 | 7 |
+| Client sync and state engine | Runtime adaptation | 10 | 8 |
 | Web entrypoints | Web server | 9 | 3 |
 | Web server | Harness SDK facade | 9 | 9 |
+| Runtime adaptation | Client sync and state engine | 6 | 3 |
 | Harness SDK facade | Runtime adaptation | 4 | 2 |
 | Client sync and state engine | UI shell | 4 | 3 |
-| Runtime adaptation | Client sync and state engine | 3 | 2 |
 | Runtime adaptation | UI shell | 2 | 2 |
 | Quality gates | Runtime adaptation | 1 | 1 |
 | Web server | Client sync and state engine | 1 | 1 |
@@ -71,4 +71,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:c8ded58bffd72a8f7362c289b8e4ae9e7260efb316cc5f920d685f8b5f93cc39`.
+Source fingerprint: `sha256:9733a300eebe0e5a22bc51f4bcb0c1c7a48d4cde7043d1bfe8c8ce2abba2467e`.

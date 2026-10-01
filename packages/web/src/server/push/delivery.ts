@@ -5,6 +5,8 @@ import type { PushSubscriptionStore } from './subscription-store.ts';
 import type { PushSubscriptionRecord } from './subscription-schema.ts';
 import type { PushVisibility } from './visibility.ts';
 
+type PushNotification = { title: string; body: string; tag?: string; sessionId?: string };
+
 export class PushDelivery {
   private tail: Promise<unknown> = Promise.resolve();
   private pending = 0;
@@ -14,18 +16,22 @@ export class PushDelivery {
     authorized?: (entry: PushSubscriptionRecord) => boolean; send?: typeof sendEncryptedPush;
   }) {}
   dispose(): void { this.controller.abort(); }
-  async deliver(notification: { title: string; body: string; tag?: string }, eligible: () => boolean = () => true): Promise<{ sent: number; failed: number; skipped: number }> {
+  async deliver(notification: PushNotification, eligible: () => boolean = () => true): Promise<{ sent: number; failed: number; skipped: number }> {
     if (this.controller.signal.aborted || this.pending >= 32) return { sent: 0, failed: 0, skipped: 1 };
     this.pending += 1;
     const task = this.tail.then(() => this.deliverNow(notification, eligible));
     this.tail = task.catch(() => undefined);
     try { return await task; } finally { this.pending -= 1; }
   }
-  private async deliverNow(notification: { title: string; body: string; tag?: string }, eligible: () => boolean) {
+  private async deliverNow(notification: PushNotification, eligible: () => boolean) {
     const subject = pushSubject(this.input.subject());
     if (!subject || this.controller.signal.aborted || !eligible()) return { sent: 0, failed: 0, skipped: 1 };
     const clean = (value: string, limit: number) => value.replace(/[\u0000-\u001f\u007f]/gu, ' ').trim().slice(0, limit);
-    const payload = JSON.stringify({ title: clean(notification.title, 120), body: clean(notification.body, 500), tag: notification.tag ? clean(notification.tag, 200) : undefined });
+    const id = notification.sessionId;
+    const sessionId = typeof id === 'string' && id.length > 0 && id.length <= 256
+      && id.trim() === id && !/[\u0000-\u001f\u007f]/u.test(id) ? id : undefined;
+    const payload = JSON.stringify({ title: clean(notification.title, 120), body: clean(notification.body, 500),
+      tag: notification.tag ? clean(notification.tag, 200) : undefined, sessionId });
     const doc = await this.input.store.snapshot();
     const result = { sent: 0, failed: 0, skipped: 0 };
     let cursor = 0;

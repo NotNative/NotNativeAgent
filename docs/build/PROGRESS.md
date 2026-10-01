@@ -2,6 +2,26 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Session links from push notifications · 20261001-32
+
+Encrypted notification payloads carry bounded session IDs. The worker builds
+an encoded same-origin session URL, focuses an exact existing destination,
+or opens a new window while preserving other drafts and hosted surfaces.
+The GUI resolves cold links through an authenticated lookup without inheriting
+the current workspace, selects NNA's directory, and follows later directory
+moves. Missing/denied/malformed records preserve the current selection.
+Boot restoration and pending replies cannot override explicit navigation.
+Session selection updates history; popstate applies links without adding entries.
+
+Adversarial audit repaired implicit SDK directory scope, live directory moves
+during lookup, malformed directories, pending links overriding a new draft,
+delayed boot restoration, and previous-instance links surviving a runtime switch.
+All 40 focused routing/boot tests and full UI tests pass (1584/1584); full web
+tests pass (1344/1344), NNA source smoke and quality gates pass. Remaining
+work includes full settings/tab/file URL routing, notification SSE/activity
+and view/message-sent parity, browser badges, optional model-authored text,
+and live browser acceptance. This slice does not establish D9 completion.
+
 ## 2026-10-01 · Encrypted Web Push event delivery · 20261001-31
 
 Connected the server-owned harness event feed to preference-gated Web Push.
@@ -3860,7 +3880,7 @@ configuration import only; live SSH transport is still outstanding.
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
-| D9 | PWA manifest link + install/push hooks | P4/P11 | Manifest, icons, install prompt, browser registration, worker display, presence, and encrypted event delivery are implemented. Session click routing, optional model-authored notification text, and live browser acceptance remain open. |
+| D9 | PWA manifest link + install/push hooks | P4/P11 | Manifest, icons, install prompt, browser registration, worker display, presence, encrypted event delivery, and session click links are implemented. Notification stream/activity/view/message-sent parity, badges, optional model-authored notification text, and live browser acceptance remain open. |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
 | D11 | control-stream consumers | P2 (doc 04) | Baseline sync, queue/interruption, memory, and scheduled-task consumers are shipped; new event types add consumers with their owning slices. |
 | D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |

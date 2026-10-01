@@ -24,6 +24,14 @@ async function fixture(count = 1) {
 }
 
 describe('push delivery lifecycle', () => {
+  it('transmits valid session identity and omits invalid identities', async () => {
+    const item = await fixture(); const send = vi.fn().mockResolvedValue(201);
+    const runtime = new PushDelivery({ ...item, authorized: () => true, subject: () => 'mailto:operator@example.com', send });
+    await runtime.deliver({ title: 'title', body: 'body', sessionId: 's/a' });
+    expect(JSON.parse(send.mock.calls[0]![0].payload).sessionId).toBe('s/a');
+    await runtime.deliver({ title: 'title', body: 'body', sessionId: 's1\n' });
+    expect(JSON.parse(send.mock.calls[1]![0].payload)).not.toHaveProperty('sessionId');
+  });
   it('suppresses every destination while any interactive client is visible and excludes legacy authority by default', async () => {
     const item = await fixture(); const send = vi.fn().mockResolvedValue(201);
     const legacy = new PushDelivery({ ...item, subject: () => 'mailto:operator@example.com', send });

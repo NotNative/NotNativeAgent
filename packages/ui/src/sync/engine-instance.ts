@@ -34,6 +34,7 @@ import { useSkillsCatalogStore } from '../stores/useSkillsCatalogStore.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { defaultHarnessDirectory, recoverInterruptedTurnAfterMessageLoad, reconcileStreaming } from './engine-support.ts';
 import { awaitAuthoritativeList } from './boot-open-readiness.ts';
+import { routeSessionId, sessionRouteEnabled, sessionNavigationRevision } from '../lib/session-route.ts';
 import { createSessionActions } from './engine-actions.ts';
 
 const evictionTimerStop: { timer: ReturnType<typeof setInterval> | null } = { timer: null };
@@ -162,10 +163,13 @@ export interface InitialOpenInput {
   storeSessions: Session[];
   pointer: { sessionId: string; directory: string } | null;
   select: (sessionID: string, directory: string) => void;
+  navigationRevision?: number;
 }
 
 export async function openInitialSession(input: InitialOpenInput): Promise<void> {
   if (input.currentSessionId) return; // existing selection always wins
+  if (input.navigationRevision !== undefined && input.navigationRevision !== sessionNavigationRevision()) return;
+  if (sessionRouteEnabled() && routeSessionId(new URLSearchParams(window.location.search).get('session'))) return;
   const p = input.pointer;
   const pointerSession = p && input.storeSessions.find((session) => session.id === p.sessionId && !session.time?.archived);
   const savedDirectory = p ? normalizeDirectory(p.directory) : '';
@@ -193,14 +197,7 @@ function selectBootSession(ctx: EngineCtx, sessionID: string, directory: string)
   ctx.materializer.enqueue({ reason: 'boot-open', sessionID }, directory);
 }
 
-async function partsStart(ctx: EngineCtx): Promise<void> {
-  if (ctx.disposed || ctx.finalized) return;
-  await runGlobalBootstrap(); // §C.1: global bootstrap FIRST (per mount / runtime switch)
-  ctx.bootedAt = Date.now(); // the suppression window measures from COMPLETION
-  adoptPersistedActivity();
-  const directory = normalizeDirectory(await defaultHarnessDirectory());
-  useSessionViewStore.getState().setActiveDirectory(directory);
-  ctx.manager.ensureChild(directory);
+function scheduleInitialSession(ctx: EngineCtx, directory: string, navigationRevision: number): void {
   // SLICE-A chat-alive: once the authoritative session list lands (real wait —
   // the initial resync short-circuits on a fresh boot), open the last active
   // session (or the seeded welcome demo on first run). The user had that
@@ -210,12 +207,26 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
     if (ctx.disposed || !authoritative) return;
     return openInitialSession({
       currentSessionId: useSessionViewStore.getState().currentSessionId,
+      navigationRevision,
       directory: normalizeDirectory(directory),
       storeSessions: ctx.manager.peekChild(normalizeDirectory(directory))?.getState().session ?? [],
       pointer: readLastActiveSession(),
       select: (sessionID, sessionDirectory) => selectBootSession(ctx, sessionID, sessionDirectory),
     });
   }).catch(() => { /* boot-open is best-effort: the empty draft remains valid */ });
+}
+
+async function partsStart(ctx: EngineCtx): Promise<void> {
+  if (ctx.disposed || ctx.finalized) return;
+  const navigationRevision = sessionNavigationRevision();
+  await runGlobalBootstrap(); // §C.1: global bootstrap FIRST (per mount / runtime switch)
+  ctx.bootedAt = Date.now(); // the suppression window measures from COMPLETION
+  adoptPersistedActivity();
+  const defaultDirectory = await defaultHarnessDirectory();
+  const directory = normalizeDirectory(useSessionViewStore.getState().activeDirectory || defaultDirectory);
+  if (!useSessionViewStore.getState().activeDirectory) useSessionViewStore.getState().setActiveDirectory(directory);
+  ctx.manager.ensureChild(directory);
+  scheduleInitialSession(ctx, directory, navigationRevision);
   ctx.watchdogStop?.();
   ctx.watchdogStop = startWatchdog({
     disposed: () => ctx.disposed,

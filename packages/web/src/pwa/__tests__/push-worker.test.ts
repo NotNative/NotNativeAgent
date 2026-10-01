@@ -24,6 +24,27 @@ function worker() {
 }
 
 describe('shipped push service worker', () => {
+  it('preserves session identity and constructs an encoded local route', async () => {
+    const { self, dispatch } = worker();
+    await dispatch('push', { data: { json: () => ({ sessionId: 's/a?token=x', url: 'https://attacker.example' }) } });
+    expect(self.registration.showNotification.mock.calls[0]?.[1].data).toEqual({ sessionId: 's/a?token=x' });
+    await dispatch('notificationclick', { notification: { close: vi.fn(), data: { sessionId: 's/a?token=x' } } });
+    expect(self.clients.openWindow).toHaveBeenCalledWith('https://nnd.example/?session=s%2Fa%3Ftoken%3Dx');
+  });
+  it('focuses an exact session route and preserves other drafts', async () => {
+    const { self, dispatch } = worker();
+    const target = { url: 'https://nnd.example/?session=s1', focus: vi.fn().mockResolvedValue(undefined) };
+    const other = { url: 'https://nnd.example/', focus: vi.fn() };
+    self.clients.matchAll.mockResolvedValue([other, target]);
+    await dispatch('notificationclick', { notification: { close: vi.fn(), data: { sessionId: 's1' } } });
+    expect(target.focus).toHaveBeenCalledOnce(); expect(other.focus).not.toHaveBeenCalled();
+    expect(self.clients.openWindow).not.toHaveBeenCalled();
+  });
+  it.each([' s1', 's1\n', 'x'.repeat(257), {}, ''])('falls back for invalid session %s', async (sessionId) => {
+    const { self, dispatch } = worker();
+    await dispatch('notificationclick', { notification: { close: vi.fn(), data: { sessionId } } });
+    expect(self.clients.openWindow).toHaveBeenCalledWith('https://nnd.example/');
+  });
   it('displays bounded text without trusting navigation or image fields', async () => {
     const { self, dispatch, handlers } = worker();
     await dispatch('push', { data: { json: () => ({ title: 'x'.repeat(200), body: 'hello\nworld', tag: 't'.repeat(300), url: 'https://attacker.example', icon: 'https://attacker.example/pixel' }) } });

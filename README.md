@@ -37,8 +37,9 @@ access cannot register push. Existing subscriptions created before recipient
 expiry/revocation metadata was added must be registered again.
 
 Push delivery pauses while an interactive client is visible. Notification
-clicks currently open the application home; session-specific navigation and
-live browser delivery acceptance remain in progress.
+clicks open the referenced session through NNA's authenticated lookup. An
+existing window at that exact session URL is focused; other drafts stay open.
+Live browser delivery acceptance remains in progress.
 
 ## Layout
 

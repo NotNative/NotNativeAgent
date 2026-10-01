@@ -41,6 +41,7 @@ import type { ComposerServices } from '../chat/composer.tsx';
 import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
 import { useKeybind } from '../lib/shortcuts/hooks.ts';
 import { usePushPresence } from './push-presence.tsx';
+import { mountSessionRoute, notifySessionRouteNavigation } from '../lib/session-route.ts';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -56,6 +57,7 @@ export function MainLayout(): ReactNode {
   const miniChat = readMiniChatLaunch(typeof window === 'undefined' ? '' : window.location.search).enabled;
   const { t } = useI18n();
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
+  useEffect(() => mountSessionRoute(() => toast.error('Could not open the linked session.')), [runtimeKey]);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
@@ -194,12 +196,14 @@ export function MainLayout(): ReactNode {
     openDraft: (directory: string) => {
       persistLastActiveSession(null, directory); // draft intent clears the pointer
       useSessionViewStore.setState({ currentSessionId: null, activeDirectory: directory });
+      notifySessionRouteNavigation();
     },
     openSession: (sessionID: string, directory: string) => {
       // F.4: navigation NEVER denies pending requests — dismiss is authority
       // of the send path and the explicit card buttons only.
       persistLastActiveSession(sessionID, directory); // remember for next boot
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
+      notifySessionRouteNavigation();
       setArchiveOpen(false);
     },
     rename: (sessionID: string, title: string): Promise<void> => {

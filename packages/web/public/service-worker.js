@@ -17,7 +17,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(openApplication());
+  event.waitUntil(openApplication(event.notification.data?.sessionId));
 });
 
 function notificationText(value, limit) {
@@ -30,17 +30,27 @@ async function showPushNotification(event) {
   const title = notificationText(payload?.title, 120) || 'NotNativeDesktop';
   const body = notificationText(payload?.body, 1_000) || 'There is new activity in your workspace.';
   const tag = notificationText(payload?.tag, 200);
-  await self.registration.showNotification(title, { body, ...(tag ? { tag } : {}) });
+  const sessionId = notificationSessionId(payload?.sessionId);
+  await self.registration.showNotification(title, { body, ...(tag ? { tag } : {}), ...(sessionId ? { data: { sessionId } } : {}) });
 }
 
-async function openApplication() {
+function notificationSessionId(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256
+    && value.trim() === value && !/[\u0000-\u001f\u007f]/u.test(value) ? value : null;
+}
+
+async function openApplication(value) {
   // Payloads cannot choose navigation destinations or carry authentication URLs.
-  const home = new URL('/', self.location.origin).href;
+  const destination = new URL('/', self.location.origin);
+  const sessionId = notificationSessionId(value);
+  if (sessionId) destination.searchParams.set('session', sessionId);
   const windows = await self.clients.matchAll({ type: 'window' });
   for (const client of windows) {
-    const url = new URL(client.url);
-    if (url.origin !== self.location.origin || url.pathname !== '/' || url.search || url.hash) continue;
+    // Only reuse an exact destination. A notification never replaces another session's draft.
+    let url;
+    try { url = new URL(client.url); } catch { continue; }
+    if (url.href !== destination.href) continue;
     try { await client.focus(); return; } catch { /* a closing window must not swallow the click */ }
   }
-  await self.clients.openWindow(home);
+  await self.clients.openWindow(destination.href);
 }

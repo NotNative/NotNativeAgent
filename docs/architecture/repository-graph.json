@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c8ded58bffd72a8f7362c289b8e4ae9e7260efb316cc5f920d685f8b5f93cc39",
+  "source_digest": "sha256:9733a300eebe0e5a22bc51f4bcb0c1c7a48d4cde7043d1bfe8c8ce2abba2467e",
   "counts": {
-    "modules": 686,
+    "modules": 687,
     "component_edges": 15
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 221
+      "module_count": 222
     },
     {
       "id": "ui-shell",
@@ -106,7 +106,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 272,
+      "import_count": 273,
       "module_count": 112
     },
     {
@@ -136,13 +136,13 @@
     {
       "from": "runtime-io",
       "to": "harness-facade",
-      "import_count": 9,
-      "module_count": 6
+      "import_count": 10,
+      "module_count": 7
     },
     {
       "from": "sync-engine",
       "to": "runtime-io",
-      "import_count": 9,
+      "import_count": 10,
       "module_count": 8
     },
     {
@@ -158,6 +158,12 @@
       "module_count": 9
     },
     {
+      "from": "runtime-io",
+      "to": "sync-engine",
+      "import_count": 6,
+      "module_count": 3
+    },
+    {
       "from": "harness-facade",
       "to": "runtime-io",
       "import_count": 4,
@@ -168,12 +174,6 @@
       "to": "ui-shell",
       "import_count": 4,
       "module_count": 3
-    },
-    {
-      "from": "runtime-io",
-      "to": "sync-engine",
-      "import_count": 3,
-      "module_count": 2
     },
     {
       "from": "runtime-io",
@@ -1355,6 +1355,7 @@
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/session-route.ts",
         "packages/ui/src/lib/settings/apply.ts",
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/lib/shortcuts/hooks.ts",
@@ -3394,6 +3395,18 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/session-route.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/persist-cache.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/sessionAuthGateState.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -4123,6 +4136,7 @@
         "packages/ui/src/lib/nnd/events.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/session-route.ts",
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/stores/useSkillsCatalogStore.ts",
         "packages/ui/src/sync/activity-streaming.ts",

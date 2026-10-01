@@ -42,10 +42,11 @@ and the [W3C Push API](https://www.w3.org/TR/push-api/).
 
 The shipped worker displays a notification for every received push, with
 bounded title/body/tag fields and a product fallback for missing or malformed
-JSON. Payload URLs and image fields are ignored. Click handling reuses a
-clean application home window or opens the same-origin home; it preserves
-hosted conversation surfaces and credential query URLs. Session-specific
-navigation depends on the remaining main GUI routing implementation.
+JSON. Payload URLs and image fields are ignored. A bounded session ID travels
+as notification data and becomes an encoded same-origin `?session=` route.
+Click handling focuses an exact destination window or opens it; it preserves
+other drafts, hosted conversation surfaces, and credential query URLs.
+Missing or invalid IDs fall back to the application home.
 The worker still performs no fetch interception or precaching. Public assets
 are included in the release hash manifest and version seal.
 
@@ -101,7 +102,21 @@ these checks prove the transport contract, not live browser acceptance.
 
 ## Remaining acceptance
 
-Session navigation from notifications and live browser acceptance remain open.
+Session links resolve through the authenticated global list or an explicit
+unscoped SDK lookup. NNA supplies the directory; unavailable or mismatched
+responses leave the current selection intact. Later global-list directory
+moves update the selected session. Session/runtime changes invalidate pending
+replies. An instance switch removes the previous session query while a
+transport switch within the same instance preserves it. Explicit draft
+navigation also cancels pending links and delayed saved-session restoration.
+Boot restoration cannot override a linked session, and boot directory
+hydration preserves an already selected session's directory. Session selection
+updates the browser query, and popstate applies links without pushing history.
+Settings links take precedence; hosted/embedded/VS Code surfaces keep their
+identity queries. Full settings/tab/file bidirectional routing remains open.
+
+Live browser acceptance, notification SSE/activity/view/message-sent route
+parity, and browser badge count/reset behavior remain open under doc 03 §5.37.
 Registration does not infer a public server origin from an arbitrary request
 field. Optional model-generated notification text remains open; current event
 delivery uses the shared configured template/fallback classifier.
