@@ -26,13 +26,36 @@ describe('catalogs (closed-key coverage, §H.2/§H.3)', () => {
       }
       expect(Object.keys(catalog).length).toBeGreaterThan(3);
     }
+    for (const locale of Object.keys(PARTIAL_CATALOGS)) {
+      for (const key of [
+        'settings.window.title',
+        'settings.window.searchPlaceholder',
+        'settings.window.searchNoResults',
+        'settings.page.general.title',
+        'settings.page.appearance.title',
+        'settings.page.chat.title',
+        'settings.page.notifications.title',
+        'settings.page.sessions.title',
+        'settings.page.shortcuts.title',
+        'settings.search.language',
+      ]) {
+        expect(Object.hasOwn(PARTIAL_CATALOGS[locale]!, key), `${locale} should translate ${key}`).toBe(true);
+      }
+    }
   });
 
   it('dictionaryFor merges over en; en returns the identity', () => {
     expect(dictionaryFor('en')).toBe(en);
     const de = dictionaryFor('de');
     expect(de['shell.sessions']).toBe('Sitzungen'); // catalog value
-    expect(de['shell.busy']).toBe(en['shell.busy']); // en fallback for stubs
+    expect(de['shell.connecting']).toBe('Verbindung zum Harness wird hergestellt…');
+    expect(de['shell.busy']).toBe('Wird ausgeführt…');
+    expect(de['settings.window.title']).toBe('Einstellungen');
+    expect(de['settings.page.appearance.title']).toBe('Darstellung');
+    expect(de['settings.search.language']).toBe('Sprache');
+    expect(dictionaryFor('pl')['shell.mockBanner']).toBe(
+      'Środowisko testowe — integracja z NotNativeAgent nie jest jeszcze dostępna',
+    );
     expect(dictionaryFor('xx')['app.title']).toBe(en['app.title']);
   });
 });
@@ -87,7 +110,7 @@ describe('translate (resolve chain + interpolation, §H.2/§H.3)', () => {
   it('resolves active dictionary → en → key and interpolates {name}', () => {
     useI18nStore.getState().setLocale('de');
     expect(translate('shell.send')).toBe('Senden');
-    expect(translate('shell.busy')).toBe(en['shell.busy']); // per-key fallback
+    expect(translate('shell.busy')).toBe('Wird ausgeführt…');
     expect(translate('template.test' as I18nKey)).toBe('template.test'); // last resort
     expect(translate('bootstrap.devServerWait', { port: 3902 })).toBe('Waiting for the dev server… (port 3902)');
     useI18nStore.getState().setLocale('en');
@@ -109,6 +132,6 @@ describe('bootstrap strings (§H.2 bootstrap.ts)', () => {
     expect(enStrings['shell.connected']).toBe('Harness connected');
     const deStrings = bootstrapStrings('de');
     expect(deStrings['bootstrap.cliMissing']).toBe('Harness CLI not found on this machine.'); // untranslated → en fallback
-    expect(deStrings['shell.connected']).toBe('Harness connected'); // not yet translated either
+    expect(deStrings['shell.connected']).toBe('Mit dem Harness verbunden');
   });
 });

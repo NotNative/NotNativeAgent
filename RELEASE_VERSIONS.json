@@ -700,6 +700,10 @@
     {
       "version": "20260930-99",
       "content_sha256": "1532301b54741c3bdd8cbe92636d3d33526b62cdfac2ec43680c34adeecc0092"
+    },
+    {
+      "version": "20260930-100",
+      "content_sha256": "2906c8df2fff9d74fbb61007e65b2ebe27bb54c03bc52aa63f4b5e3fcf448158"
     }
   ]
 }

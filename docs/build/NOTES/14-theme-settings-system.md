@@ -159,7 +159,7 @@ verbatim per P5-1 (they are design-system internals, not brand seams).
 | # | Item | Lands | Note |
 |---|---|---|---|
 | E1 | typographyWatcher static-sheet substitution | P5-1..3 done | static-sheet values match; dynamic root scaling is implemented by the settings appearance applier |
-| E2 | non-EN locales as partial catalogs with en fallback | P5-4 | parity is authoring work; resolve chain per doc |
+| E2 | non-EN locales as partial catalogs with en fallback | P5-4 | Shell status/connection/recovery plus settings navigation/search strings are localized across all 11 partial catalogs (2026-09-30); remaining catalog parity is authoring work per §H.2 |
 | E3 | 38-preset palette contents self-authored seeds | P5-2 | original JSONs untranscribed (doc gap §M) |
 | E4 | iframe/embedded theme sync + VS Code adapter | defer | no embedded/VS Code surfaces until P10/P12 |
 | E5 | custom theme import UX (Settings→Appearance reload) | P5-3 done | Appearance exposes Reload; the client reloads validated themes from GET /api/config/themes |
