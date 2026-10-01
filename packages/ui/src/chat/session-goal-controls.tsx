@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
+import { useCurrentIntlLocale } from '../lib/i18n/intl.ts';
 import {
   changeGoalStatus, clearSessionGoal, effectiveObjective, loadSessionGoal,
   saveSessionGoal, type GoalSnapshot,
@@ -20,6 +21,7 @@ function projectedRevision(store: StoreApi<DirectoryStore>, sessionID: string): 
 export function SessionGoalControls({ sessionID, store, externalRevision = 0 }: {
   sessionID: string; store: StoreApi<DirectoryStore>; externalRevision?: number;
 }): ReactNode {
+  const intlLocale = useCurrentIntlLocale();
   const localRevision = useSyncExternalStore(store.subscribe, () => projectedRevision(store, sessionID));
   const goalRevision = Math.max(localRevision, externalRevision);
   const [snapshot, setSnapshot] = useState<GoalSnapshot | null>(null);
@@ -75,7 +77,7 @@ export function SessionGoalControls({ sessionID, store, externalRevision = 0 }: 
       <span aria-hidden>◎</span>
       <span className="font-medium">{goal ? `Goal · ${goal.status}` : 'Session goal'}</span>
       {goal ? <span className="min-w-0 flex-1 truncate text-neutral-400" title={goal.objective}>{goal.note || goal.objective}</span> : <span className="flex-1 text-neutral-500">No goal for this session</span>}
-      {goal ? <span className="text-neutral-500">{goal.tokensUsed.toLocaleString()}{goal.tokenBudget !== null ? ` / ${goal.tokenBudget.toLocaleString()}` : ''} tokens</span> : null}
+      {goal ? <span className="text-neutral-500">{goal.tokensUsed.toLocaleString(intlLocale)}{goal.tokenBudget !== null ? ` / ${goal.tokenBudget.toLocaleString(intlLocale)}` : ''} tokens</span> : null}
       {goal?.status === 'active' ? <button type="button" disabled={pending} onClick={() => { void run(() => changeGoalStatus(sessionID, 'pause')); }} className="rounded border border-white/15 px-2 py-1 disabled:opacity-40">Pause</button> : null}
       {goal && ['paused', 'blocked', 'budgetLimited'].includes(goal.status) ? <button type="button" disabled={pending} onClick={() => { void run(() => changeGoalStatus(sessionID, 'resume')); }} className="rounded border border-white/15 px-2 py-1 disabled:opacity-40">Resume</button> : null}
       <button type="button" disabled={pending || !snapshot} aria-expanded={open} onClick={() => { if (open) { editLoad.current++; setOpen(false); } else void beginEdit(); }} className="rounded border border-white/15 px-2 py-1 disabled:opacity-40">{goal ? 'Manage' : 'Set goal'}</button>

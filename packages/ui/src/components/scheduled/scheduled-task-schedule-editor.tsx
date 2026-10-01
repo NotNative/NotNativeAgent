@@ -17,6 +17,7 @@ import {
 } from './schedule-form.ts';
 import { useI18nStore } from '../../lib/i18n/store.ts';
 import { BCP47ByLocale } from '../../lib/i18n/runtime.ts';
+import { useCurrentIntlLocale } from '../../lib/i18n/intl.ts';
 
 const KINDS: Array<{ kind: TaskSchedule['kind']; label: string }> = [
   { kind: 'daily', label: 'daily' }, { kind: 'weekly', label: 'weekly' },
@@ -35,8 +36,9 @@ export interface ScheduledScheduleEditorProps {
 export function ScheduledScheduleEditor({
   value, onChange, preview, timePreference, delayMs = 250,
 }: ScheduledScheduleEditorProps): ReactNode {
+  const intlLocale = useCurrentIntlLocale();
   return (
-    <div data-testid="schedule-editor" className="flex flex-col gap-2 text-[12px] text-neutral-200">
+    <div lang={intlLocale} data-testid="schedule-editor" className="flex flex-col gap-2 text-[12px] text-neutral-200">
       <KindTabs value={value} onChange={onChange} />
       <ZoneSelect value={value} onChange={onChange} />
       {value.kind === 'daily' ? <TimePillGrid selection={value.times} timePreference={timePreference}

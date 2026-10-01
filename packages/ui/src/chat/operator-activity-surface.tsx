@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
+import { useCurrentIntlLocale } from '../lib/i18n/intl.ts';
 import type { ToolEvidence } from '../sync/activity-log.ts';
 import { ACTIVITY_FILTERS, filterActivityRecords, type ActivityFilter } from './operator-activity-filter.ts';
 
@@ -11,6 +12,7 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
   store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; expanded: boolean;
   onReviewPath: (path: string) => void; onOpenSubagent: (sessionID: string) => void;
 }): ReactNode {
+  const intlLocale = useCurrentIntlLocale();
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const nnaSource = isNnaActivitySource(store);
   const historyKey = `${directory}\u0000${sessionID ?? ''}`;
@@ -79,7 +81,7 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
         : filter === 'files' ? 'No recorded completed file changes for this session.'
         : filter === 'last-turn' ? 'No turn-correlated activity is available for the latest turn.'
         : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
-        : records.map((record) => <li key={record.id} className={`${expanded ? 'mx-auto w-full max-w-5xl ' : ''}rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-neutral-500"><span>{record.kind}</span><time className="ml-auto min-w-0 break-words text-right" dateTime={new Date(record.time).toISOString()} data-testid="activity-timestamp">{new Date(record.time).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
+        : records.map((record) => <li key={record.id} className={`${expanded ? 'mx-auto w-full max-w-5xl ' : ''}rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-neutral-500"><span>{record.kind}</span><time className="ml-auto min-w-0 break-words text-right" dateTime={new Date(record.time).toISOString()} data-testid="activity-timestamp">{new Date(record.time).toLocaleString(intlLocale, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
           {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
           {record.kind === 'subagent' && record.childSessionID
             && snapshot.session.some((session) => session.id === record.childSessionID && session.parentID === record.sessionID)

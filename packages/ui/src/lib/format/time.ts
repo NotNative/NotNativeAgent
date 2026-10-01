@@ -5,14 +5,10 @@
  * in the viewer's local zone). Legacy IANA ids canonicalize on use (§J.1).
  * Money (§J.2) is USD-fixed with the active locale's grouping.
  */
-import { useI18nStore } from '../i18n/store.ts';
+import { getCurrentIntlLocale } from '../i18n/intl.ts';
 import { BCP47ByLocale, type Locale } from '../i18n/runtime.ts';
 
 export type TimeFormatPreference = 'auto' | '12h' | '24h';
-
-function intlLocale(): string {
-  return BCP47ByLocale[useI18nStore.getState().locale] ?? BCP47ByLocale.en;
-}
 
 export function formatTimeForPreference(
   timestamp: number,
@@ -22,7 +18,7 @@ export function formatTimeForPreference(
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return options.fallback ?? '';
   const hour12 = preference === '12h' ? true : preference === '24h' ? false : undefined;
-  const formatter = new Intl.DateTimeFormat(intlLocale(), {
+  const formatter = new Intl.DateTimeFormat(getCurrentIntlLocale(), {
     hour: options.hour ?? 'numeric',
     minute: '2-digit',
     ...(options.precision === 'second' ? { second: '2-digit' } : {}),
@@ -39,7 +35,7 @@ export function formatDateTimeForPreference(
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '';
   const hour12 = preference === '12h' ? true : preference === '24h' ? false : undefined;
-  const formatter = new Intl.DateTimeFormat(intlLocale(), {
+  const formatter = new Intl.DateTimeFormat(getCurrentIntlLocale(), {
     ...options,
     hour: options.hour ?? 'numeric',
     minute: '2-digit',
@@ -66,7 +62,7 @@ export function canonicalizeTimezone(timezone: string): string {
 
 /** §J.2 money: USD fixed, locale-grouped, 2 digits (4 below a cent). */
 export function formatMoney(value: number, locale?: Locale): string {
-  const tag = locale !== undefined ? BCP47ByLocale[locale] : intlLocale();
+  const tag = locale !== undefined ? BCP47ByLocale[locale] : getCurrentIntlLocale();
   const digits = Number.isFinite(value) && value > 0 && value < 0.01 ? 4 : 2;
   const formatter = new Intl.NumberFormat(tag, {
     style: 'currency',

@@ -11,6 +11,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
+import { useCurrentIntlLocale } from '../lib/i18n/intl.ts';
 import { contextUsage, nnaActiveTools, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
@@ -24,6 +25,7 @@ const PANEL_WIDTH = 300;
 type PinAction = { sessionID: string; messageID: string; token: number };
 
 export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent, sessionID: scopedSessionID, pinClient }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void; sessionID?: string | null; pinClient?: SessionPinClient }): ReactNode {
+  const intlLocale = useCurrentIntlLocale();
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
   const selectedSessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
@@ -80,11 +82,11 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const messagePinIDs = sessionMessagePinIDs(selectedSession);
   const reportedTokens = (lastAssistant as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } | undefined)?.tokens;
   const tokenFacts = [
-    reportedToken('Input', reportedTokens?.input),
-    reportedToken('Output', reportedTokens?.output),
-    reportedToken('Reasoning', reportedTokens?.reasoning),
-    reportedToken('Cache read', reportedTokens?.cache?.read),
-    reportedToken('Cache write', reportedTokens?.cache?.write),
+    reportedToken('Input', reportedTokens?.input, intlLocale),
+    reportedToken('Output', reportedTokens?.output, intlLocale),
+    reportedToken('Reasoning', reportedTokens?.reasoning, intlLocale),
+    reportedToken('Cache read', reportedTokens?.cache?.read, intlLocale),
+    reportedToken('Cache write', reportedTokens?.cache?.write, intlLocale),
   ].filter((item): item is { label: string; value: string } => item !== null);
   const todos = configuredModel.nnaConfigured || work ? [] : todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
@@ -125,8 +127,8 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     sections.push({ id: 'session', label: 'Session', rows: [
       turnLabel ? row('Turn', turnLabel) : null,
       row('Context', nnaContext.percent === null ? 'Limit unknown' : `${nnaContext.percent.toFixed(1)}% estimated`),
-      row('Estimated use', `${nnaContext.estimatedTokens.toLocaleString()} tokens`),
-      nnaContext.limitTokens === null ? null : row('Limit', `${nnaContext.limitTokens.toLocaleString()} tokens`),
+      row('Estimated use', `${nnaContext.estimatedTokens.toLocaleString(intlLocale)} tokens`),
+      nnaContext.limitTokens === null ? null : row('Limit', `${nnaContext.limitTokens.toLocaleString(intlLocale)} tokens`),
       cost > 0 ? row('Cost', `$${cost.toFixed(2)}`) : null] });
   } else if (context.tokens !== null) {
     sections.push({
@@ -276,16 +278,16 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
         <h3 className="text-xs font-medium text-neutral-300">Session usage</h3>
         {nnaContext || context.tokens ? <div className="mt-3">
           <div className="flex justify-between gap-3 text-[11px] text-neutral-500"><span>Context</span><span>{nnaContext
-            ? `${nnaContext.estimatedTokens.toLocaleString()} estimated tokens${nnaContext.limitTokens ? ` / ${nnaContext.limitTokens.toLocaleString()} limit` : ' · limit unknown'}`
-            : `${context.tokens?.total?.toLocaleString() ?? 'Usage reported'} reported tokens${context.percent === null ? ' · limit unknown' : ` · ${context.percent.toFixed(1)}% of model limit`}`}</span></div>
+            ? `${nnaContext.estimatedTokens.toLocaleString(intlLocale)} estimated tokens${nnaContext.limitTokens ? ` / ${nnaContext.limitTokens.toLocaleString(intlLocale)} limit` : ' · limit unknown'}`
+            : `${context.tokens?.total?.toLocaleString(intlLocale) ?? 'Usage reported'} reported tokens${context.percent === null ? ' · limit unknown' : ` · ${context.percent.toFixed(1)}% of model limit`}`}</span></div>
           {contextPercent !== null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, contextPercent))}>
             <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, Math.max(0, contextPercent))}%` }} />
           </div> : null}
         </div> : null}
         {expanded ? <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {messages.length > 0 ? <UsageFact label="Loaded messages" value={messages.length.toLocaleString()} /> : null}
-          {messages.length > 0 ? <UsageFact label="Loaded user" value={messages.filter((message) => message.role === 'user').length.toLocaleString()} /> : null}
-          {messages.length > 0 ? <UsageFact label="Loaded assistant" value={messages.filter((message) => message.role === 'assistant').length.toLocaleString()} /> : null}
+          {messages.length > 0 ? <UsageFact label="Loaded messages" value={messages.length.toLocaleString(intlLocale)} /> : null}
+          {messages.length > 0 ? <UsageFact label="Loaded user" value={messages.filter((message) => message.role === 'user').length.toLocaleString(intlLocale)} /> : null}
+          {messages.length > 0 ? <UsageFact label="Loaded assistant" value={messages.filter((message) => message.role === 'assistant').length.toLocaleString(intlLocale)} /> : null}
           {cost > 0 ? <UsageFact label="Recorded cost" value={`$${cost.toFixed(2)}`} /> : null}
         </div> : null}
         {expanded && tokenFacts.length > 0 ? <div className="mt-4 border-t border-white/10 pt-3" data-testid="context-last-assistant-usage">
@@ -303,8 +305,8 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
         <p className="mb-2 text-[10px] text-neutral-600">Part kinds and reported tokens only; message content is not shown here.</p>
         <ol className="space-y-1" aria-label="Loaded messages, newest first">{ledger.map((item) => <li key={item.id} className="flex items-center gap-2 rounded bg-white/[0.03] px-2 py-1.5 text-[10px] text-neutral-400">
           <span className="min-w-0 flex-1 truncate" title={`${item.role} · ${item.kinds}`}>{item.role} · {item.kinds}</span>
-          {item.input !== null || item.output !== null ? <span className="shrink-0 tabular-nums text-neutral-500" aria-label="Reported input and output tokens">{item.input === null ? '—' : item.input.toLocaleString()} / {item.output === null ? '—' : item.output.toLocaleString()}</span> : null}
-          {item.created !== null ? <time className="shrink-0 text-neutral-600" dateTime={new Date(item.created).toISOString()}>{new Date(item.created).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time> : null}
+          {item.input !== null || item.output !== null ? <span className="shrink-0 tabular-nums text-neutral-500" aria-label="Reported input and output tokens">{item.input === null ? '—' : item.input.toLocaleString(intlLocale)} / {item.output === null ? '—' : item.output.toLocaleString(intlLocale)}</span> : null}
+          {item.created !== null ? <time className="shrink-0 text-neutral-600" dateTime={new Date(item.created).toISOString()}>{new Date(item.created).toLocaleTimeString(intlLocale, { hour: 'numeric', minute: '2-digit' })}</time> : null}
           <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
             aria-pressed={messagePinIDs.has(item.id)}
             disabled={pinAction?.sessionID === sessionID && pinAction.messageID === item.id}
@@ -344,8 +346,8 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   }
 }
 
-function reportedToken(label: string, count: unknown): { label: string; value: string } | null {
-  return Number.isSafeInteger(count) && (count as number) >= 0 ? { label, value: (count as number).toLocaleString() } : null;
+function reportedToken(label: string, count: unknown, locale: string): { label: string; value: string } | null {
+  return Number.isSafeInteger(count) && (count as number) >= 0 ? { label, value: (count as number).toLocaleString(locale) } : null;
 }
 
 function shortKnowledgeText(value: string): string {

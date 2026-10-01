@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:6c9660b5da4c8cc0f2cf93f5cdce3e72da95ccbea48bb597902fccce43073f8e",
+  "source_digest": "sha256:203372710bdfda8b7e900c4bee903768a028bd2f0fe07fea7a184a281616fe0a",
   "counts": {
-    "modules": 611,
+    "modules": 612,
     "component_edges": 14
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 166
+      "module_count": 167
     },
     {
       "id": "ui-shell",
@@ -102,8 +102,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 227,
-      "module_count": 93
+      "import_count": 230,
+      "module_count": 96
     },
     {
       "from": "ui-shell",
@@ -593,6 +593,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/operator-activity-filter.ts",
+        "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/types.ts"
@@ -759,6 +760,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/session-goal-actions.ts",
+        "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/sync/types.ts"
       ]
     },
@@ -947,6 +949,7 @@
         "packages/ui/src/chat/panel-gate.ts",
         "packages/ui/src/chat/session-knowledge-summary.ts",
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
@@ -1408,8 +1411,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/format/time.ts",
-        "packages/ui/src/lib/i18n/runtime.ts",
-        "packages/ui/src/lib/i18n/store.ts",
+        "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts"
       ]
     },
@@ -1463,6 +1465,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/scheduled/schedule-form.ts",
+        "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/lib/i18n/runtime.ts",
         "packages/ui/src/lib/i18n/store.ts",
         "packages/ui/src/lib/scheduled-tasks-api.ts"
@@ -2178,8 +2181,8 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/i18n/runtime.ts",
-        "packages/ui/src/lib/i18n/store.ts"
+        "packages/ui/src/lib/i18n/intl.ts",
+        "packages/ui/src/lib/i18n/runtime.ts"
       ]
     },
     {
@@ -2287,6 +2290,15 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/i18n/runtime.ts",
+        "packages/ui/src/lib/i18n/store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/i18n/intl.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
         "packages/ui/src/lib/i18n/runtime.ts",
         "packages/ui/src/lib/i18n/store.ts"
       ]

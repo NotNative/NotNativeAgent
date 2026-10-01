@@ -2,6 +2,14 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P6/P7 Intl formatting follows the active locale
+
+Added a shared BCP 47 adapter for date, time, currency, schedule previews,
+activity timestamps, token counts, and goal budgets. React consumers subscribe
+to locale changes so formatted values repaint immediately; schedule controls
+also expose their current language to assistive technology. Adversarial review
+fixed a stale-render defect. Targeted tests (52/52) and UI typecheck pass.
+
 ## 2026-09-30 · P12 web splash uses the stored locale
 
 A small ordered bootstrap module reads the stored locale and updates the splash

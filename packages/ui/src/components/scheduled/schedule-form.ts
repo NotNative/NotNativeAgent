@@ -7,8 +7,7 @@
  * fallback), zone choices, cron shape heuristics + example chips, and the
  * schedule summary labels the list rows already render.
  */
-import { useI18nStore } from '../../lib/i18n/store.ts';
-import { BCP47ByLocale } from '../../lib/i18n/runtime.ts';
+import { getCurrentIntlLocale } from '../../lib/i18n/intl.ts';
 import {
   formatDateTimeForPreference, canonicalizeTimezone, type TimeFormatPreference,
 } from '../../lib/format/time.ts';
@@ -36,10 +35,6 @@ export const CRON_EXAMPLES: Array<{ cron: string; label: string }> = [
   { cron: '30 14 * * 1', label: 'Mondays 14:30' },
   { cron: '0 8 1 * *', label: '1st of month 8am' },
 ];
-
-function intlLocale(): string {
-  return BCP47ByLocale[useI18nStore.getState().locale] ?? BCP47ByLocale.en;
-}
 
 /** The viewer's own zone (§J.1 postures); legacy ids canonicalize on use. */
 export function systemZone(): string {
@@ -89,7 +84,7 @@ export function timePillLabel(hhmm: string, preference: TimeFormatPreference): s
   if (hour > 23 || minute > 59) return hhmm;
   const stamp = Date.UTC(2020, 0, 1, hour, minute);
   const hour12 = preference === '12h' ? true : preference === '24h' ? false : undefined;
-  return new Intl.DateTimeFormat(intlLocale(), {
+  return new Intl.DateTimeFormat(getCurrentIntlLocale(), {
     hour: 'numeric', minute: '2-digit', hour12, timeZone: 'UTC',
   }).format(new Date(stamp));
 }
@@ -97,7 +92,7 @@ export function timePillLabel(hhmm: string, preference: TimeFormatPreference): s
 /** The locale's first weekday, JS numbering 0=Sunday (weekInfo 1=Mon..7=Sun;
  * fall back to Monday when weekInfo is unavailable). */
 export function localeFirstDay(locale?: string): number {
-  const tag = locale ?? intlLocale();
+  const tag = locale ?? getCurrentIntlLocale();
   const weekInfo = (new Intl.Locale(tag) as unknown as { weekInfo?: { firstDay: number } }).weekInfo;
   if (weekInfo?.firstDay === undefined) return 1;
   return weekInfo.firstDay % 7;
@@ -112,7 +107,7 @@ export function weekdayOrder(firstDay: number): number[] {
 
 /** Chip labels indexed by JS weekday (0=Sunday) in the active locale. */
 export function weekdayLabels(locale?: string): string[] {
-  const tag = locale ?? intlLocale();
+  const tag = locale ?? getCurrentIntlLocale();
   const formatter = new Intl.DateTimeFormat(tag, { weekday: 'short', timeZone: 'UTC' });
   // 2020-01-05 was a Sunday: index i walks Sunday..Saturday in UTC.
   return [0, 1, 2, 3, 4, 5, 6].map((day) => formatter.format(new Date(Date.UTC(2020, 0, 5 + day))));
@@ -149,7 +144,7 @@ export function scheduleLabel(schedule: TaskSchedule): string {
 export function previewLine(at: number, zone: string, preference: TimeFormatPreference): string {
   const viewer = formatDateTimeForPreference(at, preference, { year: 'numeric', month: 'short', day: '2-digit' });
   const hour12 = preference === '12h' ? true : preference === '24h' ? false : undefined;
-  const wall = new Intl.DateTimeFormat(intlLocale(), {
+  const wall = new Intl.DateTimeFormat(getCurrentIntlLocale(), {
     hour: 'numeric', minute: '2-digit', hour12, timeZone: zone,
   }).format(new Date(at));
   return `${viewer} (${wall} in ${zone})`;
