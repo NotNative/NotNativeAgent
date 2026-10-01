@@ -32,6 +32,7 @@ import { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tunnel.ts';
 import type { Server as HttpServer } from 'node:http';
+import { createPushServices, attachPushNotifications } from './push/runtime.ts';
 
 export async function startServer(options?: { desktopUpdater?: {
   check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
@@ -70,7 +71,9 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
+  const push = createPushServices();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
+    push,
     ...(desktopUpdater ? { desktopUpdater } : {}),
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
     ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });
@@ -83,6 +86,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   let tunnelPlane: ReturnType<typeof wireTunnelPlane> | undefined;
   let goalSafety: ReturnType<typeof bootAutomation> | undefined;
   let devTunnelWiring: ReturnType<typeof attachDevTunnelWebsocket> | undefined;
+  let stopPush: (() => void) | undefined;
   try {
     // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
     // upgrade gate (loopback stays enforced in the wire layer).
@@ -96,7 +100,9 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
     // Message queue (§D) + scheduled tasks (§C) run for the process lifetime;
     // routes resolve the same singletons lazily — tests never hold timers.
     goalSafety = bootAutomation();
+    stopPush = attachPushNotifications(push, getMessageQueueRuntime().feed);
   } catch (error) {
+    stopPush?.(); push.delivery.dispose();
     // A failure after bind must not leave a listener accepting requests with
     // its authenticated NNA child already stopped by the outer boot guard.
     rollbackServerStart(server as HttpServer, terminal, wiring, relayService, tunnelPlane, goalSafety,
@@ -108,6 +114,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
+    stopPush?.(); push.delivery.dispose();
     terminal.dispose(); // doc 07 section 4.8: stop sweep, kill all PTYs, drop the WS server
     browserControl.dispose();
     wiring.dispose();

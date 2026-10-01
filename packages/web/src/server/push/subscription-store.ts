@@ -13,6 +13,18 @@ export class PushStoreError extends Error {
 export class PushSubscriptionStore {
   constructor(readonly path: string) {}
   async publicKey(): Promise<string> { return (await this.change(() => undefined)).vapid.publicKey; }
+  async snapshot(): Promise<PushDocument> { return withConfigLock(this.path, () => readDocument(this.path)); }
+  async current(entry: PushSubscriptionRecord): Promise<boolean> {
+    const doc = await this.snapshot();
+    return doc.subscriptions.some((item) => JSON.stringify(item) === JSON.stringify(entry));
+  }
+  async removeExpired(entry: PushSubscriptionRecord): Promise<void> {
+    await this.change((doc) => {
+      doc.subscriptions = doc.subscriptions.filter((item) => item.endpoint !== entry.endpoint || item.owner !== entry.owner
+        || item.updatedAt !== entry.updatedAt || item.keys.p256dh !== entry.keys.p256dh || item.keys.auth !== entry.keys.auth
+        || JSON.stringify(item.authority) !== JSON.stringify(entry.authority));
+    });
+  }
   async subscribe(entry: PushSubscriptionRecord): Promise<void> {
     await this.change((doc) => {
       const existing = doc.subscriptions.find((item) => item.endpoint === entry.endpoint);

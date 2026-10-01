@@ -6,6 +6,20 @@
   },
   "dependencies": [
     {
+      "name": "web-push",
+      "packages": ["@notnative/web"],
+      "reason": "RFC 8291 payload encryption and RFC 8292 VAPID signing for browser notifications; network requests use the NND bounded, DNS-pinned HTTPS transport",
+      "license": "MPL-2.0",
+      "reviewed_at": "2026-10-01"
+    },
+    {
+      "name": "ipaddr.js",
+      "packages": ["@notnative/web"],
+      "reason": "Classify public IPv4 and IPv6 destinations before outbound Web Push; reject private, mapped, reserved and transition addresses",
+      "license": "MIT",
+      "reviewed_at": "2026-10-01"
+    },
+    {
       "name": "hono",
       "packages": ["@notnative/web"],
       "reason": "Server routing for the ~253-route surface (doc 03); typed middleware, native Response streaming for SSE",

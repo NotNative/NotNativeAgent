@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createECDH, ECDH } from 'node:crypto';
+import { validPushAuthority, type PushAuthority } from './authority.ts';
 
 export interface PushSubscriptionRecord {
   endpoint: string;
   keys: { p256dh: string; auth: string };
   owner: string;
   updatedAt: number;
+  authority?: PushAuthority;
 }
 export interface PushDocument {
   version: 1;
@@ -55,7 +57,8 @@ export function validPushDocument(value: unknown): value is PushDocument {
   const owners = new Map<string, number>();
   for (const entry of doc.subscriptions) {
     if (!entry || !/^[a-f0-9]{64}$/u.test(entry.owner) || !Number.isSafeInteger(entry.updatedAt) || entry.updatedAt < 0
-      || !pushSubscription(entry, entry.owner, entry.updatedAt) || endpoints.has(entry.endpoint)) return false;
+      || !pushSubscription(entry, entry.owner, entry.updatedAt) || endpoints.has(entry.endpoint)
+      || (entry.authority !== undefined && !validPushAuthority(entry.authority))) return false;
     endpoints.add(entry.endpoint);
     owners.set(entry.owner, (owners.get(entry.owner) ?? 0) + 1);
     if (owners.get(entry.owner)! > OWNER_LIMIT) return false;

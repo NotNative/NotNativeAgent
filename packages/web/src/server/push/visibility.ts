@@ -26,6 +26,10 @@ export class PushVisibility {
     this.prune();
     return [...(this.owners.get(owner)?.values() ?? [])].some((lease) => lease.visible && this.now() - lease.updatedAt < 30_000);
   }
+  anyVisible(): boolean {
+    this.prune();
+    return [...this.owners.keys()].some((owner) => this.visible(owner));
+  }
   private prune(): void {
     const cutoff = this.now() - 300_000;
     for (const [owner, leases] of this.owners) {

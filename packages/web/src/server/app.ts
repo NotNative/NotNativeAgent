@@ -46,6 +46,7 @@ import { registerProbeUrlRoutes } from './preview/probe-url.ts';
 import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
 import { createVersionRoutes } from './routes/version.ts';
 import { createPushRoutes } from './push/routes.ts';
+import type { createPushServices } from './push/runtime.ts';
 import type { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
 
@@ -164,6 +165,7 @@ function registerHarnessProxy(app: Hono): void {
 }
 
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
+  push?: ReturnType<typeof createPushServices>;
   browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
   agentToolCallbackSecret?: string;
   desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void } }) {
@@ -193,7 +195,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // their bespoke headers (login/reset) run un-wrapped; every later /api
   // surface + the harness proxy rides behind it.
   app.use('/api/*', apiAuthGate);
-  registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater);
+  registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater, options?.push);
 
   registerHarnessProxy(app);
 
@@ -305,9 +307,9 @@ export function errorHygiene(error: unknown, c: Context): Response {
 type DesktopUpdateInfo = { available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null };
 
 function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?: number,
-  desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }): void {
+  desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }, push?: ReturnType<typeof createPushServices>): void {
   app.route('/', createNotNativeRoutes({ desktopUpdater }));
-  app.route('/', createPushRoutes());
+  app.route('/', createPushRoutes(push));
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.17 session orchestration: server-side create/send/fork/archive.

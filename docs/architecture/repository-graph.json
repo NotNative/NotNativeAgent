@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:08f7a146a0a3bd2c38914c1f0df7b961214b20afa1c8743b2c93a36da0e91313",
+  "source_digest": "sha256:c8ded58bffd72a8f7362c289b8e4ae9e7260efb316cc5f920d685f8b5f93cc39",
   "counts": {
-    "modules": 682,
-    "component_edges": 14
+    "modules": 686,
+    "component_edges": 15
   },
   "components": [
     {
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 209
+      "module_count": 213
     },
     {
       "id": "web-entry",
@@ -70,15 +70,18 @@
     "cron-parser",
     "esbuild",
     "hono",
+    "ipaddr.js",
     "node-pty",
     "node:assert/strict",
     "node:buffer",
     "node:child_process",
     "node:crypto",
+    "node:dns/promises",
     "node:events",
     "node:fs",
     "node:fs/promises",
     "node:http",
+    "node:https",
     "node:module",
     "node:net",
     "node:os",
@@ -93,6 +96,7 @@
     "react-dom",
     "react-dom/client",
     "sonner",
+    "web-push",
     "ws",
     "yaml",
     "zustand",
@@ -180,6 +184,12 @@
     {
       "from": "gates",
       "to": "runtime-io",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "web-server",
+      "to": "sync-engine",
       "import_count": 1,
       "module_count": 1
     }
@@ -4613,6 +4623,7 @@
         "packages/web/src/server/preview/dev-servers.ts",
         "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/push/routes.ts",
+        "packages/web/src/server/push/runtime.ts",
         "packages/web/src/server/queue/queue-routes.ts",
         "packages/web/src/server/routes/agent-memory.ts",
         "packages/web/src/server/routes/agent-tool.ts",
@@ -4930,6 +4941,7 @@
         "packages/web/src/server/preview/browser-control-broker.ts",
         "packages/web/src/server/preview/dev-tunnel.ts",
         "packages/web/src/server/project-context/agent-memory.ts",
+        "packages/web/src/server/push/runtime.ts",
         "packages/web/src/server/queue/queue-runtime.ts",
         "packages/web/src/server/scheduled/scheduled-service.ts",
         "packages/web/src/server/session-assist/nna-session-assist.ts",
@@ -5638,6 +5650,26 @@
       ]
     },
     {
+      "path": "packages/web/src/server/push/authority.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/ui-auth.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/push/delivery.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/push/authority.ts",
+        "packages/web/src/server/push/subscription-schema.ts",
+        "packages/web/src/server/push/subscription-store.ts",
+        "packages/web/src/server/push/transport.ts",
+        "packages/web/src/server/push/visibility.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/push/routes.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5645,16 +5677,34 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/push/authority.ts",
         "packages/web/src/server/push/subscription-schema.ts",
         "packages/web/src/server/push/subscription-store.ts",
         "packages/web/src/server/push/visibility.ts"
       ]
     },
     {
+      "path": "packages/web/src/server/push/runtime.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/desktop-notifications.ts",
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/push/delivery.ts",
+        "packages/web/src/server/push/subscription-store.ts",
+        "packages/web/src/server/push/transport.ts",
+        "packages/web/src/server/push/visibility.ts",
+        "packages/web/src/server/queue/queue-feed.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/push/subscription-schema.ts",
       "component": "web-server",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "packages/web/src/server/push/authority.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/push/subscription-store.ts",
@@ -5663,6 +5713,14 @@
       "imports": [
         "packages/web/src/server/push/subscription-schema.ts",
         "packages/web/src/server/scheduled/config-lock.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/push/transport.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/push/subscription-schema.ts"
       ]
     },
     {

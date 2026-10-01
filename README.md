@@ -26,6 +26,20 @@ pnpm typecheck
 pnpm build && pnpm start   # production UI bundle served by the Node server
 ```
 
+## Browser background notifications
+
+Configure `NOTNATIVE_PUSH_SUBJECT` as an operator contact such as
+`mailto:operator@example.com` or a public HTTPS contact page. Sending stays
+disabled without a valid contact. Use a secure production browser connection,
+enable the desired events in Settings → Notifications, and register the browser
+there. A UI session or trusted-device credential is required; anonymous local
+access cannot register push. Existing subscriptions created before recipient
+expiry/revocation metadata was added must be registered again.
+
+Push delivery pauses while an interactive client is visible. Notification
+clicks currently open the application home; session-specific navigation and
+live browser delivery acceptance remain in progress.
+
 ## Layout
 
 ```

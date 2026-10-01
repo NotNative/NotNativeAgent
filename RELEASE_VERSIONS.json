@@ -800,6 +800,10 @@
     {
       "version": "20261001-30",
       "content_sha256": "2b5d7f205bbc7df659b783d48e91378ba6d7488518f9f298d95e468d12eb7712"
+    },
+    {
+      "version": "20261001-31",
+      "content_sha256": "f9d607b97d939b781a37713c429eba8149af17db017abad0f44a42325b0b2586"
     }
   ]
 }

@@ -2,6 +2,28 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Encrypted Web Push event delivery · 20261001-31
+
+Connected the server-owned harness event feed to preference-gated Web Push.
+Persisted VAPID keys sign origin-bound assertions and encrypt aes128gcm
+payloads; DNS-pinned HTTPS rejects private/transition destinations and
+redirects, bounds waits/payloads, and avoids response-body buffering.
+`NOTNATIVE_PUSH_SUBJECT` supplies the operator contact; missing/invalid
+configuration disables sending. New recipient metadata enforces session
+expiry/reset and client revocation/expiry without storing raw credentials.
+Legacy records require re-registration. Global visibility suppresses pushes;
+dispatch rechecks the current subscription, recipient, and preferences.
+Expired endpoint cleanup preserves concurrent replacements, and shutdown
+detaches notifications and aborts outbound HTTPS.
+
+Transport audit added real decrypt/signature verification and HTTPS lifecycle
+checks. Delivery audit fixed preferences disabled during a queued/in-flight
+notification. All 22 transport tests, 36 lifecycle tests, the full web suite
+(1336/1336), web typechecks, quality gates, and NNA source integration smoke
+pass. Dependency inventory and release hash scope include runtime manifests.
+Session click routing, optional model-authored notification text, and live
+browser acceptance remain open; source tests do not prove live push delivery.
+
 ## 2026-10-01 · Multi-window push presence · 20261001-30
 
 The mounted shell reports focused visibility immediately and every 20 seconds,
@@ -3838,7 +3860,7 @@ configuration import only; live SSH transport is still outstanding.
 | D6 | Electron globals/boot outcome | P12 | ✅ Runtime globals are injected and bounded boot-target outcomes are covered by desktop-boot tests; packaged GUI acceptance remains open. |
 | D7 | dev loop (`pnpm dev`) verification | P0 | ✅ Verified in the current workspace: API `/health` and Vite UI both returned HTTP 200 on isolated ports. |
 | D8 | `system` theme variant via matchMedia | P5 (doc 14) | ✅ System mode tracks `matchMedia` changes in both directions (ThemeProvider tests). |
-| D9 | PWA manifest link + install/push hooks | P4/P11 | ✅ Manifest endpoint/link, 192px/512px icons, and browser Install/Dismiss prompt shipped; packaged-app routing tested. Push notifications remain open. |
+| D9 | PWA manifest link + install/push hooks | P4/P11 | Manifest, icons, install prompt, browser registration, worker display, presence, and encrypted event delivery are implemented. Session click routing, optional model-authored notification text, and live browser acceptance remain open. |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
 | D11 | control-stream consumers | P2 (doc 04) | Baseline sync, queue/interruption, memory, and scheduled-task consumers are shipped; new event types add consumers with their owning slices. |
 | D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |

@@ -70,10 +70,38 @@ Runtime changes do not send old cleanup reports into the newly selected
 instance. LAN HTTP pages use getRandomValues nonces without requiring the
 secure-context-only randomUUID API.
 
-## Remaining delivery slice
+## Encrypted outbound delivery
 
-Registration alone does not complete Web Push. Encrypted bounded outbound
-delivery, event triggers, expired destination removal, notification settings
-and visibility suppression in the sender, session
-navigation from notifications, and live browser acceptance remain open. Registration
-does not infer a public server origin from an arbitrary request field.
+`NOTNATIVE_PUSH_SUBJECT` supplies the operator contact (mailto or public HTTPS).
+Missing or invalid configuration disables sending. The notification master
+and event preferences gate the shared server-owned harness event subscription;
+the browser does not own this feed. Four destinations can send concurrently,
+with a bounded queue of 32 notifications. Visibility on any interactive client
+suppresses Web Push according to doc 03's push rule.
+
+The `web-push` dependency generates RFC 8291 aes128gcm payloads and RFC 8292
+origin-bound VAPID assertions from the persisted key pair. NND owns the HTTPS
+transport: public-address checks on every DNS answer, a pinned selected
+address, verified TLS hostname, no redirects, port 443, five-second DNS and
+ten-second HTTPS deadlines, and a 3,000-byte payload cap. No UI or NNA bearer
+credentials enter the outbound request. Transport responses are discarded
+without buffering their bodies.
+
+New subscription records include server-derived recipient authority. Session
+expiry and JWT-secret epochs exclude expired/reset sessions; active client
+records and token hashes exclude revoked/expired devices. Existing records
+without this metadata require re-registration. The stored record, authority,
+and visibility are rechecked immediately before dispatch, after DNS. A 404/410
+removes only the unchanged expired registration, preserving a concurrent
+replacement. Shutdown detaches the shared feed and aborts outbound HTTPS.
+
+Protocol implementation: [web-push](https://github.com/web-push-libs/web-push).
+Independent tests decrypt the actual wire record and verify ES256 VAPID claims;
+these checks prove the transport contract, not live browser acceptance.
+
+## Remaining acceptance
+
+Session navigation from notifications and live browser acceptance remain open.
+Registration does not infer a public server origin from an arbitrary request
+field. Optional model-generated notification text remains open; current event
+delivery uses the shared configured template/fallback classifier.
