@@ -2,6 +2,19 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-09-30 · P13 source integration verification (20260930-77)
+
+The local server smoke passes through health, auth, session creation, prompt
+delivery, status, and control events. The cross-repository source smoke also
+passes against `D:\ProjectRepo\NotNativeAgent`, covering authenticated
+bootstrap, capabilities, provider diagnostics, model walkthroughs, live events,
+prompt/delegation, restart-recovered child transcripts, steering, goal audits,
+autonomous continuation, completion, and the origin gate. The adversarial
+review found no concrete false-pass issue in that harness. This verifies the
+source-tree contract journey; packaged-install and native-window GUI acceptance
+remain open for P12/P13. Deferred rows D/E and the long-term VS Code/mobile
+deferrals remain tracked above.
+
 ## 2026-09-30 · P12b-50 updater install and rollback (20260930-71)
 
 Native update apply now checks the macOS Applications-folder requirement,
