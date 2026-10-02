@@ -29,10 +29,13 @@ completed turns, when settled tool-result payload reaches 10% of the effective i
 or when a fingerprint proves that retained checkpoint records drifted. Only records after the
 latest checkpoint contribute to the interval and payload triggers.
 
-The completed-turn interval is an independent full-compaction trigger, even when a model has a
-very large advertised context window. This prevents an old behavioral pattern from remaining in
-the model-facing hot transcript merely because raw capacity is plentiful. The full conversation,
-tool evidence, and reviewer accounting remain unchanged in the durable journal.
+The completed-turn interval requires measured input at or above the configured initial
+compression pressure. Cadence alone does not prove stale behavior or justify a checkpoint
+in a small conversation. Ordinary full compaction must reduce the complete provider input;
+an ineffective optional refresh is skipped and preserves the input. The same unchanged
+trigger is suppressed for the remainder of that turn. Occupancy recovery remains bounded,
+and fingerprint-based integrity repair can replace damaged continuity without a savings
+requirement. The full conversation and authoritative evidence remain in the durable journal.
 
 Compaction preserves the active turn and five newest completed turns under normal conditions.
 Older tool exchanges become typed, redacted, ledger-backed receipts containing the tool,

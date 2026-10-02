@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { buildReportedContext } from './context-status.js';
-import { buildContext } from '../context.js';
+import { buildContext, measureContext } from '../context.js';
 import { providerRequest } from './runtime-helpers.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';
@@ -70,9 +70,20 @@ async function compactContext(engine, records, content, active, operations, plan
   try {
     const fitted = await fitCompactedContext(engine, records, active, operations, {
       budget, validationBudget: plan.budget, hardLimit, planned, route: routes[0], runtime,
-      cacheAlignedRequest: plan.cacheAlignedRequest,
+      cacheAlignedRequest: plan.cacheAlignedRequest, beforeContext: plan.beforeContext, beforeEstimatedTokens,
     });
     const { fact, context } = fitted;
+    if (!fact) {
+      engine.lifecycles.finish(lifecycle.id, 'skipped');
+      await operations.publish('compaction.terminal', 'compaction', 'terminal', active, 'skipped');
+      const detail = { ...started, after_estimated_tokens: beforeEstimatedTokens,
+        candidate_estimated_tokens: fitted.rejectedEstimatedTokens, reason_code: 'context_compaction_no_reduction' };
+      await emitCompactionStatus(engine, active, 'skipped', detail);
+      recordCompactionTelemetry(engine, active, 'skipped', detail);
+      active.skippedCompactionTrigger = active.contextCompressionTriggerKey;
+      active.contextCompressionTrigger = null;
+      return context;
+    }
     const post = await operations.publish(
       'compaction.terminal', 'compaction', 'terminal', active, 'completed', hookPayload(engine, active),
     );
@@ -109,12 +120,26 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
     try {
       let fact = candidate;
       let context = await validateCompactionCandidate(engine, fact, active, plan);
+      const after = measureCompactionInput(engine, plan.route, context, active, plan.planned).estimated_input_tokens;
+      // Invariant: optional refresh cannot increase input or create a checkpoint merely for cadence.
+      if (after >= plan.beforeEstimatedTokens && compactionTrigger(active) !== 'stale_continuation_artifact') {
+        if (['completed_turn_interval', 'tool_payload_budget'].includes(compactionTrigger(active))
+          && measureContext(plan.beforeContext) <= plan.validationBudget) {
+          assertCompleteEnvelope(engine, plan.route, plan.beforeContext, plan.planned, active);
+          return { fact: null, context: plan.beforeContext, rejectedEstimatedTokens: after };
+        }
+        throw new ContractError('context_compaction_no_reduction', 'compaction cannot reduce complete provider input');
+      }
       try {
         const checkpointPath = await writeTaskCheckpoint(engine, fact);
         if (checkpointPath) {
           const checkpointFact = engine.reliability.attachTaskCheckpoint(fact, checkpointPath);
-          context = await validateCompactionCandidate(engine, checkpointFact, active, plan);
-          fact = checkpointFact;
+          const checkpointContext = await validateCompactionCandidate(engine, checkpointFact, active, plan);
+          const checkpointTokens = measureCompactionInput(engine, plan.route, checkpointContext, active, plan.planned).estimated_input_tokens;
+          if (checkpointTokens < plan.beforeEstimatedTokens || compactionTrigger(active) === 'stale_continuation_artifact') {
+            context = checkpointContext;
+            fact = checkpointFact;
+          }
         }
       } catch (error) {
         engine.telemetry?.record('context.task_checkpoint', 'failed', {
@@ -124,10 +149,13 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
       await commitCompactionCandidate(engine, fact, active, operations);
       return { fact, context };
     } catch (error) {
-      if (error.code !== 'context_too_large') throw error;
+      if (!['context_too_large', 'context_compaction_no_reduction'].includes(error.code)) throw error;
       lastError = error;
       budget = Math.max(MIN_COMPACTION_BUDGET_BYTES, Math.floor(budget * COMPACTION_REDUCTION_FACTOR));
     }
+  }
+  if (lastError?.code === 'context_compaction_no_reduction' && compactionTrigger(active) === 'provider_context_limit') {
+    throw new ContractError('provider_context_limit', 'provider rejected the input and compaction cannot produce a smaller request');
   }
   throw lastError;
 }
@@ -223,13 +251,15 @@ async function pressureProjection(engine, active, operations, measurement) {
   );
   const horizon = engine.reliability.longHorizonTrigger(measurement.records, {
     activeTurnId: active.turnId, effectiveInputTokens: measurement.effectiveInputTokens,
+    estimatedInputTokens: measurement.rawContextTokens, refreshThreshold: policy.receipts,
   });
+  const triggerKey = compressionTriggerKey(horizon);
+  const refresh = horizon && triggerKey !== active.skippedCompactionTrigger ? horizon : null;
   const tier = engine.reliability.pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens, policy);
   active.contextPressureTier = tier;
-  if (horizon) {
-    // Why: pressure-only compaction lets large-window models replay stale behavior
-    // indefinitely. A bounded turn interval refreshes only the provider projection;
-    // the complete conversation remains authoritative in the durable journal.
+  if (refresh) {
+    // Why: cadence is useful only under measured pressure; capacity alone does not
+    // establish stale behavior or justify repeatedly replacing a capable model's evidence.
     engine.telemetry?.record('context.compression', 'escalated', {
       ...horizon, tier, ratio,
     }, { turnId: active.turnId, stepId: active.stepId });
@@ -257,16 +287,25 @@ async function pressureProjection(engine, active, operations, measurement) {
     );
   }
   recordPressureTelemetry(engine, active, measurement, projection, tier, ratio);
-  if (tier === 'compact' || horizon) {
-    active.contextCompressionTrigger = horizon?.reason ?? null;
+  if (tier === 'compact' || refresh) {
+    active.contextCompressionTrigger = refresh?.reason ?? null;
+    active.contextCompressionTriggerKey = triggerKey;
     throw new ContractError(
       'context_too_large',
-      horizon
+      refresh
         ? 'context reached the long-horizon continuation refresh boundary'
         : 'context reached the automatic compaction pressure boundary',
     );
   }
   return projection;
+}
+
+function compressionTriggerKey(horizon) {
+  if (!horizon) return null;
+  return createHash('sha256').update(JSON.stringify({
+    reason: horizon.reason, checkpointIndex: horizon.checkpointIndex,
+    completedTurns: horizon.completedTurns, payloadBytes: horizon.payloadBytes,
+  })).digest('hex');
 }
 
 function recordPressureTelemetry(engine, active, measurement, projection, tier, ratio) {

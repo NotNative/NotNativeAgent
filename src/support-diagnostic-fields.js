@@ -9,7 +9,7 @@ const FIELDS = new Set([
   'provider_profile', 'authoritative', 'context_window_tokens', 'effective_input_tokens',
   'compression_threshold_tokens', 'compaction_threshold_tokens', 'output_reserve_tokens',
   'context_estimate_scale', 'parallel_capacity', 'hard_limit_bytes', 'threshold_bytes', 'scaled_tokens', 'retry_scale',
-  'before_estimated_tokens', 'after_estimated_tokens', 'journal_estimated_tokens', 'target_tokens', 'admissible_ceiling_tokens',
+  'before_estimated_tokens', 'after_estimated_tokens', 'candidate_estimated_tokens', 'journal_estimated_tokens', 'target_tokens', 'admissible_ceiling_tokens',
   'before_bytes', 'after_bytes', 'bytes_saved', 'byte_reduction_ratio', 'before_tokens', 'after_tokens',
   'tokens_saved', 'token_reduction_ratio', 'net_tokens_saved', 'tokenizer_identity', 'tokenizer_exact', 'tokenizer_degraded',
   'raw_estimated_tokens', 'ratio', 'tier', 'cold_records', 'retained_active_steps', 'payloadBytes', 'inputBytes', 'completedTurns',

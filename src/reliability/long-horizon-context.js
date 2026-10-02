@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 
-/** Trigger after eight settled turns or when tool output consumes ten percent of usable input. */
+/** Refresh older turns under measured pressure, or reduce a substantial tool payload. */
 export const LONG_HORIZON_POLICY = Object.freeze({
   completedTurns: 8, toolPayloadRatio: 0.10, estimatedBytesPerToken: 4,
 });
@@ -13,11 +13,17 @@ export function longHorizonCompressionTrigger(records, options = {}) {
   if (checkpoint && checkpointDrifted(checkpoint.record)) return trigger('stale_continuation_artifact', checkpoint.index, records);
   const tail = checkpoint ? records.slice(checkpoint.index + 1) : records;
   const completedTurns = countCompletedTurns(tail, options.activeTurnId);
-  if (completedTurns >= LONG_HORIZON_POLICY.completedTurns) {
+  const effectiveInputTokens = Number(options.effectiveInputTokens);
+  const refreshThreshold = Number(options.refreshThreshold ?? 0.40);
+  if (!Number.isFinite(refreshThreshold) || refreshThreshold <= 0 || refreshThreshold > 1) {
+    throw new ContractError('long_horizon_options_invalid', 'refresh pressure threshold must be between zero and one');
+  }
+  const inputTokens = Number(options.estimatedInputTokens);
+  if (completedTurns >= LONG_HORIZON_POLICY.completedTurns
+    && effectiveInputTokens > 0 && inputTokens >= effectiveInputTokens * refreshThreshold) {
     return trigger('completed_turn_interval', checkpoint?.index ?? -1, records, { completedTurns });
   }
   const payloadBytes = toolPayloadBytes(tail);
-  const effectiveInputTokens = Number(options.effectiveInputTokens);
   // Four UTF-8 bytes per token is a conservative tokenizer-free default; measured runtimes may override it.
   const estimatedBytesPerToken = Number(options.estimatedBytesPerToken ?? LONG_HORIZON_POLICY.estimatedBytesPerToken);
   if (!Number.isFinite(estimatedBytesPerToken) || estimatedBytesPerToken <= 0) {

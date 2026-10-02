@@ -45,6 +45,27 @@ test('final context overflow triggers bounded compaction before returning a prov
   assert.ok(run.engine.transcript[0].content.length > 300000, 'durable evidence was not truncated');
 });
 
+test('ineffective optional refresh preserves input and commits no checkpoint', async () => {
+  const run = fixture();
+  run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'Hello.' }];
+  run.active.contextCompressionTrigger = 'tool_payload_budget';
+  run.active.contextCompressionTriggerKey = 'same-payload';
+  const context = await prepareEngineContext(run.engine, run.engine.transcript, '', run.active, true, run.operations);
+  assert.equal(run.facts.length, 0);
+  assert.deepEqual(run.terminals, ['skipped']);
+  assert.equal(run.active.skippedCompactionTrigger, 'same-payload');
+  assert.ok(context.some((item) => item.content === 'Hello.'));
+});
+
+test('continuation integrity repair remains available even without input savings', async () => {
+  const run = fixture();
+  run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'Hello.' }];
+  run.active.contextCompressionTrigger = 'stale_continuation_artifact';
+  await prepareEngineContext(run.engine, run.engine.transcript, '', run.active, true, run.operations);
+  assert.equal(run.facts.length, 1);
+  assert.deepEqual(run.terminals, ['completed']);
+});
+
 test('irreducible attachments fail closed without silently discarding evidence or committing an unfitted compaction', async () => {
   const run = fixture({ attachments: [{ id: 'attachment', mimeType: 'text/plain', route: 'text', observation: 'untrusted observation '.repeat(10000) }] });
   let candidates = 0;
@@ -94,15 +115,17 @@ test('compaction compares complete provider input and keeps journal metadata sep
     run.engine.output = async (record) => output.push(record);
     run.engine.telemetry = { record: (event, status, detail) => telemetry.push({ event, status, detail }) };
     run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'inspect', metadata: { diagnostic } }];
+    run.active.contextCompressionTrigger = 'tool_payload_budget';
     const context = await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, true, run.operations);
     const started = output.find((record) => record.type === 'context_compaction_status' && record.status === 'started');
-    const completed = output.find((record) => record.type === 'context_compaction_status' && record.status === 'completed');
+    const completed = output.find((record) => record.type === 'context_compaction_status' && record.status === 'skipped');
     const expected = measureCompactionInput(run.engine, run.engine.router.candidates()[0], context, run.active, run.budget);
     assert.equal(completed.after_estimated_tokens, expected.estimated_input_tokens);
     assert.equal(started.measurement_basis, 'complete_provider_input');
     assert.equal(completed.measurement_basis, started.measurement_basis);
     assert.equal(completed.before_estimated_tokens, started.before_estimated_tokens);
-    assert.equal(telemetry.find((row) => row.event === 'context.compaction' && row.status === 'succeeded').detail.after_estimated_tokens, completed.after_estimated_tokens);
+    assert.equal(telemetry.find((row) => row.event === 'context.compaction' && row.status === 'skipped').detail.after_estimated_tokens, completed.after_estimated_tokens);
+    assert.equal(run.facts.length, 0);
     measurements.push(started);
   }
   assert.equal(measurements[0].before_estimated_tokens, measurements[1].before_estimated_tokens);
@@ -113,7 +136,7 @@ test('long-horizon compaction reports its trigger and diagnostic ceilings', asyn
   const run = fixture(); const output = [];
   run.engine.surface = 'interactive_tui'; run.engine.output = async (record) => output.push(record);
   run.engine.transcript = Array.from({ length: 9 }, (_, index) => ({
-    type: 'message', role: 'user', turnId: index === 8 ? 'current' : `old-${index}`, content: 'continue',
+    type: 'message', role: 'user', turnId: index === 8 ? 'current' : `old-${index}`, content: `continue ${'x'.repeat(2500)}`,
   }));
   await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations);
   const started = output.find((record) => record.type === 'context_compaction_status' && record.status === 'started');

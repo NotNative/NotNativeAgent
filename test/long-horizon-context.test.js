@@ -9,12 +9,19 @@ test('completed-turn interval initiates long-horizon compression at its bounded 
   const records = Array.from({ length: LONG_HORIZON_POLICY.completedTurns }, (_, index) => ({
     type: 'message', role: 'user', turnId: `turn-${index}`, content: `request ${index}`,
   }));
-  const trigger = longHorizonCompressionTrigger(records, { activeTurnId: 'active', effectiveInputTokens: 262_144 });
+  const trigger = longHorizonCompressionTrigger(records, { activeTurnId: 'active', effectiveInputTokens: 262_144,
+    estimatedInputTokens: 110000 });
   assert.equal(trigger.reason, 'completed_turn_interval');
   assert.equal(trigger.completedTurns, LONG_HORIZON_POLICY.completedTurns);
   assert.equal(longHorizonCompressionTrigger(records.slice(1), {
     activeTurnId: 'active', effectiveInputTokens: 262_144,
   }), null);
+});
+
+test('turn cadence alone cannot compact a small conversation on a large-window model', () => {
+  const records = Array.from({ length: 40 }, (_, index) => ({ type: 'message', role: 'user', turnId: `turn-${index}`, content: 'Hello.' }));
+  assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 268000, estimatedInputTokens: 8000 }), null);
+  assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 268000 }), null);
 });
 
 test('historical tool payload budget scales with the effective model input window', () => {

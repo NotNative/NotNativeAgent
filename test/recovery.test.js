@@ -595,7 +595,7 @@ test('AC-FAIL-06 repeated provider size rejection stops when no smaller request 
   const result = await engine.submit({ request_id: 'provider-overflow-stop', content: 'Continue' }, 'operator');
   assert.equal(result.outcome, 'failed');
   assert.equal(result.failure.code, 'provider_context_limit');
-  assert.equal(calls, 2);
+  assert.equal(calls, 1);
 });
 
 test('AC-FAIL-06 a second provider size recovery requires and produces a smaller request', async () => {

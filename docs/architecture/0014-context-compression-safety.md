@@ -23,6 +23,13 @@ window, output reserve, calibration and retry scales, and limiting byte or token
 Compression efficacy identifies its own projection basis; provider-reported usage remains
 separate from tokenizer estimates.
 
+Ordinary full-compaction candidates must reduce the complete provider envelope before
+commit. Optional refresh that fails this condition preserves its admissible original
+input and records a skipped candidate, including the attempted token count. Mandatory
+size recovery tries bounded smaller candidates before reporting failure. Continuation
+integrity repair has an explicit exception: repairing damaged state can be necessary
+without token savings. A task-checkpoint reference cannot negate an accepted reduction.
+
 NNA classifies compression work into four classes:
 
 | Class | Meaning | Permitted behavior |
