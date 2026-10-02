@@ -31,6 +31,9 @@ export async function startOpencodeServe(options = {}) {
     registry: workspace.registry,
     operations: workspace.operations,
     bus: workspace.bus,
+    v2: workspace.v2,
+    directory: options.directory ?? config.workspaceRoot ?? process.cwd(),
+    config,
     logger: options.logger ?? null,
     password: options.password ?? null,
     username: options.username ?? DEFAULT_BASIC_USERNAME,
@@ -86,5 +89,6 @@ export class OpencodeServeRuntime {
     }
     await this.server.stop();
     this.workspace.bus.close();
+    this.workspace.v2.close();
   }
 }

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:d669635bf49ac343d6b70d1743c9cadac03a77be370a8b006d16f4f63cf4d8a6",
+  "source_digest": "sha256:b9dfe4364490b6c9519fc4b22b48dde9595f856621d477346c9f20b25cc898ba",
   "counts": {
-    "modules": 414,
+    "modules": 421,
     "component_edges": 79
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "opencode-surface",
       "label": "OpenCode surface",
       "ownership": "Serves the OpenCode wire contract over live session engines.",
-      "module_count": 12
+      "module_count": 19
     },
     {
       "id": "foundation",
@@ -160,6 +160,12 @@
       "module_count": 11
     },
     {
+      "from": "opencode-surface",
+      "to": "opencode-surface",
+      "import_count": 32,
+      "module_count": 14
+    },
+    {
       "from": "integrations",
       "to": "foundation",
       "import_count": 31,
@@ -176,12 +182,6 @@
       "to": "integrations",
       "import_count": 19,
       "module_count": 9
-    },
-    {
-      "from": "opencode-surface",
-      "to": "opencode-surface",
-      "import_count": 17,
-      "module_count": 8
     },
     {
       "from": "providers",
@@ -220,6 +220,12 @@
       "module_count": 7
     },
     {
+      "from": "opencode-surface",
+      "to": "foundation",
+      "import_count": 12,
+      "module_count": 8
+    },
+    {
       "from": "foundation",
       "to": "persistence",
       "import_count": 11,
@@ -242,12 +248,6 @@
       "to": "reliability-engine",
       "import_count": 11,
       "module_count": 4
-    },
-    {
-      "from": "opencode-surface",
-      "to": "foundation",
-      "import_count": 10,
-      "module_count": 6
     },
     {
       "from": "foundation",
@@ -2510,6 +2510,7 @@
       "entrypoint": false,
       "imports": [
         "src/opencode/protocol.js",
+        "src/opencode/v2-routes.js",
         "src/opencode/version.js"
       ]
     },
@@ -2535,6 +2536,7 @@
         "src/ingress.js",
         "src/opencode/registry.js",
         "src/opencode/slug.js",
+        "src/opencode/v2-workspace.js",
         "src/opencode/wire-events.js",
         "src/opencode/wire-session.js",
         "src/question-broker.js"
@@ -2545,6 +2547,70 @@
       "component": "opencode-surface",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/opencode/v2-catalog.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/registry.js",
+        "src/opencode/v2-contract.js"
+      ]
+    },
+    {
+      "path": "src/opencode/v2-contract.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/opencode/v2-events.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/opencode/protocol.js"
+      ]
+    },
+    {
+      "path": "src/opencode/v2-forms.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/v2-contract.js"
+      ]
+    },
+    {
+      "path": "src/opencode/v2-projection.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/v2-contract.js",
+        "src/opencode/v2-forms.js"
+      ]
+    },
+    {
+      "path": "src/opencode/v2-routes.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/protocol.js",
+        "src/opencode/v2-catalog.js",
+        "src/opencode/v2-contract.js"
+      ]
+    },
+    {
+      "path": "src/opencode/v2-workspace.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/v2-contract.js",
+        "src/opencode/v2-events.js",
+        "src/opencode/v2-forms.js",
+        "src/opencode/v2-projection.js"
+      ]
     },
     {
       "path": "src/opencode/version.js",

@@ -194,6 +194,12 @@ an interactive broker promise from transcript text.
 
 ## Mid-turn operator questions
 
+The standalone OpenCode compatibility service also exposes a v2 adapter. Its
+supported contracts, reference versions, process-lifetime limits, and verification
+procedure are recorded in [OpenCode protocol compatibility](../OPENCODE_PROTOCOL.md).
+The adapter projects native v2 events and forms over the existing session engines;
+it does not grant OpenCode permission requests authority over NNA governance.
+
 The native NND and OpenCode-wire surfaces expose one
 operator-question contract, owned by the engine and voice-rendered per surface:
 

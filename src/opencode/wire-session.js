@@ -32,7 +32,8 @@ export function createWireSession({ record, bus, info, version }) {
   return {
     setModelRef(next) { applyModelRef(state, next); },
     observe(record) { observeEngineRecord(state, record); },
-    prompt(parts) { return prompt(state, parts); },
+    prompt(parts) { return admit(state, parts).response; },
+    admit(parts, input = {}) { return admit(state, parts, input); },
     abort() { return abortPending(state); },
     messages() { return messagesFromLedger(state); },
     pendingCount() { return state.ledger.filter((entry) => entry.response === null).length; },
@@ -54,12 +55,13 @@ function observeEngineRecord(state, record) {
   }
 }
 
-function prompt(state, parts) {
+function admit(state, parts, input = {}) {
   const text = buildPromptCommand(parts);
   if (state.ledger.length >= QUEUE_LIMIT) {
     throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
   }
   const entry = createEntry(state, text);
+  if (input.messageID) entry.userMessageId = input.messageID;
   state.ledger.push(entry);
   // Why: gold OC opens a fresh session's first prompt with a session.updated
   // pair, but later prompts emit the user message first (ledger lifecycle,
@@ -68,7 +70,7 @@ function prompt(state, parts) {
   else emitFollowAdmission(state, entry);
   const bound = state.tail.then(() => runEntry(state, entry));
   state.tail = bound.catch(() => {});
-  return bound;
+  return { response: bound, messageID: entry.userMessageId };
 }
 
 async function runEntry(state, entry) {

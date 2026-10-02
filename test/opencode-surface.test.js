@@ -50,7 +50,7 @@ test('health, auth gate, and 404 catch-all match the observed gold wire', async 
     assert.equal((await missing.text()).length, 0);
     const wrongPassword = await request(url, '/global/health', { headers: { authorization: basicAuthorization('opencode', 'nope') } });
     assert.equal(wrongPassword.status, 401);
-    assert.equal(WIRED_OPENCODE_VERSION, '1.18.31');
+    assert.equal(WIRED_OPENCODE_VERSION, '2.0.21');
   });
 });
 

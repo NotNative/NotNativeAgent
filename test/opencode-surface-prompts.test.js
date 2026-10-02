@@ -167,6 +167,6 @@ test('prompt routes fail loud on media and unknown sessions like the gold wire',
     assert.equal(envelope.name, 'UnknownError');
     assert.ok(typeof envelope.data.message === 'string');
     assert.match(envelope.data.ref, /^err_[0-9a-f]+$/u);
-    assert.equal(WIRED_OPENCODE_VERSION, '1.18.31');
+    assert.equal(WIRED_OPENCODE_VERSION, '2.0.21');
   });
 });

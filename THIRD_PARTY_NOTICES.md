@@ -1,6 +1,12 @@
 # Third-party notices
 
-This package has no npm runtime dependencies and vendors no third-party source.
+This package has no npm runtime dependencies and vendors no third-party implementation source.
+
+The test fixture `test/fixtures/opencode/v2-schemas.json` contains selected public
+OpenCode HTTP API schema definitions from https://opencode.ai/v2/openapi.json,
+captured on 2026-10-02. Its provenance is recorded in the fixture. The optional
+conformance check uses the separately obtained MIT-licensed `@opencode/client`
+package; that client is not embedded in NNA.
 
 It requires Node.js 24 or newer. The installer uses a compatible operator-supplied
 runtime when present, or retrieves an official Node.js 24 LTS binary into the per-user

@@ -3,6 +3,7 @@
 // responses, catch-all 404s, and a bounded diagnostics ring. This module owns
 // the wire; route-level semantics live with the route table and operations.
 import { createServer } from 'node:http';
+import { handleV2Request } from './v2-routes.js';
 import {
   sendJson, sendEmpty, sendNoContent, sendText, sendUnknownError, readJsonBody, matchesBasicAuthorization, parseTarget, basicAuthorization,
   sseOpen,
@@ -29,6 +30,9 @@ export class OpenCodeCompatServer {
       registry: options.registry,
       operations: options.operations,
       bus: options.bus ?? null,
+      v2: options.v2,
+      directory: options.directory ?? process.cwd(),
+      config: options.config,
       logger: options.logger,
     });
   }
@@ -63,7 +67,11 @@ export class OpenCodeCompatServer {
     const target = parseTarget(req.url ?? '/');
     res.on('finish', () => this.#record(res.statusCode, req?.method, req?.url ?? target?.pathname, res.opencodeErrorCode ?? null));
     res.on('close', () => { if (!res.writableEnded) this.#record(res.statusCode, req?.method, req?.url ?? target?.pathname, 'client_aborted'); });
-    if (!this.#authorized(req)) return this.#reject(res, 401, req, target);
+    if (!this.#authorized(req)) {
+      if (target.pathname.startsWith('/api/')) return sendJson(res, 401, { _tag: 'UnauthorizedError', message: 'Authentication required' });
+      return this.#reject(res, 401, req, target);
+    }
+    if (target.pathname.startsWith('/api/')) return void handleV2Request({ req, res, target, options: this.#options });
     const route = matchRoute(req.method, target.pathname);
     if (route) return void Promise.resolve(route.handler({ req, res, target, params: route.params, server: this, options: this.#options })).catch((error) => this.#reject(res, 500, req, target, error));
     return this.#reject(res, 404, req, target);
@@ -155,7 +163,7 @@ async function createSession(ctx) {
   const read = await readJsonBody(ctx.req);
   if (read.error) return sendEmpty(ctx.res, 400);
   const payload = typeof read.value === 'object' && read.value !== null ? read.value : {};
-  const created = await ctx.options.operations.create({ ...payload, directory: ctx.target.directory ?? payload.directory });
+  const created = await ctx.options.operations.create({ title: payload.title, directory: ctx.target.directory ?? payload.directory });
   sendJson(ctx.res, 200, created);
 }
 

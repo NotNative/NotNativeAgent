@@ -12,6 +12,7 @@ import { OpenCodeSessionRegistry, projectIdentifier } from './registry.js';
 import slugifyTitle from './slug.js';
 import { createWireEventBus } from './wire-events.js';
 import { createWireSession } from './wire-session.js';
+import { createV2Workspace } from './v2-workspace.js';
 
 // Why: the opencode surface is an authenticated operator surface whose only
 // operator voice over the wire is the question reply route. It stays
@@ -28,7 +29,11 @@ export function createOpenCodeSessionWorkspace(options = {}) {
   const pendingQuestions = new Map();
   const workspace = { registry, bus, wiredVersion, pendingQuestions };
   const operations = defineWorkspaceOperations(workspace, options);
-  return { workspace, registry, bus, operations };
+  const v2 = createV2Workspace(operations, options);
+  workspace.v2 = v2;
+  const publishSession = bus.publishSession;
+  bus.publishSession = (event) => { v2.observe(event); return publishSession(event); };
+  return { workspace, registry, bus, operations, v2 };
 }
 
 function ensureStoreRoots(options) {
@@ -51,6 +56,9 @@ function defineWorkspaceOperations(workspace, options) {
       return attachSession(workspace, options, {
         title: boundedTitle(input.title ?? 'New session'),
         directory: boundedDirectory(input.directory),
+        ocId: input.ocId,
+        runtimeDirectory: input.runtimeDirectory,
+        metadata: input.runtimeDirectory ? input.metadata : undefined,
       });
     },
     get(ocId) {
@@ -63,6 +71,7 @@ function defineWorkspaceOperations(workspace, options) {
     ...questionOperations(workspace),
     async remove(ocId) {
       const session = requireSession(workspace, ocId);
+      session.wireSession.abort();
       await session.engine.shutdown({ request_id: newId('oc_shutdown'), type: 'shutdown' });
       registry.remove(ocId);
       for (const [token, owner] of [...workspace.pendingQuestions.entries()]) {
@@ -80,15 +89,15 @@ function defineWorkspaceOperations(workspace, options) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory }) {
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata }) {
   const { registry, bus, wiredVersion } = workspace;
   const sessionId = newId('session');
-  const ocId = newId('ses');
+  const ocId = requestedId ?? newId('ses');
   const sessionDirectory = directory ?? options.directory ?? '';
   const projectID = projectIdentifier(sessionDirectory);
   let wireSession = null;
   const engine = new SessionEngine({
-    config: options.config,
+    config: runtimeDirectory ? Object.freeze({ ...options.config, workspaceRoot: runtimeDirectory }) : options.config,
     sessionId,
     surface: SURFACE_NAME,
     output: async (record) => {
@@ -129,6 +138,7 @@ async function attachSession(workspace, options, { title, directory }) {
   const modelRef = configModelRef(options.config);
   if (modelRef) wireSession.setModelRef(modelRef);
   const stored = registry.attach({ ...record, wireSession });
+  workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata);
   options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title }, { sessionId });
   options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title, directory: stored.directory }, { sessionId });
   return registry.describe(stored, wiredVersion);
@@ -159,6 +169,9 @@ function requireSession(workspace, ocId) {
 
 function turnOperations(workspace) {
   return {
+    admit(ocId, parts, input) {
+      return requireSession(workspace, ocId).wireSession.admit(parts, input);
+    },
     async messages(ocId) {
       const session = requireSession(workspace, ocId);
       return session.wireSession.messages();
