@@ -43,6 +43,23 @@ startup ownership, separate controller and engine credentials, setup-required
 health, migration gates and remaining installed acceptance. Neither schema tests
 nor package registration prove persistent service operation.
 
+`src/nnd-service-identity.js` now reads the explicitly selected installation,
+validates bounded descriptor/payload metadata and canonical roots, and probes its
+recorded Node executable with startup hooks removed. It never falls back to PATH.
+Installation and data IDs derive from canonical paths; moving an installation
+changes its installation identity, while retaining a data root retains its data ID.
+The helper writes nothing and does not claim package signing or ACL verification.
+
+`src/nnd-service-lock.js` now supplies the Windows named-pipe ownership primitive.
+Concurrent processes and junction/case aliases share the same canonical data-root
+lock. Release is idempotent; unexpected loss is observable and must stop admission
+in the future supervisor. The pipe carries neither commands nor credentials.
+These helpers are tested foundations, not wired lifecycle commands. Protected
+Windows discovery storage, authenticated control, setup-first hosting, supervised
+launch, startup registration and client migration remain required before enabling
+`service_supervision`. Shared external catalogs require additional catalog ownership
+before they can be opened; a data-root lock alone cannot protect those catalogs.
+
 ## Responsibility boundaries
 
 1. NNA core owns: the agent loop, governance decisions, the projection fold and its

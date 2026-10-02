@@ -75,6 +75,10 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'manifest_version_invalid', 'session_id_invalid',
     'nnd_command_invalid', 'nnd_manifest_invalid',
     'nnd_package_incompatible', 'nnd_package_incomplete', 'nnd_package_manifest_invalid',
+    'nnd_install_root_invalid', 'nnd_install_descriptor_unavailable', 'nnd_install_descriptor_invalid',
+    'nnd_install_root_mismatch', 'nnd_install_data_invalid', 'nnd_install_data_mismatch',
+    'nnd_install_payload_invalid', 'nnd_install_version_mismatch',
+    'nnd_install_runtime_unavailable', 'nnd_install_runtime_invalid', 'nnd_service_platform_unsupported',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
     'nnd_message_cursor_invalid',
@@ -256,6 +260,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'memory_timeout', 'memory_unavailable', 'memory_version_required',
   ]),
   persistence: Object.freeze([
+    'nnd_lock_acquire_failed', 'nnd_lock_lost', 'nnd_service_already_running',
     'journal_compaction_snapshot_missing', 'journal_corrupt', 'journal_repair_evidence_missing',
     'journal_repair_prefix_invalid', 'journal_repair_prefix_too_large', 'journal_replace_invalid',
     'nnd_activity_invalid', 'nnd_activity_unavailable',
