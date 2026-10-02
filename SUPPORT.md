@@ -46,3 +46,7 @@ installs beneath `${XDG_DATA_HOME:-$HOME/.local/share}/not-native-agent`. Both u
 install/launch/uninstall conformance runs on Windows and Ubuntu in the platform matrix.
 Reinstallation fully replaces the application-owned `installed` payload while preserving
 the sibling managed runtime and home-scoped application data.
+POSIX reinstallation inspects the managed OpenCode runtime before payload replacement,
+waits for graceful shutdown with bounded retries, and restarts it only if it was running.
+Inspection or shutdown failure preserves the existing payload. Restart failure is reported
+without claiming a complete installation. POSIX login auto-start is not configured.

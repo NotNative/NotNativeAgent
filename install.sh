@@ -142,6 +142,59 @@ nna_runtime() {
   NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$target/src/cli.js" "$@"
 }
 
+opencode_runtime_running() {
+  "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const v=JSON.parse(s).runtime?.running;if(typeof v!=='boolean')process.exit(1);process.stdout.write(String(v))})"
+}
+
+stop_opencode_before_payload_replacement() {
+  opencode_status=$(NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$source_root/src/cli.js" opencode status) || {
+    printf '%s\n' 'Incoming runtime could not inspect the existing OpenCode service; existing runtime files were preserved.' >&2; exit 1;
+  }
+  opencode_running=$(printf '%s' "$opencode_status" | opencode_runtime_running) || {
+    printf '%s\n' 'OpenCode runtime status is invalid; existing runtime files were preserved.' >&2; exit 1;
+  }
+  [ "$opencode_running" = true ] || return 0
+  step 'Stopping the running OpenCode service before replacing its runtime files'
+  NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$source_root/src/cli.js" opencode stop >/dev/null || {
+    printf '%s\n' 'OpenCode service could not be stopped; existing runtime files were preserved.' >&2; exit 1;
+  }
+  opencode_attempt=0
+  while [ "$opencode_attempt" -lt 300 ]; do
+    sleep 0.1
+    opencode_status=$(NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$source_root/src/cli.js" opencode status) || {
+      printf '%s\n' 'OpenCode service could not be inspected while waiting for shutdown; existing runtime files were preserved.' >&2; exit 1;
+    }
+    opencode_running=$(printf '%s' "$opencode_status" | opencode_runtime_running) || {
+      printf '%s\n' 'OpenCode runtime status is invalid; existing runtime files were preserved.' >&2; exit 1;
+    }
+    if [ "$opencode_running" = false ]; then opencode_stopped_for_upgrade=true; return 0; fi
+    opencode_attempt=$((opencode_attempt + 1))
+  done
+  printf '%s\n' 'OpenCode service did not stop within the shutdown retry limit; existing runtime files were preserved.' >&2
+  exit 1
+}
+
+restore_opencode_after_payload_replacement() {
+  # Why: enabled controls Windows login wiring, not POSIX runtime readiness.
+  # Restart only a runtime observed and stopped before payload replacement.
+  if [ "$opencode_stopped_for_upgrade" = true ]; then
+    step 'Restarting the running OpenCode service on the updated runtime'
+    nna_runtime opencode start >/dev/null || {
+      printf '%s\n' 'OpenCode service restart failed; run nna opencode start after correcting the failure.' >&2; exit 1;
+    }
+    opencode_status=$(nna_runtime opencode status) || {
+      printf '%s\n' 'OpenCode service status could not be inspected after restart.' >&2; exit 1;
+    }
+    opencode_running=$(printf '%s' "$opencode_status" | opencode_runtime_running) || {
+      printf '%s\n' 'OpenCode runtime status is invalid after restart.' >&2; exit 1;
+    }
+    [ "$opencode_running" = true ] || { printf '%s\n' 'OpenCode service is not running after restart.' >&2; exit 1; }
+    ok 'OpenCode service restarted on the updated runtime'
+  else
+    skip 'OpenCode service stays stopped; nna opencode start launches it on demand.'
+  fi
+}
+
 install_managed_playwright() {
   playwright_version=1.61.1 # Keep aligned with the runtime compatibility tests before updating.
   managed_root="$data_root/managed/playwright"
@@ -239,6 +292,7 @@ printf '%b      %s%b\n' "$c_dim" "$node_path" "$c_reset"
 ensure_ripgrep
 gateway_stopped_for_upgrade=false
 gateway_was_systemd=false
+opencode_stopped_for_upgrade=false
 
 section 'Application payload'
 step "Staging version $version"
@@ -285,6 +339,7 @@ if [ -e "$target" ]; then
       gateway_stopped_for_upgrade=true
     fi
   fi
+  stop_opencode_before_payload_replacement
 fi
 rm -rf -- "$target"
 mv "$stage" "$target"
@@ -510,6 +565,9 @@ if [ "$gateway_running" = true ] && [ "$gateway_mode" != configure ]; then
   fi
   ok 'Telegram gateway restarted on the updated runtime'
 fi
+
+section 'OpenCode service'
+restore_opencode_after_payload_replacement
 
 section 'Verification'
 step 'Launching the installed CLI and checking its canonical version'

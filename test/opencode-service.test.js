@@ -81,6 +81,31 @@ test('stop clears environment while preserving auto-start configuration', async 
   assert.equal((await loadOpenCodeConfig(paths.opencodeConfig)).enabled, true);
 });
 
+test('POSIX stop retains verified runtime identity until graceful exit is observable', async () => {
+  const paths = await servicePaths(); const killed = []; let comparison = 'same';
+  const pidPath = join(paths.opencode, 'opencode.pid');
+  await writeFile(pidPath, JSON.stringify({ version: 2, pid: 44,
+    process_identity: { version: 1, pid: 44, platform: 'fixture', start_id: 'fixture' } }));
+  const scope = { platform: 'linux', processIdentity: { ...identity(), compare: async () => comparison },
+    kill: (...args) => killed.push(args) };
+  assert.equal((await stopOpencodeService({}, paths, scope)).stopped, true);
+  assert.deepEqual(killed, [[44, 'SIGTERM']]);
+  assert.equal((await opencodeRuntimeStatus(paths, scope)).running, true);
+  assert.equal(JSON.parse(await readFile(pidPath)).pid, 44);
+  comparison = 'gone';
+  assert.equal((await opencodeRuntimeStatus(paths, scope)).running, false);
+});
+
+test('POSIX stop rejects unverifiable ownership without signaling or hiding the runtime', async () => {
+  const paths = await servicePaths();
+  await writeFile(join(paths.opencode, 'opencode.pid'), JSON.stringify({ version: 2, pid: 44,
+    process_identity: { version: 1, pid: 44, platform: 'fixture', start_id: 'fixture' } }));
+  const scope = { platform: 'linux', processIdentity: { ...identity(), compare: async () => 'unknown' },
+    kill: () => assert.fail('unverified process must not be signaled') };
+  await assert.rejects(stopOpencodeService({}, paths, scope), { code: 'opencode_identity_unverifiable' });
+  assert.equal((await opencodeRuntimeStatus(paths, scope)).running, true);
+});
+
 test('enable and disable own only the login startup script', async () => {
   const paths = await servicePaths(); const startup = await mkdtemp(join(tmpdir(), 'nna-opencode-startup-')); const env = environment({ OPENCODE_HOST: 'http://127.0.0.1:4095' });
   const scope = { platform: 'win32', startupFolder: () => startup, userEnvironmentRead: env.read, userEnvironmentWrite: env.write };

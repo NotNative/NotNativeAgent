@@ -148,10 +148,10 @@ async function stopManagedRuntime(paths, scope = {}) {
     // verified instance already exited on its own; the stop still holds.
     if (error.code !== 'ESRCH') throw error;
   }
-  // Why: on Windows process.kill terminates instead of delivering SIGTERM, so
-  // the child's own pid-file removal never runs; the stopper removes the
-  // record it verified rather than leaving a stale pid file behind.
-  await removeRuntimePid(paths);
+  // Why: Windows termination skips child cleanup, so remove its verified PID.
+  // POSIX shutdown is graceful; retain identity until exit so upgrade polling
+  // observes the live process. The run command removes it after shutdown.
+  if ((scope.platform ?? process.platform) === 'win32') await removeRuntimePid(paths);
   return { stopped: true, pid: status.pid };
 }
 
