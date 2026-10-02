@@ -33,8 +33,8 @@ function isLoopbackPeer(remoteAddress: string | undefined): boolean {
 export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRuntime, gate?: TerminalUpgradeGate): TerminalWiring {
   const wss = new WebSocketServer({ noServer: true, maxPayload: TERMINAL_WS_MAX_PAYLOAD_BYTES });
   const onUpgrade = (request: IncomingMessage, socket: import('node:net').Socket, head: Buffer): void => {
-    const rawUrl = String(request.url ?? '');
-    const url = new URL(rawUrl, 'http://notnative.invalid');
+    const url = incomingRequestUrl(request);
+    if (!url) { socket.destroy(); return; }
     const path = url.pathname;
     if (path !== TERMINAL_WS_PATH) return; // other upgrades are not ours
     if (!isLoopbackPeer(request.socket.remoteAddress)) {
@@ -102,6 +102,15 @@ export function incomingHeaders(request: IncomingMessage): Headers {
     if (typeof value === 'string') headers.set(name, value);
   }
   return headers;
+}
+
+/** Security: native origin checks need the actual Host, never a placeholder origin. */
+export function incomingRequestUrl(request: IncomingMessage): URL | null {
+  const raw = request.url ?? '';
+  const host = request.headers.host ?? 'notnative.invalid';
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')
+    || !/^(?:\[[a-fA-F0-9:.]+\]|[A-Za-z0-9.-]+)(?::[0-9]{1,5})?$/u.test(host)) return null;
+  try { return new URL(raw, `http://${host}`); } catch { return null; }
 }
 
 function wireClient(client: WebSocket, runtime: TerminalRuntime): void {  const adapter = socketAdapter(client);

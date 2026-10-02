@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f7fed4f502c620b0defc663c02632a769618bd4477e6730771e81f6730d9867a",
+  "source_digest": "sha256:221f29e7228031dae09c8fad5da56535f424a3a7438c9bdeffc6edddbceea5ac",
   "counts": {
-    "modules": 716,
+    "modules": 719,
     "component_edges": 16
   },
   "components": [
@@ -30,13 +30,13 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 171
+      "module_count": 172
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 224
+      "module_count": 226
     },
     {
       "id": "web-entry",
@@ -106,8 +106,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 278,
-      "module_count": 114
+      "import_count": 281,
+      "module_count": 115
     },
     {
       "from": "ui-shell",
@@ -1045,10 +1045,22 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/auth/NativeBootstrapFields.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/auth/gateText.ts",
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/sessionAuthGateState.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/auth/SessionAuthGate.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/auth/NativeBootstrapFields.tsx",
         "packages/ui/src/components/auth/gateText.ts",
         "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/lib/passkeys.ts",
@@ -5058,6 +5070,7 @@
         "packages/web/src/server/harness/mock/index.ts",
         "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna.ts",
+        "packages/web/src/server/lib/auth/native-ui-auth.ts",
         "packages/web/src/server/lib/auth/pairing-sessions.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/relay/host-service.ts",
@@ -5080,6 +5093,14 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/native-ui-auth.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/jwt.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/auth/pairing-candidates.ts",
@@ -5141,16 +5162,26 @@
       ]
     },
     {
+      "path": "packages/web/src/server/lib/auth/ui-auth-format.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/remote-clients.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/auth/ui-auth.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/auth/jwt.ts",
+        "packages/web/src/server/lib/auth/native-ui-auth.ts",
         "packages/web/src/server/lib/auth/password.ts",
         "packages/web/src/server/lib/auth/rate-limit.ts",
         "packages/web/src/server/lib/auth/remote-clients.ts",
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
+        "packages/web/src/server/lib/auth/ui-auth-format.ts",
         "packages/web/src/server/lib/auth/url-tokens.ts"
       ]
     },

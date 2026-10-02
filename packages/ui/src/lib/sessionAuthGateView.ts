@@ -77,6 +77,7 @@ export function sessionGateView(
     stage: probe.stage,
     authRequired: probe.authRequired,
     passwordForm: false,
+    nativeBootstrapForm: false,
     passkeyUnlock: false,
     passkeyEnroll: false,
     passkeysDisabledHint: false,
@@ -105,6 +106,7 @@ export function sessionGateView(
   if (probe.stage !== 'locked') return view;
 
   view.passwordForm = probe.methods.length === 0 || probe.methods.includes('password');
+  view.nativeBootstrapForm = probe.methods.includes('native-bootstrap');
   view.passkeyUnlock = presence.hasPasskeys === true && enabled === true;
   view.passkeyEnroll = enabled === true && presence.known === true && presence.hasPasskeys === false;
   view.passkeysDisabledHint = presence.passkeysDisabled === true;

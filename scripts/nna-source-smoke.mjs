@@ -391,6 +391,21 @@ async function waitForReply(call, id, marker) {
   }
 }
 
+async function waitForExecution(harness) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(new URL('/global/health', harness.endpoint), {
+      headers: { authorization: `Bearer ${harness.token}`, 'x-nna-principal': harness.principal() },
+      signal: AbortSignal.timeout(Math.min(STEP_TIMEOUT_MS, deadline - Date.now())),
+    });
+    const body = await response.json();
+    if (response.status === 200 && body.healthy === true) return;
+    assert.equal(response.status, 503, `engine readiness: ${JSON.stringify(body)}`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('NNA execution did not become ready within the smoke deadline');
+}
+
 async function main(nnaSource) {
   const cli = join(nnaSource, 'src', 'cli.js');
   await access(cli);
@@ -424,6 +439,7 @@ async function main(nnaSource) {
       signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
     });
     assert.equal(unauthenticated.status, 401, 'NNA must reject requests without integration credentials');
+    await waitForExecution(harness);
     registerHarnessAdapter(createNnaHarnessAdapter({
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));
@@ -441,6 +457,7 @@ async function main(nnaSource) {
       command: process.execPath, commandArguments: [cli], dataRoot: root, workspaceId: 'local',
       spawnChild: (command, args, options) => { spawned = spawn(command, args, options); return spawned; },
     }).catch((error) => { throw new Error(`NNA restart: ${error.message}`); });
+    await waitForExecution(harness);
     registerHarnessAdapter(createNnaHarnessAdapter({
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));

@@ -11,7 +11,9 @@ import { join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket, type RawData, type WebSocket as WireSocket } from 'ws';
 import { attachDevTunnelWebsocket, authorizeDevTunnelUpgrade, parseDevTunnelTarget, relayConnection } from '../preview/dev-tunnel.ts';
-import { getUiAuthController, resetUiAuthForTests } from '../lib/auth/ui-auth.ts';
+import { getUiAuthController, installNativeUiAuth, resetUiAuthForTests } from '../lib/auth/ui-auth.ts';
+import { incomingRequestUrl } from '../terminal/wire.ts';
+import type { IncomingMessage } from 'node:http';
 
 const dir = mkdtempSync(join(tmpdir(), 'nnd-p11-dev-tunnel-'));
 process.env.NOTNATIVE_DATA_DIR = dir;
@@ -46,6 +48,32 @@ describe('dev-tunnel contract', () => {
     expect(parseDevTunnelTarget('/api/dev-tunnel/sub?port=3000')).toBeNull();
     expect(parseDevTunnelTarget('/api/dev-tunnel?port=0')).toBeNull();
     expect(parseDevTunnelTarget('/api/dev-tunnel?port=65536')).toBeNull();
+  });
+
+  it('uses the real upgrade Host and rejects malformed authority or absolute targets', () => {
+    const parse = (url: string, host: string) => incomingRequestUrl({ url, headers: { host } } as IncomingMessage);
+    expect(parse('/api/dev-tunnel?port=3000', '127.0.0.1:32145')?.origin).toBe('http://127.0.0.1:32145');
+    expect(parse('/api/terminal/ws', '[::1]:32145')?.origin).toBe('http://[::1]:32145');
+    for (const host of ['127.0.0.1:32145@evil.invalid', '127.0.0.1:32145/path', '127.0.0.1:99999']) {
+      expect(parse('/api/dev-tunnel', host)).toBeNull();
+    }
+    expect(parse('http://evil.invalid/api/dev-tunnel', '127.0.0.1:32145')).toBeNull();
+  });
+
+  it('requires native authentication without a password and stops admission after revocation', () => {
+    environment('');
+    const origin = 'http://127.0.0.1:32145';
+    const binding = installNativeUiAuth({ installationId: 'nna_'+'a'.repeat(64), dataId: 'data_'+'b'.repeat(64), generation: 'test-generation', origin });
+    const url = new URL(origin+'/api/dev-tunnel?port=3000');
+    const headers = new Headers({ host: url.host, origin, upgrade: 'websocket' });
+    expect(authorizeDevTunnelUpgrade(url, headers)).toBe(false);
+    const { ticket } = binding.controller.nativeHandle()!.issueTicket();
+    const grant = binding.controller.nativeBootstrap({ ticket }, headers, new URL(origin+'/auth/native-bootstrap'), '127.0.0.1');
+    headers.set('cookie', grant.setCookie!.split(';')[0]!);
+    expect(authorizeDevTunnelUpgrade(url, headers)).toBe(true);
+    binding.controller.close();
+    expect(authorizeDevTunnelUpgrade(url, headers)).toBe(false);
+    binding.release();
   });
 
   it('applies the H.2 auth matrix and exact URL-token target', () => {
@@ -110,6 +138,32 @@ describe('dev-tunnel transport', () => {
     await expect(browserBytes).resolves.toEqual(Buffer.from('client-up'));
     ws.close();
     await once(ws, 'close');
+  });
+
+  it('disposal terminates an established tunnel and its upstream connection', async () => {
+    const { httpPort, relayPort } = await fixture();
+    const ws = new WebSocket(`ws://127.0.0.1:${httpPort}/api/dev-tunnel?port=${relayPort}`);
+    await once(ws, 'open');
+    const closed = once(ws, 'close');
+    wiring!.dispose();
+    await closed;
+    expect(ws.readyState).toBe(WebSocket.CLOSED);
+  });
+
+  it('does not admit an upgrade whose discovery completes after disposal', async () => {
+    const { httpPort, relayPort } = await fixture();
+    wiring!.dispose();
+    let finish!: (ports: number[]) => void;
+    let entered!: () => void;
+    const discovered = new Promise<void>((resolve) => { entered = resolve; });
+    wiring = attachDevTunnelWebsocket(http!, { availablePorts: () => { entered(); return new Promise((resolve) => { finish = resolve; }); } });
+    const ws = new WebSocket(`ws://127.0.0.1:${httpPort}/api/dev-tunnel?port=${relayPort}`);
+    const rejected = new Promise<void>((resolve) => ws.once('error', () => resolve()));
+    await discovered;
+    wiring.dispose();
+    finish([relayPort]);
+    await rejected;
+    expect(ws.readyState).not.toBe(WebSocket.OPEN);
   });
 
   it('403s an unavailable port before upstream dialing', async () => {

@@ -4,6 +4,7 @@
  * Runs on Node 22+ with native TypeScript transformation enabled by launchers.
  * The Electron main process will import startServer() in-process (doc 09, P12).
  */
+import type { NativeUiIdentity } from './lib/auth/native-ui-auth.ts';
 import { serve } from '@hono/node-server';
 import { randomBytes } from 'node:crypto';
 import { createApp } from './app.ts';
@@ -12,7 +13,7 @@ import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
 import { createNnaHarnessAdapter } from './harness/nna.ts';
 import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarnessWithRetry, type LocalNnaHarness } from './harness/nna-local.ts';
-import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
+import { upgradeAllowedForRequest, getUiAuthController, installNativeUiAuth } from './lib/auth/ui-auth.ts';
 import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
 import { wireTunnelPlane } from './lib/tunnels/tunnel-startup.ts';
@@ -34,32 +35,42 @@ import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tun
 import type { Server as HttpServer } from 'node:http';
 import { createPushServices, attachPushNotifications } from './push/runtime.ts';
 
-export async function startServer(options?: { desktopUpdater?: {
+export async function startServer(options?: { nativeAuth?: NativeUiIdentity; desktopUpdater?: {
   check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
   download: () => Promise<unknown>;
   install: () => Promise<unknown>;
   getInstallError?: () => string | null;
   clearInstallError?: () => void;
-} }): Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
-  const browserControl = new BrowserControlBroker();
-  const browserCallbackSecret = randomBytes(32).toString('base64url');
-  const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
-    url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
-  };
-  const agentToolCallbackSecret = randomBytes(32).toString('base64url');
-  const agentToolCallback = agentMemoryEnabled() ? {
-    url: `http://127.0.0.1:${ENV.port}/api/agent-tool/callback`, token: agentToolCallbackSecret,
-  } : undefined;
+} }): Promise<{ port: number; browserControl: BrowserControlBroker; nativeAuth?: { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void }; dispose(): void }> {
+  if (options?.nativeAuth && options.nativeAuth.origin !== new URL(`http://${ENV.host}:${ENV.port}`).origin) {
+    throw new Error('Native UI origin must match the configured listener');
+  }
+  const nativeBinding = options?.nativeAuth ? installNativeUiAuth(options.nativeAuth) : undefined;
+  const lifecycle = { attached: false, close: () => nativeBinding?.controller.close(), release: () => nativeBinding?.release() };
+  let browserControl: BrowserControlBroker | undefined;
   let localNna: LocalNnaHarness | undefined;
   try {
+    browserControl = new BrowserControlBroker();
+    const browserCallbackSecret = randomBytes(32).toString('base64url');
+    const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
+      url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
+    };
+    const agentToolCallbackSecret = randomBytes(32).toString('base64url');
+    const agentToolCallback = agentMemoryEnabled() ? {
+      url: `http://127.0.0.1:${ENV.port}/api/agent-tool/callback`, token: agentToolCallbackSecret,
+    } : undefined;
     localNna = await configureHarness(browserCallback, agentToolCallback);
-    return await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
-      agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater);
+    const running = await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
+      agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater, lifecycle);
+    const nativeAuth = nativeBinding?.controller.nativeHandle();
+    return { ...running, ...(nativeAuth ? { nativeAuth: { issueTicket: nativeAuth.issueTicket, revoke: () => running.dispose() } } : {}) };
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.
+    lifecycle.close();
+    if (!lifecycle.attached) lifecycle.release();
     localNna?.dispose();
-    browserControl.dispose();
+    browserControl?.dispose();
     throw error;
   }
 }
@@ -67,7 +78,7 @@ export async function startServer(options?: { desktopUpdater?: {
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
   browserCallbackSecret: string | undefined, agentToolCallbackSecret: string | undefined,
   desktopUpdater?: { check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
-    download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }):
+    download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }, lifecycle?: { attached: boolean; close(): void; release(): void }):
   Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
@@ -78,9 +89,19 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
     ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
+  if (lifecycle) {
+    lifecycle.attached = true;
+    server.once('close', () => { lifecycle.close(); lifecycle.release(); });
+  }
   // Node reports EADDRINUSE and similar bind failures through an asynchronous
   // error event. Wait here so the caller can stop its already-owned NNA child.
-  await awaitServerListening(server as HttpServer);
+  try { await awaitServerListening(server as HttpServer); }
+  catch (error) {
+    lifecycle?.close();
+    server.close();
+    if (!server.listening) lifecycle?.release();
+    throw error;
+  }
   let wiring: ReturnType<typeof attachTerminalWebsocket> | undefined;
   let relayService: ReturnType<typeof startRelayHostService> | undefined;
   let tunnelPlane: ReturnType<typeof wireTunnelPlane> | undefined;
@@ -114,10 +135,14 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
+    lifecycle?.close();
+    process.removeListener('SIGINT', dispose);
+    process.removeListener('SIGTERM', dispose);
     stopPush?.(); push.delivery.dispose();
     terminal.dispose(); // doc 07 section 4.8: stop sweep, kill all PTYs, drop the WS server
     browserControl.dispose();
     wiring.dispose();
+    devTunnelWiring?.dispose();
     relayService.dispose();
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
     goalSafety?.dispose();
@@ -125,6 +150,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
     stopScheduledTasks(); // doc 12 §C runtime owns due timers + queue
     localNna?.dispose();
     server.close();
+    (server as HttpServer).closeAllConnections?.();
   };
   process.once('SIGINT', dispose);
   process.once('SIGTERM', dispose);

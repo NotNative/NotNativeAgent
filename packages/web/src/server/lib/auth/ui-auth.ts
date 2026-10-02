@@ -7,6 +7,9 @@
  * global /api gate. The coordinated `nn_url_token` alias rides next to the
  * doc literal until the coordination pass.
  */
+import { NativeUiBootstrap, type NativeUiIdentity } from './native-ui-auth.ts';
+import { parseCookieHeader, secureFromHeaders, sessionCookieHeaderValue, sanitizeOutboundClient } from './ui-auth-format.ts';
+export { parseClientIp, parseCookieHeader, secureFromHeaders, sessionCookieHeaderValue, sanitizeOutboundClient } from './ui-auth-format.ts';
 import { randomBytes } from 'node:crypto';
 import { ENV } from '../../env.ts';
 import { readEnvUiPassword } from '../../env.ts';
@@ -61,6 +64,7 @@ export interface LoginInputs {
 }
 
 export interface UiAuthOptionsInput {
+  nativeAuth?: NativeUiIdentity;
   dataDir?: string;
   clientStore?: RemoteClientStore;
   now?: () => number;
@@ -92,44 +96,12 @@ const DEFAULT_URL_TOKEN_BUDGET = 512;
 /** Only a desktop shell may mint its durable device token at login (§2.3 5). */
 const DESKTOP_MINT_KINDS = new Set(['desktop', 'desktop-local']);
 
-export function parseClientIp(headers: Headers, remoteAddress?: string): string {
-  const forwarded = headers.get('x-forwarded-for');
-  if (forwarded !== null) {
-    const first = forwarded.split(',')[0]?.trim() ?? '';
-    if (first !== '') return first;
-  }
-  return typeof remoteAddress === 'string' ? remoteAddress : '';
-}
-
-export function parseCookieHeader(header: string | undefined | null): Map<string, string> {
-  const jar = new Map<string, string>();
-  if (header === null || header === undefined || header === '') return jar;
-  for (const part of header.split(';')) {
-    const index = part.indexOf('=');
-    if (index <= 0) continue;
-    const name = part.slice(0, index).trim();
-    const value = part.slice(index + 1).trim();
-    if (name !== '') jar.set(name, value);
-  }
-  return jar;
-}
-
-export function sessionCookieHeaderValue(token: string, ttlMs: number, nowMs: number, secure: boolean): string {
-  const maxAge = Math.max(0, Math.floor(ttlMs / 1000));
-  const expires = new Date(nowMs + ttlMs).toUTCString();
-  return `${UI_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Expires=${expires}${secure ? '; Secure' : ''}`;
-}
-
-export function secureFromHeaders(headers: Headers, url: URL): boolean {
-  if (url.protocol === 'https:') return true;
-  const forwarded = headers.get('x-forwarded-proto');
-  return forwarded !== null && forwarded.split(',').some((hop) => hop.trim() === 'https');
-}
-
 interface UrlTokenEntry { parent: string; expiresAt: number }
 
 export class UiAuthController {
+  private readonly native: NativeUiBootstrap | null;
   private readonly jwt: JwtSecretHolder;
+  private readonly bindingJwt: JwtSecretHolder;
   private readonly limiter: LoginRateLimiter;
   private readonly hashCache: (password: string) => PasswordSecrets;
   private readonly urlTokens = new Map<string, UrlTokenEntry>();
@@ -152,11 +124,29 @@ export class UiAuthController {
     };
     this.limiter = createLoginRateLimiter(this.options.rate, this.options.now);
     this.hashCache = createPasswordHashCache();
-    this.jwt = resolveJwtSecretHolder(this.options.dataDir);
+    this.native = options.nativeAuth ? new NativeUiBootstrap(options.nativeAuth, this.options.now) : null;
+    this.jwt = this.native?.jwt ?? resolveJwtSecretHolder(this.options.dataDir);
+    this.bindingJwt = this.native ? resolveJwtSecretHolder(this.options.dataDir) : this.jwt;
   }
 
   passwordRequired(): boolean {
     return normalizedPassword(this.options.resolvePassword()) !== '';
+  }
+
+  authRequired(): boolean { return this.native !== null || this.passwordRequired(); }
+  nativeMode(): boolean { return this.native !== null; }
+  nativeRequestAllowed(headers: Headers, url: URL): boolean { return this.native?.allowed(headers, url) ?? true; }
+  nativeHandle(): { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void } | undefined {
+    return this.native ? { issueTicket: () => this.native!.issueTicket(), revoke: () => this.native!.close() } : undefined;
+  }
+  close(): void { this.native?.close(); this.urlTokens.clear(); }
+  nativeBootstrap(body: unknown, headers: Headers, url: URL, peer?: string): RouteAction {
+    if (!this.native?.consume(body, headers, url, peer)) return this.deniedAction();
+    return this.grantedLogin({ ip: peer ?? '', body: {}, headers, url });
+  }
+  private methods(): string[] { return [...(this.native ? ['native-bootstrap'] : []), ...(this.passwordRequired() ? ['password'] : [])]; }
+  private deniedAction(): RouteAction {
+    return { status: 401, body: { authenticated: false, locked: true, authRequired: this.authRequired(), methods: this.methods() }, headers: { 'cache-control': NO_STORE } };
   }
 
   /** Seam for the passkeys store's HMAC binding (§2.4): the resolved
@@ -166,7 +156,7 @@ export class UiAuthController {
   }
 
   jwtSecretForBinding(): string {
-    return this.jwt.secret();
+    return this.bindingJwt.secret();
   }
 
   /** Cookie-session check for requireSessionAuth surfaces (§2.2: passkeys
@@ -197,12 +187,14 @@ export class UiAuthController {
   }
 
   issueSessionToken(ttlMs: number): { token: string; expiresAt: string } {
+    if (this.native?.closed) throw new Error('Native UI authentication is closed');
     const stamp = this.options.now();
     const token = signSessionJwt(this.jwt.secret(), stamp, stamp + ttlMs);
     return { token, expiresAt: new Date(stamp + ttlMs).toISOString() };
   }
 
   authenticate(headers: Headers, url: URL, method: string, urlTokensEnabled: boolean = true): AuthOutcome {
+    if (!this.nativeRequestAllowed(headers, url)) return { ...this.deniedAction(), ok: false, clearSessionCookie: false };
     const bearer = headers.get('authorization');
     if (bearer !== null) return this.byBearer(bearer); // explicit bearer: cookie deliberately ignored (§2.2)
     const validity: { clearSessionCookie: boolean } = { clearSessionCookie: false };
@@ -210,7 +202,7 @@ export class UiAuthController {
     if (fromCookie !== null) return fromCookie;
     const fromUrlToken = urlTokensEnabled ? this.byUrlToken(headers, url, method) : null;
     if (fromUrlToken !== null) return fromUrlToken;
-    if (!this.passwordRequired()) return { ok: true, scope: 'open' };
+    if (!this.authRequired()) return { ok: true, scope: 'open' };
     return {
       ok: false,
       status: 401,
@@ -243,6 +235,7 @@ export class UiAuthController {
 
   private byParentToken(parent: string): AuthGranted | null {
     if (parent.startsWith(CLIENT_URL_PARENT_PREFIX)) {
+      if (this.native) return null;
       const id = parent.slice(CLIENT_URL_PARENT_PREFIX.length);
       const client = id !== '' ? this.options.clientStore.getActiveClient(id) : undefined;
       if (client === undefined) return null;
@@ -256,7 +249,7 @@ export class UiAuthController {
 
   private byBearer(bearer: string): AuthOutcome {
     const token = bearer.replace(/^Bearer\s+/iu, '');
-    const result = this.options.clientStore.authenticateBearerToken(token);
+    const result = this.native ? { ok: false as const } : this.options.clientStore.authenticateBearerToken(token);
     if (!result.ok) {
       return {
         ok: false,
@@ -277,8 +270,8 @@ export class UiAuthController {
         body: {
           authenticated: true,
           scope: outcome.scope,
-          authRequired: this.passwordRequired(),
-          methods: ['password'],
+          authRequired: this.authRequired(),
+          methods: this.native ? this.methods() : ['password'],
           passkeys: false,
         },
         headers: { 'cache-control': NO_STORE },
@@ -286,7 +279,7 @@ export class UiAuthController {
     }
     return {
       status: 401,
-      body: { authenticated: false, locked: true },
+      body: { authenticated: false, locked: true, authRequired: this.authRequired(), methods: this.methods() },
       clearSessionCookie: outcome.clearSessionCookie,
       headers: { 'cache-control': NO_STORE },
     };
@@ -294,6 +287,7 @@ export class UiAuthController {
 
   login(inputs: LoginInputs): RouteAction {
     const noStore = { 'cache-control': NO_STORE };
+    if (!this.nativeRequestAllowed(inputs.headers, inputs.url) || (this.native && !this.passwordRequired())) return this.deniedAction();
     if (!this.passwordRequired()) {
       // Open mode: no cookie is issued; the mint still honors the trustDevice
       // TTL the caller asked for (§2.3 5 "expiresAt equals the cookie TTL").
@@ -353,6 +347,7 @@ export class UiAuthController {
   }
 
   private maybeMintClientToken(body: unknown, ttlMs: number): Record<string, unknown> {
+    if (this.native) return {};
     const request = body as { issueClientToken?: unknown; clientKind?: unknown } | null;
     if (request === null || request.issueClientToken !== true) return {};
     const kind = typeof request.clientKind === 'string' ? request.clientKind : '';
@@ -393,6 +388,8 @@ export class UiAuthController {
     }
     try {
       this.jwt.rotate();
+      this.native?.invalidate();
+      this.urlTokens.clear();
     } catch (error) {
       return { status: 403, body: { error: error instanceof Error ? error.message : String(error) }, headers: { 'cache-control': NO_STORE } };
     }
@@ -408,6 +405,7 @@ export class UiAuthController {
    * the rate bucket, issues the cookie at the trust-device TTL, and mints
    * the desktop client token when asked. */
   grantedLogin(inputs: { ip: string; body: unknown; headers: Headers; url: URL }): RouteAction {
+    if (!this.nativeRequestAllowed(inputs.headers, inputs.url)) return this.deniedAction();
     const body = inputs.body as { trustDevice?: unknown } | null;
     const ttl = body?.trustDevice === true ? this.options.trustSessionTtlMs : this.options.sessionTtlMs;
     this.limiter.clear(inputs.ip);
@@ -445,6 +443,7 @@ export class UiAuthController {
    * pass-through): the device-token surface that passes at ANY scope (§2.9)
    * and the /auth/session tunnel-scope row. */
   credentialGrant(headers: Headers, url: URL, method: string, urlTokensEnabled: boolean = true): boolean {
+    if (!this.nativeRequestAllowed(headers, url)) return false;
     const bearer = headers.get('authorization');
     if (bearer !== null) return this.byBearer(bearer).ok;
     const fromUrlToken = urlTokensEnabled ? this.byUrlToken(headers, url, method) : null;
@@ -457,18 +456,13 @@ export class UiAuthController {
  * at tunnel scope the device-bearing credentials and a tunnel session both
  * admit; otherwise the local ui predicate answers. Used by index.ts. */
 export function upgradeAllowedForRequest(url: URL, headers: Headers, method: string): boolean {
+  if (!getUiAuthController().nativeRequestAllowed(headers, url)) return false;
   const scope = getTunnelAuthController().classify(headers, url);
   if (scope === 'tunnel' || scope === 'unknown-public') {
     if (getUiAuthController().credentialGrant(headers, url, method)) return true;
     return getTunnelAuthController().requireTunnelSession(headers.get('cookie') ?? undefined);
   }
   return getUiAuthController().upgradeAllowed(url, headers, method);
-}
-
-export function sanitizeOutboundClient(client: RemoteClientRecord): Record<string, unknown> {
-  const { tokenHash: _secret, ...rest } = client as RemoteClientRecord & { tokenHash?: string };
-  void _secret;
-  return { ...rest };
 }
 
 export function defaultResolvePassword(): string {
@@ -486,9 +480,17 @@ export function getUiAuthController(): UiAuthController {
 }
 
 export function resetUiAuthForTests(): void {
+  singleton?.close();
   singleton = null;
 }
 
 export function createUiAuthController(options: UiAuthOptionsInput = {}): UiAuthController {
   return new UiAuthController(options);
+}
+
+export function installNativeUiAuth(identity: NativeUiIdentity): { controller: UiAuthController; release(): void } {
+  if (singleton !== null) throw new Error('UI authentication controller is already initialized');
+  const controller = new UiAuthController({ nativeAuth: identity });
+  singleton = controller;
+  return { controller, release: () => { controller.close(); if (singleton === controller) singleton = null; } };
 }

@@ -3,6 +3,37 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-02 · Setup-first hosting and native UI authentication · NND 20261002-1 / NNA 20261002-1
+
+Native local integration now exposes authenticated setup health before restoring
+sessions. Separate permissions protect status and explicit activation. A missing
+or invalid manifest blocks execution and remains untouched; valid configuration
+requires an explicit absolute workspace. Provider connectivity stays unknown.
+Initial configuration save and concurrency with other native writers remain open.
+
+Adversarial review repaired retries after failed cleanup, startup restoration
+delaying the repair listener, and SSE connections preventing shutdown. Activation
+and shutdown are bounded while underlying work remains owned. A late candidate
+cannot publish a host; uncertain cleanup requires a native-process restart.
+
+NND now supports privileged native-auth startup with one-use UI access codes,
+generation-specific session signing and strict origin/loopback redemption. HTTP
+cannot issue codes. The browser form submits the code in a POST body, checks its
+cookie session, clears stale device credentials and cancels on host change.
+Existing passwords/passkeys remain supported; persistent passkey binding is
+separate from transient session signing. Native device attachment remains pending,
+so legacy device bearers/pairing are explicitly refused in this mode.
+
+Revocation shuts down HTTP and WebSocket transports. Upgrade checks use the actual
+Host, and pending dev-tunnel discovery cannot admit a socket after disposal.
+Independent audits and focused checks passed. Full suites passed: 1,708 native
+tests (five skipped), 1,430 web tests and 1,630 UI tests. Type checks and the
+cross-repository source smoke passed, including restored sessions after waiting
+for execution readiness independently of transport readiness. Graphs and release
+gates are refreshed before commit.
+Installed launcher migration, supervision, principal renewal and installed product
+acceptance remain open. No operator installation or startup entry was changed.
+
 ## 2026-10-01 · Protected controller discovery · NND 20261001-46 / NNA 20261001-10
 
 NNA now creates internally generated controller credentials in protected Windows

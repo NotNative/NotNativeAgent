@@ -35,7 +35,8 @@ export function setRuntimeExtraHeaders(headers: Record<string, string>): void {
 }
 
 export function applyRuntimeAuthHeaders(headers: Headers): Headers {
-  const token = bearerToken ?? getInjectedClientToken() ?? null;
+  // Invariant: explicit logout overrides a read-only desktop injection.
+  const token = bearerToken === undefined ? getInjectedClientToken() ?? null : bearerToken;
   if (token && !headers.has('authorization')) headers.set('authorization', `Bearer ${token}`);
   const extras = extraHeaders ?? getInjectedRuntimeHeaders();
   for (const [key, value] of Object.entries(extras)) {

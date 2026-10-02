@@ -165,6 +165,16 @@ function registerHarnessProxy(app: Hono): void {
   });
 }
 
+async function nativeAuthGate(c: Context, next: Next): Promise<Response | void> {
+  const controller = getUiAuthController();
+  const url = new URL(c.req.raw.url);
+  if (!controller.nativeRequestAllowed(c.req.raw.headers, url)) {
+    const denied = controller.sessionStatus(c.req.raw.headers, url, c.req.method);
+    return c.json(denied.body, 401, { 'cache-control': 'no-store' });
+  }
+  return next();
+}
+
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
   push?: ReturnType<typeof createPushServices>;
   browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
@@ -175,6 +185,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
 
   registerPublicHygiene(app);
 
+  app.use('*', nativeAuthGate);
   app.use('*', desktopUiCors);
   app.use('*', browserWriteGate);
 

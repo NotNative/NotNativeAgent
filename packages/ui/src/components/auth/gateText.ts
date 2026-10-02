@@ -35,6 +35,9 @@ export const GATE_TEXT = {
   retry: 'Try again',
   authenticating: 'Waiting for the authenticator…',
   passwordRejected: 'The password was not accepted',
+  nativeCodeLabel: 'One-time NNA access code',
+  nativeCodeHelp: 'Enter the access code supplied by NNA. It expires after one minute.',
+  nativeCodeRejected: 'The access code was not accepted. Request a new code from NNA.',
 } as const;
 
 /** Widened view of the table: merged overrides are plain `string`s. */
@@ -59,6 +62,9 @@ export const GATE_KEY: { [K in keyof typeof GATE_TEXT]: I18nKey } = {
   retry: 'auth.gate.retry',
   authenticating: 'auth.gate.authenticating',
   passwordRejected: 'auth.gate.passwordRejected',
+  nativeCodeLabel: 'auth.gate.nativeCodeLabel',
+  nativeCodeHelp: 'auth.gate.nativeCodeHelp',
+  nativeCodeRejected: 'auth.gate.nativeCodeRejected',
 };
 
 /** Rendered defaults for the two inputs the gate needs before it has answers. */

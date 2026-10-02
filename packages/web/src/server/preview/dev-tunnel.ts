@@ -8,7 +8,7 @@ import { attachedHarnessPort, createDevServerScanner } from './dev-servers.ts';
 import { getUiAuthController } from '../lib/auth/ui-auth.ts';
 import { firstQueryParam, urlTokenTargetAllowed } from '../lib/auth/url-tokens.ts';
 import { originAdmittedByHeaders } from '../lib/http/request-security.ts';
-import { incomingHeaders } from '../terminal/wire.ts';
+import { incomingHeaders, incomingRequestUrl } from '../terminal/wire.ts';
 
 const PATH = '/api/dev-tunnel';
 const MAX_SOCKETS_PER_HOST = 64;
@@ -38,7 +38,8 @@ export function parseDevTunnelTarget(rawUrl: string): number | null {
  * cannot accidentally bypass it through handleUpgrade. */
 export function authorizeDevTunnelUpgrade(url: URL, headers: Headers): boolean {
   const controller = getUiAuthController();
-  if (!controller.passwordRequired()) return true;
+  if (!controller.nativeRequestAllowed(headers, url)) return false;
+  if (!controller.authRequired()) return true;
   const origin = headers.get('origin');
   if (origin !== null) {
     if (!originAdmittedByHeaders({
@@ -74,6 +75,7 @@ export function attachDevTunnelWebsocket(server: HttpServer, options: DevTunnelO
   const dialTimeout = options.dialTimeoutMs ?? DIAL_TIMEOUT_MS;
   const pollMs = options.backpressurePollMs ?? BACKPRESSURE_POLL_MS;
   const hosts = new Map<string, Set<HostSlot>>();
+  let disposed = false;
   const wss = new WebSocketServer({ noServer: true, maxPayload: options.maxPayloadBytes ?? BACKPRESSURE_BYTES });
 
   const canAccept = (request: IncomingMessage): boolean => {
@@ -84,7 +86,7 @@ export function attachDevTunnelWebsocket(server: HttpServer, options: DevTunnelO
     const key = hostKey(request.socket.remoteAddress);
     const sockets = hosts.get(key) ?? new Set<HostSlot>();
     const release = (): void => { sockets.delete(slot); if (sockets.size === 0) hosts.delete(key); };
-    const slot: HostSlot = { close: release, terminate: (): void => undefined };
+    const slot: HostSlot = { close: release, terminate: (): void => { request.socket.destroy(); } };
     request.socket.once('close', release);
     sockets.add(slot);
     hosts.set(key, sockets);
@@ -92,7 +94,8 @@ export function attachDevTunnelWebsocket(server: HttpServer, options: DevTunnelO
   };
 
   const onUpgrade = (request: IncomingMessage, socket: import('node:net').Socket, head: Buffer): void => {
-    const url = new URL(String(request.url ?? ''), 'http://notnative.invalid');
+    const url = incomingRequestUrl(request);
+    if (!url) { socket.destroy(); return; }
     if (url.pathname !== PATH) return;
     const port = parseDevTunnelTarget(url.pathname + url.search);
     if (port === null || !canAccept(request) || !authorizeDevTunnelUpgrade(url, incomingHeaders(request))) {
@@ -103,6 +106,7 @@ export function attachDevTunnelWebsocket(server: HttpServer, options: DevTunnelO
     const ports = options.availablePorts;
     if (ports === undefined) { rawStatus(socket, '403 Forbidden'); return; }
     void ports().then((allowed) => {
+      if (disposed || socket.destroyed || !authorizeDevTunnelUpgrade(url, incomingHeaders(request))) { socket.destroy(); return; }
       if (!allowed.includes(port)) {
         console.warn(`refused port ${port}: not reported by dev-server discovery`);
         rawStatus(socket, '403 That port is not an available dev server');
@@ -117,8 +121,9 @@ export function attachDevTunnelWebsocket(server: HttpServer, options: DevTunnelO
   server.on('upgrade', onUpgrade);
   return {
     dispose(): void {
+      disposed = true;
       server.off('upgrade', onUpgrade);
-      for (const clients of hosts.values()) for (const client of clients) client.close();
+      for (const clients of hosts.values()) for (const client of clients) { client.terminate(); client.close(); }
       wss.close();
     },
   };

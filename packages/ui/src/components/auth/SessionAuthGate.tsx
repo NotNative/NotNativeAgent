@@ -66,6 +66,7 @@ import {
   type GateText,
 } from './gateText.ts';
 import { useOptionalI18n } from '../../lib/i18n/context.tsx';
+import { NativeBootstrapFields } from './NativeBootstrapFields.tsx';
 
 export interface SessionAuthGateProps {
   children?: ReactNode;
@@ -111,6 +112,7 @@ export function SessionAuthGate(props: SessionAuthGateProps): ReactNode {
       actions={actions}
       text={text}
       hostSwitcher={props.hostSwitcher}
+      runtime={runtime}
     />
   );
 }
@@ -334,6 +336,7 @@ type GateActions = ReturnType<typeof useGateActions>;
 // ---------------------------------------------------------------------------
 
 interface GateScreenProps {
+  runtime: SessionGateRuntime;
   view: SessionGateView;
   model: GateModel;
   actions: GateActions;
@@ -341,7 +344,7 @@ interface GateScreenProps {
   hostSwitcher?: ReactNode;
 }
 
-function GateScreen({ view, model, actions, text, hostSwitcher }: GateScreenProps): ReactNode {
+function GateScreen({ view, model, actions, text, hostSwitcher, runtime }: GateScreenProps): ReactNode {
   if (view.stage === 'pending') {
     return (
       <div role="status" aria-live="polite" data-testid="session-gate-pending" className="flex min-h-screen items-center justify-center">
@@ -362,6 +365,7 @@ function GateScreen({ view, model, actions, text, hostSwitcher }: GateScreenProp
           <p className="mt-2 text-sm text-muted-foreground" data-testid="gate-tunnel-note">{text.tunnelBody}</p>
         ) : null}
         {view.passwordForm === true ? <PasswordFields model={model} text={text} /> : null}
+        {view.nativeBootstrapForm ? <NativeBootstrapFields runtime={runtime} text={text} onAuthenticated={model.refresh} /> : null}
         {view.passkeysDisabledHint === true ? (
           <p className="mt-2 text-xs text-muted-foreground" data-testid="gate-passkeys-disabled">{text.passkeysDisabled}</p>
         ) : null}

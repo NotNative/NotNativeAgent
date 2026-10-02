@@ -278,6 +278,7 @@ async function candidatesRoute(c: ContextLike, port: number): Promise<Response> 
  * Registered BEFORE the /api gate — the redeem cannot ride a session. */
 export function createClientAuthPublicRoutes(options: { redeemRateLimiter?: LoginRateLimiter } = {}): Hono {
   const publicApp = new Hono();
+  registerNativeDeviceGate(publicApp);
   const limiter = options.redeemRateLimiter ?? createRedeemRateLimiter();
   publicApp.post('/api/client-auth/pairing/redeem', (c) => redeemPairingRoute(c, limiter));
   return publicApp;
@@ -288,10 +289,21 @@ export function registerClientAuthRoutes(
   app: Hono,
   options: { port?: number; host?: string } = {},
 ): void {
+  registerNativeDeviceGate(app);
   const port = options.port ?? ENV.port;
   const host = options.host ?? ENV.host;
   registerClientDeviceRoutes(app);
   registerCandidateRoutes(app, port, host);
+}
+
+function registerNativeDeviceGate(app: Hono): void {
+  app.use('/api/client-auth/*', async (c, next) => {
+    if (getUiAuthController().nativeMode()) return c.json({
+      code: 'native_device_attachment_unsupported',
+      error: 'Device pairing is unavailable for this native service. Open its local UI using a native bootstrap ticket.',
+    }, 501, { 'cache-control': 'no-store' });
+    return next();
+  });
 }
 
 /** §2.7 authority rows: manage sees all; a client token only itself; any

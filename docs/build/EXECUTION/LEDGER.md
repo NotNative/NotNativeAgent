@@ -38,7 +38,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 |---|---|---|---|---|---|
 | L1 | Freeze activation contract | — | in-progress | NNA: `src\nnd-package.js`, `src\integration-cli.js`, new `src\nnd-service*.js` (proposed), `src\cli-options.js`/`cli.js`; NND: `scripts\serve-installed.mjs`, `install.ps1`, new service supervisor entry | this ledger row |
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
-| L3 | Renewable principal attachment | L1-L2 | open | NNA `src\integration-principal.js`, `src\secret-broker.js`; NND `harness\nna.ts`, `nna-local.ts`, `server\env.ts`, `server\index.ts` | — |
+| L3 | Renewable principal attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, `src\secret-broker.js`; NND `harness\nna.ts`, `nna-local.ts`, `server\env.ts`, `server\index.ts` | native UI auth sub-slice below; engine renewal pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | open | NND `electron\main.mjs`, `desktop-boot.mjs`, tray/IPC, `server\index.ts`, `serve-installed.mjs` | — |
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | open | NND `install.ps1`, package/stamp scripts, NNA registration, launch descriptors | — |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
@@ -142,3 +142,35 @@ The paired pure contract exposes its existing endpoint validator for reuse.
 No lifecycle CLI, controller listener, installed service or GUI migration is
 claimed. L2 remains in-progress. Setup-first hosting and native UI authentication
 are the next integration boundaries; source helpers alone do not close them.
+
+## L2 setup-first hosting and L3 native UI authentication
+
+NNA 20261002-1 / NND 20261002-1. Local native integration now listens before
+session restoration. Authenticated health/setup status stays reachable while
+starting or unconfigured. Setup status and explicit activation require separate
+native permissions. Missing/corrupt configuration is preserved; activation uses
+a bounded UTF-8 manifest with an explicit absolute workspace. No initial save or
+configuration repair concurrency is claimed. Provider connectivity remains unknown.
+
+Independent review repaired failed-cleanup retries, slow restoration hiding the
+setup listener, and held SSE responses blocking shutdown. Timed-out work remains
+owned; late candidates are cleaned up and uncertain cleanup blocks retry. NNO
+keeps its existing activation/secret realm. Setup does not admit execution, raw
+secret use or provider probes until the native host is ready.
+
+NND has a privileged `startServer({ nativeAuth })` seam for supervised startup.
+It requires UI authentication even without a password. UI-only access tickets
+are short-lived, bounded, one-use and redeemable only by the matching origin and
+actual loopback peer. HTTP only redeems tickets; issuance is on the private server
+handle. Session signing is memory-only per generation. Password/passkey behavior
+is preserved with separate persistent passkey binding. Legacy device credentials
+and pairing are explicitly unavailable in native mode pending native device scope.
+
+Browser entry renders the advertised access-code form, posts the code in a body,
+checks cookie admission and cancels on host change. Successful native redemption
+clears stale injected bearer credentials. Revocation closes the service transports;
+WebSocket admission uses the actual Host and dev-tunnel disposal cancels pending
+and existing sockets. Audit and focused tests passed; full checks run before commit.
+
+These seams do not yet switch the installed launcher, renew engine principals or
+start a supervised GUI child. L2/L3 remain in-progress; L4-L6/C/F/V remain open.

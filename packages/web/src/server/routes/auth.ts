@@ -98,6 +98,17 @@ export function createAuthRoutes(): Hono {
   });
 
   registerSessionRoutes(app);
+  app.post('/auth/native-bootstrap', async (c) => {
+    const raw = c.req.raw;
+    if (requestScope(raw.headers, new URL(raw.url), remoteSocketAddress(c.env)) !== 'local'
+      || !/^application\/json(?:\s*;|$)/iu.test(raw.headers.get('content-type') ?? '')) {
+      return finalize({ status: 403, body: { authenticated: false, locked: true }, headers: { 'cache-control': 'no-store' } });
+    }
+    const text = await readTextBounded(raw, 1024);
+    let body: unknown = null;
+    try { body = text === null ? null : JSON.parse(text); } catch { /* Malformed tickets fail closed. */ }
+    return finalize(getUiAuthController().nativeBootstrap(body, raw.headers, new URL(raw.url), remoteSocketAddress(c.env)));
+  });
   registerPasskeyRoutes(app);
 
   // One-time tunnel entrance (§4.5): rate-limited, newest-token exchange,

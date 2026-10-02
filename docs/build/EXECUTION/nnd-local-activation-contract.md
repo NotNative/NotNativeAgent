@@ -1,6 +1,7 @@
 # NND local activation contract, revision 1.0
 
-Status: L1 validators and L2 identity/lock helpers implemented; runtime wiring pending.
+Status: L1 validators, L2 native setup runtime and L3 UI authentication seams implemented;
+supervised child, controller and installed client wiring remain pending.
 This records decisions for L2-L5;
 it does not claim a running supervisor, startup registration, or installed acceptance.
 The executable validators are mirrored in NNA `src/nnd-service-contract.js` and

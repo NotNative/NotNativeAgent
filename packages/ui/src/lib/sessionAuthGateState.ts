@@ -122,6 +122,7 @@ export interface SessionGateView {
   stage: GateStage;
   authRequired: boolean;
   passwordForm: boolean;
+  nativeBootstrapForm: boolean;
   passkeyUnlock: boolean;
   passkeyEnroll: boolean;
   passkeysDisabledHint: boolean;

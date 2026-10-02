@@ -77,6 +77,9 @@ const enRuntime = {
   'auth.gate.retry': 'Try again',
   'auth.gate.authenticating': 'Waiting for the authenticator…',
   'auth.gate.passwordRejected': 'The password was not accepted',
+  'auth.gate.nativeCodeLabel': 'One-time NNA access code',
+  'auth.gate.nativeCodeHelp': 'Enter the access code supplied by NNA. It expires after one minute.',
+  'auth.gate.nativeCodeRejected': 'The access code was not accepted. Request a new code from NNA.',
 };
 
 export default enRuntime;
