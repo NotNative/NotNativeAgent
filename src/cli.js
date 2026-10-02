@@ -84,8 +84,11 @@ try {
     });
   }
   else if (options.mode === 'nnd') {
-    const result = await runNndIntegrationCommand(options.prompt, await runtimePaths(), { output: process.stdout, diagnostics: process.stderr });
-    if (options.prompt?.[0] === 'package') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    const paths = options.prompt?.[0] === 'service' ? null : await runtimePaths();
+    const result = await runNndIntegrationCommand(options.prompt, paths, { output: process.stdout, diagnostics: process.stderr });
+    if (options.prompt?.[0] === 'package' || options.prompt?.[0] === 'service' && options.prompt?.[1] !== 'run') {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    }
   }
   else if (options.mode === 'opencode') {
     const paths = await runtimePaths();
@@ -176,6 +179,7 @@ function help() {
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
     '  nna nnd serve                            Start the local NND integration service',
+    '  nna nnd service start|run|status|stop|ui-ticket INSTALL_ROOT',
     '  nna nnd package activate ROOT|deactivate ROOT|status',
     '                                           Register or inspect an installed NND GUI package',
     '  nna opencode start|stop|status',

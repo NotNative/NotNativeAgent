@@ -323,6 +323,31 @@ pre-ecosystem console direction. With this decision, NNA's own web console modul
 fallback operator surface, or wrap NND. Reconcile explicitly before the NND package
 activates beside them; do not run competing GUI stacks on one daemon.
 
+## Explicit supervised local service
+
+`nna nnd service run|start|status|stop|ui-ticket INSTALL_ROOT` uses the selected
+installed NNA descriptor and its verified Node/CLI. The native supervisor holds
+the data-root lease, hosts the setup runtime, publishes protected controller
+discovery and launches the registered built NND child through private pipes.
+Controller and engine credentials remain separate; public status contains neither.
+The supervised listener derives operator permissions and the configured workspace
+grant inside NNA on each request. Child headers cannot widen that authority.
+Mandatory reviewer governance remains unchanged; provider connectivity stays unknown
+until observed independently of service readiness.
+
+Initial admission requires fresh data or the exact native owner marker. Current
+legacy NND serve also holds this lease. Older installed hosts require explicit
+migration; existing manifest/session/tab data is preserved and refused at first
+admission. This is not full existing-user integration. The independent TUI keeps
+its own catalog and identity. Login registration, desktop attachment, configuration
+save/repair concurrency and verified migration remain planned work.
+
+Shutdown first stops native request admission and closes child attachment. It
+drains native dispatch work, including configuration writes after socket closure,
+before removing owned discovery and releasing the lease. Uncertain cleanup retains
+ownership. Child restart budget is zero; malformed protocol or child exit ends the
+owned service rather than opening a second engine.
+
 ## Concerns register
 
 - `SessionEngine` in-process API vs the harness wire surface needs a gap pass

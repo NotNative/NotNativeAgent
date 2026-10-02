@@ -47,7 +47,7 @@ test('NND local service starts without NNO activation and keeps its authenticate
   const controller = new AbortController();
   const writes = [];
   await runNndIntegrationCommand(['serve'], {
-    config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
+    root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
     secretVault: join(root, 'secrets', 'vault.json'), secretKey: join(root, 'secrets', 'key.json'), secretAudit: join(root, 'secrets', 'audit.ndjson'),
   }, { environment: {}, output: { write(value) { writes.push(value); queueMicrotask(() => controller.abort()); return true; } }, signal: controller.signal });
   assert.equal(writes.length, 1);
@@ -64,7 +64,7 @@ test('NND sessions resolve the existing local provider secret, including delegat
   assert.equal(integrationSecretRealm('nno', 'deployment-a'), 'nno:deployment-a');
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-secret-route-'));
   const paths = {
-    config: join(root, 'config'), sessions: join(root, 'sessions'),
+    root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
     secretVault: join(root, 'secrets', 'vault.json'),
     secretKey: join(root, 'secrets', 'key.json'), secretAudit: join(root, 'secrets', 'audit.ndjson'),
@@ -94,7 +94,7 @@ test('NND sessions resolve the existing local provider secret, including delegat
 test('NND service uses the local secret realm for configured provider checks', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-secret-service-'));
   const paths = {
-    config: join(root, 'config'), sessions: join(root, 'sessions'),
+    root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
     secretVault: join(root, 'secrets', 'vault.json'),
     secretKey: join(root, 'secrets', 'key.json'), secretAudit: join(root, 'secrets', 'audit.ndjson'),
@@ -178,7 +178,7 @@ test('integration child emits one atomic protocol-only readiness frame', async (
   const writes = [];
   const output = { write(value) { writes.push(value); queueMicrotask(() => controller.abort()); return true; } };
   await runIntegrationCommand(['serve'], {
-    config: configRoot, sessions: join(root, 'sessions'),
+    root, config: configRoot, sessions: join(root, 'sessions'),
     secretVault: join(root, 'secrets', 'vault.json'),
     secretKey: join(root, 'secrets', 'key.json'),
     secretAudit: join(root, 'secrets', 'audit.ndjson'),
@@ -227,7 +227,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
     '---', 'id: nnd-review', 'version: 1', 'description: Review a change',
     'invocation: both', '---', 'Review the requested change.',
   ].join('\n'));
-  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot }, {
+  const host = await createIntegrationNndEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot }, {
     nndBrowserCallback: { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) },
     nndAgentToolCallback: { url: 'http://127.0.0.1:4173/api/agent-tool/callback', token: 'a'.repeat(43) },
   });
@@ -257,7 +257,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   await mkdir(join(failedSkillRoot, 'invalid'), { recursive: true });
   await writeFile(join(failedSkillRoot, 'invalid', 'SKILL.md'), 'invalid skill file');
   const failedHost = await createIntegrationNndEngineHost({
-    config: configRoot, sessions: join(root, 'failed-sessions'), reviewerLedger: join(root, 'failed-reviewer'),
+    root, config: configRoot, sessions: join(root, 'failed-sessions'), reviewerLedger: join(root, 'failed-reviewer'),
     hooks: join(root, 'hooks'), skills: skillRoot,
   }, { skillRoots: [{ scope: 'bundled', path: failedSkillRoot }] });
   await assert.rejects(failedHost.readNndSkillsInventory(), (error) => {
@@ -290,7 +290,7 @@ test('provider route activation changes future NND sessions without mutating exi
     ], routes: { primary: { provider_id: 'old', model: 'old-model' } } };
   const manifestPath = join(configRoot, 'manifest.json');
   await writeFile(manifestPath, JSON.stringify(document));
-  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'),
+  const host = await createIntegrationNndEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
   const profiles = new ProviderProfileStore({ configRoot });
   const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
@@ -347,7 +347,7 @@ test('NND skills include project roots only after workspace trust', async () => 
     '---', 'id: project-review', 'version: 1', 'description: Review project code',
     'invocation: both', '---', 'Project instructions.',
   ].join('\n'));
-  const paths = { config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'),
+  const paths = { root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'),
     hooks: join(root, 'hooks'), trustedWorkspaces: trustPath };
   const before = await createIntegrationNndEngineHost(paths);
   assert.equal((await before.readNndSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), false);

@@ -49,9 +49,10 @@ function assertReadiness(value) {
   requireStatus(live ? isNndLoopbackEndpoint(value.endpoint) : value.endpoint === null, 'endpoint readiness');
   if (live) requireStatus(value.runtime_state === 'ready' && value.package_state === 'ready'
     && value.instance_id !== null && value.package_version !== null, 'live prerequisites');
-  if (value.service_state === 'ready') requireStatus(value.provider_state === 'ready'
+  // Invariant: service readiness does not assert unobserved provider connectivity.
+  if (value.service_state === 'ready') requireStatus(['unknown', 'ready'].includes(value.provider_state)
     && value.failure_code === null && value.setup_guidance === null, 'ready prerequisites');
-  if (value.service_state === 'setup_required') requireStatus(value.provider_state === 'setup_required'
+  if (value.service_state === 'setup_required') requireStatus(['unknown', 'setup_required'].includes(value.provider_state)
     && value.failure_code === STABLE_NND_FAILURE_CODES.SETUP_REQUIRED, 'setup prerequisites');
   if (value.service_state === 'absent') requireStatus(value.package_state === 'absent'
     && value.package_version === null, 'absent package');

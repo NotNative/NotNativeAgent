@@ -35,9 +35,11 @@ test('unknown lifecycle values fail closed without coercion', () => {
 });
 test('status validates complete readiness and separates provider setup from transport', () => {
   assert.equal(assertStatusEnvelope(status()).service_state, 'ready');
+  assert.equal(assertStatusEnvelope({ ...status(), provider_state: 'unknown' }).service_state, 'ready');
   const setup = { ...status(), service_state: 'setup_required', failure_code: 'nnd_setup_required',
     provider_state: 'setup_required', setup_guidance: 'Configure the primary and reviewer routes.' };
   assert.equal(assertStatusEnvelope(setup).runtime_state, 'ready');
+  assert.equal(assertStatusEnvelope({ ...setup, provider_state: 'unknown' }).service_state, 'setup_required');
   assert.equal(isExecutionGuarded(setup.service_state), true);
   assert.throws(() => assertStatusEnvelope({ ...setup, provider_state: 'ready' }), /setup prerequisites/u);
 });
@@ -45,7 +47,7 @@ test('status refuses malformed identities, unknown protocol, secrets and unsafe 
   for (const patch of [
     { installation_id: null }, { data_id: {} }, { instance_id: '' }, { instance_id: null },
     { installation_id: 'x'.repeat(129) }, { protocol: '2.0' }, { package_version: 20261001 },
-    { package_version: '20261001-0' }, { package_version: null }, { provider_state: 'unknown' },
+    { package_version: '20261001-0' }, { package_version: null }, { provider_state: 'unavailable' },
     { runtime_state: 'starting' }, { package_state: 'absent' }, { failure_code: 'nnd_service_crashed' },
     { setup_guidance: 'Unexpected setup' }, { secret: 'do not expose' }, { endpoint: null },
   ]) assert.throws(() => assertStatusEnvelope({ ...status(), ...patch }));

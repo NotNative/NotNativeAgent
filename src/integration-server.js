@@ -24,8 +24,13 @@ export async function startIntegrationServer(options) {
   const host = options.host ?? '127.0.0.1';
   if (!LOOPBACK_HOSTS.has(host)) throw new ContractError('integration_bind_invalid', 'integration service must bind to loopback');
   const token = requireToken(options.token);
+  const active = new Set();
+  let accepting = true;
   const server = createServer((request, response) => {
-    void dispatch(request, response, { ...options, token }).catch((error) => sendFailure(response, error));
+    if (!accepting) return send(response, 503, failure('nnd_setup_stopped', 'integration service is stopping'));
+    const work = dispatch(request, response, { ...options, token }).catch((error) => sendFailure(response, error));
+    active.add(work);
+    work.finally(() => active.delete(work)).catch(() => {});
   });
   server.requestTimeout = boundedTimeout(options.requestTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS, 'request');
   server.headersTimeout = boundedTimeout(options.headersTimeoutMs, DEFAULT_HEADERS_TIMEOUT_MS, 'headers');
@@ -35,15 +40,27 @@ export async function startIntegrationServer(options) {
   return Object.freeze({
     server,
     address: server.address(),
+    stopAdmission: () => { accepting = false; },
+    drain: () => drainRequests(active),
     close: () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
   });
+}
+
+async function drainRequests(active) {
+  let timer;
+  try {
+    await Promise.race([Promise.allSettled([...active]), new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new ContractError('nnd_setup_shutdown_timeout', 'Native integration requests remain active')), 15000);
+    })]);
+  } finally { clearTimeout(timer); }
 }
 
 async function dispatch(request, response, context) {
   if (!authenticateIntegrationRequest(request, context.token)) {
     return send(response, 401, failure('unauthenticated', 'valid integration credential required'));
   }
-  const principal = readIntegrationPrincipal(request);
+  // Security: supervised listeners derive authority natively, never from child headers.
+  const principal = context.resolvePrincipal ? context.resolvePrincipal() : readIntegrationPrincipal(request);
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
   if (context.nndRuntime) {
     const host = context.nndRuntime.getHost();
