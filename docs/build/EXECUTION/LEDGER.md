@@ -461,3 +461,38 @@ Focused client and UI mutation cases passed 17/17. The complete UI suite passed
 1,662 tests across 208 files; UI typechecking, graph, controlled-language and
 quality checks passed for 750 production modules. This is source-level GUI
 mutation validation, not installed save/repair acceptance.
+
+## NNA 20261002-15 — native activation preparation foundation
+
+Native commit `013e8480` prepares verified immutable slots under a held data-root
+lease and registration mutex. It records exact prior package bytes, candidate
+evidence, a chained journal phase and a durable admission barrier without
+starting the child or changing selection. Ordinary startup fails closed on
+initializer, marker or surviving activation evidence. Independent review
+repaired linked initializer ancestry and a lost-marker admission gap. The full
+Windows suite passed 1,948 tests with eight skips and zero failures. Trial
+startup, selection, rollback and terminal evidence retirement remain open.
+
+## NND 20261002-11 — installed native configuration mutation probe
+
+An opt-in disposable Chromium slot probe opens the actual NND settings page
+against native NNA. It explicitly repairs a missing selected user manifest,
+previews and saves a finite field through the authenticated NND proxy, matches
+the GUI operation ID to its native receipt, reads back selected-source bytes and
+revisions, and rejects stale CAS and an unauthenticated save. The probe checks
+the selected private workspace/provider identity and retains browser credential
+isolation and service lifetime after Electron exits. It does not install into
+the operator's NNA or validate a production installer.
+
+Independent adversarial review tightened receipt/identity/auth evidence and
+ensured Electron launch failure cannot skip native service shutdown. Provider
+and MCP collections, all settings coverage, and installer activation remain
+open despite this installed browser write proof.
+
+The focused exporter/parser set passed 12/12; the full UI suite passed 1,662
+tests across 208 files. Graph, language and quality checks passed for 751
+production modules. The exact 178-file version11 prebuilt payload has SHA-256
+`ae0e621ce81156418e77bf6ec3fb250edb0dbfda264b2da1577b1de50f4aa136`;
+its real Chromium write probe passed against committed native `20261002-15`.
+Network-loss/unknown-outcome injection and an operator-installed save remain
+separate acceptance cases.

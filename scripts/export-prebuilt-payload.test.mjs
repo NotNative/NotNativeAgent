@@ -140,10 +140,14 @@ test('prebuilt smoke parser preserves source mode and requires an explicit absol
     { nna: root, payloadRoot: payload, nativeSlot: true });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot', '--native-configuration']),
     { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true });
+  assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot', '--native-configuration', '--native-configuration-write']),
+    { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true, nativeWrite: true });
   for (const args of [[], ['relative'], [root, '--payload'], [root, '--payload', 'relative'], [root, '--other', payload],
     [root, '--payload', payload, 'extra'], [root, '--native-slot'], [root, '--native-slot', payload],
     [root, '--native-slot', '--payload', payload], [root, '--payload', payload, '--native-slot', '--native-slot'],
-    [root, '--payload', payload, '--native-configuration']]) {
+    [root, '--payload', payload, '--native-configuration'],
+    [root, '--payload', payload, '--native-slot', '--native-configuration-write'],
+    [root, '--payload', payload, '--native-slot', '--native-configuration', '--other']]) {
     assert.throws(() => parseElectronSmokeArguments(args), /usage/u);
   }
 });
