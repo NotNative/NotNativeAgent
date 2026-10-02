@@ -3,6 +3,32 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-01 · Private runtime protection and settings census · NND 20261001-45 / NNA 20261001-9
+
+NNA now creates and verifies a protected Windows runtime directory on a local fixed
+drive. Native checks reject unsafe ancestor replacement rights, null DACLs, foreign
+inherited grants and reparse points. Existing unsafe directories fail without ACL
+repair or evidence deletion. Controller credential files and lifecycle wiring remain
+future work. No installed operator runtime or startup entry was changed.
+
+Adversarial review repaired null-DACL/inheritance cases and rejected mapped remote
+drives: a remote server's Administrators group is outside the local trust boundary,
+and the local singleton cannot exclude a second computer. Eight native Windows ACL
+cases passed; NNA full suite passed 1,681 tests with five platform skips. No mapped
+network share was exercised; its rejection is code-reviewed, not installed evidence.
+
+The partial machine-readable C1 census records 357 unique rows in 38 families,
+including four concrete routing roles, 17 TUI bindings, dynamic MCP maps, and known
+non-manifest stores. Source and mapped GUI paths resolve; all rows remain open.
+It distinguishes containers, settings, actions and authority/internal fields, and
+lists remaining enumeration and application/permission/coverage work. It identifies
+the existing OpenCode MCP writer and legacy inference provider lookup as native gaps.
+
+NND changes are documentation only. Prior 1,625 UI tests remain applicable; this
+slice validates the ledger, reviews its source claims and reruns graph, quality,
+production build, smoke and immutable release gates before commit. Service completion,
+C1 closure and GUI settings parity are not claimed.
+
 ## 2026-10-01 · Installed identity and exclusive ownership · NND 20261001-44 / NNA 20261001-8
 
 Added NNA's read-only selected-installation verifier and Windows data-root singleton.

@@ -1,5 +1,8 @@
 # C — Complete native configuration coverage
 
+Working evidence: [settings-coverage.json](settings-coverage.json) is the partial C1
+source census. All rows remain open; it does not establish GUI or installed coverage.
+
 Status: planned migration, audited against NND `20261001-41` and NNA
 `20261001-6` on 2026-10-01. This guide specifies work; it does not certify
 that the APIs, controls, or installation acceptance below already exist.

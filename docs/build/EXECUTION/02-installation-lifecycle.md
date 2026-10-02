@@ -60,6 +60,10 @@ separate account/credential/service decision and acceptance matrix first.
 Resolve paths from the validated installed NNA descriptor, not the current
 working directory, a guessed PATH entry, or the shell's inherited environment.
 Respect custom absolute roots and preserve the selected installation identity.
+The initial private runtime storage implementation supports local fixed Windows
+volumes only. Reject UNC, mapped network and removable storage with actionable
+setup guidance; never silently redirect the selected NNA data root. Shared remote
+storage would need cross-computer ownership and a separate credential trust policy.
 
 | Data or artifact | Existing location / proposed treatment |
 | --- | --- |

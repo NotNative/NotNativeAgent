@@ -42,7 +42,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L4 | Shell/browser migration to service attach | L2-L3 | open | NND `electron\main.mjs`, `desktop-boot.mjs`, tray/IPC, `server\index.ts`, `serve-installed.mjs` | — |
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | open | NND `install.ps1`, package/stamp scripts, NNA registration, launch descriptors | — |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
-| C1 | Settings census + contract ledger | L1 | open | NNA settings sources; NND `components/settings/*` mapping | — |
+| C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | open | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | — |
 | C3 | NND settings transport/presentation | C2 | open | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | — |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
@@ -106,3 +106,19 @@ identity/lock/contract cases pass. Final full-suite and release evidence is reco
 in the paired commits. L1 still needs installed TUI independence acceptance; L2 remains
 in-progress and service capabilities remain unadvertised. No installed operator
 profile, startup entry, TUI state or running NNA was changed.
+
+## L2 private directory and C1 working census
+
+NNA 20261001-9 (`3c0ec7bf`) implements local-fixed-drive Windows private runtime
+protection. It checks native ACLs, ancestors, null DACLs, foreign inheritance and
+reparse points, then creates missing directories with protected ACLs. Existing ACLs
+and evidence remain untouched. No credential files or lifecycle commands are wired.
+Eight native ACL cases passed; full NNA suite passed 1,681 with five platform skips.
+Mapped network drive rejection is code-reviewed; no live share was used for testing.
+
+[Settings coverage working census](settings-coverage.json) contains 357 unique source
+rows in 38 families, including four route roles and 17 TUI bindings. All rows remain
+open, unknown values are explicit, and remaining census families are listed. This is
+not a count of editable settings: containers/actions/internal/authority rows differ.
+C1 remains in-progress pending complete enumeration, defaults/bounds/apply/permission
+mapping and a new-key coverage gate. Existing native/GUI mismatches remain open.

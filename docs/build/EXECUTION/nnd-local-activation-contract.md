@@ -63,7 +63,9 @@ credentials. The child cannot mint broader workspace/review grants.
 CLI-to-supervisor commands use a separate generation-bound controller credential,
 read from an owner-only ACL-protected discovery record beneath NNA's runtime root.
 L2 must apply and verify Windows ACLs before writing credentials; POSIX mode 0600
-alone is insufficient on Windows. Retain controller discovery while running so
+alone is insufficient on Windows. The implemented private-directory helper
+requires a local fixed drive and validates namespace/ACL ownership before creation;
+credential-file validation and discovery publication remain pending. Retain controller discovery while running so
 later clients can reconnect; remove only the exact owned generation at shutdown.
 The native engine token is never a browser bootstrap ticket. L3 supplies separately
 authenticated UI sessions with origin/guest checks. Network exposure is outside MVP.
