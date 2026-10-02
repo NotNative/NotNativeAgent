@@ -22,12 +22,12 @@ async function runCli(fixture, action) {
   catch (error) { child.kill(); await withTimeout(exit, 5000, 'Owned native CLI did not exit'); throw error; }
   return JSON.parse(text.trim());
 }
-async function prepareShell(fixture, root, nativeConfiguration = false, service = null, nativeWrite = false) {
+async function prepareShell(fixture, root, nativeConfiguration = false, service = null, nativeWrite = false, tuiWrite = false) {
   const from = join(root, 'packages/electron'), to = join(fixture.gui, 'packages/electron');
   if (!fixture.prebuilt) await copySourceShell(fixture, from, to);
   const harness = join(fixture.prebuilt ? fixture.root : fixture.gui, 'electron-smoke.mjs');
   const shellData = join(fixture.root, 'shell-data'); await mkdir(shellData);
-  await writeFile(harness, shellHarness(shellData, to, nativeConfiguration, service, nativeWrite, fixture.root));
+  await writeFile(harness, shellHarness(shellData, to, nativeConfiguration, service, nativeWrite, tuiWrite, fixture.root));
   return { harness, executable: join(fixture.prebuilt ? to : from, 'node_modules/electron/dist/electron.exe') };
 }
 async function copySourceShell(fixture, from, to) {
@@ -39,8 +39,8 @@ async function copySourceShell(fixture, from, to) {
   await writeFile(join(fixture.gui, 'packages/install-mode.txt'), 'script\n');
   await writeNnaSelection(fixture.gui, fixture.install);
 }
-function shellHarness(shellData, to, nativeConfiguration, service, nativeWrite, workspace) {
-  const writeExpression = nativeWrite ? nativeConfigurationWriteExpression(workspace, service.installation_id, service.data_id) : 'null';
+function shellHarness(shellData, to, nativeConfiguration, service, nativeWrite, tuiWrite, workspace) {
+  const writeExpression = nativeWrite ? nativeConfigurationWriteExpression(workspace, service.installation_id, service.data_id, tuiWrite) : 'null';
   return `import {app} from 'electron';
 app.setPath('userData',${JSON.stringify(shellData)});
 process.stdout.write('NND_STAGE_BOOT\\n');
@@ -66,9 +66,12 @@ app.on('browser-window-created',(_event,win)=>{
       }
       if(${JSON.stringify(nativeWrite)}){
         const mutation=await win.webContents.executeJavaScript(${JSON.stringify(writeExpression)});
-        if(!/^[a-f0-9]{64}$/.test(mutation?.source_revision)||!/^[a-f0-9-]{36}$/.test(mutation?.operation_id))
+        if(!/^[a-f0-9]{64}$/.test(mutation?.source_revision)||!/^[a-f0-9-]{36}$/.test(mutation?.operation_id)
+          || ${JSON.stringify(tuiWrite)} && (!/^[a-f0-9]{64}$/.test(mutation?.tui?.source_revision)
+            || !/^[a-f0-9-]{36}$/.test(mutation?.tui?.operation_id)))
           throw new Error('Native configuration UI mutation evidence missing');
         process.stdout.write('NND_NATIVE_CONFIGURATION_WRITE_OK\\n');
+        if(${JSON.stringify(tuiWrite)})process.stdout.write('NND_NATIVE_TUI_WRITE_OK\\n');
       }
       process.stdout.write('NND_NATIVE_CHROMIUM_OK\\n'); clearTimeout(timer); app.quit();
     } catch(error) {process.stderr.write('Chromium scenario failed: '+String(error).slice(0,1000)+'\\n');clearTimeout(timer);app.exit(1);}
@@ -78,13 +81,13 @@ await import(${JSON.stringify(pathToFileURL(join(to, 'main.mjs')).href)});
 `;
 }
 
-async function main(nna, payloadRoot = null, nativeSlot = false, nativeConfiguration = false, nativeWrite = false) {
+async function main(nna, payloadRoot = null, nativeSlot = false, nativeConfiguration = false, nativeWrite = false, tuiWrite = false) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const fixture = await createSupervisedFixture(nna, root, { payloadRoot, nativeSlot });
   let electron, electronExit, stopped = false, output = '', diagnostics = '';
   try {
     const service = await runCli(fixture, 'start');
-    const shell = await prepareShell(fixture, root, nativeConfiguration, service, nativeWrite);
+    const shell = await prepareShell(fixture, root, nativeConfiguration, service, nativeWrite, tuiWrite);
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE; delete env.NODE_OPTIONS; delete env.NODE_PATH;
     const args = [shell.harness, '--hidden', ...(fixture.prebuilt ? ['--nna-install-root', fixture.install] : [])];
     electron = spawn(shell.executable, args, { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -96,10 +99,12 @@ async function main(nna, payloadRoot = null, nativeSlot = false, nativeConfigura
     if (nativeConfiguration) assert.ok(output.includes('NND_NATIVE_CONFIGURATION_OK'));
     if (nativeWrite) {
       assert.ok(output.includes('NND_NATIVE_CONFIGURATION_WRITE_OK'));
+      if (tuiWrite) assert.ok(output.includes('NND_NATIVE_TUI_WRITE_OK'));
       const manifest = JSON.parse(await readFile(join(fixture.data, 'config/manifest.json'), 'utf8'));
       assert.equal(manifest.memory?.enabled, false, 'Native selected source must contain the UI-saved value');
       assert.equal(manifest.workspace_root, fixture.root, 'Repair must write only the disposable selected workspace');
       assert.equal(manifest.provider?.id, 'local', 'Repair must publish the user-supplied native provider');
+      if (tuiWrite) assert.equal(manifest.tui?.key_bindings?.submit, 'ctrl+x', 'Native terminal binding must be saved');
     }
     const after = await runCli(fixture, 'status'); assert.equal(after.instance_id, service.instance_id);
     const browser = await fetch(`${after.endpoint}/auth/session`, { signal: AbortSignal.timeout(5000) });
@@ -153,19 +158,24 @@ async function waitStopped(fixture) {
   throw new Error('Native service remained active after stop');
 }
 export function parseElectronSmokeArguments(args) {
-  if (![1, 3, 4, 5, 6].includes(args.length) || !isAbsolute(args[0] ?? '')
+  if (args.length === 4 && isAbsolute(args[0] ?? '') && args[1] === '--native-configuration'
+    && args[2] === '--native-configuration-write' && args[3] === '--native-tui-write') {
+    return { nna: resolve(args[0]), payloadRoot: null, nativeConfiguration: true, nativeWrite: true, tuiWrite: true };
+  }
+  if (![1, 3, 4, 5, 6, 7].includes(args.length) || !isAbsolute(args[0] ?? '')
     || args.length >= 3 && (args[1] !== '--payload' || !isAbsolute(args[2]))
     || args.length >= 4 && args[3] !== '--native-slot'
     || args.length >= 5 && args[4] !== '--native-configuration'
-    || args.length === 6 && args[5] !== '--native-configuration-write') {
-    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT [--native-slot [--native-configuration [--native-configuration-write]]]]');
+    || args.length >= 6 && args[5] !== '--native-configuration-write'
+    || args.length === 7 && args[6] !== '--native-tui-write') {
+    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT [--native-slot [--native-configuration [--native-configuration-write [--native-tui-write]]]]]');
   }
   return { nna: resolve(args[0]), payloadRoot: args.length >= 3 ? resolve(args[2]) : null,
     ...(args.length >= 4 ? { nativeSlot: true } : {}), ...(args.length >= 5 ? { nativeConfiguration: true } : {}),
-    ...(args.length === 6 ? { nativeWrite: true } : {}) };
+    ...(args.length >= 6 ? { nativeWrite: true } : {}), ...(args.length === 7 ? { tuiWrite: true } : {}) };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.platform !== 'win32') throw new Error('Native Electron smoke requires Windows');
-  const { nna, payloadRoot, nativeSlot, nativeConfiguration, nativeWrite } = parseElectronSmokeArguments(process.argv.slice(2));
-  await main(nna, payloadRoot, nativeSlot, nativeConfiguration, nativeWrite);
+  const { nna, payloadRoot, nativeSlot, nativeConfiguration, nativeWrite, tuiWrite } = parseElectronSmokeArguments(process.argv.slice(2));
+  await main(nna, payloadRoot, nativeSlot, nativeConfiguration, nativeWrite, tuiWrite);
 }

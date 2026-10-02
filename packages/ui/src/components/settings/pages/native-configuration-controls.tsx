@@ -4,14 +4,17 @@ import type { NativeConfigurationView } from '../../../lib/nnd/configuration.ts'
 import { useI18n } from '../../I18nProvider.tsx';
 import { chooseNativeField, inspectNativeOperation, previewNativeField, publishNativeField, repairNativeSource } from './native-configuration-controls-actions.ts';
 import { invalidateNativePreview, useNativeConfigurationControlsModel, type ControlsModel } from './native-configuration-controls-model.ts';
+import { NativeTuiEditForm } from './native-tui-edit-form.tsx';
 
-export function NativeConfigurationControls({ view, onReload }: { view: NativeConfigurationView; onReload: () => void }): ReactNode {
+export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
-  return <section className="mt-4 space-y-2 border-t border-border pt-3 text-xs" aria-label={t('settings.nativeConfiguration.manageTitle')}>
-    <h3 className="font-semibold">{t('settings.nativeConfiguration.manageTitle')}</h3>
+  return <section className="mt-4 space-y-2 border-t border-border pt-3 text-xs" aria-label={t(family === 'tui' ? 'settings.page.nativeTui.title' : 'settings.nativeConfiguration.manageTitle')}>
+    <h3 className="font-semibold">{t(family === 'tui' ? 'settings.page.nativeTui.title' : 'settings.nativeConfiguration.manageTitle')}</h3>
     {model.catalogError ? <p role="status">{t('settings.nativeConfiguration.catalogUnavailable')}</p> : null}
-    {view.source_state === 'present' && model.catalog ? <NativeEditForm model={model} view={view} /> : null}
-    {view.source_state !== 'present' && model.catalog ? <NativeRepairForm model={model} view={view} /> : null}
+    {view.source_state === 'present' && model.catalog ? family === 'tui'
+      ? <NativeTuiEditForm model={model} view={view} /> : <NativeEditForm model={model} view={view} /> : null}
+    {view.source_state !== 'present' && model.catalog ? family === 'tui'
+      ? <p role="status">{t('settings.nativeTui.sourceMissing')}</p> : <NativeRepairForm model={model} view={view} /> : null}
     <NativeOutcome model={model} view={view} onReload={onReload} />
   </section>;
 }

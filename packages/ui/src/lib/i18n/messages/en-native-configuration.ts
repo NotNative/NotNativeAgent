@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 export const enNativeConfiguration = {
   'settings.page.nativeConfiguration.title': 'NNA configuration',
+  'settings.page.nativeTui.title': 'NNA terminal preferences',
+  'settings.nativeTui.description': 'Change NNA terminal colors, motion, and key bindings in the selected user manifest. NNA validates each change; saved values apply to a new terminal invocation.',
+  'settings.nativeTui.choose': 'Terminal setting',
+  'settings.nativeTui.color': 'Use terminal color',
+  'settings.nativeTui.reducedMotion': 'Reduce terminal motion',
+  'settings.nativeTui.binding': 'Key binding',
+  'settings.nativeTui.current': 'Current value',
+  'settings.nativeTui.inherited': 'Inherited',
+  'settings.nativeTui.unavailable': 'The selected NNA service cannot edit terminal preferences.',
+  'settings.nativeTui.sourceMissing': 'Repair the selected user manifest in NNA configuration before editing terminal preferences.',
   'settings.nativeConfiguration.title': 'Native configuration',
   'settings.nativeConfiguration.description': 'Read-only values from the selected NNA service. NNA owns validation and persistence; this view does not apply settings to running work.',
   'settings.nativeConfiguration.refresh': 'Refresh native configuration',

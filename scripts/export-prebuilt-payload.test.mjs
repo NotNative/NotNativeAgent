@@ -135,6 +135,8 @@ test('incomplete Electron loader or runtime resources refuse before destination 
 test('prebuilt smoke parser preserves source mode and requires an explicit absolute payload', () => {
   const root = join(tmpdir(), 'native'), payload = join(tmpdir(), 'payload');
   assert.deepEqual(parseElectronSmokeArguments([root]), { nna: root, payloadRoot: null });
+  assert.deepEqual(parseElectronSmokeArguments([root, '--native-configuration', '--native-configuration-write', '--native-tui-write']),
+    { nna: root, payloadRoot: null, nativeConfiguration: true, nativeWrite: true, tuiWrite: true });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload]), { nna: root, payloadRoot: payload });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot']),
     { nna: root, payloadRoot: payload, nativeSlot: true });
@@ -142,12 +144,15 @@ test('prebuilt smoke parser preserves source mode and requires an explicit absol
     { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot', '--native-configuration', '--native-configuration-write']),
     { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true, nativeWrite: true });
+  assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot', '--native-configuration', '--native-configuration-write', '--native-tui-write']),
+    { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true, nativeWrite: true, tuiWrite: true });
   for (const args of [[], ['relative'], [root, '--payload'], [root, '--payload', 'relative'], [root, '--other', payload],
     [root, '--payload', payload, 'extra'], [root, '--native-slot'], [root, '--native-slot', payload],
     [root, '--native-slot', '--payload', payload], [root, '--payload', payload, '--native-slot', '--native-slot'],
     [root, '--payload', payload, '--native-configuration'],
     [root, '--payload', payload, '--native-slot', '--native-configuration-write'],
-    [root, '--payload', payload, '--native-slot', '--native-configuration', '--other']]) {
+    [root, '--payload', payload, '--native-slot', '--native-configuration', '--other'],
+    [root, '--payload', payload, '--native-slot', '--native-configuration', '--native-configuration-write', '--other']]) {
     assert.throws(() => parseElectronSmokeArguments(args), /usage/u);
   }
 });

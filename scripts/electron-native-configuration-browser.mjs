@@ -15,7 +15,8 @@ function button(scope, label) {
   return item;
 }
 function setValue(element, value) {
-  const owner = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLTextAreaElement.prototype;
+  const owner = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype
+    : element instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
   Object.getOwnPropertyDescriptor(owner, 'value').set.call(element, value);
   element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
 }
@@ -88,7 +89,43 @@ async function confirmMutation(before, receipt) {
   if (stale.status !== 409 || rejection.error?.code !== 'manifest_revision_conflict') throw new Error('Stale source CAS was not rejected');
   return { source_revision: after.source_revision, operation_id: receipt.operation_id };
 }
-async function run(workspace, installationId, dataId) {
+async function saveTuiBinding() {
+  const nav = await waitFor('[data-testid="settings-window"] nav');
+  button(nav, 'NNA terminal preferences').click();
+  const section = await waitFor('section[aria-label="NNA terminal preferences"]', node =>
+    [...node.querySelectorAll('option')].some(item => item.value === 'tui.key_bindings.submit'));
+  const before = await readConfiguration();
+  setValue(section.querySelector('select'), 'tui.key_bindings.submit');
+  const binding = await waitFor('section[aria-label="NNA terminal preferences"] input[type="text"]');
+  setValue(binding, 'ctrl+x');
+  button(section, 'Preview change').click();
+  await waitFor('section[aria-label="NNA terminal preferences"]', node =>
+    [...node.querySelectorAll('button')].some(item => item.textContent?.trim() === 'Save to NNA' && !item.disabled));
+  button(section, 'Save to NNA').click();
+  await waitFor('section[aria-label="NNA terminal preferences"]', node =>
+    node.textContent.includes('NNA operation receipt') && node.textContent.includes('saved'));
+  const id = /[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}/.exec(section.textContent)?.[0];
+  if (!id) throw new Error('Terminal save receipt operation identity missing');
+  const operation = await fetch(`/api/v1/nnd/configuration/operations/${id}`), receipt = await operation.json();
+  const after = await readConfiguration();
+  const field = after.fields.find(item => item.path === 'tui.key_bindings.submit');
+  if (operation.status !== 200 || receipt.persistence !== 'saved' || receipt.operation_id !== id
+    || receipt.before_revision !== before.source_revision || receipt.persisted_revision !== after.source_revision
+    || receipt.application !== 'not_applied' || field?.explicit?.value !== 'ctrl+x') {
+    throw new Error('Terminal binding did not persist with a matching native receipt');
+  }
+  const stale = await fetch('/api/v1/nnd/configuration/preview', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ installation_id: before.installation_id,
+      data_id: before.data_id, scope: 'user', expected_revision: before.source_revision,
+      expected_resolution_revision: before.resolution_revision,
+      operations: [{ op: 'set', field: 'tui.key_bindings.submit', value: 'ctrl+q' }] }) });
+  const rejection = await stale.json();
+  if (stale.status !== 409 || rejection.error?.code !== 'manifest_revision_conflict') {
+    throw new Error('Stale terminal binding CAS was not rejected');
+  }
+  return { source_revision: after.source_revision, operation_id: id };
+}
+async function run(workspace, installationId, dataId, tuiWrite) {
   const initial = await readConfiguration();
   if (initial.source_state !== 'missing' || initial.installation_id !== installationId || initial.data_id !== dataId) {
     throw new Error('Initial disposable native source mismatch');
@@ -96,12 +133,13 @@ async function run(workspace, installationId, dataId) {
   const section = await openNativeSettings();
   const before = await repairMissingSource(section, workspace, initial);
   const receipt = await saveEditorField(before);
-  return confirmMutation(before, receipt);
+  const mutation = await confirmMutation(before, receipt);
+  return tuiWrite ? { ...mutation, tui: await saveTuiBinding() } : mutation;
 }
-export function nativeConfigurationWriteExpression(workspace, installationId, dataId) {
+export function nativeConfigurationWriteExpression(workspace, installationId, dataId, tuiWrite = false) {
   return `(()=>{const waitFor=${waitFor.toString()},button=${button.toString()},setValue=${setValue.toString()},`
     + `readConfiguration=${readConfiguration.toString()},openNativeSettings=${openNativeSettings.toString()},`
     + `repairMissingSource=${repairMissingSource.toString()},saveEditorField=${saveEditorField.toString()},`
-    + `confirmMutation=${confirmMutation.toString()},run=${run.toString()};`
-    + `return run(${JSON.stringify(workspace)},${JSON.stringify(installationId)},${JSON.stringify(dataId)});})()`;
+    + `confirmMutation=${confirmMutation.toString()},saveTuiBinding=${saveTuiBinding.toString()},run=${run.toString()};`
+    + `return run(${JSON.stringify(workspace)},${JSON.stringify(installationId)},${JSON.stringify(dataId)},${JSON.stringify(tuiWrite)});})()`;
 }

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:962e8ea03c4ed43f042927becbb26f9a967265743679321e00bc51f52e7e9de9",
+  "source_digest": "sha256:5b2c13eac5230c86fa69d66fceb6d756856c3709922be8286702c0c14470fd03",
   "counts": {
-    "modules": 751,
+    "modules": 753,
     "component_edges": 16
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 177
+      "module_count": 179
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 290,
-      "module_count": 119
+      "import_count": 293,
+      "module_count": 120
     },
     {
       "from": "ui-shell",
@@ -120,8 +120,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 76,
-      "module_count": 58
+      "import_count": 78,
+      "module_count": 60
     },
     {
       "from": "sync-engine",
@@ -1768,6 +1768,7 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/components/settings/pages/native-tui-edit-form.tsx",
         "packages/ui/src/lib/nnd/configuration.ts"
       ]
     },
@@ -1793,6 +1794,31 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/nnd/setup.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-tui-edit-form.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/lib/nnd/configuration.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-tui-preferences.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration-controls.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/configuration.ts",
         "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/runtime-url.ts"
@@ -1998,6 +2024,7 @@
         "packages/ui/src/components/settings/pages/general.tsx",
         "packages/ui/src/components/settings/pages/mcp.tsx",
         "packages/ui/src/components/settings/pages/native-configuration.tsx",
+        "packages/ui/src/components/settings/pages/native-tui-preferences.tsx",
         "packages/ui/src/components/settings/pages/notifications.tsx",
         "packages/ui/src/components/settings/pages/providers.tsx",
         "packages/ui/src/components/settings/pages/remote-instances.tsx",

@@ -47,7 +47,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; installed mutation acceptance and other settings families open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
-| C6 | Non-manifest + TUI preferences page | C3, L | open | settings pages; NNA TUI prefs contract | — |
+| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; external stores remain open |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | open | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | — |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
@@ -496,3 +496,37 @@ production modules. The exact 178-file version11 prebuilt payload has SHA-256
 its real Chromium write probe passed against committed native `20261002-15`.
 Network-loss/unknown-outcome injection and an operator-installed save remain
 separate acceptance cases.
+
+## NNA 20261002-16 and 20261002-17 — unpublished trial prerequisites
+
+Native `20261002-16` starts an unpublished immutable-slot trial under the
+prepared lease and mutex, checks exact NNA/GUI health and identity, and then
+confirms shutdown. It leaves the pending activation barrier; no registration,
+discovery pointer or browser ticket is published. Its full serial Windows suite
+passed 1,958 tests with eight skips and zero failures on the final run.
+
+Native `20261002-17` uses the manifest writer's exact pretty JSON plus newline
+bytes for candidate evidence and creates a private trial discovery generation
+matching the live child. Independent adversarial review repaired private-record
+retention after stop, a stop/preparation race and a lost controller-close retry.
+Its full serial Windows suite passed 1,965 tests with eight skips and zero
+failures. Crash-orphan cleanup, exact registration and pointer CAS, principal
+transition, live transfer, rollback and terminal recovery are still open.
+
+## NND 20261002-12 — native TUI preferences surface
+
+The settings window has a dedicated NNA TUI preferences page for native color,
+reduced motion and key bindings. It shows selected installation/data/source
+identity and revisions, then uses native preview, compare-and-swap save and
+operation lookup with a stable operation ID. A saved setting is shown as not
+applied to running TUI sessions until native evidence says otherwise. This page
+does not take over TUI tabs or change NND keyboard shortcuts.
+
+An independent audit corrected a key-binding test value that NNA rejects and
+made the target identity visible during editing. Focused tests and UI typecheck
+passed. A disposable source-payload Electron/Chromium run saved
+`tui.key_bindings.submit=ctrl+x`, matched the native receipt and manifest
+revision, and rejected stale CAS and unauthenticated browser save. The full UI
+suite passed 1,665 tests across 209 files; graph, language and quality gates
+passed for 753 production modules. Prebuilt-slot and operator installation
+acceptance, non-manifest TUI controls and remaining settings coverage are open.
