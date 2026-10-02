@@ -122,3 +122,23 @@ open, unknown values are explicit, and remaining census families are listed. Thi
 not a count of editable settings: containers/actions/internal/authority rows differ.
 C1 remains in-progress pending complete enumeration, defaults/bounds/apply/permission
 mapping and a new-key coverage gate. Existing native/GUI mismatches remain open.
+
+## L2 protected controller discovery
+
+NNA 20261001-10 / NND 20261001-46 implement protected controller discovery helpers.
+An internally generated controller credential stays in a protected immutable
+generation file; the current pointer contains no credential. Publication and
+removal require a genuine held data-root lease and exact expected generation,
+serialized by an exclusive file handle. Readers verify each file's ACL and
+bounded structure. A discovery record is not proof of a live service.
+
+Independent review found early lease release during helper cancellation and
+retention growth across normal generation replacement. Repairs preserve ownership
+until filesystem work has stopped and retire only the validated predecessor after
+committed publication. Failed retirement does not misreport publication rollback.
+Malformed and unpublished orphan evidence is preserved with a capacity limit.
+
+The paired pure contract exposes its existing endpoint validator for reuse.
+No lifecycle CLI, controller listener, installed service or GUI migration is
+claimed. L2 remains in-progress. Setup-first hosting and native UI authentication
+are the next integration boundaries; source helpers alone do not close them.

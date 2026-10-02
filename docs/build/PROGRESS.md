@@ -3,6 +3,29 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-01 · Protected controller discovery · NND 20261001-46 / NNA 20261001-10
+
+NNA now creates internally generated controller credentials in protected Windows
+generation files. A secretless pointer identifies the selected generation. Native
+ACL checks apply to each file, and an exclusive file handle serializes publication
+and removal with exact expected-generation checks. A held native data-root lease
+is required. Discovery alone does not establish service health or authorize process
+termination. No controller or engine secret is written into command arguments.
+
+Adversarial review identified premature lease release during helper cancellation
+and normal replacement exhausting retained generations. Repairs retain ownership
+until filesystem work stops and retire only the validated prior generation after
+committed replacement. Cleanup failure preserves the new pointer and reports its
+separate outcome. Corrupt and unpublished evidence remains bounded and preserved.
+
+NND exports the existing paired endpoint validator for native reuse. Focused
+contract/entrypoint tests and paired source checks pass. Full native tests, NND UI
+tests, regenerated graphs and quality/build/smoke/release gates run before commit.
+L2 remains in-progress: authenticated lifecycle control, setup-first native hosting,
+supervised launch and client migration still need implementation. No installed
+operator profile or startup entry was changed; native release certification remains
+separate from this source validation.
+
 ## 2026-10-01 · Private runtime protection and settings census · NND 20261001-45 / NNA 20261001-9
 
 NNA now creates and verifies a protected Windows runtime directory on a local fixed
