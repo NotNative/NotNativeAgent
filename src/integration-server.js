@@ -10,6 +10,7 @@ import { dispatchSecretBrokerRequest, readJsonBody, send, sendFailure } from './
 import { dispatchNndOperatorRequest } from './nnd-operator-routes.js';
 import { dispatchNndHarnessRequest } from './nnd-harness-routes.js';
 import { dispatchNndSetupRequest, guardNndSetupRequest } from './nnd-setup-routes.js';
+import { dispatchNndConfigurationRequest } from './nnd-configuration-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -72,6 +73,9 @@ async function dispatch(request, response, context) {
       protocol: '1.0', instance_id: context.instanceId, ...(context.nndRuntime ? context.nndRuntime.snapshot() : {}) });
   }
   if (await dispatchNndSetupRequest(request, response, { ...context, principal, url })) return;
+  // Invariant: configuration repair remains reachable while native execution requires setup.
+  if (context.nndConfigurationService
+    && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
   guardNndSetupRequest({ ...context, principal, url });
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;

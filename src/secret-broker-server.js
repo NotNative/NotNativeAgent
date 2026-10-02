@@ -129,6 +129,9 @@ function failureStatus(code) {
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy') return 409;
+  if (code === 'nnd_configuration_unavailable') return 503;
+  if (['nnd_configuration_resolution_conflict', 'nnd_configuration_repair_unnecessary',
+    'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
   if (code.includes('not_found') || code === 'provider_missing' || code === 'nnd_session_unavailable' || code === 'question_unknown') return 404;

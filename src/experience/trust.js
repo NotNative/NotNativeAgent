@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, open, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { ContractError } from '../ids.js';
 import { SessionLock } from '../persistence/session-lock.js';
@@ -64,10 +64,7 @@ async function canonicalRoot(root, required = false) {
 
 async function loadTrust(path) {
   try {
-    const bytes = await readFile(path);
-    if (bytes.length > MAX_TRUST_FILE_BYTES) {
-      throw new ContractError('workspace_trust_invalid', 'workspace trust file exceeds bound');
-    }
+    const bytes = await readWorkspaceTrustBytes(path);
     const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     if (value?.version !== 1 || !Array.isArray(value.workspaces)
       || value.workspaces.length > MAX_TRUSTED_WORKSPACES
@@ -79,6 +76,26 @@ async function loadTrust(path) {
     if (error instanceof ContractError) throw error;
     throw new ContractError('workspace_trust_invalid', 'workspace trust file has invalid JSON, encoding, or schema');
   }
+}
+
+export async function readWorkspaceTrustBytes(path, openFile = open) {
+  const handle = await openFile(path, 'r');
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > MAX_TRUST_FILE_BYTES) {
+      throw new ContractError('workspace_trust_invalid', 'workspace trust file exceeds bound or is not a regular file');
+    }
+    // Invariant: concurrent file growth cannot exceed the fixed trust-reader allocation.
+    const buffer = Buffer.alloc(MAX_TRUST_FILE_BYTES + 1);
+    let count = 0;
+    while (count < buffer.length) {
+      const read = await handle.read(buffer, count, buffer.length - count, null);
+      if (!read.bytesRead) break;
+      count += read.bytesRead;
+    }
+    if (count > MAX_TRUST_FILE_BYTES) throw new ContractError('workspace_trust_invalid', 'workspace trust file exceeds bound');
+    return buffer.subarray(0, count);
+  } finally { await handle.close(); }
 }
 
 async function atomicWrite(path, value) {

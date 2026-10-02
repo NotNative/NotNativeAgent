@@ -23,7 +23,8 @@ export function resolveConfiguration(sources, options = {}) {
   }
   let resolved;
   try {
-    resolved = resolveManifest(merged);
+    // Security: validation options belong to the native caller, never to a configuration source.
+    resolved = resolveManifest(merged, options.manifestOptions);
   } catch (error) {
     attributeSecurityRejection(error, winners, options.securityAudit);
     throw error;

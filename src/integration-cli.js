@@ -80,7 +80,8 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     realm: integrationSecretRealm(owner, activation.deploymentId),
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
-  const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
+  const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
+    ...(owner === 'nnd' ? { readEffectiveConfiguration: () => readNndSetupConfiguration(paths) } : {}) });
   const lifecycle = await createIntegrationLifecycle(paths, options, owner, broker, environment);
   const nndEngineHost = lifecycle.getHost();
   let service;
@@ -195,7 +196,9 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   host.providerRoutingPending = (latest) => !isDeepStrictEqual(activeConfig.providerProfiles, latest.providerProfiles)
     || !isDeepStrictEqual(activeConfig.routes, latest.routes);
   host.activateProviderRoute = async () => {
-    const latest = resolveManifest(await readIntegrationManifest(join(paths.config, 'manifest.json')), configOptions);
+    // Compatibility: legacy NNO/direct hosts retain their original user-only configuration scope.
+    const latest = options.preparedConfig ? await readNndSetupConfiguration(paths)
+      : resolveManifest(await readIntegrationManifest(join(paths.config, 'manifest.json')), configOptions);
     if (latest.workspaceRoot !== config.workspaceRoot || latest.persistence !== config.persistence) {
       throw new ContractError('nnd_manifest_invalid', 'NND provider activation cannot change workspace or persistence scope');
     }

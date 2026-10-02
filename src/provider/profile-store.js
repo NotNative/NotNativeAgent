@@ -21,6 +21,7 @@ export class ProviderProfileStore {
     this.path = options.path ?? join(options.configRoot, 'manifest.json');
     this.environment = options.environment ?? process.env;
     this.fetch = options.fetch ?? globalThis.fetch;
+    this.readEffectiveConfiguration = options.readEffectiveConfiguration;
     this.credentialResolver = options.credentialResolver ?? new CredentialResolver({
       secretBroker: options.secretBroker, environment: this.environment,
     });
@@ -100,6 +101,8 @@ export class ProviderProfileStore {
   async config() { return this.#read(); }
 
   async #read() {
+    // Invariant: effective read overlays never enter the raw selected-source mutation path.
+    if (this.readEffectiveConfiguration) return this.readEffectiveConfiguration();
     return (await this.#readSnapshot()).config;
   }
 

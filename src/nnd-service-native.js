@@ -6,10 +6,13 @@ import { createNndLocalIntegrationActivation } from './nno-integration-activatio
 import { SecretBroker } from './secret-broker.js';
 import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
+import { readNndSetupConfiguration } from './nnd-setup-config.js';
+import { createNndConfigurationService } from './nnd-configuration-service.js';
 
 const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
   'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate',
+  'nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair',
   // Security: management remains scope-filtered and never grants secret.use or raw values.
   'secret.read', 'secret.manage', 'secret.audit',
   'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate']);
@@ -26,12 +29,17 @@ export async function startNndNativeService(paths, identity, options = {}) {
   const broker = new SecretBroker({ realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault,
     keyPath: paths.secretKey, auditPath: paths.secretAudit });
   const environment = options.environment ?? process.env;
-  const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
+  const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
+    readEffectiveConfiguration: () => readNndSetupConfiguration(paths) });
+  const nndConfigurationService = createNndConfigurationService({
+    paths, installationId: identity.installation_id, dataId: identity.data_id,
+  });
   const lifecycle = await createIntegrationLifecycle(paths, options, 'nnd', broker, {});
   let service;
   try {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
+      nndConfigurationService,
       resolvePrincipal: () => nativeNndPrincipal(lifecycle.getHost()?.workspaceRoot), host: '127.0.0.1', port: 0 });
   } catch (error) { await lifecycle.close(); throw error; }
   lifecycle.runtime.start();
