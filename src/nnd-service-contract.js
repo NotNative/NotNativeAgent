@@ -32,7 +32,7 @@ export function exactRecord(value, keys) {
     && Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 export function isNndVersion(value) { return typeof value === 'string' && VERSION.test(value); }
-function loopbackEndpoint(value) {
+export function isNndLoopbackEndpoint(value) {
   if (typeof value !== 'string' || value.length > 128) return false;
   // Compatibility: URL.port normalizes explicit port 80 away; it is still a valid listener.
   const match = /^http:\/\/(?:127\.0\.0\.1|\[::1\]):([1-9]\d{0,4})$/u.exec(value);
@@ -46,7 +46,7 @@ function assertReadiness(value) {
   requireStatus(['absent', 'incompatible', 'ready'].includes(value.package_state), 'package_state');
   requireStatus(['unknown', 'setup_required', 'ready', 'unavailable'].includes(value.provider_state), 'provider_state');
   const live = ['ready', 'setup_required', 'degraded'].includes(value.service_state);
-  requireStatus(live ? loopbackEndpoint(value.endpoint) : value.endpoint === null, 'endpoint readiness');
+  requireStatus(live ? isNndLoopbackEndpoint(value.endpoint) : value.endpoint === null, 'endpoint readiness');
   if (live) requireStatus(value.runtime_state === 'ready' && value.package_state === 'ready'
     && value.instance_id !== null && value.package_version !== null, 'live prerequisites');
   if (value.service_state === 'ready') requireStatus(value.provider_state === 'ready'

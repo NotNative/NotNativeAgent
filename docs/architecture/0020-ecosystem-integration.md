@@ -74,8 +74,22 @@ credentials in argv or environment. It does not yet write discovery credentials
 or implement lifecycle control. Existing broad ACLs are not silently repaired.
 Native disposable-directory tests cover creation, concurrent initialization,
 unsafe permissions and unchanged evidence. Network-drive rejection is reviewed
-in code; no mapped-share acceptance was run. Future credential publication must
-also validate individual files, generation ownership and replacement races.
+in code; no mapped-share acceptance was run.
+
+Protected discovery now uses immutable generation records and a secretless
+`current.json` pointer. Each file has its own verified protected ACL. Publication
+and removal compare the expected generation under an exclusive file handle.
+Only a genuine held data-root lease can create or publish credentials. The
+controller credential is generated internally and is distinct from engine and
+browser credentials. Discovery is a candidate connection record, never proof
+that a process is live or authorization to terminate a PID.
+
+Successful replacement retires only its validated predecessor. Cleanup failure
+reports the committed publication separately; malformed or unpublished evidence
+is preserved. Generation retention and concurrent operations are bounded. The
+private reader returns credential material and must never become a status-output
+serializer. Authenticated controller challenge, lifecycle wiring and governed
+orphan recovery remain required before advertising supervision.
 
 ## Responsibility boundaries
 

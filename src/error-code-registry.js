@@ -81,6 +81,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_install_payload_invalid', 'nnd_install_version_mismatch',
     'nnd_install_runtime_unavailable', 'nnd_install_runtime_invalid', 'nnd_service_platform_unsupported',
     'nnd_private_platform_unsupported', 'nnd_private_path_invalid',
+    'nnd_discovery_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
     'nnd_message_cursor_invalid',
@@ -264,6 +265,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   persistence: Object.freeze([
     'nnd_lock_acquire_failed', 'nnd_lock_lost', 'nnd_service_already_running',
     'nnd_private_storage_unavailable',
+    'nnd_discovery_conflict', 'nnd_discovery_busy', 'nnd_discovery_capacity', 'nnd_lock_operation_limit',
     'journal_compaction_snapshot_missing', 'journal_corrupt', 'journal_repair_evidence_missing',
     'journal_repair_prefix_invalid', 'journal_repair_prefix_too_large', 'journal_replace_invalid',
     'nnd_activity_invalid', 'nnd_activity_unavailable',
