@@ -55,6 +55,12 @@ test('status refuses malformed identities, unknown protocol, secrets and unsafe 
     'http://user:secret@127.0.0.1:3000', 'http://127.0.0.1:3000/path', 'http://127.0.0.1:0', {},
   ]) assert.throws(() => assertStatusEnvelope({ ...status(), endpoint }), JSON.stringify(endpoint));
   assert.doesNotThrow(() => assertStatusEnvelope({ ...status(), endpoint: 'http://[::1]:3000' }));
+  for (const port of [80, 65535]) {
+    assert.doesNotThrow(() => assertStatusEnvelope({ ...status(), endpoint: `http://127.0.0.1:${port}` }));
+  }
+  for (const port of ['65536', '080']) {
+    assert.throws(() => assertStatusEnvelope({ ...status(), endpoint: `http://127.0.0.1:${port}` }));
+  }
 });
 test('non-live status cannot publish an endpoint and failures require actionable bounded guidance', () => {
   const failed = { ...status(), service_state: 'failed', endpoint: null, runtime_state: 'failed',

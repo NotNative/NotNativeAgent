@@ -34,12 +34,9 @@ export function exactRecord(value, keys) {
 export function isNndVersion(value) { return typeof value === 'string' && VERSION.test(value); }
 function loopbackEndpoint(value) {
   if (typeof value !== 'string' || value.length > 128) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(url.hostname)
-      && !url.username && !url.password && !url.search && !url.hash && url.pathname === '/'
-      && value === url.origin && Number(url.port) > 0;
-  } catch { return false; }
+  // Compatibility: URL.port normalizes explicit port 80 away; it is still a valid listener.
+  const match = /^http:\/\/(?:127\.0\.0\.1|\[::1\]):([1-9]\d{0,4})$/u.exec(value);
+  return Boolean(match && Number(match[1]) <= 65_535);
 }
 function requireStatus(condition, message) {
   if (!condition) throw new TypeError(`Invalid NND service status: ${message}`);

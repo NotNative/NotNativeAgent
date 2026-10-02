@@ -3,6 +3,35 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-01 · Installed identity and exclusive ownership · NND 20261001-44 / NNA 20261001-8
+
+Added NNA's read-only selected-installation verifier and Windows data-root singleton.
+Descriptor, native CLI/payload versions, canonical installation/data paths and actual
+recorded Node runtime must agree. Custom paths, Unicode, case aliases and junctions
+are covered; PATH is never a fallback and Node startup environment hooks are removed
+from the bounded probe. No installed profile or executable payload is modified.
+
+An exclusive named-pipe listener holds ownership for the process lifetime. Concurrent
+launchers and separate processes cannot acquire the same canonical data root. Package
+or installation paths cannot partition this lock. Release is idempotent and unexpected
+loss is observable. It transports no commands or secrets and never kills another PID.
+These are native foundations; lifecycle commands/supervision are not yet wired.
+
+Corrected the paired health contract to accept explicit port 80, which URL normalization
+previously erased. Literal loopback addresses and valid explicit port bounds remain
+required. Independent adversarial review found no further confirmed defects.
+
+Verification: NNA full suite 1,673 passed, four platform skips; 25 focused contract,
+identity, lock and error-owner cases passed with one platform skip. NND eight focused
+cases, paired source agreement and all 1,625 UI tests passed. Graphs/report generation
+completed; final NND quality/build/smoke/release seal runs before this commit.
+NNA platform release evidence remains unchanged and is not claimed as certified.
+
+L1 installed TUI-independence acceptance remains open. L2 still requires Windows
+private credential storage, authenticated lifecycle control, setup-first native hosting,
+supervised launch and startup integration. External shared catalogs need their own
+single-writer protection before opening. L3-L6/C/F/V remain open.
+
 ## 2026-10-01 · Activation contract recovery · NND 20261001-43 / NNA 20261001-7
 
 Resumed from NNA's five untracked handoff files; no implementation commits had

@@ -1,6 +1,7 @@
 # NND local activation contract, revision 1.0
 
-Status: L1 contract implementation in progress. This records decisions for L2-L5;
+Status: L1 validators and L2 identity/lock helpers implemented; runtime wiring pending.
+This records decisions for L2-L5;
 it does not claim a running supervisor, startup registration, or installed acceptance.
 The executable validators are mirrored in NNA `src/nnd-service-contract.js` and
 `src/nnd-manifest-extensions.js`, and NND `scripts/nnd-service-contract.js` and
@@ -81,8 +82,8 @@ or fails closed with recovery guidance. An occupied port proves no ownership.
 Configuration that shares an NND catalog outside the data root must acquire equivalent
 catalog exclusivity before opening it. Do not allow two data roots to evade the
 single-writer rule. Serialize start/stop/restart/activation/upgrade under this owner.
-L2 tests concurrent launch, differing install roots, upgrades, stale discovery and PID
-reuse. Legacy Electron-owned processes do not hold this new lock: L5 must discover
+The lock helper tests concurrent/cross-process launch and canonical data-root aliases.
+Lifecycle upgrade, stale discovery and PID-reuse acceptance remain for L2/L5 wiring. Legacy Electron-owned processes do not hold this new lock: L5 must discover
 and drain the exact old owner, or refuse migration before opening its catalog.
 
 ## Activation schema and compatibility
