@@ -114,6 +114,15 @@ version, leaving an auditable history without retaining a second copy of its con
 Retention preserves referential integrity: governance will drop older decisions before
 it permits a retained decision to outlive the evidence records it cites.
 
+Registration identity is immutable and separate from current lifecycle state. Re-registering
+unchanged evidence preserves its current state, including invalidation. Transition-heavy
+legacy journals recover through a bounded genesis-verified scan when the ordinary tail is
+incomplete. Record-count checkpoints preserve registrations, current states, cumulative
+transition counts and fingerprints, and retained decisions and effects. Earlier transition
+detail is explicitly replaced by that fingerprinted lifecycle checkpoint; it is not an
+unbounded in-memory history. Older runtimes reject the checkpoint record rather than resume
+from an initial state. Support diagnostics retain the lifecycle checkpoint fields.
+
 ## Performance rule
 
 Deterministic policy is preferred. Semantic governance runs only when uncertainty or

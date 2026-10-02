@@ -470,6 +470,16 @@ test('learning candidates persist bounded evidence and require governed authorit
   assert.equal(active.state, 'active');
   assert.equal(governance.evidence('evidence:candidate:candidate-guidance-1').state, 'active');
   assert.ok(governance.audit().some((decision) => decision.domain === 'guidance_promotion' && decision.outcome === 'promote'));
+  const repeated = await registry.observe({
+    id: 'candidate-guidance-1', kind: 'guidance.project_memory', confidence: 0.8,
+    evidenceRefs: ['evidence:verified-test'], expectedBenefit: 'Preserve a verified project convention.',
+    successCriteria: ['Managed guidance contains the verified convention exactly once.'],
+    riskClass: 'reversible', payload: { section: 'Working conventions', statement: 'Run checks before commit.' },
+  });
+  assert.equal(repeated.state, 'active');
+  assert.equal(governance.evidenceBySource(observed.id).length, 1);
+  assert.equal(governance.health().pending_evidence, 0);
+  assert.ok(governance.evidenceBySource(observed.id).every((item) => item.conflict === 'none'));
   store.close();
 
   const restored = new DreamStore({ path });

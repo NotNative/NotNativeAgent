@@ -20,7 +20,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'authority_journal_invalid', 'authority_rollback_invalid', 'authority_statement_kind_invalid',
     'authority_turn_id_invalid',
     'credential_binding_invalid', 'credential_consumer_invalid', 'credential_reference_invalid',
-    'governance_attributes_invalid', 'governance_decision_invalid', 'governance_decision_missing',
+    'governance_attributes_invalid', 'governance_checkpoint_invalid', 'governance_decision_invalid', 'governance_decision_missing',
     'governance_enum_invalid', 'governance_evidence_invalid', 'governance_evidence_missing',
     'governance_evidence_transition_invalid', 'governance_evidence_validity_invalid', 'governance_fields_invalid',
     'governance_fingerprint_invalid', 'governance_identifier_invalid', 'governance_journal_corrupt',

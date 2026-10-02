@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:86be8284c3aa098178504d7ee386a293cfd47b5a3e800d22914a4f120ff86638",
+  "source_digest": "sha256:a6aaac0e30286e31b3cf9e139b553d4717b98641cc026004718bf01c4112fa85",
   "counts": {
-    "modules": 475,
+    "modules": 476,
     "component_edges": 81
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "governance-engine",
       "label": "Governance Engine",
       "ownership": "Owns authority, review, permission, and execution policy.",
-      "module_count": 11
+      "module_count": 12
     },
     {
       "id": "experience-engine",
@@ -220,16 +220,16 @@
       "module_count": 10
     },
     {
+      "from": "governance-engine",
+      "to": "foundation",
+      "import_count": 14,
+      "module_count": 12
+    },
+    {
       "from": "agentic-engine",
       "to": "reliability-engine",
       "import_count": 13,
       "module_count": 7
-    },
-    {
-      "from": "governance-engine",
-      "to": "foundation",
-      "import_count": 13,
-      "module_count": 11
     },
     {
       "from": "persistence",
@@ -310,6 +310,12 @@
       "module_count": 3
     },
     {
+      "from": "governance-engine",
+      "to": "governance-engine",
+      "import_count": 6,
+      "module_count": 5
+    },
+    {
       "from": "providers",
       "to": "persistence",
       "import_count": 6,
@@ -356,12 +362,6 @@
       "to": "persistence",
       "import_count": 4,
       "module_count": 2
-    },
-    {
-      "from": "governance-engine",
-      "to": "governance-engine",
-      "import_count": 4,
-      "module_count": 4
     },
     {
       "from": "integrations",
@@ -1714,10 +1714,20 @@
       "component": "governance-engine",
       "entrypoint": false,
       "imports": [
+        "src/governance/checkpoint.js",
         "src/governance/contracts.js",
         "src/ids.js",
         "src/persistence/retention.js",
         "src/store.js"
+      ]
+    },
+    {
+      "path": "src/governance/checkpoint.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/governance/contracts.js",
+        "src/ids.js"
       ]
     },
     {

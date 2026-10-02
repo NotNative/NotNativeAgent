@@ -28,7 +28,9 @@ export class LearningCandidateRegistry {
       scope: input.scope ?? this.scope, observedAt: requiredTimestamp(candidate.created_at, 'candidate creation'),
       attributes: { candidate_kind: candidate.kind, risk_class: candidate.risk_class },
     });
-    const observationKey = governanceFingerprint(sources.map((item) => item.id).sort().join(':')).slice(0, 24);
+    // Why: re-observation after promotion is a new lifecycle observation, not identity drift.
+    const observationKey = governanceFingerprint({ sources: sources.map((item) => item.id).sort(),
+      candidateState: candidate.state }).slice(0, 24);
     const decision = await this.governance.decide({
       id: `governance:observe:${candidate.id}:${observationKey}`,
       domain: domainFor(candidate.kind), subjectRef: candidate.id,

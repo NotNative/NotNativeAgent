@@ -26,10 +26,11 @@ const FIELDS = new Set([
   'provenance', 'reasonCode', 'freshness', 'conflict', 'sourceRef', 'sourceFingerprint', 'contentFingerprint',
   'kind', 'origin', 'trust', 'observedAt', 'domain', 'subjectRef', 'subjectFingerprint', 'decidedAt', 'at', 'from', 'to',
   'effectCertainty', 'authority_version', 'restriction_version', 'complete',
+  'transitionCount', 'transitionFingerprint', 'retained_evidence', 'retained_decisions', 'transition_history',
 ]);
 const CONTAINERS = new Set(['accounting', 'envelope', 'sections', 'tokenizer', 'reducers', 'usage', 'by_role',
   'primary', 'reviewer', 'subagent', 'semantic_compaction', 'record', 'decision', 'execution', 'terminal',
-  'classification', 'evidence', 'transition', 'attributes']);
+  'classification', 'evidence', 'transition', 'lifecycle', 'attributes']);
 const REFERENCES = new Set(['evidenceRefs', 'authorityRefs']);
 
 export function supportDiagnosticSummary(payload, depth = 0) {

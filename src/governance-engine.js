@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
-import { JournalStore } from './store.js';
+import { JournalStore, recoverJournal } from './store.js';
+import { evidenceCheckpoint, evidenceEntry } from './governance/checkpoint.js';
 import { retentionCompactionTarget, validateRetentionLimit } from './persistence/retention.js';
 import {
   assertEvidenceTransition, governanceFingerprint, normalizeGovernanceDecision,
@@ -25,6 +26,7 @@ export class GovernanceEngine {
   #evidence = new Map();
   #decisions = new Map();
   #store = null;
+  #journalRecords = 0;
 
   constructor(options) {
     this.telemetry = options.telemetry ?? null;
@@ -38,11 +40,15 @@ export class GovernanceEngine {
 
   async initialize() {
     if (!this.#store) return this.health();
-    const recovered = await this.#store.open();
+    let recovered = await this.#store.open();
+    // Compatibility: legacy transition-heavy journals need a bounded genesis scan,
+    // not replay of a tail whose registrations and decisions may have been omitted.
+    if (recovered.truncated) recovered = await recoverJournal(this.#store.path);
     if (recovered.corruptTail) {
       throw new ContractError('governance_journal_corrupt', 'governance journal has a corrupt tail');
     }
     for (const record of recovered.records) this.#apply(record.type, record.payload);
+    this.#journalRecords = recovered.records.length;
     await this.#enforceRetention();
     return this.health();
   }
@@ -51,13 +57,13 @@ export class GovernanceEngine {
     const evidence = normalizeGovernanceEvidence({ ...input, id: input.id ?? newId('evidence') });
     const existing = this.#evidence.get(evidence.id);
     if (existing) {
-      if (governanceFingerprint(existing.record) !== governanceFingerprint(evidence)) {
+      if (governanceFingerprint(existing.registration) !== governanceFingerprint(evidence)) {
         return this.#recoverEvidenceDrift(evidence);
       }
       return existing.record;
     }
     await this.#record('evidence_registered', { evidence });
-    this.#evidence.set(evidence.id, { record: evidence, history: [] });
+    this.#evidence.set(evidence.id, evidenceEntry(evidence));
     this.#telemetry('governance.evidence', 'succeeded', evidence, { evidence_id: evidence.id });
     await this.#enforceRetention(evidence.id);
     return evidence;
@@ -74,6 +80,7 @@ export class GovernanceEngine {
     await this.#record('evidence_transitioned', { transition });
     this.#apply('evidence_transitioned', { transition });
     this.#telemetry('governance.evidence', 'succeeded', transition, { evidence_id: id, reason_code: transition.reasonCode });
+    await this.#enforceRetention(id);
     return this.#evidence.get(id).record;
   }
 
@@ -105,6 +112,7 @@ export class GovernanceEngine {
     this.#telemetry('governance.effect', terminalStatus(terminal.status), terminal, {
       governance_decision_id: id, reason_code: terminal.reasonCode,
     });
+    await this.#enforceRetention();
     return terminal;
   }
 
@@ -254,16 +262,27 @@ export class GovernanceEngine {
     return entry;
   }
 
-  async #record(type, payload) { if (this.#store) await this.#store.append(type, payload); }
+  async #record(type, payload) {
+    if (this.#store) await this.#store.append(type, payload);
+    this.#journalRecords += 1;
+  }
 
   #apply(type, payload) {
     switch (type) {
       case 'evidence_registered':
-        this.#evidence.set(payload.evidence.id, { record: payload.evidence, history: [] });
+        this.#evidence.set(payload.evidence.id, evidenceEntry(payload.evidence));
+        break;
+      case 'evidence_checkpoint':
+        this.#evidence.set(payload.evidence.id, evidenceEntry(payload.evidence, payload.lifecycle ?? {}));
         break;
       case 'evidence_transitioned': {
         const entry = this.#requireEvidence(payload.transition.id);
-        entry.history.push(payload.transition);
+        if (payload.transition.from !== entry.record.state) {
+          throw new ContractError('governance_evidence_transition_invalid', 'transition source differs from evidence state');
+        }
+        assertEvidenceTransition(entry.record.state, payload.transition.to);
+        entry.transitionCount += 1;
+        entry.transitionFingerprint = governanceFingerprint([entry.transitionFingerprint, payload.transition]);
         entry.record = Object.freeze({ ...entry.record, state: payload.transition.to });
         break;
       }
@@ -280,14 +299,21 @@ export class GovernanceEngine {
 
   async #enforceRetention(pinnedEvidenceId = null) {
     const total = this.#evidence.size + this.#decisions.size;
-    if (total <= this.retentionEntries) return;
+    const checkpointLimit = Math.max(this.retentionEntries * 3, MINIMUM_RESUME_RECORDS - 1_000);
+    if (total <= this.retentionEntries) {
+      if (this.#journalRecords >= checkpointLimit) {
+        await this.#checkpoint([...this.#evidence.values()], [...this.#decisions.values()]);
+      }
+      return;
+    }
     const retentionTarget = retentionCompactionTarget(this.retentionEntries);
     const allDecisions = [...this.#decisions.values()];
     const decisions = [];
     const requiredEvidence = new Set(pinnedEvidenceId ? [pinnedEvidenceId] : []);
     for (let index = allDecisions.length - 1; index >= 0; index -= 1) {
       const candidate = allDecisions[index];
-      const additions = candidate.record.evidenceRefs.filter((id) => !requiredEvidence.has(id));
+      const additions = [...new Set([...candidate.record.evidenceRefs, ...candidate.record.authorityRefs])]
+        .filter((id) => !requiredEvidence.has(id));
       if (decisions.length + requiredEvidence.size + additions.length + 1 > retentionTarget) break;
       decisions.push(candidate);
       for (const id of additions) requiredEvidence.add(id);
@@ -302,23 +328,24 @@ export class GovernanceEngine {
       ...(optionalBudget > 0 ? optional.slice(-optionalBudget) : []).map((entry) => entry.record.id),
     ]);
     const evidence = allEvidence.filter((entry) => retainedIds.has(entry.record.id));
-    if (this.#store) await this.#store.replace([
-      ...evidence.flatMap(evidenceRecords), ...retainedDecisions.flatMap(decisionRecords),
-    ]);
+    await this.#checkpoint(evidence, retainedDecisions);
     this.#evidence = new Map(evidence.map((entry) => [entry.record.id, entry]));
     this.#decisions = new Map(retainedDecisions.map((entry) => [entry.record.id, entry]));
+  }
+
+  async #checkpoint(evidence, decisions) {
+    const records = [...evidence.map(evidenceCheckpoint), ...decisions.flatMap(decisionRecords)];
+    if (this.#store) await this.#store.replace(records);
+    this.#journalRecords = records.length;
+    this.#telemetry('governance.checkpoint', 'succeeded', {
+      retained_evidence: evidence.length, retained_decisions: decisions.length,
+      records: records.length, transition_history: 'fingerprinted_checkpoint',
+    }, {});
   }
 
   #telemetry(event, status, payload, correlation) {
     this.telemetry?.record(event, status, payload, correlation);
   }
-}
-
-function evidenceRecords(entry) {
-  return [
-    { type: 'evidence_registered', payload: { evidence: { ...entry.record, state: entry.history[0]?.from ?? entry.record.state } } },
-    ...entry.history.map((transition) => ({ type: 'evidence_transitioned', payload: { transition } })),
-  ];
 }
 
 function decisionRecords(entry) {
