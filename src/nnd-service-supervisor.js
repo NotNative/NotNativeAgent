@@ -106,11 +106,83 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
   session.state.package = admittedPackage;
   session.state.record = Object.freeze({ instance_id: randomUUID() });
   try {
-    session.state.native = await startNndNativeService(paths, identity, options);
+    session.state.native = await startNndNativeService(paths, identity, { ...options, unpublishedTrial: true });
     await startSupervisorChild(session, paths);
     monitorSupervisor(session);
-    return session.handle;
+    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions) });
   } catch (error) { return failSupervisorStart(session, error); }
+}
+async function verifyUnpublishedTrial(state, { timeoutMs = 5000, signal, fetchImpl = fetch } = {}) {
+  assertHeldNndServiceLease(state.lease, state.identity.data_id);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 15000) {
+    throw new ContractError('nnd_health_unavailable', 'NND trial health deadline is invalid');
+  }
+  const deadline = Date.now() + timeoutMs;
+  let before = status(state);
+  while (!state.stopping && !state.child?.failed && before.service_state === 'starting'
+    && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, Math.min(50, Math.max(1, deadline - Date.now()))));
+    signal?.throwIfAborted();
+    before = status(state);
+  }
+  if (state.stopping || state.child?.failed || !['ready', 'setup_required'].includes(before.service_state)
+    || before.runtime_state !== 'ready' || before.endpoint !== state.ui
+    || before.package_version !== state.package.version) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial is not healthy');
+  }
+  const requestSignal = signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))])
+    : AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+  let nativeResponse;
+  try {
+    nativeResponse = await fetchImpl(`${state.native.endpoint}/v1/health`, { redirect: 'manual', signal: requestSignal,
+      headers: { authorization: `Bearer ${state.native.token}` } });
+  } catch { throw new ContractError('nnd_health_unavailable', 'Unpublished NNA runtime did not respond'); }
+  if (nativeResponse.status !== 200 || nativeResponse.redirected
+    || nativeResponse.url !== `${state.native.endpoint}/v1/health`) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NNA runtime response is invalid');
+  }
+  const nativeBody = await boundedHealthBody(nativeResponse);
+  if (nativeBody.service_state !== before.service_state || nativeBody.instance_id !== state.identity.installation_id) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NNA runtime identity or state changed');
+  }
+  let response;
+  try {
+    response = await fetchImpl(`${state.ui}/health`, { redirect: 'manual', signal: requestSignal });
+  } catch { throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI did not respond'); }
+  if (response.status !== 200 || response.redirected || response.url !== `${state.ui}/health`) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI response is invalid');
+  }
+  const body = await boundedHealthBody(response);
+  if (body?.ok !== true || body.runtime !== 'service') {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI health body is invalid');
+  }
+  const after = status(state);
+  assertHeldNndServiceLease(state.lease, state.identity.data_id);
+  if (state.child.failed || state.stopping || after.service_state !== before.service_state
+    || after.instance_id !== before.instance_id || after.endpoint !== before.endpoint) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial changed during health verification');
+  }
+  return Object.freeze({ installation_id: after.installation_id, data_id: after.data_id,
+    generation: after.instance_id, version: after.package_version, native_state: after.service_state,
+    gui_http_status: response.status });
+}
+async function boundedHealthBody(response) {
+  let body;
+  try {
+    const reader = response.body.getReader();
+    const chunks = []; let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 4096) { await reader.cancel(); throw new Error('bound'); }
+      chunks.push(value);
+    }
+    body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
+  }
+  catch { throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI health body is invalid'); }
+  return body;
 }
 async function startSupervisorChild(session, paths) {
   const { state } = session, { identity } = state;

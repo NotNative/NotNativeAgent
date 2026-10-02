@@ -24,6 +24,12 @@ export function nativeNndPrincipal(workspaceRoot) {
     requestId: randomUUID(), issuedAt: new Date() });
 }
 
+const TRIAL_PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read',
+  'nnd.configuration.read', 'provider.read']);
+export function nativeNndTrialPrincipal(workspaceRoot) {
+  return Object.freeze({ ...nativeNndPrincipal(workspaceRoot), permissions: TRIAL_PERMISSIONS });
+}
+
 export async function startNndNativeService(paths, identity, options = {}) {
   const token = randomBytes(32).toString('base64url');
   const broker = new SecretBroker({ realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault,
@@ -40,7 +46,9 @@ export async function startNndNativeService(paths, identity, options = {}) {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
       nndConfigurationService,
-      resolvePrincipal: () => nativeNndPrincipal(lifecycle.getHost()?.workspaceRoot), host: '127.0.0.1', port: 0 });
+      resolvePrincipal: () => options.unpublishedTrial
+        ? nativeNndTrialPrincipal(lifecycle.getHost()?.workspaceRoot)
+        : nativeNndPrincipal(lifecycle.getHost()?.workspaceRoot), host: '127.0.0.1', port: 0 });
   } catch (error) { await lifecycle.close(); throw error; }
   lifecycle.runtime.start();
   let closing;

@@ -3,6 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { launchNndServiceChild } from '../src/nnd-service-child.js';
 
 function fixture() {
@@ -38,4 +41,29 @@ test('oversized child frame fails within a bounded buffer before readiness', asy
   const rejected = assert.rejects(f.child.ready, { code: 'nnd_service_protocol_invalid' });
   f.process.stdout.write('x'.repeat(65537)); await rejected;
   f.process.emit('exit', 1); await f.child.close();
+});
+test('a real child exit after readiness invalidates trial liveness', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nnd-child-death-'));
+  try {
+    const entrypoint = join(root, 'dies.mjs');
+    await writeFile(entrypoint, String.raw`
+process.stdin.once('data', bytes => {
+  const bootstrap = JSON.parse(bytes.toString('utf8').trim());
+  process.stdout.write(JSON.stringify({ type:'ready', protocol:'1.0', generation:bootstrap.generation,
+    installation_id:bootstrap.installation_id, data_id:bootstrap.data_id,
+    endpoint:bootstrap.ui_origin, version:'20261002-1' })+'\n');
+  setTimeout(() => process.exit(0), 30);
+});
+`);
+    const bootstrap = { type: 'bootstrap', protocol: '1.0', generation: 'generation',
+      installation_id: 'install', data_id: 'data', ui_origin: 'http://127.0.0.1:2345',
+      engine: { endpoint: 'http://127.0.0.1:2346', token: 'secret' } };
+    const child = launchNndServiceChild({ node: process.execPath, install_root: root, data_root: root },
+      entrypoint, bootstrap, { version: '20261002-1', startTimeoutMs: 2000 });
+    await child.ready;
+    await child.exited;
+    assert.equal(child.failed, true);
+    assert.equal((await child.fatal).code, 'nnd_service_crashed');
+    await child.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:fabf98a60fd71574807de2967c06c3303cca19d8a8d3a42908a82e901e9c315d",
+  "source_digest": "sha256:57dab2676409e4f8a46997db4b967390644b017a2a3d56a692f6af82ba2a04db",
   "counts": {
-    "modules": 466,
+    "modules": 467,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 170
+      "module_count": 171
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 413,
-      "module_count": 146
+      "import_count": 420,
+      "module_count": 147
     },
     {
       "from": "experience-engine",
@@ -180,8 +180,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 24,
-      "module_count": 18
+      "import_count": 25,
+      "module_count": 19
     },
     {
       "from": "foundation",
@@ -2025,6 +2025,21 @@
         "src/nnd-service-private-windows.js",
         "src/persistence/manifest-lock.js",
         "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
+      "path": "src/nnd-activation-trial.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-candidate.js",
+        "src/nnd-activation-journal.js",
+        "src/nnd-activation-preparation.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-service-lock.js",
+        "src/nnd-service-supervisor.js",
+        "src/persistence/manifest-lock.js"
       ]
     },
     {

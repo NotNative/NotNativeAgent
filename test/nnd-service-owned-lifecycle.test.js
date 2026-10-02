@@ -11,7 +11,7 @@ const identity={installation_id:'native',data_id:'data',install_root:'C:/native'
 const paths={config:'C:/data/config'};
 const packageInfo={root:'C:/package',manifestPath:'C:/package/integration.json',version:'20261002-1',protocol:'1.0',entrypoint:'entry.mjs'};
 async function fixture() {
- const trace=[],lost=deferred(),childReady=deferred(),exited=deferred(),fatal=deferred();let controller,bootstrap;
+ const trace=[],lost=deferred(),childReady=deferred(),exited=deferred(),fatal=deferred();let controller,bootstrap,nativeOptions;
  const lease={held:true,lost:lost.promise,close:async()=>{trace.push('lease:close');}};
  const native={endpoint:'http://127.0.0.1:1000',token:'private-engine-token',runtime:{snapshot:()=>({service_state:'setup_required'})},close:async()=>{trace.push('native:close');}};
  const child={ready:childReady.promise,exited:exited.promise,fatal:fatal.promise,close:async()=>{trace.push('child:close');},command:async type=>{trace.push(type);return {ticket:'private-ticket'};}};
@@ -28,7 +28,7 @@ async function fixture() {
    stat:async()=>({isFile:()=>true,size:bytes.length}),read:async buffer=>({bytesRead:bytes.copy(buffer)}),close:async()=>{}};},
   mkdir:async()=>{},realpath:async path=>path,validateNndPackage:async()=>{trace.push('package:admit');return packageInfo;},
   assertNoNndInstallMarker:async()=>{trace.push('guard:check');},admitFreshNndServiceData:async()=>{trace.push('data:admit');},
-  readNndServiceDiscovery:async()=>{trace.push('discovery:read');return null;},startNndNativeService:async()=>{trace.push('native:start');return native;},
+  readNndServiceDiscovery:async()=>{trace.push('discovery:read');return null;},startNndNativeService:async (_paths,_identity,options)=>{nativeOptions=options;trace.push('native:start');return native;},
   startNndController:async options=>{trace.push('controller:start');controller=options;return {endpoint:'http://127.0.0.1:2000',close:async()=>{trace.push('controller:close');}};},
   createNndDiscoveryGeneration:async()=>{trace.push('discovery:create');return {instance_id:randomUUID()};},
   publishNndDiscoveryGeneration:async()=>{trace.push('discovery:publish');},removeNndDiscoveryPointer:async()=>{trace.push('discovery:remove');},
@@ -38,7 +38,7 @@ async function fixture() {
  const source=await readFile(new URL('../src/nnd-service-supervisor.js',import.meta.url),'utf8');
  const executable=source.replace(/^import\s[\s\S]*?;\r?\n/gm,'').replaceAll('export async function','async function');
  const api=Function(...Object.keys(dependencies),executable+'\nreturn {startNndSupervisor,startUnpublishedTrial,startNndOwnedTrial};')(...Object.values(dependencies));
- return {api,trace,lease,registry,capability,native,child,childReady,lost,exited,fatal,source,get controller(){return controller;},get bootstrap(){return bootstrap;}};
+ return {api,trace,lease,registry,capability,native,child,childReady,lost,exited,fatal,source,get controller(){return controller;},get bootstrap(){return bootstrap;},get nativeOptions(){return nativeOptions;}};
 }
 async function waitFor(predicate) {for(let n=0;n<100;n++){if(predicate())return;await new Promise(resolve=>setImmediate(resolve));}throw new Error('Expected mocked lifecycle phase');}
 test('public supervision still admits registered package and withholds controller grants before publication',async()=>{
@@ -54,11 +54,41 @@ test('public supervision still admits registered package and withholds controlle
 test('unpublished owned trial cannot publish discovery or grant tickets and retains caller lease after drain',async()=>{
  const f=await fixture();assert.equal(/export\s+(?:async\s+)?function\s+startUnpublishedTrial/u.test(f.source),false);
  f.childReady.resolve();const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ assert.equal(f.nativeOptions.unpublishedTrial,true);
  assert.equal(f.controller,undefined);assert.equal(f.trace.some(event=>event.startsWith('discovery:')),false);
- assert.deepEqual(Object.keys(owner).sort(),['status','stop','stopped']);assert.equal(JSON.stringify(owner.status()).includes('private-engine-token'),false);
+ assert.deepEqual(Object.keys(owner).sort(),['status','stop','stopped','verify']);assert.equal(JSON.stringify(owner.status()).includes('private-engine-token'),false);
  const gate=deferred();f.native.close=async()=>{f.trace.push('native:draining');await gate.promise;f.trace.push('native:drained');};
  let stopped=false;const closing=owner.stop().then(()=>{stopped=true;});await waitFor(()=>f.trace.includes('native:draining'));
  assert.equal(stopped,false);gate.resolve();await closing;assert.equal(f.trace.includes('lease:close'),false);
+});
+test('unpublished trial proves exact native identity and loopback GUI before exposing a health result',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const observed=[];
+ const proof=await owner.verify({fetchImpl:async (url,options)=>{
+  observed.push({url,redirect:options.redirect});
+  if(url.endsWith('/v1/health'))assert.equal(options.headers.authorization,'Bearer private-engine-token');
+  const value=url.endsWith('/v1/health')
+   ? {service_state:'setup_required',instance_id:identity.installation_id}
+   : {ok:true,runtime:'service'};
+  return {status:200,redirected:false,url,body:new Response(JSON.stringify(value)).body};
+ }});
+ assert.equal(proof.installation_id,identity.installation_id);assert.equal(proof.data_id,identity.data_id);
+ assert.equal(proof.version,packageInfo.version);assert.equal(proof.native_state,'setup_required');
+ assert.equal(proof.gui_http_status,200);assert.equal(observed[1].url,`${owner.status().endpoint}/health`);
+ assert.equal(observed[0].url,`${f.native.endpoint}/v1/health`);
+ assert.equal(observed[0].redirect,'manual');
+ await owner.stop();
+});
+test('unpublished trial rejects dead child and a redirected or timed-out GUI probe',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:302,redirected:false,url})}),{code:'nnd_health_unavailable'});
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:401,redirected:false,url})}),{code:'nnd_health_unavailable'});
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:200,redirected:false,url,
+  body:new Response('x'.repeat(5000)).body})}),{code:'nnd_health_unavailable'});
+ await assert.rejects(owner.verify({fetchImpl:async()=>{throw new Error('connection refused');}}),{code:'nnd_health_unavailable'});
+ f.child.failed=true;
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:200,redirected:false,url,body:new Response(JSON.stringify({ok:true,runtime:'service'})).body})}),{code:'nnd_health_unavailable'});
+ await owner.stop();
 });
 test('trial constructor refuses forged lease before starting resources',async()=>{
  const f=await fixture();await assert.rejects(f.api.startUnpublishedTrial(identity,paths,{},packageInfo),{code:'nnd_lock_lost'});
