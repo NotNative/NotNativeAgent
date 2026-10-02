@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:866d6779b6564be8e5245e8a483157691243bb37f36fc46f012f1404829dc6b1",
+  "source_digest": "sha256:5c6d2da930565d8fcc8f477b036ba25d92122162a7b201912e4e98d32ae127a1",
   "counts": {
-    "modules": 470,
+    "modules": 472,
     "component_edges": 81
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 25
+      "module_count": 26
     },
     {
       "id": "governance-engine",
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 172
+      "module_count": 173
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 427,
-      "module_count": 148
+      "import_count": 428,
+      "module_count": 149
     },
     {
       "from": "experience-engine",
@@ -148,6 +148,12 @@
       "module_count": 18
     },
     {
+      "from": "agentic-engine",
+      "to": "foundation",
+      "import_count": 46,
+      "module_count": 18
+    },
+    {
       "from": "opencode-surface",
       "to": "opencode-surface",
       "import_count": 46,
@@ -155,20 +161,14 @@
     },
     {
       "from": "agentic-engine",
-      "to": "foundation",
-      "import_count": 44,
-      "module_count": 17
-    },
-    {
-      "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 40,
+      "import_count": 41,
       "module_count": 12
     },
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 35,
+      "import_count": 36,
       "module_count": 10
     },
     {
@@ -383,6 +383,12 @@
     },
     {
       "from": "foundation",
+      "to": "agentic-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
+      "from": "foundation",
       "to": "opencode-surface",
       "import_count": 3,
       "module_count": 3
@@ -444,12 +450,6 @@
     {
       "from": "experience-engine",
       "to": "tools",
-      "import_count": 2,
-      "module_count": 2
-    },
-    {
-      "from": "foundation",
-      "to": "agentic-engine",
       "import_count": 2,
       "module_count": 2
     },
@@ -945,13 +945,13 @@
         "src/engine/reviewer-completion.js",
         "src/engine/runtime-helpers.js",
         "src/engine/step-loop.js",
+        "src/engine/telemetry.js",
         "src/engine/terminal-declaration.js",
         "src/engine/tool-failures.js",
         "src/engine/tool-recovery.js",
         "src/engine/workspace-transition.js",
         "src/event-factory.js",
         "src/events.js",
-        "src/forensic-telemetry.js",
         "src/health.js",
         "src/ids.js",
         "src/lifecycle.js",
@@ -959,6 +959,7 @@
         "src/persistence/session-lock.js",
         "src/product.js",
         "src/runtime-config.js",
+        "src/session-lineage.js",
         "src/shutdown-boundary.js",
         "src/store.js",
         "src/subagent-runtime.js",
@@ -1103,7 +1104,8 @@
       "imports": [
         "src/engine/hooks.js",
         "src/ids.js",
-        "src/persistence/session-provenance.js"
+        "src/persistence/session-provenance.js",
+        "src/session-lineage.js"
       ]
     },
     {
@@ -1187,6 +1189,14 @@
         "src/context.js",
         "src/engine/attention.js",
         "src/runtime-config.js"
+      ]
+    },
+    {
+      "path": "src/engine/telemetry.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/forensic-telemetry.js"
       ]
     },
     {
@@ -4037,6 +4047,15 @@
       ]
     },
     {
+      "path": "src/session-lineage.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/persistence.js",
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/shutdown-boundary.js",
       "component": "foundation",
       "entrypoint": false,
@@ -4122,6 +4141,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/session-lineage.js",
         "src/subagent-progress.js"
       ]
     },

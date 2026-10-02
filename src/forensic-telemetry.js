@@ -29,6 +29,8 @@ export class ForensicTelemetry {
     this.sessionId = options.sessionId;
     this.runtimeId = options.runtimeId;
     this.conversationId = options.conversationId ?? options.sessionId;
+    this.agentRunId = options.agentRunId ?? null;
+    this.parentAgentRunId = options.parentAgentRunId ?? null;
     this.dbPath = options.dbPath ?? join(options.root ?? userDataPaths().projects, workspaceIdentity(options.workspaceRoot), 'events.db');
     this.maxAgeMs = options.maxAgeMs ?? DEFAULT_MAX_AGE_MS;
     this.volatileMaxAgeMs = options.volatileMaxAgeMs ?? DEFAULT_VOLATILE_MAX_AGE_MS;
@@ -289,8 +291,8 @@ function rowFrom(owner, eventName, status, payload, correlation, sequence) {
     conversation_id: correlation.conversationId ?? owner.conversationId,
     turn_id: correlation.turnId ?? payload?.turn_id ?? null, step_id: correlation.stepId ?? payload?.step_id ?? null,
     attempt_id: correlation.attemptId ?? payload?.attempt_id ?? null,
-    agent_run_id: correlation.agentRunId ?? payload?.agent_run_id ?? null,
-    parent_agent_run_id: correlation.parentAgentRunId ?? payload?.parent_agent_run_id ?? null,
+    agent_run_id: correlation.agentRunId ?? payload?.agent_run_id ?? owner.agentRunId ?? null,
+    parent_agent_run_id: correlation.parentAgentRunId ?? payload?.parent_agent_run_id ?? owner.parentAgentRunId ?? null,
     provider_request_id: correlation.providerRequestId ?? payload?.provider_request_id ?? null,
     tool_request_id: correlation.toolRequestId ?? payload?.tool_request_id ?? null,
     hook_invocation_id: correlation.hookInvocationId ?? payload?.hook_invocation_id ?? null,

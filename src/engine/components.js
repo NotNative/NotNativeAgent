@@ -142,7 +142,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     mcpControl: options.mcpControl,
     subagentControl: engine.config.executionManifest === null && engine.subagentDepth === 0 ? {
       workspaceRoot: engine.config.workspaceRoot,
-      run: (input, signal) => engine.runSubagent(input, signal),
+      run: (input, signal, launch) => engine.runSubagent(input, signal, launch),
     } : null,
     workspaceControl: engine.config.executionManifest === null ? { change: (path) => engine.changeWorkspace(path) } : null,
     conversationWork: engine.work, terminalControl: { declare: (value) => declareTerminalOutcome(engine, value) }, questionBroker: engine.questionBroker,

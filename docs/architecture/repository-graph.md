@@ -39,7 +39,7 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Agentic Engine | 25 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, OpenCode surface, Product foundation, Tools |
+| Agentic Engine | 26 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, OpenCode surface, Product foundation, Tools |
 | Governance Engine | 11 | Governance Engine, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Guidance and extensions, Product foundation, Tools |
 | Experience Engine | 93 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Experience Engine, Integration surfaces, Product foundation, Providers |
 | Reliability Engine | 36 | Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools |
@@ -50,7 +50,7 @@ graph LR
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Integration surfaces, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Experience Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
 | OpenCode surface | 24 | Agentic Engine, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine | OpenCode surface, Product foundation |
-| Product foundation | 172 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools |
+| Product foundation | 173 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools |
 
 ## Strongest observed component dependencies
 
@@ -58,16 +58,16 @@ Counts represent static local imports. Same-component imports are included becau
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| Product foundation | Product foundation | 427 | 148 |
+| Product foundation | Product foundation | 428 | 149 |
 | Experience Engine | Experience Engine | 170 | 57 |
 | Experience Engine | Product foundation | 86 | 59 |
 | Tools | Product foundation | 61 | 39 |
 | Tools | Tools | 56 | 20 |
 | Reliability Engine | Reliability Engine | 49 | 18 |
+| Agentic Engine | Product foundation | 46 | 18 |
 | OpenCode surface | OpenCode surface | 46 | 19 |
-| Agentic Engine | Product foundation | 44 | 17 |
-| Agentic Engine | Agentic Engine | 40 | 12 |
-| Integration surfaces | Product foundation | 35 | 10 |
+| Agentic Engine | Agentic Engine | 41 | 12 |
+| Integration surfaces | Product foundation | 36 | 10 |
 | Product foundation | Persistence | 30 | 21 |
 | Providers | Product foundation | 26 | 18 |
 | Product foundation | Integration surfaces | 22 | 11 |
@@ -91,4 +91,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:866d6779b6564be8e5245e8a483157691243bb37f36fc46f012f1404829dc6b1`.
+Source fingerprint: `sha256:5c6d2da930565d8fcc8f477b036ba25d92122162a7b201912e4e98d32ae127a1`.

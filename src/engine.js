@@ -28,7 +28,7 @@ import { recoverContentFreeCompletion, recoverProviderContextLimit, recoverReaso
 import { settleEngineAttempt, settleEngineStep } from './engine/lifecycle-settlement.js';
 import { acceptEngineText, emitEngineStatus } from './engine/output.js';
 import { assertTurnActive } from './turn-cancellation.js';
-import { createForensicTelemetry } from './forensic-telemetry.js';
+import { createEngineTelemetry } from './engine/telemetry.js';
 import { prepareEngineContext } from './engine/context-preparation.js';
 import { initializeEngine } from './engine/initialize.js';
 import { persistEngineRecord } from './engine/persistence.js';
@@ -41,6 +41,7 @@ import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
 import { continueAfterTerminalDeclaration, persistSupervisedResponse } from './engine/terminal-declaration.js';
 import { completionEvidence, completionEvidenceHint } from './engine/completion-evidence.js';
+import { validateSessionLineage } from './session-lineage.js';
 import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
 export class SessionEngine {
   state = new StateAuthority(); lifecycles = new LifecycleRegistry();
@@ -53,6 +54,7 @@ export class SessionEngine {
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
+    this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId);
     this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
@@ -63,14 +65,7 @@ export class SessionEngine {
       lspSpawnProcess: options.lspSpawnProcess, attachmentRoot: options.attachmentRoot,
       reviewerRoot: options.reviewerRoot, governanceRoot: options.governanceRoot, telemetryRoot: options.telemetryRoot,
     };
-    this.telemetry = createForensicTelemetry({
-      telemetry: options.telemetry, workspaceRoot: this.config.workspaceRoot,
-      runtimeId: this.runtimeId, sessionId: this.sessionId,
-      conversationId: options.conversationId ?? this.sessionId,
-      root: options.telemetryRoot ?? this.dataPaths.projects,
-      dbPath: options.telemetryDbPath, maxAgeMs: options.telemetryMaxAgeMs,
-      maxBytes: options.telemetryMaxBytes,
-    });
+    this.telemetry = createEngineTelemetry(this, options);
     this.state.setObserver(this.telemetry.stateObserver?.());
     this.lifecycles.setObserver(this.telemetry.lifecycleObserver?.());
     this.events = options.events ?? new EventHub();
@@ -235,7 +230,7 @@ export class SessionEngine {
   async clearConversation() {
     return clearEngineConversation(this);
   }
-  async runSubagent(input, signal) { return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options)); }
+  async runSubagent(input, signal, launch) { return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options), launch); }
   async changeWorkspace(target) { return changeEngineWorkspace(this, target, { persist: (type, payload) => this.#persist(type, payload) }); }
   subagentParallelLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
   async #runTurn(content, attachmentInputs, retryAttachmentId) {
@@ -460,6 +455,7 @@ export class SessionEngine {
   async #createSessionRecord() {
     await this.store.append('session_created', {
       sessionId: this.sessionId, runtimeId: this.runtimeId,
+      lineage: this.sessionLineage,
       configVersion: this.config.version, manifestProvenance: this.config.provenance,
       executionManifest: this.config.executionManifest, mission: this.config.mission, workspaceRoot: this.config.workspaceRoot,
     });

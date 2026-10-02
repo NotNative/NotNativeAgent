@@ -40,7 +40,7 @@ export function subagentDefinition(control) {
     },
     executor: async (request, signal) => {
       let result;
-      try { result = await control.run(request.args, signal); }
+      try { result = await control.run(request.args, signal, { toolRequestId: request.id ?? null }); }
       catch (error) {
         if (error instanceof ContractError) throw error;
         throw new ContractError('subagent_execution_failed', 'sub-agent execution failed', { cause: error });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
 import { createSubagentProgressRelay } from './subagent-progress.js';
+import { createSessionLineage, recordChildSession } from './session-lineage.js';
 
 const ENGINEERING_BASELINE = [
   'NNA engineering standards apply directly to your work; they are not reserved for the final reviewer.',
@@ -48,18 +49,28 @@ export function subagentOutputStatus(record) {
   return 'succeeded';
 }
 
-export async function runEngineSubagent(engine, input, signal, createEngine) {
+export async function runEngineSubagent(engine, input, signal, createEngine, launch = {}) {
   if (engine.config.executionManifest !== null) {
     throw new ContractError('subagent_hosted_forbidden', 'hosted sub-agents require a derived authority envelope from the authenticated host');
   }
   if (engine.subagentDepth > 0) throw new ContractError('subagent_nesting_forbidden', 'sub-agents cannot launch nested sub-agents');
   if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
   const sessionId = newId(`agent_${input.type}`);
+  const lineage = createSessionLineage(engine, sessionId, input.type, launch);
+  await recordChildSession(engine, lineage, 'created');
   const parent = { turnId: engine.active?.turnId ?? null, stepId: engine.active?.stepId ?? null };
   const relay = createSubagentProgressRelay(engine, { ...parent, agentId: sessionId, agentType: input.type });
   const observeNnd = (operation, action) => observeNndChild(engine, sessionId, parent, operation, action);
-  const child = createEngine({
+  let child;
+  try { child = createSubagentEngine(engine, input, sessionId, lineage, parent, relay, observeNnd, createEngine); }
+  catch (error) { await recordChildSession(engine, lineage, 'failed'); throw error; }
+  return executeSubagent(engine, input, signal, child, sessionId, lineage, parent, relay, observeNnd);
+}
+
+function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, observeNnd, createEngine) {
+  return createEngine({
     ...engine.subagentOptions, config: subagentConfig(engine.config, input.type), sessionId,
+    sessionLineage: lineage, conversationId: engine.telemetry?.conversationId ?? engine.sessionId,
     surface: engine.surface === 'nnd' ? 'nnd_subagent' : 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
     output: async (record) => {
@@ -71,9 +82,14 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
       if (record?.type === 'stream_delta') return undefined;
       return engine.telemetry?.record('subagent.output', subagentOutputStatus(record), {
         agent_id: sessionId, agent_type: input.type, record,
-      }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome });
+      }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome,
+        agentRunId: lineage.agent_run_id, parentAgentRunId: lineage.parent_agent_run_id,
+        toolRequestId: lineage.launching_tool_request_id });
     },
   });
+}
+
+async function executeSubagent(engine, input, signal, child, sessionId, lineage, parent, relay, observeNnd) {
   const unregisterNnd = registerNndChild(engine, sessionId, parent, child, input.type);
   let childOutcome = 'failed';
   let cancellation = null;
@@ -84,14 +100,18 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   };
   signal.addEventListener('abort', cancel, { once: true });
   try {
+    if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
     await relay.started(input.task);
     await child.initialize();
+    if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
+    await recordChildSession(engine, lineage, 'running');
     observeNnd('started', () => engine.nndSessionRegistry?.observeStarted?.(sessionId));
     const result = await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
     childOutcome = result?.outcome ?? 'completed';
     await relay.returned(result);
     return result;
   } catch (error) {
+    if (signal.aborted) childOutcome = 'cancelled';
     await relay.failed(error);
     throw error;
   } finally {
@@ -103,6 +123,7 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
     } catch (error) {
       reportCleanupFailure('shutdown', error);
     }
+    await recordChildSession(engine, lineage, childOutcome);
   }
 }
 

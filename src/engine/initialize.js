@@ -2,6 +2,7 @@
 import { assertResumeProvenance } from '../persistence/session-provenance.js';
 import { dispatchSessionHook } from './hooks.js';
 import { ContractError } from '../ids.js';
+import { restoreSessionLineage } from '../session-lineage.js';
 
 export async function initializeEngine(engine, operations, options = {}) {
   await engine.lock?.acquire();
@@ -48,6 +49,7 @@ async function restoreDurableEngine(engine, operations) {
     throw new ContractError('journal_corrupt', `verified prefix preserved at ${recovered.recoveryPath}`);
   }
   assertResumeProvenance(recovered.headerRecords, engine.config.executionManifest, engine.config.mission);
+  if (recovered.headerRecords.length > 0) restoreSessionLineage(engine, recovered.headerRecords);
   engine.restoredJournalRecords = recovered.records;
   engine.resumeBoundary = { beforeSequence: recovered.records[0]?.sequence ?? null, hasMore: recovered.truncated };
   const interrupted = await operations.restore(recovered.records, recovered.truncated, recovered);

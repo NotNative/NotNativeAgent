@@ -33,6 +33,14 @@ and never replays external work. Ephemeral sessions instantiate no store.
 They also instantiate no durable reviewer ledger, do not produce automatic memory
 writes, and remove managed ephemeral attachments during shutdown.
 
+Subagent sessions have independent identities and journals. Before child execution, the
+parent persists a `subagent_session` association with parent session, turn, step, launching
+tool request, child session, agent run, and role. The child persists the same immutable
+lineage in its session header. Parent lifecycle records track initialization and terminal
+outcomes. Recovery restores child lineage without replaying delegated work. Ephemeral
+sessions retain associations only in bounded memory. Lineage is diagnostic state and
+never grants authority. Desktop registries observe this association rather than own it.
+
 Provider profiles are generic endpoint/model/trust-zone records. The router has
 primary, reviewer, subagent, and vision role slots with bounded, cycle-checked
 fallbacks. Capability-incompatible and less-trusted candidates are excluded before
