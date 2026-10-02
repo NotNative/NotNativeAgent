@@ -3,7 +3,10 @@
 export function contextCompactionText(record) {
   if (!record || typeof record !== 'object') return '! Context compaction failed | unknown';
   if (record.status === 'started') {
-    return `  CONTEXT | compacting | current ${formatTokens(record.before_estimated_tokens)} -> target <= ${formatTokens(record.target_tokens)}`;
+    const trigger = record.trigger ? ` | trigger ${record.trigger}` : '';
+    const window = record.context_window_tokens ? ` | window ${formatTokens(record.context_window_tokens)}` : '';
+    const basis = record.measurement_basis === 'complete_provider_input' ? 'estimated input' : 'current';
+    return `  CONTEXT | compacting | ${basis} ${formatTokens(record.before_estimated_tokens)} -> target <= ${formatTokens(record.target_tokens)}${trigger}${window}`;
   }
   if (record.status === 'completed') {
     const protectedText = record.protected_turns > 0 ? ` | protected ${record.protected_turns} recent turns` : '';

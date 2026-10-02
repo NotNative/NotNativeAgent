@@ -16,6 +16,13 @@ as a compatibility fallback. Identities are scoped to the recorded turn. Missing
 identities do not associate unrelated records. Unresolved results remain independent evidence;
 receipt targets, supersession, and continuation completion facts require a resolved exchange.
 
+Full compaction reports comparable estimated complete provider input before and after the
+projection, including tool schemas and generated instructions. Serialized journal estimates
+are separate diagnostic fields. Status and telemetry identify the counting basis, trigger,
+window, output reserve, calibration and retry scales, and limiting byte or token ceiling.
+Compression efficacy identifies its own projection basis; provider-reported usage remains
+separate from tokenizer estimates.
+
 NNA classifies compression work into four classes:
 
 | Class | Meaning | Permitted behavior |

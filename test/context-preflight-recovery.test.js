@@ -4,6 +4,7 @@ import test from 'node:test';
 import { prepareEngineContext } from '../src/engine/context-preparation.js';
 import { ReliabilityEngine } from '../src/reliability-engine.js';
 import { measureContext } from '../src/context.js';
+import { measureCompactionInput } from '../src/engine/compaction-measurement.js';
 
 function fixture(enrichment = {}, tools = []) {
   const route = { model: 'fixture', profile: { id: 'fixture' }, maxOutputTokens: 1024 };
@@ -82,4 +83,43 @@ test('settled-turn age refreshes a large-window hot context before pressure is r
   assert.ok(context.some((message) => message.role === 'user'
     && message.content === 'Continue with the current task.'));
   assert.ok(run.engine.transcript.some((record) => record.type === 'compaction'));
+});
+
+test('compaction compares complete provider input and keeps journal metadata separate', async () => {
+  const measurements = [];
+  for (const diagnostic of ['', 'x'.repeat(90000)]) {
+    const run = fixture({}, [{ type: 'function', function: { name: 'inspect', description: 'inspect safely', parameters: { type: 'object' } } }]);
+    const output = [], telemetry = [];
+    run.engine.surface = 'interactive_tui';
+    run.engine.output = async (record) => output.push(record);
+    run.engine.telemetry = { record: (event, status, detail) => telemetry.push({ event, status, detail }) };
+    run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'inspect', metadata: { diagnostic } }];
+    const context = await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, true, run.operations);
+    const started = output.find((record) => record.type === 'context_compaction_status' && record.status === 'started');
+    const completed = output.find((record) => record.type === 'context_compaction_status' && record.status === 'completed');
+    const expected = measureCompactionInput(run.engine, run.engine.router.candidates()[0], context, run.active, run.budget);
+    assert.equal(completed.after_estimated_tokens, expected.estimated_input_tokens);
+    assert.equal(started.measurement_basis, 'complete_provider_input');
+    assert.equal(completed.measurement_basis, started.measurement_basis);
+    assert.equal(completed.before_estimated_tokens, started.before_estimated_tokens);
+    assert.equal(telemetry.find((row) => row.event === 'context.compaction' && row.status === 'succeeded').detail.after_estimated_tokens, completed.after_estimated_tokens);
+    measurements.push(started);
+  }
+  assert.equal(measurements[0].before_estimated_tokens, measurements[1].before_estimated_tokens);
+  assert.ok(measurements[1].journal_estimated_tokens > measurements[0].journal_estimated_tokens + 25000);
+});
+
+test('long-horizon compaction reports its trigger and diagnostic ceilings', async () => {
+  const run = fixture(); const output = [];
+  run.engine.surface = 'interactive_tui'; run.engine.output = async (record) => output.push(record);
+  run.engine.transcript = Array.from({ length: 9 }, (_, index) => ({
+    type: 'message', role: 'user', turnId: index === 8 ? 'current' : `old-${index}`, content: 'continue',
+  }));
+  await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations);
+  const started = output.find((record) => record.type === 'context_compaction_status' && record.status === 'started');
+  assert.equal(started.trigger, 'completed_turn_interval');
+  assert.equal(started.context_window_tokens, run.budget.windowTokens);
+  assert.equal(started.output_reserve_tokens, run.budget.outputReserveTokens);
+  assert.equal(started.threshold_bytes, run.budget.thresholdBytes);
+  assert.equal(started.retry_scale, 1);
 });

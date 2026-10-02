@@ -11,3 +11,11 @@ test('context compaction status is concise and visible', () => {
   }), /Context compacted.*retained 17.*protected 6 recent turns.*reduced 2 payloads/u);
   assert.match(contextCompactionText({ status: 'failed', reason_code: 'compaction_insufficient' }), /compaction failed.*compaction_insufficient/u);
 });
+
+test('compaction display identifies estimated input, trigger, and model window', () => {
+  const text = contextCompactionText({ status: 'started', measurement_basis: 'complete_provider_input',
+    before_estimated_tokens: 55938, target_tokens: 41953, trigger: 'tool_payload_budget', context_window_tokens: 300000 });
+  assert.match(text, /estimated input 55,938 tokens/u);
+  assert.match(text, /trigger tool_payload_budget/u);
+  assert.match(text, /window 300,000 tokens/u);
+});

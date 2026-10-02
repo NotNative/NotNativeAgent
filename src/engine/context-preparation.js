@@ -8,6 +8,7 @@ import { ContractError } from '../ids.js';
 import { estimateUtf8Tokens } from '../reliability/context-budget.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
 import { toolLifecycleStatus, toolReviewOutcome } from '../tools/tool-result-contract.js';
+import { compactionBudgetDetail, measureCompactionInput } from './compaction-measurement.js';
 
 const MIN_COMPACTION_BUDGET_BYTES = 8_192;
 const COMPACTION_REDUCTION_FACTOR = 0.6;
@@ -48,17 +49,18 @@ export async function prepareEngineContext(engine, records, content, active, for
     approvedProposal: active.approvedProposal,
   });
   return compactContext(engine, records, content, active, operations, {
-    routes, runtime, planned, budget, hardLimit, cacheAlignedRequest,
+    routes, runtime, planned, budget, hardLimit, cacheAlignedRequest, beforeContext: rawContext,
   });
 }
 
 async function compactContext(engine, records, content, active, operations, plan) {
   const { routes, runtime, planned, hardLimit } = plan;
   engine.state.transition('compacting_context', { trigger: 'context_preflight', turnId: active.turnId });
-  const beforeEstimatedTokens = estimatedTranscriptTokens(records, content);
+  const beforeEstimatedTokens = measureCompactionInput(engine, routes[0], plan.beforeContext, active, planned).estimated_input_tokens;
   const targetTokens = desiredCompactionTarget(planned, beforeEstimatedTokens);
   const budget = Math.min(plan.budget, Math.max(MIN_COMPACTION_BUDGET_BYTES, targetTokens * ESTIMATED_BYTES_PER_TOKEN));
-  const started = compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens);
+  const started = { ...compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens),
+    journal_estimated_tokens: estimateUtf8Tokens(JSON.stringify(records)) + estimateUtf8Tokens(content) };
   await emitCompactionStatus(engine, active, 'started', started);
   recordCompactionTelemetry(engine, active, 'started', started);
   const lifecycle = engine.lifecycles.start('compaction', active.turnId);
@@ -76,17 +78,16 @@ async function compactContext(engine, records, content, active, operations, plan
     );
     await addHookContexts(engine, active, post);
     engine.lifecycles.finish(lifecycle.id, 'completed');
-    await emitCompactionStatus(engine, active, 'completed', compactionCompletedDetail(active, fact, beforeEstimatedTokens));
-    recordCompactionTelemetry(engine, active, 'succeeded', compactionProjectionDetail(active, fact));
-    recordCompressionEfficacy(engine, active, records, [
-      { type: 'message', role: 'system', content: fact.summary ?? '' },
-      ...(fact.retainedRecords ?? []),
-    ], [
+    const afterEstimatedTokens = measureCompactionInput(engine, routes[0], context, active, planned).estimated_input_tokens;
+    const completed = { ...started, ...compactionCompletedDetail(active, fact, beforeEstimatedTokens), after_estimated_tokens: afterEstimatedTokens };
+    await emitCompactionStatus(engine, active, 'completed', completed);
+    recordCompactionTelemetry(engine, active, 'succeeded', { ...compactionProjectionDetail(active, fact), ...completed });
+    recordCompressionEfficacy(engine, active, plan.beforeContext, context, [
       { name: 'content_identity_dedup_v1', class: 'recoverable', records: fact.projection?.duplicateResultRecords, bytesSaved: fact.projection?.duplicateResultBytesSaved },
       { name: 'same_target_supersession_v1', class: 'recoverable', records: fact.projection?.supersededRecords },
       { name: 'ledger_backed_receipt_v1', class: 'recoverable', records: fact.projection?.boundedReceiptRecords },
       { name: 'validated_continuation_v1', class: 'semantic', records: 1 },
-    ], 'full_compaction');
+    ], 'full_compaction', 'rendered_provider_context');
     active.contextCompressionTrigger = null;
     return context;
   } catch (error) {
@@ -94,7 +95,7 @@ async function compactContext(engine, records, content, active, operations, plan
     await operations.publish('compaction.terminal', 'compaction', 'terminal', active, 'failed');
     await emitCompactionStatus(engine, active, 'failed', { reason_code: error.code ?? 'compaction_failed' });
     recordCompactionTelemetry(engine, active, 'failed', {
-      trigger: active.contextRetryScale < 1 ? 'provider_context_limit' : 'automatic_threshold',
+      trigger: compactionTrigger(active),
       reason_code: error.code ?? 'compaction_failed',
     }, error.code ?? 'compaction_failed');
     throw error;
@@ -288,6 +289,7 @@ function compactionStartedDetail(active, planned, beforeEstimatedTokens, targetT
   return {
     trigger: compactionTrigger(active), before_estimated_tokens: beforeEstimatedTokens,
     target_tokens: targetTokens, admissible_ceiling_tokens: planned.scaledTokens,
+    ...compactionBudgetDetail(planned, active.contextRetryScale),
   };
 }
 
@@ -341,10 +343,10 @@ function recordCompactionTelemetry(engine, active, status, detail, reasonCode = 
   });
 }
 
-function recordCompressionEfficacy(engine, active, before, after, reducers, trigger) {
+function recordCompressionEfficacy(engine, active, before, after, reducers, trigger, measurementBasis = 'serialized_record_projection') {
   const measurement = engine.reliability.measureContextCompression(before, after, { reducers });
   engine.telemetry?.record('context.compression_efficacy', 'measured', {
-    trigger,
+    trigger, measurement_basis: measurementBasis,
     before_bytes: measurement.before_bytes,
     after_bytes: measurement.after_bytes,
     bytes_saved: measurement.bytes_saved,
@@ -372,10 +374,6 @@ function emitCompactionStatus(engine, active, status, detail) {
   });
 }
 
-function estimatedTranscriptTokens(records, content) {
-  return estimateUtf8Tokens(JSON.stringify(records)) + estimateUtf8Tokens(content);
-}
-
 function recordBudget(engine, runtime, planned, active) {
   engine.telemetry?.record('context.budget', 'measured', {
     provider_profile: runtime.providerId, model: runtime.model,
@@ -388,5 +386,7 @@ function recordBudget(engine, runtime, planned, active) {
     context_estimate_scale: planned.estimateScale,
     parallel_capacity: planned.parallelCapacity,
     hard_limit_bytes: planned.hardLimitBytes,
+    threshold_bytes: planned.thresholdBytes, scaled_tokens: planned.scaledTokens,
+    retry_scale: active.contextRetryScale, binding_ceiling: compactionBudgetDetail(planned, active.contextRetryScale).binding_ceiling,
   }, { turnId: active.turnId, stepId: active.stepId });
 }

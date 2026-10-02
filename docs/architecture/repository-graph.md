@@ -39,7 +39,7 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Agentic Engine | 24 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, OpenCode surface, Product foundation, Tools |
+| Agentic Engine | 25 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, OpenCode surface, Product foundation, Tools |
 | Governance Engine | 11 | Governance Engine, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Guidance and extensions, Product foundation, Tools |
 | Experience Engine | 93 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Experience Engine, Integration surfaces, Product foundation, Providers |
 | Reliability Engine | 36 | Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools |
@@ -66,7 +66,7 @@ Counts represent static local imports. Same-component imports are included becau
 | Reliability Engine | Reliability Engine | 49 | 18 |
 | OpenCode surface | OpenCode surface | 46 | 19 |
 | Agentic Engine | Product foundation | 44 | 17 |
-| Agentic Engine | Agentic Engine | 38 | 11 |
+| Agentic Engine | Agentic Engine | 40 | 12 |
 | Integration surfaces | Product foundation | 35 | 10 |
 | Product foundation | Persistence | 30 | 21 |
 | Providers | Product foundation | 26 | 18 |
@@ -91,4 +91,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:01a59109170e22ef8b85a9b486487a011fa7d210c2b0683e5c400ad0ccd457c3`.
+Source fingerprint: `sha256:866d6779b6564be8e5245e8a483157691243bb37f36fc46f012f1404829dc6b1`.

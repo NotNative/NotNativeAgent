@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:01a59109170e22ef8b85a9b486487a011fa7d210c2b0683e5c400ad0ccd457c3",
+  "source_digest": "sha256:866d6779b6564be8e5245e8a483157691243bb37f36fc46f012f1404829dc6b1",
   "counts": {
-    "modules": 469,
+    "modules": 470,
     "component_edges": 81
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 24
+      "module_count": 25
     },
     {
       "id": "governance-engine",
@@ -162,8 +162,8 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 38,
-      "module_count": 11
+      "import_count": 40,
+      "module_count": 12
     },
     {
       "from": "integrations",
@@ -987,6 +987,14 @@
       ]
     },
     {
+      "path": "src/engine/compaction-measurement.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/runtime-helpers.js"
+      ]
+    },
+    {
       "path": "src/engine/completion-evidence.js",
       "component": "agentic-engine",
       "entrypoint": false,
@@ -1044,6 +1052,7 @@
       "entrypoint": false,
       "imports": [
         "src/context.js",
+        "src/engine/compaction-measurement.js",
         "src/engine/context-status.js",
         "src/engine/hooks.js",
         "src/engine/runtime-helpers.js",
