@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:a7fed5472d603421da616333318e7bb7700a43d665419f5f224556feba4c4853",
+  "source_digest": "sha256:fabf98a60fd71574807de2967c06c3303cca19d8a8d3a42908a82e901e9c315d",
   "counts": {
-    "modules": 462,
+    "modules": 466,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 166
+      "module_count": 170
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 385,
-      "module_count": 142
+      "import_count": 413,
+      "module_count": 146
     },
     {
       "from": "experience-engine",
@@ -179,15 +179,15 @@
     },
     {
       "from": "foundation",
-      "to": "integrations",
-      "import_count": 22,
-      "module_count": 11
+      "to": "persistence",
+      "import_count": 24,
+      "module_count": 18
     },
     {
       "from": "foundation",
-      "to": "persistence",
-      "import_count": 19,
-      "module_count": 15
+      "to": "integrations",
+      "import_count": 22,
+      "module_count": 11
     },
     {
       "from": "foundation",
@@ -1970,6 +1970,64 @@
       ]
     },
     {
+      "path": "src/nnd-activation-candidate.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-initialization-db.js",
+        "src/nnd-activation-journal.js",
+        "src/nnd-install-storage-paths.js",
+        "src/nnd-install-storage-provenance.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction.js",
+        "src/nnd-package.js",
+        "src/nnd-payload-contract.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-lock.js",
+        "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
+      "path": "src/nnd-activation-initialization-db.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-payload-contract-files.js"
+      ]
+    },
+    {
+      "path": "src/nnd-activation-journal.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-lock.js"
+      ]
+    },
+    {
+      "path": "src/nnd-activation-preparation.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-candidate.js",
+        "src/nnd-activation-initialization-db.js",
+        "src/nnd-activation-journal.js",
+        "src/nnd-install-marker.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-legacy-census.js",
+        "src/nnd-migration-storage.js",
+        "src/nnd-service-contract.js",
+        "src/nnd-service-lock.js",
+        "src/nnd-service-private-windows.js",
+        "src/persistence/manifest-lock.js",
+        "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
       "path": "src/nnd-active-tools.js",
       "component": "tools",
       "entrypoint": false,
@@ -2254,6 +2312,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-activation-initialization-db.js",
         "src/nnd-install-initialization-db.js",
         "src/nnd-payload-contract-files.js",
         "src/nnd-payload-contract.js",
@@ -2684,6 +2743,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-activation-candidate.js",
         "src/nnd-install-marker.js",
         "src/nnd-package.js",
         "src/nnd-service-admission.js",
@@ -2691,7 +2751,8 @@
         "src/nnd-service-controller.js",
         "src/nnd-service-discovery.js",
         "src/nnd-service-lock.js",
-        "src/nnd-service-native.js"
+        "src/nnd-service-native.js",
+        "src/product.js"
       ]
     },
     {

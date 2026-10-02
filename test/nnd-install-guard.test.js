@@ -55,7 +55,10 @@ test('installer parent loss retains singleton until explicit operator recovery',
     await assert.rejects(acquireNndServiceLock({ dataRoot: root }), { code: 'nnd_service_already_running' });
     child.kill(); await exited;
     await assert.rejects(assertNoNndInstallMarker({ data_root: root }), { code: 'nnd_install_guard_orphaned' });
-    await assert.rejects(startNndSupervisor({ data_root: root }, {}), { code: 'nnd_install_guard_orphaned' });
+    const identityLease = await acquireNndServiceLock({ dataRoot: root });
+    const dataId = identityLease.dataId; await identityLease.close();
+    await assert.rejects(startNndSupervisor({ data_root: root, installation_id: 'selected', data_id: dataId }, {}),
+      { code: 'nnd_install_guard_orphaned' });
     const lease = await acquireNndServiceLock({ dataRoot: root }); await lease.close();
   } finally { if (child.exitCode === null && child.signalCode === null) { child.kill(); await exited; } }
 });

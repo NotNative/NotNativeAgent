@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { open, mkdir, realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 import { validateNndPackage } from './nnd-package.js';
-import { acquireNndServiceLock } from './nnd-service-lock.js';
+import { acquireNndServiceLock, assertHeldNndServiceLease } from './nnd-service-lock.js';
 import { createNndDiscoveryGeneration, publishNndDiscoveryGeneration, removeNndDiscoveryPointer,
   readNndServiceDiscovery } from './nnd-service-discovery.js';
 import { startNndNativeService } from './nnd-service-native.js';
@@ -12,6 +13,8 @@ import { startNndController } from './nnd-service-controller.js';
 import { launchNndServiceChild } from './nnd-service-child.js';
 import { admitFreshNndServiceData } from './nnd-service-admission.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
+import { consumeNndTrialCapability } from './nnd-activation-candidate.js';
+import { userDataPaths } from './product.js';
 
 async function readMetadata(path) {
   const file = await open(path, 'r');
@@ -49,44 +52,97 @@ async function availableUiOrigin() {
 
 export async function startNndSupervisor(identity, paths, options = {}) {
   const lease = await acquireNndServiceLock({ dataRoot: identity.data_root });
-  const state = { identity, lease, native: null, child: null, controller: null, record: null,
-    published: false, stopping: false, package: null, ui: null, failure: null };
-  let resolveStop;
-  const stopped = new Promise((resolve) => { resolveStop = resolve; });
-  let closing;
-  const stop = () => { closing ??= closeSupervisor(state).then(resolveStop, (error) => {
-    state.failure = error; resolveStop({ error }); throw error;
-  }); closing.catch(() => {}); return closing; };
+  let session;
+  try { session = createSupervisorSession(identity, lease, () => lease.close()); }
+  catch (error) {
+    try { await lease.close(); } catch (cleanup) { throw new AggregateError([error, cleanup], 'NND ownership admission and cleanup failed'); }
+    throw error;
+  }
+  const { state, stop, handle } = session;
   try {
     await assertNoNndInstallMarker(identity);
     state.package = await admitNndServicePackage(paths, identity);
     await admitFreshNndServiceData(paths, identity, lease);
     const previous = await readNndServiceDiscovery(identity);
     state.native = await startNndNativeService(paths, identity, options);
-    state.controller = await startNndController({ getRecord: () => state.record, status: () => status(state),
-      stop, ticket: async () => {
-        if (!state.child || state.stopping) throw new ContractError('nnd_service_not_running', 'NND UI is unavailable');
-        return state.child.command('issue_ui_ticket');
-      } });
+    state.controller = await startNndController({ getRecord: () => state.published ? state.record : null,
+      status: () => status(state), stop, ticket: () => issueSupervisorTicket(state) });
     state.record = await createNndDiscoveryGeneration(identity, lease, { endpoint: state.controller.endpoint });
-    const nndData = join(identity.data_root, 'nnd'); await mkdir(nndData, { recursive: true });
-    const ui_origin = await availableUiOrigin();
-    state.child = launchNndServiceChild(identity, state.package.entrypoint, {
-      type: 'bootstrap', protocol: '1.0', installation_id: identity.installation_id, data_id: identity.data_id,
-      generation: state.record.instance_id, nna_install_root: identity.install_root, nna_data_root: identity.data_root,
-      nnd_data_root: await realpath(nndData), ui_origin, engine: { endpoint: state.native.endpoint, token: state.native.token },
-    }, { version: state.package.version });
-    await state.child.ready; state.ui = ui_origin;
+    await startSupervisorChild(session, paths);
+    assertHeldNndServiceLease(lease, identity.data_id);
     await publishNndDiscoveryGeneration(identity, lease, state.record.instance_id, previous?.instance_id ?? null);
     state.published = true;
-    state.child.exited.then(() => { if (!state.stopping) { state.failure = new Error('NND child exited'); void stop(); } });
-    state.child.fatal.then((error) => { if (!state.stopping) { state.failure = error; void stop(); } });
-    lease.lost.then((error) => { if (error) { state.failure = error; void stop(); } });
-    return { status: () => status(state), stop, stopped };
-  } catch (error) {
-    try { await stop(); } catch (cleanup) { throw new AggregateError([error, cleanup], 'NND start and cleanup failed'); }
-    throw error;
+    monitorSupervisor(session);
+    return handle;
+  } catch (error) { return failSupervisorStart(session, error); }
+}
+function createSupervisorSession(identity, lease, releaseLease) {
+  assertHeldNndServiceLease(lease, identity.data_id);
+  const state = { identity, lease, releaseLease, native: null, child: null, controller: null, record: null,
+    published: false, stopping: false, package: null, ui: null, failure: null };
+  let resolveStop, closing;
+  const stopped = new Promise(resolve => { resolveStop = resolve; });
+  const stop = () => {
+    closing ??= closeSupervisor(state).then(resolveStop, error => {
+      state.failure = error; resolveStop({ error }); throw error;
+    });
+    closing.catch(() => {}); return closing;
+  };
+  return { state, stop, handle: Object.freeze({ status: () => status(state), stop, stopped }) };
+}
+// Security: the only exported trial entry consumes a one-use, receipt-bound native capability.
+export async function startNndOwnedTrial(identity, paths, lease, registryLease, capability, options = {}) {
+  const expected = userDataPaths({ environment: { NNA_HOME: identity.data_root } });
+  const same = (left, right) => process.platform === 'win32'
+    ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
+  if (!paths || Object.entries(expected).some(([key, value]) => typeof paths[key] !== 'string' || !same(paths[key], value))) {
+    throw new ContractError('nnd_activation_candidate_invalid', 'NND trial paths do not match the selected native data root');
   }
+  const admittedPackage = consumeNndTrialCapability(capability, identity, lease, registryLease);
+  return startUnpublishedTrial(identity, paths, lease, admittedPackage, options);
+}
+async function startUnpublishedTrial(identity, paths, lease, admittedPackage, options = {}) {
+  const session = createSupervisorSession(identity, lease, null);
+  session.state.package = admittedPackage;
+  session.state.record = Object.freeze({ instance_id: randomUUID() });
+  try {
+    session.state.native = await startNndNativeService(paths, identity, options);
+    await startSupervisorChild(session, paths);
+    monitorSupervisor(session);
+    return session.handle;
+  } catch (error) { return failSupervisorStart(session, error); }
+}
+async function startSupervisorChild(session, paths) {
+  const { state } = session, { identity } = state;
+  assertHeldNndServiceLease(state.lease, identity.data_id);
+  const nndData = join(identity.data_root, 'nnd'); await mkdir(nndData, { recursive: true });
+  const ui_origin = await availableUiOrigin();
+  state.child = launchNndServiceChild(identity, state.package.entrypoint, {
+    type: 'bootstrap', protocol: '1.0', installation_id: identity.installation_id, data_id: identity.data_id,
+    generation: state.record.instance_id, nna_install_root: identity.install_root, nna_data_root: identity.data_root,
+    nnd_data_root: await realpath(nndData), ui_origin, engine: { endpoint: state.native.endpoint, token: state.native.token },
+  }, { version: state.package.version });
+  await state.child.ready;
+  assertHeldNndServiceLease(state.lease, identity.data_id);
+  state.ui = ui_origin;
+}
+async function issueSupervisorTicket(state) {
+  if (!state.published || !state.child || state.stopping) {
+    throw new ContractError('nnd_service_not_running', 'NND UI is unavailable');
+  }
+  assertHeldNndServiceLease(state.lease, state.identity.data_id);
+  return state.child.command('issue_ui_ticket');
+}
+function monitorSupervisor(session) {
+  const { state, stop } = session;
+  const failed = error => { if (!state.stopping) { state.failure = error; void stop(); } };
+  state.child.exited.then(() => failed(new Error('NND child exited')));
+  state.child.fatal.then(failed);
+  state.lease.lost.then(error => { if (error) failed(error); });
+}
+async function failSupervisorStart(session, error) {
+  try { await session.stop(); } catch (cleanup) { throw new AggregateError([error, cleanup], 'NND start and cleanup failed'); }
+  throw error;
 }
 async function closeSupervisor(state) {
   state.stopping = true;
@@ -95,7 +151,7 @@ async function closeSupervisor(state) {
   // Invariant: uncertain writers retain both the process and singleton lease for operator diagnosis.
   if (errors.length) throw new AggregateError(errors, 'NND shutdown incomplete; singleton remains held');
   if (state.published) await removeNndDiscoveryPointer(state.identity, state.lease, state.record.instance_id);
-  await state.controller?.close(); await state.lease.close();
+  await state.controller?.close(); await state.releaseLease?.();
 }
 function status(state) {
   const runtime = state.native?.runtime.snapshot();

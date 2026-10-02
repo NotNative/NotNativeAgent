@@ -8,6 +8,7 @@ import { PRIVATE_ACL_PROGRAM, runPrivateWindowsProgram } from './nnd-service-pri
 import { readPayloadBytes } from './nnd-payload-contract.js';
 import { noLinks } from './nnd-payload-contract-files.js';
 import { hasInstallInitialization } from './nnd-install-initialization-db.js';
+import { hasActivationInitialization, hasActivationEvidence } from './nnd-activation-initialization-db.js';
 export const installCapacity = () => new ContractError('nnd_install_store_full','NND slot storage is full. Preserve existing slots and use native maintenance before staging another version.');
 export const installError = () => new ContractError('nnd_install_transaction_invalid','NND slot transaction evidence could not be verified; existing state was preserved.');
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -52,8 +53,10 @@ export async function removeInstallOwned(path,bytes) {
 }
 export async function assertNoNndInstallTransaction(identity) {
  const path=join(identity.data_root,'runtime','nnd','installation-pending.json');
- try { await lstat(path); } catch(error) { if(error.code==='ENOENT'&&!await hasInstallInitialization(identity.data_root)) return; if(error.code!=='ENOENT')throw installError(); }
- throw new ContractError('nnd_install_transaction_pending','NND slot staging has pending evidence; native recovery is required.');
+ try { await lstat(path); } catch(error) { if(error.code==='ENOENT'&&!await hasInstallInitialization(identity.data_root)
+  &&!await hasActivationInitialization(identity.data_root)
+  &&!await hasActivationEvidence(identity.data_root)) return; if(error.code!=='ENOENT')throw installError(); }
+ throw new ContractError('nnd_install_transaction_pending','NND installation or activation has pending evidence; native recovery is required.');
 }
 export async function openInstallStore(identity,signal) {
  const runtime=await ensurePrivateNndRuntimeDirectory(identity.data_root,{signal});
