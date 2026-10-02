@@ -1,5 +1,13 @@
 # NotNativeDesktop — Doc 02: OpenCode Harness Integration Contract
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Status: cleanroom reference. Derived from OpenChamber at `@opencode-ai/sdk` **1.18.30** (root `package.json`). Source paths are cited as `(src: <repo path>)` for traceability only — the target team must implement from this document alone and must treat every table, enum, and default here as the contract.
 
 Audience: engineers rebuilding OpenChamber's UI/UX on a **replacement agentic harness** ("the harness") that supplies the same capabilities OpenCode supplies today. Doc 04 (`04-sync-and-state-engine.md`) owns what the browser does with events; doc 03 (`03-server-and-api-reference.md`) owns the complete OpenChamber route table; doc 12 owns goals/multirun/scheduled orchestration. This document owns the **seam between UI, OpenChamber server, and the harness**.

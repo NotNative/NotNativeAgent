@@ -1,6 +1,17 @@
 # Architecture decision 0020: NNA ecosystem topology
 
-Status: accepted (design freeze with NNA-side stub 0020-ecosystem-integration.md).
+Status: accepted; product direction amended 2026-10-01.
+
+## Current build authority
+
+The [executable build guide](../build/PLAN.md) defines the Windows same-computer
+release and changes required in the existing repositories. NND remains separately
+installed and optional. Its installer detects compatible NNA and guides missing
+setup. NNA retains its own TUI identity, tabs, sessions and interaction lifecycle.
+NND is not a container for the TUI. Browser and desktop share NND's own collection.
+All supported operator-configurable NNA settings must be available through the GUI
+using native contracts; this does not make engine configuration surface-local.
+The paired NNA ADR must be reconciled during L1 before its lifecycle contract changes.
 
 ## Decision
 
@@ -12,8 +23,9 @@ without a web or desktop interface. NND provides the GUI as an integration packa
 client. NNO is the business layer that installs on top of NNA and drives it.
 
 The three products keep separate repositories, identities, and responsibilities. The
-seam between them is NNA's harness surface (doc 02 owns the wire contract; the
-P-01…P-24 port catalog is the implementation checklist). OpenChamber is inspiration
+seam between them is NNA's versioned native integration surface. Reference doc 02
+and the P-01…P-24 port catalog inventory consumers; they do not prescribe native
+wire semantics. OpenChamber is inspiration
 for NND's product surface only; it is not an integration target or architectural
 authority.
 
@@ -34,7 +46,9 @@ registers the built package with NNA before declaring success. An
 NND client can only connect to an NNA instance with the NND web-service package
 installed. GUI access is installed, like NNO — it is not a congenital feature
 of the harness. A separately launched service process is an internal package
-component for NNA supervision, not a standalone NND product install.
+component under NNA supervision. NND still has its own product installer and
+upgrade/removal lifecycle; this does not authorize an independently supervised
+copy of NNA inside NND.
 
 ## Local integration boundary
 
@@ -51,43 +65,51 @@ or Electron renderer consumes that process stream directly. The final transport 
 must preserve the harness contract, authenticated authority, replayable projection
 frames, cancellation, and bounded recovery.
 
-This decision intentionally does not define a new wire format. The NNA package
-activation contract and doc 02 own that work; the current mock adapter remains a
-development seam until their contract test suite can replace it.
+This decision intentionally does not define a new wire format. Native NNA
+activation and integration contracts own that work, with paired contract tests.
+The native adapter already exists; preserve and extend it. Mock adapters remain
+isolated test seams and cannot establish production feature completion.
 
 ## Engine contexts and lifecycle
 
 - An **engine context** is one NNA engine instance scoped by surface identity,
   principal/entitlement, and directory root. Contexts spawn per consumer; the engine
   stays single-principal per instance.
-- The **root spine** is the admin's resident context: TUI attaches to it, daemon
-  lifecycle wraps it, and delegated consumers (NNO users, gateway conversations)
-  spawn their own contexts through the headless mechanism.
+- Resident service contexts belong to NNA. NND and delegated consumers receive
+  their own authenticated contexts. The independent TUI retains its tab/session
+  lifecycle; no shared resident TUI/NND session collection is required.
 - Delegated contexts run with the acting principal's entitlement (run-as isolation).
   NNA must never see more than the user it acts for.
 - Lifecycle split (confirmed): NNA core owns daemon lifecycle commands
-  (`nna service start/stop/status`, OS service registration, health probes), headless
-  with zero desktop dependencies. NND-local contributes tray and shell as the face of
-  that lifecycle API. `nna` in a terminal attaches to the resident spine when present
-  and falls back to an ephemeral TUI-owned engine otherwise.
+  (planned service start/stop/status, startup registration and health probes),
+  headless with zero desktop dependencies. NND contributes tray and shell controls
+  for that lifecycle API. The independent TUI keeps its current tab/session model;
+  TUI attachment to a resident engine is not an NND implementation prerequisite.
+  The initial Windows service runs under the operator's account, survives GUI exits,
+  and follows the explicit sign-in/logoff policy in execution guide 02.
 
 ## State and configuration authority
 
-1. **Turn state**: NNA's projection is the single authority (authored state machine:
-   idle → preparing → waiting_provider → reasoning → streaming → awaiting_approval →
-   running_tool → recovering → attention_required → cancelling → failed / needs_input).
+1. **Turn state**: NNA's projection is the single authority (authored phase vocabulary:
+   idle, preparing, waiting_provider, reasoning, streaming, awaiting_approval,
+   running_tool, recovering, attention_required, cancelling, failed, needs_input).
+   This list does not prescribe a linear transition order; use NNA's native machine.
    Projection frames are first-class wire payloads with replay. NND maps frame state
    to presentation and DOES NOT derive its own turn state; client `idle|busy|retry`
    remains only as replica bookkeeping.
 2. **Surface configuration**: each surface owns its own sessions and its own
    configuration. TUI tabs, NND folders, and directory-less general chats belong to
    the surface that created them; there is no cross-surface session sharing (v1).
-   Conversation-model choice is the only engine-facing selection inside a chat;
-   everything else (presets, defaults, theme, layout) is surface-local.
+   Layout, drafts and presentation preferences remain surface-local. NNA owns
+   engine configuration, effective defaults and their legal scopes. The NND GUI
+   exposes all supported operator settings through native validated contracts.
+   Session model/agent/tool overrides require native admission; current configured
+   model restrictions remain until those contracts exist.
 3. **Resolved parameters**: the engine owns the resolved per-conversation values
-   (model, agent, tools currently active). Named presets live surface-side and fill
-   parameter fields at request time; per-request overrides ride the existing prompt
-   body fields.
+   (model, agent, tools currently active). Surface presets may express requested
+   choices only through native-advertised admission contracts. Current NND native
+   sessions reject prompt model/agent overrides; F5 must implement authorized
+   selection before consumers enable it. Preset storage never grants authority.
 4. **Governance**: NNA's governance engine owns decisions. The permission-mode ladder
    (default / auto-review / unattended) is a governance-owned, session-scoped policy level;
    clients (TUI shift+tab, NND toggle) set it and present it, never decide it.
@@ -105,13 +127,18 @@ development seam until their contract test suite can replace it.
 ## Web and desktop mirror
 
 The web GUI is primary; the desktop shell renders it. Desktop and web are two doors
-to one served bundle, so cross-door mirroring is inherent, not synchronized.
+to one served bundle and authoritative NND collection. Each client still must
+reconcile events, snapshots, edits and reconnects; sharing assets does not itself
+prove state consistency. Device layout may differ without changing engine state.
 
 ## Binding and trust
 
-- Default binding: loopback only. Keep the URL-token handshake even on loopback
-  (shared multi-user hosts make "local" ≠ "private"), but no auth ceremony for the
-  default single-user case.
+- Default binding: loopback only, with authenticated local bootstrap and origin
+  checks. A UI bootstrap ticket, if used, is short-lived, one-use and distinct from
+  the engine integration token/principal; exchange it for the authorized UI session
+  and remove it from the URL. Never put engine authority into renderer state or
+  URLs. L1/L3 must define the exact handshake and test other-user/guest rejection;
+  convenient single-user setup does not mean anonymous privileged routes.
 - Network exposure (0.0.0.0) is an explicit opt-in that activates NNA's auth surface
   (password/passkey/token) and recommends relay/TLS. The settings and first-run UX
   present exposure as a consent moment.
@@ -127,11 +154,15 @@ to one served bundle, so cross-door mirroring is inherent, not synchronized.
 | NNA-authored phase machine as sole wire authority | One state model for all surfaces; client mapping is presentation-only |
 | Frame replay + cursor semantics | Reconnect durability for remote clients (NND client engine depends on it) |
 | Mode get/set (governance level) | Client setters for permission modes; engine validates per principal |
-| Per-request override fields (existing) | Tab/preset profiles fill model/agent/tools at request time |
+| Per-request override contract (native work remains) | NNA admits supported model/agent/tool choices; current native NND sessions remain configured-model only |
 | Session owner/affinity and directory-less sessions | Surface-owned session collections; general chats without a bound directory |
 | Identity/entitlement header slot | Entitlement-neutral local token now; NNO principal pass-through later |
 
-## Assembly order (build-plan spine)
+## Historical assembly outline
+
+The following records the earlier assembly concept, not the remaining execution
+order or current acceptance criteria. Native adapter/projection work now exists;
+the L/C/F/V guide owns its repairs, installed migration and complete feature gates.
 
 1. NNA harness surface (doc-02 wire on `SessionEngine` + projection fold push).
 2. NND client attaches (adapter replaces the mock harness; 84 sync tests as the
@@ -139,13 +170,15 @@ to one served bundle, so cross-door mirroring is inherent, not synchronized.
 3. NND web-service package (GUI hosting fuses toward NNA packaging; NND's server
    role becomes the package, not a standalone product).
 4. NND desktop shell (Electron; remote attach rides the same client path).
-5. TUI becomes a spine client (attach-or-ephemeral; direct in-process path retires).
+5. Verify independent TUI tabs and sessions still work after NND installation,
+   operation, upgrade and removal. Do not migrate its interaction model into NND.
 6. Delegated contexts (NNO user contexts with entitlement; gateway conversation
    restore; existing NNO headless pipe migrates only when it needs the new surface).
 
-P3–P6 in NND's build plan continue inside steps 2–4. P4 re-scopes to the NND
-web-service package route surface. P11 (remote/auth) is promoted to the client's
-core feature. P12 (Electron shell) becomes the delivery vehicle for the client.
+The executable L/C/F/V packages supersede the old numbered phase ordering.
+Local authentication is required now. Remote deployment remains a later gate;
+preserve existing transport security and implementation while completing the
+Windows service, all native settings, and local chat/visibility workflows.
 
 ## Concerns register (for future operators, not current work)
 

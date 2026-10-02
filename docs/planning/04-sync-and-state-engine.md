@@ -1,5 +1,13 @@
 # 04 — Client Sync & State Engine (packages/ui/src/sync + stores)
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Cleanroom reference for the OpenChamber client-side sync and state engine. Source of truth here is
 OpenChamber's own maintained documentation (`packages/ui/src/sync/DOCUMENTATION.md`,
 `packages/ui/src/stores/DOCUMENTATION.md`) verified line-by-line against the implementation. You do

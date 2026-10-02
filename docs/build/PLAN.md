@@ -1,47 +1,134 @@
-# NotNativeDesktop — Build Plan
+# NotNativeDesktop executable build guide
 
-Cleanroom-inspired re-implementation of the OpenChamber product surface per
-`docs/planning/`, with NNA as the architectural authority. NND is an NNA-installed
-web-service integration package; its Electron application is a shell that renders the
-web GUI. Harness strategy: until the NNA activation and harness contracts are ready,
-the app runs against a **mock harness** implementing the doc-02 wire contract. Seam
-isolation is mandatory: all harness traffic flows through the server's `harness/`
-adapter so an NNA adapter drops in without touching UI/sync code.
+Status: accepted product direction; implementation work packages remain open.
+Decision date: 2026-10-01. This revision changes documentation, not runtime behavior.
 
-Ordering (user-approved): suggested reading order, shells limited to Electron.
-VS Code (10) and Mobile (11) are **long-term deferred** — their contracts stay noted in
-doc summaries but no code is written for them.
+## Product and completion contract
 
-## Phases
+NNA is an independent product with agentic, governance, and experience engines.
+Its native TUI retains its identity, tabs, sessions, and interaction lifecycle.
+NND is a separate, optional product installed on top of NNA. Its Windows installer
+detects a compatible NNA installation and guides missing installation or setup.
+Installing NND must not replace NNA or make the TUI a component of NND.
 
-| Phase | Source doc(s) | Deliverable / verification gate |
-|---|---|---|
-| P0 Scaffold + app shell | 01 | pnpm monorepo; web server boots (health/auth-session/SSE control); UI boots to initialized shell (splash→sidebar/header/chat placeholder); vitest passes; `pnpm dev` loop verified |
-| P1 Harness seam | 02 | `harness/` adapter implementing P-01…P-24 ports in mock form; SDK-facade client in UI (`{data,error}` convention, `/api` base, directory scoping, event stream); wire examples from doc 02 as fixtures |
-| P2 Sync/state engine | 04 | Event pipeline → reducers → stores; bootstrap/reconnect/recovery; optimistic sends + failure taxonomy; ordering; retention; persistence keys; correctness invariants tested |
-| P3 Chat UI | 05 | Composer, message-part renderers, work-status labels, sidebar/session UX, question/permission flows, command palette |
-| P4 NND web-service package | 03 | Route surface implemented as the NND integration package (GUI-companion routes: fs/git/projects + GUI serving), NOT a standalone server product (ADR 0020); client beam routes ride into NNA packaging with the package |
-| P5 Themes/settings | 14 | Token table, theme system, settings registry + snapshot gate, shortcuts, i18n scaffold (en first) |
-| P6 Review surfaces | 06 | File browser/editor (CM6), diff system, git view, worktrees, plan view, inline comments |
-| P7 Terminal | 07 | v3 wire protocol, PTY lifecycle (Windows ConPTY path), xterm renderer (ghostty evaluated), project actions |
-| P8 Remote/Auth (promoted) | 08 | NND client core capability per ADR 0020: password scrypt/JWT, passkeys, URL/device tokens, tunnels, pairing links, relay (contract-level; broker validated at build time). Renumbered 2026-09-18 from P11 to P8 so working slices stay in doc order (P6→06, P7→07, P8→08); old P8/P9/P10 shift down one |
-| P9 Autonomy | 12 | Session goals, scheduled tasks, message queue, multi-run/fusion |
-| P10 Knowledge/context | 15 | Knowledge blocks, memory tool surface, project context, skills, MCP config, snippets |
-| P11 Preview/inspection | 13 | Dev-server discovery, preview embedding, element inspection, walkthrough pipeline |
-| P12 Desktop shell (delivery vehicle) | 09 | NND-as-product shell: connection manager (multi-NNA instances), in-process server optional, IPC bridge + security gating, tray, boot outcome, updates, packaging |
-| P13 Integration verify | all | End-to-end run of core journeys; deferred-items register reviewed; NNA integration notes written |
-| PA Ecosystem seam | ADR 0020 | NNA activation and harness surfaces land (projection frames, NNA-authored phase authority, mode get/set, entitlement slot, lifecycle ownership); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |
-| PB Shell and doors | ADR 0020 | NND web-service package installs into and is activated by NNA; NNA-owned loopback default and explicit LAN gate; desktop shell; tray/facelifting on NNA lifecycle; browser + shell doors |
-| PC Delegated contexts | ADR 0020 | NNO user contexts with entitlement; gateway conversation contexts; entitlement-neutral local token retires the mock assumptions |
+The first complete release runs on one Windows computer. NNA owns persistent
+service lifecycle. The installed NND service serves a GUI reachable through a
+browser or Electron. Closing either interface must not stop service-owned work.
+Browser and desktop access the same NND session collection. TUI tabs remain separate.
 
-Deferred (no phase yet): 10 VS Code, 11 Mobile/Capacitor. Mini Chat window + embedded
-session-chat iframe ride in with P12 (they are Electron-surface features).
+The GUI must expose all supported operator-configurable NNA settings and the
+OpenChamber chat and visibility feature scope, translated into NNA semantics.
+NNA validates configuration, execution authority, review, and observable engine state.
+NND must not introduce auto-accept or a Full control bypass. Existing modes are
+Default, Auto-review, and Unattended; all retain mandatory review.
 
-## Working rules
+This is a broad MVP. A functional chat demonstration, registered package, large
+test count, or hidden unsupported control does not satisfy it.
 
-- Read one doc at a time → write `docs/build/NOTES/<nn>-*.md` (contract extraction +
-  implementation deltas) → implement → verify (typecheck + vitest + dev-run smoke) →
-  update `PROGRESS.md`.
-- Every deviation/approximation gets a row in the Deferred/Delta register (`PROGRESS.md`).
-- Mock behavior must be shaped by doc-02 wire examples, never invented silently.
-- Never import from planning docs at runtime; they are build-time references only.
+## Read and execute in this order
+
+| Guide | Purpose |
+|---|---|
+| [01 — Architecture and audit](EXECUTION/01-architecture-audit.md) | Authority, evidence, document dispositions, confirmed gaps, migration boundaries |
+| [02 — Installation and lifecycle](EXECUTION/02-installation-lifecycle.md) | L work packages: native lifecycle, attach contract, Windows installer and rollback |
+| [03 — Complete NNA settings](EXECUTION/03-settings.md) | C work packages: configuration census, native APIs, GUI, application and recovery |
+| [04 — Feature parity](EXECUTION/04-feature-parity.md) | F work packages: native chat, visibility, workspace, autonomy, all W-id coverage |
+| [05 — Verification and handoff](EXECUTION/05-verification.md) | V gates: installed journeys, failure injection, release evidence, agent completion procedure |
+
+Paths beginning `NND/` refer to this repository. Paths beginning `NNA/` refer to
+the independently checked out NotNativeAgent repository. Never assume matching
+version numbers imply compatible protocols. Record both commits in evidence.
+
+## Authority and interpretation
+
+1. Direct user decisions and applicable repository instructions govern execution.
+2. ADR 0020 and this guide define NND's target architecture and accepted scope.
+3. The EXECUTION guides define remaining work and acceptance criteria.
+4. `GUI-PLAN/SECTION-1-feature-inventory.md` supplies stable W-ids and UX detail.
+5. `docs/planning/00..15` records the OpenChamber reference, not NNA implementation authority.
+6. Dated NOTES, PROGRESS, EVALUATION, and old GUI slices are historical evidence.
+
+Do not copy upstream implementation code. Do not recreate OpenCode internals to
+satisfy a reference route name. Extend NNA's native contracts and adapt existing
+NND consumers. Retain compatibility adapters where needed for migration and tests.
+If a future NNA capability is required, implement and verify that dependency before
+counting its GUI complete. Proposed contracts in this guide are not existing APIs.
+
+## Execution sequence and status
+
+All following stages are **open**. Existing code is reusable evidence, not blanket closure.
+
+| Order | Stage | Entry condition | Exit condition |
+|---|---|---|---|
+| 0 | Baseline and traceability | Read this guide and check both Git trees | Pin commits; expand each assigned W-id and settings family into exact acceptance rows; preserve operator changes |
+| 1 | L1–L5: service and installation foundation | Baseline recorded | Native activation/attach contract; independent Windows service; both doors attach; transactional installation, upgrade, rollback, uninstall; authenticated setup works before provider configuration |
+| 2 | C: complete NNA configuration | Native ownership and version contract defined | Every configurable setting has a native GUI path, authoritative readback, scope and application semantics; coverage gate detects additions |
+| 3 | F: native chat and visibility | Service baseline usable; required C APIs available | Every required W-id and subfeature passes real NNA workflows; required native gaps closed |
+| 4 | L6 and V: integrated acceptance | L1–L5/C/F implementation evidence available | Fresh installed Windows journeys and failure matrix pass on pinned artifacts; release content coverage verified |
+
+Within each stage follow the guide's dependencies. Independent read-only audits
+and UI work may proceed in parallel. Do not parallelize conflicting writers or
+claim installed acceptance before the lifecycle migration. Run V journeys
+incrementally after each relevant slice; stage 4 consolidates their evidence.
+
+This is a dependency order, not a prohibition on delivering prerequisite slices
+across stages. L1 freezes the authenticated setup/configuration boundary; L2 makes
+it reachable without a usable provider. C1–C4 supply its complete settings APIs
+and GUI. L5 can verify installation in setup-required state before C/F completion.
+Its final configured onboarding journey is rerun after C4. L6 aggregates C/F
+installed journeys and therefore must not be a prerequisite for C or F work.
+Likewise, F implementation unlocks the V tests that finally verify F acceptance;
+requiring completed V before implementing F would be circular.
+
+The next implementation agent starts with L1, after verifying this baseline.
+This documentation task does not authorize itself to resume implementation.
+
+## Scope boundaries
+
+Required now: Windows same-computer install, NNA setup/configuration, local browser
+and desktop access, NND chat and visibility inventory, durable recovery, independent
+TUI operation, reviewer governance, local authentication, and safe upgrade/removal.
+Detailed W-id dispositions are in guide 04; subfeatures cannot disappear inside a
+family marked complete. External-service features require their configured provider
+and explicit acceptance evidence; unavailable credentials do not make a feature done.
+
+Remote NNA deployment, SSH provisioning, relay/tunnel deployment, NNO delegated
+organization identities, VS Code, native mobile, and non-Windows installers are
+outside this first deployment gate. Preserve existing implementations and their
+security boundaries. These deferrals do not remove local child-session visibility,
+browser functionality, or ordinary desktop chat features from the release.
+
+The baseline reference is OpenChamber 1.23.0 plus the recorded product deltas in
+NOTE 16 and the NNA-first experience in NOTE 17. Do not silently reinterpret
+"all chat features" as parity with an unspecified future upstream release.
+Record any additional discovered chat/visibility expectation before implementation.
+
+## Agent work procedure
+
+1. Select the earliest unclosed package whose dependencies are satisfied.
+2. Read actual implementation and relevant tests; classify reuse, repair, replacement,
+   or native dependency. Search for moved files before inventing new parallel modules.
+3. Record contracts and failure cases before changing their consumers.
+4. Implement one coherent slice across the owning repositories as necessary.
+5. Verify successful use, rejection, cancellation, interrupted writes, and recovery.
+6. Obtain an adversarial subagent audit. Trace each plausible defect through its
+   downstream consequence. Apply confirmed fixes; leave correct code unchanged.
+7. Record evidence, update applicable guide status and progress, regenerate graphs,
+   advance each changed product's `yyyymmdd-<increment>` version, and commit.
+8. Follow the immutable seal procedure in guide 05. Never change an already sealed
+   version's covered content and re-seal it under the same version.
+
+Do not push, deploy, change the operator's installed service, or consume paid
+external services merely to complete a development check without applicable authorization.
+Use disposable installation profiles for acceptance. A missing required environment
+is an explicitly unverified gate, not a reason to reduce the required scope.
+
+## Earlier phase crosswalk
+
+P0-P7 and P10-P11 map to reusable UI/server code and the F/C packages.
+P8's local authentication remains required; remote deployment moves after this MVP.
+P9 maps to F autonomy and native governance. P12 and PB map to L service/shell/install.
+P13 maps to V installed acceptance. PA maps across L contracts, C settings, and F
+projection/recovery; it is not closed by the current source smoke. PC organization
+delegation stays deferred; existing NND subagents remain in F's local scope.
+The earlier phase tables and Slice A-G chronology are not the execution order.

@@ -1,5 +1,12 @@
 # P12B — SLICE-B review-band working notes
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Working notes for SLICE-B (`review-band`). Contract sources: SECTION-4-slice-plan.md
 (SLICE-B, line 75+), planning/06 (§2/§5/§6/§11/§13), SECTION-3 §3.5/§3.6,
 SECTION-2 §2.5, engine-support.ts:76–85. OC reference read-only (cleanroom).

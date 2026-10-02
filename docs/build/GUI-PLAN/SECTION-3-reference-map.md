@@ -1,5 +1,11 @@
 # GUI-PLAN — Section 3: Reference map (OpenChamber → NotNativeDesktop)
 
+> **Historical record — superseded 2026-10-01:** This snapshot or slice order is not current execution authority.
+> Use [PLAN](../PLAN.md) and [EXECUTION](../EXECUTION/01-architecture-audit.md).
+> Existing references are traceability only; do not copy or transplant upstream code.
+> Revalidate cited paths and native behavior before reusing historical evidence.
+
+
 `OC:` = `D:\ProjectRepo\External\openchamber` (READ-ONLY). Everything below
 was verified by listing/reading the reference checkout (paths exist as cited).
 The docs already carry `(src: …)` citations for deeper line-level contract
@@ -27,8 +33,8 @@ the concrete port target.
 - Teleporting note: OC's server is Express + plain JS; NND's is Hono + TS —
   the port is a shape-preserving translation (route families and module
   boundaries 1:1, middleware order per docs/planning/03 §2 + Appendix A).
-  The UI side is the same stack we shipped (React/Tailwind/zustand); most
-  components transplant with mechanical renames (openchamber→notnative).
+  The UI side is the same stack we shipped (React/Tailwind/zustand); reference component paths identify behavior only.
+  Implement independently against NNA contracts; never transplant upstream components.
 
 ## 3.1 App shell, auth gate, boot (W-01…W-11, W-64, W-72)
 

@@ -1,5 +1,15 @@
 # GUI-PLAN — Section 1: Wanted feature inventory (ACCEPTANCE LIST)
 
+> **Current interpretation — 2026-10-01:** W-01–W-117 remain stable feature IDs.
+> [PLAN](../PLAN.md) owns scope; [guide 04](../EXECUTION/04-feature-parity.md) maps every ID
+> to native implementation work and acceptance. Expand each ID into subfeatures.
+> W-20, W-32, W-39, W-86 and W-114 reference auto-accept only as historical behavior:
+> use NNA-owned review modes and mandatory review. No NND auto-accept or Full control bypass.
+> W-73 process hosting becomes service attachment; NNA TUI tabs remain independent.
+> W-102 includes all configurable NNA settings through [guide 03](../EXECUTION/03-settings.md),
+> in addition to NND preferences. Mock success and hidden unsupported controls do not close parity.
+
+
 Owner: the GUI bring-up effort. Superset index: [`../GUI-PLAN.md`](../GUI-PLAN.md)
 (sections: 1 → this file · 2 → SECTION-2-current-state.md ·
 3 → SECTION-3-reference-map.md · 4 → SECTION-4-slice-plan.md).
@@ -12,8 +22,8 @@ are the docs' own acceptance lists and are the authority for "done".
 
 Conventions: wanted capabilities carry stable ids `W-xx` so slices can cite
 them. "Harness" = our agentic backend behind `packages/web/src/server/harness/*`
-(objective: NotNativeAgent "NNA"; today the `mock` adapter only. The
-contract/auth = `docs/planning/02-opencode-harness-contract.md`).
+(native product adapter: NotNativeAgent "NNA"; mock is a development seam.
+Native contracts and the execution guides govern authority; doc 02 is reference).
 
 ## Collection 1 — Wanted feature inventory (ACCEPTANCE LIST)
 

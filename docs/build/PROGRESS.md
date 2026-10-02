@@ -1,6 +1,41 @@
 # Progress Log
 
-Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
+Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
+The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
+
+## 2026-10-01 · Executable architecture and build guide · 20261001-42
+
+Documentation-only revision following the user's architecture review. NNA remains
+independent, including its TUI identity, tabs and sessions. NND remains a separately
+installed optional product. The Windows same-computer target is a persistent
+NNA-supervised NND service with browser and desktop access, all configurable NNA
+settings, and native chat/visibility parity.
+
+Replaced the old phase chronology with an executable PLAN and five linked guides:
+architecture/audit, installation/lifecycle, native settings, feature parity, and
+installed verification/handoff. The feature guide maps every W-01 through W-117;
+the settings guide defines a complete family census and requires a key-level native
+coverage ledger before implementation closure. Each package identifies existing
+code, native dependencies, changes, concrete failures and acceptance evidence.
+
+The audit records fifteen source-backed gaps or documentation contradictions,
+including desktop-owned engine lifetime, expired attach principals, upgrade and
+installation identity gaps, incomplete shipped-artifact sealing, legacy provider
+and MCP configuration paths, attachment loss, missing native session operations,
+workspace admission and configuration resolution. These are required future work;
+this slice does not claim production repairs or completed installed integration.
+
+Adversarial planning review identified dependency/verification cycles, inaccessible
+first-run setup, incomplete legacy process takeover, and browser parity loopholes.
+The revised guide requires restricted native setup/repair before provider readiness,
+separates implementation from verification closure, and gives migration explicit
+single-writer and recovery gates. Historical plans and notes carry authority notices;
+ADR 0020 and GUI planning navigation now preserve independent TUI ownership.
+
+Local guide links and all 117 feature-ID rows are checked. Final documentation,
+graph, quality/build/smoke and immutable-release checks precede the commit.
+NNA source and product version are unchanged. Product implementation remains paused;
+the next authorized implementation entry is L1, not the historical mock-first slices.
 
 ## 2026-10-01 · Native projection frames · 20261001-41 / NNA 20261001-6
 

@@ -1,5 +1,11 @@
 ## Collection 2 — Current state (verified against the repo, 2026-09-22)
 
+> **Historical record — superseded 2026-10-01:** This snapshot or slice order is not current execution authority.
+> Use [PLAN](../PLAN.md) and [EXECUTION](../EXECUTION/01-architecture-audit.md).
+> Existing references are traceability only; do not copy or transplant upstream code.
+> Revalidate cited paths and native behavior before reusing historical evidence.
+
+
 Everything below was verified by opening the cited files (line numbers from the
 current workspace). Focus: what boots, what renders, what is wired, and why the
 installed app looks nearly empty.

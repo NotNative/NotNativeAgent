@@ -1,5 +1,13 @@
 # 07 — Terminal
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Cleanroom re-implementation specification for OpenChamber's terminal subsystem: server-side PTY
 management, the binary WebSocket transport, the browser-side libghostty-vt emulator/render stack, the
 tab/dispatch UI, cross-device reattach, and project actions executed in terminals. Everything needed

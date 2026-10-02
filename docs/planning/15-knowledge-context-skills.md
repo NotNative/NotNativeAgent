@@ -1,5 +1,13 @@
 # 15 — Knowledge, Context, Skills (memory, project context, skills/MCP, obligatory context, BTW)
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Part of the **NotNativeDesktop cleanroom reference**. This document specifies
 OpenChamber's "institutional memory" stack: session knowledge, agent memory,
 project context (notes/todos/plans), the skills system, MCP management, the

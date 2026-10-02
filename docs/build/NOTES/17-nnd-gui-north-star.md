@@ -1,5 +1,12 @@
 # NND GUI north-star scan
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Date: 2026-09-24
 Scope: targeted visual-product audit of the read-only OpenChamber checkout and
 comparison with the NND GUI plan. This is an independently expressed product map.

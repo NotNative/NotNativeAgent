@@ -1,5 +1,12 @@
 # NOTES 08 - Remote access & security
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Doc read in full (2,073 lines). P8 sliced per the doc build checklist (section
 14), dependency order preserved: payload contract -> credential stores ->
 password/session/url-token -> scope+tunnel gate -> passkeys -> relay

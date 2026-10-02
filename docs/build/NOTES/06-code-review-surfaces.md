@@ -1,5 +1,12 @@
 # NOTES 06 — Review surfaces (from docs/planning/06)
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Doc read in full (1,693 lines). P6 sliced as below; nothing relaxes the
 contracts — this file records slice maps, harness-port dispositions (they
 land with PA0020), and deltas for the multi-session build.

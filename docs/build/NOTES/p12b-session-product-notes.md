@@ -1,5 +1,12 @@
 # P12B — SLICE-C session-product working notes
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Working notes for SLICE-C (`session-product`). Contract sources: SECTION-4-slice-plan.md
 (SLICE-C, ~line 116), SECTION-3-reference-map.md §3.2, planning/03 §5.22/§6.7,
 planning/05 §A.7/§A.8/§F, planning/12 §D. OC reference read-only (cleanroom).

@@ -3,6 +3,11 @@
 Enforcement that stands over the code. ADRs 0016/0017 define them; `scripts/` apply them.
 All gates compose in `pnpm run check`.
 
+Current product direction and migration work are defined by
+[ADR 0020](0020-nna-ecosystem-topology.md) and the [executable build guide](../build/PLAN.md).
+The 2026-10-01 audit records existing graph/release coverage omissions for Electron
+and installers. Passing current gates does not establish installed-product acceptance.
+
 | Artifact | Purpose | Owner doc |
 |---|---|---|
 | `0016-controlled-technical-language.md` | NND-CTL (STE-inspired) standard | term registry + language gates |

@@ -1,5 +1,13 @@
 # NotNativeDesktop Reference — 10. VS Code Extension
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Complete re-implementation specification for the `packages/vscode` surface of OpenChamber:
 a VS Code extension that embeds the shared OpenChamber UI in three webview hosts, runs an
 agent-harness (OpenCode) server as a managed child process, and acts as the extension-host

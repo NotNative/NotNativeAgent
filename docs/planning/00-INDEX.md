@@ -1,5 +1,13 @@
 # NotNativeDesktop — OpenChamber Cleanroom Build Reference
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 ## 00-INDEX · Master Map
 
 **Purpose.** This directory is a complete, self-contained re-implementation specification for

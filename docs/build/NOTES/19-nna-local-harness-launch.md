@@ -1,5 +1,12 @@
 # NNA local harness launch boundary
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 ## Current interoperable path
 
 NND's server-only `nna` harness adapter forwards its `/api/*` requests to an

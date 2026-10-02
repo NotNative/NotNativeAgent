@@ -1,5 +1,12 @@
 # NOTES 03 — Server surface (partial; P4 staged from docs/planning/03)
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 ## A. P4 staging (routes land in layers as chat/panel need them)
 
 - **P4-1 (this slice)** — `GET /api/fs/list`, `/api/fs/search` (NND extension —

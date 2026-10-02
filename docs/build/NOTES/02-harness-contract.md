@@ -1,5 +1,12 @@
 # NOTES — Doc 02: Harness Integration Contract
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Source: `docs/planning/02-opencode-harness-contract.md` (1484 lines, SDK 1.18.30 ground truth).
 This doc owns the seam UI ↔ server ↔ harness. Doc 03 owns NND-owned routes; doc 04 owns client reduction; here: the wire contract NNA must satisfy (and that our mock harness must fake faithfully).
 

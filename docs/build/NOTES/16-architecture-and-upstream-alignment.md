@@ -1,5 +1,12 @@
 # Architecture and upstream-alignment audit
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Date: 2026-09-24
 Authority: user direction in the active NND workspace
 Scope: NND architecture and product-inspiration delta; no production code changed.

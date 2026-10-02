@@ -1,5 +1,12 @@
 # Managed SSH bundle
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 The Electron workspace can produce a platform-neutral gzip-compressed USTAR
 payload from the verified server bundle, its settings registry, the web
 distribution, and a small remote launcher. This avoids depending on a public

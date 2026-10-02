@@ -1,5 +1,12 @@
 # P10 knowledge/context build notes
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 ## P10-63: H.2 small-model generation (2026-09-30)
 
 `GET /api/small-model` resolves the active port without exposing credentials.

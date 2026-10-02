@@ -1,5 +1,13 @@
 # NotNativeDesktop Cleanroom Reference — 05: Chat & Session UI
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Re-implementation specification for OpenChamber's chat surface, composer, message
 timeline, session sidebar, work-status readouts, and the question/permission
 interaction layer. Written for a team rebuilding the same UI/UX on their own

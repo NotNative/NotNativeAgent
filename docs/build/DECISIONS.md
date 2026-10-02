@@ -1,5 +1,17 @@
 # Decisions (living document)
 
+## Product direction amendment — 2026-10-01
+
+NNA remains independent, including its TUI tabs and sessions. NND is a separately
+installed optional product. Its installer detects NNA and guides missing setup.
+NNA supervises the persistent NND service; browser and desktop share the NND GUI
+and NND session collection. Neither owns or mirrors the TUI tab model.
+The Windows same-computer MVP includes all configurable NNA settings and native
+chat/visibility parity. Mandatory NNA review remains active.
+[PLAN](PLAN.md) and [EXECUTION](EXECUTION/01-architecture-audit.md) supersede older
+mock-first ordering, surface-lifecycle assumptions and incomplete closure claims below.
+
+
 ## Product identity
 
 Product name **NotNativeDesktop** (short: NotNative). Brand map applied everywhere

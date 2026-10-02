@@ -2,8 +2,10 @@
 
 A cleanroom re-implementation of [OpenChamber](https://github.com/openchamber/openchamber)
 — a workspace for running and reviewing AI coding-agent work — built from the
-static-analysis specifications in [`docs/planning/`](docs/planning/00-INDEX.md). No
-OpenChamber source was read or copied; the planning docs are the sole contract.
+static-analysis specifications in [`docs/planning/`](docs/planning/00-INDEX.md).
+OpenChamber implementation code must not be copied into this product. The
+[executable build guide](docs/build/PLAN.md) governs current NNA integration;
+the planning corpus supplies reference behavior and UX detail.
 
 - **Harness:** [NotNativeAgent](docs/architecture/0020-nna-ecosystem-topology.md)
   (NNA) owns the engine, governance, and lifecycle. NND is its optional GUI
@@ -15,6 +17,12 @@ OpenChamber source was read or copied; the planning docs are the sole contract.
 - **Surfaces today:** local web GUI and Electron desktop shell. VS Code and
   mobile are long-term deferred.
 - **Start here:** `docs/build/PLAN.md` · `docs/build/PROGRESS.md` · `docs/build/DECISIONS.md`
+
+The target Windows product has a persistent NNA-supervised NND service, reachable
+from browser or desktop, with complete native settings and chat/visibility support.
+NNA's TUI retains its own identity and tabs. This target remains in progress:
+the current installed path still uses desktop-owned service/child processes.
+Package registration and source integration tests do not establish installed acceptance.
 
 ## Dev loop
 

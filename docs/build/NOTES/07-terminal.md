@@ -1,5 +1,12 @@
 # NOTES 07 — Terminal
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Doc read in full (1,316 lines). P7 sliced per the doc's build checklist (section 11).
 Nothing relaxes the contracts; this file records the adaptation deltas and registered
 approximations for the multi-session build.

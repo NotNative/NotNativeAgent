@@ -1,5 +1,11 @@
 # GUI-PLAN — Section 4: Slice plan (ordered)
 
+> **Historical record — superseded 2026-10-01:** This snapshot or slice order is not current execution authority.
+> Use [PLAN](../PLAN.md) and [EXECUTION](../EXECUTION/01-architecture-audit.md).
+> Existing references are traceability only; do not copy or transplant upstream code.
+> Revalidate cited paths and native behavior before reusing historical evidence.
+
+
 Every slice states: the **user guarantee** (the acceptance test a human can
 perform), file targets in this workspace, which harness seams are real vs
 still mock, what it must precede, and the W-ids from Section 1 it advances.

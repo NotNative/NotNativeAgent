@@ -1,5 +1,13 @@
 # NotNativeDesktop — Document 06: Code Review Surfaces (Files, Editor, Diffs, Git, Plan, PR/Issues, Inline Comments)
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Cleanroom re-implementation specification, document 06 of the NotNativeDesktop reference set.
 Audience: engineers/agents building an equivalent UI on their own agent harness (an OpenCode
 replacement), with **zero** access to the original repository. Everything needed to reproduce the

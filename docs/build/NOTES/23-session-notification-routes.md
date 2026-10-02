@@ -1,5 +1,12 @@
 # Session notification routes
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 Sources: doc 03 §5.37/§5.39, doc 04 §F.10, and NNA's authenticated session
 list, status index, metadata projections, and global event feed. Existing
 permission authority remains with NNA, as recorded in note 18.

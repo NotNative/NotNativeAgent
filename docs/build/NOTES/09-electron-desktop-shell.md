@@ -1,5 +1,12 @@
 # NOTES 09 - Electron desktop shell
 
+> **Historical implementation note — 2026-10-01:** Retained for contracts and dated evidence.
+> Current scope, ownership, remaining work, and acceptance are defined by
+> [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
+> Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
+> A recorded test pass is limited to its stated version and surface.
+
+
 P12b-51 completes the authenticated server-to-desktop updater path. The
 embedded server receives the packaged Electron updater callbacks and exposes
 the documented `/api/openchamber/update-check` and

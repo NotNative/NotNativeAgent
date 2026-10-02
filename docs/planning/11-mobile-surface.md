@@ -1,5 +1,13 @@
 # NotNativeDesktop Reference — 11. Mobile Surface
 
+> **Reference status — 2026-10-01:** This document records OpenChamber behavior.
+> Execute [the NND build guide](../build/PLAN.md) and its native-contract amendments.
+> Reference auto-accept, managed-harness, TUI, and process-ownership details do not
+> override NNA governance or the independent NNA/NND product boundary.
+> Use the [document disposition audit](../build/EXECUTION/01-architecture-audit.md)
+> and feature coverage guide before treating a reference requirement as executable work.
+
+
 Complete re-implementation specification for OpenChamber's mobile story: the
 **hosted mobile web surface** the OpenChamber server serves to phones/tablets
 (`mobile.html` → `MobileApp`), and the **Capacitor native shell** (`packages/mobile`,

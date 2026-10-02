@@ -1,5 +1,10 @@
 # Evaluation Log — working / broken on this system
 
+> **Evidence scope — 2026-10-01:** Entries below are dated observations, not current
+> release certification. Use [PLAN](PLAN.md) and [verification gates](EXECUTION/05-verification.md).
+> Source, mock, packaged and installed acceptance are distinct.
+
+
 ## 2026-09-30 - P12b-50 updater install and rollback (20260930-71)
 
 | Area | Result |
