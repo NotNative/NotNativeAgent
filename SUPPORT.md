@@ -11,8 +11,17 @@ bounded to 30 days or 1 GiB per workspace, whichever limit is reached first.
 troubleshooting ZIP that can include issues from a prior launch. The ZIP does not contain
 the rich SQLite database and is never uploaded automatically. The separate
 `$NNA_HOME/logs/runtime.ndjson` operational log remains content-free and bounded.
-The ZIP keeps every attached conversation in a separate `sessions/<session-id>/` folder;
+The ZIP keeps the selected conversation and its associated child sessions in separate `sessions/<session-id>/` folders;
 session statistics, logs, reviewer audit, and forensic trace are not blended across tabs.
+Parent and child lineage is recovered from durable journals, including completed children.
+Historical associations are marked unknown for older session headers without lineage support.
+Forensic export pages forward through retained events instead of exporting only a recent tail.
+Each trace declares its snapshot boundary, available and exported event counts, retention bounds,
+and completeness. Safe context budgets, compaction triggers, and accounting fields are retained.
+Each session has its own snapshot boundary; an export is not an atomic cross-session snapshot.
+Diagnostics include typed projections of retained reviewer and governance journals. Free-form
+content and credentials remain excluded. Missing or corrupt journals and export limits are explicit;
+archive-size or session-count overflow fails without publishing a partial ZIP.
 `/stats` and its `/status` alias report only the currently active conversation.
 
 The date-versioned release candidate requires an official Node.js 24.x runtime and targets:

@@ -74,6 +74,7 @@ parentPort.on('message', (message) => {
   try {
     if (message.type === 'record') write(message.row);
     else if (message.type === 'query') respond(message.id, query(message.options));
+    else if (message.type === 'support_page') respond(message.id, supportPage(message.options));
     else if (message.type === 'open_spans') respond(message.id, openSpans(message.limit));
     else if (message.type === 'health') respond(message.id, health());
     else if (message.type === 'flush') { checkpoint(); respond(message.id, health()); }
@@ -106,6 +107,20 @@ function query(options = {}) {
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`SELECT * FROM events ${where} ORDER BY id DESC LIMIT ?`).all(...parameters, limit);
   return rows.reverse().map(decode);
+}
+
+function supportPage(options = {}) {
+  const sessionId = String(options.sessionId ?? '');
+  const after = Number.isSafeInteger(options.afterId) ? Math.max(0, options.afterId) : 0;
+  const boundary = Number.isSafeInteger(options.boundaryId) ? options.boundaryId
+    : db.prepare('SELECT MAX(id) AS id FROM events WHERE session_id = ?').get(sessionId).id ?? 0;
+  const coverage = db.prepare('SELECT COUNT(*) AS count, MIN(id) AS first_id, MAX(id) AS last_id FROM events WHERE session_id = ? AND id <= ?')
+    .get(sessionId, boundary);
+  const rows = db.prepare('SELECT * FROM events WHERE session_id = ? AND id > ? AND id <= ? ORDER BY id ASC LIMIT ?')
+    .all(sessionId, after, boundary, bounded(options.limit, 1000, 1, 1000)).map(decode);
+  const next = rows.at(-1)?.id ?? after;
+  return { rows, boundary_id: boundary, available_rows: coverage.count, first_id: coverage.first_id,
+    last_id: coverage.last_id, next_after_id: next, has_more: next < (coverage.last_id ?? 0) };
 }
 
 function openSpans(limitValue) {

@@ -143,15 +143,29 @@ export class ForensicTelemetry {
   }
 
   async supportSnapshot(options = {}) {
+    await this.#ready;
     const sessionId = options.sessionId ?? this.sessionId;
-    const [rowsResult, openResult] = await Promise.allSettled([
-      this.query({ sessionId, limit: options.limit ?? 2000 }), this.openSpans(200),
-    ]);
-    const rows = rowsResult.status === 'fulfilled' && Array.isArray(rowsResult.value) ? rowsResult.value : [];
-    const openRows = openResult.status === 'fulfilled' && Array.isArray(openResult.value) ? openResult.value : [];
-    const open = openRows.filter((row) => row.session_id === sessionId);
+    const maximum = Number.isSafeInteger(options.limit) ? Math.max(1, Math.min(100000, options.limit)) : 100000;
+    const rows = []; let page = null; let first = null;
+    for (let index = 0; index < 100; index += 1) {
+      page = await this.#request('support_page', { options: { sessionId, afterId: page?.next_after_id ?? 0,
+        boundaryId: first?.boundary_id, limit: Math.min(1000, maximum - rows.length) } }, null);
+      if (!page) break;
+      first ??= { available_rows: page.available_rows, boundary_id: page.boundary_id };
+      rows.push(...page.rows.map(supportTelemetryProjection));
+      if (!page.has_more || rows.length >= maximum) break;
+    }
+    const allOpen = await this.openSpans(2000);
+    const open = allOpen.filter((row) => row.session_id === sessionId);
+    const complete = Boolean(page && !page.has_more && rows.length === first.available_rows);
     return Object.freeze({
-      format: 1, local_source: this.dbPath, rows: Object.freeze(rows.map(supportTelemetryProjection)),
+      format: 2, local_source: this.dbPath, rows: Object.freeze(rows),
+      coverage: { complete, basis: 'retained_events', available_rows: first?.available_rows ?? null,
+        exported_rows: rows.length, snapshot_boundary_id: first?.boundary_id ?? null,
+        first_id: rows[0]?.id ?? null, last_id: rows.at(-1)?.id ?? null,
+        omission_reason: complete ? null : page ? 'export_limit_or_retention_change' : 'telemetry_unavailable',
+        open_span_limit: 2000, open_spans_complete: allOpen.length < 2000,
+        retention_days: this.maxAgeMs / 86400000, retention_max_bytes: this.maxBytes },
       open_spans: Object.freeze(open.map(supportTelemetryProjection)),
     });
   }

@@ -157,10 +157,10 @@ test('support bundle recursively redacts secret-bearing diagnostics before priva
   const result = await bundle.create(join(root, 'redacted.zip'));
   const content = zipEntries(await readFile(result.path)).map((entry) => entry.content.toString('utf8')).join('\n');
   assert.doesNotMatch(content, /trace-secret-value|health-secret-value|abcdefghijklmnopqrstuv|ghp_/u);
-  assert.match(content, /"credential": "\[redacted\]"/u);
-  assert.match(content, /"token": "\[redacted\]"/u);
+  assert.match(content, /"credential":\s*"\[redacted\]"/u);
+  assert.match(content, /"token":\s*"\[redacted\]"/u);
   assert.match(content, /Bearer \[redacted\]/u);
-  assert.match(content, /"status_token": "unavailable"/u);
+  assert.match(content, /"status_token":\s*"unavailable"/u);
 });
 
 test('diagnostic bundle default path stays within its configured support directory', async () => {

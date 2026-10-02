@@ -6,6 +6,8 @@ import { ContractError } from './ids.js';
 import { PRODUCT_NAME, userDataPaths, VERSION } from './product.js';
 import { redactText } from './redaction.js';
 import { createZip } from './zip-archive.js';
+import { discoverSupportSessions, supportAuditJournals } from './support-session-discovery.js';
+import { supportConfiguration } from './support-configuration.js';
 
 const PRIVACY_SECRET_KEY = /^(?:api[_-]?key|authorization|auth[_-]?token|bearer|credential(?:_env)?|password|private[_-]?key|secret|access[_-]?token|refresh[_-]?token|token)(?:[_-](?:bearer|hash|reset|value))?$/iu;
 const SAFE_SECRET_MARKERS = new Set(['[redacted]', '[reference configured]', '[none]']);
@@ -19,14 +21,14 @@ export class DiagnosticBundle {
     this.maintenance = options.maintenance ?? null;
     this.supportRoot = options.supportRoot ?? userDataPaths().support;
     this.sessions = Array.isArray(options.sessions) && options.sessions.length > 0
-      ? options.sessions.slice(0, 63)
+      ? options.sessions
       : [{ id: options.engine.sessionId, engine: options.engine }];
     this.activeSessionId = options.activeSessionId ?? options.engine.sessionId;
   }
 
   async preview() {
     return Object.freeze({
-      categories: ['health', 'effective_configuration', 'structured_logs', 'reviewer_audit', 'governance_audit', 'forensic_trace', 'idle_maintenance'],
+      categories: ['health', 'effective_configuration', 'structured_logs', 'reviewer_audit', 'governance_audit', 'forensic_trace', 'idle_maintenance', 'related_sessions', 'coverage'],
       skipped: ['raw_transcript_content', 'raw_prompt_content', 'raw_tool_content', 'memory_content', 'credentials'],
       redactions: ['secret-like keys', 'credential values', 'free-form content'],
       archive: 'zip', destination: 'local_file', layout: 'one folder per conversation session',
@@ -41,39 +43,28 @@ export class DiagnosticBundle {
       throw new ContractError('bundle_path_invalid', 'support bundle path must end in .zip');
     }
     const preview = await this.preview();
+    const sessions = await discoverSupportSessions(this.sessions);
     await this.logger?.flush?.();
-    await Promise.all(this.sessions.map((session) => session.engine.telemetry?.flush?.()));
+    await Promise.all(sessions.map((session) => session.engine.telemetry?.flush?.()));
     const createdAt = new Date().toISOString();
     const logSnapshot = this.logger?.snapshot() ?? emptyLogs();
     const entries = [];
     const privacyInspection = [preview];
     const manifestSessions = [];
-    for (const [index, session] of this.sessions.entries()) {
+    for (const [index, session] of sessions.entries()) {
       const sessionId = session.id ?? session.engine.sessionId;
-      const folder = sessionFolder(sessionId, index);
-      const forensicTrace = redactBundleData(await safeForensicTrace(session.engine));
-      const diagnostics = redactBundleData({
-        format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
-        session_id: sessionId, active: sessionId === this.activeSessionId,
-        statistics: session.statistics ?? null,
-        health: await session.engine.health(), configuration: safeConfiguration(session.engine.config),
-        logs: sessionLogs(logSnapshot, sessionId), reviewer_audit: session.engine.reviewerAudit(1000),
-        governance_audit: session.engine.governanceAudit(1000),
-        idle_maintenance: sessionId === this.activeSessionId ? safeMaintenance(this.maintenance) : { status: 'not_active_session' },
-        forensic_trace: {
-          format: forensicTrace.format, rows: forensicTrace.rows.length,
-          open_spans: forensicTrace.open_spans.length,
-        },
-      });
-      entries.push(
-        { name: `${folder}/diagnostics.json`, content: `${JSON.stringify(diagnostics, null, 2)}\n` },
-        { name: `${folder}/forensic-trace.json`, content: `${JSON.stringify(forensicTrace, null, 2)}\n` },
-      );
+      const { folder, diagnostics, forensicTrace } = await bundleSessionEvidence(this, session, index, createdAt, logSnapshot);
+      appendSupportEntries(entries, [
+        { name: `${folder}/diagnostics.json`, content: `${JSON.stringify(diagnostics)}\n` },
+        { name: `${folder}/forensic-trace.json`, content: `${JSON.stringify(forensicTrace)}\n` },
+      ]);
       privacyInspection.push(diagnostics, forensicTrace);
-      manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId });
+      manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId,
+        lineage: session.lineage ?? session.engine.sessionLineage ?? null, discovery: session.discovery,
+        trace_coverage: forensicTrace.coverage ?? { complete: false, reason: forensicTrace.disabled ? 'telemetry_disabled' : 'legacy_export' } });
     }
     const manifest = redactBundleData({
-      format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
+      format: 3, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
       preview, sessions: manifestSessions,
     });
     entries.unshift({ name: 'manifest.json', content: `${JSON.stringify(manifest, null, 2)}\n` });
@@ -85,6 +76,32 @@ export class DiagnosticBundle {
     await atomicWrite(outputPath, archive);
     return Object.freeze({ path: outputPath, bytes: archive.length, manifest: preview });
   }
+}
+
+async function bundleSessionEvidence(bundle, session, index, createdAt, logSnapshot) {
+  const forensicTrace = redactBundleData(await safeForensicTrace(session.engine));
+  const audits = await supportAuditJournals(session);
+  const diagnostics = redactBundleData({
+    format: 3, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
+    session_id: session.id, active: session.id === bundle.activeSessionId,
+    statistics: session.statistics ?? null,
+    health: await session.engine.health(), configuration: session.engine.diagnosticConfiguration ?? supportConfiguration(session.engine.config),
+    lineage: session.lineage ?? session.engine.sessionLineage ?? null,
+    related_session_discovery: session.discovery,
+    reviewer_trace: audits.reviewer, governance_trace: audits.governance,
+    logs: sessionLogs(logSnapshot, session.id), reviewer_audit: session.engine.reviewerAudit(1000),
+    governance_audit: session.engine.governanceAudit(1000),
+    idle_maintenance: session.id === bundle.activeSessionId ? safeMaintenance(bundle.maintenance) : { status: 'not_active_session' },
+    forensic_trace: { format: forensicTrace.format, rows: forensicTrace.rows.length,
+      open_spans: forensicTrace.open_spans.length, coverage: forensicTrace.coverage ?? null },
+  });
+  return { folder: sessionFolder(session.id, index), diagnostics, forensicTrace };
+}
+
+function appendSupportEntries(entries, additions) {
+  const bytes = [...entries, ...additions].reduce((total, entry) => total + Buffer.byteLength(entry.content), 0);
+  if (bytes > 16777216) throw new ContractError('zip_input_too_large', 'related-session support evidence exceeds the archive bound');
+  entries.push(...additions);
 }
 
 function emptyLogs() {
@@ -131,7 +148,7 @@ function safeMaintenance(source) {
 }
 
 async function safeForensicTrace(engine) {
-  try { return await engine.telemetry?.supportSnapshot?.({ sessionId: engine.sessionId, limit: 5000 }) ?? emptyTrace(); }
+  try { return await engine.telemetry?.supportSnapshot?.({ sessionId: engine.sessionId }) ?? emptyTrace(); }
   catch (error) {
     return { ...emptyTrace(), degraded: true, code: error?.code ?? 'telemetry_export_failed' };
   }
@@ -139,26 +156,6 @@ async function safeForensicTrace(engine) {
 
 function emptyTrace() {
   return { format: 1, rows: [], open_spans: [], disabled: true };
-}
-
-function safeConfiguration(config) {
-  if (!config || typeof config !== 'object') return { status: 'unavailable' };
-  const profiles = config.providerProfiles && typeof config.providerProfiles === 'object'
-    ? Object.values(config.providerProfiles) : [];
-  const memory = config.memory && typeof config.memory === 'object' ? config.memory : {};
-  const mcpServers = Array.isArray(config.mcpServers) ? config.mcpServers : [];
-  return {
-    version: config.version, persistence: config.persistence, provenance: config.provenance,
-    workspaceRoot: config.workspaceRoot, routes: config.routes,
-    providers: profiles.filter((profile) => profile && typeof profile === 'object').map((profile) => ({
-      id: profile.id, endpoint: profile.endpoint, model: profile.model, trustZone: profile.trustZone,
-      toolCallMode: profile.toolCallMode,
-      credential: profile.credential || profile.credentialEnv ? '[reference configured]' : '[none]',
-    })),
-    memory: { ...memory, enabled: memory.enabled === true },
-    mcp: mcpServers.filter((server) => server && typeof server === 'object')
-      .map((server) => ({ id: server.id, transport: server.transport, enabled: server.enabled })),
-  };
 }
 
 export async function atomicWrite(path, content, operations = {}) {
@@ -196,6 +193,8 @@ function supportReadme(createdAt) {
     '',
     'This archive was generated as a local troubleshooting file.',
     'manifest.json lists the included conversations. Each sessions/<id>/ folder contains that conversation\'s diagnostics.json and forensic-trace.json.',
+    'The selected conversation includes its durably associated child sessions. Coverage records identify unavailable, pruned, or export-limited evidence.',
+    'Forensic traces page all retained events up to the explicit export bound. Safe reviewer and governance journal projections are included in diagnostics.json.',
     'Raw transcript, prompt, tool-result, memory, and credential content are excluded.',
     'The operator controls whether and how this file is shared.',
     '',

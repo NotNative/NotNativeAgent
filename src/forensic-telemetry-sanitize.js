@@ -2,14 +2,10 @@
 import { createHash } from 'node:crypto';
 import { redactText } from './redaction.js';
 import { ContractError } from './ids.js';
+import { supportDiagnosticSummary } from './support-diagnostic-fields.js';
 
 const SECRET_KEY = /^(?:api[_-]?key|authorization|auth[_-]?token|bearer|credential(?:_env)?|password|private[_-]?key|secret|access[_-]?token|refresh[_-]?token|token)(?:[_-](?:bearer|hash|reset|value))?$/iu;
 const DEFAULTS = Object.freeze({ maxDepth: 16, maxNodes: 20_000, maxStringBytes: 65_536, maxArray: 1024, maxKeys: 1024 });
-const PAYLOAD_SUMMARY_FIELDS = Object.freeze([
-  'type', 'category', 'phase', 'code', 'reason_code', 'status', 'outcome', 'tool_name',
-  'model_name', 'route', 'retryable', 'bytes', 'count', 'source', 'button', 'target',
-  'characters', 'lines',
-]);
 
 export function sanitizeTelemetry(value, options = {}) {
   const limits = Object.fromEntries(Object.entries(DEFAULTS).map(([key, ceiling]) => [key,
@@ -102,7 +98,7 @@ export function supportTelemetryProjection(row) {
     throw new ContractError('telemetry_row_invalid', 'support telemetry projection requires a record');
   }
   return Object.freeze({
-    id: row.id ?? null, timestamp: row.timestamp ?? null, event_name: row.event_name ?? null, status: row.status ?? null,
+    id: row.id ?? null, timestamp: row.timestamp ?? null, monotonic_ns: row.monotonic_ns ?? null, event_name: row.event_name ?? null, status: row.status ?? null,
     duration_ms: row.duration_ms ?? null, sequence: row.sequence ?? null, source: row.source ?? null,
     runtime_id: row.runtime_id ?? null, session_id: row.session_id ?? null, conversation_id: row.conversation_id ?? null,
     turn_id: row.turn_id ?? null, step_id: row.step_id ?? null, attempt_id: row.attempt_id ?? null,
@@ -110,16 +106,6 @@ export function supportTelemetryProjection(row) {
     provider_request_id: row.provider_request_id ?? null, tool_request_id: row.tool_request_id ?? null,
     hook_invocation_id: row.hook_invocation_id ?? null, span_id: row.span_id ?? null,
     parent_span_id: row.parent_span_id ?? null, outcome: row.outcome ?? null, reason_code: row.reason_code ?? null,
-    effect_certainty: row.effect_certainty ?? null, payload_summary: summarizePayload(row.payload),
+    effect_certainty: row.effect_certainty ?? null, payload_summary: supportDiagnosticSummary(row.payload),
   });
-}
-
-function summarizePayload(payload) {
-  if (!payload || typeof payload !== 'object') return null;
-  const result = {};
-  for (const key of PAYLOAD_SUMMARY_FIELDS) {
-    const value = payload[key];
-    if (['string', 'number', 'boolean'].includes(typeof value)) result[key] = value;
-  }
-  return Object.keys(result).length > 0 ? Object.freeze(result) : null;
 }

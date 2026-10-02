@@ -42,6 +42,7 @@ import { updateToolFailures } from './engine/tool-failures.js';
 import { continueAfterTerminalDeclaration, persistSupervisedResponse } from './engine/terminal-declaration.js';
 import { completionEvidence, completionEvidenceHint } from './engine/completion-evidence.js';
 import { validateSessionLineage } from './session-lineage.js';
+import { supportConfiguration } from './support-configuration.js';
 import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
 export class SessionEngine {
   state = new StateAuthority(); lifecycles = new LifecycleRegistry();
@@ -456,6 +457,8 @@ export class SessionEngine {
     await this.store.append('session_created', {
       sessionId: this.sessionId, runtimeId: this.runtimeId,
       lineage: this.sessionLineage,
+      diagnostic_configuration: supportConfiguration(this.config),
+      session_lineage_schema: 'nna.session-lineage.v1',
       configVersion: this.config.version, manifestProvenance: this.config.provenance,
       executionManifest: this.config.executionManifest, mission: this.config.mission, workspaceRoot: this.config.workspaceRoot,
     });

@@ -227,9 +227,10 @@ function browserToolOptions(engine, options, imageObserver) {
 
 function installReview(engine, options) {
   const semanticTimeoutMs = options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs;
+  engine.reviewerRoot = options.reviewerRoot ?? userDataPaths().reviewerLedger;
   engine.ledger = new ReviewerLedger({
     durable: engine.config.persistence === 'durable',
-    root: options.reviewerRoot ?? userDataPaths().reviewerLedger, sessionId: engine.sessionId,
+    root: engine.reviewerRoot, sessionId: engine.sessionId,
     retentionEntries: engine.config.reviewerLedger.retentionEntries,
     persistenceDeadlineMs: engine.config.limits.persistenceFlushMs,
   });
@@ -254,10 +255,10 @@ function installReview(engine, options) {
 }
 
 function installGovernance(engine, options, storeRoot) {
+  engine.governanceRoot = options.governanceRoot ?? (options.storeRoot ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger);
   engine.governance = options.governance ?? new GovernanceEngine({
     durable: engine.config.persistence === 'durable',
-    root: options.governanceRoot ?? (options.storeRoot
-      ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger),
+    root: engine.governanceRoot,
     sessionId: engine.sessionId,
     telemetry: engine.telemetry,
     persistenceDeadlineMs: engine.config.limits.persistenceFlushMs,
