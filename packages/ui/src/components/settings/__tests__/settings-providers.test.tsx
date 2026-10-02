@@ -10,6 +10,13 @@ import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { useI18nStore } from '../../../lib/i18n/store.ts';
 import { ProvidersPage } from '../pages/providers.tsx';
 
+// Provider assertions exercise the inventory/editor alerts. The independent
+// native setup transport has its own cancellation and failure coverage.
+vi.mock('../../../lib/nnd/setup.ts', () => ({ requestNativeSetup: async () => ({
+  status: { service_state: 'ready', configuration_state: 'ready', execution_state: 'ready',
+    provider_state: 'unknown', failure_code: null }, error: false,
+}) }));
+
 declare global {
   // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;

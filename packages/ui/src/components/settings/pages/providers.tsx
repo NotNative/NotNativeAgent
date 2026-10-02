@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** NNA-owned provider route inventory. Configuration writes remain in NNA. */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { NativeSetupPanel } from './native-setup.tsx';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
@@ -123,6 +124,7 @@ export function ProvidersPage(): ReactNode {
 
   return (
     <SettingsSection item="providers.inventory">
+      <NativeSetupPanel />
       <div className="flex items-center justify-between gap-3">
         <SettingsGroupTitle>{t('settings.providers.inventory.title')}</SettingsGroupTitle>
         <button type="button" data-testid="providers-refresh" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>{t('settings.providers.inventory.refresh')}</button>

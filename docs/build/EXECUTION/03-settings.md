@@ -3,6 +3,13 @@
 Working evidence: [settings-coverage.json](settings-coverage.json) is the partial C1
 source census. All rows remain open; it does not establish GUI or installed coverage.
 
+Incremental implementation: the providers page now consumes native
+`GET /v1/nnd/setup/status` and explicit `POST /v1/nnd/setup/activate` through
+the authenticated NND proxy. Native execution readiness leaves provider connectivity
+unchecked. Missing or invalid manifests require independent NNA setup; generic GUI
+repair, revision-checked save and complete setting coverage remain required work.
+See the execution ledger for audit and verification status.
+
 Status: planned migration, audited against NND `20261001-41` and NNA
 `20261001-6` on 2026-10-01. This guide specifies work; it does not certify
 that the APIs, controls, or installation acceptance below already exist.

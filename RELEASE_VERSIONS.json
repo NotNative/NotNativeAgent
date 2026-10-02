@@ -884,6 +884,10 @@
     {
       "version": "20261002-5",
       "content_sha256": "d013d2f357b2781c996904a453dd1521a9d8d7a7921fb53685a3d28d606eaf4e"
+    },
+    {
+      "version": "20261002-6",
+      "content_sha256": "c24b252d6658ceae059ea24fe1ecc6a9c2b8531fe57c7f85bc815655a372d154"
     }
   ]
 }

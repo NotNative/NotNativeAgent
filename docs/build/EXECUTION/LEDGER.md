@@ -44,7 +44,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | open | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | — |
-| C3 | NND settings transport/presentation | C2 | open | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | — |
+| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | native setup status/activation panel; general configuration mutation and coverage remain open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | open | settings pages; NNA TUI prefs contract | — |
@@ -252,8 +252,8 @@ The source seal includes root installers and Electron code/assets. Generated
 build stamps and installed mode flags are excluded. Three release-content tests
 include source digest changes, stable generated output and Windows junction refusal.
 Independent adversarial audits applied portability and generated-file repairs.
-Full UI: 1,630 passed. Native full suite, native quality, actual composed/Chromium
-smokes, regenerated graphs and final release gates are required before commit.
+Full UI: 1,630 passed. Native full suite: 1,742 passed, six skipped. Native quality,
+actual composed/Chromium smokes, regenerated graphs and final release gates passed.
 The real Chromium probe found transient discovery polling could abort shutdown.
 Bounded retries now apply only to Windows sharing/lock contention. Fourteen
 discovery tests and actual Chromium shutdown passed, with independent audit.
@@ -263,3 +263,26 @@ immutable; the corrected current evidence advances NND to 20261002-5.
 Remaining lifecycle gaps: explicit legacy migration, login startup, transactional
 upgrade/rollback and interrupted installation recovery. Setup repair and complete
 native settings GUI remain open.
+
+## NND 20261002-6 — native setup presentation
+
+The providers page reads authenticated native setup status and offers explicit
+refresh and activation. It separates saved configuration and execution readiness
+from unchecked provider connectivity. Missing or invalid configuration still needs
+independent NNA setup: this panel does not create, repair or replace the manifest.
+Activation does not alter permissions or existing sessions. No automatic activation
+or provider inference is introduced.
+
+The client bounds responses, validates native state, preserves setup status returned
+with activation HTTP 503, and hides raw errors. Runtime changes, authentication
+transitions and unmount cancel pending requests and discard late results. Activation
+is disabled while pending or after native cleanup/timeout failures requiring restart.
+Independent audit found no confirmed production defect. Added regressions cover auth
+expiry during activation, late completion, read-only reauthentication and both native
+restart-required failures. Existing provider assertions now isolate the unrelated
+setup transport. Full UI: 1,639 passed across 204 files; type and quality gates
+passed for 737 production modules. Packaging and release checks remain mandatory
+before committing this slice.
+C3 remains in-progress; generic configuration save, repair and complete settings
+coverage remain open. This slice consumes native APIs already committed in NNA
+`31fd90b1`; concurrent OpenCode protocol changes are a separate subsystem.
