@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { acquireNndServiceLock, withNndServiceLease } from './nnd-service-lock.js';
 import { scanNndLegacyOwners } from './nnd-legacy-census.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
+import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
 import { readMigrationParents, prepareNndMigration } from './nnd-migration-validation.js';
 import { acquireMigrationSessionLocks } from './nnd-migration-locks.js';
 import { assertNoNndMigration, stageNndMigration, loadNndMigration, applyNndMigration, recoverNndMigration } from './nnd-migration-storage.js';
@@ -13,6 +14,7 @@ export async function runNndMigration(identity, paths, action, options = {}) {
   const lease = await acquireNndServiceLock({ dataRoot: identity.data_root });
   try {
     return await withNndServiceLease(lease, identity.data_id, async (signal) => {
+      await assertNoNndInstallTransaction(identity);
       await assertNoNndInstallMarker(identity);
       const census = await scanNndLegacyOwners(identity, signal);
       if (action === 'migration-recover') return recover(identity, paths, signal);

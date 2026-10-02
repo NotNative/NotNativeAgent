@@ -2,10 +2,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { assertRegisteredNndPackage, runNndPackageCommand, validateNndPackage } from '../src/nnd-package.js';
 import { runNndIntegrationCommand } from '../src/integration-cli.js';
+import { withManifestLock } from '../src/persistence/manifest-transaction.js';
 
 const VERSION = '20260926-56';
 async function fixture(root, version = VERSION) {
@@ -21,8 +22,41 @@ async function fixture(root, version = VERSION) {
   await writeFile(join(root, 'packages/web/dist/index.html'), '');
 }
 
+test('registration waits for the shared slot mutex and refuses unresolved installation evidence', async t => {
+  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-registration-mutex-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const root = join(temp, 'package'), config = join(temp, 'config'), paths = { root: temp, config };
+  await mkdir(config); await fixture(root);
+  let release, acquired;
+  const held = new Promise(resolve => { acquired = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const owner = withManifestLock(join(config, 'nnd-package.json'), {}, async () => { acquired(); await gate; });
+  await held;
+  let published = false;
+  const registration = runNndPackageCommand(['activate', root], paths).then(result => { published = true; return result; });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(published, false);
+  } finally { release(); await owner; }
+  assert.equal((await registration).registered, true);
+  const before = await readFile(join(config, 'nnd-package.json'));
+  await mkdir(join(temp, 'runtime/nnd'), { recursive: true });
+  await writeFile(join(temp, 'runtime/nnd/installation-pending.json'), 'unknown pending evidence');
+  await assert.rejects(runNndPackageCommand(['deactivate', root], paths), { code: 'nnd_install_transaction_pending' });
+  assert.deepEqual(await readFile(join(config, 'nnd-package.json')), before);
+});
+
+test('malformed registration remains a failure rather than appearing unregistered', async t => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-registration-invalid-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'nnd-package.json');
+  await writeFile(path, '{"root":');
+  await assert.rejects(runNndPackageCommand(['status'], { config: root }), { code: 'nnd_package_registry_invalid' });
+  assert.equal(await readFile(path, 'utf8'), '{"root":');
+});
+
 test('registers only a complete version-matched NND package and reports drift', async (t) => {
-  const temp = await mkdtemp(join(tmpdir(), 'nna-nnd-package-'));
+  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-package-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
   const root = join(temp, 'nnd');
   const config = join(temp, 'config');
@@ -47,7 +81,7 @@ test('registers only a complete version-matched NND package and reports drift', 
 });
 
 test('installed NND serve rejects an unregistered package before engine startup', async (t) => {
-  const temp = await mkdtemp(join(tmpdir(), 'nna-nnd-package-'));
+  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-package-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
   const config = join(temp, 'config'); await mkdir(config);
   await assert.rejects(runNndIntegrationCommand(['serve'], { config }, {
@@ -56,7 +90,7 @@ test('installed NND serve rejects an unregistered package before engine startup'
 });
 
 test('rejects incompatible metadata, missing assets, and escaping symlink', async (t) => {
-  const temp = await mkdtemp(join(tmpdir(), 'nna-nnd-package-'));
+  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-package-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
   const root = join(temp, 'nnd'); await fixture(root);
   await assert.rejects(validateNndPackage('relative'), { code: 'nnd_package_root_invalid' });
@@ -74,4 +108,37 @@ test('rejects incompatible metadata, missing assets, and escaping symlink', asyn
   const outside = join(temp, 'outside.html'); await writeFile(outside, '');
   await symlink(outside, join(root, 'packages/web/dist/index.html'));
   await assert.rejects(validateNndPackage(root), { code: 'nnd_package_incomplete' });
+});
+
+test('registration validates the package after acquiring the shared writer mutex', async t => {
+  const temp=await mkdtemp(join(process.platform==='win32'?homedir():tmpdir(),'nna-registration-recheck-'));
+  t.after(()=>rm(temp,{recursive:true,force:true}));
+  const root=join(temp,'package'),config=join(temp,'config');await mkdir(config);await fixture(root);
+  let release,entered;const ready=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;});
+  const owner=withManifestLock(join(config,'nnd-package.json'),{},async()=>{entered();await gate;});
+  await ready;
+  const pending=runNndPackageCommand(['activate',root],{config});
+  const rejected=assert.rejects(pending,{code:'nnd_package_manifest_invalid'});
+  try {
+    await new Promise(resolve=>setTimeout(resolve,500));
+    await writeFile(join(root,'package.json'),JSON.stringify({nnd_version:'20260926-57'}));
+  } finally {release();await owner;}
+  await rejected;
+  assert.deepEqual(await runNndPackageCommand(['status'],{config}),{registered:false});
+});
+test('registry version arrays remain malformed rather than being coerced into versions', async t => {
+  const config=await mkdtemp(join(process.platform==='win32'?homedir():tmpdir(),'nna-registry-version-'));
+  t.after(()=>rm(config,{recursive:true,force:true}));
+  const path=join(config,'nnd-package.json'),bytes=JSON.stringify({root:config,version:[VERSION],protocol:'1.0'});
+  await writeFile(path,bytes);
+  await assert.rejects(runNndPackageCommand(['status'],{config}),{code:'nnd_package_registry_invalid'});
+  assert.equal(await readFile(path,'utf8'),bytes);
+});
+test('package metadata rejects oversized files and invalid UTF-8 without replacement decoding', async t => {
+  const root=await mkdtemp(join(process.platform==='win32'?homedir():tmpdir(),'nna-package-metadata-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));await fixture(root);
+  const path=join(root,'package.json');await writeFile(path,JSON.stringify({nnd_version:VERSION,padding:'x'.repeat(16384)}));
+  await assert.rejects(validateNndPackage(root),{code:'nnd_package_manifest_invalid'});
+  await writeFile(path,Buffer.concat([Buffer.from(`{"nnd_version":"${VERSION}","ignored":"`),Buffer.from([255]),Buffer.from('"}') ]));
+  await assert.rejects(validateNndPackage(root),{code:'nnd_package_manifest_invalid'});
 });

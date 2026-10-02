@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6062952cff6b169b07eee555c87a9ceb450eefbb6291b4e5639cd499ea210229",
+  "source_digest": "sha256:859fb3dec13b1695768238a3f00daa73960dfe14dcc36627fc79ab096c2d8f08",
   "counts": {
-    "modules": 444,
+    "modules": 457,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 148
+      "module_count": 161
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 309,
-      "module_count": 124
+      "import_count": 369,
+      "module_count": 137
     },
     {
       "from": "experience-engine",
@@ -168,7 +168,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 32,
+      "import_count": 34,
       "module_count": 10
     },
     {
@@ -186,8 +186,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 15,
-      "module_count": 11
+      "import_count": 18,
+      "module_count": 14
     },
     {
       "from": "opencode-surface",
@@ -1853,6 +1853,8 @@
         "src/nnd-agent-inventory.js",
         "src/nnd-browser-tool.js",
         "src/nnd-engine-host.js",
+        "src/nnd-install-marker.js",
+        "src/nnd-install-storage.js",
         "src/nnd-mcp-inventory.js",
         "src/nnd-memory-tool.js",
         "src/nnd-migration-storage.js",
@@ -2098,9 +2100,30 @@
       "entrypoint": false,
       "imports": [
         "src/nnd-install-marker.js",
+        "src/nnd-install-storage.js",
         "src/nnd-migration-storage.js",
         "src/nnd-service-contract.js",
         "src/nnd-service-lock.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-initialization-db.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-storage.js",
+        "src/nnd-payload-contract-files.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-initialization.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-initialization-db.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-payload-contract-files.js",
+        "src/nnd-service-contract.js"
       ]
     },
     {
@@ -2110,6 +2133,98 @@
       "imports": [
         "src/ids.js",
         "src/nnd-service-private-storage.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-slots.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-initialization.js",
+        "src/nnd-install-marker.js",
+        "src/nnd-install-storage-paths.js",
+        "src/nnd-install-storage-provenance.js",
+        "src/nnd-install-storage-retention.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction-recovery.js",
+        "src/nnd-install-transaction.js",
+        "src/nnd-legacy-census.js",
+        "src/nnd-migration-storage.js",
+        "src/nnd-payload-contract-files.js",
+        "src/nnd-payload-contract.js",
+        "src/nnd-service-admission.js",
+        "src/nnd-service-contract.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-storage-paths.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-storage-provenance.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction.js",
+        "src/nnd-payload-contract-files.js",
+        "src/nnd-payload-contract.js",
+        "src/nnd-service-contract.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-storage-retention.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction.js",
+        "src/nnd-service-contract.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-storage.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-install-initialization-db.js",
+        "src/nnd-payload-contract-files.js",
+        "src/nnd-payload-contract.js",
+        "src/nnd-service-private-storage.js",
+        "src/nnd-service-private-windows.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-transaction-recovery.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction.js",
+        "src/nnd-payload-contract-files.js",
+        "src/nnd-payload-contract.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-transaction.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-initialization.js",
+        "src/nnd-install-storage-paths.js",
+        "src/nnd-install-storage-provenance.js",
+        "src/nnd-install-storage-retention.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction-recovery.js",
+        "src/nnd-payload-contract.js",
+        "src/nnd-service-contract.js"
       ]
     },
     {
@@ -2206,6 +2321,7 @@
       "entrypoint": false,
       "imports": [
         "src/nnd-install-marker.js",
+        "src/nnd-install-storage.js",
         "src/nnd-legacy-census.js",
         "src/nnd-migration-files.js",
         "src/nnd-migration-locks.js",
@@ -2243,12 +2359,24 @@
       ]
     },
     {
+      "path": "src/nnd-package-registration.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-install-storage.js",
+        "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
       "path": "src/nnd-package.js",
       "component": "foundation",
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/nnd-service-package.js"
+        "src/nnd-package-registration.js",
+        "src/nnd-service-package.js",
+        "src/persistence/manifest-transaction.js"
       ]
     },
     {
@@ -2256,6 +2384,32 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/nnd-payload-contract-files.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/nnd-payload-contract-runtime.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-payload-contract-files.js"
+      ]
+    },
+    {
+      "path": "src/nnd-payload-contract.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-manifest-extensions.js",
+        "src/nnd-payload-contract-files.js",
+        "src/nnd-payload-contract-runtime.js"
+      ]
     },
     {
       "path": "src/nnd-pending-requests.js",
@@ -2323,6 +2477,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-install-storage.js",
         "src/nnd-legacy-census.js",
         "src/nnd-migration-storage.js",
         "src/nnd-service-contract.js",
@@ -2355,6 +2510,7 @@
         "src/ids.js",
         "src/mcp-credentials.js",
         "src/nnd-install-guard.js",
+        "src/nnd-install-slots.js",
         "src/nnd-migration.js",
         "src/nnd-service-attach.js",
         "src/nnd-service-child.js",

@@ -7,6 +7,7 @@ import { ensurePrivateNndRuntimeDirectory } from './nnd-service-private-storage.
 import { scanNndLegacyOwners } from './nnd-legacy-census.js';
 import { exactRecord } from './nnd-service-contract.js';
 import { assertNoNndMigration } from './nnd-migration-storage.js';
+import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
 
 function invalid(cause) {
   return new ContractError('nnd_owner_unverified', 'NND admission evidence is invalid or legacy migration is required. Existing files were preserved.', { cause });
@@ -27,7 +28,7 @@ async function readReceipt(path) {
   } catch (cause) { throw invalid(cause); }
   finally { await file.close(); }
 }
-function validateReceipt(record, identity, legacy) {
+export function validateNndAdmissionReceipt(record, identity, legacy = false) {
   const keys = legacy ? ['version', 'data_id', 'installation_id'] : ['version', 'data_id', 'installation_id', 'basis', 'census'];
   if (!exactRecord(record, keys) || record.version !== (legacy ? '1.0' : '2.0')
     || record.data_id !== identity.data_id || record.installation_id !== identity.installation_id) throw invalid();
@@ -47,14 +48,15 @@ async function assertNoLegacyCatalog(paths) {
 // Security: every startup checks legacy processes; a historical receipt cannot exclude an old executable.
 export async function admitFreshNndServiceData(paths, identity, lease) {
   return withNndServiceLease(lease, identity.data_id, async (signal) => {
+    await assertNoNndInstallTransaction(identity);
     await assertNoNndMigration(identity);
     const census = await scanNndLegacyOwners(identity, signal);
     const directory = await ensurePrivateNndRuntimeDirectory(identity.data_root, { signal });
     const path = join(directory.path, 'admission.json');
     const existing = await readReceipt(path);
-    if (existing) { validateReceipt(existing, identity, false); return existing; }
+    if (existing) { validateNndAdmissionReceipt(existing, identity, false); return existing; }
     const prior = await readReceipt(join(paths.config, 'nnd-supervised-owner.json'));
-    if (prior) validateReceipt(prior, identity, true);
+    if (prior) validateNndAdmissionReceipt(prior, identity, true);
     else await assertNoLegacyCatalog(paths);
     signal.throwIfAborted();
     const receipt = { version: '2.0', data_id: identity.data_id, installation_id: identity.installation_id,

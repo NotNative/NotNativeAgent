@@ -3,6 +3,7 @@ import { acquireNndServiceLock } from './nnd-service-lock.js';
 import { exactRecord } from './nnd-service-contract.js';
 import { createNndInstallMarker, clearNndInstallMarker } from './nnd-install-marker.js';
 import { assertNoNndMigration } from './nnd-migration-storage.js';
+import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
 
 export async function runNndInstallGuard(identity, { input = process.stdin, output = process.stdout, diagnostics = process.stderr } = {}) {
   const lease = await acquireNndServiceLock({ dataRoot: identity.data_root });
@@ -12,6 +13,7 @@ export async function runNndInstallGuard(identity, { input = process.stdin, outp
   const diagnosticLost = () => {};
   output.on?.('error', outputLost); diagnostics.on?.('error', diagnosticLost);
   try {
+    await assertNoNndInstallTransaction(identity);
     await assertNoNndMigration(identity);
     const marker = await createNndInstallMarker(identity);
     release = awaitInstallRelease(identity, input, diagnostics);

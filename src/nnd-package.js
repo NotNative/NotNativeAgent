@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Installed NND package registration. Registration does not start the GUI. */
-import { readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { open, realpath, stat, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 import { validateNndServiceArtifacts } from './nnd-service-package.js';
+import { readNndPackageRegistration, mutateNndPackageRegistration } from './nnd-package-registration.js';
+import { transactLockedManifest } from './persistence/manifest-transaction.js';
 
 const REGISTRY_FILE = 'nnd-package.json';
 const MANIFEST_FILE = join('nna-integration', 'nnd-local', 'integration.json');
@@ -28,10 +30,23 @@ async function regularWithin(root, path) {
   return actual && contained(root, actual) && (await stat(actual).catch(() => null))?.isFile() ? actual : null;
 }
 async function boundedJson(path, code) {
-  const metadata = await stat(path).catch(() => null);
-  if (!metadata?.isFile() || metadata.size > LIMIT) invalid(code, 'NND package metadata is missing or invalid');
-  try { return JSON.parse(await readFile(path, 'utf8')); }
-  catch { invalid(code, 'NND package metadata is invalid JSON'); }
+  let file;
+  try {
+    file = await open(path, 'r');
+    const metadata = await file.stat();
+    if (!metadata.isFile() || metadata.size > LIMIT) invalid(code, 'NND package metadata is missing or invalid');
+    const buffer = Buffer.alloc(LIMIT + 1); let count = 0;
+    while (count < buffer.length) {
+      const read = await file.read(buffer, count, buffer.length - count, null);
+      if (!read.bytesRead) break;
+      count += read.bytesRead;
+    }
+    if (count > LIMIT) invalid(code, 'NND package metadata exceeds its size bound');
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, count)));
+  } catch (error) {
+    if (error instanceof ContractError) throw error;
+    invalid(code, 'NND package metadata is invalid or unavailable');
+  } finally { await file?.close(); }
 }
 
 export async function validateNndPackage(rootInput, options = {}) {
@@ -68,30 +83,35 @@ export async function runNndPackageCommand(args, paths) {
     invalid('nnd_package_command_invalid', 'NND package supports activate ROOT, deactivate ROOT, or status');
   }
   const registry = join(paths.config, REGISTRY_FILE);
-  if (action === 'activate') {
+  if (action === 'activate') return mutateNndPackageRegistration(paths, async ({ lease, snapshot }) => {
+    // Invariant: validation describes the package observed after competing registry writers finish.
     const packageInfo = await validateNndPackage(rootInput);
-    const tmp = `${registry}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(tmp, JSON.stringify({ root: packageInfo.root, version: packageInfo.version, protocol: packageInfo.protocol }), { flag: 'wx', mode: 0o600 });
-      await rename(tmp, registry);
-    } finally { await unlink(tmp).catch(() => {}); }
+    const record = { root: packageInfo.root, version: packageInfo.version, protocol: packageInfo.protocol };
+    await transactLockedManifest(lease, { expectedRevision: snapshot.revision, operationId: randomUUID(),
+      payload: { action: 'register-nnd-package', record }, transform: () => record, validate: validateRegistration });
     return { registered: true, valid: true, root: packageInfo.root, version: packageInfo.version };
-  }
-  const stored = await readFile(registry, 'utf8').then(JSON.parse).catch(() => null);
-  if (!stored) return { registered: false };
-  if (typeof stored.root !== 'string' || !isAbsolute(stored.root) || !VERSION.test(stored.version)) {
-    invalid('nnd_package_registry_invalid', 'NND package registry is invalid');
-  }
-  if (action === 'deactivate') {
+  });
+  if (action === 'deactivate') return mutateNndPackageRegistration(paths, async ({ stored }) => {
+    if (!stored) return { registered: false };
+    validateRegistration(stored);
     if (!(await samePackageRoot(rootInput, stored.root))) invalid('nnd_package_root_mismatch', 'Registered NND package root differs');
     await unlink(registry);
     return { registered: false };
-  }
+  });
+  const stored = await readNndPackageRegistration(paths);
+  if (!stored) return { registered: false };
+  validateRegistration(stored);
   try {
     const current = await validateNndPackage(stored.root);
     return { registered: true, valid: current.version === stored.version, root: current.root, version: current.version };
   } catch (error) {
     return { registered: true, valid: false, root: stored.root, version: stored.version, reason: error.code ?? 'nnd_package_invalid' };
+  }
+}
+
+function validateRegistration(stored) {
+  if (typeof stored.root !== 'string' || !isAbsolute(stored.root) || typeof stored.version !== 'string' || !VERSION.test(stored.version) || stored.protocol !== '1.0') {
+    invalid('nnd_package_registry_invalid', 'NND package registry is invalid');
   }
 }
 

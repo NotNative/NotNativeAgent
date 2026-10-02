@@ -13,13 +13,19 @@ import { loadManagedMcpCredentials } from './mcp-credentials.js';
 import { nndServiceCapabilities } from './nnd-service-attach.js';
 import { runNndInstallGuard } from './nnd-install-guard.js';
 import { runNndMigration } from './nnd-migration.js';
+import { stageNndInstallSlot, recoverNndInstallSlot } from './nnd-install-slots.js';
 
 export async function runNndServiceCommand(args, options = {}) {
   const [action, root] = args;
-  if (args.length !== 2 || !['start', 'run', 'status', 'stop', 'ui-ticket', 'attach', 'capabilities', 'install-guard', 'migrate', 'migration-recover'].includes(action)) {
-    throw new ContractError('nnd_command_invalid', 'nnd service supports start|run|status|stop|ui-ticket|attach|capabilities|install-guard|migrate|migration-recover INSTALL_ROOT');
+  const actions = ['start', 'run', 'status', 'stop', 'ui-ticket', 'attach', 'capabilities', 'install-guard', 'migrate', 'migration-recover'];
+  const valid = action === 'stage-payload' ? args.length === 4
+    : action === 'stage-recover' ? args.length >= 2 && args.length <= 3 : args.length === 2 && actions.includes(action);
+  if (!valid) {
+    throw new ContractError('nnd_command_invalid', 'Use nnd service ACTION INSTALL_ROOT, stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID, or stage-recover INSTALL_ROOT [OPERATION_UUID]');
   }
   const identity = await readNndServiceIdentity(root);
+  if (action === 'stage-payload') return stageNndInstallSlot(identity, { source: args[2], operationId: args[3], signal: options.signal });
+  if (action === 'stage-recover') return recoverNndInstallSlot(identity, { operationId: args[2], signal: options.signal });
   if (['migrate', 'migration-recover'].includes(action)) {
     return runNndMigration(identity, userDataPaths({ environment: { NNA_HOME: identity.data_root } }), action);
   }

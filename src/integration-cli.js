@@ -25,6 +25,8 @@ import { createNndSetupRuntime } from './nnd-setup-runtime.js';
 import { readNndSetupConfiguration, NND_CONFIGURATION_OPTIONS } from './nnd-setup-config.js';
 import { acquireNndServiceLock } from './nnd-service-lock.js';
 import { assertNoNndMigration } from './nnd-migration-storage.js';
+import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
+import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -52,7 +54,11 @@ export async function runNndIntegrationCommand(args, paths, options = {}) {
   }
   const lease = process.platform === 'win32' ? await acquireNndServiceLock({ dataRoot: paths.root }) : null;
   try {
-    if (lease) await assertNoNndMigration({ data_root: paths.root });
+    if (lease) {
+      await assertNoNndInstallMarker({ data_root: paths.root });
+      await assertNoNndInstallTransaction({ data_root: paths.root });
+      await assertNoNndMigration({ data_root: paths.root });
+    }
     const result = await runActivatedIntegrationCommand(paths, options, createNndLocalIntegrationActivation(), 'nnd');
     await lease?.close();
     return result;
