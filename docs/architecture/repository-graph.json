@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8c612becb912e0b641524bceb584c61f8c59d0fc661cbcc574b86525040c63c1",
+  "source_digest": "sha256:5d15cc05fee19eeae5d20ac7543f432d5500339084decfd3f7b0cf54246626af",
   "counts": {
-    "modules": 398,
+    "modules": 399,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 121
+      "module_count": 122
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 223,
-      "module_count": 98
+      "import_count": 224,
+      "module_count": 99
     },
     {
       "from": "experience-engine",
@@ -2166,6 +2166,14 @@
       "imports": [
         "src/ids.js",
         "src/nnd-manifest-extensions.js"
+      ]
+    },
+    {
+      "path": "src/nnd-service-private-storage.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {

@@ -60,6 +60,23 @@ launch, startup registration and client migration remain required before enablin
 `service_supervision`. Shared external catalogs require additional catalog ownership
 before they can be opened; a data-root lock alone cannot protect those catalogs.
 
+The Windows private-directory helper (`src/nnd-service-private-storage.js`)
+now creates `runtime/nnd` with a protected DACL owned by the current operator,
+allowing that SID, SYSTEM and Administrators. It validates existing directories
+without changing their ACLs and rejects unsafe ancestor ownership/replacement
+rights, null DACLs, foreign inherited grants and reparse points. The initial
+storage scope is a local fixed drive; UNC/mapped-network and removable roots
+are unsupported. A remote server's Administrators SID is not local-machine
+trust, and a local singleton cannot protect a shared remote catalog.
+
+The helper uses bounded native Windows PowerShell with paths on stdin, never
+credentials in argv or environment. It does not yet write discovery credentials
+or implement lifecycle control. Existing broad ACLs are not silently repaired.
+Native disposable-directory tests cover creation, concurrent initialization,
+unsafe permissions and unchanged evidence. Network-drive rejection is reviewed
+in code; no mapped-share acceptance was run. Future credential publication must
+also validate individual files, generation ownership and replacement races.
+
 ## Responsibility boundaries
 
 1. NNA core owns: the agent loop, governance decisions, the projection fold and its

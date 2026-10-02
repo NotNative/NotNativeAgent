@@ -46,6 +46,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'secret_status_invalid', 'secret_use_request_invalid', 'secret_key_invalid',
     'secret_vault_corrupt', 'secret_vault_integrity_failed', 'review_floor_violation',
     'governance_scope_invalid', 'governance_terminal_invalid',
+    'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe',
   ]),
   contract: Object.freeze([
     'config_command_invalid', 'config_read_only', 'config_section_invalid',
@@ -79,6 +80,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_install_root_mismatch', 'nnd_install_data_invalid', 'nnd_install_data_mismatch',
     'nnd_install_payload_invalid', 'nnd_install_version_mismatch',
     'nnd_install_runtime_unavailable', 'nnd_install_runtime_invalid', 'nnd_service_platform_unsupported',
+    'nnd_private_platform_unsupported', 'nnd_private_path_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
     'nnd_message_cursor_invalid',
@@ -261,6 +263,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   ]),
   persistence: Object.freeze([
     'nnd_lock_acquire_failed', 'nnd_lock_lost', 'nnd_service_already_running',
+    'nnd_private_storage_unavailable',
     'journal_compaction_snapshot_missing', 'journal_corrupt', 'journal_repair_evidence_missing',
     'journal_repair_prefix_invalid', 'journal_repair_prefix_too_large', 'journal_replace_invalid',
     'nnd_activity_invalid', 'nnd_activity_unavailable',
