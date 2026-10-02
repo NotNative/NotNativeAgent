@@ -14,6 +14,7 @@ import { nativeNndPrincipal, startNndNativeService } from '../src/nnd-service-na
 import { admitFreshNndServiceData } from '../src/nnd-service-admission.js';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
+import { acquireNndServiceLock } from '../src/nnd-service-lock.js';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 async function fixture(t) {
@@ -85,7 +86,7 @@ test('native fixed authority ignores child headers and binds only configured wor
     const response = await fetch(`${service.endpoint}/v1/nnd/setup/status`, { headers });
     assert.equal(response.status, 200);
     const secrets = await fetch(`${service.endpoint}/v1/secrets`, { headers });
-    assert.equal(secrets.status, 403);
+    assert.equal(secrets.status, 200);
     assert.deepEqual(nativeNndPrincipal(null).workspaceIds, []);
     assert.notDeepEqual(nativeNndPrincipal('C:\\one').workspaceIds, nativeNndPrincipal('C:\\two').workspaceIds);
     assert.equal(nativeNndPrincipal('C:\\one').permissions.includes('secret.use'), false);
@@ -93,10 +94,29 @@ test('native fixed authority ignores child headers and binds only configured wor
   } finally { await service.close(); }
 });
 
-test('existing data admission preserves catalog and requires explicit migration', async (t) => {
+test('configured NNA with TUI history starts supervised NND without altering native files', { skip: process.platform !== 'win32', timeout: 30000 }, async (t) => {
+  const { root, paths, identity } = await fixture(t); await packageFixture(root, paths);
+  const manifestPath = join(paths.config, 'manifest.json');
+  const manifest = JSON.stringify({ format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'primary', endpoint: 'http://127.0.0.1:1/v1', model: 'test', trust_zone: 'loopback' } });
+  await writeFile(manifestPath, manifest);
+  const tabs = join(paths.rootTui, 'pool.json'); await writeFile(tabs, 'existing-tui-state');
+  const journal = join(paths.sessions, 'ordinary.journal.ndjson'); await writeFile(journal, 'existing-tui-history');
+  const owner = await startNndSupervisor(identity, paths);
+  try {
+    assert.equal(owner.status().service_state, 'ready'); assert.equal(owner.status().provider_state, 'unknown');
+    assert.equal(await readFile(manifestPath, 'utf8'), manifest);
+    assert.equal(await readFile(tabs, 'utf8'), 'existing-tui-state');
+    assert.equal(await readFile(journal, 'utf8'), 'existing-tui-history');
+  } finally { await owner.stop(); }
+});
+
+test('existing data admission preserves catalog and requires explicit migration', { skip: process.platform !== 'win32' }, async (t) => {
   const { paths, identity } = await fixture(t);
   const catalog = join(paths.sessions, 'nnd-contexts.json'); await writeFile(catalog, 'legacy');
-  await assert.rejects(admitFreshNndServiceData(paths, identity), { code: 'nnd_owner_unverified' });
+  const lease = await acquireNndServiceLock({ dataRoot: identity.data_root });
+  try { await assert.rejects(admitFreshNndServiceData(paths, identity, lease), { code: 'nnd_owner_unverified' }); }
+  finally { await lease.close(); }
   assert.equal(await readFile(catalog, 'utf8'), 'legacy');
 });
 

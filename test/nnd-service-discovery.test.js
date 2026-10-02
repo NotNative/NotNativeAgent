@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import { createHash, randomUUID } from 'node:crypto';
 import { access, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -95,6 +96,34 @@ test('concurrent publication has exactly one winner and failed contenders cannot
   assert.equal(['nnd_discovery_conflict', 'nnd_discovery_busy'].includes(failure.reason.code), true);
   const winner = outcomes[0].status === 'fulfilled' ? first : second;
   assert.equal((await readNndServiceDiscovery(f.identity)).instance_id, winner.instance_id);
+});
+
+test('shutdown removal waits for a competing discovery reader to release the gate', { ...windows, timeout: 30000 }, async (t) => {
+  const f = await fixture(t);
+  const record = await create(f);
+  await publishNndDiscoveryGeneration(f.identity, f.lease, record.instance_id, null);
+  const holder = spawn(join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
+    ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', String.raw`
+      $ErrorActionPreference='Stop'
+      $path=[Console]::In.ReadLine()
+      $gate=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+      try { [Console]::Out.WriteLine('held'); [void][Console]::In.ReadLine() }
+      finally { $gate.Dispose() }`], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const exited = once(holder, 'exit');
+  t.after(async () => { if (holder.exitCode === null) { holder.kill(); await exited; } });
+  const ready = once(holder.stdout, 'data');
+  holder.stderr.on('data', () => {});
+  holder.stdin.write(`${join(f.directory, 'publish.lock')}\n`);
+  assert.equal(String((await ready)[0]).trim(), 'held');
+  const release = setTimeout(() => holder.stdin.end('release\n'), 1200);
+  try {
+    await removeNndDiscoveryPointer(f.identity, f.lease, record.instance_id);
+    assert.equal((await exited)[0], 0);
+    assert.equal(await readNndServiceDiscovery(f.identity), null);
+  } finally {
+    clearTimeout(release);
+    if (holder.exitCode === null) { holder.stdin.end('release\n'); await exited; }
+  }
 });
 test('per-file foreign ACLs fail even inside a protected parent', windows, async (t) => {
   const f = await fixture(t);

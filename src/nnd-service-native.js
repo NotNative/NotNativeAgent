@@ -10,6 +10,8 @@ import { ProviderProfileStore } from './provider/profile-store.js';
 const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
   'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate',
+  // Security: management remains scope-filtered and never grants secret.use or raw values.
+  'secret.read', 'secret.manage', 'secret.audit',
   'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate']);
 
 export function nativeNndPrincipal(workspaceRoot) {

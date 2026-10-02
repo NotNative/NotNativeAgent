@@ -341,12 +341,17 @@ grant inside NNA on each request. Child headers cannot widen that authority.
 Mandatory reviewer governance remains unchanged; provider connectivity stays unknown
 until observed independently of service readiness.
 
-Initial admission requires fresh data or the exact native owner marker. Current
-legacy NND serve also holds this lease. Older installed hosts require explicit
-migration; existing manifest/session/tab data is preserved and refused at first
-admission. This is not full existing-user integration. The independent TUI keeps
-its own catalog and identity. Login registration, configuration
-save/repair concurrency and verified migration remain planned work.
+Initial admission requires the genuine data-root lease and a bounded Windows
+legacy-process census on every start. Configured manifests, ordinary journals and
+independent TUI tabs remain intact when no legacy NND catalog or sidecars exist.
+A protected synced receipt records selected identity and observed process census;
+valid previous fresh-service admission is preserved. Legacy NND catalogs require
+explicit migration. Current selected CLI launchers take the same lease. A census
+only observes present processes: unsupported older executable autostarts must be
+disabled before adoption; the receipt does not fence their future launches.
+Login registration, configuration save/repair concurrency, migration and installer
+recovery remain planned work. Native credential metadata, management and audit
+retain broker scope checks; the GUI principal cannot retrieve or use raw values.
 
 Shutdown first stops native request admission and closes child attachment. It
 drains native dispatch work, including configuration writes after socket closure,

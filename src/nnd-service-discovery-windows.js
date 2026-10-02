@@ -45,6 +45,20 @@ function Open-PrivateFile([string] $path, [IO.FileMode] $mode) {
     try { Assert-Acl $stream.GetAccessControl() $true; return $stream }
     catch { $stream.Dispose(); throw }
 }
+function Open-DiscoveryGate([string] $path) {
+    $wait = [Diagnostics.Stopwatch]::StartNew()
+    while ($true) {
+        try { return Open-PrivateFile $path ([IO.FileMode]::OpenOrCreate) }
+        catch [IO.IOException] {
+            # Invariant: polling readers share this gate with publication and removal. Only
+            # transient Windows sharing/lock contention permits a bounded retry.
+            $nativeCode = $_.Exception.HResult -band 0xffff
+            if ($nativeCode -notin @(32,33)) { throw }
+            if ($wait.ElapsedMilliseconds -ge 2000) { throw 'nnd_discovery_busy' }
+            Start-Sleep -Milliseconds 20
+        }
+    }
+}
 function Read-Record([string] $path) {
     if (-not [IO.File]::Exists($path)) { return $null }
     Assert-File $path
@@ -155,8 +169,7 @@ try {
     Assert-Directory $directory $true
     $current = [IO.Path]::Combine($directory,'current.json')
     $gatePath = [IO.Path]::Combine($directory,'publish.lock')
-    try { $gate = Open-PrivateFile $gatePath ([IO.FileMode]::OpenOrCreate) }
-    catch [IO.IOException] { throw 'nnd_discovery_busy' }
+    $gate = Open-DiscoveryGate $gatePath
     try {
         switch ($request.action) {
             'create' {

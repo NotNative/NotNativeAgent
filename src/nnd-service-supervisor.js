@@ -60,7 +60,7 @@ export async function startNndSupervisor(identity, paths, options = {}) {
   try {
     await assertNoNndInstallMarker(identity);
     state.package = await admitNndServicePackage(paths, identity);
-    await admitFreshNndServiceData(paths, identity);
+    await admitFreshNndServiceData(paths, identity, lease);
     const previous = await readNndServiceDiscovery(identity);
     state.native = await startNndNativeService(paths, identity, options);
     state.controller = await startNndController({ getRecord: () => state.record, status: () => status(state),
