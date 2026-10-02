@@ -281,8 +281,43 @@ Independent audit found no confirmed production defect. Added regressions cover 
 expiry during activation, late completion, read-only reauthentication and both native
 restart-required failures. Existing provider assertions now isolate the unrelated
 setup transport. Full UI: 1,639 passed across 204 files; type and quality gates
-passed for 737 production modules. Packaging and release checks remain mandatory
-before committing this slice.
+passed for 737 production modules. Packaging and release checks passed before
+commit `598cff1`.
 C3 remains in-progress; generic configuration save, repair and complete settings
 coverage remain open. This slice consumes native APIs already committed in NNA
 `31fd90b1`; concurrent OpenCode protocol changes are a separate subsystem.
+
+## Native 20261002-9 — explicit legacy catalog migration
+
+Native commit `a92d4375` implements explicit `migrate` and `migration-recover`
+commands under selected data-root ownership. It preserves exact backups, journals,
+activity and review modes, and rewrites only recognized legacy workspace grants
+after workspace/provenance validation. Pending evidence blocks service, legacy serve
+and installer admission. Strict session locks preserve live or uncertain TUI owners.
+Recovery restores incomplete transactions or verifies completed evidence before
+clearing the marker; unexpected changes remain blocked.
+
+Adversarial repairs covered historical renamed Node processes, dotted session IDs,
+changed completed-recovery provenance, malformed activity and the combined 64 MiB
+bound. An actual forced-death test verifies stale-lock recovery and exact-byte
+rollback. Full native validation passed 1,769 tests with seven skips on the prior
+committed OpenCode baseline. After integrating the latest independent OpenCode
+commit, 42 focused migration/lock/registry/protocol tests passed with two skips;
+native type/quality and graph checks passed for 433 modules. Unsealed migration
+candidates were superseded to preserve the shared native version sequence.
+
+Original NNA now contains both agents' committed work. No operator migration ran.
+Login startup, transactional installation and installer recovery remain open.
+
+## NND 20261002-7 — prebuilt payload foundation
+
+The [payload contract](nnd-prebuilt-payload.md) defines bounded plain-file export,
+deterministic artifact identity and prospective immutable slots. Production installer
+delegation, native slot activation/CAS/rollback and startup remain open; this exporter
+does not enable distribution. Audits repaired output junction containment and missing
+Electron runtime resource admission. Twelve focused tests and all 1,639 UI tests
+passed. The actual 178-file exported payload launched its copied Electron runtime
+against native `20261002-9`: Chromium cookie admission, credential isolation,
+independent-browser refusal, shell-independent service lifetime, exact service stop
+and lease reacquisition passed. Payload bytes remained unchanged. Packaging passed;
+final release checks are required before this candidate is committed.

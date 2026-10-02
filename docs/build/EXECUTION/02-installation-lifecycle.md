@@ -18,18 +18,18 @@ activation and supervision. Preserve NNA's mandatory reviewer in every mode.
 The following lifecycle API names and storage additions are proposals until L1
 freezes them in the NNA contract and both repositories test the same contract.
 
-## Current evidence and concrete failure paths
+## Baseline findings and current dispositions
 
-| Evidence | Current behavior | Consequence requiring closure |
+| Evidence | Baseline behavior | Current disposition and remaining closure |
 | --- | --- | --- |
-| NND `packages/electron/main.mjs`, `packages/web/src/server/index.ts`, `harness/nna-local.ts` | Shell imports server; server starts and kills an NNA child | Tray quit can end service work and browser availability |
+| NND `packages/electron/main.mjs`, `packages/web/src/server/index.ts`, `harness/nna-local.ts` | Shell imports server; server starts and kills an NNA child | Selected installed native attachment now preserves the supervised service after shell quit; explicit legacy development path remains separate |
 | NNA `src/nnd-package.js` | Activation registers metadata; it does not supervise a service | Registered does not mean running or usable |
 | NND `packages/electron/main.mjs` | Local health is required before choosing remote target | Client-only remote boot fails without local NNA |
 | NND `install.ps1` | Copies into current install before dependencies/build/activation succeed | Failed upgrade can leave package version and registration inconsistent |
-| NND `install.ps1`, `harness/nna-local.ts` | Custom NNA root is used during install, but runtime prefers default descriptor | Successful custom installation can launch the wrong NNA or fail discovery |
-| NNA `src/integration-principal.js`; NND attach adapter | Principal freshness is five minutes; attach accepts a static envelope | Long-lived attachment can fail after initially healthy startup |
-| NND `scripts/release-gates.js` | Release include list excludes Electron and root installers | Green seal does not identify all shipped lifecycle code |
-| NND `scripts/nna-source-smoke.mjs` | Source CLI and source app are exercised directly | Registration, installed runtime, shell and browser remain unproven |
+| NND `install.ps1`, `harness/nna-local.ts` | Custom NNA root is used during install, but runtime prefers default descriptor | Native selection now binds the exact installation; transactional selected launcher and two-installation production acceptance remain required |
+| NNA `src/integration-principal.js`; NND attach adapter | Principal freshness is five minutes; attach accepts a static envelope | Supervised native requests derive authority per request and ignore child authority headers; device scope remains pending |
+| NND `scripts/release-gates.js` | Release include list excludes Electron and root installers | Source seals now cover root installers and Electron lifecycle code, with bounded junction refusal tests |
+| NND `scripts/nna-source-smoke.mjs` | Source CLI and source app are exercised directly | Actual disposable installed-payload and Chromium probes now verify attachment; production installer acceptance remains open |
 
 Source smoke remains useful regression evidence. It must not be renamed or
 reported as installed-product acceptance. Existing NSIS generation is disabled;
@@ -72,7 +72,7 @@ storage would need cross-computer ownership and a separate credential trust poli
 | NNA state | Descriptor `data_root`, normally `%USERPROFILE%/.nna` |
 | NNA provider configuration and secrets | Existing NNA config and SecretBroker paths; never duplicate into NND settings |
 | NND registration | Existing `<NNA data root>/config/nnd-package.json`; migrate transactionally if schema changes |
-| NND executable versions | Proposed `<NND install root>/versions/<version>` plus atomic active-version descriptor |
+| NND executable versions | Proposed immutable `<NND install root>/versions/<version>-<artifact-hash>` slots; native package registration is the sole authoritative active pointer |
 | NND presentation state | Existing `%USERPROFILE%/.notnative-desktop` or explicit selected data root; preserve on upgrade |
 | Supervision state | Proposed NNA-owned bounded runtime record with installation ID, generation, endpoint, owner identity |
 | NND sessions and journals | Existing NNA-owned session/catalog paths; keep ownership and replay checks |
@@ -261,7 +261,15 @@ established, refuse activation with recovery instructions. Never kill by a guess
 process name/port or terminate independent TUI work. Reconcile legacy queue,
 schedule and accepted-operation records before enabling the new dispatcher; do
 not run both consumers during takeover or replay an unknown prior outcome.
-Atomically switch registration and active-version identity, start through NNA,
+Atomically switch native registration, including the exact slot/artifact identity,
+under the data-root lease. The stable desktop launcher resolves that record through
+the selected NNA; do not create a second independently mutable active-version pointer.
+Retain exact previous registration bytes/hash and a protected prepared transaction
+before mutation. Native code owns and awaits slot copy/publication; production
+installation launches no dependency/build writers. Existing source-build guard
+markers cannot establish surviving child-writer quiescence and must remain blocked
+until verified recovery; absence of a PID or port is insufficient evidence.
+Start through NNA,
 and require health plus authenticated GUI/engine probes before reporting success.
 On a fresh unconfigured NNA, successful installation may report `setup-required`
 after authenticated service/configuration probes; it must not report chat readiness

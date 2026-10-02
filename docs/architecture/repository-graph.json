@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:02d0e4700996b9479c487451b7b771f6de2d03011edf54409fdea177e61421f2",
+  "source_digest": "sha256:78c1c5dd82e8bc4461070f9537a0cae67a29fa572cd29d2a7041e43380659ec8",
   "counts": {
-    "modules": 737,
+    "modules": 742,
     "component_edges": 16
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 48
+      "module_count": 53
     },
     {
       "id": "foundation",
@@ -6981,6 +6981,7 @@
       "component": "gates",
       "entrypoint": false,
       "imports": [
+        "scripts/prebuilt-payload-validation.mjs",
         "scripts/smoke-http.mjs",
         "scripts/supervised-smoke-fixture.mjs",
         "scripts/write-nna-selection.mjs"
@@ -7009,6 +7010,28 @@
       "component": "gates",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "scripts/export-prebuilt-payload.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installed-service-package.mjs",
+        "scripts/payload-export-plan.mjs",
+        "scripts/payload-files.mjs"
+      ]
+    },
+    {
+      "path": "scripts/export-prebuilt-payload.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/electron-native-attach-smoke.mjs",
+        "scripts/export-prebuilt-payload.mjs",
+        "scripts/payload-export-plan.mjs",
+        "scripts/payload-files.mjs",
+        "scripts/prebuilt-payload-validation.mjs"
+      ]
     },
     {
       "path": "scripts/installed-service-package.mjs",
@@ -7097,6 +7120,28 @@
       "imports": [
         "scripts/nnd-manifest-extensions.js",
         "scripts/nnd-service-contract.js"
+      ]
+    },
+    {
+      "path": "scripts/payload-export-plan.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/payload-files.mjs"
+      ]
+    },
+    {
+      "path": "scripts/payload-files.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/prebuilt-payload-validation.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/payload-files.mjs"
       ]
     },
     {
@@ -7299,7 +7344,8 @@
       "component": "gates",
       "entrypoint": false,
       "imports": [
-        "scripts/installed-service-package.mjs"
+        "scripts/installed-service-package.mjs",
+        "scripts/prebuilt-payload-validation.mjs"
       ]
     },
     {

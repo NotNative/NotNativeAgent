@@ -5,9 +5,11 @@ import { randomUUID } from 'node:crypto';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { writeInstalledServiceManifest } from './installed-service-package.mjs';
+import { pathToFileURL } from 'node:url';
+import { writeInstalledServiceManifest, validateInstalledNndService } from './installed-service-package.mjs';
+import { copyPrebuiltPayload } from './prebuilt-payload-validation.mjs';
 
-export async function createSupervisedFixture(nna, nnd) {
+export async function createSupervisedFixture(nna, nnd, { payloadRoot = null } = {}) {
   const root = join(homedir(), `.nnd-supervised-smoke-${randomUUID()}`);
   const script = "$ErrorActionPreference='Stop'; $root=[Console]::In.ReadToEnd(); "
     + "$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; "
@@ -21,15 +23,21 @@ export async function createSupervisedFixture(nna, nnd) {
     const install = join(root, 'NNA'), payload = join(install, 'installed'), data = join(root, 'data'), gui = join(root, 'NND');
     await mkdir(payload, { recursive: true }); await mkdir(join(data, 'config'), { recursive: true }); await mkdir(gui);
     for (const path of ['src', 'resources', 'package.json', 'VERSION']) await cp(join(nna, path), join(payload, path), { recursive: true });
-    for (const path of ['scripts', 'packages/electron/dist-server', 'packages/web/dist', 'package.json', 'VERSION']) {
-      await cp(join(nnd, path), join(gui, path), { recursive: true });
-    }
+    if (payloadRoot) await copyPrebuiltPayload(payloadRoot, gui);
+    else for (const path of ['scripts', 'packages/electron/dist-server', 'packages/web/dist', 'package.json', 'VERSION']) {
+        await cp(join(nnd, path), join(gui, path), { recursive: true });
+      }
     const version = (await readFile(join(payload, 'VERSION'), 'utf8')).trim();
     await writeFile(join(install, 'install.json'), JSON.stringify({ product: 'NotNativeAgent', version,
       install_root: install, data_root: data, node: process.execPath, node_major: Number(process.versions.node.split('.')[0]) }));
-    const manifest = await writeInstalledServiceManifest(gui);
+    const manifest = payloadRoot ? (await validateInstalledNndService(gui)).manifest : await writeInstalledServiceManifest(gui);
+    if (payloadRoot) {
+      const { validateNndPackage } = await import(pathToFileURL(join(payload, 'src/nnd-package.js')).href);
+      const admitted = await validateNndPackage(gui);
+      assert.equal(admitted.version, manifest.version);
+    }
     await writeFile(join(data, 'config/nnd-package.json'), JSON.stringify({ root: gui, version: manifest.version, protocol: '1.0' }));
-    return { root, install, data, gui, cli: join(payload, 'src/cli.js') };
+    return { root, install, data, gui, prebuilt: Boolean(payloadRoot), cli: join(payload, 'src/cli.js') };
   } catch (error) { await removeSupervisedFixture(root); throw error; }
 }
 export async function removeSupervisedFixture(root) {

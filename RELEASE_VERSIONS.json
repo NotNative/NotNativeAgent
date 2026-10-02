@@ -888,6 +888,10 @@
     {
       "version": "20261002-6",
       "content_sha256": "c24b252d6658ceae059ea24fe1ecc6a9c2b8531fe57c7f85bc815655a372d154"
+    },
+    {
+      "version": "20261002-7",
+      "content_sha256": "5ddf3e5a3513d44ad719b43d24960f71c5b487ed5a48eac018dfb6998c31bf5e"
     }
   ]
 }

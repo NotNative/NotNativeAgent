@@ -4,11 +4,12 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createSupervisedFixture, removeSupervisedFixture } from './supervised-smoke-fixture.mjs';
 import { writeNnaSelection } from './write-nna-selection.mjs';
 import { withTimeout } from './smoke-http.mjs';
+import { verifyPrebuiltPayload } from './prebuilt-payload-validation.mjs';
 
 async function runCli(fixture, action) {
   const child = spawn(process.execPath, [fixture.cli, 'nnd', 'service', action, fixture.install],
@@ -22,6 +23,13 @@ async function runCli(fixture, action) {
 }
 async function prepareShell(fixture, root) {
   const from = join(root, 'packages/electron'), to = join(fixture.gui, 'packages/electron');
+  if (!fixture.prebuilt) await copySourceShell(fixture, from, to);
+  const harness = join(fixture.prebuilt ? fixture.root : fixture.gui, 'electron-smoke.mjs');
+  const shellData = join(fixture.root, 'shell-data'); await mkdir(shellData);
+  await writeFile(harness, shellHarness(shellData, to));
+  return { harness, executable: join(fixture.prebuilt ? to : from, 'node_modules/electron/dist/electron.exe') };
+}
+async function copySourceShell(fixture, from, to) {
   await mkdir(to, { recursive: true });
   for (const entry of await readdir(from, { withFileTypes: true })) {
     if (entry.isFile() && (entry.name.endsWith('.mjs') || entry.name === 'package.json')) await cp(join(from, entry.name), join(to, entry.name));
@@ -29,9 +37,9 @@ async function prepareShell(fixture, root) {
   await cp(join(from, 'assets'), join(to, 'assets'), { recursive: true });
   await writeFile(join(fixture.gui, 'packages/install-mode.txt'), 'script\n');
   await writeNnaSelection(fixture.gui, fixture.install);
-  const harness = join(fixture.gui, 'electron-smoke.mjs');
-  const shellData = join(fixture.root, 'shell-data'); await mkdir(shellData);
-  await writeFile(harness, `import {app} from 'electron';
+}
+function shellHarness(shellData, to) {
+  return `import {app} from 'electron';
 app.setPath('userData',${JSON.stringify(shellData)});
 process.stdout.write('NND_STAGE_BOOT\\n');
 let finished=false; const timer=setTimeout(()=>{process.stdout.write('NND_STAGE_TIMEOUT\\n');app.exit(1);},35000);
@@ -50,19 +58,19 @@ app.on('browser-window-created',(_event,win)=>{
   });
 });
 await import(${JSON.stringify(pathToFileURL(join(to, 'main.mjs')).href)});
-`);
-  return { harness, executable: join(from, 'node_modules/electron/dist/electron.exe') };
+`;
 }
 
-async function main(nna) {
+async function main(nna, payloadRoot = null) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const fixture = await createSupervisedFixture(nna, root);
+  const fixture = await createSupervisedFixture(nna, root, { payloadRoot });
   let electron, electronExit, stopped = false, output = '', diagnostics = '';
   try {
     const service = await runCli(fixture, 'start');
     const shell = await prepareShell(fixture, root);
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE; delete env.NODE_OPTIONS; delete env.NODE_PATH;
-    electron = spawn(shell.executable, [shell.harness, '--hidden'], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const args = [shell.harness, '--hidden', ...(fixture.prebuilt ? ['--nna-install-root', fixture.install] : [])];
+    electron = spawn(shell.executable, args, { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     electronExit = once(electron, 'exit');
     electron.stdout.on('data', (chunk) => { output += chunk; if (output.length > 65536) electron.kill(); });
     electron.stderr.on('data', (chunk) => { if (diagnostics.length < 65536) diagnostics += String(chunk).slice(0, 65536 - diagnostics.length); });
@@ -73,6 +81,10 @@ async function main(nna) {
     assert.equal((await browser.json()).authenticated, false, 'Chromium admission must not unlock another browser');
     await runCli(fixture, 'stop');
     await waitStopped(fixture); stopped = true;
+    if (fixture.prebuilt) {
+      const copied = await verifyPrebuiltPayload(fixture.gui), original = await verifyPrebuiltPayload(payloadRoot);
+      assert.equal(copied.sha256, original.sha256, 'Runtime probe must not modify the immutable payload');
+    }
     process.stdout.write('Real Electron native attachment passed: Chromium cookie admission, no renderer bearer, isolated browser and service survives shell quit.\n');
   } catch (error) {
     const log = await readFile(join(fixture.root, 'shell-data/logs/main.log'), 'utf8').catch(() => 'No shell log');
@@ -104,5 +116,15 @@ async function waitStopped(fixture) {
   }
   throw new Error('Native service remained active after stop');
 }
-if (process.platform !== 'win32' || !process.argv[2]) throw new Error('usage: Windows node scripts/electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE');
-await main(resolve(process.argv[2]));
+export function parseElectronSmokeArguments(args) {
+  if ((args.length !== 1 && args.length !== 3) || !isAbsolute(args[0] ?? '')
+    || args.length === 3 && (args[1] !== '--payload' || !isAbsolute(args[2]))) {
+    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT]');
+  }
+  return { nna: resolve(args[0]), payloadRoot: args.length === 3 ? resolve(args[2]) : null };
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  if (process.platform !== 'win32') throw new Error('Native Electron smoke requires Windows');
+  const { nna, payloadRoot } = parseElectronSmokeArguments(process.argv.slice(2));
+  await main(nna, payloadRoot);
+}
