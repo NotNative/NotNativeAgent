@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { contextCompressionPolicy } from './context-compression.js';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
+import { toolExchanges } from './tool-exchanges.js';
 
 const DEFAULT_MINIMUM_SAVINGS_BYTES = 512;
 const RECEIPT_SCHEMA = 'nna.duplicate-result-receipt.v1';
@@ -11,9 +12,11 @@ export function projectDuplicateToolResults(records, protectedIndexes = new Set(
     ? options.minimumSavingsBytes : DEFAULT_MINIMUM_SAVINGS_BYTES;
   const latestByDigest = new Map();
   const digestByIndex = new Map();
+  const { requests } = toolExchanges(records);
+  const identified = uniquelyIdentifiedResults(records);
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
-    if (!eligible(record)) continue;
+    if (!eligible(record) || (!requests.has(record) && !identified.has(record))) continue;
     const digest = contentDigest(record.content);
     digestByIndex.set(index, digest);
     latestByDigest.set(digest, index);
@@ -99,3 +102,16 @@ function recordBytes(record) {
 }
 
 function positiveInteger(value) { return Number.isSafeInteger(value) && value >= 0; }
+
+function uniquelyIdentifiedResults(records) {
+  const references = new Map();
+  for (const record of records) {
+    if (record.type !== 'tool_result') continue;
+    const id = record.requestId ?? record.providerCallId;
+    if (typeof id !== 'string' || !id.trim()) continue;
+    references.set(id, references.has(id) ? null : record);
+  }
+  // Compatibility: exact-content receipts can reference an independently identified
+  // historical result even when its request is outside the current projection.
+  return new Set([...references.values()].filter(Boolean));
+}

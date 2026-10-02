@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:a5f629451f250b918fa6ff7a33e7ff1f581dbcee33caa7e66bdcd24534c7330f",
+  "source_digest": "sha256:01a59109170e22ef8b85a9b486487a011fa7d210c2b0683e5c400ad0ccd457c3",
   "counts": {
-    "modules": 468,
+    "modules": 469,
     "component_edges": 81
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 35
+      "module_count": 36
     },
     {
       "id": "gateway",
@@ -142,16 +142,16 @@
       "module_count": 20
     },
     {
+      "from": "reliability-engine",
+      "to": "reliability-engine",
+      "import_count": 49,
+      "module_count": 18
+    },
+    {
       "from": "opencode-surface",
       "to": "opencode-surface",
       "import_count": 46,
       "module_count": 19
-    },
-    {
-      "from": "reliability-engine",
-      "to": "reliability-engine",
-      "import_count": 45,
-      "module_count": 17
     },
     {
       "from": "agentic-engine",
@@ -3646,6 +3646,7 @@
         "src/reliability/continuation-artifact.js",
         "src/reliability/duplicate-results.js",
         "src/reliability/long-horizon-context.js",
+        "src/reliability/tool-exchanges.js",
         "src/tools/context-receipt.js",
         "src/tools/tool-result-contract.js"
       ]
@@ -3683,6 +3684,7 @@
       "entrypoint": false,
       "imports": [
         "src/reliability/duplicate-results.js",
+        "src/reliability/tool-exchanges.js",
         "src/tools/context-receipt.js",
         "src/tools/tool-result-contract.js"
       ]
@@ -3692,6 +3694,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/reliability/tool-exchanges.js",
         "src/tools/tool-result-contract.js"
       ]
     },
@@ -3711,6 +3714,7 @@
       "entrypoint": false,
       "imports": [
         "src/reliability/context-compression.js",
+        "src/reliability/tool-exchanges.js",
         "src/tools/tool-result-contract.js"
       ]
     },
@@ -3855,6 +3859,12 @@
     },
     {
       "path": "src/reliability/tool-call-identity.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/tool-exchanges.js",
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": []

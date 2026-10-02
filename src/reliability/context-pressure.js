@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
 import { createToolContextReceipt } from '../tools/context-receipt.js';
+import { toolExchanges } from './tool-exchanges.js';
 
 export const CONTEXT_PRESSURE = Object.freeze({
   receipts: 0.40,
@@ -66,14 +67,13 @@ export function projectActiveTurn(records, options) {
 }
 
 function receiptProjection(records, cold) {
-  const requests = new Map(records.filter((item) => item.type === 'tool_request')
-    .map((item) => [item.providerCallId, item]));
+  const { requests } = toolExchanges(records);
   return records.map((item, index) => {
     if (!cold.has(index)) return item;
     if (item.type === 'tool_result') {
       // Invariant: failures and their repair evidence are not replaceable success receipts.
-      return item.metadata?.reason === 'duplicate_result' || toolLifecycleStatus(item) !== 'succeeded'
-        ? item : createToolContextReceipt(item, requests.get(item.providerCallId));
+      return item.metadata?.reason === 'duplicate_result' || toolLifecycleStatus(item) !== 'succeeded' || !requests.has(item)
+        ? item : createToolContextReceipt(item, requests.get(item));
     }
     // Invariant: a retained native tool exchange must replay the exact arguments that were
     // originally accepted. Receipt metadata belongs on the result; rewriting request args
@@ -97,14 +97,13 @@ function checkpointProjection(records, cold, checkpoint) {
 
 function createActiveCheckpoint(records, cold, options, tier) {
   const selected = [...cold].sort((a, b) => a - b).map((index) => records[index]);
-  const requests = new Map(selected.filter((item) => item.type === 'tool_request' && item.providerCallId)
-    .map((item) => [item.providerCallId, item]));
+  const { requests } = toolExchanges(records);
   const operator = records.filter((item) => recordTurnId(item) === options.turnId
     && item.type === 'message' && item.role === 'user').at(0);
   const progress = selected.filter((item) => item.type === 'message' && item.role === 'assistant')
     .map((item) => boundedHeadTail(item.content ?? '', 1_024)).filter(Boolean).slice(-6);
   const tools = selected.filter((item) => item.type === 'tool_result').slice(-20).map((item) => {
-    const request = requests.get(item.providerCallId);
+    const request = requests.get(item);
     const target = requestTarget(request);
     const excerpt = boundedHeadTail(item.content ?? '', 768).replace(/\s+/gu, ' ').trim();
     return Object.freeze({

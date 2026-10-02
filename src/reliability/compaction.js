@@ -9,6 +9,7 @@ import { retainedRecordsFingerprint } from './long-horizon-context.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
 import { createToolContextReceipt } from '../tools/context-receipt.js';
 import { contextCompressionPolicy } from './context-compression.js';
+import { toolExchanges } from './tool-exchanges.js';
 
 const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
 const RECORD_BUDGET_RATIO = 0.55;
@@ -146,28 +147,21 @@ function selectRecentRecords(transcript, budget, options) {
   const duplicates = projectDuplicateToolResults(transcript, protection.indexes);
   const projection = supersedeColdToolResults(duplicates.records, protection.indexes);
   const turns = turnEntries(projection.records);
-  const requests = new Map(projection.records.filter((item) => item.type === 'tool_request').map((item) => [item.providerCallId, item]));
+  const exchanges = toolExchanges(projection.records);
   const normalized = projection.records.map((item, index) => ({
-    index, item: compactRecord(item, budget, protection.indexes.has(index), requests.get(item.providerCallId)),
+    index, item: compactRecord(item, budget, protection.indexes.has(index), exchanges.requests.get(item)),
     protected: protection.indexes.has(index),
     turnKey: turns[index].turnKey,
   }));
-  const requestIndexes = new Map(); const resultIndexes = new Map();
-  for (const entry of normalized) {
-    if (entry.item.type === 'tool_request') requestIndexes.set(entry.item.providerCallId, entry.index);
-    if (entry.item.type === 'tool_result') resultIndexes.set(entry.item.providerCallId, entry.index);
-  }
   const consumed = new Set(); const units = [];
   for (const entry of normalized) {
     if (consumed.has(entry.index)) continue;
-    if (entry.item.type === 'tool_request' && resultIndexes.has(entry.item.providerCallId)) {
-      const resultIndex = resultIndexes.get(entry.item.providerCallId);
-      const result = normalized[resultIndex];
-      consumed.add(entry.index); consumed.add(resultIndex);
-      units.push({ entries: [entry, result].sort((a, b) => a.index - b.index), priority: Math.max(entry.index, resultIndex) });
+    const partnerIndex = exchanges.partners.get(entry.index);
+    if (partnerIndex !== undefined) {
+      consumed.add(entry.index); consumed.add(partnerIndex);
+      units.push({ entries: [entry, normalized[partnerIndex]].sort((a, b) => a.index - b.index), priority: Math.max(entry.index, partnerIndex) });
       continue;
     }
-    if (entry.item.type === 'tool_result' && requestIndexes.has(entry.item.providerCallId)) continue;
     consumed.add(entry.index); units.push({ entries: [entry], priority: entry.index });
   }
   const latestUser = [...normalized].reverse().find((entry) => entry.item.type === 'message' && entry.item.role === 'user');
@@ -208,16 +202,13 @@ function selectionMetrics(retained, transcript, protection, projection, duplicat
 }
 
 function supersedeColdToolResults(transcript, protectedIndexes) {
-  const requests = new Map();
-  for (const item of transcript) {
-    if (item.type === 'tool_request') requests.set(item.providerCallId, item);
-  }
+  const { requests } = toolExchanges(transcript);
   const latest = new Map();
   const keys = new Map();
   for (let index = 0; index < transcript.length; index += 1) {
     const item = transcript[index];
     if (item.type !== 'tool_result' || toolLifecycleStatus(item) !== 'succeeded') continue;
-    const request = requests.get(item.providerCallId);
+    const request = requests.get(item);
     const key = supersessionKey(request);
     if (!key) continue;
     keys.set(index, key); latest.set(key, index);
@@ -263,6 +254,8 @@ function keyed(name, values) {
 
 function compactRecord(item, budget, protectedRecord = false, request = null) {
   if (item.type === 'tool_result') {
+    // Invariant: unresolved evidence cannot acquire another exchange's receipt target.
+    if (!request) return { ...item };
     if (item.metadata?.reason === 'duplicate_result') return { ...item };
     if (contextCompressionPolicy(item).automatic === false) return { ...item };
     const cap = protectedRecord
@@ -320,7 +313,7 @@ function protectedRecency(transcript, options) {
   }
   const explicitActive = options.activeTurnId ? `id:${options.activeTurnId}` : null;
   const active = explicitActive && ordered.includes(explicitActive) ? explicitActive : null;
-  const completed = ordered.filter((key) => key !== active).slice(-completedLimit);
+  const completed = completedLimit > 0 ? ordered.filter((key) => key !== active).slice(-completedLimit) : [];
   const turnKeys = new Set([...completed, ...(active ? [active] : [])]);
   const activeStepLimit = Number.isInteger(options.protectedActiveSteps)
     ? Math.max(1, options.protectedActiveSteps) : null;

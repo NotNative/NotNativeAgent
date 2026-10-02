@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
+import { toolExchanges } from './tool-exchanges.js';
 
 // Why: file-operation evidence is durable state; exact tool identifiers prevent a naming-style
 // refactor from silently dropping completed mutations from continuation checkpoints.
@@ -45,14 +46,14 @@ function baseContinuationArtifact(transcript, omitted, results = toolResults(tra
   const changedFiles = [];
   for (const item of allToolRequests) {
     if (!FILE_MUTATION_TOOL_NAMES.has(item.toolName)) continue;
-    const result = results.get(item.providerCallId);
+    const result = results.get(item);
     for (const target of toolTargets(item.args)) changedFiles.push(Object.freeze({
       path: target, operation: item.toolName, toolLifecycleStatus: toolLifecycleStatus(result) ?? 'unresolved',
     }));
   }
-  const unresolvedTools = allToolRequests.filter((item) => !results.has(item.providerCallId)).slice(-32)
+  const unresolvedTools = allToolRequests.filter((item) => !results.has(item)).slice(-32)
     .map((item) => Object.freeze({ id: bounded(item.providerCallId, 256), tool: bounded(item.toolName, 256) }));
-  const verifiedFacts = toolRequests.filter((item) => toolLifecycleStatus(results.get(item.providerCallId)) === 'succeeded')
+  const verifiedFacts = toolRequests.filter((item) => toolLifecycleStatus(results.get(item)) === 'succeeded')
     .slice(-32).map((item) => `${bounded(item.toolName, 256)} completed successfully`);
   return Object.freeze({
     schema: 'nna.continuation.v1', objective: boundedHeadTail(objective?.content ?? '', 8_192),
@@ -66,8 +67,7 @@ function baseContinuationArtifact(transcript, omitted, results = toolResults(tra
 }
 
 function toolResults(transcript) {
-  return new Map(transcript.filter((item) => item.type === 'tool_result')
-    .map((item) => [item.providerCallId, item]));
+  return toolExchanges(transcript).results;
 }
 
 export function renderContinuation(item, maximumBytes = 49_152) {

@@ -11,6 +11,11 @@ a provider, but it never rewrites authenticated authority or the durable session
 A reduction is acceptable only when its guarantee is explicit, its effect is measurable,
 and any omitted evidence has a deterministic recovery path.
 
+Tool exchanges use unique lifecycle request identities, with unique provider call identities
+as a compatibility fallback. Identities are scoped to the recorded turn. Missing or repeated
+identities do not associate unrelated records. Unresolved results remain independent evidence;
+receipt targets, supersession, and continuation completion facts require a resolved exchange.
+
 NNA classifies compression work into four classes:
 
 | Class | Meaning | Permitted behavior |
