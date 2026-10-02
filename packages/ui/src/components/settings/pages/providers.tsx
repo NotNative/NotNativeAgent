@@ -83,7 +83,7 @@ function endpointDisplay(endpoint: string): { key: I18nKey; origin?: string } {
     : { key: 'settings.providers.inventory.endpointUnavailable' };
 }
 
-export function ProvidersPage(): ReactNode {
+export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: () => void } = {}): ReactNode {
   const { t } = useI18n();
   const [profiles, setProfiles] = useState<ProviderProfile[] | null>(null);
   const [configuredRoute, setConfiguredRoute] = useState<RuntimeRoute | null>(null);
@@ -124,7 +124,7 @@ export function ProvidersPage(): ReactNode {
 
   return (
     <SettingsSection item="providers.inventory">
-      <NativeSetupPanel />
+      <NativeSetupPanel onOpenConfiguration={onOpenConfiguration} />
       <div className="flex items-center justify-between gap-3">
         <SettingsGroupTitle>{t('settings.providers.inventory.title')}</SettingsGroupTitle>
         <button type="button" data-testid="providers-refresh" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>{t('settings.providers.inventory.refresh')}</button>

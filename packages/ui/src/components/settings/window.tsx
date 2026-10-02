@@ -19,6 +19,7 @@ import { NotificationsPage } from './pages/notifications.tsx';
 import { ShortcutsPage } from './pages/shortcuts.tsx';
 import { GeneralPage } from './pages/general.tsx';
 import { ProvidersPage } from './pages/providers.tsx';
+import { NativeConfigurationPage } from './pages/native-configuration.tsx';
 import { McpPage } from './pages/mcp.tsx';
 import { SkillsPage } from './pages/skills.tsx';
 import { SkillsCatalogPage } from './pages/skills-catalog.tsx';
@@ -29,14 +30,15 @@ import { ErrorBoundary } from '../ErrorBoundary.tsx';
 
 export { PAGE_TITLE_KEYS };
 
-const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, () => ReactNode>> = {
+const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, (navigate: (page: SettingsPageSlug) => void) => ReactNode>> = {
   appearance: () => <AppearancePage />,
   chat: () => <ChatPage />,
   sessions: () => <SessionsPage />,
   notifications: () => <NotificationsPage />,
   shortcuts: () => <ShortcutsPage />,
   general: () => <GeneralPage />,
-  providers: () => <ProvidersPage />,
+  providers: navigate => <ProvidersPage onOpenConfiguration={() => navigate('native-configuration')} />,
+  'native-configuration': () => <NativeConfigurationPage />,
   agents: () => <AgentsPage />,
   mcp: () => <McpPage />,
   'skills.installed': () => <SkillsPage />,
@@ -59,6 +61,7 @@ const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
   tunnel: 'settings.page.tunnel.title',
   git: 'settings.page.git.title',
   providers: 'settings.page.providers.title',
+  'native-configuration': 'settings.page.nativeConfiguration.title',
   agents: 'settings.page.agents.title',
   behavior: 'settings.page.behavior.title',
   commands: 'settings.page.commands.title',
@@ -167,7 +170,7 @@ function SettingsDialog({
             <SettingsNav page={page} onNavigate={query.setPage} />
             <div className="min-w-0 flex-1 overflow-y-auto px-4 py-3" data-highlight={highlight ?? undefined}>
               <ErrorBoundary>
-                {renderPage(page, t)}
+                {renderPage(page, t, query.setPage)}
               </ErrorBoundary>
             </div>
           </div>
@@ -247,9 +250,10 @@ function SearchResultsPanel({
   );
 }
 
-function renderPage(slug: SettingsPageSlug, t: (key: I18nKey) => string): ReactNode {
+function renderPage(slug: SettingsPageSlug, t: (key: I18nKey) => string,
+  navigate: (page: SettingsPageSlug) => void): ReactNode {
   const built = PAGE_COMPONENTS[slug];
-  if (built !== undefined) return built();
+  if (built !== undefined) return built(navigate);
   return (
     <div className="flex flex-col items-center gap-2 py-12 text-center">
       <div className="text-sm font-medium text-foreground">{t(PAGE_TITLE_KEYS[slug])}</div>

@@ -7,7 +7,7 @@ import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle } from '../primitives.tsx';
 
-export function NativeSetupPanel() {
+export function NativeSetupPanel({ onOpenConfiguration }: { onOpenConfiguration?: () => void } = {}) {
   const { t } = useI18n();
   const [status, setStatus] = useState<NativeSetupStatus | null>(null);
   const [busy, setBusy] = useState<'read' | 'activate' | null>(null);
@@ -52,5 +52,8 @@ export function NativeSetupPanel() {
     </div>)}</dl> : null}
     <p className="text-xs text-muted-foreground">{t('settings.nativeSetup.provider')}</p>
     <p className="text-xs text-muted-foreground">{t('settings.nativeSetup.guidance')}</p>
+    {onOpenConfiguration ? <button type="button" onClick={onOpenConfiguration}>
+      {t('settings.nativeSetup.configurationLink')}
+    </button> : null}
   </section>;
 }

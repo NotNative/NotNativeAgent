@@ -21,12 +21,12 @@ async function runCli(fixture, action) {
   catch (error) { child.kill(); await withTimeout(exit, 5000, 'Owned native CLI did not exit'); throw error; }
   return JSON.parse(text.trim());
 }
-async function prepareShell(fixture, root) {
+async function prepareShell(fixture, root, nativeConfiguration = false, service = null) {
   const from = join(root, 'packages/electron'), to = join(fixture.gui, 'packages/electron');
   if (!fixture.prebuilt) await copySourceShell(fixture, from, to);
   const harness = join(fixture.prebuilt ? fixture.root : fixture.gui, 'electron-smoke.mjs');
   const shellData = join(fixture.root, 'shell-data'); await mkdir(shellData);
-  await writeFile(harness, shellHarness(shellData, to));
+  await writeFile(harness, shellHarness(shellData, to, nativeConfiguration, service));
   return { harness, executable: join(fixture.prebuilt ? to : from, 'node_modules/electron/dist/electron.exe') };
 }
 async function copySourceShell(fixture, from, to) {
@@ -38,7 +38,7 @@ async function copySourceShell(fixture, from, to) {
   await writeFile(join(fixture.gui, 'packages/install-mode.txt'), 'script\n');
   await writeNnaSelection(fixture.gui, fixture.install);
 }
-function shellHarness(shellData, to) {
+function shellHarness(shellData, to, nativeConfiguration, service) {
   return `import {app} from 'electron';
 app.setPath('userData',${JSON.stringify(shellData)});
 process.stdout.write('NND_STAGE_BOOT\\n');
@@ -53,6 +53,15 @@ app.on('browser-window-created',(_event,win)=>{
     try {
       const result=await win.webContents.executeJavaScript('(async()=>({authenticated:(await(await fetch("/auth/session")).json()).authenticated,token:window.__NOTNATIVE_CLIENT_TOKEN__||"",headers:window.__NOTNATIVE_RUNTIME_HEADERS__||{}}))()');
       if(!result.authenticated||result.token||Object.keys(result.headers).length)throw new Error();
+      if(${JSON.stringify(nativeConfiguration)}){
+        const configuration=await win.webContents.executeJavaScript('(async()=>{const response=await fetch("/api/v1/nnd/configuration");return {status:response.status,view:await response.json()}})()');
+        if(configuration.status!==200||configuration.view?.schema_version!=="1.0"
+          ||configuration.view?.source_state!=="missing"||configuration.view?.application!=="not_applied"
+          ||configuration.view?.installation_id!==${JSON.stringify(service?.installation_id)}
+          ||configuration.view?.data_id!==${JSON.stringify(service?.data_id)}
+          ||!Array.isArray(configuration.view?.fields))throw new Error('Native configuration projection unavailable');
+        process.stdout.write('NND_NATIVE_CONFIGURATION_OK\\n');
+      }
       process.stdout.write('NND_NATIVE_CHROMIUM_OK\\n'); clearTimeout(timer); app.quit();
     } catch {clearTimeout(timer);app.exit(1);}
   });
@@ -61,13 +70,13 @@ await import(${JSON.stringify(pathToFileURL(join(to, 'main.mjs')).href)});
 `;
 }
 
-async function main(nna, payloadRoot = null, nativeSlot = false) {
+async function main(nna, payloadRoot = null, nativeSlot = false, nativeConfiguration = false) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const fixture = await createSupervisedFixture(nna, root, { payloadRoot, nativeSlot });
   let electron, electronExit, stopped = false, output = '', diagnostics = '';
   try {
     const service = await runCli(fixture, 'start');
-    const shell = await prepareShell(fixture, root);
+    const shell = await prepareShell(fixture, root, nativeConfiguration, service);
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE; delete env.NODE_OPTIONS; delete env.NODE_PATH;
     const args = [shell.harness, '--hidden', ...(fixture.prebuilt ? ['--nna-install-root', fixture.install] : [])];
     electron = spawn(shell.executable, args, { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -76,6 +85,7 @@ async function main(nna, payloadRoot = null, nativeSlot = false) {
     electron.stderr.on('data', (chunk) => { if (diagnostics.length < 65536) diagnostics += String(chunk).slice(0, 65536 - diagnostics.length); });
     assert.equal((await withTimeout(electronExit, 45_000, 'Real Electron shell timeout'))[0], 0);
     assert.ok(output.includes('NND_NATIVE_CHROMIUM_OK'));
+    if (nativeConfiguration) assert.ok(output.includes('NND_NATIVE_CONFIGURATION_OK'));
     const after = await runCli(fixture, 'status'); assert.equal(after.instance_id, service.instance_id);
     const browser = await fetch(`${after.endpoint}/auth/session`, { signal: AbortSignal.timeout(5000) });
     assert.equal((await browser.json()).authenticated, false, 'Chromium admission must not unlock another browser');
@@ -117,15 +127,17 @@ async function waitStopped(fixture) {
   throw new Error('Native service remained active after stop');
 }
 export function parseElectronSmokeArguments(args) {
-  if (![1, 3, 4].includes(args.length) || !isAbsolute(args[0] ?? '')
+  if (![1, 3, 4, 5].includes(args.length) || !isAbsolute(args[0] ?? '')
     || args.length >= 3 && (args[1] !== '--payload' || !isAbsolute(args[2]))
-    || args.length === 4 && args[3] !== '--native-slot') {
-    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT [--native-slot]]');
+    || args.length >= 4 && args[3] !== '--native-slot'
+    || args.length === 5 && args[4] !== '--native-configuration') {
+    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT [--native-slot [--native-configuration]]]');
   }
-  return { nna: resolve(args[0]), payloadRoot: args.length >= 3 ? resolve(args[2]) : null, ...(args.length === 4 ? { nativeSlot: true } : {}) };
+  return { nna: resolve(args[0]), payloadRoot: args.length >= 3 ? resolve(args[2]) : null,
+    ...(args.length >= 4 ? { nativeSlot: true } : {}), ...(args.length === 5 ? { nativeConfiguration: true } : {}) };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.platform !== 'win32') throw new Error('Native Electron smoke requires Windows');
-  const { nna, payloadRoot, nativeSlot } = parseElectronSmokeArguments(process.argv.slice(2));
-  await main(nna, payloadRoot, nativeSlot);
+  const { nna, payloadRoot, nativeSlot, nativeConfiguration } = parseElectronSmokeArguments(process.argv.slice(2));
+  await main(nna, payloadRoot, nativeSlot, nativeConfiguration);
 }

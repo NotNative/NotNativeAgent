@@ -43,8 +43,8 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | mutation exclusion implemented; migration/recovery/rollback pending |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
-| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-11` raw-source/transaction foundation verified; scoped HTTP contract remains open |
-| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | native setup status/activation panel; general configuration mutation and coverage remain open |
+| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
+| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | native setup panel and read-only configuration page; GUI mutation and installed acceptance open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | open | settings pages; NNA TUI prefs contract | — |
@@ -383,7 +383,51 @@ Chromium from the immutable slot. Its manifest hash is
 `26fa67698d145666943aff7804361af3a09c16b200fed4a312b7fed3201fdd80`.
 The copied shell authenticated with a cookie, withheld renderer bearer material,
 refused a second browser and left the supervised service alive after shell exit.
-The real Chromium probe passed again after the initializer repair. NND release
-sealing is the remaining validation for its version-eight candidate. Production
+The real Chromium probe passed again after the initializer repair. NND version
+eight commit `9f6ac7c` passed exporter tests, quality, smoke, production web build,
+CSS and sealed release gates. Production
 trial activation, CAS selection, rollback, stable launchers,
 login startup and installer delegation remain open.
+
+## Native 20261002-14 — scoped configuration control
+
+Native commit `2f459b24` exposes authenticated catalog, source read, preview,
+save, explicit repair and operation receipts in setup-required as well as ready
+states. The selected user manifest is the only writable scope in this slice;
+trusted project overlays remain read-only and revisioned. Bounded typed intents
+exclude grants, credentials and collection mutations. Raw unknown fields remain
+private and are preserved across saves. A saved receipt says `not_applied`, not
+that running sessions changed. Browser-facing error messages omit source keys and
+filesystem paths. The HTTP catalog advertises only the finite supported field
+set and its required native manage permission.
+
+Independent audits repaired repair/read workspace consistency, effective-default
+projection, and error-response leakage. The focused source/service/HTTP/taxonomy
+set passed 40 tests. The exact Windows full build passed 1,915 tests with eight
+skips and zero failures; graph, language and quality checks passed for 462
+production modules. C2 remains in-progress for nonmanifest families, provider
+and MCP collections, and complete installed GUI controls.
+
+## NND 20261002-9 — native configuration read surface
+
+The settings window gains a read-only native configuration page using the same
+authenticated runtime transport as browser and Electron. It distinguishes
+missing/invalid source state, explicit and effective values, source provenance,
+redaction, selected identity and saved-versus-applied state. Runtime/auth changes
+abort and clear stale results. The parser bounds a 2 MiB response and rejects
+contradictory value flags; an older native 404 is distinct from a missing source.
+The setup panel links to the page. Independent audit repaired the contradictory
+flag case and confirmed the authenticated proxy path. Focused UI tests passed
+43 cases, the adapter tests passed 10, and UI typechecking passed. The full UI
+suite passed 1,650 tests across 206 files. Quality, graph and language checks
+passed for 745 production modules; the production web/Electron artifacts built.
+
+An actual 178-file prebuilt export, SHA-256
+`8c67f1ad1bad42ace25a39759e73d87bc7156728350d756c6202573fb41f5a9d`,
+was staged through native `20261002-14` and launched in Chromium. Its authenticated
+web proxy returned the native missing-source configuration projection while the
+projected installation and data identities matched the started native service.
+The renderer held no bearer token; a second browser remained locked and the native
+service survived shell exit. This proves the read transport and attachment, not
+an installed operator settings workflow. Native edits, repair UI, conflicts and
+complete settings coverage remain C3–C7 work.

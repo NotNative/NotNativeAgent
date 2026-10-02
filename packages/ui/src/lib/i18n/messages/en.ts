@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { enNativeSetup } from './en-native-setup.ts';
+import { enNativeConfiguration } from './en-native-configuration.ts';
 import { enReviewMode } from './en-review-mode.ts';
 import { enBrowserPush } from './en-browser-push.ts';
 import enFilesView from './en-files-view.ts';
@@ -19,6 +20,7 @@ import { enProviders } from './en-providers.ts';
 
 const en = {
   ...enNativeSetup,
+  ...enNativeConfiguration,
   ...enReviewMode,
   ...enBrowserPush,
   ...enDesktopSsh,

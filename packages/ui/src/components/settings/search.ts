@@ -26,6 +26,7 @@ export type SettingsPageSlug =
   | 'tunnel'
   | 'git'
   | 'providers'
+  | 'native-configuration'
   | 'agents'
   | 'behavior'
   | 'commands'
@@ -48,6 +49,7 @@ export const BUILT_PAGE_SLUGS: readonly SettingsPageSlug[] = [
   'shortcuts',
   'remote-instances',
   'providers',
+  'native-configuration',
   'agents',
   'mcp',
   'skills.catalog',
@@ -72,6 +74,7 @@ export const SETTINGS_PAGE_ORDER: { slug: SettingsPageSlug; group: 'general' | '
   { slug: 'tunnel', group: 'projects', titleKey: 'settings.page.tunnel.title' },
   { slug: 'git', group: 'projects', titleKey: 'settings.page.git.title' },
   { slug: 'providers', group: 'opencode', titleKey: 'settings.page.providers.title' },
+  { slug: 'native-configuration', group: 'opencode', titleKey: 'settings.page.nativeConfiguration.title' },
   { slug: 'agents', group: 'opencode', titleKey: 'settings.page.agents.title' },
   { slug: 'behavior', group: 'opencode', titleKey: 'settings.page.behavior.title' },
   { slug: 'commands', group: 'opencode', titleKey: 'settings.page.commands.title' },
@@ -85,6 +88,7 @@ export const SETTINGS_PAGE_ORDER: { slug: SettingsPageSlug; group: 'general' | '
 
 /** settingsItem notices for EVERY control rendered on the built pages. */
 export const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
+  { id: 'native-configuration.inventory', page: 'native-configuration', titleKey: 'settings.page.nativeConfiguration.title', keywords: 'nna native configuration settings source explicit effective redacted revision' },
   { id: 'appearance.theme-mode', page: 'appearance', titleKey: 'settings.search.themeMode', keywords: 'theme, color, dark mode, light mode, system' },
   { id: 'appearance.light-theme', page: 'appearance', titleKey: 'settings.search.lightTheme', keywords: 'light theme, theme id' },
   { id: 'appearance.dark-theme', page: 'appearance', titleKey: 'settings.search.darkTheme', keywords: 'dark theme, theme id' },

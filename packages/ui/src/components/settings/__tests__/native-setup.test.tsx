@@ -14,10 +14,10 @@ vi.mock('../../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => change.r
 const required: NativeSetupStatus = { service_state:'setup_required',configuration_state:'invalid',
   execution_state:'unavailable',provider_state:'unknown',failure_code:'nnd_setup_configuration_invalid' };
 let root: Root; let container: HTMLDivElement;
-function mount() {
+function mount(onOpenConfiguration?: () => void) {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');document.body.append(container);root=createRoot(container);
-  act(() => root.render(<I18nProvider><NativeSetupPanel /></I18nProvider>));
+  act(() => root.render(<I18nProvider><NativeSetupPanel onOpenConfiguration={onOpenConfiguration} /></I18nProvider>));
 }
 function button(text: string) { return [...container.querySelectorAll('button')].find(item=>item.textContent===text)!; }
 afterEach(()=>{act(()=>root?.unmount());container?.remove();vi.resetAllMocks();change.runtime='a';useAuthSessionStore.getState().markOk();});
@@ -76,4 +76,11 @@ it.each(['nnd_setup_activation_timeout','nnd_setup_cleanup_failed'])('requires n
   expect(button('Activate NNA execution').disabled).toBe(true);
   expect(button('Refresh setup status').disabled).toBe(false);
   expect(container.textContent).toContain('Restart the selected native service');
+});
+it('offers a settings-window navigation action without changing native configuration',async()=>{
+  const navigate=vi.fn();vi.mocked(requestNativeSetup).mockResolvedValue({status:required,error:false});
+  mount(navigate);await act(async()=>{});
+  act(()=>button('View native configuration').click());
+  expect(navigate).toHaveBeenCalledTimes(1);
+  expect(requestNativeSetup).toHaveBeenCalledTimes(1);
 });

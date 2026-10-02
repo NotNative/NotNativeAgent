@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a29e50e7438b90f24b9dddf6fe20db9c2341ae1caa816d2fd74fd3595e77ead0",
+  "source_digest": "sha256:940fbdecd8cb51fd50179191b56067efa7524ba13e453ff0604f2295b35aea21",
   "counts": {
-    "modules": 742,
+    "modules": 745,
     "component_edges": 16
   },
   "components": [
@@ -18,19 +18,19 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 7
+      "module_count": 8
     },
     {
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 228
+      "module_count": 229
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 173
+      "module_count": 174
     },
     {
       "id": "web-server",
@@ -108,8 +108,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 284,
-      "module_count": 116
+      "import_count": 287,
+      "module_count": 117
     },
     {
       "from": "ui-shell",
@@ -120,8 +120,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 68,
-      "module_count": 54
+      "import_count": 69,
+      "module_count": 55
     },
     {
       "from": "sync-engine",
@@ -168,8 +168,8 @@
     {
       "from": "harness-facade",
       "to": "runtime-io",
-      "import_count": 5,
-      "module_count": 3
+      "import_count": 6,
+      "module_count": 4
     },
     {
       "from": "sync-engine",
@@ -1737,6 +1737,19 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/configuration.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/native-setup.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -1948,6 +1961,7 @@
         "packages/ui/src/components/settings/pages/chat.tsx",
         "packages/ui/src/components/settings/pages/general.tsx",
         "packages/ui/src/components/settings/pages/mcp.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration.tsx",
         "packages/ui/src/components/settings/pages/notifications.tsx",
         "packages/ui/src/components/settings/pages/providers.tsx",
         "packages/ui/src/components/settings/pages/remote-instances.tsx",
@@ -2582,6 +2596,12 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/en-native-configuration.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/en-native-setup.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -2647,6 +2667,7 @@
         "packages/ui/src/lib/i18n/messages/en-diff-ui.ts",
         "packages/ui/src/lib/i18n/messages/en-files-view.ts",
         "packages/ui/src/lib/i18n/messages/en-git-ui.ts",
+        "packages/ui/src/lib/i18n/messages/en-native-configuration.ts",
         "packages/ui/src/lib/i18n/messages/en-native-setup.ts",
         "packages/ui/src/lib/i18n/messages/en-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/en-pairing.ts",
@@ -3074,6 +3095,14 @@
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-fetch.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/configuration.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {
