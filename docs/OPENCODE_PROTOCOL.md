@@ -122,9 +122,27 @@ provider and credential binding, including keys connected after session creation
 Provider/model defaults come from this OpenCode document, not NNA's defaults.
 
 The isolated catalog permits 16 providers, 128 models per provider, 128 credential
-accounts, and 32 pending settings mutations. The optional `PUT /api/provider`
-adapter endpoint accepts the OpenChamber user-config request shape; it is not an
-upstream OpenCode endpoint. It preserves unrelated fields in its target document.
+accounts, and 32 pending settings mutations. The adapter also implements these
+OpenChamber settings endpoints; they are not upstream OpenCode endpoints:
+
+- `GET /api/provider/:id/source` returns public form configuration and file-source
+  metadata used to show Edit. It reports only loaded user/custom files and no
+  project authority. Keys are never included.
+- `PUT /api/provider` edits the winning provider file in the named `user` or
+  `custom` scope. Custom scope requires an explicitly configured `OPENCODE_CONFIG`
+  file. Other settings and credential records are preserved.
+- `DELETE /api/provider/:id/auth?scope=user|custom|all` removes profile configuration
+  from the named loaded scopes, including shadowed entries and matching defaults.
+  It preserves credentials; use credential deletion routes to remove keys.
+  `all` includes only the adapter's loaded user/custom files, never project files.
+  Repeating a removal is safe. Each file write is atomic; a failure during a
+  multi-file removal can leave earlier files changed. Retry the removal to finish.
+
+Unsupported provider protocols remain disabled catalog entries for correction;
+session selection and credential connection still reject them. Structurally unsafe
+settings are rejected. OpenChamber controls which edit/reset buttons it renders.
+Its current Disconnect action removes credentials and retains profile
+configuration; implementing a removal route does not add a new UI control.
 
 The existing wire-session lifetime is retained: projections and queued inputs are
 process-local. Engine journals follow NNA's persistence configuration, but this

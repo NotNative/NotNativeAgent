@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { SecretBroker } from '../secret-broker.js';
 import { resolveManifest } from '../config.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
-import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { apiError, invalid, objectInput, textInput } from './v2-contract.js';
-import { normalizeProvider, parseJsonc, providerConfigPaths, readProviderDocument } from './provider-document.js';
+import { normalizeProvider, providerConfigPaths, readProviderDocument } from './provider-document.js';
+import { providerSource, removeProvider, writeProvider } from './provider-configuration.js';
 
 export class OpenCodeProviderSettings {
   #tail = Promise.resolve();
@@ -15,6 +14,9 @@ export class OpenCodeProviderSettings {
   constructor(options) {
     this.paths = options.configPaths ?? providerConfigPaths(options.environment);
     this.environment = options.environment ?? process.env;
+    if (!Array.isArray(this.paths) || this.paths.length < 1 || this.paths.length > 3 || this.paths.some((path) => typeof path !== 'string' || !path)) throw invalid('Invalid OpenCode configuration paths');
+    this.paths = [...new Set(this.paths.map((path) => resolve(path)))];
+    this.customPath = this.environment.OPENCODE_CONFIG ? resolve(this.environment.OPENCODE_CONFIG) : undefined;
     this.broker = new SecretBroker({ realm: 'opencode.local', vaultPath: join(options.root, 'secrets', 'vault.json'),
       keyPath: join(options.root, 'secrets', 'master-key.json'), auditPath: join(options.root, 'secrets', 'audit.ndjson') });
     // Security: credential use is bound to the endpoint approved when the key was connected.
@@ -27,7 +29,7 @@ export class OpenCodeProviderSettings {
 
   async snapshot() {
     const document = await readProviderDocument(this.paths);
-    const providers = Object.entries(document.providers).map(([id, input]) => normalizeProvider(id, input));
+    const providers = Object.entries(document.providers).map(([id, input]) => normalizeProvider(id, input, { allowUnsupported: true }));
     for (const provider of providers) {
       if (document.disabled_providers?.includes(provider.id) || document.enabled_providers && !document.enabled_providers.includes(provider.id)) provider.activation = 'disabled';
     }
@@ -39,6 +41,8 @@ export class OpenCodeProviderSettings {
     const snapshot = await this.snapshot();
     const desired = reference ?? defaultReference(snapshot.document, snapshot.providers);
     objectInput(desired, ['id', 'providerID']);
+    const requested = snapshot.providers.find((item) => item.id === desired.providerID);
+    if (requested?.protocolError) throw invalid(requested.protocolError);
     const provider = snapshot.providers.find((item) => item.id === desired.providerID && item.activation !== 'disabled');
     if (!provider || !Object.hasOwn(provider.models, desired.id) || provider.models[desired.id].disabled) throw invalid('Select an enabled model configured for OpenCode');
     const secret = snapshot.secrets.find((item) => item.enabled && item.metadata.providerID === provider.id && item.metadata.endpoint === provider.endpoint);
@@ -78,6 +82,7 @@ export class OpenCodeProviderSettings {
       const { providers, secrets } = await this.snapshot();
       const provider = providers.find((item) => item.id === providerID);
       if (!provider) throw apiError(404, 'IntegrationNotFoundError', 'Integration was not found', { integrationID: providerID });
+      if (provider.protocolError) throw invalid(provider.protocolError);
       const label = input.label ?? provider.name;
       const existing = secrets.find((secret) => secret.metadata.providerID === providerID && secret.metadata.label === label && secret.metadata.endpoint === provider.endpoint);
       if (existing) { await this.broker.rotate(existing.id, { key: input.key }); await this.activateSecret(existing.id); return; }
@@ -115,18 +120,20 @@ export class OpenCodeProviderSettings {
 
   upsert(input) {
     objectInput(input, ['providerID', 'config', 'scope', 'hasCredential']);
-    if (input.scope != null && input.scope !== 'user') throw invalid('Only the OpenCode user provider configuration can be changed');
+    if (input.scope != null && !['user', 'custom'].includes(input.scope)) throw invalid('Only OpenCode user or configured custom provider configuration can be changed');
     normalizeProvider(input.providerID, input.config);
     return this.mutate(async () => {
       // Compatibility: replacing an unsupported provider must not require its old protocol to load.
       const document = await readProviderDocument(this.paths);
       document.providers[input.providerID] = input.config;
       if (Object.keys(document.providers).length > 16) throw invalid('OpenCode provider limit reached');
-      const target = this.paths.at(-1);
-      const prior = await readFile(target, 'utf8').then(parseJsonc, (error) => { if (error.code === 'ENOENT') return {}; throw error; });
-      await persistAtomicJson(target, { ...prior, providers: { ...prior.providers, [input.providerID]: input.config } });
+      await writeProvider(this, input.providerID, input.config, input.scope);
     });
   }
+
+  source(id) { return providerSource(this, id); }
+
+  remove(id, scope) { return this.mutate(() => removeProvider(this, id, scope)); }
 }
 
 export function defaultReference(document, providers) {

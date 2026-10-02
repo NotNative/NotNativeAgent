@@ -14,7 +14,8 @@ export async function providerCatalog(settings, path, directory) {
     ...provider.env.filter((name) => settings.environment[name]).map((name) => ({ type: 'env', name }))] }));
   const models = providers.flatMap((provider) => Object.entries(provider.models).map(([id, model]) => modelInfo(provider, id, model)));
   if (path === '/api/agent' || path === '/api/agent/build') {
-    const reference = models.some((model) => model.enabled) ? defaultReference(document, providers) : undefined;
+    const desired = models.some((model) => model.enabled) ? defaultReference(document, providers) : undefined;
+    const reference = models.some((model) => model.enabled && model.id === desired?.id && model.providerID === desired?.providerID) ? desired : undefined;
     const agent = { id: 'build', name: 'NNA', mode: 'primary', hidden: false, ...(reference ? { model: reference } : {}),
       request: { settings: {}, headers: {}, body: {} }, permissions: [], description: 'NNA agent with authenticated reviewer governance' };
     return { location, data: path === '/api/agent' ? [agent] : agent };
@@ -23,7 +24,7 @@ export async function providerCatalog(settings, path, directory) {
   if (path === '/api/model/default') {
     if (!models.some((model) => model.enabled)) return { location, data: null };
     const reference = defaultReference(document, providers);
-    return { location, data: models.find((model) => model.id === reference.id && model.providerID === reference.providerID) ?? null };
+    return { location, data: models.find((model) => model.enabled && model.id === reference.id && model.providerID === reference.providerID) ?? null };
   }
   if (path === '/api/provider') return { location, data: providers.map(providerInfo) };
   if (path.startsWith('/api/provider/')) {
@@ -47,6 +48,15 @@ export async function providerMutation(ctx, readBody) {
   const { req, res, target, options } = ctx; const settings = options.providerSettings;
   if (!settings) return false;
   const segments = target.pathname.split('/').slice(2).map(decodeURIComponent);
+  if (segments[0] === 'provider' && segments.length === 3) {
+    if (req.method === 'GET' && segments[2] === 'source') {
+      sendJson(res, 200, await settings.source(segments[1])); return true;
+    }
+    if (req.method === 'DELETE' && segments[2] === 'auth') {
+      const result = await settings.remove(segments[1], target.query.scope ?? 'auth');
+      announce(ctx, 'config.updated'); sendJson(res, 200, result); return true;
+    }
+  }
   if (req.method === 'PUT' && target.pathname === '/api/provider') {
     await settings.upsert(await readBody(ctx)); announce(ctx, 'config.updated'); sendJson(res, 200, { ok: true }); return true;
   }
@@ -75,7 +85,7 @@ function providerInfo(provider) {
 }
 
 function modelInfo(provider, id, model) {
-  return { id, modelID: model.modelID ?? id, providerID: provider.id, name: model.name ?? id, package: COMPATIBLE_PACKAGE,
+  return { id, modelID: model.modelID ?? id, providerID: provider.id, name: model.name ?? id, package: provider.protocolError ? provider.package : COMPATIBLE_PACKAGE,
     capabilities: { tools: model.capabilities?.tools !== false, input: ['text'], output: ['text'] }, variants: [],
     time: { released: 0 }, cost: [], status: 'active', enabled: provider.activation !== 'disabled' && !model.disabled,
     limit: { context: model.limit?.context ?? 0, output: model.limit?.output ?? 0 } };

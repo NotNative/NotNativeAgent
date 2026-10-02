@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:d442c429143256656bd5a213e29a02f5e5b2291fcf58fff6a51d7a5874d235b4",
+  "source_digest": "sha256:1159923265e6daa1418b3a44e5abaeb59bb9d64e06d8a5564178589ddee1da67",
   "counts": {
-    "modules": 426,
+    "modules": 427,
     "component_edges": 80
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "opencode-surface",
       "label": "OpenCode surface",
       "ownership": "Serves the OpenCode wire contract over live session engines.",
-      "module_count": 23
+      "module_count": 24
     },
     {
       "id": "foundation",
@@ -142,6 +142,12 @@
       "module_count": 20
     },
     {
+      "from": "opencode-surface",
+      "to": "opencode-surface",
+      "import_count": 46,
+      "module_count": 19
+    },
+    {
       "from": "reliability-engine",
       "to": "reliability-engine",
       "import_count": 45,
@@ -152,12 +158,6 @@
       "to": "foundation",
       "import_count": 44,
       "module_count": 17
-    },
-    {
-      "from": "opencode-surface",
-      "to": "opencode-surface",
-      "import_count": 43,
-      "module_count": 18
     },
     {
       "from": "agentic-engine",
@@ -2513,6 +2513,16 @@
       ]
     },
     {
+      "path": "src/opencode/provider-configuration.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/provider-document.js",
+        "src/opencode/v2-contract.js",
+        "src/persistence/atomic-json.js"
+      ]
+    },
+    {
       "path": "src/opencode/provider-document.js",
       "component": "opencode-surface",
       "entrypoint": false,
@@ -2526,9 +2536,9 @@
       "entrypoint": false,
       "imports": [
         "src/config.js",
+        "src/opencode/provider-configuration.js",
         "src/opencode/provider-document.js",
         "src/opencode/v2-contract.js",
-        "src/persistence/atomic-json.js",
         "src/provider/route-configuration.js",
         "src/secret-broker.js"
       ]

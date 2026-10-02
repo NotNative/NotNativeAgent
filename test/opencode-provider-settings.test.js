@@ -193,6 +193,86 @@ test('provider credentials and configuration mutations require service authentic
   assert.equal((await request('/api/provider', 'PUT', { providerID: 'bad', config: providerInput() })).status, 401);
   assert.equal((await request('/api/integration/test/connect/key', 'POST', { key: 'test' })).status, 401);
   assert.equal((await request('/api/credential/sec_foreign', 'DELETE')).status, 401);
+  assert.equal((await request('/api/provider/test/source')).status, 401);
+  assert.equal((await request('/api/provider/test/auth?scope=user', 'DELETE')).status, 401);
+});
+
+test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
+  const { add, connect, json, request, path, settings } = await setup(t);
+  await add(); await connect(); const secrets = await settings.broker.list();
+  const source = await json('/api/provider/test/source');
+  assert.equal(source.providerId, 'test');
+  assert.deepEqual(source.sources.user, { exists: true, path });
+  assert.equal(source.sources.project.exists, false);
+  assert.equal(source.sources.custom.exists, false);
+  assert.equal(source.sources.auth.exists, true);
+  assert.equal(JSON.stringify(source).includes('secret-test-key'), false);
+  const config = { ...source.config, name: 'Edited Spark', models: { glm: { modelID: 'glm-5.3', name: 'GLM' } } };
+  await json('/api/provider', 'PUT', { providerID: 'test', config, scope: 'user' });
+  assert.equal((await json('/api/provider/test')).data.name, 'Edited Spark');
+  assert.equal((await settings.selection()).reference.id, 'glm');
+  assert.deepEqual(await settings.broker.list(), secrets);
+  const before = await readFile(path, 'utf8');
+  for (const scope of ['project', 'auth', 'invalid']) assert.equal((await request(`/api/provider/test/auth?scope=${scope}`, 'DELETE')).status, 400);
+  assert.equal(await readFile(path, 'utf8'), before);
+  assert.equal((await json('/api/provider/test/auth?scope=user', 'DELETE')).removed, true);
+  assert.deepEqual((await json('/api/provider')).data, []);
+  assert.equal((await json('/api/provider/test/source')).sources.user.exists, false);
+  assert.equal((await json('/api/provider/test/auth?scope=user', 'DELETE')).removed, false);
+  assert.deepEqual(await settings.broker.list(), secrets);
+});
+
+test('unsupported protocol stays visible and editable but cannot run or receive credentials', async (t) => {
+  const { add, path, json, request, settings } = await setup(t);
+  await add('working');
+  await writeFile(path, JSON.stringify({ providers: { working: providerInput(), broken: { ...providerInput(), package: 'aisdk:@ai-sdk/openai' } }, model: 'broken/alpha' }));
+  assert.equal((await json('/api/provider/broken')).data.activation, 'disabled');
+  assert.equal((await json('/api/model')).data.find((model) => model.providerID === 'broken').enabled, false);
+  assert.equal((await json('/api/model/default')).data, null);
+  assert.equal((await json('/api/agent/build')).data.model, undefined);
+  const source = await json('/api/provider/broken/source');
+  assert.equal(source.sources.user.exists, true);
+  assert.equal(source.config.package, 'aisdk:@ai-sdk/openai');
+  assert.equal((await request('/api/session', 'POST', { model: { providerID: 'broken', id: 'alpha' } })).status, 400);
+  assert.equal((await request('/api/integration/broken/connect/key', 'POST', { key: 'must-not-store' })).status, 400);
+  assert.deepEqual(await settings.broker.list(), []);
+  await json('/api/provider', 'PUT', { providerID: 'broken', config: { ...source.config, package: 'aisdk:@ai-sdk/openai-compatible' } });
+  assert.equal((await json('/api/provider/broken')).data.activation, 'enabled');
+  assert.equal((await json('/api/provider')).data.length, 2);
+});
+
+test('provider edits target their winning user or custom file, and reset cannot expose shadowed entries', async (t) => {
+  const { root, path, settings, add, connect, json } = await setup(t);
+  await add(); await connect();
+  const lower = join(root, 'config', 'lower.json'); const custom = join(root, 'config', 'custom.json');
+  const project = join(root, 'opencode.json');
+  await writeFile(lower, JSON.stringify({ theme: 'lower', providers: { test: providerInput() }, model: 'test/alpha' }));
+  await writeFile(custom, JSON.stringify({ theme: 'custom', providers: { test: providerInput('http://localhost:9998/v1') } }));
+  await writeFile(project, JSON.stringify({ providers: { test: providerInput() } })); const projectBefore = await readFile(project, 'utf8');
+  settings.paths = [lower, path, custom]; settings.customPath = custom;
+  const source = await json('/api/provider/test/source');
+  assert.equal(source.sources.user.path, path); assert.equal(source.sources.custom.path, custom);
+  assert.equal(source.config.settings.baseURL, 'http://localhost:9998/v1');
+  await json('/api/provider', 'PUT', { providerID: 'test', config: { ...source.config, name: 'Custom edit' }, scope: 'custom' });
+  assert.equal(JSON.parse(await readFile(custom, 'utf8')).providers.test.name, 'Custom edit');
+  assert.equal(JSON.parse(await readFile(path, 'utf8')).providers.test.name, 'Test provider');
+  await json('/api/provider/test/auth?scope=user', 'DELETE');
+  assert.equal(JSON.parse(await readFile(lower, 'utf8')).model, undefined);
+  assert.equal((await json('/api/provider/test/source')).sources.custom.exists, true);
+  await json('/api/provider/test/auth?scope=all', 'DELETE');
+  assert.deepEqual((await json('/api/provider')).data, []);
+  assert.equal(JSON.parse(await readFile(custom, 'utf8')).theme, 'custom');
+  assert.equal(await readFile(project, 'utf8'), projectBefore);
+  assert.equal((await settings.broker.list()).length, 1);
+});
+
+test('provider source metadata does not return unsafe settings, and unconfigured custom scope cannot write', async (t) => {
+  const { path, json, request } = await setup(t);
+  assert.equal((await json('/api/provider/unknown/source')).config, null);
+  assert.equal((await request('/api/provider', 'PUT', { providerID: 'test', config: providerInput(), scope: 'custom' })).status, 400);
+  await writeFile(path, JSON.stringify({ providers: { test: { ...providerInput(), settings: { baseURL: 'http://localhost/v1', apiKey: 'must-not-expose' } } } }));
+  const response = await request('/api/provider/test/source');
+  assert.equal(response.status, 400); assert.equal((await response.text()).includes('must-not-expose'), false);
 });
 
 test('OpenCode JSONC parser preserves URL and quoted commas, and config paths match the settings client', () => {

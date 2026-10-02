@@ -42,13 +42,21 @@ export async function readProviderDocument(paths) {
   return document;
 }
 
-export function normalizeProvider(id, input) {
-  if (!/^[A-Za-z0-9_-]{1,64}$/u.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id)) throw invalid('Invalid provider identifier');
+export function validateProviderID(id) {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id)) throw invalid('Invalid provider identifier');
+}
+
+export function normalizeProvider(id, input, { allowUnsupported = false } = {}) {
+  validateProviderID(id);
   objectInput(input, ['name', 'package', 'settings', 'models', 'env', 'canonical', 'headers', 'body', 'activation']);
   const packageName = input.package ?? COMPATIBLE_PACKAGE;
   if (input.activation != null && !['enabled', 'disabled', 'auto'].includes(input.activation)) throw invalid('Invalid provider activation');
-  if (RESPONSES_PACKAGES.has(packageName)) throw invalid(`Provider ${id} selects OpenAI Responses, which NNA does not support. For a /chat/completions endpoint, select OpenAI Chat Completions in OpenChamber.`);
-  if (!PACKAGES.has(packageName)) throw invalid('Unsupported provider protocol. For a /chat/completions endpoint, select OpenAI Chat Completions in OpenChamber.');
+  textInput(packageName, 'provider package', 256);
+  const protocolError = PACKAGES.has(packageName) ? undefined : RESPONSES_PACKAGES.has(packageName)
+    ? `Provider ${id} selects OpenAI Responses, which NNA does not support. For a /chat/completions endpoint, select OpenAI Chat Completions in OpenChamber.`
+    : 'Unsupported provider protocol. For a /chat/completions endpoint, select OpenAI Chat Completions in OpenChamber.';
+  // Invariant: unsupported protocols remain editable catalog metadata but cannot execute or receive keys.
+  if (protocolError && !allowUnsupported) throw invalid(protocolError);
   if (input.headers && Object.keys(input.headers).length || input.body && Object.keys(input.body).length) throw invalid('Custom provider headers and body are not supported');
   objectInput(input.settings ?? {}, ['baseURL']);
   let endpoint;
@@ -66,7 +74,8 @@ export function normalizeProvider(id, input) {
   }));
   if (input.env != null && (!Array.isArray(input.env) || input.env.length > 8 || input.env.some((name) => !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(name)))) throw invalid('Invalid provider credential environment names');
   return { id, name: textInput(input.name ?? id, 'provider name', 96), package: packageName,
-    endpoint, models: normalized, env: input.env ?? [], activation: input.activation === 'disabled' ? 'disabled' : 'enabled' };
+    endpoint, models: normalized, env: input.env ?? [], protocolError,
+    activation: protocolError || input.activation === 'disabled' ? 'disabled' : 'enabled' };
 }
 
 function normalizeModel(input) {
