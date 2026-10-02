@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:ae03bd488cca7dfe9f2cfaaa1c9cbfd8de5672b4e28cafa5811300b7aa788274",
+  "source_digest": "sha256:6073cb24cdbf64fe87b29072fa7a1bd71751638ae416ed538c475eada246cc01",
   "counts": {
-    "modules": 711,
+    "modules": 716,
     "component_edges": 16
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 29
+      "module_count": 34
     },
     {
       "id": "foundation",
@@ -6880,6 +6880,12 @@
       "imports": []
     },
     {
+      "path": "scripts/check-nna-service-contract.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "scripts/controlled-language-gates.js",
       "component": "gates",
       "entrypoint": false,
@@ -6941,6 +6947,36 @@
       ]
     },
     {
+      "path": "scripts/nnd-contract-error.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/nnd-manifest-extensions.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/nnd-contract-error.js",
+        "scripts/nnd-service-contract.js"
+      ]
+    },
+    {
+      "path": "scripts/nnd-service-contract.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/nnd-service-contract.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/nnd-manifest-extensions.js",
+        "scripts/nnd-service-contract.js"
+      ]
+    },
+    {
       "path": "scripts/quality-gates.js",
       "component": "gates",
       "entrypoint": false,
@@ -6977,7 +7013,9 @@
       "path": "scripts/serve-installed.mjs",
       "component": "gates",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "scripts/nnd-manifest-extensions.js"
+      ]
     },
     {
       "path": "scripts/serve-installed.test.mjs",

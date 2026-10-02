@@ -3,6 +3,7 @@
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { validateNndManifestExtensions } from './nnd-manifest-extensions.js';
 
 export function configureInstalledService(args, options = {}) {
   if (args.length !== 2 || args[0] !== '--port' || !/^[1-9]\d{0,4}$/u.test(args[1])) {
@@ -20,6 +21,8 @@ export function configureInstalledService(args, options = {}) {
     || !existsSync(bundle) || !existsSync(join(dist, 'index.html'))) {
     throw new Error('installed NND package is incomplete or incompatible');
   }
+  // Compatibility: schema validation does not enable the pending supervised launch path.
+  if (Object.hasOwn(manifest, 'service_activation')) validateNndManifestExtensions(manifest);
   const environment = options.environment ?? process.env;
   environment.NOTNATIVE_HOST = '127.0.0.1';
   environment.NOTNATIVE_PORT = String(port);

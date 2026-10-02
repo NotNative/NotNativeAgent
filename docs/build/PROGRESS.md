@@ -3,6 +3,35 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-01 · Activation contract recovery · NND 20261001-43 / NNA 20261001-7
+
+Resumed from NNA's five untracked handoff files; no implementation commits had
+landed after the previous baseline. Repaired the draft's inverted process ownership,
+package-partitioned lock, incomplete health/manifest schema and circular hash.
+The paired contract now covers explicit host capabilities, runtime architecture,
+store schema requirements, protected stdin bootstrap, bounded health and setup guidance.
+Unknown lifecycle values cannot open execution. No supervision capability is advertised.
+
+NNA registration validates declared service metadata, contained artifacts and actual
+server bundle bytes before registry writes. Explicit service admission additionally
+requires a compatible host descriptor. NND's service entry validates declared schema
+before environment changes. Legacy registration/startup remains available until L2-L4;
+this slice does not claim persistent service operation or installed acceptance.
+
+An independent adversarial audit found a helper-file digest could mask changes to the
+real server. The validator now binds the digest to the actual required server artifact;
+a regression covers the failure. Documentation now distinguishes registration from
+runtime capability admission. Runtime/package/provider readiness remain separate.
+
+Evidence: 13 focused NNA activation/package cases plus 7 error-ownership cases;
+8 NND contract/entrypoint cases; paired source-contract agreement; 1,625 UI tests.
+Final full NNA suite, quality/repository graphs and NND release checks are required
+before the commit. NNA native platform release certification remains outside this
+source slice; existing platform evidence and release seal are not relabeled.
+L1 remains in progress for installed descriptor/independent TUI acceptance. L2-L6,
+C/F and V gates remain open. Startup/lock decisions specify implementation work,
+not already-installed infrastructure.
+
 ## 2026-10-01 · Executable architecture and build guide · 20261001-42
 
 Documentation-only revision following the user's architecture review. NNA remains

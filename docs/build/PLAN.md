@@ -1,7 +1,7 @@
 # NotNativeDesktop executable build guide
 
 Status: accepted product direction; implementation work packages remain open.
-Decision date: 2026-10-01. This revision changes documentation, not runtime behavior.
+Decision date: 2026-10-01. Implementation resumed; see the [execution ledger](EXECUTION/LEDGER.md).
 
 ## Product and completion contract
 
@@ -80,8 +80,8 @@ installed journeys and therefore must not be a prerequisite for C or F work.
 Likewise, F implementation unlocks the V tests that finally verify F acceptance;
 requiring completed V before implementing F would be circular.
 
-The next implementation agent starts with L1, after verifying this baseline.
-This documentation task does not authorize itself to resume implementation.
+Implementation resumed by user request. L1 is in progress; the execution ledger
+records partial work and acceptance separately from this target plan.
 
 ## Scope boundaries
 

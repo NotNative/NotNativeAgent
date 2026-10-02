@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { configureInstalledService } from './serve-installed.mjs';
@@ -28,6 +28,12 @@ test('installed service is loopback-only and suppresses unavailable browser brid
   assert.equal(environment.NNA_NND_INSTALL_ROOT, root);
   assert.equal(environment.NOTNATIVE_NNA_MODE, 'managed');
   assert.equal(environment.NOTNATIVE_APP_VERSION, '20260926.0.58');
+  const validIdentity = JSON.parse(await readFile(manifest, 'utf8'));
+  await writeFile(manifest, JSON.stringify({ ...validIdentity, service_activation: {} }));
+  const untouched = {};
+  assert.throws(() => configureInstalledService(['--port', '57123'], { root, environment: untouched }),
+    { code: 'nnd_package_manifest_invalid' });
+  assert.deepEqual(untouched, {});
   await writeFile(manifest, JSON.stringify({ id: 'wrong' }));
   assert.throws(() => configureInstalledService(['--port', '57123'], { root, environment }), /incompatible/u);
 });

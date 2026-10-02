@@ -11,7 +11,9 @@ setup. NNA retains its own TUI identity, tabs, sessions and interaction lifecycl
 NND is not a container for the TUI. Browser and desktop share NND's own collection.
 All supported operator-configurable NNA settings must be available through the GUI
 using native contracts; this does not make engine configuration surface-local.
-The paired NNA ADR must be reconciled during L1 before its lifecycle contract changes.
+The paired NNA ADR records the L1 contract boundary. The
+[activation contract](../build/EXECUTION/nnd-local-activation-contract.md) distinguishes
+implemented validators from pending runtime supervision and installed acceptance.
 
 ## Decision
 
