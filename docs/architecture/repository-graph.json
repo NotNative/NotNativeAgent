@@ -2,17 +2,17 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:1d8c94337eb35b591939d1b4e9260ae8ecca6121dcee62fb7e1fe1800e2f9d6e",
+  "source_digest": "sha256:ae03bd488cca7dfe9f2cfaaa1c9cbfd8de5672b4e28cafa5811300b7aa788274",
   "counts": {
-    "modules": 708,
-    "component_edges": 15
+    "modules": 711,
+    "component_edges": 16
   },
   "components": [
     {
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 39
+      "module_count": 41
     },
     {
       "id": "harness-facade",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 28
+      "module_count": 29
     },
     {
       "id": "foundation",
@@ -124,14 +124,14 @@
     {
       "from": "sync-engine",
       "to": "harness-facade",
-      "import_count": 52,
-      "module_count": 36
+      "import_count": 54,
+      "module_count": 38
     },
     {
       "from": "gates",
       "to": "web-server",
-      "import_count": 21,
-      "module_count": 6
+      "import_count": 22,
+      "module_count": 7
     },
     {
       "from": "runtime-io",
@@ -190,6 +190,12 @@
     {
       "from": "gates",
       "to": "runtime-io",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "gates",
+      "to": "sync-engine",
       "import_count": 1,
       "module_count": 1
     }
@@ -4278,6 +4284,7 @@
         "packages/ui/src/sync/child-store.ts",
         "packages/ui/src/sync/event-equality.ts",
         "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/nna-projection.ts",
         "packages/ui/src/sync/routing-index.ts",
         "packages/ui/src/sync/session-actions.ts",
         "packages/ui/src/sync/session-message-loader.ts",
@@ -4336,7 +4343,8 @@
       "component": "sync-engine",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/lib/nnd/types.ts"
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/nna-projection.ts"
       ]
     },
     {
@@ -4362,6 +4370,8 @@
         "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/blocking-reducer.ts",
         "packages/ui/src/sync/event-equality.ts",
+        "packages/ui/src/sync/nna-projection.ts",
+        "packages/ui/src/sync/projection-reducer.ts",
         "packages/ui/src/sync/reducer-core.ts",
         "packages/ui/src/sync/sanitize.ts",
         "packages/ui/src/sync/transcript-reducer.ts",
@@ -4399,6 +4409,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/sync/nna-projection.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/sync/persist-cache.ts",
       "component": "sync-engine",
       "entrypoint": false,
@@ -4425,6 +4443,17 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/projection-reducer.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/sync/nna-projection.ts",
+        "packages/ui/src/sync/reducer-core.ts",
         "packages/ui/src/sync/types.ts"
       ]
     },
@@ -4462,9 +4491,11 @@
         "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/session-knowledge-api.ts",
+        "packages/ui/src/sync/event-equality.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/materialization.ts",
         "packages/ui/src/sync/message-ordering.ts",
+        "packages/ui/src/sync/nna-projection.ts",
         "packages/ui/src/sync/session-lifecycle.ts",
         "packages/ui/src/sync/types.ts"
       ]
@@ -6901,6 +6932,7 @@
         "packages/web/src/server/harness/nna.ts",
         "scripts/smoke-http.mjs",
         "scripts/smoke-native-questions.mjs",
+        "scripts/smoke-nna-projection.mjs",
         "scripts/smoke-notification-model.mjs",
         "scripts/smoke-notification-routes.mjs",
         "scripts/smoke-provider-route.mjs",
@@ -6989,6 +7021,16 @@
       "component": "gates",
       "entrypoint": false,
       "imports": [
+        "scripts/smoke-http.mjs"
+      ]
+    },
+    {
+      "path": "scripts/smoke-nna-projection.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/nna-projection.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
         "scripts/smoke-http.mjs"
       ]
     },

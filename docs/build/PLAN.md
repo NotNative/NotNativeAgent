@@ -30,7 +30,7 @@ doc summaries but no code is written for them.
 | P11 Preview/inspection | 13 | Dev-server discovery, preview embedding, element inspection, walkthrough pipeline |
 | P12 Desktop shell (delivery vehicle) | 09 | NND-as-product shell: connection manager (multi-NNA instances), in-process server optional, IPC bridge + security gating, tray, boot outcome, updates, packaging |
 | P13 Integration verify | all | End-to-end run of core journeys; deferred-items register reviewed; NNA integration notes written |
-| PA Ecosystem seam | ADR 0020 | NNA activation and harness surfaces land (projection frames, 13-state authority, mode get/set, entitlement slot, lifecycle ownership); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |
+| PA Ecosystem seam | ADR 0020 | NNA activation and harness surfaces land (projection frames, NNA-authored phase authority, mode get/set, entitlement slot, lifecycle ownership); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |
 | PB Shell and doors | ADR 0020 | NND web-service package installs into and is activated by NNA; NNA-owned loopback default and explicit LAN gate; desktop shell; tray/facelifting on NNA lifecycle; browser + shell doors |
 | PC Delegated contexts | ADR 0020 | NNO user contexts with entitlement; gateway conversation contexts; entitlement-neutral local token retires the mock assumptions |
 

@@ -5,6 +5,7 @@
  * the draft may change.
  */
 import type { Message, Part, Session, SessionStatus } from '../lib/nnd/types.ts';
+import { sessionProjection, staleProjection } from './nna-projection.ts';
 
 const TERMINAL_TOOL_STATUSES = new Set(['completed', 'error', 'aborted', 'failed', 'timeout', 'cancelled']);
 
@@ -15,6 +16,10 @@ export function sessionRecency(session: Session): number {
 /** Freshness guard: incoming recency < current recency ⇒ skip (stale refresh). */
 export function shouldSkipStaleSessionEvent(current: Session | undefined, incoming: Session): boolean {
   if (!current) return false;
+  const incomingFrame = sessionProjection(incoming);
+  const currentFrame = sessionProjection(current);
+  if (incomingFrame && staleProjection(currentFrame, incomingFrame)) return true;
+  if (incomingFrame && currentFrame && incomingFrame.epoch !== currentFrame.epoch) return false;
   return sessionRecency(incoming) < sessionRecency(current);
 }
 

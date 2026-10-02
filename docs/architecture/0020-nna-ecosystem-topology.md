@@ -89,9 +89,11 @@ development seam until their contract test suite can replace it.
    parameter fields at request time; per-request overrides ride the existing prompt
    body fields.
 4. **Governance**: NNA's governance engine owns decisions. The permission-mode ladder
-   (default / auto-review / full) is a governance-owned, session-scoped policy level;
+   (default / auto-review / unattended) is a governance-owned, session-scoped policy level;
    clients (TUI shift+tab, NND toggle) set it and present it, never decide it.
    Engine validation decides which levels a principal may use.
+   Every supported NND mode retains NNA's mandatory reviewer; no Full control
+   mode exists. Unattended denies unresolved escalations instead of prompting.
 5. **Edge behavior**: optimistic sends, launcher state, and in-flight views are
    client-held intent awaiting engine echo. Reconciliation anchors on projection
    frames and replay; the client never asserts engine truth. NNA preserves an
@@ -122,7 +124,7 @@ to one served bundle, so cross-door mirroring is inherent, not synchronized.
 | Delta | Purpose |
 |---|---|
 | Projection frames as first-class streaming payloads | Authored state, ordered views, token accounting delivered; replaces client derivation |
-| Turn-state machine (13 phases) as sole wire authority | One state model for all surfaces; client mapping is presentation-only |
+| NNA-authored phase machine as sole wire authority | One state model for all surfaces; client mapping is presentation-only |
 | Frame replay + cursor semantics | Reconnect durability for remote clients (NND client engine depends on it) |
 | Mode get/set (governance level) | Client setters for permission modes; engine validates per principal |
 | Per-request override fields (existing) | Tab/preset profiles fill model/agent/tools at request time |

@@ -22,6 +22,7 @@ import { useSessionViewStore } from './view-store.ts';
 import { resyncBlockingKind } from './bootstrap-enrichment.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from './activity-snapshot.ts';
 import { shouldSkipStaleSessionEvent } from './event-equality.ts';
+import { adoptSessionProjection } from './nna-projection.ts';
 
 export interface RecoveryDeps {
   disposed: () => boolean;
@@ -173,6 +174,6 @@ export function reconcileFetchedSession(
   if (index < 0) return [...sessions, record].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   if (shouldSkipStaleSessionEvent(sessions[index], record)) return sessions;
   const next = [...sessions];
-  next[index] = record;
+  next[index] = adoptSessionProjection(sessions[index], record);
   return next;
 }

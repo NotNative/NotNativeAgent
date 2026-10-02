@@ -16,6 +16,8 @@ import type { EngineServices } from './session-lifecycle.ts';
 import { getSessionKnowledge, recordSessionKnowledgeDelivered } from '../lib/session-knowledge-api.ts';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { useGlobalSyncStore } from './global-stores.ts';
+import { adoptSessionProjection, sessionProjection } from './nna-projection.ts';
+import { shouldSkipStaleSessionEvent } from './event-equality.ts';
 
 export interface SendFailureRecord {
   at: number;
@@ -449,7 +451,9 @@ export function mergeBootstrapLists(
   for (const session of incoming) {
     // tombstoned ancestor: the parent is neither incoming nor cached ⇒ excluded
     if (session.parentID && !incomingIds.has(session.parentID) && !cachedById.has(session.parentID)) continue;
-    merged.set(session.id, session);
+    const cached = cachedById.get(session.id);
+    if (sessionProjection(session) && shouldSkipStaleSessionEvent(cached, session)) merged.set(session.id, cached!);
+    else merged.set(session.id, adoptSessionProjection(cached, session));
   }
   // retained cached parents complete the hierarchy for surviving children
   for (const child of merged.values()) {

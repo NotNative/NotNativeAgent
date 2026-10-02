@@ -22,8 +22,8 @@ latest validated phase through `metadata.nnd.turnState.phase`.
 The Context rail displays that phase, even when token measurement is absent.
 NND does not infer it from the compatibility `busy|idle|retry` transport
 status. NNA settles the projection to idle after a completed turn; unknown
-phase names remain absent. The full replayable turn-state contract, including
-cursor and correction semantics, remains separate PA work.
+phase names remain absent. Versioned phase/tool/context frames now provide
+cursor replay and correction semantics within NNA's retained in-memory suffix.
 The same phase is projected per live delegated child session. The Subagents
 row displays it only when the child's own transport status is active; pending
 permissions and questions still take precedence. A restored read-only child
@@ -35,12 +35,25 @@ phase or revive a deleted session, even when timestamps tie. Bootstrap takes
 its revision baseline before fetching session lists and overlays live updates
 and deletions over stale results. An accepted authoritative description
 replaces the entire session record so removed metadata does not linger. This
-is snapshot reconciliation, not a substitute for NNA's future bounded
-event-cursor replay contract. NNA now retains a count- and byte-bounded in-memory SSE suffix
+is snapshot reconciliation. NNA retains a count- and byte-bounded in-memory SSE suffix
 and accepts `Last-Event-ID` on the NND harness stream, with authorization
 filtering on replay. A missing cursor or process restart still relies on
 NND's snapshot recovery on every SSE reconnect; durable replay and explicit gap signaling remain
 future contract work.
+
+NNA emits `nnd.projection` with `{sessionID, frame}` after root/child session
+created/updated events. Descriptions embed the same frame at
+`metadata.nnd.projection`. Version `1.0` carries the session identity, opaque
+engine-context epoch, positive revision, updatedAt, turnState, activeTools,
+and numeric context. Null display fields clear stale observations. The current
+authored phase set contains the twelve names enumerated by NNA; earlier numeric
+thirteen claims had no corresponding additional named phase. The GUI validates
+the exact bounded shape and rejects stale revisions before changing display
+fields. Frames cannot grant permissions or alter the configured model.
+Restart rotates the epoch and restores the authoritative snapshot; time alone
+does not decide phase freshness across epochs. Legacy servers keep their
+existing description/recovery path. Full PA acceptance remains open for durable
+history, explicit gap signaling, lifecycle integration, and delegated entitlements.
 
 ## Child-session steering
 

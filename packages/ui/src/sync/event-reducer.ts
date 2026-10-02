@@ -22,6 +22,8 @@ import { emptyOutcome, type ReducerApi, type BatchOutcome } from './reducer-core
 import { stripSessionDiffSnapshots } from './sanitize.ts';
 import { activityRecordFromEvent, mergeActivityRecord } from './activity-log.ts';
 import type { DirectoryStore, SyncState } from './types.ts';
+import { applyProjectionEvent } from './projection-reducer.ts';
+import { adoptSessionProjection } from './nna-projection.ts';
 
 export type { BatchOutcome } from './reducer-core.ts';
 export { emptyOutcome } from './reducer-core.ts';
@@ -69,6 +71,7 @@ export class DirectoryEventBatch {
 
 /** Reducer entry — pure with respect to the draft (doc 04 §B.2 catalog). */
 export function applyDirectoryEvent(draft: SyncState, event: HarnessEvent, api: ReducerApi): void {
+  if (applyProjectionEvent(draft, event, api)) return;
   if (applyActivityEvent(draft, event, api)) return;
   if (applyTranscriptEvent(draft, event, api)) return;
   if (applyBlockingEvent(draft, event, api)) return;
@@ -128,6 +131,7 @@ function applySessionUpsert(draft: SyncState, event: HarnessEvent, api: ReducerA
   const stripped = stripSessionDiffSnapshots({ ...info });
   const current = draft.session.find((s) => s.id === stripped.id);
   if (shouldSkipStaleSessionEvent(current, stripped)) return;
+  adoptSessionProjection(current, stripped);
   api.ensure('session');
   api.ensure('sessionEventRevision');
   if (stripped.time.archived) {

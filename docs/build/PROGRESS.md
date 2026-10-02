@@ -2,6 +2,27 @@
 
 Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`).
 
+## 2026-10-01 · Native projection frames · 20261001-41 / NNA 20261001-6
+
+NNA now publishes versioned, owned phase/tool/context frames for root and
+delegated sessions. Descriptions and live events share the same frame; epoch
+and revision identify fresh state without granting authority or exposing raw
+tool arguments. All twelve currently authored phases are retained. The GUI
+accepts bounded validated frames and rejects duplicates and stale revisions.
+
+Adversarial repairs accept restored epochs with older timestamps, preserve
+bounded retired-epoch lineage through live updates, refetch and bootstrap,
+recover full metadata after a restart delta, and reject malformed phase objects
+without string conversion. Permission mode remains an NNA-owned idle-session
+setting: Default resolves to Auto-review, and Unattended keeps mandatory review
+while denying unresolved escalations. NNA has no Full control mode.
+
+All 1625 UI tests and 1415 web/server tests pass, as do workspace typechecks
+and live source integration, including projection replay and restart recovery.
+Graphs cover 711 NND modules and 393 NNA modules. Native full-suite and release
+gates precede commit. Durable event history, explicit gap signaling, installed
+browser acceptance, and the broader PA/PB/PC plan remain open.
+
 ## 2026-10-01 · Persisted passkey origin · 20261001-40
 
 Passkey ceremony verification now adds the validated server-owned public origin

@@ -13,7 +13,8 @@ import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mj
 import { probeNotificationRoutes } from './smoke-notification-routes.mjs';
 import { nativeQuestionProviderReply, probeNativeQuestions } from './smoke-native-questions.mjs';
 import { notificationProviderReply, probeNotificationModel } from './smoke-notification-model.mjs';
-import { json, withTimeout } from './smoke-http.mjs';
+import { json, withTimeout, eventReader } from './smoke-http.mjs';
+import { probeNnaProjection, probeRestoredProjection } from './smoke-nna-projection.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
@@ -390,27 +391,6 @@ async function waitForReply(call, id, marker) {
   }
 }
 
-function eventReader(reader) {
-  const decoder = new TextDecoder();
-  let pending = '';
-  return async () => {
-    for (;;) {
-      const split = pending.indexOf('\n\n');
-      if (split >= 0) {
-        const frame = pending.slice(0, split);
-        pending = pending.slice(split + 2);
-        const data = frame.split('\n').filter((line) => line.startsWith('data: ')).map((line) => line.slice(6)).join('\n');
-        if (data) return JSON.parse(data);
-        continue;
-      }
-      const part = await reader.read();
-      if (part.done) throw new Error('NNA event stream ended before the expected event');
-      pending += decoder.decode(part.value, { stream: true });
-      if (pending.length > 65_536) throw new Error('NNA event frame exceeded smoke bound');
-    }
-  };
-}
-
 async function main(nnaSource) {
   const cli = join(nnaSource, 'src', 'cli.js');
   await access(cli);
@@ -452,6 +432,7 @@ async function main(nnaSource) {
     await probeNotificationRoutes(sessions.parentId);
     await probeNativeQuestions(app);
     await probeNotificationModel(sessions.parentId, provider.requests);
+    const projectionEpoch = await probeNnaProjection(sessions.parentId);
     await waitForChildSnapshot(root, sessions.childId);
     const stopped = once(spawned, 'exit');
     harness.dispose();
@@ -463,6 +444,7 @@ async function main(nnaSource) {
     registerHarnessAdapter(createNnaHarnessAdapter({
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));
+    await probeRestoredProjection(sessions.parentId, projectionEpoch);
     await probeRestoredSession(createApp(), sessions);
     assert.ok(provider.completions() > 0, 'NNA did not call the isolated provider');
     assert.ok(provider.requests().some((request) => request.messages?.some((message) =>
