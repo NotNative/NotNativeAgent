@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrateManifestDocument, resolveManifest } from '../src/config.js';
 import {
@@ -139,10 +139,10 @@ test('Primary owns the provider deadline while specialist overrides return to Pr
 });
 
 test('restored conversation configuration discards stale specialist assignments', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-role-migration-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-role-migration-'));
   const global = withoutRoleRoute(configuration(root), 'reviewer').config;
   const stale = withRoleRoute(global, 'reviewer', 'two', 'stale-reviewer').config;
-  const workspace = new InteractiveWorkspace({
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: global, configPath: join(root, 'settings.json'),
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
   });
@@ -205,16 +205,16 @@ test('legacy local profile defaults migrate to reasoning-safe output headroom on
 });
 
 test('manifest persistence retains a last-known-good backup', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-manifest-backup-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-manifest-backup-'));
   const path = join(root, 'settings.json');
-  await persistManifest(path, { marker: 'before' });
-  await persistManifest(path, { marker: 'after' });
+  const first = await persistManifest(path, { marker: 'before' });
+  await persistManifest(path, { marker: 'after' }, { expectedRevision: first.persistedRevision });
   assert.equal(JSON.parse(await readFile(path, 'utf8')).marker, 'after');
   assert.equal(JSON.parse(await readFile(`${path}.bak`, 'utf8')).marker, 'before');
 });
 
 test('Main provider manager edits, tests, and deletes unused profiles durably', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-manager-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-manager-'));
   const configPath = join(root, 'settings.json');
   const providerFactory = (profile) => ({
     async capabilities() { return { models: [profile.model, 'catalog-model'], tools: true }; },
@@ -223,7 +223,7 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
     },
     async *stream() { yield { type: 'terminal' }; },
   });
-  const workspace = new InteractiveWorkspace({ config: configuration(root), configPath, providerFactory });
+  const workspace = new InteractiveWorkspace({ initializeManifest: true, config: configuration(root), configPath, providerFactory });
   await workspace.create('Main', 'main');
   await workspace.editProvider('two', { endpoint: 'http://127.0.0.1:9/v1', model: 'edited' });
   assert.equal(workspace.config.providerProfiles.two.model, 'edited');
@@ -250,7 +250,7 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
 });
 
 test('first saved profile replaces the auto-discovered bootstrap and becomes active in Main', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-bootstrap-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-bootstrap-'));
   const initial = resolveManifest({
     persistence: 'ephemeral', workspace_root: root,
     provider: {
@@ -258,7 +258,7 @@ test('first saved profile replaces the auto-discovered bootstrap and becomes act
       endpoint: 'http://127.0.0.1:1234/v1', model: 'bootstrap-model', trust_zone: 'loopback',
     },
   });
-  const workspace = new InteractiveWorkspace({
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: initial, configPath: join(root, 'settings.json'),
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
   });
@@ -278,9 +278,9 @@ test('first saved profile replaces the auto-discovered bootstrap and becomes act
 });
 
 test('provider catalog publication preserves each open conversation immutable scope', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-catalog-main-'));
-  const otherRoot = await mkdtemp(join(tmpdir(), 'nna-provider-catalog-other-'));
-  const workspace = new InteractiveWorkspace({
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-catalog-main-'));
+  const otherRoot = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-catalog-other-'));
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
   });
@@ -313,8 +313,8 @@ test('provider discovery requests v1/models with optional authentication', async
   const address = server.address();
   const previous = process.env.NNA_DISCOVERY_TEST_KEY;
   process.env.NNA_DISCOVERY_TEST_KEY = 'redacted-test-secret';
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-discovery-'));
-  const workspace = new InteractiveWorkspace({ config: configuration(root) });
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-discovery-'));
+  const workspace = new InteractiveWorkspace({ initializeManifest: true, config: configuration(root) });
   try {
     await workspace.create('Main', 'main');
     const result = await workspace.discoverProviderModels({
@@ -339,9 +339,9 @@ test('provider discovery requests v1/models with optional authentication', async
 });
 
 test('AC-CONF-02/AC-CONF-07 persistence failure publishes no global runtime change', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-config-atomic-write-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-config-atomic-write-'));
   let failWrite = false;
-  const workspace = new InteractiveWorkspace({
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     manifestWriter: async () => {
       if (failWrite) throw Object.assign(new Error('simulated manifest storage failure'), { code: 'manifest_write_failed' });
@@ -361,9 +361,9 @@ test('AC-CONF-02/AC-CONF-07 persistence failure publishes no global runtime chan
 });
 
 test('AC-CONF-07 validates every session before persisting or publishing a global change', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-config-atomic-validation-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-config-atomic-validation-'));
   let writes = 0;
-  const workspace = new InteractiveWorkspace({
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     manifestWriter: async () => { writes += 1; },
     configurationPreparer: (engine, manifest) => {
@@ -386,8 +386,8 @@ test('AC-CONF-07 validates every session before persisting or publishing a globa
 });
 
 test('AC-CONF-07 workspace configuration versions advance and seed new conversations', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-config-version-'));
-  const workspace = new InteractiveWorkspace({
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-config-version-'));
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     manifestWriter: async () => undefined,
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
@@ -405,8 +405,8 @@ test('AC-CONF-07 workspace configuration versions advance and seed new conversat
 });
 
 test('provider profiles publish with the production default provider factory', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-default-factory-'));
-  const workspace = new InteractiveWorkspace({
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-default-factory-'));
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     manifestWriter: async () => undefined,
   });
@@ -423,8 +423,8 @@ test('provider profiles publish with the production default provider factory', a
 });
 
 test('provider menus hard-timeout uncooperative capability discovery', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-capability-timeout-'));
-  const workspace = new InteractiveWorkspace({
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-capability-timeout-'));
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), providerCapabilityDeadlineMs: 20,
     providerFactory: () => ({
       capabilities: async () => new Promise(() => undefined),
@@ -440,8 +440,8 @@ test('provider menus hard-timeout uncooperative capability discovery', async () 
 });
 
 test('provider menus bound and validate third-party capability records', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-capability-shape-'));
-  const workspace = new InteractiveWorkspace({
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-capability-shape-'));
+  const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root),
     providerFactory: () => ({
       async capabilities() { return { models: Array.from({ length: 5000 }, (_, index) => `model-${index}`), tools: true }; },

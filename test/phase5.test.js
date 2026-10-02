@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { inflateRawSync } from 'node:zlib';
@@ -1418,7 +1418,7 @@ test('configuration command does not expose engine policy mutations', async () =
 });
 
 test('/workspace opens an isolated conversation with recomputed trusted project scope', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-workspace-command-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-workspace-command-'));
   const target = join(root, 'project');
   const paths = {
     config: join(root, 'config'), trustedWorkspaces: join(root, 'trusted.json'),
@@ -1456,7 +1456,7 @@ test('Escape returns from a menu without changing its selection', async () => {
 });
 
 test('AC-PROV-03 primary routes stay tab-local while Main publishes global specialist routes', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-route-menu-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-route-menu-'));
   const configPath = join(root, 'manifest.json');
   const initial = resolveManifest({
     persistence: 'ephemeral', workspace_root: root,
@@ -1471,7 +1471,7 @@ test('AC-PROV-03 primary routes stay tab-local while Main publishes global speci
   };
   const projection = new TuiProjection();
   const workspace = new InteractiveWorkspace({
-    config: initial, projection, configPath, storeRoot: join(root, 'sessions'),
+    config: initial, projection, configPath, initializeManifest: true, storeRoot: join(root, 'sessions'),
     reviewerRoot: join(root, 'reviewers'), providerFactory: () => provider,
   });
   const main = await workspace.create('Main', 'main');
@@ -1504,7 +1504,7 @@ test('AC-PROV-03 primary routes stay tab-local while Main publishes global speci
 });
 
 test('durable Console launch rotates meaningful Main into Previous Main with its tab-local routes', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-tab-pool-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-tab-pool-'));
   const tabPoolPath = join(root, 'root-tui', 'pool.json');
   const initial = resolveManifest({
     persistence: 'durable', workspace_root: root,
@@ -1515,7 +1515,7 @@ test('durable Console launch rotates meaningful Main into Previous Main with its
   });
   const provider = { async *stream() { yield { type: 'text', text: 'remembered answer' }; yield { type: 'terminal' }; } };
   const first = new InteractiveWorkspace({
-    config: initial, tabPoolPath, configPath: join(root, 'manifest.json'),
+    config: initial, tabPoolPath, configPath: join(root, 'manifest.json'), initializeManifest: true,
     storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewers'), providerFactory: () => provider,
   });
   await first.restore();

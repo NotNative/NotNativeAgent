@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:218eba0f96d5d9eaf32cbbab3ab386718782931d4a4e6977d0dfadf78292e9b4",
+  "source_digest": "sha256:b39c77d595bbb34a5b990ce52c2edaa130ca93224745779c86a83af20dbfe0fe",
   "counts": {
-    "modules": 433,
-    "component_edges": 80
+    "modules": 440,
+    "component_edges": 81
   },
   "components": [
     {
@@ -24,7 +24,7 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 91
+      "module_count": 93
     },
     {
       "id": "reliability-engine",
@@ -42,13 +42,13 @@
       "id": "persistence",
       "label": "Persistence",
       "ownership": "Owns durable journals, locks, state, and atomic storage.",
-      "module_count": 11
+      "module_count": 15
     },
     {
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 22
+      "module_count": 23
     },
     {
       "id": "tools",
@@ -120,14 +120,14 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 166,
-      "module_count": 55
+      "import_count": 170,
+      "module_count": 57
     },
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 81,
-      "module_count": 57
+      "import_count": 86,
+      "module_count": 59
     },
     {
       "from": "tools",
@@ -184,6 +184,12 @@
       "module_count": 9
     },
     {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 15,
+      "module_count": 11
+    },
+    {
       "from": "opencode-surface",
       "to": "foundation",
       "import_count": 15,
@@ -196,22 +202,16 @@
       "module_count": 7
     },
     {
-      "from": "foundation",
-      "to": "persistence",
+      "from": "experience-engine",
+      "to": "providers",
       "import_count": 14,
-      "module_count": 11
+      "module_count": 10
     },
     {
       "from": "agentic-engine",
       "to": "reliability-engine",
       "import_count": 13,
       "module_count": 7
-    },
-    {
-      "from": "experience-engine",
-      "to": "providers",
-      "import_count": 13,
-      "module_count": 9
     },
     {
       "from": "foundation",
@@ -226,6 +226,12 @@
       "module_count": 11
     },
     {
+      "from": "persistence",
+      "to": "foundation",
+      "import_count": 13,
+      "module_count": 11
+    },
+    {
       "from": "agentic-engine",
       "to": "tools",
       "import_count": 12,
@@ -233,9 +239,9 @@
     },
     {
       "from": "persistence",
-      "to": "foundation",
+      "to": "persistence",
       "import_count": 11,
-      "module_count": 10
+      "module_count": 5
     },
     {
       "from": "reliability-engine",
@@ -262,6 +268,12 @@
       "module_count": 8
     },
     {
+      "from": "experience-engine",
+      "to": "persistence",
+      "import_count": 8,
+      "module_count": 8
+    },
+    {
       "from": "integrations",
       "to": "integrations",
       "import_count": 8,
@@ -280,12 +292,6 @@
       "module_count": 2
     },
     {
-      "from": "experience-engine",
-      "to": "persistence",
-      "import_count": 7,
-      "module_count": 7
-    },
-    {
       "from": "gateway",
       "to": "foundation",
       "import_count": 7,
@@ -302,6 +308,12 @@
       "to": "reliability-engine",
       "import_count": 6,
       "module_count": 6
+    },
+    {
+      "from": "providers",
+      "to": "persistence",
+      "import_count": 6,
+      "module_count": 4
     },
     {
       "from": "agentic-engine",
@@ -326,12 +338,6 @@
       "to": "persistence",
       "import_count": 5,
       "module_count": 4
-    },
-    {
-      "from": "persistence",
-      "to": "persistence",
-      "import_count": 5,
-      "module_count": 2
     },
     {
       "from": "providers",
@@ -484,12 +490,6 @@
       "module_count": 2
     },
     {
-      "from": "providers",
-      "to": "persistence",
-      "import_count": 2,
-      "module_count": 2
-    },
-    {
       "from": "agentic-engine",
       "to": "integrations",
       "import_count": 1,
@@ -576,6 +576,12 @@
     {
       "from": "opencode-surface",
       "to": "reliability-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "providers",
+      "to": "experience-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -1214,6 +1220,7 @@
       "entrypoint": false,
       "imports": [
         "src/engine.js",
+        "src/experience/configuration-intents.js",
         "src/experience/configuration-publication.js",
         "src/experience/console-authority.js",
         "src/experience/conversation-title.js",
@@ -1266,13 +1273,36 @@
       ]
     },
     {
+      "path": "src/experience/configuration-intents.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
       "path": "src/experience/configuration-publication.js",
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/configuration-source.js",
         "src/ids.js",
-        "src/provider/route-configuration.js",
         "src/runtime-config.js"
+      ]
+    },
+    {
+      "path": "src/experience/configuration-source.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/configuration-sources.js",
+        "src/experience/configuration-intents.js",
+        "src/ids.js",
+        "src/persistence/manifest-transaction.js",
+        "src/provider/route-configuration.js"
       ]
     },
     {
@@ -1414,6 +1444,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/configuration-intents.js",
         "src/experience/configuration-publication.js",
         "src/experience/provider-catalog.js",
         "src/ids.js",
@@ -2544,7 +2575,8 @@
         "src/config.js",
         "src/ids.js",
         "src/persistence/atomic-json.js",
-        "src/provider/route-configuration.js"
+        "src/persistence/manifest-transaction.js",
+        "src/provider/manifest-backup.js"
       ]
     },
     {
@@ -2819,11 +2851,47 @@
       ]
     },
     {
+      "path": "src/persistence/manifest-files.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-service-private-windows.js"
+      ]
+    },
+    {
+      "path": "src/persistence/manifest-lock.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/persistence/manifest-files.js"
+      ]
+    },
+    {
       "path": "src/persistence/manifest-migration.js",
       "component": "persistence",
       "entrypoint": false,
       "imports": [
         "src/reliability/output-headroom.js"
+      ]
+    },
+    {
+      "path": "src/persistence/manifest-receipts.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/persistence/manifest-files.js",
+        "src/persistence/manifest-lock.js"
+      ]
+    },
+    {
+      "path": "src/persistence/manifest-transaction.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/persistence/manifest-files.js",
+        "src/persistence/manifest-lock.js",
+        "src/persistence/manifest-receipts.js"
       ]
     },
     {
@@ -2970,7 +3038,7 @@
         "src/config.js",
         "src/ids.js",
         "src/persistence/atomic-json.js",
-        "src/provider/route-configuration.js",
+        "src/persistence/manifest-transaction.js",
         "src/reliability/output-headroom.js",
         "src/secret-broker.js"
       ]
@@ -3023,6 +3091,15 @@
       ]
     },
     {
+      "path": "src/provider/manifest-backup.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/persistence/manifest-files.js",
+        "src/persistence/manifest-lock.js"
+      ]
+    },
+    {
       "path": "src/provider/model-metadata.js",
       "component": "providers",
       "entrypoint": false,
@@ -3061,7 +3138,9 @@
       "imports": [
         "src/config.js",
         "src/credential-bindings.js",
+        "src/experience/configuration-intents.js",
         "src/ids.js",
+        "src/persistence/manifest-transaction.js",
         "src/provider/route-configuration.js"
       ]
     },
@@ -3101,7 +3180,8 @@
         "src/config.js",
         "src/credential-bindings.js",
         "src/ids.js",
-        "src/persistence/atomic-json.js",
+        "src/persistence/manifest-transaction.js",
+        "src/provider/manifest-backup.js",
         "src/reliability/output-headroom.js"
       ]
     },

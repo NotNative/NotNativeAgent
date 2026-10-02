@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, mkdtemp, open, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ensureUserDataPaths, userDataPaths } from '../src/product.js';
 import { loadEffectiveStartupConfiguration, runtimeHookRoots } from '../src/startup-configuration.js';
@@ -11,7 +11,7 @@ import { trustWorkspace, workspaceIsTrusted } from '../src/experience/trust.js';
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 
 async function fixture() {
-  const home = await mkdtemp(join(tmpdir(), 'nna-effective-config-'));
+  const home = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-effective-config-'));
   const workspace = join(home, 'project'); await mkdir(join(workspace, '.nna'), { recursive: true });
   const paths = userDataPaths({ home, environment: {} }); await ensureUserDataPaths(paths);
   await writeFile(join(paths.config, 'manifest.json'), `${JSON.stringify({ persistence: 'durable', provider })}\n`);
@@ -58,4 +58,17 @@ test('explicit configuration has deterministic precedence above trusted project 
   assert.equal(effective.config.memory.enabled, false);
   assert.equal(effective.config.limits.maxContextBytes, 524288);
   assert.equal(effective.provenance['memory.enabled'], 'explicit');
+});
+
+test('oversized sparse explicit and trusted project files fail before whole-file allocation', async (t) => {
+  const { paths, workspace, home } = await fixture();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const explicitPath = join(home, 'oversized.json');
+  const handle = await open(explicitPath, 'w');
+  try { await handle.truncate(2 ** 32); } finally { await handle.close(); }
+  await assert.rejects(loadEffectiveStartupConfiguration({ paths, workspaceRoot: workspace, explicitPath }), { code: 'manifest_too_large' });
+  await trustWorkspace(paths.trustedWorkspaces, workspace);
+  const project = await open(join(workspace, '.nna', 'settings.json'), 'w');
+  try { await project.truncate(1024 * 1024 + 1); } finally { await project.close(); }
+  await assert.rejects(loadEffectiveStartupConfiguration({ paths, workspaceRoot: workspace }), { code: 'manifest_too_large' });
 });

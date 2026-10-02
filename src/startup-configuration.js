@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfiguration } from './configuration-sources.js';
-import { loadStartupManifestDocument } from './onboarding.js';
+import { loadStartupManifestSnapshot } from './onboarding.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { ContractError } from './ids.js';
 
@@ -13,23 +14,24 @@ const MAX_MANIFEST_BYTES = 1024 * 1024;
 
 export async function loadEffectiveStartupConfiguration(options) {
   const root = resolve(options.workspaceRoot ?? process.cwd());
-  const user = await loadStartupManifestDocument(options);
+  const user = await loadStartupManifestSnapshot(options);
   const sources = [
-    { name: 'user', manifest: user },
+    { name: 'user', ...user },
     { name: 'workspace', manifest: { workspace_root: root } },
   ];
   const projectPath = join(root, PROJECT_CONFIG_DIRECTORY, 'settings.json');
   const trusted = await workspaceIsTrusted(options.paths.trustedWorkspaces, root);
   const project = trusted ? await readOptionalManifest(projectPath) : null;
   if (project) {
-    if (project.workspace_root && resolve(project.workspace_root) !== root) {
+    if (project.manifest.workspace_root && resolve(project.manifest.workspace_root) !== root) {
       throw new ContractError('project_scope_mismatch', 'project configuration workspace_root does not match its containing workspace');
     }
-    sources.push({ name: 'project', manifest: { ...project, workspace_root: root } });
+    sources.push({ name: 'project', ...project });
   }
-  if (options.explicitPath) sources.push({ name: 'explicit', manifest: await readManifest(options.explicitPath) });
+  if (options.explicitPath) sources.push({ name: 'explicit', ...await readManifest(resolve(options.explicitPath)) });
   const resolved = resolveConfiguration(sources, { securityAudit: options.securityAudit });
-  return deepFreeze({ ...resolved, project: {
+  const persistedSource = sources.find((source) => source.name === (options.explicitPath ? 'explicit' : 'user'));
+  return deepFreeze({ ...resolved, persistedSource, sourceSnapshots: sources, project: {
     path: projectPath, hookRoot: join(root, PROJECT_CONFIG_DIRECTORY, 'hooks'),
     skillRoot: join(root, PROJECT_CONFIG_DIRECTORY, 'skills'), present: project !== null, trusted,
   } });
@@ -55,8 +57,7 @@ async function readOptionalManifest(path) {
 }
 
 async function readManifest(path) {
-  const bytes = await readFile(path);
-  if (bytes.length > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'configuration file exceeds bound');
+  const bytes = await readBoundedManifest(path);
   let value;
   try {
     value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
@@ -66,7 +67,26 @@ async function readManifest(path) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('manifest_invalid', 'configuration file must contain a JSON object');
   }
-  return value;
+  return { path, manifest: value, revision: createHash('sha256').update(bytes).digest('hex') };
+}
+
+async function readBoundedManifest(path) {
+  const handle = await open(path, 'r');
+  try {
+    const info = await handle.stat();
+    if (!info.isFile()) throw new ContractError('manifest_invalid', 'configuration file must be a regular file');
+    if (info.size > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'configuration file exceeds bound');
+    // Invariant: a file that grows after stat cannot cause an unbounded startup allocation.
+    const bytes = Buffer.alloc(MAX_MANIFEST_BYTES + 1);
+    let size = 0;
+    while (size < bytes.length) {
+      const chunk = await handle.read(bytes, size, bytes.length - size, null);
+      if (!chunk.bytesRead) break;
+      size += chunk.bytesRead;
+    }
+    if (size > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'configuration file exceeds bound');
+    return bytes.subarray(0, size);
+  } finally { await handle.close(); }
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from 'node:fs/promises';
+import { open, mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
-import { persistManifest } from './route-configuration.js';
+import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from '../persistence/manifest-transaction.js';
 import { quarantineMalformedJson } from '../persistence/atomic-json.js';
 import { SecretBroker } from '../secret-broker.js';
 
@@ -59,8 +60,18 @@ export async function discoverProviderModels(endpoint, key = '', options = {}) {
 }
 
 export async function configureInitialProvider(paths, input) {
-  const status = await providerBootstrapStatus(paths);
-  if (status.configured) return { configured: true, skipped: true };
+  await mkdir(paths.config, { recursive: true, mode: 0o700 });
+  return withManifestLock(join(paths.config, 'manifest.json'), {}, async (lease) => {
+    const snapshot = await readLockedManifestSnapshot(lease);
+    if (snapshot.state === 'present') {
+      resolveManifest(snapshot.rawManifest);
+      return { configured: true, skipped: true };
+    }
+    return configureMissingProvider(paths, input, lease, snapshot.revision);
+  });
+}
+
+async function configureMissingProvider(paths, input, lease, revision) {
   const endpoint = normalizeEndpoint(input.endpoint);
   if (!validModel(input.model)) throw new ContractError('invalid_model', 'selected provider model is invalid');
   if (input.key) validateProviderKey(input.key);
@@ -70,23 +81,33 @@ export async function configureInitialProvider(paths, input) {
   const secret = broker ? await broker.create({
     label: `${input.model}-Provider`, kind: 'api_key', fields: { api_key: input.key },
   }) : null;
-  const manifest = {
+  const manifest = initialProviderManifest(endpoint, input.model, secret);
+  resolveManifest(manifest);
+  try {
+    await transactLockedManifest(lease, { expectedRevision: revision, operationId: randomUUID(),
+      payload: { action: 'bootstrap-provider', manifest }, transform: () => manifest, validate: resolveManifest });
+  } catch (error) {
+    // Invariant: an uncertain or completed publication may already reference this secret.
+    if (secret && error.persistence === 'unpublished') {
+      try { await broker.remove(secret.id); }
+      catch (cleanup) { throw new AggregateError([error, cleanup], 'Provider configuration failed; secret cleanup failed'); }
+    }
+    throw error;
+  }
+  return { configured: true, skipped: false, endpoint, model: input.model, authenticated: Boolean(input.key) };
+}
+
+function initialProviderManifest(endpoint, model, secret) {
+  return {
     format_version: 1, routing_inheritance_version: 1, output_headroom_version: OUTPUT_HEADROOM_VERSION, persistence: 'durable',
     providers: [{
-      id: 'initial-provider', display_name: input.model, endpoint, model: input.model,
+      id: 'initial-provider', display_name: model, endpoint, model,
       trust_zone: endpointTrustZone(endpoint), ...(secret ? {
         credential: { source: 'secret', secret_id: secret.id, field: 'api_key' },
       } : {}),
     }],
-    routes: { primary: { provider_id: 'initial-provider', model: input.model } },
+    routes: { primary: { provider_id: 'initial-provider', model } },
   };
-  resolveManifest(manifest);
-  try { await persistManifest(join(paths.config, 'manifest.json'), manifest); }
-  catch (error) {
-    if (secret) await broker.remove(secret.id).catch(() => undefined);
-    throw error;
-  }
-  return { configured: true, skipped: false, endpoint, model: input.model, authenticated: Boolean(input.key) };
 }
 
 export async function loadManagedProviderCredentials(paths, environment = process.env) {
@@ -137,8 +158,21 @@ async function readKey(input) {
 }
 
 async function readJson(path, label) {
-  const bytes = await readFile(path);
-  if (bytes.length > MAX_RESPONSE_BYTES) throw new ContractError('provider_bootstrap_file_too_large', `${label} exceeds its bound`);
+  const handle = await open(path, 'r');
+  let bytes;
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > MAX_RESPONSE_BYTES) throw new ContractError('provider_bootstrap_file_too_large', `${label} exceeds its bound`);
+    const buffer = Buffer.alloc(MAX_RESPONSE_BYTES + 1);
+    let size = 0;
+    while (size < buffer.length) {
+      const result = await handle.read(buffer, size, buffer.length - size, null);
+      if (!result.bytesRead) break;
+      size += result.bytesRead;
+    }
+    if (size > MAX_RESPONSE_BYTES) throw new ContractError('provider_bootstrap_file_too_large', `${label} exceeds its bound`);
+    bytes = buffer.subarray(0, size);
+  } finally { await handle.close(); }
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch {
     throw new ContractError('provider_bootstrap_file_invalid', `${label} is not valid UTF-8 JSON`);
   }

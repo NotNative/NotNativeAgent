@@ -404,6 +404,11 @@ and installation guards refuse a pending migration. No automatic migration runs.
 
 ## Concerns register
 
+Native first-party manifest persistence and TUI raw-source publication now follow
+[ADR 0021](0021-manifest-transactions.md). This is the configuration transaction
+foundation; scoped NND generic settings HTTP mutation and installed acceptance
+remain required.
+
 - `SessionEngine` in-process API vs the harness wire surface needs a gap pass
   (domain shapes, worktree metadata, permission request shapes).
 - Projection fold push semantics need per-surface frame availability review

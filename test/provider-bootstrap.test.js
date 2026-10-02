@@ -2,14 +2,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   configureInitialProvider, discoverProviderModels, loadManagedProviderCredentials, providerBootstrapStatus,
 } from '../src/provider/bootstrap.js';
 
 test('installer provider bootstrap discovers, encrypts, binds, and then skips an existing profile', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-bootstrap-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-bootstrap-'));
   const paths = providerPaths(root);
   assert.deepEqual(await providerBootstrapStatus(paths), { configured: false });
   const models = await discoverProviderModels('http://127.0.0.1:1234/v1/', 'private-key', {
@@ -38,7 +38,7 @@ test('installer provider bootstrap discovers, encrypts, binds, and then skips an
 });
 
 test('installer provider bootstrap supports providers without authentication', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-no-key-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-no-key-'));
   const paths = providerPaths(root);
   const configured = await configureInitialProvider(paths, {
     endpoint: 'http://localhost:1234', model: 'local-model', key: '',
@@ -50,7 +50,7 @@ test('installer provider bootstrap supports providers without authentication', a
 });
 
 test('provider credentials publish atomically and malformed JSON is quarantined with an actionable path', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-atomic-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-atomic-'));
   const paths = providerPaths(root);
   await configureInitialProvider(paths, { endpoint: 'http://localhost:1234', model: 'local-model', key: 'private-key' });
   assert.equal((await readdir(paths.config)).some((name) => name.includes('.tmp-')), false);

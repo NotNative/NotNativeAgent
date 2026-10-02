@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from '../ids.js';
 import { prepareEngineConfiguration, publishEngineConfiguration } from '../runtime-config.js';
-import { persistManifest } from '../provider/route-configuration.js';
+import { prepareWorkspaceSource } from './configuration-source.js';
 
 export async function publishConfigurationBatch(entries, options = {}) {
   const prepare = options.prepare ?? prepareEngineConfiguration;
@@ -9,7 +9,8 @@ export async function publishConfigurationBatch(entries, options = {}) {
     session,
     config: prepare(session.engine, manifest),
   }));
-  await options.persist?.();
+  const saved = await options.persist?.();
+  if (saved?.replayed) return [];
   await options.beforePublish?.();
   // Every prepared engine gets the same publication attempt; one failure must not leave later sessions stale.
   const results = await Promise.allSettled(prepared.map(({ session, config }) => (
@@ -22,24 +23,28 @@ export async function publishConfigurationBatch(entries, options = {}) {
       && Object.isExtensible(failure.reason)) {
       failure.reason.secondaryFailures = [...(failure.reason.secondaryFailures ?? []), ...secondaryFailures];
     }
+    if (saved?.persistence === 'saved') {
+      const error = new ContractError('configuration_saved_not_applied', 'configuration was saved, but runtime application failed', { cause: failure.reason });
+      error.persistedRevision = saved.persistedRevision;
+      error.application = 'not_applied';
+      throw error;
+    }
     throw failure.reason;
   }
   return results.map((item) => item.value);
 }
 
-export function writeWorkspaceManifest(workspace, manifest) {
-  requireWorkspaceOptions(workspace);
-  return (workspace.options.manifestWriter ?? persistManifest)(workspace.options.configPath, manifest);
-}
-
-export function publishWorkspaceConfiguration(workspace, entries, next) {
+export function publishWorkspaceConfiguration(workspace, entries, next, intent) {
   requireWorkspaceOptions(workspace);
   if (!next || typeof next !== 'object' || !next.manifest || !next.config) {
     throw new ContractError('workspace_configuration_invalid', 'next workspace configuration is incomplete');
   }
-  return publishConfigurationBatch(entries, {
+  const source = prepareWorkspaceSource(workspace, next, intent);
+  next.manifest = source.next.manifest;
+  next.config = source.next.config;
+  return publishConfigurationBatch(entries.map((entry) => ({ ...entry, manifest: source.rebase(entry.manifest) })), {
     prepare: workspace.options.configurationPreparer,
-    persist: () => writeWorkspaceManifest(workspace, next.manifest),
+    persist: source.persist,
     beforePublish: () => { workspace.config = advanceWorkspaceConfig(workspace, next.config); },
   });
 }

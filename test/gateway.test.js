@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   gatewayPublicStatus, gatewayToken, loadGatewayConfig, normalizeGatewayConfig, saveGatewayConfig,
@@ -147,7 +147,7 @@ test('gateway start failure is reported without publishing a false pid', async (
 });
 
 test('gateway foreground startup publishes its process identity before polling', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-foreground-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-gateway-foreground-'));
   const paths = {
     root, config: join(root, 'config'), gateway: join(root, 'runtime', 'gateway'),
     logs: join(root, 'logs'), gatewayConfig: join(root, 'config', 'gateway.json'),

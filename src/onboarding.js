@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createInterface } from 'node:readline/promises';
 import { isIP } from 'node:net';
-import { readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { migrateManifestDocument, resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
-import { persistInitialManifest, persistManifest } from './provider/route-configuration.js';
 import { quarantineMalformedJson } from './persistence/atomic-json.js';
+import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from './persistence/manifest-transaction.js';
+import { backupManifestSnapshot } from './provider/manifest-backup.js';
 
 const LOCAL_ENDPOINTS = Object.freeze([
   'http://127.0.0.1:11434/v1',
@@ -22,21 +24,27 @@ export async function loadStartupManifest(options) {
 }
 
 export async function loadStartupManifestDocument(options) {
+  return (await loadStartupManifestSnapshot(options)).manifest;
+}
+
+export async function loadStartupManifestSnapshot(options) {
   const path = join(options.paths.config, 'manifest.json');
+  await mkdir(options.paths.config, { recursive: true, mode: 0o700 });
   const existing = await readManifestDocumentIfPresent(path);
   if (existing) return existing;
   const fromEnvironment = manifestFromEnvironment(options.environment ?? process.env);
   const discovered = fromEnvironment ?? await (options.discover ?? discoverLocalProvider)();
   const manifest = migrateManifestDocument(discovered ?? await interactiveManifest(options.input, options.output)).manifest;
   resolveManifest(manifest);
-  try {
-    await persistInitialManifest(path, manifest);
-  } catch (error) {
-    if (error.code !== 'EEXIST') throw error;
-    return loadManifestDocument(path);
-  }
+  const saved = await withManifestLock(path, {}, async (lease) => {
+    const winner = await readLockedManifestSnapshot(lease);
+    if (winner.state === 'present') return loadLockedManifest(lease, winner);
+    await transactLockedManifest(lease, { expectedRevision: 'absent', operationId: randomUUID(),
+      payload: { action: 'initial-manifest', manifest }, transform: () => manifest, validate: resolveManifest });
+    return sourceSnapshot(await readLockedManifestSnapshot(lease), manifest);
+  });
   options.diagnostics?.write(`nna: saved initial configuration to ${path}\n`);
-  return manifest;
+  return saved;
 }
 
 export async function discoverLocalProvider(options = {}) {
@@ -52,25 +60,32 @@ export async function discoverLocalProvider(options = {}) {
 }
 
 async function readManifestDocumentIfPresent(path) {
-  try { return await loadManifestDocument(path); } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  }
+  return withManifestLock(path, {}, async (lease) => {
+    const snapshot = await readLockedManifestSnapshot(lease);
+    return snapshot.state === 'missing' ? null : loadLockedManifest(lease, snapshot);
+  });
 }
 
-async function loadManifestDocument(path) {
-  const bytes = await readFile(path);
-  if (bytes.length > 1_048_576) throw new ContractError('manifest_too_large', 'default manifest exceeds bound');
-  let parsed;
-  try {
-    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-  } catch {
-    return quarantineMalformedJson(path, 'default manifest', 'manifest_invalid');
+async function loadLockedManifest(lease, snapshot) {
+  if (snapshot.rawManifest === null) {
+    // Invariant: every cooperating writer is excluded until quarantine has settled.
+    return quarantineMalformedJson(snapshot.path, 'default manifest', 'manifest_invalid');
   }
-  const document = migrateManifestDocument(parsed);
+  const document = migrateManifestDocument(snapshot.rawManifest);
   resolveManifest(document.manifest);
-  if (document.migrated) await persistManifest(path, document.manifest);
-  return document.manifest;
+  if (document.migrated) {
+    // Compatibility: retain the historical operator-visible migration backup.
+    await backupManifestSnapshot(lease, snapshot);
+    await transactLockedManifest(lease, { expectedRevision: snapshot.revision, operationId: randomUUID(),
+      payload: { action: 'migrate-startup-manifest', revision: snapshot.revision },
+      transform: () => document.manifest, validate: resolveManifest });
+    snapshot = await readLockedManifestSnapshot(lease);
+  }
+  return sourceSnapshot(snapshot, document.manifest);
+}
+
+function sourceSnapshot(snapshot, manifest) {
+  return Object.freeze({ path: snapshot.path, manifest, revision: snapshot.revision });
 }
 
 function manifestFromEnvironment(environment) {

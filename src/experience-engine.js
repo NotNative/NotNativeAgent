@@ -29,7 +29,8 @@ import { isGeneratedConversationName, maybeAutoNameConversation, renameWorkspace
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
 import { appliedProviderTestResult, testProviderProfile } from './experience/provider-test.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
-import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './experience/configuration-publication.js';
+import { publishWorkspaceConfiguration } from './experience/configuration-publication.js';
+import { configurationIntent } from './experience/configuration-intents.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';
 import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './experience/provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
@@ -304,7 +305,7 @@ export class ExperienceEngine {
       throw new ContractError('provider_primary_required', 'add providers from the Main conversation');
     }
     const { next, entries } = providerAdditionPlan(this.sessions, this._active().id, this.config, input);
-    await publishWorkspaceConfiguration(this, entries, next);
+    await publishWorkspaceConfiguration(this, entries, next, configurationIntent('provider'));
     for (const entry of entries) {
       if (entry.route) this._projectRoute(entry.session.id, entry.route);
     }
@@ -321,7 +322,7 @@ export class ExperienceEngine {
       const sessionNext = withUpdatedProvider(current, id, input);
       entries.push({ session, manifest: sessionNext.manifest, route: sessionNext.config.routes.primary });
     }
-    await publishWorkspaceConfiguration(this, entries, globalNext);
+    await publishWorkspaceConfiguration(this, entries, globalNext, configurationIntent('provider'));
     for (const entry of entries) this._projectRoute(entry.session.id, entry.route);
     this.onChange();
     await this._savePoolRecoverable();
@@ -342,14 +343,14 @@ export class ExperienceEngine {
   async qualifyProvider(input) { this._requireMainProviderManagement(); return qualifyWorkspaceProvider(this, input); }
   async toggleConfigSetting(setting) {
     const value = !booleanSettingValue(this.config, setting);
-    const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value));
+    const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value), configurationIntent('boolean', { setting, value }));
     return { setting, value, config };
   }
   async configureContext(maxContextBytes, compactionThreshold, compressionThreshold,
     compressionLevel2Threshold, compressionLevel3Threshold) {
     const config = await this.#publishGlobalConfiguration((current) => withContextSettings(
       current, maxContextBytes, compactionThreshold, compressionThreshold, compressionLevel2Threshold, compressionLevel3Threshold,
-    ));
+    ), configurationIntent('context', { values: [maxContextBytes, compactionThreshold, compressionThreshold, compressionLevel2Threshold, compressionLevel3Threshold] }));
     return { maxContextBytes, compactionThreshold: config.limits.contextCompactionThreshold,
       compressionThreshold: config.limits.contextCompressionThreshold, compressionLevel2Threshold: config.limits.contextCompressionLevel2Threshold,
       compressionLevel3Threshold: config.limits.contextCompressionLevel3Threshold,
@@ -357,19 +358,19 @@ export class ExperienceEngine {
   }
   async configureRecovery(maxModelSteps, localLimit, ladder, turnWallClockMs = this.config.recovery?.turnWallClockMs ?? null) {
     return (await this.#publishGlobalConfiguration(
-      (current) => withRecoverySettings(current, maxModelSteps, localLimit, ladder, turnWallClockMs),
+      (current) => withRecoverySettings(current, maxModelSteps, localLimit, ladder, turnWallClockMs), configurationIntent('recovery', { includeWallClock: arguments.length >= 4 }),
     )).recovery;
   }
-  async configureRuntimeLimits(values) { return (await this.#publishGlobalConfiguration((current) => withRuntimeLimits(current, values))).limits; }
-  async configureKeyBindings(bindings) { return validateKeyBindings((await this.#publishGlobalConfiguration((current) => withKeyBindings(current, bindings))).tui.keyBindings); }
-  async #publishGlobalConfiguration(transform) {
+  async configureRuntimeLimits(values) { return (await this.#publishGlobalConfiguration((current) => withRuntimeLimits(current, values), configurationIntent('limits', values))).limits; }
+  async configureKeyBindings(bindings) { return validateKeyBindings((await this.#publishGlobalConfiguration((current) => withKeyBindings(current, bindings), configurationIntent('bindings'))).tui.keyBindings); }
+  async #publishGlobalConfiguration(transform, intent) {
     const globalNext = transform(this.config);
     const entries = [];
     for (const session of this.sessions.values()) {
       const current = session.engine.pendingConfig ?? session.engine.config;
       entries.push({ session, manifest: transform(current).manifest });
     }
-    await publishWorkspaceConfiguration(this, entries, globalNext);
+    await publishWorkspaceConfiguration(this, entries, globalNext, intent);
     this.onChange(); await this._savePoolRecoverable();
     return globalNext.config;
   }
@@ -446,24 +447,23 @@ export class ExperienceEngine {
     }
   }
   async #publishMcpConfiguration(next) {
-    await writeWorkspaceManifest(this, next.manifest);
-    this.config = advanceWorkspaceConfig(this, next.config);
+    await publishWorkspaceConfiguration(this, [], next, configurationIntent('mcp'));
     this.onChange();
     await this._savePoolRecoverable();
     return { servers: next.config.mcpServers, restartRequired: true };
   }
   async _publishProviderCatalog(next) {
     const entries = providerCatalogEntries(this.sessions, next.config);
-    await publishWorkspaceConfiguration(this, entries, next);
+    await publishWorkspaceConfiguration(this, entries, next, configurationIntent('provider'));
     for (const { session } of entries) {
       this._projectRoute(session.id, (session.engine.pendingConfig ?? session.engine.config).routes.primary);
     }
     this.onChange();
     await this._savePoolRecoverable();
   }
-  async _publishSpecialistRoutes(next) {
+  async _publishSpecialistRoutes(next, intent) {
     const entries = specialistRouteEntries(this.sessions, next.config);
-    await publishWorkspaceConfiguration(this, entries, next);
+    await publishWorkspaceConfiguration(this, entries, next, intent);
     this.onChange();
     await this._savePoolRecoverable();
   }

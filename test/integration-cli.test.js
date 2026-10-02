@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { createIntegrationNndEngineHost, integrationSecretRealm, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
 import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
@@ -14,7 +14,7 @@ import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 
 test('NND and standalone browser catalogs stay separate even with NND installed', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-browser-surfaces-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-browser-surfaces-'));
   const callback = { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) };
   const standalone = new ToolRegistry(root, { nndBrowserCallback: callback });
   const desktop = new ToolRegistry(root, { browserSurface: 'nnd', nndBrowserCallback: callback });
@@ -36,7 +36,7 @@ test('NND local service starts without NNO activation and keeps its authenticate
   assert.throws(() => assertNnoIntegrationActivation(createNndLocalIntegrationActivation()), {
     code: 'nno_integration_activation_required',
   });
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-cli-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-cli-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
@@ -62,7 +62,7 @@ test('NND local service starts without NNO activation and keeps its authenticate
 test('NND sessions resolve the existing local provider secret, including delegated engines', async () => {
   assert.equal(integrationSecretRealm('nnd', 'local'), LOCAL_SECRET_REALM);
   assert.equal(integrationSecretRealm('nno', 'deployment-a'), 'nno:deployment-a');
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-secret-route-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-secret-route-'));
   const paths = {
     root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
@@ -92,7 +92,7 @@ test('NND sessions resolve the existing local provider secret, including delegat
 });
 
 test('NND service uses the local secret realm for configured provider checks', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-secret-service-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-secret-service-'));
   const paths = {
     root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
@@ -159,7 +159,7 @@ test('NND service uses the local secret realm for configured provider checks', a
 });
 
 test('integration child emits one atomic protocol-only readiness frame', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-integration-cli-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-cli-'));
   const installRoot = join(root, 'nno');
   const integrationRoot = join(installRoot, 'nna-integration', 'nno-hosted');
   const configRoot = join(root, 'config');
@@ -198,7 +198,7 @@ test('integration child emits one atomic protocol-only readiness frame', async (
 });
 
 test('legacy broker-only activation cannot start the unified authority', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-integration-legacy-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-legacy-'));
   const installRoot = join(root, 'nno');
   const integrationRoot = join(installRoot, 'nna-integration', 'nno-hosted');
   await mkdir(integrationRoot, { recursive: true });
@@ -213,7 +213,7 @@ test('legacy broker-only activation cannot start the unified authority', async (
 });
 
 test('integration NND host builds governed engines from the trusted manifest', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-integration-nnd-host-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-nnd-host-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
@@ -280,7 +280,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
 });
 
 test('provider route activation changes future NND sessions without mutating existing engines', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-route-activation-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-route-activation-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   const document = { format_version: 1, persistence: 'ephemeral', workspace_root: root,
@@ -332,7 +332,7 @@ test('provider route activation changes future NND sessions without mutating exi
 });
 
 test('NND skills include project roots only after workspace trust', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-project-skills-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-project-skills-'));
   const configRoot = join(root, 'config');
   const projectSkills = join(root, '.nna', 'skills', 'project-review');
   const trustPath = join(root, 'trust.json');
@@ -359,7 +359,7 @@ test('NND skills include project roots only after workspace trust', async () => 
 });
 
 test('integration activation rejects an invalid deployment identifier', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-integration-invalid-deployment-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-invalid-deployment-'));
   const installRoot = join(root, 'nno');
   const integrationRoot = join(installRoot, 'nna-integration', 'nno-hosted');
   await mkdir(integrationRoot, { recursive: true });

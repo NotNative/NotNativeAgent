@@ -121,6 +121,8 @@ try {
     const configPath = options.manifestPath ? resolve(options.manifestPath) : join(paths.config, MANIFEST_FILE);
     await runTui(process.stdin, process.stdout, process.stderr, {
       ...options, ...productOptions(paths), config, configPath, startupProject: effective.project, fatalBoundary,
+      persistedSource: effective.persistedSource, sourceSnapshots: effective.sourceSnapshots,
+      configurationLaunchOverrides: config.launchOverrides ?? null,
       hookRoots: runtimeHookRoots(paths, effective.project),
       skillRoots: runtimeSkillRoots(paths, effective.project),
     });

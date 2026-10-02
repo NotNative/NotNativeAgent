@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
-import { persistAtomicJson, persistAtomicJsonIfAbsent } from '../persistence/atomic-json.js';
+import { mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from '../persistence/manifest-transaction.js';
+import { backupManifestSnapshot } from './manifest-backup.js';
 import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
 import { credentialManifest } from '../credential-bindings.js';
 
@@ -368,14 +372,27 @@ function setOptional(target, key, value) {
   else target[key] = value;
 }
 
-export async function persistManifest(path, manifest) {
+export async function persistManifest(path, manifest, options = {}) {
   if (!path) return;
-  await persistAtomicJson(path, manifest, { backup: true });
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  return withManifestLock(path, options, async (lease) => {
+    const snapshot = await readLockedManifestSnapshot(lease);
+    const revision = options.expectedRevision ?? 'absent';
+    if (snapshot.revision !== revision) throw new ContractError('manifest_revision_conflict', 'reload the source before replacing configuration');
+    if (snapshot.state === 'present') await backupManifestSnapshot(lease, snapshot);
+    return transactLockedManifest(lease, { expectedRevision: revision, operationId: options.operationId ?? randomUUID(),
+      payload: { action: 'replace-manifest', manifest }, transform: () => manifest,
+      validate: options.validate ?? (() => undefined), signal: options.signal });
+  });
 }
 
 export async function persistInitialManifest(path, manifest) {
   if (!path) return;
-  await persistAtomicJsonIfAbsent(path, manifest);
+  try { return await persistManifest(path, manifest, { expectedRevision: 'absent', validate: resolveManifest }); }
+  catch (error) {
+    if (error.code === 'manifest_revision_conflict') throw Object.assign(error, { code: 'EEXIST' });
+    throw error;
+  }
 }
 
 function providerManifest(profile) {

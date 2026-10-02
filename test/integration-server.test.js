@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
@@ -17,7 +17,7 @@ import { ContractError } from '../src/ids.js';
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
 test('integration service authenticates exact principals and manages provider profiles', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-integration-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -126,7 +126,7 @@ test('integration service authenticates exact principals and manages provider pr
 });
 
 test('provider reads remain available through a store without route mutation support', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-legacy-store-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-legacy-store-'));
   const providerStore = {
     inventory: async () => ({ profiles: [], configured_primary_route: { providerID: 'one', modelID: 'one' } }),
     get: async () => null, create: async () => null, update: async () => null,
@@ -147,7 +147,7 @@ test('provider reads remain available through a store without route mutation sup
 });
 
 test('route activation is separately authorized and old sessions keep their model selection', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-activate-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-activate-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -178,7 +178,7 @@ test('route activation is separately authorized and old sessions keep their mode
 });
 
 test('integration principal rejects stale and role-only authority', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-integration-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -197,7 +197,7 @@ test('integration principal rejects stale and role-only authority', async () => 
 });
 
 test('provider inventory separates configured primary from the running NND route', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-provider-route-drift-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-route-drift-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   const document = manifest(root);
@@ -227,7 +227,7 @@ test('provider inventory separates configured primary from the running NND route
 });
 
 test('NND capability projection fails closed without a steering grant', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-integration-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-integration-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -263,7 +263,7 @@ test('NND capability projection fails closed without a steering grant', async ()
 });
 
 test('NND MCP inventory projects configured state without destinations or credentials', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-mcp-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-mcp-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   const input = { ...manifest(root), mcp_servers: [{
@@ -292,7 +292,7 @@ test('NND MCP inventory projects configured state without destinations or creden
 });
 
 test('NND skills inventory is read-only and omits source paths and bodies', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-skills-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-skills-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -314,7 +314,7 @@ test('NND skills inventory is read-only and omits source paths and bodies', asyn
 });
 
 test('NND agent inventory exposes built-in roles and the running delegation route without grants', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-agents-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-agents-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -338,7 +338,7 @@ test('NND agent inventory exposes built-in roles and the running delegation rout
 });
 
 test('subagent route edits are authorized, durable, and separate from running delegation', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-subagent-route-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-subagent-route-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -378,7 +378,7 @@ test('subagent route edits are authorized, durable, and separate from running de
 });
 
 test('NND goals persist with id-guarded writes and never grant arbitrary metadata updates', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-goal-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-goal-'));
   const catalogPath = join(root, 'catalog.json');
   const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => ({
     config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
@@ -479,7 +479,7 @@ test('NND goal revision remains unchanged when catalog persistence fails', async
 });
 
 test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-harness-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-harness-'));
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -650,7 +650,7 @@ test('NND harness session routes bind creation to the complete principal workspa
 });
 
 test('NND goal audit endpoint requires goal-management permission and forwards a scoped request', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-audit-route-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-audit-route-'));
   const calls = [];
   const host = { async auditGoal(sessionId, actor, body) {
     calls.push({ sessionId, actor, body });
@@ -681,7 +681,7 @@ test('NND goal audit endpoint requires goal-management permission and forwards a
 });
 
 test('NND walkthrough endpoint requires its own generation permission and forwards a scoped digest', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-walkthrough-route-'));
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-walkthrough-route-'));
   const calls = [];
   const host = { async generateWalkthrough(sessionId, actor, body) {
     calls.push({ sessionId, actor, body });
@@ -710,7 +710,7 @@ test('NND walkthrough endpoint requires its own generation permission and forwar
 });
 
 test('notification text requires its dedicated grant and forwards authenticated session scope', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-notification-route-')); const calls = [];
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-notification-route-')); const calls = [];
   const host = { async generateNotification(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: '{"title":"T","body":"B"}' }; } };
   const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
   const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/notification-text';

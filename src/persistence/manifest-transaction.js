@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: Apache-2.0
+import { join, basename } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { unlink } from 'node:fs/promises';
+import { assertManifestLease, withManifestLock, runManifestLeaseWork } from './manifest-lock.js';
+import { digest, MANIFEST_LIMIT, manifestFailure, manifestTarget, readTargetSnapshot,
+  stageManifest, publishManifest, writePrivateFile } from './manifest-files.js';
+import { openManifestReceipts, reconcileManifestReceipts, manifestReceipt, prepareManifestReceipt,
+  finishManifestReceipt, receiptOutcome, reserveManifestReceipt } from './manifest-receipts.js';
+
+const MUTATING = new WeakSet();
+export { withManifestLock } from './manifest-lock.js';
+export async function readManifestSnapshot(path, options = {}) {
+  return readTargetSnapshot(await manifestTarget(path, {...options, prepareStorage:false}));
+}
+export async function readLockedManifestSnapshot(lease) {
+  return exclusiveLeaseWork(lease, async () => {
+    const target = assertManifestLease(lease);
+    const database = await openManifestReceipts(lease);
+    try { await reconcileManifestReceipts(lease, database); return await readTargetSnapshot(target); }
+    finally { database.close(); }
+  });
+}
+async function exclusiveLeaseWork(lease, operation) {
+  assertManifestLease(lease);
+  if (MUTATING.has(lease)) throw manifestFailure('manifest_lock_busy');
+  MUTATING.add(lease);
+  try { return await runManifestLeaseWork(lease,operation); } finally { MUTATING.delete(lease); }
+}
+function requestIdentity(input) {
+  if (!Object.hasOwn(input, 'expectedRevision') || typeof input.expectedRevision !== 'string' || !/^(absent|[a-f0-9]{64})$/u.test(input.expectedRevision)
+    || typeof input.operationId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(input.operationId)
+    || typeof input.transform !== 'function' || typeof input.validate !== 'function') throw manifestFailure('manifest_request_invalid');
+  let serialized;
+  try { serialized = JSON.stringify(input.payload); } catch { throw manifestFailure('manifest_request_invalid'); }
+  if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > MANIFEST_LIMIT) throw manifestFailure('manifest_request_invalid');
+  return digest(JSON.stringify({ expectedRevision: input.expectedRevision, payload: serialized }));
+}
+export async function transactManifest(input) {
+  requestIdentity(input);
+  return withManifestLock(input.path, { signal: input.signal, timeoutMs: input.timeoutMs }, lease => transactLockedManifest(lease, input));
+}
+export async function transactLockedManifest(lease, input) {
+  return exclusiveLeaseWork(lease,()=>transactOwned(lease,input));
+}
+async function transactOwned(lease, input) {
+  const target = assertManifestLease(lease);
+  const pathKey = value => typeof value === 'string' && process.platform === 'win32' ? value.toLowerCase() : value;
+  if (input.path !== undefined && pathKey(input.path) !== pathKey(target.path)) throw manifestFailure('manifest_target_invalid');
+  const payloadHash = requestIdentity(input);
+  const database = await openManifestReceipts(lease);
+  try {
+    await reconcileManifestReceipts(lease, database);
+    const prior = manifestReceipt(database, input.operationId, payloadHash);
+    if (prior) return receiptOutcome(prior, true);
+    await reserveManifestReceipt(lease, database);
+    return await commit(lease, database, input, payloadHash);
+  } finally { database.close(); }
+}
+async function commit(lease, database, input, payloadHash) {
+  const target = assertManifestLease(lease);
+  const snapshot = await readTargetSnapshot(target);
+  if (snapshot.revision !== input.expectedRevision) throw manifestFailure('manifest_revision_conflict');
+  input.signal?.throwIfAborted();
+  const serialized = await validatedDocument(input,snapshot);
+  const bytes = Buffer.from(serialized + '\n');
+  const after = digest(bytes);
+  input.signal?.throwIfAborted();
+  if (database.prepare('SELECT COUNT(*) AS count FROM operations').get().count >= 128) throw manifestFailure('manifest_receipt_capacity');
+  const staged = await stageManifest(target, bytes);
+  let prepared = false; let persistence = 'unpublished'; let backup = null;
+  try {
+    backup = snapshot.rawBytes ? `backup-${randomUUID()}.bin` : null;
+    if (backup) await writePrivateFile(join(target.storage, backup), snapshot.rawBytes);
+    const current = await readTargetSnapshot(target);
+    if (current.revision !== snapshot.revision) throw manifestFailure('manifest_revision_conflict');
+    prepareManifestReceipt(database, { id: input.operationId, payloadHash, before: snapshot.revision, after, backup, staged: basename(staged) });
+    prepared = true;
+    input.signal?.throwIfAborted();
+    await publishManifest(target, staged, snapshot.state === 'missing');
+    persistence = 'saved';
+    finishManifestReceipt(database, input.operationId, 'saved');
+    return receiptOutcome(manifestReceipt(database, input.operationId, payloadHash));
+  } catch (error) {
+    if (!prepared) throw error;
+    try {
+      await reconcileManifestReceipts(lease, database);
+      const result = receiptOutcome(manifestReceipt(database, input.operationId, payloadHash));
+      persistence = result.persistence;
+      if (result.persistence === 'saved') return result;
+      const failure = manifestFailure('manifest_publication_failed'); failure.operationId = input.operationId; throw failure;
+    } catch (failure) {
+      if (failure.code === 'manifest_publication_failed') throw failure;
+      persistence = error.manifestPublished || persistence === 'saved' ? 'saved' : 'unknown';
+      const unknown = manifestFailure('manifest_publication_unknown', persistence);
+      unknown.operationId = input.operationId; throw unknown;
+    }
+  } finally {
+    await cleanupArtifact(staged, persistence);
+    if (!prepared && backup) await cleanupArtifact(join(target.storage, backup), persistence);
+  }
+}
+export async function readManifestOperation(path, operationId, options = {}) {
+  if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(operationId)) throw manifestFailure('manifest_request_invalid');
+  return withManifestLock(path, options, async (lease) => {
+    const database = await openManifestReceipts(lease);
+    try {
+      await reconcileManifestReceipts(lease, database);
+      const row = database.prepare('SELECT * FROM operations WHERE id=?').get(operationId);
+      return row ? receiptOutcome(row, true) : null;
+    } finally { database.close(); }
+  });
+}
+
+async function cleanupArtifact(path, persistence) {
+  try { await unlink(path); } catch (error) {
+    if (error.code !== 'ENOENT') throw manifestFailure('manifest_cleanup_failed', persistence);
+  }
+}
+
+async function validatedDocument(input,snapshot) {
+  // Security: transforms never receive the cached source object or preserved byte buffer.
+  let next;
+  try {
+    next = await input.transform(structuredClone(snapshot.rawManifest), { state: snapshot.state, revision: snapshot.revision });
+    await input.validate(structuredClone(next));
+  } catch { throw manifestFailure('manifest_validation_failed'); }
+  const serialized = JSON.stringify(next, null, 2);
+  if (typeof serialized !== 'string' || Buffer.byteLength(serialized) + 1 > MANIFEST_LIMIT) throw manifestFailure('manifest_size_invalid');
+  return serialized;
+}

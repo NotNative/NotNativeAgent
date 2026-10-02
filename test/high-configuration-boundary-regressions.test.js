@@ -4,7 +4,7 @@ import test from 'node:test';
 import fs from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { loadStartupManifestDocument } from '../src/onboarding.js';
 import { PathPolicy } from '../src/path-policy.js';
 import { ProjectMemoryReconciler, MANAGED_START, MANAGED_END } from '../src/project-memory-reconciler.js';
@@ -14,12 +14,12 @@ import { availableWorkspaceModels, qualifyWorkspaceModel } from '../src/experien
 import { handleModelCommand } from '../src/tui/provider-command.js';
 
 test('migration I/O failure must not quarantine a valid startup manifest', async () => {
-  const root = await fs.mkdtemp(join(tmpdir(), 'nna-onboarding-regression-'));
+  const root = await fs.mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-onboarding-regression-'));
   const path = join(root, 'manifest.json');
   const content = JSON.stringify({ provider: { endpoint: 'http://127.0.0.1:1234/v1', model: 'fixture', trust_zone: 'loopback' } });
   await fs.writeFile(path, content); const original = fs.rename;
   fs.rename = async (from, to) => { if (to === path) throw Object.assign(new Error('disk'), { code: 'EIO' }); return original(from, to); }; syncBuiltinESMExports();
-  try { await assert.rejects(loadStartupManifestDocument({ paths: { config: root } }), { code: 'EIO' }); }
+  try { await assert.rejects(loadStartupManifestDocument({ paths: { config: root } }), { code: 'manifest_publication_failed' }); }
   finally { fs.rename = original; syncBuiltinESMExports(); }
   assert.equal(await fs.readFile(path, 'utf8'), content);
 });
@@ -29,7 +29,7 @@ test('path resolution before initialization fails explicitly without guessing a 
   await assert.rejects(policy.resolveRead(join(process.cwd(), 'VERSION')), { code: 'workspace_path_invalid' });
 });
 test('project memory cannot emit its own structural markers inside items', async () => {
-  const root = await fs.mkdtemp(join(tmpdir(), 'nna-memory-marker-'));
+  const root = await fs.mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-memory-marker-'));
   for (const marker of [MANAGED_START, MANAGED_END]) {
     await assert.rejects(new ProjectMemoryReconciler(root).propose({ sections: { 'Working conventions': [`Document ${marker}`] }, evidenceRefs: ['evidence:one'] }), { code: 'project_memory_item_invalid' });
   }

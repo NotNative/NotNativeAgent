@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
-import { persistManifest, withPrimaryRoute, withRoleRoute, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
+import { withPrimaryRoute, withRoleRoute, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
+import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from '../persistence/manifest-transaction.js';
+import { configurationIntent, intentChanges, applyIntentChanges } from '../experience/configuration-intents.js';
 import { CredentialResolver, credentialManifest, normalizeCredentialBinding } from '../credential-bindings.js';
 
-const FILE_LIMIT = 1_048_576;
 const CREATE_FIELDS = new Set([
   'profile_id', 'display_name', 'endpoint', 'model', 'credential', 'credential_env',
   'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode',
@@ -104,24 +104,20 @@ export class ProviderProfileStore {
   }
 
   async #readSnapshot() {
-    const bytes = await readFile(this.path);
-    if (bytes.length > FILE_LIMIT) throw new ContractError('provider_configuration_too_large', 'provider configuration exceeds its size bound');
-    let value;
-    try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
-    catch { throw new ContractError('provider_configuration_invalid', 'provider configuration is not valid UTF-8 JSON'); }
-    return { config: resolveManifest(value), fingerprint: digest(bytes) };
+    return withManifestLock(this.path, {}, async (lease) => providerSnapshot(await readLockedManifestSnapshot(lease)));
   }
 
   #mutate(operation, options = {}) {
-    const task = this.#tail.then(async () => {
-      const snapshot = await this.#readSnapshot();
+    const task = this.#tail.then(() => withManifestLock(this.path, {}, async (lease) => {
+      const snapshot = providerSnapshot(await readLockedManifestSnapshot(lease));
       const config = snapshot.config;
       const result = operation(config);
-      const currentFingerprint = digest(await readFile(this.path));
-      if (currentFingerprint !== snapshot.fingerprint) {
-        throw new ContractError('provider_configuration_conflict', 'provider configuration changed during the update; retry against the latest version');
-      }
-      await persistManifest(this.path, result.manifest);
+      const intent = options.route || options.routeRole
+        ? configurationIntent('route', { role: options.routeRole ?? 'primary' }) : configurationIntent('provider');
+      const changes = intentChanges(config, result.manifest, intent);
+      await transactLockedManifest(lease, { expectedRevision: snapshot.revision, operationId: randomUUID(),
+        payload: { action: 'provider-configuration', changes },
+        transform: (raw) => applyIntentChanges(raw, changes), validate: resolveManifest });
       this.lastMutationFailure = null;
       if (options.removedId) return { removed: options.removedId };
       if (options.route) return {
@@ -133,7 +129,7 @@ export class ProviderProfileStore {
       }
       const profile = result.config.providerProfiles[options.profileId] ?? null;
       return profile ? publicProfile(profile, result.config.routes.primary.providerId === profile.id) : null;
-    });
+    }));
     this.#tail = task.catch((error) => { this.lastMutationFailure = error?.code ?? 'provider_mutation_failed'; });
     return task;
   }
@@ -203,7 +199,11 @@ function validateRoute(providerId, model) {
     throw new ContractError('provider_request_invalid', 'provider_id and model must be bounded non-empty strings');
   }
 }
-function digest(value) { return createHash('sha256').update(value).digest('hex'); }
+function providerSnapshot(snapshot) {
+  if (snapshot.state === 'missing') throw Object.assign(new Error('Provider configuration does not exist'), { code: 'ENOENT' });
+  if (snapshot.rawManifest === null) throw new ContractError('provider_configuration_invalid', 'provider configuration is not valid UTF-8 JSON');
+  return { config: resolveManifest(snapshot.rawManifest), revision: snapshot.revision };
+}
 
 function requireProfile(config, id) {
   const profile = config.providerProfiles[id];
