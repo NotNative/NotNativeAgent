@@ -61,9 +61,9 @@ await import(${JSON.stringify(pathToFileURL(join(to, 'main.mjs')).href)});
 `;
 }
 
-async function main(nna, payloadRoot = null) {
+async function main(nna, payloadRoot = null, nativeSlot = false) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const fixture = await createSupervisedFixture(nna, root, { payloadRoot });
+  const fixture = await createSupervisedFixture(nna, root, { payloadRoot, nativeSlot });
   let electron, electronExit, stopped = false, output = '', diagnostics = '';
   try {
     const service = await runCli(fixture, 'start');
@@ -117,14 +117,15 @@ async function waitStopped(fixture) {
   throw new Error('Native service remained active after stop');
 }
 export function parseElectronSmokeArguments(args) {
-  if ((args.length !== 1 && args.length !== 3) || !isAbsolute(args[0] ?? '')
-    || args.length === 3 && (args[1] !== '--payload' || !isAbsolute(args[2]))) {
-    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT]');
+  if (![1, 3, 4].includes(args.length) || !isAbsolute(args[0] ?? '')
+    || args.length >= 3 && (args[1] !== '--payload' || !isAbsolute(args[2]))
+    || args.length === 4 && args[3] !== '--native-slot') {
+    throw new Error('usage: electron-native-attach-smoke.mjs ABSOLUTE_NNA_SOURCE [--payload ABSOLUTE_EXPORTED_ROOT [--native-slot]]');
   }
-  return { nna: resolve(args[0]), payloadRoot: args.length === 3 ? resolve(args[2]) : null };
+  return { nna: resolve(args[0]), payloadRoot: args.length >= 3 ? resolve(args[2]) : null, ...(args.length === 4 ? { nativeSlot: true } : {}) };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.platform !== 'win32') throw new Error('Native Electron smoke requires Windows');
-  const { nna, payloadRoot } = parseElectronSmokeArguments(process.argv.slice(2));
-  await main(nna, payloadRoot);
+  const { nna, payloadRoot, nativeSlot } = parseElectronSmokeArguments(process.argv.slice(2));
+  await main(nna, payloadRoot, nativeSlot);
 }

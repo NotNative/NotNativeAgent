@@ -43,7 +43,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | mutation exclusion implemented; migration/recovery/rollback pending |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
-| C2 | Native resolution/concurrency (NNA) | C1, L2 | open | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | — |
+| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-11` raw-source/transaction foundation verified; scoped HTTP contract remains open |
 | C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | native setup status/activation panel; general configuration mutation and coverage remain open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
@@ -320,4 +320,70 @@ passed. The actual 178-file exported payload launched its copied Electron runtim
 against native `20261002-9`: Chromium cookie admission, credential isolation,
 independent-browser refusal, shell-independent service lifetime, exact service stop
 and lease reacquisition passed. Payload bytes remained unchanged. Packaging passed;
-final release checks are required before this candidate is committed.
+release checks passed before commit `6aaca21`.
+
+## Native 20261002-11 — raw-source manifest transactions
+
+Native merge commit `b20b5bdb` preserves the independent OpenCode credential-presence
+commit and the reviewed configuration transaction slice. First-party onboarding,
+bootstrap, provider and TUI writers share canonical manifest ownership and exact-byte
+revision checks. Prepared receipts reconcile interrupted publication before the next
+writer; unknown changes preserve evidence. Terminal replay retention is bounded to
+the latest 128 operations. Saved state and live runtime application remain distinct.
+
+TUI edits patch the selected raw source without persisting defaults, higher overlays
+or temporary launch settings. Resets resolve lower layers, repeated user/explicit
+selection of one file remains coherent, and stale or provenance-free existing-file
+writes fail. Private staging protects operator backups from linked destinations.
+Bootstrap retains a secret if publication might already reference it. Bounded reads
+cover startup and bootstrap files. Uncertain secret creation can leave an orphan;
+automatic orphan collection is not implemented.
+
+Independent audits and actual process-death/concurrent-writer tests passed. The exact
+combined Windows build passed 1,802 tests with eight skips and zero failures, with
+quality/current graph/language checks for 440 modules. POSIX permission behavior is
+reviewed but unexecuted here. Native release certification remains separate.
+
+C2 remains in-progress: the generic scoped native settings catalog/read/save/repair
+HTTP API, browser revisions/operation IDs and pending-application visibility remain
+open. This foundation does not close complete GUI settings coverage.
+
+## Native 20261002-12 — classified settings catalog
+
+Native commit `90192e97` shares executable structural keys and 44 scalar rules
+with the existing validators. Its frozen catalog describes 223 fields, explicit
+defaults, source stages, authority classification, validation owner and application
+evidence. Catalog editability stays unavailable until a scoped native API exists.
+Independent scalar comparison preserved 1,036 old/new resolution outcomes. The
+exact Windows build passed 1,822 tests with eight skips and zero failures; quality,
+graph and language checks passed for 444 production modules. C1 remains in-progress
+because nonmanifest settings and installed GUI coverage are still required.
+
+## Native 20261002-13 / NND 20261002-8 — immutable slot staging
+
+Native commit `5acd3de3` adds payload validation and immutable slots in a protected fixed store.
+Stage/recover commands hold the data-root lease and shared registration mutex;
+preparation, copying and recovery preserve the prior active package pointer.
+An atomic SQLite initializer intent closes the crash-before-prepared window;
+incomplete owned metadata is recovered without exhausting transaction capacity.
+Separate immutable provenance supports a fresh operation ID for an already
+verified slot. The last 16 terminal receipts are retained with durable retirement;
+16 distinct artifacts and 8 GiB aggregate are the current limits. Windows runtime
+path admission rejects unsupported destinations before transaction preparation.
+
+Adversarial review repaired altered-file recovery, repeated slot reuse, receipt
+retention, missing Electron imports, legacy guard admission, stale package
+validation under the mutex, malformed registry versions, unbounded metadata
+reads and crash-before-prepared orphan capacity. The installer-focused native set
+passed 87 tests, including eight initializer child deaths. The full Windows build
+passed 1,882 tests with eight skips and zero failures; graph, language and quality
+gates passed for 457 production modules. A real 178-file NND `20261002-8`
+export was staged, recovered, reused, separately registered and launched through
+Chromium from the immutable slot. Its manifest hash is
+`26fa67698d145666943aff7804361af3a09c16b200fed4a312b7fed3201fdd80`.
+The copied shell authenticated with a cookie, withheld renderer bearer material,
+refused a second browser and left the supervised service alive after shell exit.
+The real Chromium probe passed again after the initializer repair. NND release
+sealing is the remaining validation for its version-eight candidate. Production
+trial activation, CAS selection, rollback, stable launchers,
+login startup and installer delegation remain open.

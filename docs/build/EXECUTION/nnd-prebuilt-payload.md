@@ -1,6 +1,6 @@
 # Prebuilt NND payload contract
 
-Status: exporter foundation; native transactional installation and rollback remain
+Status: exporter and native staging foundations; activation and rollback remain
 open. This contract does not enable NSIS distribution or replace `install.ps1` yet.
 
 ## Build and export
@@ -66,12 +66,49 @@ released its lease. The installed GUI payload remained byte-identical. This prov
 artifact attachment against native `20261002-9`; it does not prove the unfinished
 production installer or slot recovery.
 
+## Native immutable staging
+
+NNA owns `DATA_ROOT/runtime/nnd/install-slots`, bound to the selected canonical
+installation and data identities. `nna nnd service stage-payload INSTALL_ROOT
+PAYLOAD_ROOT OPERATION_UUID` validates the exact payload without executing its code,
+holds the data-root lease and shared registration mutex, and publishes a verified
+`versions/VERSION-PAYLOAD_SHA256` slot. Staging preserves package registration and
+returns only `slot_ready`. `stage-recover INSTALL_ROOT [OPERATION_UUID]` reconciles
+interruption; altered or uncertain evidence remains preserved behind an admission
+barrier. These commands are the native staging foundation, not a complete installer.
+
+Native destination admission must also bound final absolute file paths for Windows
+runtime compatibility. Node's long-path copying alone does not prove Electron or
+native PTY helpers can load those files. An overlong selected data root must fail
+before transaction preparation, with guidance to select a supported shorter root.
+
+Separate immutable provenance survives rolling retention of the last 16 terminal
+operation receipts. A fresh operation ID can reuse a verified artifact without
+replacing it. Retirement verifies exact evidence before removal and resumes its own
+interrupted work. The store admits at most 16 distinct slots and 8 GiB aggregate;
+automatic artifact pruning awaits an active/rollback-aware maintenance contract.
+
+The `--native-slot` option on `electron-native-attach-smoke.mjs NNA_SOURCE --payload
+EXPORTED_ROOT --native-slot` stages a real exported artifact in a disposable native
+installation, verifies unchanged registration and recovery/reuse, then separately
+registers the slot for Chromium attachment. This fixture registration does not
+implement production trial activation. Failed native staging fixtures are preserved
+because a rejected operation alone cannot prove all owned writers have stopped.
+
+The `20261002-8` Windows candidate exported 178 files with exact manifest SHA-256
+`26fa67698d145666943aff7804361af3a09c16b200fed4a312b7fed3201fdd80`.
+Its native-stage probe verified slot recovery and fresh-operation reuse, launched
+the copied Electron runtime, authenticated Chromium by one-use cookie without a
+renderer bearer, rejected an independent browser, and confirmed native service
+survival after shell exit and clean stop. The native staging path guard rejected
+an earlier overlong fixture before publication; a shorter disposable path passed.
+
 ## Remaining installation work
 
-Native installation must own the data-root lease, bounded slot staging, registration
-CAS, exact previous-registration backup and durable pending/completion evidence.
-It must recover interruption before admitting a new writer and preserve uncertain
-state. Native package registration is the sole authoritative active pointer.
+The installer must delegate to native staging, maintain continuous lease ownership
+through trial activation, and compare-and-swap the sole native package registration.
+Previous-registration backups and durable staging evidence already exist; final
+activation/completion evidence and rollback selection remain required.
 Trial service activation and authenticated GUI health must succeed before the final
 installer reports completion; setup-required is valid installation state.
 

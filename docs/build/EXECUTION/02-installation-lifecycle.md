@@ -243,6 +243,12 @@ Dependencies: L1–L4. Own `install.ps1`, package build/stamp scripts, NNA packa
 registration, and the replacement installed launch descriptors.
 Deliver one operator-facing NND installer that detects compatible NNA and guides
 missing/incompatible NNA setup. Never overwrite a configured NNA silently.
+When NNA is absent, offer a separate, explicit dependency-install step using a
+verified released NNA installer (downloaded or carried with the NND installer),
+then discover and validate that NNA installation normally. Do not copy NNA's
+engine into NND's package or make NND removal uninstall an independently usable
+NNA. An existing compatible NNA is reused; incompatible installations remain
+untouched until the operator chooses an NNA upgrade or another installation.
 Persist the chosen NNA installation identity and custom roots into the protected
 launch configuration. Test without PATH and with two NNA installations.
 
