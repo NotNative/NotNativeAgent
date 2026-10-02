@@ -339,7 +339,7 @@ Initial admission requires fresh data or the exact native owner marker. Current
 legacy NND serve also holds this lease. Older installed hosts require explicit
 migration; existing manifest/session/tab data is preserved and refused at first
 admission. This is not full existing-user integration. The independent TUI keeps
-its own catalog and identity. Login registration, desktop attachment, configuration
+its own catalog and identity. Login registration, configuration
 save/repair concurrency and verified migration remain planned work.
 
 Shutdown first stops native request admission and closes child attachment. It
@@ -347,6 +347,22 @@ drains native dispatch work, including configuration writes after socket closure
 before removing owned discovery and releasing the lease. Uncertain cleanup retains
 ownership. Child restart budget is zero; malformed protocol or child exit ends the
 owned service rather than opening a second engine.
+
+## Concerns register
+
+The local service also supports read-only `capabilities`, atomic `attach`, and
+private-pipe `install-guard` commands. Attachment returns only selected identity,
+generation, GUI endpoint and a short-lived UI ticket. It checks the same controller
+generation before and after issuance. Native status uses the paired exact schema.
+Electron redeems the UI ticket in a memory-only Chromium session shared by its
+windows; native/controller credentials never enter the renderer. Shell exit leaves
+the native service running.
+
+An installation guard takes the same data-root lease before package mutation and
+writes a protected durable marker. Explicit matching release followed by EOF clears
+the marker after verified completion. Pipe loss alone retains ownership; process
+death leaves the marker, which blocks supervised startup. Interrupted or failed
+installation requires verified recovery. Existing-data migration remains separate.
 
 ## Concerns register
 

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:758dc21e72d0bf038aa624ca703774ef11e4fa5e7381e12d5408e446f6de0111",
+  "source_digest": "sha256:d669635bf49ac343d6b70d1743c9cadac03a77be370a8b006d16f4f63cf4d8a6",
   "counts": {
-    "modules": 411,
+    "modules": 414,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 134
+      "module_count": 137
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 257,
-      "module_count": 111
+      "import_count": 268,
+      "module_count": 114
     },
     {
       "from": "experience-engine",
@@ -2015,6 +2015,25 @@
       ]
     },
     {
+      "path": "src/nnd-install-guard.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-marker.js",
+        "src/nnd-service-contract.js",
+        "src/nnd-service-lock.js"
+      ]
+    },
+    {
+      "path": "src/nnd-install-marker.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-service-private-storage.js"
+      ]
+    },
+    {
       "path": "src/nnd-manifest-extensions.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2150,6 +2169,15 @@
       ]
     },
     {
+      "path": "src/nnd-service-attach.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-service-contract.js"
+      ]
+    },
+    {
       "path": "src/nnd-service-child.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2164,6 +2192,8 @@
       "imports": [
         "src/ids.js",
         "src/mcp-credentials.js",
+        "src/nnd-install-guard.js",
+        "src/nnd-service-attach.js",
         "src/nnd-service-child.js",
         "src/nnd-service-controller.js",
         "src/nnd-service-discovery.js",
@@ -2186,6 +2216,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-service-attach.js",
         "src/secret-broker-server.js"
       ]
     },
@@ -2272,6 +2303,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-install-marker.js",
         "src/nnd-package.js",
         "src/nnd-service-admission.js",
         "src/nnd-service-child.js",

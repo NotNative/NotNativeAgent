@@ -11,6 +11,7 @@ import { startNndNativeService } from './nnd-service-native.js';
 import { startNndController } from './nnd-service-controller.js';
 import { launchNndServiceChild } from './nnd-service-child.js';
 import { admitFreshNndServiceData } from './nnd-service-admission.js';
+import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 
 async function readMetadata(path) {
   const file = await open(path, 'r');
@@ -57,6 +58,7 @@ export async function startNndSupervisor(identity, paths, options = {}) {
     state.failure = error; resolveStop({ error }); throw error;
   }); closing.catch(() => {}); return closing; };
   try {
+    await assertNoNndInstallMarker(identity);
     state.package = await admitNndServicePackage(paths, identity);
     await admitFreshNndServiceData(paths, identity);
     const previous = await readNndServiceDiscovery(identity);

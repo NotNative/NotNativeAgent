@@ -10,13 +10,17 @@ import { userDataPaths, ensureUserDataPaths } from './product.js';
 import { ContractError } from './ids.js';
 import { loadManagedProviderCredentials } from './provider/bootstrap.js';
 import { loadManagedMcpCredentials } from './mcp-credentials.js';
+import { nndServiceCapabilities } from './nnd-service-attach.js';
+import { runNndInstallGuard } from './nnd-install-guard.js';
 
 export async function runNndServiceCommand(args, options = {}) {
   const [action, root] = args;
-  if (args.length !== 2 || !['start', 'run', 'status', 'stop', 'ui-ticket'].includes(action)) {
-    throw new ContractError('nnd_command_invalid', 'nnd service supports start|run|status|stop|ui-ticket INSTALL_ROOT');
+  if (args.length !== 2 || !['start', 'run', 'status', 'stop', 'ui-ticket', 'attach', 'capabilities', 'install-guard'].includes(action)) {
+    throw new ContractError('nnd_command_invalid', 'nnd service supports start|run|status|stop|ui-ticket|attach|capabilities|install-guard INSTALL_ROOT');
   }
   const identity = await readNndServiceIdentity(root);
+  if (action === 'capabilities') return nndServiceCapabilities(identity);
+  if (action === 'install-guard') return runNndInstallGuard(identity, options);
   if (action === 'run') return runForeground(identity, options);
   if (action === 'start') return startBackground(identity);
   const record = await readNndServiceDiscovery(identity);

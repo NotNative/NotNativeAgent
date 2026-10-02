@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { authenticateIntegrationRequest } from './integration-principal.js';
 import { send, sendFailure } from './secret-broker-server.js';
 import { ContractError } from './ids.js';
+import { assertNndAttach, assertSelectedNndStatus, issueNndAttach } from './nnd-service-attach.js';
 
 export async function startNndController({ getRecord, status, stop, ticket }) {
   const server = createServer((request, response) => {
@@ -13,6 +14,9 @@ export async function startNndController({ getRecord, status, stop, ticket }) {
     if (!record || !authenticateIntegrationRequest(request, record.control_token)) return send(response, 401, { error: 'unauthenticated' });
     if (request.headers['x-nnd-generation'] !== record.instance_id) return send(response, 409, { error: 'generation_mismatch' });
     if (request.method === 'GET' && request.url === '/status') return send(response, 200, status());
+    if (request.method === 'POST' && request.url === '/attach') {
+      return send(response, 200, await issueNndAttach(record, status, ticket));
+    }
     if (request.method === 'POST' && request.url === '/stop') {
       send(response, 202, { stopping: true, instance_id: record.instance_id }); stop(); return;
     }
@@ -45,7 +49,8 @@ export async function requestNndController(record, action) {
     }
     if (!response.ok) throw new Error('controller rejected');
     const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    if (action === 'status' && value.instance_id !== record.instance_id) throw new Error('generation mismatch');
+    if (action === 'status') assertSelectedNndStatus(value, record);
+    if (action === 'attach') assertNndAttach(value, record);
     return value;
   } catch (cause) { throw new ContractError('nnd_health_unavailable', 'Native NND controller is unavailable', { cause }); }
 }
