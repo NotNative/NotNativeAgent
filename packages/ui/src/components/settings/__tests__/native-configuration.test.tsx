@@ -11,6 +11,7 @@ import { NativeConfigurationPage } from '../pages/native-configuration.tsx';
 const runtime = vi.hoisted(() => ({ key: 'local', callback: () => {} }));
 vi.mock('../../../lib/nnd/configuration.ts', () => ({ requestNativeConfiguration: vi.fn() }));
 vi.mock('../../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => runtime.key,
+  isTransientRuntimeKey: (key: string) => key === 'url:default' || key === 'mobile-disconnected',
   onRuntimeEndpointChanged: (callback: () => void) => { runtime.callback = callback; return () => {}; } }));
 
 const view: NativeConfigurationView = {

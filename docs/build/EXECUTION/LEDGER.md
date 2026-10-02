@@ -44,7 +44,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
-| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | native setup panel and read-only configuration page; GUI mutation and installed acceptance open |
+| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; installed mutation acceptance and other settings families open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | open | settings pages; NNA TUI prefs contract | — |
@@ -431,3 +431,33 @@ The renderer held no bearer token; a second browser remained locked and the nati
 service survived shell exit. This proves the read transport and attachment, not
 an installed operator settings workflow. Native edits, repair UI, conflicts and
 complete settings coverage remain C3–C7 work.
+
+## NND 20261002-10 — bounded native configuration edits
+
+The native configuration page can edit one finite user-manifest field at a time.
+It reads NNA's authenticated catalog, validates a typed operation, previews under
+the observed source and resolution revisions, and sends that exact operation to
+native save with a stable operation ID. Native validation and permission checks
+remain authoritative. The page displays saved versus applied state and offers
+receipt lookup when persistence is uncertain. Pending IDs and CAS bases are kept
+only for the same runtime, installation and data identity in bounded tab-session
+storage; a runtime switch cannot show another installation's pending write.
+
+A missing or invalid selected source has a separate explicit repair path. The
+user supplies and confirms a replacement document; the UI does not derive it
+from the redacted read projection. Native repair checks the selected revision
+and retains the invalid original privately. The GUI neither edits provider/MCP
+collections and credentials nor changes running sessions automatically.
+
+Independent adversarial review repaired duplicate submission replacing the
+operation ID, late cross-runtime response updates, malformed receipt acceptance
+and loss of an uncertain operation ID during a runtime switch. The supervised
+native service exposes this control plane; the legacy `nna nnd serve` path does
+not. The production launcher must select the supervised service. Complete native
+settings coverage, installed mutation acceptance and the production installer
+remain open.
+
+Focused client and UI mutation cases passed 17/17. The complete UI suite passed
+1,662 tests across 208 files; UI typechecking, graph, controlled-language and
+quality checks passed for 750 production modules. This is source-level GUI
+mutation validation, not installed save/repair acceptance.

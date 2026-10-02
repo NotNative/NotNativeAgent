@@ -900,6 +900,10 @@
     {
       "version": "20261002-9",
       "content_sha256": "840340b6a1b8eff30a068875c738120c1bb5ff1ff2646afbed25b8fe4f985165"
+    },
+    {
+      "version": "20261002-10",
+      "content_sha256": "e6d9d4c142802bd052b874b83ce81a8b4a11cdaa892f0a1f79fd8e2a1b80e7a7"
     }
   ]
 }
