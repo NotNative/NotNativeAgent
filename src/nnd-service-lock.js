@@ -13,7 +13,8 @@ export function assertHeldNndServiceLease(lease, dataId) {
   }
 }
 
-export async function withNndServiceLease(lease, dataId, operation) {
+export async function withNndServiceLease(lease, dataId, operation, { timeoutMs = 15000 } = {}) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300000) throw lockError('nnd_lock_operation_limit', 'NND operation deadline is outside its bound.');
   assertHeldNndServiceLease(lease, dataId);
   const state = LEASES.get(lease);
   if (state.pending.size >= 8) throw lockError('nnd_lock_operation_limit', 'NND singleton operation capacity is exhausted.');
@@ -21,7 +22,7 @@ export async function withNndServiceLease(lease, dataId, operation) {
   let timer;
   const expired = new Promise((_, reject) => {
     controller.signal.addEventListener('abort', () => reject(lockError('nnd_lock_lost', 'NND singleton operation was cancelled.')), { once: true });
-    timer = setTimeout(() => controller.abort(), 15000);
+    timer = setTimeout(() => controller.abort(), timeoutMs);
   });
   const pending = Promise.resolve().then(() => operation(controller.signal));
   const active = { pending, controller };

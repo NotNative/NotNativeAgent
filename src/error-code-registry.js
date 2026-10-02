@@ -272,6 +272,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_private_storage_unavailable',
     'nnd_discovery_conflict', 'nnd_discovery_busy', 'nnd_discovery_capacity', 'nnd_lock_operation_limit',
     'nnd_install_guard_orphaned',
+    'nnd_migration_invalid', 'nnd_migration_locked',
     'journal_compaction_snapshot_missing', 'journal_corrupt', 'journal_repair_evidence_missing',
     'journal_repair_prefix_invalid', 'journal_repair_prefix_too_large', 'journal_replace_invalid',
     'nnd_activity_invalid', 'nnd_activity_unavailable',

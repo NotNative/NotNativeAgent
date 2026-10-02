@@ -349,7 +349,7 @@ valid previous fresh-service admission is preserved. Legacy NND catalogs require
 explicit migration. Current selected CLI launchers take the same lease. A census
 only observes present processes: unsupported older executable autostarts must be
 disabled before adoption; the receipt does not fence their future launches.
-Login registration, configuration save/repair concurrency, migration and installer
+Login registration, configuration save/repair concurrency and installer
 recovery remain planned work. Native credential metadata, management and audit
 retain broker scope checks; the GUI principal cannot retrieve or use raw values.
 
@@ -359,7 +359,7 @@ before removing owned discovery and releasing the lease. Uncertain cleanup retai
 ownership. Child restart budget is zero; malformed protocol or child exit ends the
 owned service rather than opening a second engine.
 
-## Concerns register
+## Desktop attachment and installation exclusion
 
 The local service also supports read-only `capabilities`, atomic `attach`, and
 private-pipe `install-guard` commands. Attachment returns only selected identity,
@@ -374,6 +374,33 @@ writes a protected durable marker. Explicit matching release followed by EOF cle
 the marker after verified completion. Pipe loss alone retains ownership; process
 death leaves the marker, which blocks supervised startup. Interrupted or failed
 installation requires verified recovery. Existing-data migration remains separate.
+
+## Explicit legacy catalog migration
+
+`nna nnd service migrate INSTALL_ROOT` requires the selected native identity,
+exclusive data-root lease, no unfinished installation/migration marker and a
+bounded legacy-process census. Readable CLI arguments identify historical NND
+owners even when their Node executable has another name; native process birth and
+exit evidence still govern admission. Unsupported old autostarts must be disabled.
+
+Migration accepts only recognized local operator grants and a valid manifest with
+an explicit absolute workspace. Catalog directories, journal genesis, latest
+workspace observation and execution provenance must agree with that workspace.
+Strict session locks reject live, malformed or uncertain owners. Completed child
+snapshots retain display-only behavior. Activity evidence is validated and preserved.
+
+The protected transaction retains exact-byte backups and hashes, then publishes a
+pending marker before replacing catalog grants with the native workspace grant.
+Journals, activity, review modes and independent TUI data remain untouched.
+Validation limits include 64 parent contexts, 256 child snapshots, per-file bounds
+and a combined 64 MiB evidence/staging budget. The owned operation has a five-minute
+deadline; cancellation does not release ownership while underlying work is active.
+
+`nna nnd service migration-recover INSTALL_ROOT` acquires the same ownership and
+session locks. An incomplete transaction restores original bytes; a committed
+transaction rechecks output and journal/configuration evidence before clearing its
+marker. Unexpected changes preserve the marker and evidence. Startup, legacy serve
+and installation guards refuse a pending migration. No automatic migration runs.
 
 ## Concerns register
 

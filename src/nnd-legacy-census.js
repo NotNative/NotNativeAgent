@@ -45,7 +45,15 @@ $count=0; $legacy=0; $unknown=0
 $selectedName=[IO.Path]::GetFileName([string]$request.node)
 foreach($p in Get-CimInstance -ClassName Win32_Process) {
  $count++; if($count -gt 4096) { throw 'process bound' }
- if($p.Name -notin @('node.exe','nna.exe','NotNativeAgent.exe',$selectedName)) { continue }
+ $knownRuntime=$p.Name -in @('node.exe','nna.exe','NotNativeAgent.exe',$selectedName)
+ # Security: historical descriptors can name a renamed Node executable. Readable exact CLI argv identifies that owner independently of its current executable name.
+ if(-not $knownRuntime) {
+  if([string]::IsNullOrWhiteSpace($p.CommandLine) -or $p.CommandLine.Length -gt 32768) { continue }
+  try { $candidate=[NndArgv]::Parse($p.CommandLine) } catch { continue }
+  $candidateScript=-1
+  for($i=1;$i -lt $candidate.Length;$i++) { if($candidate[$i] -match '(?:^|[\\/])cli\.js$') { $candidateScript=$i; break } }
+  if($candidateScript -lt 0 -or $candidateScript+1 -ge $candidate.Length -or $candidate[$candidateScript+1] -ne 'nnd') { continue }
+ }
  # Invariant: exited snapshots need native exit proof; live snapshots need native creation identity before classification.
  $created=0
  try { if($null -ne $p.CreationDate) { $created=$p.CreationDate.ToUniversalTime().ToFileTimeUtc() } } catch { $created=0 }

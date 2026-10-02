@@ -6,6 +6,7 @@ import { withNndServiceLease } from './nnd-service-lock.js';
 import { ensurePrivateNndRuntimeDirectory } from './nnd-service-private-storage.js';
 import { scanNndLegacyOwners } from './nnd-legacy-census.js';
 import { exactRecord } from './nnd-service-contract.js';
+import { assertNoNndMigration } from './nnd-migration-storage.js';
 
 function invalid(cause) {
   return new ContractError('nnd_owner_unverified', 'NND admission evidence is invalid or legacy migration is required. Existing files were preserved.', { cause });
@@ -30,7 +31,7 @@ function validateReceipt(record, identity, legacy) {
   const keys = legacy ? ['version', 'data_id', 'installation_id'] : ['version', 'data_id', 'installation_id', 'basis', 'census'];
   if (!exactRecord(record, keys) || record.version !== (legacy ? '1.0' : '2.0')
     || record.data_id !== identity.data_id || record.installation_id !== identity.installation_id) throw invalid();
-  if (!legacy && (!['no_nnd_catalog', 'prior_supervised_admission'].includes(record.basis)
+  if (!legacy && (!['no_nnd_catalog', 'prior_supervised_admission', 'legacy_catalog_migration'].includes(record.basis)
     || !exactRecord(record.census, ['version', 'scanned', 'legacy', 'unknown', 'checked_at'])
     || record.census.version !== '1.0' || record.census.legacy !== 0 || record.census.unknown !== 0
     || !Number.isSafeInteger(record.census.scanned) || record.census.scanned < 1 || record.census.scanned > 4096
@@ -46,6 +47,7 @@ async function assertNoLegacyCatalog(paths) {
 // Security: every startup checks legacy processes; a historical receipt cannot exclude an old executable.
 export async function admitFreshNndServiceData(paths, identity, lease) {
   return withNndServiceLease(lease, identity.data_id, async (signal) => {
+    await assertNoNndMigration(identity);
     const census = await scanNndLegacyOwners(identity, signal);
     const directory = await ensurePrivateNndRuntimeDirectory(identity.data_root, { signal });
     const path = join(directory.path, 'admission.json');

@@ -19,6 +19,7 @@ export class SessionLock {
       throw new ContractError('invalid_id', 'session_id resolves outside the lock root');
     }
     this.identity = options.processIdentity ?? new ProcessIdentity();
+    this.strictPriorOwner = options.strictPriorOwner === true;
   }
 
   async acquire() {
@@ -32,6 +33,9 @@ export class SessionLock {
       } catch (error) {
         if (error.code !== 'EEXIST') throw error;
         const status = await inspectSessionLock(this.path, { processIdentity: this.identity });
+        if (this.strictPriorOwner && !['missing', 'dead', 'different'].includes(status.status)) {
+          throw new ContractError('session_locked', 'migration requires a verifiably stopped session owner');
+        }
         if (['live', 'unknown'].includes(status.status)) throw new ContractError('session_locked', 'another live or unverifiable writer owns this session');
         await this.#preserveStale(status, attempt);
       }

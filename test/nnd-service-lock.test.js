@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { connect } from 'node:net';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { acquireNndServiceLock } from '../src/nnd-service-lock.js';
+import { acquireNndServiceLock, withNndServiceLease } from '../src/nnd-service-lock.js';
 import { ContractError } from '../src/ids.js';
 
 const windows = { skip: process.platform !== 'win32', timeout: 15_000 };
@@ -95,4 +95,17 @@ test('invalid, missing and non-directory roots fail closed', windows, async (t) 
 
 test('non-Windows hosts explicitly reject singleton acquisition', { skip: process.platform === 'win32' }, async () => {
   await assert.rejects(acquireNndServiceLock({ dataRoot: tmpdir() }), { code: 'nnd_service_platform_unsupported' });
+});
+
+test('bounded operation cancellation retains ownership until the actual writer settles', windows, async (t) => {
+  const { dataRoot } = await fixture(t), lease = await acquireNndServiceLock({ dataRoot });
+  let finish;
+  const active = new Promise((resolve) => { finish = resolve; });
+  t.after(async () => { finish(); await lease.close(); });
+  await assert.rejects(withNndServiceLease(lease, lease.dataId, () => active, { timeoutMs: 10 }), { code: 'nnd_lock_lost' });
+  const closing = lease.close();
+  await assert.rejects(acquireNndServiceLock({ dataRoot }), { code: 'nnd_service_already_running' });
+  finish(); await closing;
+  const next = await acquireNndServiceLock({ dataRoot }); await next.close();
+  await assert.rejects(withNndServiceLease(lease, lease.dataId, () => {}, { timeoutMs: 300001 }), { code: 'nnd_lock_operation_limit' });
 });

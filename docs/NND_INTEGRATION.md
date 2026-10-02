@@ -1,5 +1,45 @@
 # Local NND integration
 
+## Selected native service
+
+The installed Windows path uses NNA supervision. Invoke the selected installation's
+recorded Node and CLI with `nnd service start|status|stop|attach INSTALL_ROOT`;
+`INSTALL_ROOT` identifies NNA. NNA verifies the registered NND package, retains
+data-root ownership and starts the GUI child through private pipes. Browser and
+Electron use the same GUI service. Closing Electron leaves native work running.
+Attachment returns a short-lived UI ticket; native credentials remain private.
+
+The native listener starts in setup-required state when configuration is missing or
+invalid. The GUI can read setup state and explicitly activate saved configuration.
+Manifest creation/repair through the GUI remains pending; use independent NNA setup
+for that operation. Execution readiness does not establish provider connectivity.
+Native permissions and mandatory reviewer governance remain authoritative.
+
+## Existing NND catalog migration
+
+Stop legacy NND processes and disable unsupported old autostarts before invoking
+the selected native CLI's `nnd service migrate INSTALL_ROOT`. Migration requires a
+valid saved manifest with an explicit absolute workspace and verifiably stopped
+catalog sessions. It accepts only recognized legacy local operator grants and
+matching workspace/journal provenance. Foreign or uncertain data is refused.
+
+Original catalog bytes and transaction hashes remain in the protected runtime
+migration directory. Only workspace grants in parent/child catalog records change;
+journals, activity, review modes and TUI data remain intact. The operation is bounded
+to 64 parent contexts, 256 child snapshots and 64 MiB combined evidence/staging.
+Migration is explicit and never runs during ordinary service startup.
+
+After interruption, `nnd service migration-recover INSTALL_ROOT` restores incomplete
+changes or verifies a committed transaction before removing the pending marker.
+Unexpected modifications preserve evidence and block startup. Do not delete a marker
+to force admission. Interrupted installer guards use a separate marker; their verified
+recovery and transactional installer rollback remain planned work.
+
+## Legacy source launch
+
+The following child-owned `nnd serve` contract remains for explicit development and
+compatibility. It does not describe the installed supervised service above.
+
 ## Browser ownership
 
 NND-owned sessions use `nnd_browser` through the desktop's Electron Chromium
@@ -37,11 +77,10 @@ from the sibling checkout; unattended bootstrap requires explicit opt-in.
 An NND service process may run separately for NNA supervision, but NND is not
 an independently installed agent runtime.
 
-This registration is a package-identity milestone, not daemon activation yet.
-The desktop shell still owns the NND web service and starts a local NNA child;
-`nna nnd serve` remains available without a registered GUI package for that
-transitional path. NNA-owned web-service supervision and a persistent browser
-door remain required for the ADR 0020 drop-in deployment shape.
+Registration establishes package identity; service activation is a separate
+operation. Explicit legacy source launches may still let the desktop own its web
+service and local NNA child. `nna nnd serve` remains available for that compatibility
+path. Installed Electron instead attaches to the selected supervised native service.
 Scripted installed desktop launches set `NNA_NND_INSTALL_ROOT`; when present,
 `nna nnd serve` refuses to start unless that exact root is the active,
 version-valid package. Source/development launches omit the variable and keep

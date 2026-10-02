@@ -98,7 +98,7 @@ function snapshotOrder(left, right) {
     || left.snapshot.sessionId.localeCompare(right.snapshot.sessionId);
 }
 
-function validSnapshot(value) {
+export function validSnapshot(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== 1) return false;
   try { requireExternalId(value.sessionId, 'session_id'); requireExternalId(value.parentId, 'session_id'); }
   catch { return false; }

@@ -179,7 +179,7 @@ function help() {
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
     '  nna nnd serve                            Start the local NND integration service',
-    '  nna nnd service start|run|status|stop|ui-ticket|attach|capabilities|install-guard INSTALL_ROOT',
+    '  nna nnd service start|run|status|stop|ui-ticket|attach|capabilities|install-guard|migrate|migration-recover INSTALL_ROOT',
     '  nna nnd package activate ROOT|deactivate ROOT|status',
     '                                           Register or inspect an installed NND GUI package',
     '  nna opencode start|stop|status',

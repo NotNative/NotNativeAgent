@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:1159923265e6daa1418b3a44e5abaeb59bb9d64e06d8a5564178589ddee1da67",
+  "source_digest": "sha256:218eba0f96d5d9eaf32cbbab3ab386718782931d4a4e6977d0dfadf78292e9b4",
   "counts": {
-    "modules": 427,
+    "modules": 433,
     "component_edges": 80
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 138
+      "module_count": 144
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 274,
-      "module_count": 115
+      "import_count": 300,
+      "module_count": 121
     },
     {
       "from": "experience-engine",
@@ -168,7 +168,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 31,
+      "import_count": 32,
       "module_count": 10
     },
     {
@@ -194,6 +194,12 @@
       "to": "providers",
       "import_count": 15,
       "module_count": 7
+    },
+    {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 14,
+      "module_count": 11
     },
     {
       "from": "agentic-engine",
@@ -224,12 +230,6 @@
       "to": "tools",
       "import_count": 12,
       "module_count": 7
-    },
-    {
-      "from": "foundation",
-      "to": "persistence",
-      "import_count": 11,
-      "module_count": 9
     },
     {
       "from": "persistence",
@@ -298,6 +298,12 @@
       "module_count": 3
     },
     {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 6,
+      "module_count": 6
+    },
+    {
       "from": "agentic-engine",
       "to": "governance-engine",
       "import_count": 5,
@@ -312,12 +318,6 @@
     {
       "from": "foundation",
       "to": "governance-engine",
-      "import_count": 5,
-      "module_count": 5
-    },
-    {
-      "from": "foundation",
-      "to": "reliability-engine",
       "import_count": 5,
       "module_count": 5
     },
@@ -1784,6 +1784,7 @@
         "src/nnd-engine-host.js",
         "src/nnd-mcp-inventory.js",
         "src/nnd-memory-tool.js",
+        "src/nnd-migration-storage.js",
         "src/nnd-package.js",
         "src/nnd-service-cli.js",
         "src/nnd-service-lock.js",
@@ -2026,6 +2027,7 @@
       "entrypoint": false,
       "imports": [
         "src/nnd-install-marker.js",
+        "src/nnd-migration-storage.js",
         "src/nnd-service-contract.js",
         "src/nnd-service-lock.js"
       ]
@@ -2070,6 +2072,75 @@
       "imports": [
         "src/ids.js",
         "src/memory.js"
+      ]
+    },
+    {
+      "path": "src/nnd-migration-activity.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-activity-snapshot.js",
+        "src/nnd-migration-files.js"
+      ]
+    },
+    {
+      "path": "src/nnd-migration-files.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/nnd-migration-locks.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-service-private-windows.js",
+        "src/persistence/session-lock.js",
+        "src/reliability/process-identity.js"
+      ]
+    },
+    {
+      "path": "src/nnd-migration-storage.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-migration-files.js",
+        "src/nnd-service-contract.js",
+        "src/nnd-service-private-storage.js"
+      ]
+    },
+    {
+      "path": "src/nnd-migration-validation.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/nnd-child-snapshot.js",
+        "src/nnd-migration-activity.js",
+        "src/nnd-migration-files.js",
+        "src/nnd-service-native.js",
+        "src/nnd-session-helpers.js",
+        "src/nnd-setup-config.js",
+        "src/persistence/session-provenance.js",
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/nnd-migration.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-install-marker.js",
+        "src/nnd-legacy-census.js",
+        "src/nnd-migration-files.js",
+        "src/nnd-migration-locks.js",
+        "src/nnd-migration-storage.js",
+        "src/nnd-migration-validation.js",
+        "src/nnd-service-lock.js"
       ]
     },
     {
@@ -2182,6 +2253,7 @@
       "imports": [
         "src/ids.js",
         "src/nnd-legacy-census.js",
+        "src/nnd-migration-storage.js",
         "src/nnd-service-contract.js",
         "src/nnd-service-lock.js",
         "src/nnd-service-private-storage.js"
@@ -2212,6 +2284,7 @@
         "src/ids.js",
         "src/mcp-credentials.js",
         "src/nnd-install-guard.js",
+        "src/nnd-migration.js",
         "src/nnd-service-attach.js",
         "src/nnd-service-child.js",
         "src/nnd-service-controller.js",
