@@ -19,7 +19,7 @@ route-mount slots, and per-package settings. NND mounts as the second package.
 ## Responsibility boundaries
 
 1. NNA core owns: the agent loop, governance decisions, the projection fold and its
-   13-state machine, session records, daemon lifecycle (`nna service start/stop/status`,
+   authored phase machine, session records, daemon lifecycle (`nna service start/stop/status`,
    OS service registration, health), loopback-first bindings, and the harness wire
    surface. NNA decides; it never renders the business layer's definitions.
 2. Integration packages own their surface inside NNA's activation slots. NND provides
@@ -53,7 +53,16 @@ clients always authenticate against the target instance's configured surface.
 - Expose the doc-02 harness wire surface (REST + SSE) directly over `SessionEngine`
   with projection frames as first-class streaming payloads; frame replay and cursor
   semantics for remote durability.
-- The 13-state projection machine becomes the sole turn-state authority on the wire.
+- The NNA-authored phase machine is the sole turn-state authority on the wire.
+
+NND root and child session descriptions carry a versioned projection of phase,
+active-tool names/count, and numeric context observations. The identical
+`nnd.projection` frame follows each created/updated description with the same
+owner and full workspace scope. Engine-context epochs and monotonic display
+revisions separate corrections from stale replay. The current authored phase
+set contains twelve names; historical references to thirteen did not name a
+thirteenth state. Unknown fields remain unknown. Replay is a bounded in-memory
+suffix with snapshot recovery after restart, not durable event history.
 - Permission-mode get/set as a governance-owned, session-scoped capability.
 
 NND-owned root contexts expose authenticated `GET/PUT

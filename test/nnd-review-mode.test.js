@@ -33,10 +33,12 @@ test('review mode writes are scoped, validated, and publish a newer governance s
   }
   await host.setReviewMode('session_a', owner, change('unattended'));
   assert.equal(runtime.reviewPosture, 'unattended');
-  const event = events.at(-1);
+  const event = events.findLast((item) => item.type === 'session.updated');
   assert.equal(event.type, 'session.updated');
   assert.ok(event.properties.info.time.updated > previous);
   assert.equal(event.properties.info.metadata.nnd.governance.reviewPosture, 'unattended');
+  assert.equal(events.at(-1).type, 'nnd.projection');
+  assert.equal(events.at(-1).properties.frame.governance, undefined);
   await host.setReviewMode('session_a', owner, change('default', 1));
   assert.equal(runtime.reviewPosture, 'auto-review');
 });

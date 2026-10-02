@@ -20,6 +20,7 @@ import { nndGoalContextEvidence, recordNndGoalTurn } from './nnd-goal-evidence.j
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { runNndNotification } from './nnd-notification.js';
+import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
@@ -466,7 +467,7 @@ export class NndEngineHost {
       if (!record) return;
       properties = record;
     }
-    try { this.eventBus.publishSession({ directory: child.directory, project: parent.workspaceIds.values().next().value,
+    try { publishNndProjection(this.eventBus, { directory: child.directory, project: parent.workspaceIds.values().next().value,
       subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds], sessionID: child.id, type, properties, mirror }); }
     catch (error) {
       try { parent.engine.telemetry?.record('nnd.event_delivery', 'failed', { event_type: type,
@@ -486,7 +487,7 @@ export class NndEngineHost {
     }
     // Why: a broken display subscriber cannot turn governed work into a false failure.
     try {
-      this.eventBus.publishSession({ directory: directoryFor(context), project: context.workspaceIds.values().next().value,
+      publishNndProjection(this.eventBus, { directory: directoryFor(context), project: context.workspaceIds.values().next().value,
         subjectId: context.subjectId, workspaceIds: [...context.workspaceIds], sessionID: context.sessionId, type, properties, mirror });
     } catch (error) {
       try { context.engine.telemetry?.record('nnd.event_delivery', 'failed', {

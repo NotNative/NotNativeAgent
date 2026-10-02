@@ -5,6 +5,7 @@ import { configuredModelProjection, latestTurnNeedsInput } from './nnd-session-d
 import { nndPhaseFromOutput, shouldClearNndToolPhase } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
 import { pendingRequests } from './nnd-pending-requests.js';
+import { nndProjection } from './nnd-projection.js';
 
 const TRANSCRIPT_LIMIT = 200;
 const TRANSCRIPT_CHARS = 262_144;
@@ -192,16 +193,16 @@ function samePrincipal(record, principal) {
 }
 
 function describeChild(record) {
+  const nnd = { ...(record.configuredModel ? { configuredModel: record.configuredModel } : {}),
+    ...(record.turnState ? { turnState: { phase: record.turnState } } : {}),
+    ...(record.activeTools?.projection() ? { activeTools: record.activeTools.projection() } : {}),
+    ...(record.attention ? { attention: { kind: 'needs_input' } } : {}) };
+  nnd.projection = nndProjection(record, nnd);
   return { id: record.sessionId, slug: record.sessionId, parentID: record.parentId,
     projectID: record.workspaceIds.values().next().value, directory: record.directory,
     title: record.title, ...(record.agent ? { agent: record.agent } : {}), version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-    ...(record.configuredModel || record.turnState || record.attention || record.activeTools?.projection() ? { metadata: { nnd: {
-      ...(record.configuredModel ? { configuredModel: record.configuredModel } : {}),
-      ...(record.turnState ? { turnState: { phase: record.turnState } } : {}),
-      ...(record.activeTools?.projection() ? { activeTools: record.activeTools.projection() } : {}),
-      ...(record.attention ? { attention: { kind: 'needs_input' } } : {}),
-    } } } : {}),
+    metadata: { nnd },
     time: { created: record.createdAt, updated: record.updatedAt },
   };
 }

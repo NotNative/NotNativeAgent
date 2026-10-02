@@ -2,6 +2,7 @@
 import { isReviewPosture } from './review-posture.js';
 import { nndWorkProjection } from './nnd-work-projection.js';
 import { nndTurnStateProjection } from './nnd-turn-state.js';
+import { nndProjection } from './nnd-projection.js';
 
 export function describe(context) {
   const governance = governanceProjection(context.engine);
@@ -20,6 +21,7 @@ export function describe(context) {
     ...(context.goal ? { goal: context.goal } : {}),
     goalRevision: context.goalRevision,
   };
+  nnd.projection = nndProjection(context, nnd);
   return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value,
     directory: directoryFor(context), title: context.title, version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },

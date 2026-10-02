@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:4f7652275fb8987373c3cebae51525a4284b16d353fb9b916d5068c01fa936c0",
+  "source_digest": "sha256:81973bc55f1b44923bd5fc1b1bec8a08ecaa0ebf77719b3537341b27db73fd34",
   "counts": {
-    "modules": 392,
+    "modules": 393,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 115
+      "module_count": 116
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 211,
-      "module_count": 93
+      "import_count": 215,
+      "module_count": 94
     },
     {
       "from": "experience-engine",
@@ -1958,6 +1958,7 @@
         "src/nnd-parent-child-activity.js",
         "src/nnd-pending-requests.js",
         "src/nnd-phase-activity.js",
+        "src/nnd-projection.js",
         "src/nnd-questions.js",
         "src/nnd-review-mode.js",
         "src/nnd-session-description.js",
@@ -2083,6 +2084,14 @@
       ]
     },
     {
+      "path": "src/nnd-projection.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/nnd-provider-affinity.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2122,6 +2131,7 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
+        "src/nnd-projection.js",
         "src/nnd-turn-state.js",
         "src/nnd-work-projection.js",
         "src/review-posture.js"
@@ -2147,6 +2157,7 @@
         "src/ingress.js",
         "src/nnd-active-tools.js",
         "src/nnd-pending-requests.js",
+        "src/nnd-projection.js",
         "src/nnd-session-description.js",
         "src/nnd-turn-state.js"
       ]

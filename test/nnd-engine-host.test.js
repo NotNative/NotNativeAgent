@@ -1015,7 +1015,7 @@ test('NND restored transcript suppresses a retried prompt and rejects projected-
   assert.throws(() => host.submitAsync('session_a', { version: '1.0', type: 'submit',
     request_id: 'session_a:message:9', content: 'second' }, owner), { code: 'nnd_message_id_reserved' });
   assert.equal(submissions, 0);
-  assert.deepEqual(events.map((event) => event.type), ['session.created']);
+  assert.deepEqual(events.map((event) => event.type), ['session.created', 'nnd.projection']);
   assert.equal(host.messages('session_a', owner).filter((entry) => entry.info.id === 'msg_replayed').length, 1);
 });
 
@@ -1044,13 +1044,14 @@ test('NND engine host publishes a busy-to-idle reconciliation sequence', async (
   host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(events.map((event) => event.type), [
+  const cadence = events.filter((event) => event.type !== 'nnd.projection');
+  assert.deepEqual(cadence.map((event) => event.type), [
     'session.created', 'session.status', 'nnd.activity', 'session.updated', 'message.updated', 'message.part.updated',
     'nnd.activity', 'session.status', 'session.idle', 'session.updated',
   ]);
-  assert.equal(events[1].properties.status.type, 'busy');
-  assert.equal(events[3].properties.info.metadata?.nnd?.attention, undefined);
-  assert.equal(events.at(-3).properties.status.type, 'idle');
+  assert.equal(cadence[1].properties.status.type, 'busy');
+  assert.equal(cadence[3].properties.info.metadata?.nnd?.attention, undefined);
+  assert.equal(cadence.at(-3).properties.status.type, 'idle');
 });
 
 test('NND engine host streams text and tool activity before authoritative completion', async () => {

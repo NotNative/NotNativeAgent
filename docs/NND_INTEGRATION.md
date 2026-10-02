@@ -130,13 +130,28 @@ description projects the latest validated phase as `metadata.nnd.turnState`.
 The projection includes only the phase name; it carries no reasoning text,
 provider payload, tool arguments, or decision details. NNA's completion path
 settles it to idle. NND's generic busy/idle status remains transport and
-reconciliation bookkeeping, not the source of a semantic phase. This phase
-display does not yet satisfy the broader replayable 13-state wire contract.
+reconciliation bookkeeping, not the source of a semantic phase.
 For NND-owned delegations, the child engine uses an `nnd_subagent` output
 surface and the child registry projects the same validated phase on the
 child session. Live phase changes update that child description without
 borrowing the parent's turn state. A completed child settles to idle; its
 restored display-only snapshot retains that idle fact without a live-work claim.
+
+Session descriptions also include `metadata.nnd.projection`. The identical
+frame is emitted as the owner/workspace-scoped `nnd.projection` event after
+`session.created` and `session.updated`, with properties `{sessionID, frame}`.
+Version `1.0` contains sessionID, an opaque engine-context epoch, a positive
+revision, updatedAt, and three allowlisted display fields: turnState,
+activeTools, and context. Each field is either its existing validated shape
+or null (unknown/unavailable). Revision advances only when these fields change;
+an engine-context restore creates a new epoch. The current authored phase set
+has twelve names: idle, preparing, waiting_provider, reasoning, streaming,
+awaiting_approval, running_tool, recovering, attention_required, cancelling,
+failed, and needs_input. A missing phase is not a fabricated idle observation.
+Tool names/count and numeric context estimates contain no arguments, provider
+payloads, reasoning, or permission decisions. Known SSE cursors replay frames
+inside the bounded in-memory suffix; process restart and expired cursors require
+authoritative session snapshots. Durable event history remains separate work.
 
 The NNA-authored Activity projection retains separate start and terminal
 milestones for parent turns, delegated turns, and tool calls. A terminal
