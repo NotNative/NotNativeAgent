@@ -43,6 +43,16 @@ therefore cannot retarget or break a Provider or MCP binding. Guided Provider an
 origin-oriented initial labels (`<provider label>-Provider` and `<MCP name>-MCP`) without making
 those labels part of the binding contract.
 
+## OpenCode integration storage
+
+The managed OpenCode compatibility service owns a separate `opencode.local` realm
+and vault, master key and audit files under `runtime/opencode/secrets`. OpenChamber
+manages API-key credentials through authenticated v2 integration/credential routes.
+Those routes cannot enumerate or mutate the Console or NNO vaults. Provider
+configuration uses the OpenCode user configuration and never writes the NNA
+Console manifest. Trusted provider transport binds key use to the endpoint recorded
+when the credential was connected. Configuration files do not grant NNA authority.
+
 ## NNO integration boundary
 
 NNO's browser must call its authenticated backend. The backend may then call NNA's authenticated broker management API over loopback. A high-entropy bearer credential authenticates the NNO service channel; the request also carries the already authenticated actor's platform role, permissions, and workspace/group/role memberships. NNA rechecks those claims against the requested secret scope on every operation. The broker endpoint is bound to one configured `nno:<deployment-id>` realm and cannot select another realm per request.

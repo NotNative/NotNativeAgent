@@ -5,6 +5,10 @@
 import { createOpenCodeSessionWorkspace } from './sessions.js';
 import { OpenCodeCompatServer } from './server.js';
 import { bindUrl } from './config.js';
+import { OpenCodeProviderSettings } from './provider-settings.js';
+import { resolveManifest } from '../config.js';
+import { userDataPaths } from '../product.js';
+import { watchProviderSettings } from './provider-watch.js';
 import {
   WIRED_OPENCODE_VERSION, HANDSHAKE_LINE_PREFIX, DEFAULT_SERVE_HOSTNAME, DEFAULT_SERVE_PORT, DEFAULT_BASIC_USERNAME,
 } from './version.js';
@@ -15,13 +19,17 @@ const NON_INTERACTIVE_INPUT = Object.freeze({
 
 export async function startOpencodeServe(options = {}) {
   const wiredVersion = options.wiredVersion ?? WIRED_OPENCODE_VERSION;
-  const config = await resolveScenarioConfiguration(options);
+  const providerSettings = options.providerSettings ?? (!options.config && !options.manifestPath
+    ? new OpenCodeProviderSettings({ root: (options.paths ?? userDataPaths()).opencode }) : null);
+  const config = providerSettings ? options.config ?? resolveManifest({ provider: {
+    id: 'unconfigured', endpoint: 'http://127.0.0.1:9/v1', model: 'unconfigured', trust_zone: 'loopback',
+  } }) : await resolveScenarioConfiguration(options);
   const workspace = createOpenCodeSessionWorkspace({
     config, wiredVersion,
     logger: options.logger ?? null,
     storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot,
     directory: options.directory,
-    scheduler: options.scheduler, secretBroker: options.secretBroker,
+    scheduler: options.scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
   });
   const server = new OpenCodeCompatServer({
@@ -34,18 +42,21 @@ export async function startOpencodeServe(options = {}) {
     v2: workspace.v2,
     directory: options.directory ?? config.workspaceRoot ?? process.cwd(),
     config,
+    providerSettings,
     logger: options.logger ?? null,
     password: options.password ?? null,
     username: options.username ?? DEFAULT_BASIC_USERNAME,
   });
   const bound = await server.start();
+  const stopWatching = providerSettings ? watchProviderSettings(providerSettings, workspace.v2.events,
+    options.directory ?? config.workspaceRoot, options.logger) : () => {};
   const hostname = options.hostname ?? DEFAULT_SERVE_HOSTNAME;
   const url = bindUrl({ hostname, port: bound.port });
   const line = `${HANDSHAKE_LINE_PREFIX}${url}`;
   (options.stdout ?? process.stdout).write(`${line}\n`);
   if (options.handshakeSink) await options.handshakeSink(line);
   return new OpencodeServeRuntime({
-    server, workspace, config, url, port: bound.port, wiredVersion, stdout: options.stdout ?? null,
+    server, workspace, config, url, port: bound.port, wiredVersion, stdout: options.stdout ?? null, stopWatching,
   });
 }
 
@@ -65,7 +76,7 @@ async function resolveScenarioConfiguration(options) {
 }
 
 export class OpencodeServeRuntime {
-  constructor({ server, workspace, config, url, port, wiredVersion, stdout }) {
+  constructor({ server, workspace, config, url, port, wiredVersion, stdout, stopWatching }) {
     this.server = server;
     this.workspace = workspace;
     this.config = config;
@@ -73,6 +84,7 @@ export class OpencodeServeRuntime {
     this.port = port;
     this.wiredVersion = wiredVersion;
     this.stdout = stdout;
+    this.stopWatching = stopWatching;
     this.closed = false;
   }
 
@@ -81,6 +93,7 @@ export class OpencodeServeRuntime {
   async stop() {
     if (this.closed) return;
     this.closed = true;
+    this.stopWatching();
     for (const record of [...this.workspace.registry.list()]) {
       // Invariant: stored sessions are keyed by ocId; the wire Session shape's id
       // never reaches removal, and a failed removal would leak the engine's

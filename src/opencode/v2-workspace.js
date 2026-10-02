@@ -5,6 +5,7 @@ import { apiError, invalid, objectInput, textInput, wireId, tokenUsage, modelRef
 import { pendingForms, getForm, settleForm } from './v2-forms.js';
 import { realpath, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { manifestFromConfig } from '../provider/route-configuration.js';
 
 export function createV2Workspace(operations, options) {
   const states = new Map(); const creating = new Set();
@@ -17,22 +18,21 @@ export function createV2Workspace(operations, options) {
   const context = { states, creating, events, model, requireState, operations, options };
   const api = {
     events, model, states, requireState,
-    attach(info, metadata) { attachState(states, info, model, events, options.wiredVersion, metadata); },
-    observe(event) {
-      const state = states.get(event.properties?.sessionID);
-      if (!state) return;
-      if (event.type === 'session.deleted') {
-        events.emit(state, 'session.deleted', { sessionID: state.info.id }); states.delete(state.info.id); return;
-      }
-      observeV1Event(state, event, events);
-    },
+    attach(info, metadata, reference) { attachState(states, info, reference ?? model, events, options.wiredVersion, metadata); },
+    observe(event) { observeEvent(states, event, events); },
+    captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
     create(body, directory) { return createSession(context, body, directory); },
     list(query) { return listSessions(states, query); },
     messages(id, query) {
       const values = [...requireState(id).messages.values()].filter((message) => !query.type || message.type === query.type);
       return paginate(values, query, `messages:${id}:${query.type ?? ''}`);
     },
-    prompt(id, body) { return admitPrompt(requireState(id), body, operations, options); },
+    async prompt(id, body) {
+      const state = requireState(id);
+      if (options.providerSettings && !state.pending.size) await selectModel(context, state, state.info.model, true);
+      return admitPrompt(state, body, operations, options);
+    },
+    select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
       const state = requireState(id); const interrupted = state.running;
       cancelQueued(state, events);
@@ -53,10 +53,20 @@ export function createV2Workspace(operations, options) {
   return api;
 }
 
+function observeEvent(states, event, events) {
+  const state = states.get(event.properties?.sessionID);
+  if (!state) return;
+  if (event.type === 'session.deleted') {
+    events.emit(state, 'session.deleted', { sessionID: state.info.id }); states.delete(state.info.id); return;
+  }
+  observeV1Event(state, event, events);
+}
+
 async function createSession(context, body, directory) {
   const { states, creating, model, requireState, operations, options } = context;
   objectInput(body, ['id', 'title', 'agent', 'model', 'location', 'metadata']);
-  validateSelection(body, model);
+  if (options.providerSettings) validateSelection({ agent: body.agent }, model);
+  else validateSelection(body, model);
   if (body.title != null) textInput(body.title, 'title', 256);
   if (body.location != null) objectInput(body.location, ['directory']);
   const location = await validateLocation(body.location?.directory ?? directory, options.config);
@@ -66,7 +76,9 @@ async function createSession(context, body, directory) {
   validateMetadata(body.metadata);
   creating.add(id);
   try {
-    const info = await operations.create({ ocId: id, title: body.title, directory: location, runtimeDirectory: location, metadata: body.metadata });
+    const selected = options.providerSettings ? await options.providerSettings.runtimeConfig(options.config, body.model, location) : null;
+    const info = await operations.create({ ocId: id, title: body.title, directory: location, runtimeDirectory: location, metadata: body.metadata,
+      runtimeConfig: selected?.config, runtimeRef: selected?.reference });
     return requireState(info.id).info;
   } finally { creating.delete(id); }
 }
@@ -83,6 +95,7 @@ function attachState(states, info, model, events, version, metadata) {
 
 function admitPrompt(state, body, operations, options) {
   if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
+  if (state.selecting) throw apiError(409, 'ConflictError', 'Model selection is in progress');
   objectInput(body, ['id', 'text', 'files', 'agents', 'skills', 'metadata', 'delivery', 'resume']);
   textInput(body.text, 'text');
   for (const field of ['files', 'agents', 'skills']) {
@@ -104,6 +117,24 @@ function admitPrompt(state, body, operations, options) {
     state.pending.add(settled);
     return receipt;
   } catch (error) { state.inputs.delete(id); throw error; }
+}
+
+async function selectModel(context, state, reference, requireCredential = false) {
+  if (state.running || state.pending.size || state.selecting || state.closing) throw apiError(409, 'ConflictError', 'Wait for the session to become idle before changing its model');
+  state.selecting = true;
+  try {
+    const selected = await context.options.providerSettings.runtimeConfig(context.options.config, reference, state.info.location.directory);
+    if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
+    if (requireCredential && !selected.config.providerProfiles[selected.reference.providerID].credential) {
+      throw invalid('Connect an API key for this OpenCode provider in OpenChamber settings before sending a prompt');
+    }
+    await context.operations.configure(state.info.id, manifestFromConfig(selected.config), selected.reference);
+    const previous = state.info.model;
+    state.info.model = selected.reference;
+    if (previous.id !== selected.reference.id || previous.providerID !== selected.reference.providerID) {
+      context.events.emit(state, 'session.model.selected', { sessionID: state.info.id, model: selected.reference, previous });
+    }
+  } finally { state.selecting = false; }
 }
 
 function validateMetadata(value) {

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:bf1c9729333412d67943e277257ef9d83b237e577f94b450c23ba90e1441f752",
+  "source_digest": "sha256:93de8bea6ef46984f733a191c3dfeb52e5cdafa278f0a78c9f3584aefeabfe53",
   "counts": {
-    "modules": 422,
-    "component_edges": 79
+    "modules": 426,
+    "component_edges": 80
   },
   "components": [
     {
@@ -72,7 +72,7 @@
       "id": "opencode-surface",
       "label": "OpenCode surface",
       "ownership": "Serves the OpenCode wire contract over live session engines.",
-      "module_count": 19
+      "module_count": 23
     },
     {
       "id": "foundation",
@@ -154,16 +154,16 @@
       "module_count": 17
     },
     {
+      "from": "opencode-surface",
+      "to": "opencode-surface",
+      "import_count": 43,
+      "module_count": 18
+    },
+    {
       "from": "agentic-engine",
       "to": "agentic-engine",
       "import_count": 38,
       "module_count": 11
-    },
-    {
-      "from": "opencode-surface",
-      "to": "opencode-surface",
-      "import_count": 32,
-      "module_count": 14
     },
     {
       "from": "integrations",
@@ -181,6 +181,12 @@
       "from": "foundation",
       "to": "integrations",
       "import_count": 19,
+      "module_count": 9
+    },
+    {
+      "from": "opencode-surface",
+      "to": "foundation",
+      "import_count": 15,
       "module_count": 9
     },
     {
@@ -218,12 +224,6 @@
       "to": "tools",
       "import_count": 12,
       "module_count": 7
-    },
-    {
-      "from": "opencode-surface",
-      "to": "foundation",
-      "import_count": 12,
-      "module_count": 8
     },
     {
       "from": "foundation",
@@ -364,6 +364,12 @@
       "module_count": 3
     },
     {
+      "from": "opencode-surface",
+      "to": "persistence",
+      "import_count": 4,
+      "module_count": 3
+    },
+    {
       "from": "experience-engine",
       "to": "agentic-engine",
       "import_count": 3,
@@ -390,12 +396,6 @@
     {
       "from": "guidance",
       "to": "guidance",
-      "import_count": 3,
-      "module_count": 2
-    },
-    {
-      "from": "opencode-surface",
-      "to": "persistence",
       "import_count": 3,
       "module_count": 2
     },
@@ -470,6 +470,12 @@
       "to": "tools",
       "import_count": 2,
       "module_count": 1
+    },
+    {
+      "from": "opencode-surface",
+      "to": "providers",
+      "import_count": 2,
+      "module_count": 2
     },
     {
       "from": "persistence",
@@ -2496,6 +2502,46 @@
       ]
     },
     {
+      "path": "src/opencode/provider-api.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/protocol.js",
+        "src/opencode/provider-document.js",
+        "src/opencode/provider-settings.js",
+        "src/opencode/v2-contract.js"
+      ]
+    },
+    {
+      "path": "src/opencode/provider-document.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/v2-contract.js"
+      ]
+    },
+    {
+      "path": "src/opencode/provider-settings.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/opencode/provider-document.js",
+        "src/opencode/v2-contract.js",
+        "src/persistence/atomic-json.js",
+        "src/provider/route-configuration.js",
+        "src/secret-broker.js"
+      ]
+    },
+    {
+      "path": "src/opencode/provider-watch.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/provider-document.js"
+      ]
+    },
+    {
       "path": "src/opencode/registry.js",
       "component": "opencode-surface",
       "entrypoint": false,
@@ -2512,9 +2558,12 @@
         "src/config.js",
         "src/onboarding.js",
         "src/opencode/config.js",
+        "src/opencode/provider-settings.js",
+        "src/opencode/provider-watch.js",
         "src/opencode/server.js",
         "src/opencode/sessions.js",
-        "src/opencode/version.js"
+        "src/opencode/version.js",
+        "src/product.js"
       ]
     },
     {
@@ -2610,6 +2659,7 @@
       "entrypoint": false,
       "imports": [
         "src/opencode/protocol.js",
+        "src/opencode/provider-api.js",
         "src/opencode/v2-catalog.js",
         "src/opencode/v2-contract.js"
       ]
@@ -2622,7 +2672,8 @@
         "src/opencode/v2-contract.js",
         "src/opencode/v2-events.js",
         "src/opencode/v2-forms.js",
-        "src/opencode/v2-projection.js"
+        "src/opencode/v2-projection.js",
+        "src/provider/route-configuration.js"
       ]
     },
     {

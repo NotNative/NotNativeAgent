@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { readJsonBody, sendJson, sendNoContent } from './protocol.js';
 import { apiError, invalid, objectInput, validateSelection } from './v2-contract.js';
 import { catalogResponse, requestDirectory } from './v2-catalog.js';
+import { providerCatalog, providerMutation } from './provider-api.js';
 
 export async function handleV2Request(ctx) {
   try { await dispatch(ctx); }
@@ -20,6 +21,7 @@ async function dispatch(ctx) {
   const { req, res, target, options } = ctx;
   const api = options.v2; const path = target.pathname; const method = req.method;
   if (!api) throw apiError(503, 'ServiceUnavailableError', 'V2 workspace is unavailable');
+  if (await providerMutation(ctx, body)) return;
   if (method === 'GET' && path === '/api/info') {
     return sendJson(res, 200, { version: options.wiredVersion, pid: process.pid, urls: [], paths: { tmp: tmpdir() } });
   }
@@ -40,6 +42,10 @@ async function dispatch(ctx) {
     await api.wait(segments[2]); return sendNoContent(res);
   }
   if (method === 'GET') {
+    if (options.providerSettings && ['/api/agent', '/api/model', '/api/model/default', '/api/provider', '/api/integration', '/api/config'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+      const catalog = await providerCatalog(options.providerSettings, path, requestDirectory(target, req, options.directory));
+      if (catalog !== undefined) return sendJson(res, 200, catalog);
+    }
     const result = catalogResponse(path, requestDirectory(target, req, options.directory), api, options.config);
     if (result !== undefined) return sendJson(res, 200, result);
   }
@@ -79,7 +85,7 @@ async function sessionRoute(ctx, segments) {
 
 async function sessionPost(ctx, state, action) {
   const { res, options, target } = ctx; const api = options.v2; const id = state.info.id;
-  if (action === 'prompt') return sendJson(res, 200, { data: api.prompt(id, await body(ctx)) });
+  if (action === 'prompt') return sendJson(res, 200, { data: await api.prompt(id, await body(ctx)) });
   if (action === 'interrupt') {
     if (target.query.resume !== undefined && target.query.resume !== 'false') throw invalid('Resume after interruption is not supported');
     return sendJson(res, 200, await api.interrupt(id));
@@ -87,7 +93,8 @@ async function sessionPost(ctx, state, action) {
   if (action === 'agent' || action === 'model') {
     const input = objectInput(await body(ctx), [action]);
     if (input[action] == null) throw invalid(`${action} is required`);
-    validateSelection(input, api.model); return sendNoContent(res);
+    if (action === 'model' && options.providerSettings) await api.select(id, input.model);
+    else validateSelection(input, state.info.model); return sendNoContent(res);
   }
   if (action === 'view') {
     const input = objectInput(await body(ctx), ['idle']);

@@ -9,6 +9,7 @@ export function observeV1Event(state, event, events) {
   if (type === 'message.part.updated') return observePart(state, value.part, events);
   if (type === 'message.part.delta') return observeDelta(state, value, events);
   if (type === 'session.status' && value.status.type === 'busy') {
+    state.failureCode = null;
     state.running = true;
     events.emit(state, 'session.execution.started', { sessionID: state.info.id });
   }
@@ -44,7 +45,7 @@ function finishMessage(state, info, events) {
   state.lastOutcome = info.finish === 'abort' ? 'interrupted' : info.finish === 'error' ? 'failed' : 'succeeded';
   const data = { sessionID: state.info.id, assistantMessageID: info.id, cost: message.cost, tokens: message.tokens };
   if (info.finish === 'error') {
-    message.error = { type: 'nna_execution_failed', message: 'NNA could not complete the turn' };
+    message.error = failureInfo(state);
     events.emit(state, 'session.step.failed', { ...data, error: message.error });
   } else events.emit(state, 'session.step.ended', { ...data, finish: message.finish });
   for (const key of ['input', 'output', 'reasoning']) state.info.tokens[key] += message.tokens[key];
@@ -89,7 +90,15 @@ function finishExecution(state, events) {
   state.info.outcome = state.lastOutcome ?? 'succeeded';
   state.info.time.idle = Date.now(); state.info.time.updated = state.info.time.idle;
   const extra = state.info.outcome === 'interrupted' ? { reason: 'user' }
-    : state.info.outcome === 'failed' ? { error: { type: 'nna_execution_failed', message: 'NNA could not complete the turn' } } : {};
+    : state.info.outcome === 'failed' ? { error: failureInfo(state) } : {};
   events.emit(state, `session.execution.${state.info.outcome}`, { sessionID: state.info.id, ...extra });
   events.emit(state, 'session.usage.updated', { sessionID: state.info.id, cost: state.info.cost, tokens: state.info.tokens }, false);
+}
+
+function failureInfo(state) {
+  // Security: only fixed credential guidance crosses the wire; provider exception text can contain secrets.
+  const credentialFailures = new Set(['missing_credential', 'secret_not_found', 'secret_revoked', 'secret_field_not_found']);
+  if (credentialFailures.has(state.failureCode)) return { type: state.failureCode,
+    message: 'The provider credential is unavailable. Connect an API key for this provider in OpenChamber settings.' };
+  return { type: 'nna_execution_failed', message: 'NNA could not complete the turn' };
 }

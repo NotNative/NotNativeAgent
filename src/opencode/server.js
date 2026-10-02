@@ -33,6 +33,7 @@ export class OpenCodeCompatServer {
       v2: options.v2,
       directory: options.directory ?? process.cwd(),
       config: options.config,
+      providerSettings: options.providerSettings,
       logger: options.logger,
     });
   }

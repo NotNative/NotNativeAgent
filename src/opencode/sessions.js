@@ -53,12 +53,16 @@ function defineWorkspaceOperations(workspace, options) {
       return registry.list().map((record) => registry.describe(record, wiredVersion));
     },
     async create(input = {}) {
+      const selected = options.providerSettings && !input.runtimeConfig
+        ? await options.providerSettings.runtimeConfig(options.config, undefined, options.directory ?? options.config.workspaceRoot) : null;
       return attachSession(workspace, options, {
         title: boundedTitle(input.title ?? 'New session'),
         directory: boundedDirectory(input.directory),
         ocId: input.ocId,
         runtimeDirectory: input.runtimeDirectory,
         metadata: input.runtimeDirectory ? input.metadata : undefined,
+        runtimeConfig: input.runtimeConfig ?? selected?.config,
+        runtimeRef: input.runtimeRef ?? selected?.reference,
       });
     },
     get(ocId) {
@@ -89,7 +93,7 @@ function defineWorkspaceOperations(workspace, options) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata }) {
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata, runtimeConfig, runtimeRef }) {
   const { registry, bus, wiredVersion } = workspace;
   const sessionId = newId('session');
   const ocId = requestedId ?? newId('ses');
@@ -97,10 +101,11 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
   const projectID = projectIdentifier(sessionDirectory);
   let wireSession = null;
   const engine = new SessionEngine({
-    config: runtimeDirectory ? Object.freeze({ ...options.config, workspaceRoot: runtimeDirectory }) : options.config,
+    config: runtimeConfig ?? (runtimeDirectory ? Object.freeze({ ...options.config, workspaceRoot: runtimeDirectory }) : options.config),
     sessionId,
     surface: SURFACE_NAME,
     output: async (record) => {
+      if (record.type === 'turn_result') workspace.v2?.captureFailure(ocId, record.failure?.code);
       wireSession?.observe(record);
       options.logger?.record(record, { sessionId });
     },
@@ -135,10 +140,10 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
       return registry.describe(touched ?? stored, wiredVersion);
     },
   });
-  const modelRef = configModelRef(options.config);
+  const modelRef = configModelRef(runtimeConfig ?? options.config);
   if (modelRef) wireSession.setModelRef(modelRef);
   const stored = registry.attach({ ...record, wireSession });
-  workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata);
+  workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
   options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title }, { sessionId });
   options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title, directory: stored.directory }, { sessionId });
   return registry.describe(stored, wiredVersion);
@@ -169,6 +174,12 @@ function requireSession(workspace, ocId) {
 
 function turnOperations(workspace) {
   return {
+    async configure(ocId, manifest, model) {
+      const session = requireSession(workspace, ocId);
+      const result = await session.ingress.submit({ version: '1.0', type: 'configuration_update', request_id: newId('oc_config'), manifest }, 'opencode-wire');
+      session.wireSession.setModelRef({ providerID: model.providerID, modelID: model.id });
+      return result;
+    },
     admit(ocId, parts, input) {
       return requireSession(workspace, ocId).wireSession.admit(parts, input);
     },
