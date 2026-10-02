@@ -23,6 +23,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   child.stderr.on('data', (chunk) => { diagnostics = `${diagnostics}${chunk}`.slice(-2048); });
   try {
     const frame = await readiness(child);
+    await executionReady(frame);
     assert.equal(frame.type, 'ready');
     assert.equal(frame.protocol, '1.0');
     assert.match(frame.endpoint, /^http:\/\/127\.0\.0\.1:\d+$/u);
@@ -87,6 +88,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   reopened.stderr.resume();
   try {
     const frame = await readiness(reopened);
+    await executionReady(frame);
     const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal() };
     const listed = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(listed.status, 200);
@@ -102,6 +104,22 @@ function principal(permissions = ['nnd.read', 'nnd.session.create']) {
     workspace_ids: ['local'], group_ids: [], trace_id: 'trace', request_id: 'request',
     issued_at: new Date().toISOString(),
   })).toString('base64url');
+}
+
+async function executionReady(frame) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${frame.endpoint}/v1/health`, {
+      headers: { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal(['integration.health']) },
+      signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(response.status, 200);
+    const status = await response.json();
+    if (status.execution_state === 'ready') return;
+    assert.equal(status.service_state, 'starting');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error('NND native execution did not become ready within its test bound');
 }
 
 function readiness(child) {

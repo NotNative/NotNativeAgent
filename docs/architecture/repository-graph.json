@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6561dc0ba1a7bf2ade943507a6ee9af774af38318b033d7aeb2a67a00ce4e10a",
+  "source_digest": "sha256:4c2963e34f7e32b3f296f7aa81350e8ce64312989451895fc9bc9abc16a5c3e7",
   "counts": {
-    "modules": 402,
+    "modules": 405,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 125
+      "module_count": 128
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 232,
-      "module_count": 102
+      "import_count": 236,
+      "module_count": 105
     },
     {
       "from": "experience-engine",
@@ -162,7 +162,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 26,
+      "import_count": 29,
       "module_count": 10
     },
     {
@@ -181,6 +181,12 @@
       "from": "providers",
       "to": "providers",
       "import_count": 15,
+      "module_count": 7
+    },
+    {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 14,
       "module_count": 7
     },
     {
@@ -206,12 +212,6 @@
       "to": "tools",
       "import_count": 12,
       "module_count": 7
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 12,
-      "module_count": 6
     },
     {
       "from": "foundation",
@@ -1779,6 +1779,8 @@
         "src/nnd-mcp-inventory.js",
         "src/nnd-memory-tool.js",
         "src/nnd-package.js",
+        "src/nnd-setup-config.js",
+        "src/nnd-setup-runtime.js",
         "src/nnd-skills-inventory.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
@@ -1805,6 +1807,7 @@
         "src/integration-principal.js",
         "src/nnd-harness-routes.js",
         "src/nnd-operator-routes.js",
+        "src/nnd-setup-routes.js",
         "src/nno-integration-activation.js",
         "src/provider/bootstrap.js",
         "src/secret-broker-server.js"
@@ -2240,6 +2243,33 @@
         "src/nnd-projection.js",
         "src/nnd-session-description.js",
         "src/nnd-turn-state.js"
+      ]
+    },
+    {
+      "path": "src/nnd-setup-config.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/nnd-setup-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-setup-runtime.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {

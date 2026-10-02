@@ -118,7 +118,7 @@ export class NndEngineHost {
       return context;
     } catch (error) {
       // Why: an engine can acquire resources before initialization reports its failure.
-      await shutdownAfterFailedCreate(engine);
+      await shutdownAfterFailedCreate(engine, error);
       throw error;
     } finally {
       this.#creating.delete(sessionId);

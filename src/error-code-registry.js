@@ -82,6 +82,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_install_runtime_unavailable', 'nnd_install_runtime_invalid', 'nnd_service_platform_unsupported',
     'nnd_private_platform_unsupported', 'nnd_private_path_invalid',
     'nnd_discovery_invalid',
+    'nnd_setup_required', 'nnd_setup_configuration_invalid', 'nnd_setup_timeout_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
     'nnd_message_cursor_invalid',
@@ -99,6 +100,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   ]),
   internal: Object.freeze([
     'nnd_notification_busy',
+    'nnd_setup_busy', 'nnd_setup_host_failed', 'nnd_setup_activation_timeout',
     'active_child', 'active_turn_required', 'already_initialized',
     'attachment_busy', 'attachment_cancelled', 'attachment_cleanup_failed',
     'attachment_command_invalid', 'attachment_empty_observation', 'attachment_integrity_invalid',
@@ -322,6 +324,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   ]),
   shutdown: Object.freeze([
     'shutdown_state_invalid', 'shutdown_timeout',
+    'nnd_setup_stopped', 'nnd_setup_cleanup_failed', 'nnd_setup_shutdown_timeout',
   ]),
   tool: Object.freeze([
     'browser_action_failed', 'browser_action_timeout', 'browser_root_invalid',

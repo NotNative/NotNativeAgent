@@ -21,6 +21,8 @@ import { workspaceIsTrusted } from './experience/trust.js';
 import { consumeNndBrowserCallbackFromEnvironment } from './nnd-browser-tool.js';
 import { consumeNndAgentToolCallbackFromEnvironment } from './nnd-memory-tool.js';
 import { assertRegisteredNndPackage, runNndPackageCommand } from './nnd-package.js';
+import { createNndSetupRuntime } from './nnd-setup-runtime.js';
+import { readNndSetupConfiguration, NND_CONFIGURATION_OPTIONS } from './nnd-setup-config.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -56,23 +58,15 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
-  const nndEngineHost = await createIntegrationNndEngineHost(paths, {
-    ...options,
-    // NNO's realm contains principal-scoped secrets. Its session engine does
-    // not carry that principal into credential resolution, so granting the
-    // broker here would bypass workspace/user scope checks. The local NND
-    // operator uses the unscoped NNA realm and may share the TUI binding.
-    secretBroker: owner === 'nnd' ? broker : undefined,
-    nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
-    nndAgentToolCallback: owner === 'nnd' ? consumeNndAgentToolCallbackFromEnvironment(environment) : null,
-  });
+  const lifecycle = await createIntegrationLifecycle(paths, options, owner, broker, environment);
+  const nndEngineHost = lifecycle.getHost();
   let service;
   try {
     service = await startIntegrationServer({
-      activation, token, instanceId, broker, providerStore, nndEngineHost, nndWorkspaceRoot: nndEngineHost.workspaceRoot, host: '127.0.0.1', port: 0,
+      activation, token, instanceId, broker, providerStore, nndEngineHost, nndRuntime: lifecycle.runtime, nndWorkspaceRoot: nndEngineHost?.workspaceRoot, host: '127.0.0.1', port: 0,
     });
   } catch (error) {
-    try { await nndEngineHost.shutdown(); }
+    try { await lifecycle.close(); }
     catch (shutdownError) {
       if (Object.isExtensible(error)) error.secondaryFailures = [...(error.secondaryFailures ?? []), shutdownError];
     }
@@ -83,14 +77,11 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   let failure = null;
   try {
     // Security: stdout is one readiness frame for the owning local process; the token is not logged.
+    lifecycle.runtime?.start();
     output.write(`${JSON.stringify({ type: 'ready', protocol: '1.0', endpoint, instance_id: instanceId, token })}\n`);
     await waitForShutdown(options.signal, service.server);
   } catch (error) { failure = error; }
-  try { await service.close(); } catch (error) {
-    if (!failure) failure = error;
-    else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
-  }
-  try { await nndEngineHost.shutdown(); } catch (error) {
+  try { await closeIntegrationLifecycle(service, lifecycle); } catch (error) {
     if (!failure) failure = error;
     else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
   }
@@ -98,17 +89,59 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   return { stopped: true };
 }
 
+async function closeIntegrationLifecycle(service, lifecycle) {
+  if (lifecycle.runtime) {
+    // Invariant: stop execution admission before an SSE client can hold listener drain open.
+    const results = await Promise.allSettled([lifecycle.close(), closeNndListener(service)]);
+    const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason);
+    if (failures.length) throw new AggregateError(failures, 'NND integration shutdown failed.');
+    return;
+  }
+  let failure;
+  try { await service.close(); } catch (error) { failure = error; }
+  try { await lifecycle.close(); } catch (error) {
+    if (!failure) failure = error;
+    else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
+  }
+  if (failure) throw failure;
+}
+
+function closeNndListener(service) {
+  return new Promise((resolve, reject) => {
+    const force = setTimeout(() => service.server.closeAllConnections(), 1000);
+    const deadline = setTimeout(() => reject(new ContractError('nnd_setup_shutdown_timeout', 'NND listener shutdown exceeded its time bound.')), 2000);
+    service.close().then(() => { clearTimeout(force); clearTimeout(deadline); resolve(); },
+      (error) => { clearTimeout(force); clearTimeout(deadline); reject(error); });
+  });
+}
+
+async function createIntegrationLifecycle(paths, options, owner, broker, environment) {
+  const hostOptions = {
+    ...options,
+    // Security: only the local operator shares the TUI secret realm. NNO remains principal scoped.
+    secretBroker: owner === 'nnd' ? broker : undefined,
+    nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
+    nndAgentToolCallback: owner === 'nnd' ? consumeNndAgentToolCallbackFromEnvironment(environment) : null,
+  };
+  if (owner !== 'nnd') {
+    const host = await createIntegrationNndEngineHost(paths, hostOptions);
+    return { getHost: () => host, close: () => host.shutdown(), runtime: undefined };
+  }
+  const runtime = createNndSetupRuntime({
+    loadConfiguration: (signal) => readNndSetupConfiguration(paths, signal),
+    createHost: (preparedConfig, { signal }) => createIntegrationNndEngineHost(paths, { ...hostOptions, preparedConfig, setupSignal: signal }),
+  });
+  return { getHost: () => runtime.getHost(), close: () => runtime.close(), runtime };
+}
+
 export function integrationSecretRealm(owner, deploymentId) {
   return owner === 'nnd' ? LOCAL_SECRET_REALM : `${owner}:${deploymentId}`;
 }
 
 export async function createIntegrationNndEngineHost(paths, options = {}) {
-  const manifest = await readIntegrationManifest(join(paths.config, 'manifest.json'));
-  const configOptions = {
-    missionPrincipal: 'authenticated-nnd-operator', principal: 'authenticated-nnd-operator',
-    hostOrigin: 'nnd-integration', hostIdentity: 'nnd-integration',
-  };
-  const config = resolveManifest(manifest, configOptions);
+  options.setupSignal?.throwIfAborted();
+  const configOptions = NND_CONFIGURATION_OPTIONS;
+  const config = options.preparedConfig ?? resolveManifest(await readIntegrationManifest(join(paths.config, 'manifest.json')), configOptions);
   let activeConfig = config;
   const trusted = typeof paths.trustedWorkspaces === 'string'
     ? await workspaceIsTrusted(paths.trustedWorkspaces, config.workspaceRoot) : false;
@@ -157,8 +190,19 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     catch { throw new ContractError('nnd_skills_unavailable', 'NNA skill discovery is unavailable'); }
     return nndSkillsInventory(skills.catalog());
   };
-  await host.initialize();
-  return host;
+  return initializeIntegrationHost(host, options.setupSignal);
+}
+
+async function initializeIntegrationHost(host, signal) {
+  try { signal?.throwIfAborted(); await host.initialize(); signal?.throwIfAborted(); return host; }
+  catch (error) {
+    try { await host.shutdown(); }
+    catch (cleanup) {
+      const cause = new AggregateError([error, cleanup], 'NND host initialization and cleanup failed.');
+      throw new ContractError('nnd_setup_cleanup_failed', 'NND host cleanup failed. Restart the native process before retrying.', { cause });
+    }
+    throw error;
+  }
 }
 
 async function readIntegrationManifest(path) {

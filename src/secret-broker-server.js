@@ -126,6 +126,9 @@ function requireScope(principal, scope) {
 }
 function failure(code, message) { return { error: { code, message } }; }
 function failureStatus(code) {
+  if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
+  if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
+  if (code === 'nnd_setup_busy') return 409;
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
   if (code.includes('not_found') || code === 'provider_missing' || code === 'nnd_session_unavailable' || code === 'question_unknown') return 404;

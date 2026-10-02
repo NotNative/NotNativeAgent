@@ -56,8 +56,11 @@ export function validCatalogRecord(record) {
     && (record.archivedAt === undefined || Number.isSafeInteger(record.archivedAt) && record.archivedAt >= 0);
 }
 
-export async function shutdownAfterFailedCreate(engine) {
+export async function shutdownAfterFailedCreate(engine, initializationFailure) {
   if (!engine || typeof engine.shutdown !== 'function') return;
   try { await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_initialize_failed') }); }
-  catch { /* preserve the initialization failure as the causal error */ }
+  catch (cleanupFailure) {
+    const cause = new AggregateError([initializationFailure, cleanupFailure], 'NND engine initialization and cleanup failed.');
+    throw new ContractError('nnd_setup_cleanup_failed', 'NND engine cleanup failed. Restart the native process before retrying.', { cause });
+  }
 }

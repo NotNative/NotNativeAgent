@@ -9,6 +9,7 @@ import { discoverProviderModels } from './provider/bootstrap.js';
 import { dispatchSecretBrokerRequest, readJsonBody, send, sendFailure } from './secret-broker-server.js';
 import { dispatchNndOperatorRequest } from './nnd-operator-routes.js';
 import { dispatchNndHarnessRequest } from './nnd-harness-routes.js';
+import { dispatchNndSetupRequest, guardNndSetupRequest } from './nnd-setup-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -44,10 +45,17 @@ async function dispatch(request, response, context) {
   }
   const principal = readIntegrationPrincipal(request);
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+  if (context.nndRuntime) {
+    const host = context.nndRuntime.getHost();
+    context = { ...context, nndEngineHost: host, nndWorkspaceRoot: host?.workspaceRoot };
+  }
   if (request.method === 'GET' && url.pathname === '/v1/health') {
     requireIntegrationPermission(principal, 'integration.health');
-    return send(response, 200, { status: 'ready', protocol: '1.0', instance_id: context.instanceId });
+    return send(response, 200, { status: context.nndRuntime?.snapshot().service_state ?? 'ready',
+      protocol: '1.0', instance_id: context.instanceId, ...(context.nndRuntime ? context.nndRuntime.snapshot() : {}) });
   }
+  if (await dispatchNndSetupRequest(request, response, { ...context, principal, url })) return;
+  guardNndSetupRequest({ ...context, principal, url });
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,

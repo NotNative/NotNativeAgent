@@ -130,6 +130,18 @@ test('NND service uses the local secret realm for configured provider checks', a
       workspace_ids: [], group_ids: [], trace_id: 'provider-check',
       issued_at: new Date().toISOString(), request_id: 'provider-check',
     };
+    const healthPrincipal = { ...principal, permissions: ['integration.health'] };
+    let readyHost = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const health = await fetch(`${frame.endpoint}/v1/health`, { headers: {
+        authorization: `Bearer ${frame.token}`,
+        'x-nna-principal': Buffer.from(JSON.stringify(healthPrincipal)).toString('base64url'),
+      } });
+      const state = await health.json();
+      if (state.execution_state === 'ready') { readyHost = true; break; }
+      assert.equal(state.status, 'starting');
+    }
+    assert.equal(readyHost, true, 'native execution host must become ready');
     const response = await fetch(`${frame.endpoint}/v1/provider-profiles/primary/test`, {
       method: 'POST', headers: {
         authorization: `Bearer ${frame.token}`,

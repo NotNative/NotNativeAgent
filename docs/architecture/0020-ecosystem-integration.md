@@ -91,6 +91,27 @@ private reader returns credential material and must never become a status-output
 serializer. Authenticated controller challenge, lifecycle wiring and governed
 orphan recovery remain required before advertising supervision.
 
+Local `nna nnd serve` now starts its authenticated listener before session
+restoration. Native health and `/v1/nnd/setup/status` remain reachable during
+initialization or configuration failure. Status requires `nnd.setup.read`;
+explicit `/v1/nnd/setup/activate` requires `nnd.setup.activate`. Activation reads
+a bounded valid UTF-8 manifest with an explicit absolute workspace. It never
+creates configuration or grants those permissions automatically.
+
+The runtime publishes a host only after initialization succeeds. Missing or
+invalid configuration produces setup-required state; catalog or engine failure
+is distinct. Execution, raw secret use and provider network probes are blocked
+until the host is ready. Configuration readiness does not prove provider network
+availability. Existing scoped credential management remains available. Initial
+configuration save and repair concurrency remain pending.
+
+Activation and shutdown have explicit deadlines. Timed-out work remains owned
+until it settles; late hosts are disposed and failed cleanup prevents another
+activation in that process. Listener shutdown drains briefly, then closes held
+connections so an SSE subscriber cannot prevent runtime shutdown. NNO keeps its
+separate activation and secret realm. These native APIs do not yet supervise the
+GUI child or advertise `service_supervision`.
+
 ## Responsibility boundaries
 
 1. NNA core owns: the agent loop, governance decisions, the projection fold and its
