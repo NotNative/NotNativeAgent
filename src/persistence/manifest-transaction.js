@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
 import { assertManifestLease, withManifestLock, runManifestLeaseWork } from './manifest-lock.js';
 import { digest, MANIFEST_LIMIT, manifestFailure, manifestTarget, readTargetSnapshot,
-  stageManifest, publishManifest, writePrivateFile } from './manifest-files.js';
+  stageManifest, publishManifest, writePrivateFile, serializeManifestBytes } from './manifest-files.js';
 import { openManifestReceipts, reconcileManifestReceipts, manifestReceipt, prepareManifestReceipt,
   finishManifestReceipt, receiptOutcome, reserveManifestReceipt } from './manifest-receipts.js';
 
@@ -62,8 +62,7 @@ async function commit(lease, database, input, payloadHash) {
   const snapshot = await readTargetSnapshot(target);
   if (snapshot.revision !== input.expectedRevision) throw manifestFailure('manifest_revision_conflict');
   input.signal?.throwIfAborted();
-  const serialized = await validatedDocument(input,snapshot);
-  const bytes = Buffer.from(serialized + '\n');
+  const bytes = await validatedDocument(input,snapshot);
   const after = digest(bytes);
   input.signal?.throwIfAborted();
   if (database.prepare('SELECT COUNT(*) AS count FROM operations').get().count >= 128) throw manifestFailure('manifest_receipt_capacity');
@@ -125,7 +124,5 @@ async function validatedDocument(input,snapshot) {
     next = await input.transform(structuredClone(snapshot.rawManifest), { state: snapshot.state, revision: snapshot.revision });
     await input.validate(structuredClone(next));
   } catch { throw manifestFailure('manifest_validation_failed'); }
-  const serialized = JSON.stringify(next, null, 2);
-  if (typeof serialized !== 'string' || Buffer.byteLength(serialized) + 1 > MANIFEST_LIMIT) throw manifestFailure('manifest_size_invalid');
-  return serialized;
+  return serializeManifestBytes(next);
 }

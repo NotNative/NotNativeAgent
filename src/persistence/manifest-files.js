@@ -7,6 +7,13 @@ import { PRIVATE_ACL_PROGRAM, runPrivateWindowsProgram } from '../nnd-service-pr
 
 export const MANIFEST_LIMIT = 1024 * 1024;
 export const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+export function serializeManifestBytes(value) {
+  const serialized = JSON.stringify(value, null, 2);
+  if (typeof serialized !== 'string' || Buffer.byteLength(serialized) + 1 > MANIFEST_LIMIT) {
+    throw manifestFailure('manifest_size_invalid');
+  }
+  return Buffer.from(serialized + '\n');
+}
 export function manifestFailure(code, persistence = 'unpublished') {
   const error = new ContractError(code, 'Native manifest transaction could not be completed');
   error.persistence = persistence;

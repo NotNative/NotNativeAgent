@@ -33,12 +33,21 @@ async function storage(identity, signal) {
   return { directory: path, installation_id: identity.installation_id, data_id: dataId };
 }
 export async function createNndDiscoveryGeneration(identity, lease, { endpoint } = {}) {
+  return createGeneration(identity, lease, endpoint, randomUUID());
+}
+// Internal activation path: the GUI child already bootstrapped with this exact
+// generation. This only creates private evidence; it never changes current.json.
+export async function createNndTrialDiscoveryGeneration(identity, lease, { endpoint, instanceId } = {}) {
+  if (typeof instanceId !== 'string' || !UUID.test(instanceId)) throw invalid();
+  return createGeneration(identity, lease, endpoint, instanceId);
+}
+async function createGeneration(identity, lease, endpoint, instanceId) {
   assertHeldNndServiceLease(lease, identity?.data_id);
   if (!isNndLoopbackEndpoint(endpoint)) throw invalid();
   return withNndServiceLease(lease, identity.data_id, async (signal) => {
     const context = await storage(identity, signal);
     const record = validateRecord({ version: '1.0', purpose: 'nnd_service_control',
-      installation_id: identity.installation_id, data_id: identity.data_id, instance_id: randomUUID(), endpoint,
+      installation_id: identity.installation_id, data_id: identity.data_id, instance_id: instanceId, endpoint,
       control_token: randomBytes(32).toString('base64url'), process_identity: await captureDiscoveryProcessIdentity(signal),
       created_at: new Date().toISOString() }, identity);
     const result = await runDiscoveryOperation({ ...context, action: 'create', record }, signal);
@@ -52,6 +61,11 @@ export async function publishNndDiscoveryGeneration(identity, lease, instanceId,
 export async function removeNndDiscoveryPointer(identity, lease, instanceId) {
   return mutate(identity, lease, 'remove', instanceId, instanceId);
 }
+// A failed or completed unpublished trial must retire its private credential.
+// The storage gate refuses to discard a generation named by current.json.
+export async function discardNndTrialDiscoveryGeneration(identity, lease, instanceId) {
+  return mutate(identity, lease, 'discard', instanceId, null);
+}
 async function mutate(identity, lease, action, instanceId, expectedInstanceId) {
   assertHeldNndServiceLease(lease, identity?.data_id);
   if (typeof instanceId !== 'string' || !UUID.test(instanceId)
@@ -59,7 +73,8 @@ async function mutate(identity, lease, action, instanceId, expectedInstanceId) {
   return withNndServiceLease(lease, identity.data_id, async (signal) => {
     const context = await storage(identity, signal);
     const result = await runDiscoveryOperation({ ...context, action, instance_id: instanceId, expected_instance_id: expectedInstanceId }, signal);
-    if (result?.[action === 'publish' ? 'published' : 'removed'] !== true) throw invalid();
+    const outcome = action === 'publish' ? 'published' : action === 'remove' ? 'removed' : 'discarded';
+    if (result?.[outcome] !== true) throw invalid();
     return Object.freeze(result);
   });
 }

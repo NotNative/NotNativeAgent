@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:57dab2676409e4f8a46997db4b967390644b017a2a3d56a692f6af82ba2a04db",
+  "source_digest": "sha256:7729b264b7f9dd243b5c52e00ab2092b356873b6d5ab3bcca99851db4c7886a2",
   "counts": {
     "modules": 467,
     "component_edges": 81
@@ -172,16 +172,16 @@
       "module_count": 10
     },
     {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 27,
+      "module_count": 20
+    },
+    {
       "from": "providers",
       "to": "foundation",
       "import_count": 26,
       "module_count": 18
-    },
-    {
-      "from": "foundation",
-      "to": "persistence",
-      "import_count": 25,
-      "module_count": 19
     },
     {
       "from": "foundation",
@@ -1984,6 +1984,7 @@
         "src/nnd-package.js",
         "src/nnd-payload-contract.js",
         "src/nnd-service-lock.js",
+        "src/persistence/manifest-files.js",
         "src/persistence/manifest-lock.js",
         "src/persistence/manifest-transaction.js"
       ]
@@ -2767,6 +2768,7 @@
         "src/nnd-service-discovery.js",
         "src/nnd-service-lock.js",
         "src/nnd-service-native.js",
+        "src/persistence/manifest-lock.js",
         "src/product.js"
       ]
     },

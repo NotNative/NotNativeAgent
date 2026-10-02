@@ -19,6 +19,7 @@ async function harness(overrides = {}) {
   const owner = { status: () => ({ installation_id: identity.installation_id, data_id: identity.data_id,
     instance_id: proof.generation, package_version: proof.version }),
   verify: async () => { trace.push('verify'); return overrides.verify ? overrides.verify(proof) : proof; },
+  prepareDiscovery: async () => { trace.push('prepare-discovery'); return { instance_id: proof.generation }; },
   stop: async () => { trace.push('stop'); if (overrides.stop) return overrides.stop(); } };
   const dependencies = { join, resolve, ContractError,
     assertHeldNndServiceLease: actual => { assert.equal(actual, lease); trace.push('lease:assert'); },
@@ -49,12 +50,13 @@ test('owned trial holds lease and registry through preparation, unpublished heal
 });
 test('trusted continuation observes the same live unpublished child and both original locks', async () => {
   const f = await harness();
-  const result = await f.run({ continuation: async ({ proof, status, serviceLease, registryLease, signal }) => {
+  const result = await f.run({ continuation: async ({ proof, status, prepareDiscovery, serviceLease, registryLease, signal }) => {
     assert.equal(proof.generation, f.proof.generation);
     assert.equal(status().instance_id, proof.generation);
     assert.equal(signal.aborted, false);
     assert.equal(serviceLease, f.lease); assert.equal(registryLease, f.registryLease);
     assert.equal(f.trace.includes('stop'), false);
+    assert.equal((await prepareDiscovery()).instance_id, proof.generation);
     f.trace.push('continuation');
     return 'held-live';
   } });

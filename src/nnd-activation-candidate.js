@@ -6,6 +6,7 @@ import { ContractError } from './ids.js';
 import { assertHeldNndServiceLease, withNndServiceLease } from './nnd-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
 import { readLockedManifestSnapshot } from './persistence/manifest-transaction.js';
+import { serializeManifestBytes } from './persistence/manifest-files.js';
 import { openInstallStore, readInstallBytes, json, hash, operationValid } from './nnd-install-storage.js';
 import { loadInstallTransaction, installHost } from './nnd-install-transaction.js';
 import { readSlotProvenance, slotOwner } from './nnd-install-storage-provenance.js';
@@ -54,7 +55,7 @@ async function verifiedCandidate(identity, store, stageOperationId, registryLeas
   const expectedEntry = verified.manifest.files.find(file => file.path === manifest.service_activation.entrypoint);
   if (!expectedEntry || !samePath(entrypoint, join(info.root, expectedEntry.path))) throw invalid();
   const snapshot = await readLockedManifestSnapshot(registryLease);
-  const desired = json({ root: info.root, version: info.version, protocol: info.protocol });
+  const desired = serializeManifestBytes({ root: info.root, version: info.version, protocol: info.protocol });
   const evidence = Object.freeze({ protocol: '2.0', stage_operation_id: stageOperationId,
     installation_id: identity.installation_id, data_id: identity.data_id, version: info.version,
     payload_sha256: verified.sha256, stage_prepared_sha256: hash(transaction.bytes),

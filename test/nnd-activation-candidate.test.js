@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from '../src/ids.js';
+import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -36,7 +37,7 @@ async function fixture() {
     readLockedManifestSnapshot: async () => ({ revision: 'absent' }),
     openInstallStore: async () => store, readInstallBytes: async path => path === store.pending ? state.marker
       : path === join(transaction.directory, 'ready.json') ? state.ready : null,
-    json, hash: sha, operationValid: value => /^[a-f0-9-]{36}$/u.test(value),
+    json, hash: sha, serializeManifestBytes, operationValid: value => /^[a-f0-9-]{36}$/u.test(value),
     loadInstallTransaction: async (_identity, _store, id) => { assert.equal(id, stageId); return transaction; },
     installHost: () => ({}), readSlotProvenance: async () => state.proof,
     slotOwner: async () => ({ ino: '10', dev: '20' }), assertNndInstallRuntimePaths: () => {},
@@ -60,6 +61,9 @@ test('verified staged slot produces identity-bound evidence and no trial authori
   assert.equal(candidate.package.entrypoint, join(f.slot, 'packages/electron/dist-server/server.mjs'));
   assert.equal(candidate.evidence.stage_ready_sha256, sha(f.state.ready));
   assert.equal(candidate.evidence.registry_before_revision, 'absent');
+  const record = { root: f.slot, version: '20261002-8', protocol: '1.0' };
+  assert.equal(candidate.evidence.desired_registration_sha256, sha(serializeManifestBytes(record)));
+  assert.notEqual(candidate.evidence.desired_registration_sha256, sha(json(record)));
   assert.equal(candidate.evidence_sha256, sha(json(candidate.evidence)));
   await assert.rejects(f.api.issueNndTrialCapability(identity, f.lease, f.registry, stageId, activationId),
     { code: 'nnd_activation_candidate_invalid' });

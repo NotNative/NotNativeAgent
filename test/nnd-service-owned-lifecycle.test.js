@@ -10,14 +10,17 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{reso
 const identity={installation_id:'native',data_id:'data',install_root:'C:/native',data_root:'C:/data'};
 const paths={config:'C:/data/config'};
 const packageInfo={root:'C:/package',manifestPath:'C:/package/integration.json',version:'20261002-1',protocol:'1.0',entrypoint:'entry.mjs'};
-async function fixture() {
- const trace=[],lost=deferred(),childReady=deferred(),exited=deferred(),fatal=deferred();let controller,bootstrap,nativeOptions;
+async function fixture(options={}) {
+ const trace=[],lost=deferred(),childReady=deferred(),exited=deferred(),fatal=deferred();let controller,bootstrap,nativeOptions,closeCalls=0;
  const lease={held:true,lost:lost.promise,close:async()=>{trace.push('lease:close');}};
  const native={endpoint:'http://127.0.0.1:1000',token:'private-engine-token',runtime:{snapshot:()=>({service_state:'setup_required'})},close:async()=>{trace.push('native:close');}};
  const child={ready:childReady.promise,exited:exited.promise,fatal:fatal.promise,close:async()=>{trace.push('child:close');},command:async type=>{trace.push(type);return {ticket:'private-ticket'};}};
  const assertLease=(value,dataId)=>{if(value!==lease||!lease.held||dataId!==identity.data_id)throw new ContractError('nnd_lock_lost','Genuine lease required');};
- const capability=Object.freeze({}),registry=Object.freeze({});
+ const capability=Object.freeze({}),registry={held:true};
  const dependencies={randomUUID,join,resolve: path=>path,ContractError,assertHeldNndServiceLease:assertLease,
+  assertManifestLease:value=>{if(value!==registry||!registry.held)throw new ContractError('manifest_lock_invalid','Registry ownership lost');
+   return {path:join(identity.data_root,'config','nnd-package.json')};},
+  runManifestLeaseWork:(_lease,operation)=>operation(),
   userDataPaths:()=>({root:identity.data_root,config:paths.config}),
   consumeNndTrialCapability:(value,_identity,held,guard)=>{
    if(value!==capability||held!==lease||guard!==registry)throw new ContractError('nnd_activation_candidate_invalid','Trial capability invalid');
@@ -29,8 +32,14 @@ async function fixture() {
   mkdir:async()=>{},realpath:async path=>path,validateNndPackage:async()=>{trace.push('package:admit');return packageInfo;},
   assertNoNndInstallMarker:async()=>{trace.push('guard:check');},admitFreshNndServiceData:async()=>{trace.push('data:admit');},
   readNndServiceDiscovery:async()=>{trace.push('discovery:read');return null;},startNndNativeService:async (_paths,_identity,options)=>{nativeOptions=options;trace.push('native:start');return native;},
-  startNndController:async options=>{trace.push('controller:start');controller=options;return {endpoint:'http://127.0.0.1:2000',close:async()=>{trace.push('controller:close');}};},
+  startNndController:async controllerOptions=>{trace.push('controller:start');await options.controllerGate?.promise;
+   controller=controllerOptions;return {endpoint:'http://127.0.0.1:2000',close:async()=>{trace.push('controller:close');
+    if(options.controllerCloseFailsOnce && closeCalls++===0)throw new Error('controller close failed');}};},
   createNndDiscoveryGeneration:async()=>{trace.push('discovery:create');return {instance_id:randomUUID()};},
+  createNndTrialDiscoveryGeneration:async (_identity,_lease,{endpoint,instanceId})=>{
+   trace.push('trial-discovery:create');return {instance_id:options.generationOverride??instanceId,endpoint,control_token:'private'};},
+  discardNndTrialDiscoveryGeneration:async (_identity,_lease,instanceId)=>{
+   assert.equal(instanceId,bootstrap.generation);trace.push('trial-discovery:discard');return {discarded:true};},
   publishNndDiscoveryGeneration:async()=>{trace.push('discovery:publish');},removeNndDiscoveryPointer:async()=>{trace.push('discovery:remove');},
   launchNndServiceChild:(_identity,_entrypoint,value)=>{trace.push('child:start');bootstrap=value;return child;},
   createServer:()=>{const server=new EventEmitter();server.listen=(_port,_host,ready)=>queueMicrotask(ready);server.address=()=>({port:3000});server.close=callback=>callback();return server;}};
@@ -60,6 +69,66 @@ test('unpublished owned trial cannot publish discovery or grant tickets and reta
  const gate=deferred();f.native.close=async()=>{f.trace.push('native:draining');await gate.promise;f.trace.push('native:drained');};
  let stopped=false;const closing=owner.stop().then(()=>{stopped=true;});await waitFor(()=>f.trace.includes('native:draining'));
  assert.equal(stopped,false);gate.resolve();await closing;assert.equal(f.trace.includes('lease:close'),false);
+});
+test('owned trial creates only a dark discovery record for its live child generation',async()=>{
+ const f=await fixture();f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const record=await owner.prepareDiscovery();
+ assert.equal(record.instance_id,f.bootstrap.generation);
+ assert.equal(record.endpoint,'http://127.0.0.1:2000');
+ assert.equal(f.controller.getRecord(),null);
+ await assert.rejects(f.controller.ticket(),{code:'nnd_service_not_running'});
+ assert.equal(f.trace.includes('discovery:publish'),false);
+ await assert.rejects(owner.prepareDiscovery(),{code:'nnd_discovery_invalid'});
+ await owner.stop();
+ assert.ok(f.trace.includes('controller:close'));
+ assert.ok(f.trace.includes('trial-discovery:discard'));
+});
+test('trial discovery preparation refuses an expired registry lock without starting a controller',async()=>{
+ const f=await fixture();f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ f.registry.held=false;
+ await assert.rejects(owner.prepareDiscovery(),{code:'manifest_lock_invalid'});
+ assert.equal(f.controller,undefined);
+ await owner.stop();
+});
+test('concurrent trial preparation cannot start two controllers for one child generation',async()=>{
+ const gate=deferred(),f=await fixture({controllerGate:gate});f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const first=owner.prepareDiscovery();await waitFor(()=>f.trace.includes('controller:start'));
+ await assert.rejects(owner.prepareDiscovery(),{code:'nnd_discovery_invalid'});
+ gate.resolve();await first;
+ assert.equal(f.trace.filter(event=>event==='controller:start').length,1);
+ assert.equal(f.trace.filter(event=>event==='trial-discovery:create').length,1);
+ await owner.stop();
+});
+test('stop drains a controller still starting and prevents late dark record creation',async()=>{
+ const gate=deferred(),f=await fixture({controllerGate:gate});f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const preparing=owner.prepareDiscovery();await waitFor(()=>f.trace.includes('controller:start'));
+ let stopped=false;const stopping=owner.stop().then(()=>{stopped=true;});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(stopped,false);
+ gate.resolve();await assert.rejects(preparing,{code:'nnd_discovery_invalid'});await stopping;
+ assert.equal(f.trace.filter(event=>event==='controller:close').length,1);
+ assert.equal(f.trace.includes('trial-discovery:create'),false);
+ assert.equal(f.trace.includes('trial-discovery:discard'),false);
+});
+test('mismatched fixed generation closes the dark controller and never publishes',async()=>{
+ const f=await fixture({generationOverride:randomUUID()});f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.prepareDiscovery(),{code:'nnd_discovery_invalid'});
+ assert.ok(f.trace.includes('controller:close'));
+ assert.equal(f.trace.includes('discovery:publish'),false);
+ await owner.stop();
+ assert.ok(f.trace.includes('trial-discovery:discard'));
+});
+test('failed trial controller close is retried on stop and dark credential is discarded',async()=>{
+ const f=await fixture({generationOverride:randomUUID(),controllerCloseFailsOnce:true});f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.prepareDiscovery(),AggregateError);
+ await owner.stop();
+ assert.equal(f.trace.filter(event=>event==='controller:close').length,2);
+ assert.ok(f.trace.includes('trial-discovery:discard'));
 });
 test('unpublished trial proves exact native identity and loopback GUI before exposing a health result',async()=>{
  const f=await fixture();f.childReady.resolve();const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);

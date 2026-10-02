@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
+import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 
 async function fixture(t) {
   const parent = process.platform === 'win32' ? process.env.USERPROFILE : tmpdir();
@@ -26,6 +27,7 @@ test('byte revision publication is idempotent and leaves raw cached document unc
   assert.equal((await transactManifest(input)).replayed,true);
   await assert.rejects(transactManifest({...input,payload:{different:true}}),{code:'manifest_operation_conflict'});
   const snapshot = await readManifestSnapshot(path);
+  assert.deepEqual(snapshot.rawBytes, serializeManifestBytes(input.payload));
   await transactManifest({...request(path,snapshot.revision,'edit',{ first:2 }),transform: raw => {raw.first=2;return raw;}});
   assert.equal(snapshot.rawManifest.first,1);
   assert.equal((await readManifestSnapshot(path)).rawManifest.nested.keep,true);

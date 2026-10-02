@@ -7,7 +7,8 @@ import { ContractError } from './ids.js';
 import { validateNndPackage } from './nnd-package.js';
 import { acquireNndServiceLock, assertHeldNndServiceLease } from './nnd-service-lock.js';
 import { createNndDiscoveryGeneration, publishNndDiscoveryGeneration, removeNndDiscoveryPointer,
-  readNndServiceDiscovery } from './nnd-service-discovery.js';
+  readNndServiceDiscovery, createNndTrialDiscoveryGeneration, discardNndTrialDiscoveryGeneration } from './nnd-service-discovery.js';
+import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
 import { startNndNativeService } from './nnd-service-native.js';
 import { startNndController } from './nnd-service-controller.js';
 import { launchNndServiceChild } from './nnd-service-child.js';
@@ -99,18 +100,64 @@ export async function startNndOwnedTrial(identity, paths, lease, registryLease, 
     throw new ContractError('nnd_activation_candidate_invalid', 'NND trial paths do not match the selected native data root');
   }
   const admittedPackage = consumeNndTrialCapability(capability, identity, lease, registryLease);
-  return startUnpublishedTrial(identity, paths, lease, admittedPackage, options);
+  return startUnpublishedTrial(identity, paths, lease, admittedPackage, options, registryLease);
 }
-async function startUnpublishedTrial(identity, paths, lease, admittedPackage, options = {}) {
+async function startUnpublishedTrial(identity, paths, lease, admittedPackage, options = {}, registryLease = null) {
   const session = createSupervisorSession(identity, lease, null);
+  session.state.unpublishedTrial = true;
   session.state.package = admittedPackage;
   session.state.record = Object.freeze({ instance_id: randomUUID() });
   try {
     session.state.native = await startNndNativeService(paths, identity, { ...options, unpublishedTrial: true });
     await startSupervisorChild(session, paths);
     monitorSupervisor(session);
-    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions) });
+    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions),
+      ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease) } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }
+}
+async function prepareTrialDiscovery(session, registryLease) {
+  const { state } = session;
+  assertHeldNndServiceLease(state.lease, state.identity.data_id);
+  const target = assertManifestLease(registryLease);
+  const expected = join(state.identity.data_root, 'config', 'nnd-package.json');
+  const same = process.platform === 'win32'
+    ? resolve(target.path).toLowerCase() === resolve(expected).toLowerCase()
+    : resolve(target.path) === resolve(expected);
+  if (!same) throw new ContractError('nnd_discovery_invalid', 'Unpublished NND trial registry ownership is invalid');
+  if (state.discoveryPreparing || state.controller) {
+    throw new ContractError('nnd_discovery_invalid', 'Unpublished NND trial discovery is already prepared');
+  }
+  state.discoveryPreparing = true;
+  const task = runManifestLeaseWork(registryLease, () => createTrialDiscoveryUnderOwnership(session));
+  state.discoveryTask = task;
+  try { return await task; }
+  finally { state.discoveryPreparing = false; state.discoveryTask = null; }
+}
+async function createTrialDiscoveryUnderOwnership(session) {
+  const { state, stop } = session;
+  if (state.controller || state.stopping || state.child?.failed || !state.ui
+    || !['ready', 'setup_required'].includes(status(state).service_state)) {
+    throw new ContractError('nnd_discovery_invalid', 'Unpublished NND trial cannot prepare discovery');
+  }
+  state.controller = await startNndController({ getRecord: () => state.published ? state.record : null,
+    status: () => status(state), stop, ticket: () => issueSupervisorTicket(state) });
+  try {
+    if (state.stopping) throw new ContractError('nnd_discovery_invalid', 'Unpublished NND trial is stopping');
+    state.trialDiscoveryAttempted = true;
+    const record = await createNndTrialDiscoveryGeneration(state.identity, state.lease,
+      { endpoint: state.controller.endpoint, instanceId: state.record.instance_id });
+    assertHeldNndServiceLease(state.lease, state.identity.data_id);
+    if (record.instance_id !== state.record.instance_id || state.child.failed || state.stopping) {
+      throw new ContractError('nnd_discovery_invalid', 'Unpublished NND trial generation changed');
+    }
+    state.record = record;
+    return Object.freeze({ instance_id: record.instance_id, endpoint: record.endpoint });
+  } catch (error) {
+    const controller = state.controller;
+    try { await controller.close(); state.controller = null; }
+    catch (cleanup) { throw new AggregateError([error, cleanup], 'Unpublished NND controller shutdown is unconfirmed'); }
+    throw error;
+  }
 }
 async function verifyUnpublishedTrial(state, { timeoutMs = 5000, signal, fetchImpl = fetch } = {}) {
   assertHeldNndServiceLease(state.lease, state.identity.data_id);
@@ -218,12 +265,21 @@ async function failSupervisorStart(session, error) {
 }
 async function closeSupervisor(state) {
   state.stopping = true;
-  const results = await Promise.allSettled([state.native?.close(), state.child?.close()]);
+  // Controller creation can outlive the call that initiated stop. Wait for
+  // its registered task so shutdown cannot leave a late listener behind.
+  if (state.unpublishedTrial && state.discoveryTask) await Promise.allSettled([state.discoveryTask]);
+  const results = await Promise.allSettled([state.native?.close(), state.child?.close(),
+    ...(state.unpublishedTrial ? [state.controller?.close()] : [])]);
   const errors = results.filter((item) => item.status === 'rejected').map((item) => item.reason);
+  if (state.trialDiscoveryAttempted) {
+    try { await discardNndTrialDiscoveryGeneration(state.identity, state.lease, state.record.instance_id); }
+    catch (error) { errors.push(error); }
+  }
   // Invariant: uncertain writers retain both the process and singleton lease for operator diagnosis.
   if (errors.length) throw new AggregateError(errors, 'NND shutdown incomplete; singleton remains held');
   if (state.published) await removeNndDiscoveryPointer(state.identity, state.lease, state.record.instance_id);
-  await state.controller?.close(); await state.releaseLease?.();
+  if (!state.unpublishedTrial) await state.controller?.close();
+  await state.releaseLease?.();
 }
 function status(state) {
   const runtime = state.native?.runtime.snapshot();

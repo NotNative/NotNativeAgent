@@ -59,7 +59,7 @@ async function verifyAndContinue(identity, trial, prepared, running, context, op
   // The continuation runs with this same live child and both original locks.
   // The default is a dormant verification probe; it does not activate NND.
   const continuationResult = await options.continuation?.(Object.freeze({ proof, status: trial.status,
-    serviceLease, registryLease, signal }));
+    prepareDiscovery: trial.prepareDiscovery, serviceLease, registryLease, signal }));
   const stillHealthy = await trial.verify({ timeoutMs: options.healthTimeoutMs, signal });
   if (stillHealthy.generation !== proof.generation || stillHealthy.native_state !== proof.native_state) {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial changed during continuation');

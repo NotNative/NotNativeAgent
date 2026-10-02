@@ -160,6 +160,23 @@ function Mutate-Current {
     # Publication has committed. Cleanup failure never misreports that pointer switch as rolled back.
     return @{published=$true; retired_previous=$retired}
 }
+function Discard-Generation {
+    $pointer = Read-Record $current
+    Assert-Pointer $pointer
+    if ($null -ne $pointer -and $pointer.instance_id -ceq $request.instance_id) {
+        throw 'nnd_discovery_conflict'
+    }
+    $path = [IO.Path]::Combine($directory, 'generation-'+$request.instance_id+'.json')
+    $generation = Read-Record $path
+    if ($null -ne $generation) {
+        Assert-Generation $generation
+        if ($generation.instance_id -cne $request.instance_id -or
+            $generation.installation_id -cne $request.installation_id -or
+            $generation.data_id -cne $request.data_id) { throw 'nnd_discovery_invalid' }
+        [IO.File]::Delete($path)
+    }
+    return @{discarded=$true}
+}
 try {
     $source = [Console]::In.ReadToEnd()
     if ([Text.Encoding]::UTF8.GetByteCount($source) -gt 16384) { throw 'nnd_discovery_invalid' }
@@ -186,6 +203,7 @@ try {
             'read' { $result = @{record=(Read-Current)} }
             'publish' { $result = Mutate-Current }
             'remove' { $result = Mutate-Current }
+            'discard' { $result = Discard-Generation }
             default { throw 'nnd_discovery_invalid' }
         }
     } finally { $gate.Dispose() }
