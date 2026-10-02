@@ -4,20 +4,14 @@
   "scope": "maximal bundled tool registry; purpose, provider facade description, and input-schema description fields",
   "stats": {
     "tools": 46,
-    "proseFields": 178,
-    "proseSentences": 300,
-    "longProseCandidates": 1,
+    "proseFields": 177,
+    "proseSentences": 293,
+    "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
-    "maximumSentenceWords": 26,
+    "maximumSentenceWords": 22,
     "rationaleMarkers": 300
   },
-  "long_prose_candidates": [
-    {
-      "tool": "work_plan",
-      "field": "purpose",
-      "words": 26
-    }
-  ],
+  "long_prose_candidates": [],
   "unqualified_boundary_candidates": [
     {
       "tool": "work_plan",

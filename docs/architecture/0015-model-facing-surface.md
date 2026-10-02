@@ -31,6 +31,10 @@ schema. Provider-definition assembly does not age lease state because qualificat
 review can assemble definitions more than once before the model receives another actionable step.
 Only a successfully sealed invocation consumes a use; reinsertion records actual-use order rather
 than grant order.
+An expired lease removes the visibility guarantee, not execution authority. An exact-name
+search renews it. Calls to an installed but unloaded capability still cross the ordinary
+validation and reviewer boundary; hosts retain their authenticated capability ceilings.
+Catalogs identify installed names rather than implying prior authorization.
 
 Provider-surface planning has one bounded composition, not lifecycle-specific phases. Its
 receipt identifies either `foundation_with_leases` or an authenticated `host_manifest`, attributes
@@ -50,6 +54,9 @@ NNA continues to maintain a bounded conversation-intent projection from authenti
 statements. It supports continuity, reviewer evidence, and completion supervision; it does not
 select tools. A short continuation, clarification, or accepted assistant proposal can therefore
 retain the task's meaning without silently granting or removing a schema.
+Ordinary authenticated prose remains a `statement`. Historical typed intent kinds do not
+establish a mutation grant; semantic review interprets consequential requests against the
+authenticated record. NNA does not infer those kinds from prose patterns.
 
 The kernel prompt asks the model to respond first with a terse statement of intent, viewpoint,
 and high-level action, then invoke the smallest useful visible tool in the same response. If the
@@ -96,3 +103,6 @@ tiers while stating that classification grants no authority. Cold-evidence and w
 counters state their scope. Repeated identical hook context is admitted once per turn, and
 hook projections expose their grounding freshness and observation time instead of implying
 that newly injected text is current evidence.
+UTF-8 payload overflow errors include the field's bounded repair guidance and numeric limits
+without echoing the submitted payload. Work-plan schemas retain conditional identity, revision,
+completion, and round-trip rules while avoiding repeated explanations of the same requirement.

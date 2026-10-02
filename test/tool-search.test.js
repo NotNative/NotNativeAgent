@@ -232,6 +232,9 @@ test('tool_search keeps bounded specialist catalog matches visible for a workflo
     });
   }
   assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'), false);
+  const renewed = await search.executor({ args: { query: 'project_verify' } }, new AbortController().signal);
+  assert.match(JSON.parse(renewed.content).instruction, /Search its exact name again to renew/u);
+  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'));
   assert.ok(JSON.parse(result.content).matches.length <= 12);
 });
 

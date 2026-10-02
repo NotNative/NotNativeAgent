@@ -58,7 +58,7 @@ export function toolSearchDefinition(registry) {
             : rejected ? 'schema_load_rejected'
               : visibleMatches.length > 0 ? 'catalog_matches_found' : 'no_relevant_capability_found',
           instruction: loaded
-            ? 'Call the exact matching tool directly. Its schema is guaranteed for this bounded workflow lease.'
+            ? 'Call the exact matching tool directly. This lease guarantees schema visibility until remaining_uses reaches zero. Search its exact name again to renew. Every call still requires mandatory review.'
             : rejected ? 'The exact schema could not fit the bounded provider surface. Use an already visible capability or end with an honest typed blocker.'
               : visibleMatches.length > 0 ? 'These are discovery suggestions only. Search once using the exact tool name to load one schema.'
                 : 'No relevant catalog capability matched. Continue with already visible tools or refine once using an exact tool or service name; do not repeat this search unchanged.',

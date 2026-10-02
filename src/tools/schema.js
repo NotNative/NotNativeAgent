@@ -210,17 +210,18 @@ function validateValue(value, rule, depth, path) {
 
 function validateString(value, rule, path) {
   const length = characterLength(value);
+  const guidance = Number.isSafeInteger(rule.maxUtf8Bytes) ? rule.description : null;
   if (Number.isSafeInteger(rule.minLength) && length < rule.minLength) {
-    throw boundFailure(path, 'characters', rule.minLength, length, 'minimum');
+    throw boundFailure(path, 'characters', rule.minLength, length, 'minimum', guidance);
   }
   const maximum = rule.maxLength ?? 131_072;
   if (length > maximum) {
-    throw boundFailure(path, 'characters', maximum, length, 'maximum');
+    throw boundFailure(path, 'characters', maximum, length, 'maximum', guidance);
   }
   if (Number.isSafeInteger(rule.maxUtf8Bytes)) {
     const bytes = Buffer.byteLength(value, 'utf8');
     if (bytes > rule.maxUtf8Bytes) {
-      throw boundFailure(path, 'utf8_bytes', rule.maxUtf8Bytes, bytes, 'maximum');
+      throw boundFailure(path, 'utf8_bytes', rule.maxUtf8Bytes, bytes, 'maximum', guidance);
     }
   }
   const pattern = PREPARED_PATTERNS.get(rule);
@@ -309,12 +310,14 @@ function schemaFailure(message, repair) {
   return error;
 }
 
-function boundFailure(field, unit, bound, received, direction) {
+function boundFailure(field, unit, bound, received, direction, guidance = null) {
   const comparison = direction === 'minimum' ? 'at least' : 'at most';
   const clause = unit === 'numeric_value' ? `must be ${comparison} ${bound}`
     : unit === 'utf8_bytes' ? `UTF-8 encoding must be ${comparison} ${bound} bytes`
       : `must contain ${comparison} ${bound} ${unit}`;
-  return schemaFailure(`${field} ${clause}; received ${received}`, {
+  const repair = typeof guidance === 'string' && guidance.trim()
+    ? ` Field guidance: ${bounded(guidance.trim().replace(/\s+/gu, ' '), 240)}` : '';
+  return schemaFailure(`${field} ${clause}; received ${received}${repair}`, {
     field, issue: 'bound_violation', unit, [direction]: bound, received,
     correction: direction === 'minimum' ? 'increase_field_value_or_size' : 'reduce_field_value_or_size',
   });

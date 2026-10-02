@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { toolCatalogContext } from '../src/tools/catalog-context.js';
 
-test('compact tool catalog lists only unloaded authorized names in deterministic order', () => {
+test('compact tool catalog lists unloaded installed names in deterministic order', () => {
   const content = toolCatalogContext([
     { name: 'mcp_memory_store' }, { name: 'fs_read_text' },
     { name: 'mcp_memory_search' }, { name: 'mcp_memory_store' },
@@ -13,9 +13,10 @@ test('compact tool catalog lists only unloaded authorized names in deterministic
   assert.match(content, /schemas are not loaded/u);
   assert.match(content, /"specialist":\["mcp_memory_search","mcp_memory_store"\]/u);
   assert.match(content, /no tier grants authority/u);
+  assert.match(content, /every call still requires mandatory review/u);
 });
 
-test('compact tool catalog is absent when every authorized schema is loaded', () => {
+test('compact tool catalog is absent when every installed schema is loaded', () => {
   const content = toolCatalogContext(
     [{ name: 'fs_read_text' }],
     [{ type: 'function', function: { name: 'fs_read_text' } }],
@@ -29,5 +30,5 @@ test('compact tool catalog remains bounded for a large dynamic registry', () => 
   }));
   const content = toolCatalogContext(snapshot, []);
   assert.ok(Buffer.byteLength(content, 'utf8') < 34 * 1024);
-  assert.match(content, /additional authorized tool names were omitted/u);
+  assert.match(content, /additional installed tool names were omitted/u);
 });

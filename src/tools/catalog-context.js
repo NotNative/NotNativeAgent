@@ -14,12 +14,12 @@ export function toolCatalogContext(registrySnapshot, providerDefinitions) {
   const names = boundedNames(available);
   const tiers = catalogTiers(names);
   const omitted = available.length - names.length;
-  const suffix = omitted > 0 ? `\n${omitted} additional authorized tool names were omitted from this bounded catalog.` : '';
+  const suffix = omitted > 0 ? `\n${omitted} additional installed tool names were omitted from this bounded catalog.` : '';
   return [
-    'Additional authorized tool names whose schemas are not loaded in this step:',
+    'Additional installed tool names whose schemas are not loaded in this step:',
     JSON.stringify(names),
     `Catalog tiers (classification only; no tier grants authority): ${JSON.stringify(tiers)}`,
-    'Use tool_search to inspect and load matching tool schemas before calling them.',
+    'Use tool_search with an exact name to load or renew its schema. A workflow lease controls schema visibility; every call still requires mandatory review.',
   ].join('\n') + suffix;
 }
 

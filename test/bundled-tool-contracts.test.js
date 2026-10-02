@@ -113,9 +113,9 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.match(browse.properties.action.description, /Navigate: set exactly one of url or path/u);
     assert.match(browse.properties.action.description, /Fill_secret: set target, secret_id, and secret_field/u);
     const workPlan = providerSchema(registry.definition('work_plan').inputSchema, { mode: 'documented' });
-    assert.match(workPlan.properties.tasks.description, /Initial-plan tasks omit id/u);
-    assert.match(workPlan.properties.tasks.items.properties.id.description, /Never create or guess an id/u);
-    assert.match(workPlan.properties.tasks.items.properties.title.description, /even when preserving an existing task by id/u);
+    assert.match(workPlan.properties.tasks.items.properties.id.description, /Omit for new tasks; NNA assigns ids/u);
+    assert.match(workPlan.properties.tasks.items.properties.id.description, /Never invent ids/u);
+    assert.match(workPlan.properties.tasks.items.properties.title.description, /including for an existing id/u);
   } finally { await registry.close(); }
 });
 
@@ -293,7 +293,7 @@ test('provider documentation exposes locally enforced bounds while UTF-8 byte li
   assert.deepEqual(await validate({ value: '🙂', count: '3' }), { value: '🙂', count: 3 });
   await assert.rejects(validate({ value: '🙂a', count: 3 }), {
     code: 'tool_schema_invalid',
-    message: 'argument "value" UTF-8 encoding must be at most 4 bytes; received 5',
+    message: 'argument "value" UTF-8 encoding must be at most 4 bytes; received 5 Field guidance: A short value.',
   });
 });
 

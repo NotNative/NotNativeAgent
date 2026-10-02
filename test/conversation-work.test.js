@@ -153,10 +153,11 @@ test('work plan documents NNA-owned task ids and gives distinct identity repairs
   const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work_plan');
   const taskSchema = plan.inputSchema.properties.tasks.items;
 
-  assert.match(plan.purpose, /initial plan, omit id from every task/u);
-  assert.match(plan.purpose, /Never invent task ids/u);
-  assert.match(taskSchema.properties.id.description, /Copy the exact id returned by work_status or work_plan/u);
-  assert.match(taskSchema.properties.title.description, /even when preserving an existing task by id/u);
+  assert.match(taskSchema.properties.id.description, /Omit for new tasks; NNA assigns ids/u);
+  assert.match(taskSchema.properties.id.description, /Never invent ids/u);
+  assert.match(taskSchema.properties.id.description, /Copy the exact NNA id from work_status or work_plan/u);
+  assert.match(taskSchema.properties.title.description, /including for an existing id/u);
+  assert.deepEqual(taskSchema.required, ['title']);
 
   await assert.rejects(
     work.replacePlan({ objective: 'Reject invented identities', tasks: [{ id: 'T1', title: 'New task' }] }),

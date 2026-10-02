@@ -75,7 +75,7 @@ test('generated system guidance follows identity while retaining injected envelo
   assert.equal(request.messages[0].role, 'system');
   assert.match(request.messages[0].content, /^identity\n\ndialect guidance/iu);
   assert.match(request.messages[0].content,
-    /^identity\n\ndialect guidance\n\nvolatile work state\n\nAdditional authorized tool names/iu);
+    /^identity\n\ndialect guidance\n\nvolatile work state\n\nAdditional installed tool names/iu);
   assert.equal(request.messages[1].content, 'inspect');
   assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
   const envelope = measureProviderEnvelope(request, context);
