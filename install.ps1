@@ -42,6 +42,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'scripts\installer-native-guard.ps1')
+. (Join-Path $PSScriptRoot 'scripts\installer-nna-preflight.ps1')
 $Source = $PSScriptRoot
 $ElectronExe = Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"
 $MainScript = "packages\electron\main.mjs"
@@ -127,7 +128,7 @@ function Get-InstalledNna {
     if (!(Test-Path -LiteralPath $descriptor.node -PathType Leaf) -or !(Test-Path -LiteralPath $cli -PathType Leaf)) {
         throw 'Installed NNA runtime is incomplete; NND registration was not attempted.'
     }
-    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root }
+    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root; Version = $descriptor.version }
 }
 
 function Assert-NndRemovalTarget([string]$Candidate, [string]$SourceRoot) {
@@ -209,8 +210,8 @@ function Install-RequiredNna {
     if (!(Get-InstalledNna)) { throw 'NNA installer finished without a valid installed runtime; NND was not installed.' }
 }
 
-function Invoke-NndRegistration([string]$Action, [string]$Root) {
-    $nna = Get-InstalledNna
+function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
+    $nna = $SelectedNna
     if (!$nna) {
         if ($Action -eq 'deactivate') {
             Write-Host '  NNA is not installed; no live registration can be deactivated. Preserved NNA data may retain a stale package record.' -ForegroundColor Yellow
@@ -261,7 +262,7 @@ if ($Uninstall) {
     try {
     # Do not delete an installed package while NNA still points at it. A
     # failed deactivation leaves the install intact for an explicit retry.
-    Invoke-NndRegistration 'deactivate' $targetPath
+    Invoke-NndRegistration 'deactivate' $targetPath $uninstallNna
     foreach ($name in @("NotNativeDesktop")) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
         foreach ($link in $links) { if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link -Force; Write-Host "  removed shortcut $link" } }
@@ -328,9 +329,17 @@ Write-Heading "Installing NotNativeDesktop"
 Write-Host "  source : $Source"
 Write-Host "  target : $InstallDir"
 Write-Good "NNA found at $($nna.Cli)"
-Invoke-NndRegistration 'status' $targetPath
+$nnaCapabilities = Assert-NndNnaCapabilities $nna
+Write-Good "NNA native NND protocol $($nnaCapabilities.protocol) is compatible"
+Invoke-NndRegistration 'status' $targetPath $nna
 
 $installationGuard = Start-NndInstallationGuard $nna
+$guardMatchesPreflight = $installationGuard.Frame.installation_id -ceq $nnaCapabilities.installation_id -and
+    $installationGuard.Frame.data_id -ceq $nnaCapabilities.data_id
+if (!$guardMatchesPreflight) {
+    Stop-NndInstallationGuard $installationGuard
+    throw 'Selected NNA identity changed between compatibility preflight and installation guard; NND was not installed.'
+}
 $installationComplete = $false
 try {
 Write-Heading "Copying source"
@@ -437,12 +446,10 @@ try {
 
 Assert-NndInstallationGuard $installationGuard
 Write-Heading 'Registering NND package with NNA'
-$nnaForManifest = Get-InstalledNna
-if (!$nnaForManifest) { throw 'NNA runtime is unavailable for installed NND artifact validation.' }
-& $nnaForManifest.Node (Join-Path $InstallDir 'scripts\installed-service-package.mjs') $InstallDir
+& $nna.Node (Join-Path $InstallDir 'scripts\installed-service-package.mjs') $InstallDir
 if ($LASTEXITCODE -ne 0) { throw "Installed NND service manifest validation failed (exit $LASTEXITCODE)." }
-Invoke-NndRegistration 'activate' $targetPath
-& $nnaForManifest.Node (Join-Path $InstallDir 'scripts\write-nna-selection.mjs') $InstallDir $nnaForManifest.InstallRoot
+Invoke-NndRegistration 'activate' $targetPath $nna
+& $nna.Node (Join-Path $InstallDir 'scripts\write-nna-selection.mjs') $InstallDir $nna.InstallRoot
 if ($LASTEXITCODE -ne 0) { throw "Installed NNA selection could not be saved (exit $LASTEXITCODE)." }
 
 Write-Heading "Creating shortcuts"

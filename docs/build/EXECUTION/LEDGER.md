@@ -530,3 +530,22 @@ revision, and rejected stale CAS and unauthenticated browser save. The full UI
 suite passed 1,665 tests across 209 files; graph, language and quality gates
 passed for 753 production modules. Prebuilt-slot and operator installation
 acceptance, non-manifest TUI controls and remaining settings coverage are open.
+
+## NND 20261002-13 — selected NNA installer preflight
+
+The source installer now asks the selected installed NNA for bounded native NND
+capabilities before its NND copy, build or registration. It checks the protocol,
+version, installation/data identity and required service/guard commands, then
+requires the installation guard to report the same identity. Missing or older
+NNA receives update guidance; the explicit local-source dependency bootstrap
+remains a development route, not a verified release download.
+
+Independent review found that later installer steps could re-read a changed NNA
+selection file after preflight and guard, potentially activating a different
+installation. Registration and manifest validation now use the pinned NNA
+selection. Disposable tests cover two roots, path spaces, missing/malformed or
+oversized capability output, a hanging child and a changed selection. A read-only
+probe of this machine's currently installed NNA found its required
+`installed/VERSION` missing, so that installation cannot serve as positive
+acceptance evidence. It was not modified. Production prebuilt consumption,
+verified NNA dependency acquisition, native promotion and rollback remain open.
