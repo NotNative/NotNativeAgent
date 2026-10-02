@@ -134,6 +134,15 @@ export class OpenCodeProviderSettings {
   source(id) { return providerSource(this, id); }
 
   remove(id, scope) { return this.mutate(() => removeProvider(this, id, scope)); }
+
+  async credentialList() {
+    const { providers, secrets } = await this.snapshot();
+    // Security: OpenChamber checks active credential presence through this route; raw keys stay in trusted transport.
+    return secrets.map((secret) => ({ id: secret.id, integrationID: secret.metadata.providerID,
+      label: secret.metadata.label, active: secret.enabled && providers.some((provider) => !provider.protocolError
+        && provider.id === secret.metadata.providerID && provider.endpoint === secret.metadata.endpoint),
+      value: { type: 'key', key: '', metadata: { nna_redacted: true } } }));
+  }
 }
 
 export function defaultReference(document, providers) {

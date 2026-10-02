@@ -48,6 +48,9 @@ export async function providerMutation(ctx, readBody) {
   const { req, res, target, options } = ctx; const settings = options.providerSettings;
   if (!settings) return false;
   const segments = target.pathname.split('/').slice(2).map(decodeURIComponent);
+  if (req.method === 'GET' && target.pathname === '/api/credential') {
+    sendJson(res, 200, { data: await settings.credentialList() }); return true;
+  }
   if (segments[0] === 'provider' && segments.length === 3) {
     if (req.method === 'GET' && segments[2] === 'source') {
       sendJson(res, 200, await settings.source(segments[1])); return true;

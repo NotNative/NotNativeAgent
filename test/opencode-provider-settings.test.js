@@ -195,6 +195,26 @@ test('provider credentials and configuration mutations require service authentic
   assert.equal((await request('/api/credential/sec_foreign', 'DELETE')).status, 401);
   assert.equal((await request('/api/provider/test/source')).status, 401);
   assert.equal((await request('/api/provider/test/auth?scope=user', 'DELETE')).status, 401);
+  assert.equal((await request('/api/credential')).status, 401);
+});
+
+test('OpenChamber source authentication lookup receives credential presence without stored key disclosure', async (t) => {
+  const { add, connect, json, path } = await setup(t);
+  assert.deepEqual((await json('/api/credential')).data, []);
+  await add(); await connect();
+  const entries = (await json('/api/credential')).data;
+  assert.equal(entries.length, 1); assert.equal(entries[0].integrationID, 'test');
+  assert.equal(entries[0].active, true); assert.equal(entries[0].label, 'Test provider');
+  assert.deepEqual(entries[0].value, { type: 'key', key: '', metadata: { nna_redacted: true } });
+  assert.equal(JSON.stringify(entries).includes('secret-test-key'), false);
+  // Compatibility: the installed OpenChamber source handler checks the active entry's projected object.
+  const stored = Object.fromEntries(entries.filter((entry) => entry.active).map((entry) => [entry.integrationID, { type: 'api', key: entry.value.key, metadata: entry.value.metadata }]));
+  assert.ok(stored.test);
+  assert.equal((await json('/api/provider/test/source')).sources.user.exists, true);
+  await writeFile(path, JSON.stringify({ providers: { test: providerInput('http://127.0.0.1:9998/v1') } }));
+  assert.equal((await json('/api/credential')).data[0].active, false);
+  await connect('test', 'new-endpoint-key');
+  assert.equal((await json('/api/credential')).data.filter((entry) => entry.active).length, 1);
 });
 
 test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
@@ -287,6 +307,17 @@ test('published client configures an isolated provider key and switches the sess
   const { runtime, add, calls } = await setup(t); await add();
   const client = OpenCode.make({ baseUrl: runtime.url });
   await client.integration.connect.key({ integrationID: 'test', key: 'sdk-secret' });
+  const credentials = await client.credential.list();
+  assert.equal(credentials[0].integrationID, 'test'); assert.equal(credentials[0].active, true);
+  assert.equal(credentials[0].value.key, ''); assert.equal(credentials[0].value.metadata.nna_redacted, true);
+  if (process.env.NNA_OPENCHAMBER_AUTH_MODULE) {
+    const auth = await import(pathToFileURL(process.env.NNA_OPENCHAMBER_AUTH_MODULE).href);
+    auth.configureOpenCodeCredentials({ list: () => client.credential.list() });
+    t.after(() => auth.configureOpenCodeCredentials(null));
+    assert.equal((await auth.getProviderAuth('test')).type, 'api');
+    assert.equal((await auth.getProviderAuth('test')).key, '');
+    assert.equal(await auth.getProviderAuth('missing'), null);
+  }
   assert.equal((await client.integration.list()).data[0].connections[0].method, 'key');
   const session = await client.session.create({ model: { providerID: 'test', id: 'alpha' } });
   await client.session.switchModel({ sessionID: session.id, model: { providerID: 'test', id: 'beta' } });

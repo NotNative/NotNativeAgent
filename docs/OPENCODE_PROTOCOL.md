@@ -108,6 +108,15 @@ realm, with a separate master key and audit ledger. Catalogs return metadata onl
 Existing NNA Console keys are not copied or exposed; connect a key in OpenChamber.
 Explicit provider environment references use the service process's environment.
 
+`GET /api/credential` provides credential IDs, labels, integration IDs and active
+status for OpenChamber's backend source/authentication lookup. The upstream route
+exports secret values; NNA deliberately returns an empty `value.key` with
+`value.metadata.nna_redacted: true`. Active status requires the saved endpoint
+binding to match current provider configuration. OpenChamber's presence check
+can complete, but its features that require reading an actual key (such as quota
+lookups) cannot use this projection. Integration connection metadata and trusted
+NNA model transport continue to use the real credential.
+
 Credentials are bound to the endpoint where they were connected. Changing an
 endpoint requires connecting a credential for that endpoint. The service rejects
 a new prompt with setup guidance when its configured credential is unavailable.
