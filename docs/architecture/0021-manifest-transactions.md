@@ -1,6 +1,6 @@
 # Architecture decision 0021: Native manifest transactions
 
-Status: implemented foundation in `20261002-10`; Windows exercised, POSIX execution
+Status: implemented foundation in `20261002-11`; Windows exercised, POSIX execution
 not yet verified. Generic NND configuration HTTP mutation remains separate work.
 
 ## Ownership and source identity
@@ -92,6 +92,10 @@ The frozen `20261002-10` Windows build passed the complete sequential test run:
 graph/language checks passed for 440 production modules. The sequential run avoids
 cross-test interference from fixtures that intentionally create global legacy NND
 processes. Release certification and publisher signing are not claimed.
+The independent OpenCode credential-presence commit `8666f05a` was then preserved
+in the combined `20261002-11` candidate. Its merged protocol, transaction and source
+checks passed 43 tests with two skips. The exact combined `20261002-11` Windows
+build then passed all 1,802 tests with eight skips and zero failures (1,810 total).
 
 NND still needs the scoped configuration catalog/read/save/repair API, authenticated
 authority checks, browser expected-revision and operation-ID propagation, pending
