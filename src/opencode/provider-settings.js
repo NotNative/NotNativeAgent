@@ -118,7 +118,8 @@ export class OpenCodeProviderSettings {
     if (input.scope != null && input.scope !== 'user') throw invalid('Only the OpenCode user provider configuration can be changed');
     normalizeProvider(input.providerID, input.config);
     return this.mutate(async () => {
-      const { document } = await this.snapshot();
+      // Compatibility: replacing an unsupported provider must not require its old protocol to load.
+      const document = await readProviderDocument(this.paths);
       document.providers[input.providerID] = input.config;
       if (Object.keys(document.providers).length > 16) throw invalid('OpenCode provider limit reached');
       const target = this.paths.at(-1);

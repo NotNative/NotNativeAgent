@@ -86,7 +86,15 @@ of 500 ms. All requests also read current configuration.
 
 Create a custom provider in OpenChamber with the **OpenAI-compatible** chat
 protocol, its base URL, and model IDs. Supported packages are
+`aisdk:@ai-sdk/openai-compatible`, `@ai-sdk/openai-compatible`,
 `@opencode/ai/providers/openai-compatible` and `@opencode/ai/providers/openai/chat`.
+These identifiers select NNA's Chat Completions transport; no SDK package is loaded.
+OpenChamber's current [custom-provider contract](https://github.com/openchamber/openchamber/blob/main/packages/web/server/lib/opencode/DOCUMENTATION.md)
+uses the `aisdk:` spelling. Select **OpenAI Chat Completions** for an endpoint
+that serves `/chat/completions`. **OpenAI Responses** (`aisdk:@ai-sdk/openai`)
+uses a different wire protocol and remains unsupported. A rejected profile can be
+replaced with a supported chat profile without deleting credentials or changing
+the NNA Console configuration.
 The existing v1 `provider`/`npm`/`options` spelling is not imported. Recreate those
 entries with OpenChamber's v2 form. Other wire protocols, OAuth, command-based
 login, model variants, custom headers/body overlays, arbitrary provider packages

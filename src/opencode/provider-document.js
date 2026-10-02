@@ -5,7 +5,10 @@ import { join, resolve } from 'node:path';
 import { invalid, objectInput, textInput } from './v2-contract.js';
 
 export const COMPATIBLE_PACKAGE = '@opencode/ai/providers/openai-compatible';
-const PACKAGES = new Set([COMPATIBLE_PACKAGE, '@opencode/ai/providers/openai/chat']);
+// Compatibility: these identifiers select the same Chat Completions transport, without loading SDK packages.
+const PACKAGES = new Set([COMPATIBLE_PACKAGE, '@opencode/ai/providers/openai/chat',
+  'aisdk:@ai-sdk/openai-compatible', '@ai-sdk/openai-compatible']);
+const RESPONSES_PACKAGES = new Set(['aisdk:@ai-sdk/openai', '@ai-sdk/openai', '@opencode/ai/providers/openai']);
 
 export function providerConfigPaths(environment = process.env) {
   const root = environment.OPENCODE_CONFIG_DIR?.trim()
@@ -44,7 +47,8 @@ export function normalizeProvider(id, input) {
   objectInput(input, ['name', 'package', 'settings', 'models', 'env', 'canonical', 'headers', 'body', 'activation']);
   const packageName = input.package ?? COMPATIBLE_PACKAGE;
   if (input.activation != null && !['enabled', 'disabled', 'auto'].includes(input.activation)) throw invalid('Invalid provider activation');
-  if (!PACKAGES.has(packageName)) throw invalid('This adapter supports OpenAI-compatible chat providers only');
+  if (RESPONSES_PACKAGES.has(packageName)) throw invalid(`Provider ${id} selects OpenAI Responses, which NNA does not support. For a /chat/completions endpoint, select OpenAI Chat Completions in OpenChamber.`);
+  if (!PACKAGES.has(packageName)) throw invalid('Unsupported provider protocol. For a /chat/completions endpoint, select OpenAI Chat Completions in OpenChamber.');
   if (input.headers && Object.keys(input.headers).length || input.body && Object.keys(input.body).length) throw invalid('Custom provider headers and body are not supported');
   objectInput(input.settings ?? {}, ['baseURL']);
   let endpoint;

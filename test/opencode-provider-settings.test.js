@@ -154,6 +154,40 @@ test('provider mutations fail before touching storage for unsupported or malform
   assert.equal((await json('/api/provider')).data.length, 1);
 });
 
+for (const packageName of ['aisdk:@ai-sdk/openai-compatible', '@ai-sdk/openai-compatible']) {
+  test(`OpenChamber chat package ${packageName} supports credential connection and prompt routing`, async (t) => {
+    const { json, connect, request, calls, path } = await setup(t);
+    const config = { ...providerInput(), package: packageName };
+    await json('/api/provider', 'PUT', { providerID: 'spark', config, scope: 'user' });
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).providers.spark.package, packageName);
+    assert.equal((await json('/api/provider/spark')).data.package, packageName);
+    await connect('spark');
+    const session = (await json('/api/session', 'POST', { model: { providerID: 'spark', id: 'alpha' } })).data;
+    await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'test chat protocol' });
+    assert.equal((await request(`/api/experimental/session/${session.id}/wait`, 'POST')).status, 204);
+    assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'succeeded');
+    assert.ok(calls.some((call) => call.provider === 'spark' && call.model === 'actual-alpha' && call.key === 'secret-test-key'));
+  });
+}
+
+test('Responses profiles fail with protocol guidance and can be repaired without modifying stored credentials', async (t) => {
+  const { add, connect, json, request, path, settings } = await setup(t);
+  await add(); await connect(); const secrets = await settings.broker.list();
+  for (const packageName of ['aisdk:@ai-sdk/openai', '@ai-sdk/openai', '@opencode/ai/providers/openai']) {
+    await writeFile(path, JSON.stringify({ theme: 'preserved', providers: { test: { ...providerInput(), package: packageName } } }));
+    const before = await readFile(path, 'utf8');
+    const response = await request('/api/integration/test/connect/key', 'POST', { key: 'must-not-store' });
+    assert.equal(response.status, 400);
+    assert.match(await response.text(), /Provider test selects OpenAI Responses.*select OpenAI Chat Completions/);
+    assert.equal(await readFile(path, 'utf8'), before);
+    assert.deepEqual(await settings.broker.list(), secrets);
+    await json('/api/provider', 'PUT', { providerID: 'test', config: { ...providerInput(), package: 'aisdk:@ai-sdk/openai-compatible' } });
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).theme, 'preserved');
+    assert.equal((await settings.selection()).credential.secret_id, secrets[0].id);
+    assert.deepEqual(await settings.broker.list(), secrets);
+  }
+});
+
 test('provider credentials and configuration mutations require service authentication', async (t) => {
   const { request } = await setup(t, { password: 'service-password' });
   assert.equal((await request('/api/provider', 'PUT', { providerID: 'bad', config: providerInput() })).status, 401);
