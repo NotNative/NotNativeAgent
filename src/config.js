@@ -5,9 +5,11 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
-import { boundedInteger, boundedNumber, optionalZeroUnsetInteger, providerRouteDeadlineOverride,
+import { providerRouteDeadlineOverride,
   providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
 import { resolveContextLimits } from './config-context.js';
+import { resolveConfigurationScalar as scalar } from './configuration-rules.js';
+import { MANIFEST_KEYS } from './configuration-keys.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './persistence/manifest-migration.js';
@@ -21,17 +23,7 @@ const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unk
   'review_denial', 'provider_failure', 'tool_failure', 'unknown_effect', 'cancellation',
   'budget_exhaustion', 'expiration', 'disconnect',
 ]);
-const KNOWN_KEYS = new Set([
-  'format_version', 'routing_inheritance_version', 'output_headroom_version', 'persistence', 'provider', 'providers', 'routes', 'application_system_prompt', 'mission',
-  'workspace_root', 'provider_timeout_ms', 'first_token_timeout_ms', 'idle_timeout_ms',
-  'provider_connect_timeout_ms', 'semantic_review_timeout_ms', 'approval_timeout_ms',
-  'provider_concurrency', 'provider_queue_limit', 'tool_concurrency',
-  'persistence_flush_timeout_ms', 'shutdown_timeout_ms',
-  'context_limit_bytes', 'context_compression_threshold', 'context_compression_level_2_threshold', 'context_compression_level_3_threshold',
-  'context_compaction_threshold', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui', 'telemetry',
-  'allowed_capabilities', 'allowed_tools', 'disconnect_policy', 'skills',
-  'reviewer_ledger', 'recovery',
-]);
+const KNOWN_KEYS = new Set(MANIFEST_KEYS);
 export function resolveManifest(manifest = {}, options = {}) {
   if (!isRecord(manifest)) throw new ContractError('invalid_manifest', 'manifest must be an object');
   assertManifestVersion(manifest.format_version);
@@ -45,14 +37,14 @@ export function resolveManifest(manifest = {}, options = {}) {
     throw new ContractError('invalid_persistence', 'persistence must be durable or ephemeral');
   }
   const { providerMs, providerOverrideMs, firstTokenMs, firstTokenOverrideMs, idleMs, idleOverrideMs } = providerTimeouts(manifest);
-  const connectMs = boundedInteger(manifest.provider_connect_timeout_ms, 10_000, 100, 600_000);
+  const connectMs = scalar('provider_connect_timeout_ms', manifest.provider_connect_timeout_ms);
   const semanticReviewMs = semanticReviewTimeout(manifest, providerMs);
-  const approvalMs = boundedInteger(manifest.approval_timeout_ms, 120_000, 1_000, 3_600_000);
-  const providerConcurrency = boundedInteger(manifest.provider_concurrency, 1, 1, 16);
-  const providerQueueLimit = boundedInteger(manifest.provider_queue_limit, 256, 1, 4096);
-  const toolConcurrency = boundedInteger(manifest.tool_concurrency, 1, 1, 16);
-  const persistenceFlushMs = boundedInteger(manifest.persistence_flush_timeout_ms, 10_000, 100, 120_000);
-  const shutdownMs = boundedInteger(manifest.shutdown_timeout_ms, 15_000, 100, 120_000);
+  const approvalMs = scalar('approval_timeout_ms', manifest.approval_timeout_ms);
+  const providerConcurrency = scalar('provider_concurrency', manifest.provider_concurrency);
+  const providerQueueLimit = scalar('provider_queue_limit', manifest.provider_queue_limit);
+  const toolConcurrency = scalar('tool_concurrency', manifest.tool_concurrency);
+  const persistenceFlushMs = scalar('persistence_flush_timeout_ms', manifest.persistence_flush_timeout_ms);
+  const shutdownMs = scalar('shutdown_timeout_ms', manifest.shutdown_timeout_ms);
   const routes = buildRoutes(manifest.routes, profile, profiles, providerMs);
   const context = resolveContextLimits(manifest);
   const skills = validateManifestSkills(manifest.skills, options);
@@ -94,9 +86,9 @@ export function resolveManifest(manifest = {}, options = {}) {
 }
 function validateRecovery(value) {
   const input = isRecord(value) ? value : {};
-  const maxModelSteps = boundedInteger(input.max_model_steps, 1024, 16, 100_000);
-  const localLimit = boundedInteger(input.local_retry_limit, 3, 2, 5);
-  const turnWallClockMs = optionalZeroUnsetInteger(input.turn_wall_clock_ms, 1_000, 86_400_000);
+  const maxModelSteps = scalar('recovery.max_model_steps', input.max_model_steps);
+  const localLimit = scalar('recovery.local_retry_limit', input.local_retry_limit);
+  const turnWallClockMs = scalar('recovery.turn_wall_clock_ms', input.turn_wall_clock_ms);
   const ladder = input.ladder ?? ['nudge', 'compact', 'compact', 'compact'];
   if (!Array.isArray(ladder) || ladder.length < localLimit - 1 || ladder.length > 4
     || ladder.some((item) => !['nudge', 'compact'].includes(item))) {
@@ -109,7 +101,7 @@ function validateReviewerLedger(value) {
   if (Object.keys(input).some((key) => key !== 'retention_entries')) {
     throw new ContractError('reviewer_ledger_config_invalid', 'reviewer_ledger contains an unknown setting');
   }
-  return { retentionEntries: boundedInteger(input.retention_entries, 10_000, 1, 100_000) };
+  return { retentionEntries: scalar('reviewer_ledger.retention_entries', input.retention_entries) };
 }
 function validateManifestSkills(value, options) {
   if (value === undefined) return Object.freeze([]);
@@ -205,8 +197,8 @@ function validateProvider(value) {
     model: value.model,
     trustZone: value.trust_zone,
     credential, credentialEnv: credential?.source === 'environment' ? credential.name : undefined,
-    contextLimitBytes: optionalBoundedInteger(value.context_limit_bytes, 65_536, 16_777_216),
-    outputLimitTokens: optionalBoundedInteger(value.output_limit_tokens, 1, 1_048_576),
+    contextLimitBytes: scalar('providers[*].context_limit_bytes', value.context_limit_bytes),
+    outputLimitTokens: scalar('providers[*].output_limit_tokens', value.output_limit_tokens),
     toolCallMode: providerToolCallMode(value.tool_call_mode),
     capabilities: Object.freeze({
       streaming: true,
@@ -255,7 +247,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
     const route = isRecord(input[role]) ? input[role] : {};
     const assigned = role === 'primary' || route.provider_id != null || route.model != null;
     const deadlineOverrideMs = role === 'primary' ? null : providerRouteDeadlineOverride(route.deadline_ms);
-    const temperatureOverride = route.temperature == null ? null : boundedNumber(route.temperature, null, 0, 2);
+    const temperatureOverride = scalar('routes.{role}.temperature', route.temperature);
     const inherited = role === 'primary' ? null : result.primary;
     if (!assigned && !inherited) throw new ContractError('route_inheritance_invalid', `route ${role} has no Primary route to inherit`);
     const providerId = assigned ? (route.provider_id ?? profile.id) : inherited.providerId;
@@ -263,12 +255,12 @@ function buildRoutes(value, profile, profiles, providerMs) {
     const fallbacks = validateFallbacks(route.fallbacks);
     result[role] = Object.freeze({
       role, assigned, providerId, model,
-      contextLimitBytes: optionalBoundedInteger(route.context_limit_bytes, 65_536, 16_777_216)
+      contextLimitBytes: scalar('routes.{role}.context_limit_bytes', route.context_limit_bytes)
         ?? profiles[providerId]?.contextLimitBytes ?? null,
       requiredCapabilities: validateRouteCapabilities(route.required_capabilities),
       temperature: temperatureOverride === null || temperatureOverride === 0 ? null : temperatureOverride, temperatureOverride,
-      maxOutputTokens: optionalZeroUnsetInteger(route.max_output_tokens, 1, 1_048_576),
-      budget: optionalZeroUnsetInteger(route.budget, 1, 64),
+      maxOutputTokens: scalar('routes.{role}.max_output_tokens', route.max_output_tokens),
+      budget: scalar('routes.{role}.budget', route.budget),
       reasoningEffort: validateReasoningEffort(route.reasoning_effort), enableThinking: validateEnableThinking(route.enable_thinking),
       fallbacks,
       deadlineMs: deadlineOverrideMs === null ? providerMs : deadlineOverrideMs || null, deadlineOverrideMs,
@@ -284,7 +276,7 @@ function validateAttachments(value) {
   const input = isRecord(value) ? value : {};
   return {
     enabled: input.enabled !== false,
-    maxBytes: boundedInteger(input.max_bytes, 10_485_760, 1_024, 104_857_600),
+    maxBytes: scalar('attachments.max_bytes', input.max_bytes),
     retain: input.retain === true,
   };
 }
@@ -293,9 +285,9 @@ function validateMemory(value) {
   return {
     enabled: input.enabled !== false,
     required: input.required === true,
-    timeoutMs: boundedInteger(input.timeout_ms, 750, 50, 30_000),
-    maxItems: boundedInteger(input.max_items, 8, 1, 64),
-    maxBytes: boundedInteger(input.max_bytes, 16_384, 1_024, 262_144),
+    timeoutMs: scalar('memory.timeout_ms', input.timeout_ms),
+    maxItems: scalar('memory.max_items', input.max_items),
+    maxBytes: scalar('memory.max_bytes', input.max_bytes),
   };
 }
 function validateMcpServers(value) {
@@ -316,16 +308,16 @@ function validateMcpServer(entry) {
   if (!['stdio', 'streamable_http'].includes(entry.transport)) {
     throw new ContractError('invalid_mcp_transport', 'MCP transport must be stdio or streamable_http');
   }
-  const timeoutMs = entry.timeout_ms ?? 20_000;
+  const timeoutMs = entry.timeout_ms ?? scalar('mcp_servers[*].timeout_ms', undefined);
   const credentialEnv = optionalString(entry.credential_env), credential = normalizeCredentialBinding(entry.credential, credentialEnv);
   const target = credentialTarget(optionalString(entry.credential_target));
   const common = {
     id: entry.id, transport: entry.transport, enabled: entry.enabled === true,
-    timeoutMs: boundedInteger(entry.timeout_ms, timeoutMs, 100, 120_000),
-    connectTimeoutMs: boundedInteger(entry.connect_timeout_ms, timeoutMs, 100, 120_000),
-    listTimeoutMs: boundedInteger(entry.list_timeout_ms, timeoutMs, 100, 120_000),
-    callTimeoutMs: boundedInteger(entry.call_timeout_ms, timeoutMs, 100, 120_000),
-    shutdownTimeoutMs: boundedInteger(entry.shutdown_timeout_ms, 2_000, 100, 30_000),
+    timeoutMs: scalar('mcp_servers[*].timeout_ms', entry.timeout_ms, timeoutMs),
+    connectTimeoutMs: scalar('mcp_servers[*].connect_timeout_ms', entry.connect_timeout_ms, timeoutMs),
+    listTimeoutMs: scalar('mcp_servers[*].list_timeout_ms', entry.list_timeout_ms, timeoutMs),
+    callTimeoutMs: scalar('mcp_servers[*].call_timeout_ms', entry.call_timeout_ms, timeoutMs),
+    shutdownTimeoutMs: scalar('mcp_servers[*].shutdown_timeout_ms', entry.shutdown_timeout_ms),
     effects: isRecord(entry.tool_effects) ? { ...entry.tool_effects } : {},
     credential, credentialEnv: credential?.source === 'environment' ? credential.name : undefined,
     credentialTarget: target,
@@ -435,9 +427,9 @@ function validateMission(value, principal) {
     schedule: { notBefore: new Date(notBefore).toISOString(), expiresAt: new Date(expiresAt).toISOString() },
     expiresAt: new Date(expiresAt).toISOString(),
     bounds: {
-      maxTurns: boundedInteger(bounds.max_turns, 1, 1, 1_000_000),
-      maxToolCalls: boundedInteger(bounds.max_tool_calls, 256, 0, 1_000_000),
-      maxDurationMs: boundedInteger(bounds.max_duration_ms, 3_600_000, 1_000, 604_800_000),
+      maxTurns: scalar('mission.bounds.max_turns', bounds.max_turns),
+      maxToolCalls: scalar('mission.bounds.max_tool_calls', bounds.max_tool_calls),
+      maxDurationMs: scalar('mission.bounds.max_duration_ms', bounds.max_duration_ms),
     },
     termination: { suspendOn, terminateOn },
     provenance: principal,
@@ -479,10 +471,6 @@ function endpointZone(url) {
   return 'public_network';
 }
 function optionalString(value) { return typeof value === 'string' && value.length > 0 ? value : null; }
-function optionalBoundedInteger(value, minimum, maximum) {
-  if (value === undefined) return null;
-  return boundedInteger(value, null, minimum, maximum);
-}
 function stringOrEmpty(value) {
   return typeof value === 'string' ? value : '';
 }

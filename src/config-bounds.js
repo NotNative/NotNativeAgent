@@ -1,31 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { CONFIGURATION_RULES, boundedInteger, boundedNumber, resolveConfigurationScalar as scalar } from './configuration-rules.js';
+export { boundedInteger, boundedNumber } from './configuration-rules.js';
 
-const MIN_TIMEOUT_MS = 100;
-const MAX_TIMEOUT_MS = 86_400_000;
-const DEFAULT_PROVIDER_TIMEOUT_MS = 1_800_000;
-const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 600_000;
-const DEFAULT_IDLE_TIMEOUT_MS = 300_000;
-const MAX_STREAM_TIMEOUT_MS = 86_400_000;
+const DEFAULT_PROVIDER_TIMEOUT_MS = CONFIGURATION_RULES.provider_timeout_ms.default.value;
+const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = CONFIGURATION_RULES.first_token_timeout_ms.default.value;
+const DEFAULT_IDLE_TIMEOUT_MS = CONFIGURATION_RULES.idle_timeout_ms.default.value;
 const LEGACY_FIRST_TOKEN_TIMEOUT_MS = 30_000;
 const LEGACY_IDLE_TIMEOUT_MS = 45_000;
 const LEGACY_SEMANTIC_REVIEW_TIMEOUT_MS = 15_000;
-
-export function boundedInteger(value, fallback, minimum, maximum) {
-  if (value === undefined) return fallback;
-  if (!Number.isInteger(value) || value < minimum || value > maximum) {
-    throw new ContractError('invalid_limit', `limit must be an integer from ${minimum} to ${maximum}`);
-  }
-  return value;
-}
-
-export function boundedNumber(value, fallback, minimum, maximum) {
-  if (value === undefined) return fallback;
-  if (!Number.isFinite(value) || value < minimum || value > maximum) {
-    throw new ContractError('invalid_limit', `value must be a number from ${minimum} to ${maximum}`);
-  }
-  return value;
-}
 
 export function optionalZeroUnsetInteger(value, minimum, maximum) {
   if (value === undefined || value === null || value === 0) return null;
@@ -59,21 +42,17 @@ export function providerTimeouts(manifest) {
   const firstTokenConfigured = input.first_token_timeout_ms;
   const idleConfigured = input.idle_timeout_ms;
   return {
-    providerMs: configured === 0 ? null : boundedInteger(configured, DEFAULT_PROVIDER_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
+    providerMs: scalar('provider_timeout_ms', configured),
     providerOverrideMs: providerOverride(configured),
-    firstTokenMs: firstTokenConfigured === 0 ? null
-      : boundedInteger(firstTokenConfigured, DEFAULT_FIRST_TOKEN_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
-    firstTokenOverrideMs: streamOverride(firstTokenConfigured),
-    idleMs: idleConfigured === 0 ? null
-      : boundedInteger(idleConfigured, DEFAULT_IDLE_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
-    idleOverrideMs: streamOverride(idleConfigured),
+    firstTokenMs: scalar('first_token_timeout_ms', firstTokenConfigured),
+    firstTokenOverrideMs: streamOverride('first_token_timeout_ms', firstTokenConfigured),
+    idleMs: scalar('idle_timeout_ms', idleConfigured),
+    idleOverrideMs: streamOverride('idle_timeout_ms', idleConfigured),
   };
 }
 
 export function providerRouteDeadlineOverride(value) {
-  if (value === undefined) return null;
-  if (value === 0) return 0;
-  return boundedInteger(value, null, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+  return scalar('routes.{role}.deadline_ms', value);
 }
 
 export function semanticReviewTimeout(manifest, providerMs) {
@@ -81,19 +60,19 @@ export function semanticReviewTimeout(manifest, providerMs) {
   // Fifteen seconds was an early default that is too short for local models and
   // was persisted into existing manifests. Migrate that exact legacy value.
   if (configured === undefined || configured === LEGACY_SEMANTIC_REVIEW_TIMEOUT_MS) return providerMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
-  return boundedInteger(configured, providerMs ?? DEFAULT_PROVIDER_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+  return scalar('semantic_review_timeout_ms', configured, providerMs ?? DEFAULT_PROVIDER_TIMEOUT_MS);
 }
 
 function providerOverride(configured) {
   if (configured === undefined) return null;
   if (configured === 0) return 0;
-  return boundedInteger(configured, null, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+  return scalar('provider_timeout_ms', configured, null);
 }
 
-function streamOverride(configured) {
+function streamOverride(key, configured) {
   if (configured === undefined) return null;
   if (configured === 0) return 0;
-  return boundedInteger(configured, null, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS);
+  return scalar(key, configured, null);
 }
 
 export function telemetryDestination(value) {

@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { boundedInteger } from './config-bounds.js';
+import { resolveConfigurationScalar as scalar } from './configuration-rules.js';
 
 const DREAM_LIMITS = Object.freeze({
-  idleMs: Object.freeze({ input: 'idle_ms', fallback: 45_000, minimum: 5_000, maximum: 3_600_000 }),
-  interStageMs: Object.freeze({ input: 'inter_stage_ms', fallback: 5_000, minimum: 1_000, maximum: 300_000 }),
-  inferenceIdleMs: Object.freeze({ input: 'inference_idle_ms', fallback: 120_000, minimum: 10_000, maximum: 3_600_000 }),
-  hygieneIdleMs: Object.freeze({ input: 'hygiene_idle_ms', fallback: 300_000, minimum: 30_000, maximum: 7_200_000 }),
-  retentionDays: Object.freeze({ input: 'retention_days', fallback: 30, minimum: 1, maximum: 365 }),
+  idleMs: 'idle_ms', interStageMs: 'inter_stage_ms', inferenceIdleMs: 'inference_idle_ms',
+  hygieneIdleMs: 'hygiene_idle_ms', retentionDays: 'retention_days',
 });
 
 export function validateDream(value, executionManifest) {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const limits = Object.fromEntries(Object.entries(DREAM_LIMITS).map(([output, rule]) => [
-    output, boundedInteger(input[rule.input], rule.fallback, rule.minimum, rule.maximum),
+  const limits = Object.fromEntries(Object.entries(DREAM_LIMITS).map(([output, key]) => [
+    output, scalar(`dream.${key}`, input[key]),
   ]));
   return {
     // Idle maintenance is an opt-out standalone feature; authenticated hosted execution always disables it.

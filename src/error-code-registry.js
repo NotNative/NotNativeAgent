@@ -55,6 +55,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'configuration_scope_change', 'configuration_size', 'configuration_source_invalid',
     'configuration_intent_required', 'configuration_source_required', 'configuration_source_shadowed',
     'configuration_saved_not_applied',
+    'configuration_rule_default_required', 'configuration_rule_unknown',
     'configuration_sources_invalid', 'configuration_update_invalid', 'configuration_version_invalid',
     'invalid_attachment', 'invalid_attachment_id', 'invalid_attachments',
     'invalid_command', 'invalid_content', 'invalid_endpoint',
