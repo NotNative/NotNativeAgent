@@ -232,3 +232,34 @@ L4 is in-progress; L5 is in-progress. Existing-data/grant migration and interrup
 installation recovery remain open, as do login startup, native device attachment,
 complete settings and feature acceptance. Native full validation uses an isolated
 checkout to preserve concurrent OpenCode protocol development.
+
+## Slice 20261002-5 — configured admission, credential management and source identity
+
+Native configured-NNA adoption now preserves unrelated manifest/TUI/journal data.
+It requires the actual held data-root lease, checks bounded Windows legacy owners
+on every startup, and syncs a protected selected-identity admission receipt.
+Prior valid supervised receipts remain supported. Legacy NND catalogs and orphan
+child/activity sidecars still require explicit migration; no grants are rewritten.
+Unsupported pre-lease executable autostarts must be disabled: current process
+census cannot guarantee that a different older executable never starts later.
+
+The native GUI principal gains exact secret metadata/manage/audit operations with
+broker scope checks. It has no secret-use, deployment-scope or wildcard grant.
+Actual HTTP tests cover setup-required and ready states, rotation, foreign-scope
+rejection, caller header forgery and plaintext retrieval denial.
+
+The source seal includes root installers and Electron code/assets. Generated
+build stamps and installed mode flags are excluded. Three release-content tests
+include source digest changes, stable generated output and Windows junction refusal.
+Independent adversarial audits applied portability and generated-file repairs.
+Full UI: 1,630 passed. Native full suite, native quality, actual composed/Chromium
+smokes, regenerated graphs and final release gates are required before commit.
+The real Chromium probe found transient discovery polling could abort shutdown.
+Bounded retries now apply only to Windows sharing/lock contention. Fourteen
+discovery tests and actual Chromium shutdown passed, with independent audit.
+Native validation includes committed OpenCode version 20261002-4; this slice
+advances native to 20261002-5. The prior uncommitted NND candidate seal remains
+immutable; the corrected current evidence advances NND to 20261002-5.
+Remaining lifecycle gaps: explicit legacy migration, login startup, transactional
+upgrade/rollback and interrupted installation recovery. Setup repair and complete
+native settings GUI remain open.

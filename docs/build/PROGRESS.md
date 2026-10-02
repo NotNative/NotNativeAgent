@@ -3,6 +3,30 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-02 · Configured installation adoption and release coverage · NND 20261002-5 / NNA 20261002-5
+
+Native admission now preserves configured NNA manifests, independent TUI tabs and
+ordinary journals when no legacy NND catalog or sidecars exist. Every start holds
+the genuine data-root lease and checks a bounded Windows legacy-process census.
+A protected synced admission receipt records selected identity and observed census.
+Legacy NND catalogs still require explicit migration. A census observes current
+processes; operators must disable unsupported older executable autostarts. No
+process is killed or future process exclusion inferred from a historical receipt.
+
+Native credential management now allows scoped metadata, create/rotate and audit
+operations, while denying raw retrieval, foreign scopes and secret-use authority.
+The full settings GUI and safe manifest setup/repair remain separate open work.
+
+Release source sealing now identifies root installers, Electron lifecycle sources
+and assets. Generated bundles, staged web output and build stamps stay outside the
+source seal. Bounded traversal rejects source links and avoids dependency trees.
+Discovery gate acquisition now waits within a fixed bound for Windows sharing
+contention. Actual Chromium exposed polling aborting one-shot shutdown; the repair
+preserves generation comparisons and cancellation and passed independent audit.
+The committed OpenCode protocol baseline is preserved in native validation.
+Focused native and release tests, independent adversarial audits and the full UI
+suite passed. Full native, final release and actual composed checks run before commit.
+
 ## 2026-10-02 · Desktop client and guarded installation · NND 20261002-3 / NNA 20261002-3
 
 Electron now opens the explicitly selected native service. It verifies the selected

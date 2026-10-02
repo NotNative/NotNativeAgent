@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { releaseFiles as collectReleaseFiles } from './release-content.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const errors = [];
-const EXCLUDED_RELEASE_PREFIXES = Object.freeze(['node_modules/', 'dist/', '.git/', '.pnpm/', 'coverage/']);
-const INCLUDED_RELEASE_PREFIXES = Object.freeze(['packages/ui/src/', 'packages/web/src/', 'packages/web/public/', 'packages/web/package.json', 'packages/ui/package.json', 'packages/web/index.html', 'packages/web/vite.config.ts', 'packages/web/tsconfig.ui.json', 'packages/web/tsconfig.server.json', 'packages/ui/tsconfig.json', 'packages/ui/vitest.config.ts', 'scripts/', 'docs/architecture/', 'docs/build/', 'docs/planning/']);
-const INCLUDED_ROOT_FILES = new Set(['package.json', 'README.md', 'VERSION', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', 'tsconfig.base.json']);
 const MANIFEST = 'RELEASE_MANIFEST.sha256';
 const LEDGER = 'RELEASE_VERSIONS.json';
 
@@ -176,8 +174,7 @@ function missingFromManifest(differences, lists, expected) {
 }
 
 async function releaseFiles() {
-  const all = await walk(root);
-  return all.filter((path) => releaseEligible(relativeName(path)));
+  return collectReleaseFiles(root);
 }
 
 async function readJsonOrPushError(name) {
@@ -186,21 +183,6 @@ async function readJsonOrPushError(name) {
     errors.push(`${name} could not be read as JSON: ${error.code ?? error.message}`);
     return null;
   }
-}
-
-async function walk(directory) {
-  const results = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) results.push(...await walk(path));
-    else if (entry.isFile()) results.push(path);
-  }
-  return results;
-}
-
-function releaseEligible(name) {
-  if (EXCLUDED_RELEASE_PREFIXES.some((prefix) => name.startsWith(prefix))) return false;
-  return INCLUDED_ROOT_FILES.has(name) || INCLUDED_RELEASE_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
 function relativeName(path) {
