@@ -4,6 +4,7 @@ import { readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/pro
 import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
+import { validateNndServiceArtifacts } from './nnd-service-package.js';
 
 const REGISTRY_FILE = 'nnd-package.json';
 const MANIFEST_FILE = join('nna-integration', 'nnd-local', 'integration.json');
@@ -33,7 +34,7 @@ async function boundedJson(path, code) {
   catch { invalid(code, 'NND package metadata is invalid JSON'); }
 }
 
-export async function validateNndPackage(rootInput) {
+export async function validateNndPackage(rootInput, options = {}) {
   if (typeof rootInput !== 'string' || !rootInput.trim() || !isAbsolute(rootInput.trim())) {
     invalid('nnd_package_root_invalid', 'NND package root must be absolute');
   }
@@ -53,6 +54,10 @@ export async function validateNndPackage(rootInput) {
     || manifest.nna_integration_protocol !== '1.0' || !VERSION.test(manifest.version)
     || packageInfo?.nnd_version !== manifest.version) {
     invalid('nnd_package_manifest_invalid', 'NND package identity, protocol, or version is incompatible');
+  }
+  // Compatibility: old registration remains valid; service admission must supply host capabilities.
+  if (Object.hasOwn(manifest, 'service_activation') || options.serviceHost !== undefined) {
+    await validateNndServiceArtifacts(root, manifest, options.serviceHost);
   }
   return Object.freeze({ root, manifestPath, version: manifest.version, protocol: '1.0' });
 }

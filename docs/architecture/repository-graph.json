@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:81973bc55f1b44923bd5fc1b1bec8a08ecaa0ebf77719b3537341b27db73fd34",
+  "source_digest": "sha256:a92175f3bde1b8c97cddcefa451a547f04bd9c791edcd87282566a47bf0678ee",
   "counts": {
-    "modules": 393,
+    "modules": 396,
     "component_edges": 79
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 116
+      "module_count": 119
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 215,
-      "module_count": 94
+      "import_count": 220,
+      "module_count": 96
     },
     {
       "from": "experience-engine",
@@ -2010,6 +2010,15 @@
       ]
     },
     {
+      "path": "src/nnd-manifest-extensions.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-service-contract.js"
+      ]
+    },
+    {
       "path": "src/nnd-mcp-inventory.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2057,7 +2066,8 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/nnd-service-package.js"
       ]
     },
     {
@@ -2124,6 +2134,21 @@
       "imports": [
         "src/ids.js",
         "src/nnd-session-description.js"
+      ]
+    },
+    {
+      "path": "src/nnd-service-contract.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/nnd-service-package.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-manifest-extensions.js"
       ]
     },
     {

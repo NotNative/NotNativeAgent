@@ -16,6 +16,33 @@ contract; it is hereby generalized as the canonical add-on path: a package manif
 (identity, version, capabilities), activation lifecycle owned by the NNA daemon,
 route-mount slots, and per-package settings. NND mounts as the second package.
 
+## NND service contract implementation boundary
+
+The NND L1 contract is implemented as bounded activation/status validators in
+`src/nnd-service-contract.js`, `src/nnd-manifest-extensions.js` and
+`src/nnd-service-package.js`. Registration validates optional service metadata
+and actual bundle identity. Explicit service admission additionally requires an
+observed host capability descriptor; no runtime supervision capability is
+advertised merely because its schema is known. Legacy registration is preserved.
+
+The selected target has an NNA supervisor hosting native integration and launching
+an attach-only NND service child, with a private stdin bootstrap. Existing
+`nna nnd serve` is the native integration host, not that GUI child. Current
+Electron/managed startup has not yet migrated. Planned commands are
+`nna nnd service start|stop|status|restart`; lifecycle commands elsewhere in this
+ADR remain architectural targets until implemented and verified.
+
+Windows startup will use an NNA-owned per-user HKCU Run entry targeting a hidden
+launch helper. An exclusive named-pipe listener keyed by canonical data root
+protects ownership across package upgrades and differing NNA installation roots;
+shared catalog paths also require exclusivity. Discovery alone never authorizes
+process termination. TUI tabs, sessions and startup remain independent.
+
+The paired NND `docs/build/EXECUTION/nnd-local-activation-contract.md` records
+startup ownership, separate controller and engine credentials, setup-required
+health, migration gates and remaining installed acceptance. Neither schema tests
+nor package registration prove persistent service operation.
+
 ## Responsibility boundaries
 
 1. NNA core owns: the agent loop, governance decisions, the projection fold and its

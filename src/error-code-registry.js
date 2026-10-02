@@ -74,6 +74,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'manifest_shape_invalid', 'manifest_too_large', 'manifest_version_future',
     'manifest_version_invalid', 'session_id_invalid',
     'nnd_command_invalid', 'nnd_manifest_invalid',
+    'nnd_package_incompatible', 'nnd_package_incomplete', 'nnd_package_manifest_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
     'nnd_message_cursor_invalid',
