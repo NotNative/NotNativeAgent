@@ -36,6 +36,11 @@ it cannot replace a citation.
 Mission turn consumption is a separate durable authority fact. It is restored across process
 restart and deliberately survives conversation clear; persistence must succeed before the
 turn proceeds, so restart, clear, or a failed journal write cannot replenish mission bounds.
+Mission tool bounds count new schema-valid, resolved requests admitted to review. Invalid
+requests and reused terminal results consume no reservation. Reservations persist before
+review or execution and remain consumed after denial, cancellation, failure, or an uncertain
+effect. Provider-step and tool-assembly bounds still limit invalid attempts. Telemetry separates
+attempted, admitted, invalid, and reused calls from cumulative mission reservations.
 Bounded-tail resume never assumes omitted authority is harmless. Authority intents, clear
 boundaries, and mission budgets are small control records recovered by a genesis-anchored,
 chain-verified control scan whenever the transcript tail is truncated, so long tool-heavy
@@ -71,6 +76,9 @@ attempt and makes one schema-repair attempt with a separate receipt. A second ma
 fails closed. The semantic default is permissive toward a reasonable, proportionate
 means of carrying out authenticated intent; ordinary intermediate commands and targets
 derived from prior results need not be named verbatim.
+A reviewer deadline fails the request closed with `semantic_review_timeout`, a `timed_out`
+terminal event, its configured deadline, and elapsed duration. It does not become an authority
+denial against a later equivalent request. Operator cancellation remains `turn_cancelled`.
 
 Deterministic safe-tool review depends on the sealed tool effect and scope. NNA does not use
 greeting words or other natural-language patterns to revoke a safe tool mid-turn. This rule does

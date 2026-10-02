@@ -5,7 +5,8 @@ import {
   toolResultRecord, toolResultState, toolStatus,
 } from '../engine/records.js';
 import { blockedResult, denialResult, invalidResult, toolSettlementTerminal } from './governor.js';
-import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionTools } from '../authority.js';
+import { assertMissionBudget, missionConditionFailure } from '../authority.js';
+import { reserveToolAdmission } from './admission.js';
 import { ToolResultCache } from './result-cache.js';
 import { assertTurnActive } from '../turn-cancellation.js';
 import { ContractError } from '../ids.js';
@@ -78,15 +79,12 @@ export class ToolLoop {
       assertTurnActive(active);
       await this.reconcilePendingSettlements(active);
       active.webUrlProvenance ??= new WebUrlProvenance(active.prompt ?? '');
-      assertMissionBudget(active, calls.length);
-      active.authority = await reserveAndPersistMissionTools(
-        this.engine.authority, this.engine.config, calls.length,
-        (record) => this.persist('mission_tool_calls_reserved', record),
-      );
+      assertMissionBudget(active);
       active.toolCalls += calls.length;
       this.state.transition('validating_tool_requests', { trigger: 'tool_calls_sealed', turnId: active.turnId });
       await this.#validate(calls, active, items);
       const valid = items.filter((item) => item.request);
+      await reserveToolAdmission(this.engine, active, items, this.persist);
       if (valid.length > 0) await this.#reviewAndExecute(valid, active);
       assertTurnActive(active);
       if (this.state.state !== 'processing_tool_results') {

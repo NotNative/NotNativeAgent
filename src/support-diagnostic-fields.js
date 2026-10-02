@@ -25,7 +25,8 @@ const FIELDS = new Set([
   'authorityRestrictionVersion', 'committedAt', 'expiresAt', 'elapsedMs', 'risk', 'scope', 'effect', 'complexity',
   'provenance', 'reasonCode', 'freshness', 'conflict', 'sourceRef', 'sourceFingerprint', 'contentFingerprint',
   'kind', 'origin', 'trust', 'observedAt', 'domain', 'subjectRef', 'subjectFingerprint', 'decidedAt', 'at', 'from', 'to',
-  'effectCertainty', 'authority_version', 'restriction_version', 'complete',
+  'effectCertainty', 'authority_version', 'restriction_version', 'complete', 'timeout_ms',
+  'attempted_calls', 'admitted_calls', 'invalid_calls', 'reused_calls', 'reserved_tool_calls',
   'transitionCount', 'transitionFingerprint', 'retained_evidence', 'retained_decisions', 'transition_history',
 ]);
 const CONTAINERS = new Set(['accounting', 'envelope', 'sections', 'tokenizer', 'reducers', 'usage', 'by_role',

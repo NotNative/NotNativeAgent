@@ -7,7 +7,7 @@ import { externalBrowserGuidance } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 const REVIEWER_SERVICE_FAILURES = new Set([
-  'mandatory_review_failed', 'provider_reasoning_control_rejected', 'semantic_review_unavailable',
+  'mandatory_review_failed', 'provider_reasoning_control_rejected', 'semantic_review_unavailable', 'semantic_review_timeout',
   'authority_anchor_missing', 'authority_anchor_invalid',
 ]);
 export class MandatoryReviewer {
@@ -75,9 +75,7 @@ export class MandatoryReviewer {
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
       const committed = await this.ledger.commitDecision(request.id, decision);
       await this.governance?.recordAuthorization(request, committed, { ...context, classification });
-      this.telemetry?.record('review.decision', reviewTelemetryStatus(committed.outcome), {
-        classification, decision: committed, ledger_repetition: entry.repetition,
-      }, { ...correlation, durationMs: elapsedMs(started), outcome: committed.outcome, reasonCode: committed.reasonCode });
+      recordReviewDecision(this, committed, classification, entry.repetition, correlation, started);
       return committed;
     } catch (error) {
       this.telemetry?.record('review.decision', 'failed', {
@@ -111,14 +109,23 @@ export class MandatoryReviewer {
       turnId: context.turnId, stepId: context.stepId, toolRequestId: request.id,
       parentSpanId: context.stepId,
     });
-    return normalizeCandidate(candidate, request, context);
+    return normalizeCandidate(candidate, request, { ...context, semanticTimeoutMs: this.semanticTimeoutMs });
   }
 }
 function refreshApprovalWindow(decision, ttlMs) {
   const committedAt = Date.now();
   return Object.freeze({ ...decision, committedAt, expiresAt: committedAt + ttlMs });
 }
-function reviewTelemetryStatus(outcome) { return outcome === 'approve' ? 'succeeded' : outcome === 'escalate_to_operator' ? 'skipped' : 'denied'; }
+function reviewTelemetryStatus(decision) {
+  if (decision.reasonCode === 'semantic_review_timeout') return 'timed_out';
+  return decision.outcome === 'approve' ? 'succeeded' : decision.outcome === 'escalate_to_operator' ? 'skipped' : 'denied';
+}
+function recordReviewDecision(reviewer, decision, classification, repetition, correlation, started) {
+  reviewer.telemetry?.record('review.decision', reviewTelemetryStatus(decision), {
+    classification, decision, ledger_repetition: repetition,
+    timeout_ms: decision.reasonCode === 'semantic_review_timeout' ? reviewer.semanticTimeoutMs : undefined,
+  }, { ...correlation, durationMs: elapsedMs(started), outcome: decision.outcome, reasonCode: decision.reasonCode });
+}
 function elapsedMs(started) { return Number(process.hrtime.bigint() - started) / 1_000_000; }
 export class UnavailableSemanticReviewer {
   async review() {
@@ -274,7 +281,11 @@ async function boundedReview(component, input, timeoutMs, externalSignal, correl
   const controller = new AbortController();
   let timer; let cancel;
   const timeout = new Promise((resolve) => {
-    timer = setTimeout(() => { controller.abort(); resolve(null); }, timeoutMs);
+    timer = setTimeout(() => {
+      // Invariant: settling the deadline first prevents the provider's abort rejection from erasing its cause.
+      resolve({ failureCode: 'semantic_review_timeout' });
+      controller.abort();
+    }, timeoutMs);
   });
   const cancellation = new Promise((resolve, reject) => {
     cancel = () => {
@@ -295,6 +306,11 @@ async function boundedReview(component, input, timeoutMs, externalSignal, correl
 }
 
 function normalizeCandidate(value, request, context) {
+  if (value?.failureCode === 'semantic_review_timeout') {
+    return deny(value.failureCode,
+      `The reviewer exceeded its ${context.semanticTimeoutMs} ms deadline; NNA denied this operation fail-closed. `
+        + 'Check the Reviewer route and its latency. Additional user permission cannot repair reviewer availability.', request);
+  }
   if (value?.failureCode === 'provider_reasoning_control_rejected') {
     return deny(
       value.failureCode,

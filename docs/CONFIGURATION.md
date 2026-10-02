@@ -226,7 +226,10 @@ from the authenticated stdio host. A mission requires safe `id` and `revocation_
 identities, an outcome, an ordered ISO `not_before`/`expires_at` schedule, explicit
 `resources`, `targets`, `side_effects`, and environment-name-only `credential_refs`, bounded
 `max_turns`, `max_tool_calls`, and `max_duration_ms`, plus `termination.suspend_on` and
-`termination.terminate_on` conditions. Termination must include expiration, budget
+`termination.terminate_on` conditions. Tool bounds count new validated requests admitted
+to review; invalid requests and reused results consume no reservation. Reservations persist
+before review and execution and are not refunded for denial, cancellation, failure, or
+uncertain effects. Termination must include expiration, budget
 exhaustion, and disconnect. Target entries may be an exact canonical target, a directory
 prefix ending in `/**`, `tool:TOOL_NAME`, `scope:SCOPE`, or the deliberately broad `*`.
 Every tool—including deterministic read-only tools—is checked against this envelope before

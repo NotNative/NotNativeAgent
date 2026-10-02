@@ -195,7 +195,7 @@ function denialRecovery(decision) {
     kind: 'immutable_policy', continuation: 'continue_within_boundary', userClarification: false,
     instruction: 'This is an immutable policy boundary. Do not retry or imply that additional user authorization can override it. Continue all remaining work within the boundary; report it only if it blocks the objective.',
   };
-  if (['mandatory_review_failed', 'semantic_review_unavailable'].includes(decision.reasonCode)) return {
+  if (['mandatory_review_failed', 'semantic_review_unavailable', 'semantic_review_timeout'].includes(decision.reasonCode)) return {
     kind: 'reviewer_unavailable', continuation: 'replan_safer', userClarification: false,
     instruction: 'The reviewer was unavailable; this is not a finding that the user withheld authorization. Do not repeat the same request unchanged. Continue through a safer deterministic approach, or report reviewer unavailability only if no useful path remains.',
   };

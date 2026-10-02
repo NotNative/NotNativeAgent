@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:239bd347c25043232970f2fdbd5164ae90e2bd460f05c90de1a025c910e6482e",
+  "source_digest": "sha256:7e716c2349b9f5da5eab6bfab3326bdb456999922a4494e3d62ffc356abbea2b",
   "counts": {
-    "modules": 476,
+    "modules": 477,
     "component_edges": 81
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 48
+      "module_count": 49
     },
     {
       "id": "guidance",
@@ -138,7 +138,7 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 56,
+      "import_count": 57,
       "module_count": 20
     },
     {
@@ -376,6 +376,12 @@
       "module_count": 3
     },
     {
+      "from": "tools",
+      "to": "governance-engine",
+      "import_count": 4,
+      "module_count": 2
+    },
+    {
       "from": "experience-engine",
       "to": "agentic-engine",
       "import_count": 3,
@@ -416,12 +422,6 @@
       "to": "providers",
       "import_count": 3,
       "module_count": 2
-    },
-    {
-      "from": "tools",
-      "to": "governance-engine",
-      "import_count": 3,
-      "module_count": 1
     },
     {
       "from": "tools",
@@ -4273,6 +4273,14 @@
       ]
     },
     {
+      "path": "src/tools/admission.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/authority.js"
+      ]
+    },
+    {
       "path": "src/tools/argument-normalization.js",
       "component": "tools",
       "entrypoint": false,
@@ -4406,6 +4414,7 @@
         "src/reliability/filesystem-recovery.js",
         "src/reliability/tool-progress.js",
         "src/review-evidence.js",
+        "src/tools/admission.js",
         "src/tools/governor.js",
         "src/tools/result-cache.js",
         "src/tools/tool-result-contract.js",
