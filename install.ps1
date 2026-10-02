@@ -41,6 +41,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'scripts\installer-native-guard.ps1')
 $Source = $PSScriptRoot
 $ElectronExe = Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"
 $MainScript = "packages\electron\main.mjs"
@@ -92,7 +93,19 @@ function Test-InstallRunning([string]$ExePath) {
 # remains available until NNA owns the GUI service lifecycle.
 function Get-InstalledNna {
     $nnaRoot = if ($NnaInstallRoot) { $NnaInstallRoot } else { Join-Path $env:LOCALAPPDATA 'NotNativeAgent' }
-    if (!$NnaInstallRoot -and !(Test-Path -LiteralPath (Join-Path $nnaRoot 'install.json') -PathType Leaf)) {
+    $selectionPath = Join-Path $InstallDir 'nna-service-selection.json'
+    $hasSelection = !$NnaInstallRoot -and (Test-Path -LiteralPath $selectionPath)
+    if ($hasSelection) {
+        $selectionFile = Get-Item -LiteralPath $selectionPath -Force
+        if ($selectionFile.PSIsContainer -or $selectionFile.Length -gt 16384 -or
+            ($selectionFile.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Installed NNA selection is invalid.' }
+        $selection = Get-Content -LiteralPath $selectionPath -Raw | ConvertFrom-Json
+        if (@($selection.PSObject.Properties).Count -ne 2 -or $selection.schema_version -ne '1.0' -or
+            $selection.nna_install_root -isnot [string] -or $selection.nna_install_root.Length -gt 4096 -or
+            ![IO.Path]::IsPathRooted($selection.nna_install_root)) { throw 'Installed NNA selection is invalid.' }
+        $nnaRoot = $selection.nna_install_root
+    }
+    if (!$NnaInstallRoot -and !$hasSelection -and !$Uninstall -and !(Test-Path -LiteralPath (Join-Path $nnaRoot 'install.json') -PathType Leaf)) {
         $launcher = Get-Command 'nna.cmd' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($launcher) {
             $binRoot = Split-Path -Parent $launcher.Source
@@ -114,7 +127,57 @@ function Get-InstalledNna {
     if (!(Test-Path -LiteralPath $descriptor.node -PathType Leaf) -or !(Test-Path -LiteralPath $cli -PathType Leaf)) {
         throw 'Installed NNA runtime is incomplete; NND registration was not attempted.'
     }
-    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root }
+    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root }
+}
+
+function Assert-NndRemovalTarget([string]$Candidate, [string]$SourceRoot) {
+    $resolved = [IO.Path]::GetFullPath($Candidate).TrimEnd('\', '/')
+    $sourceResolved = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\', '/')
+    if ($resolved.Length -le [IO.Path]::GetPathRoot($resolved).Length -or
+        $resolved.Equals($sourceResolved, [StringComparison]::OrdinalIgnoreCase) -or
+        $resolved.StartsWith("$sourceResolved\", [StringComparison]::OrdinalIgnoreCase) -or
+        $sourceResolved.StartsWith("$resolved\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Recursive removal target overlaps the source checkout or a filesystem root.'
+    }
+    # Resolve conservatively: an alias in either ancestry defeats lexical overlap checks.
+    foreach ($start in @($resolved, $sourceResolved)) {
+        $current = $start
+        while ($current) {
+            if (Test-Path -LiteralPath $current) {
+                $item = Get-Item -LiteralPath $current -Force
+                if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                    throw 'Recursive removal refuses reparse points in target or source ancestry.'
+                }
+            }
+            $parent = [IO.Directory]::GetParent($current)
+            $current = if ($parent) { $parent.FullName } else { $null }
+        }
+    }
+    return $resolved
+}
+
+function Remove-NndTree([string]$Candidate, [string]$SourceRoot) {
+    $root = Assert-NndRemovalTarget $Candidate $SourceRoot
+    if (!(Test-Path -LiteralPath $root)) { return }
+    $pending = New-Object 'System.Collections.Generic.Stack[string]'
+    $pending.Push($root)
+    $visited = 0
+    while ($pending.Count) {
+        $directory = $pending.Pop()
+        foreach ($item in Get-ChildItem -LiteralPath $directory -Force) {
+            $visited++
+            if ($visited -gt 500000) { throw 'Removal inventory exceeded its bound; installation evidence was preserved.' }
+            $entry = [IO.Path]::GetFullPath($item.FullName)
+            if (!$entry.StartsWith("$root\", [StringComparison]::OrdinalIgnoreCase)) { throw 'Removal entry escaped its target.' }
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                # Delete the link itself, never recursively enumerate a pnpm junction target.
+                if ($item.PSIsContainer) { [IO.Directory]::Delete($entry, $false) }
+                else { [IO.File]::Delete($entry) }
+            } elseif ($item.PSIsContainer) { $pending.Push($entry) }
+        }
+    }
+    $verified = Assert-NndRemovalTarget $root $SourceRoot
+    Remove-Item -LiteralPath $verified -Recurse -Force
 }
 
 function Install-RequiredNna {
@@ -179,6 +242,7 @@ $targetPath = [IO.Path]::GetFullPath(
 ).TrimEnd('\', '/')
 
 if ($Uninstall) {
+    $targetPath = Assert-NndRemovalTarget $targetPath $sourcePath
     if ($sourcePath.Equals($targetPath, [StringComparison]::OrdinalIgnoreCase) -or
         $sourcePath.StartsWith("$targetPath\", [StringComparison]::OrdinalIgnoreCase) -or
         $targetPath.StartsWith("$sourcePath\", [StringComparison]::OrdinalIgnoreCase)) {
@@ -190,27 +254,40 @@ if ($Uninstall) {
         Write-Host "  quit it from the tray menu, then re-run -Uninstall." -ForegroundColor Yellow
         exit 2
     }
+    $uninstallNna = Get-InstalledNna
+    if (!$uninstallNna) { throw 'Cannot verify native service ownership. Restore the selected NNA runtime before uninstalling NND.' }
+    $uninstallGuard = Start-NndInstallationGuard $uninstallNna
+    $uninstallComplete = $false
+    try {
     # Do not delete an installed package while NNA still points at it. A
     # failed deactivation leaves the install intact for an explicit retry.
     Invoke-NndRegistration 'deactivate' $targetPath
     foreach ($name in @("NotNativeDesktop")) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
-        foreach ($link in $links) { if (Test-Path $link) { Remove-Item $link -Force; Write-Host "  removed shortcut $link" } }
+        foreach ($link in $links) { if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link -Force; Write-Host "  removed shortcut $link" } }
     }
-    if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force; Write-Host "  removed install tree" }
+    Assert-NndInstallationGuard $uninstallGuard
+    $removeTarget = Assert-NndRemovalTarget $targetPath $sourcePath
+    if (Test-Path -LiteralPath $removeTarget) { Remove-NndTree $removeTarget $sourcePath; Write-Host "  removed install tree" }
     if ($PurgeData) {
         $partial = $false
         foreach ($data in @((Join-Path $env:USERPROFILE ".notnative-desktop"), (Join-Path $env:APPDATA "NotNativeDesktop"), (Join-Path $env:APPDATA "NotNativeDesktop Dev"))) {
-            if (Test-Path $data) {
-                # Locked data files (a running dev instance shares these dirs) must
-                # not abort the purge half-way with EAP=Stop - erase what is loose.
-                Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-                if (Test-Path $data) { $partial = $true; Write-Host "  partially erased $data (some files locked by a running instance)" -ForegroundColor Yellow }
+            $removeData = Assert-NndRemovalTarget $data $sourcePath
+            if (Test-Path -LiteralPath $removeData) {
+                # Any removal failure preserves the native guard evidence for recovery.
+                Assert-NndInstallationGuard $uninstallGuard
+                Remove-NndTree $removeData $sourcePath
+                if (Test-Path -LiteralPath $removeData) { $partial = $true; Write-Host "  partially erased $data (some files locked by a running instance)" -ForegroundColor Yellow }
                 else { Write-Host "  erased data $data" }
             }
         }
         if ($partial) { Write-Host "  user data erased except the locked files listed above" -ForegroundColor Yellow }
         else { Write-Host "  user data erased" -ForegroundColor Yellow }
+    }
+    $uninstallComplete = $true
+    } finally {
+        if ($uninstallComplete) { Stop-NndInstallationGuard $uninstallGuard }
+        else { Abandon-NndInstallationGuard $uninstallGuard }
     }
     Write-Heading "Uninstall complete"; exit 0
 }
@@ -253,6 +330,9 @@ Write-Host "  target : $InstallDir"
 Write-Good "NNA found at $($nna.Cli)"
 Invoke-NndRegistration 'status' $targetPath
 
+$installationGuard = Start-NndInstallationGuard $nna
+$installationComplete = $false
+try {
 Write-Heading "Copying source"
 $copyExit = Invoke-Native "robocopy" @(
     $Source, $InstallDir, "/E", "/NFL", "/NDL", "/NJH", "/NP", "/R:2", "/W:1",
@@ -260,6 +340,7 @@ $copyExit = Invoke-Native "robocopy" @(
     "dist-electron", "resources", "__pycache__",
     "/XF", "*.log", ".env.local", "packaging-*.log", "install-mode.txt"
 ) "robocopy-errors.log" "robocopy-out.log"
+Assert-NndInstallationGuard $installationGuard
 if ($copyExit -ge 8) {
     # robocopy diagnostics ("access denied", stat failures) go to STDOUT. The
     # old call sank stdout to $null, so a failure printed only the exit code;
@@ -354,12 +435,15 @@ try {
     }
 } finally { Pop-Location }
 
+Assert-NndInstallationGuard $installationGuard
 Write-Heading 'Registering NND package with NNA'
 $nnaForManifest = Get-InstalledNna
 if (!$nnaForManifest) { throw 'NNA runtime is unavailable for installed NND artifact validation.' }
 & $nnaForManifest.Node (Join-Path $InstallDir 'scripts\installed-service-package.mjs') $InstallDir
 if ($LASTEXITCODE -ne 0) { throw "Installed NND service manifest validation failed (exit $LASTEXITCODE)." }
 Invoke-NndRegistration 'activate' $targetPath
+& $nnaForManifest.Node (Join-Path $InstallDir 'scripts\write-nna-selection.mjs') $InstallDir $nnaForManifest.InstallRoot
+if ($LASTEXITCODE -ne 0) { throw "Installed NNA selection could not be saved (exit $LASTEXITCODE)." }
 
 Write-Heading "Creating shortcuts"
 foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
@@ -379,3 +463,8 @@ Write-Host "  start     : desktop or Start Menu shortcut (tray icon appears imme
 Write-Host "  logs      : %APPDATA%\NotNativeDesktop\logs\main.log"
 Write-Host "  data      : %USERPROFILE%\.notnative-desktop"
 Write-Host "  uninstall : .\install.ps1 -Uninstall [-PurgeData]"
+$installationComplete = $true
+} finally {
+    if ($installationComplete) { Stop-NndInstallationGuard $installationGuard }
+    else { Abandon-NndInstallationGuard $installationGuard }
+}

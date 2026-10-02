@@ -38,9 +38,9 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 |---|---|---|---|---|---|
 | L1 | Freeze activation contract | — | in-progress | NNA: `src\nnd-package.js`, `src\integration-cli.js`, new `src\nnd-service*.js` (proposed), `src\cli-options.js`/`cli.js`; NND: `scripts\serve-installed.mjs`, `install.ps1`, new service supervisor entry | this ledger row |
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
-| L3 | Renewable principal attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, `src\secret-broker.js`; NND `harness\nna.ts`, `nna-local.ts`, `server\env.ts`, `server\index.ts` | native UI auth sub-slice below; engine renewal pending |
-| L4 | Shell/browser migration to service attach | L2-L3 | open | NND `electron\main.mjs`, `desktop-boot.mjs`, tray/IPC, `server\index.ts`, `serve-installed.mjs` | — |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | open | NND `install.ps1`, package/stamp scripts, NNA registration, launch descriptors | — |
+| L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
+| L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | mutation exclusion implemented; migration/recovery/rollback pending |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | open | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | — |
@@ -206,3 +206,29 @@ opening its catalog. Current legacy serve uses the same lease; older installed
 hosts and data need verified migration. No broad TUI lock was introduced: its
 catalog is separate. Desktop attachment, login startup, restart policy, generic
 setup save and C/F/V product acceptance remain open. L2/L3 remain in-progress.
+
+## L3 atomic admission, L4 desktop client and L5 mutation guards
+
+NNA/NND 20261002-3. Native capabilities and atomic attach return selected identity,
+generation, GUI endpoint and UI-only ticket; status validates the full paired schema.
+Electron verifies the actual recorded Node and payload versions before native CLI
+execution. Its private memory Chromium session redeems the ticket and backs all
+native windows. Closing Electron preserves the NNA service. Reconnect replaces
+generation sessions; there is no silent managed/local or remote fallback.
+
+Actual Chromium acceptance passed in a disposable installed-payload fixture:
+cookie authenticated, renderer bearer/authority headers empty, independent browser
+still locked, and native service generation unchanged after shell quit. Audits fixed
+menu Quit cancellation, selected runtime admission and credential environment loss.
+
+Installer/uninstaller mutation now holds the same native lease. A protected marker
+blocks startup after interrupted guard death. Explicit release plus EOF follows only
+verified successful package changes; failed mutations abandon and retain evidence.
+Removal validates roots, excludes reparse ancestors and unlinks internal junctions
+before recursive removal. Disposable Windows PowerShell guard/removal probes passed.
+No actual operator installation, removal or startup registration was performed.
+
+L4 is in-progress; L5 is in-progress. Existing-data/grant migration and interrupted
+installation recovery remain open, as do login startup, native device attachment,
+complete settings and feature acceptance. Native full validation uses an isolated
+checkout to preserve concurrent OpenCode protocol development.

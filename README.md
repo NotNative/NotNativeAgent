@@ -21,7 +21,9 @@ the planning corpus supplies reference behavior and UX detail.
 The target Windows product has a persistent NNA-supervised NND service, reachable
 from browser or desktop, with complete native settings and chat/visibility support.
 NNA's TUI retains its own identity and tabs. This target remains in progress:
-the current installed path still uses desktop-owned service/child processes.
+the selected NNA installation now supervises the persistent service, and Electron
+attaches as a client. Actual disposable installed-payload and Chromium checks pass.
+Existing-data migration, login startup, recovery and complete settings parity remain open.
 Package registration and source integration tests do not establish installed acceptance.
 
 ## Dev loop

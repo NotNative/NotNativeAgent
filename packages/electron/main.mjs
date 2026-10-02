@@ -4,11 +4,13 @@
  * Spec: docs/planning/09-electron-desktop-shell.md §1.2/1.3/2.1/2.2/4.1/4.5/
  * 6.1/11.1, governed by docs/build/NOTES/09 deltas D-09-1..12 (v1 subset).
  *
- * Hard invariant (NOTES/09 A.2): the server runs IN-PROCESS, never a sidecar.
+ * Installed launches attach to the native-owned service; only explicit development launches own an in-process server.
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
+import { readNativeServiceSelection } from './native-service-selection.mjs';
+import { attachNativeService, redeemNativeAttachment } from './native-service-client.mjs';
+import { app, BrowserWindow, Menu, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import net from 'node:net';
@@ -47,8 +49,9 @@ const HEALTH_POLL_START_MS = 250;
 const HEALTH_POLL_MAX_MS = 2_000;
 const LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const PACKAGED = Boolean(app.isPackaged);
-const USE_UI_PROTOCOL = (PACKAGED && process.env.OPENCHAMBER_ELECTRON_LOAD_SERVER_UI !== '1')
-  || process.env.OPENCHAMBER_ELECTRON_USE_BUNDLED_UI === '1';
+const LEGACY_MODE = !PACKAGED && process.argv.includes('--legacy-local-dev');
+const USE_UI_PROTOCOL = LEGACY_MODE && ((PACKAGED && process.env.OPENCHAMBER_ELECTRON_LOAD_SERVER_UI !== '1')
+  || process.env.OPENCHAMBER_ELECTRON_USE_BUNDLED_UI === '1');
 const UI_SCHEME = 'notnative-ui';
 const UI_ORIGIN = `${UI_SCHEME}://app`;
 // --hidden start (row-bot parity): service boots to tray-only; the FIRST
@@ -67,6 +70,9 @@ const relayDevTunnel =
 let mainWindow = null;
 const miniChatWindows = new Map();
 let serverHandle = null;
+let nativeAttachment = null;
+let nativeSession = null;
+let nativeSelection = null;
 let chosenPort = 0;
 let desktopRuntimeConfig = null;
 let desktopBootOutcome = { target: 'local', status: 'unreachable' };
@@ -463,7 +469,7 @@ function applyServerEnv(port) {
 }
 
 function localOrigin() {
-  return `http://127.0.0.1:${chosenPort}`;
+  return nativeAttachment?.origin ?? `http://127.0.0.1:${chosenPort}`;
 }
 
 /** Product version surface for the scripted (unpackaged) install: electron's
@@ -532,7 +538,7 @@ function bootFailurePageUrl(message) {
     String(message ?? 'unknown startup failure'),
     `Log: ${LOG_FILE}`,
   ].filter((line) => line.length > 0).join('\n');
-  return `data:text/html,${encodeURIComponent(FAILURE_PAGE_HTML)}#${encodeURIComponent(JSON.stringify({ message: detail, retry: Boolean(serverHandle) }))}`;
+  return `data:text/html,${encodeURIComponent(FAILURE_PAGE_HTML)}#${encodeURIComponent(JSON.stringify({ message: detail, retry: Boolean(serverHandle || nativeSelection) }))}`;
 }
 
 function buildInitScript(runtimeConfig = desktopRuntimeConfig, bootOutcome = desktopBootOutcome) {
@@ -637,7 +643,7 @@ function isLocalAppOrigin(value) {
 }
 
 function configureMainSessionPermissions() {
-  const appSession = session.defaultSession;
+  const appSession = nativeSession ?? session.defaultSession;
   appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
     const allowed = permission === 'notifications'
       && contents === mainWindow?.webContents
@@ -663,6 +669,7 @@ function createMainWindow() {
     backgroundColor: '#0c0a09',
     show: false,
     webPreferences: {
+      ...(nativeSession ? { session: nativeSession } : {}),
       preload: path.join(selfDir(), 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -751,6 +758,7 @@ function createMiniChatWindow(payload) {
       ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 12, y: 13 } }
       : { frame: false }),
     webPreferences: {
+      ...(nativeSession ? { session: nativeSession } : {}),
       preload: path.join(selfDir(), 'preload.mjs'), contextIsolation: true,
       nodeIntegration: false, sandbox: false, webviewTag: false, backgroundThrottling: false,
     },
@@ -785,7 +793,7 @@ function ensureMainWindow() {
     // Preserve the failure card while a boot failure is active. A handle can
     // exist even when its health probe failed, so it is not proof that the UI
     // origin is ready to load.
-    if (serverHandle && !bootFailure) mainWindow.loadURL(mainUiUrl()).catch(() => { /* cosmetic */ });
+    if ((serverHandle || nativeAttachment) && !bootFailure) mainWindow.loadURL(mainUiUrl()).catch(() => { /* cosmetic */ });
   } else if (mainWindow.webContents.isCrashed()) {
     // A crashed renderer reborn blank: Open App must not just re-show the
     // corpse — reload the document (origin when running, failure page when not).
@@ -806,6 +814,8 @@ const fileUtilities = createFileUtilities({
 const localPathUtilities = createLocalPathUtilities({ shell });
 
 function localRuntimeConfig() {
+  if (nativeAttachment) return { apiBaseUrl: nativeAttachment.origin, clientToken: null, requestHeaders: {},
+    runtimeKey: `native:${nativeAttachment.installationId}:${nativeAttachment.dataId}` };
   return {
     apiBaseUrl: localOrigin(),
     clientToken: readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
@@ -896,6 +906,7 @@ async function applyHostDeepLink(hostId) {
 }
 
 async function switchDesktopHost(hostId) {
+  if (!LEGACY_MODE) return { ok: false, error: 'native-selected-service-active' };
   if (hostSwitchInProgress) return { ok: false, error: 'desktop-host-switch-busy' };
   if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };
   if (typeof hostId !== 'string' || hostId.length === 0 || hostId.length > 128) {
@@ -941,6 +952,7 @@ async function switchDesktopHost(hostId) {
 
 /** Persist a relay selection only after renderer-side E2EE probing succeeds. */
 async function selectRelayDesktopHost(hostId, expectedHost, restoringDefault = false) {
+  if (!LEGACY_MODE) return { ok: false, error: 'native-selected-service-active' };
   if (hostSwitchInProgress) return { ok: false, error: 'desktop-host-switch-busy' };
   if (desktopHostImportLocked) return { ok: false, error: 'desktop-hosts-busy' };
   if (typeof process.env.OPENCHAMBER_SERVER_URL === 'string' && process.env.OPENCHAMBER_SERVER_URL.trim()) {
@@ -983,12 +995,18 @@ async function selectRelayDesktopHost(hostId, expectedHost, restoringDefault = f
 }
 
 /** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
+function destroyTray() {
+  const tray = trayController;
+  trayController = null;
+  try { tray?.destroy(); } catch (error) { console.error('[shell] tray teardown failed:', error); }
+}
+
 function quitFromTray() {
   if (quitting) return;
   quitting = true;
   persistWindowState(mainWindow);
   console.log('[shell] quit requested from tray');
-  try { trayController?.destroy(); } catch (error) { console.error('[shell] tray teardown failed:', error); }
+  destroyTray();
   try { serverHandle?.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
   app.quit();
   setTimeout(() => app.exit(0), 8_000); // watchdog: never hang on a stuck handle
@@ -1045,7 +1063,7 @@ const invokeFace = createInvokeFace({
   windowForSender: (event) => BrowserWindow.fromWebContents(event.sender),
   platform: () => process.platform,
   miniChat: { open: createMiniChatWindow },
-  remotePasswordLogin: desktopPasswordLogin,
+  remotePasswordLogin: (...args) => LEGACY_MODE ? desktopPasswordLogin(...args) : { ok: false, error: 'native-ui-cookie-required' },
   updater: {
     check: (...args) => desktopUpdater?.check(...args),
     download: (...args) => desktopUpdater?.download(...args),
@@ -1078,7 +1096,7 @@ const invokeFace = createInvokeFace({
   sshTransport: desktopSshTransport,
   hostProbe: probeRemoteHost,
   identity: {
-    getLocalClientToken: () => readDesktopLocalClientToken(() => readShellPrefs(prefsFile())),
+    getLocalClientToken: () => LEGACY_MODE ? readDesktopLocalClientToken(() => readShellPrefs(prefsFile())) : null,
     getInstallId: () => readOrCreateDesktopInstallId({
       readPrefs: () => readShellPrefs(prefsFile()),
       writePrefs: (patch) => writeShellPrefs(prefsFile(), patch),
@@ -1127,6 +1145,7 @@ const desktopPairingImporter = createDesktopPairingImporter({
 
 let retryInProgress = false;
 async function retryServerFromFailurePage() {
+  if (!LEGACY_MODE) return reconnectNativeService();
   if (quitting || !bootFailure || !serverHandle) return { ok: false, error: 'server-unavailable' };
   if (retryInProgress) return { ok: false, error: 'retry-in-progress' };
   retryInProgress = true;
@@ -1143,6 +1162,59 @@ async function retryServerFromFailurePage() {
 }
 
 // ── §1.3 boot flow ──────────────────────────────────────────────────────────
+
+async function bootNativeService() {
+  nativeSelection = readNativeServiceSelection({ args: process.argv,
+    selectionFile: PACKAGED ? path.join(path.dirname(app.getPath('exe')), 'nna-service-selection.json')
+      : path.resolve(selfDir(), '..', '..', 'nna-service-selection.json') });
+  await acquireNativeAttachment();
+  desktopRuntimeConfig = localRuntimeConfig();
+  desktopBootOutcome = { target: 'local', status: 'ok' };
+  configureMainSessionPermissions();
+  configurePreviewSession();
+  invokeFace.register();
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Service', submenu: [
+    { label: 'Reconnect to selected NNA', accelerator: 'CmdOrCtrl+Shift+R', click: () => { void reconnectNativeService(); } },
+    { role: 'quit' },
+  ] }]));
+  trayController = createTrayController({ title: APP_NAME, assetsDir: path.join(selfDir(), 'assets'),
+    origin: localOrigin(), ensureMainWindow, onQuit: quitFromTray });
+  if (!trayController.create()) trayController = null;
+  trayController?.setStatus('running', localOrigin());
+  mainWindow = createMainWindow();
+  await mainWindow.webContents.loadURL(mainUiUrl());
+  flushDeepLinks();
+}
+
+async function acquireNativeAttachment() {
+  const attachment = await attachNativeService(nativeSelection.installRoot);
+  const nextSession = session.fromPartition(`nnd-native-${attachment.installation_id}-${attachment.data_id}-${attachment.generation}`);
+  await nextSession.setProxy({ mode: 'direct' });
+  const next = await redeemNativeAttachment(attachment, nextSession);
+  nativeSession = nextSession;
+  nativeAttachment = next;
+  chosenPort = Number(new URL(next.origin).port || 80);
+}
+
+async function reconnectNativeService() {
+  if (quitting || !nativeSelection || retryInProgress) return { ok: false, error: 'native-attachment-unavailable' };
+  retryInProgress = true;
+  try {
+    await acquireNativeAttachment();
+    const previous = mainWindow;
+    desktopRuntimeConfig = localRuntimeConfig();
+    configureMainSessionPermissions();
+    bootFailure = null;
+    mainWindow = createMainWindow();
+    for (const win of miniChatWindows.values()) win.destroy();
+    miniChatWindows.clear();
+    previous?.destroy();
+    await mainWindow.webContents.loadURL(mainUiUrl());
+    trayController?.setStatus('running', localOrigin());
+    return { ok: true };
+  } catch { return { ok: false, error: 'native-attachment-unavailable' }; }
+  finally { retryInProgress = false; }
+}
 
 async function startServerAndProbe() {
   const bundle = resolveServerBundle();
@@ -1168,6 +1240,9 @@ async function startServerAndProbe() {
 
 async function boot() {
   await app.whenReady();
+  if (!LEGACY_MODE) return bootNativeService();
+  readNativeServiceSelection({ args: process.argv, allowLegacy: true });
+  if (SCRIPTED) throw new Error('legacy-development-mode-not-allowed-for-installed-product');
   if (PACKAGED) {
     const { autoUpdater } = await import('electron-updater');
     desktopUpdater = createDesktopUpdater({
@@ -1259,6 +1334,10 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 app.on('before-quit', () => {
+  // Menu Quit, OS shutdown and app.quit all arrive here before window close.
+  // They must bypass the ordinary close-to-tray behavior, just like tray Quit.
+  quitting = true;
+  destroyTray();
   desktopSshTransport.dispose();
   relayPairingBridge.closeAll();
   persistWindowState(mainWindow);
@@ -1268,6 +1347,8 @@ app.on('before-quit', () => {
 app.on('will-quit', () => desktopUpdater?.dispose());
 
 boot().catch((error) => {
+  if (!LEGACY_MODE && !trayController?.active) dialog.showErrorBox('NotNativeDesktop could not connect',
+    `The selected native service could not be opened (${error?.message ?? 'native-attachment-failed'}). No fallback service was started.`);
   console.error('[electron] startup failed:', error);
   // Reference launcher semantics: with a tray keep the process alive in the stopped state (user
   // can Quit from the menu; without a tray, exit). The trayed lingering must answer "then what?":

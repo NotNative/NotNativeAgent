@@ -16,6 +16,8 @@
     },
     "files": [
       "main.mjs",
+      "native-service-selection.mjs",
+      "native-service-client.mjs",
       "native-notifications.mjs",
       "ui-protocol.mjs",
       "file-utilities.mjs",

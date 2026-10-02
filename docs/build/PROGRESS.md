@@ -3,6 +3,32 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-02 · Desktop client and guarded installation · NND 20261002-3 / NNA 20261002-3
+
+Electron now opens the explicitly selected native service. It verifies the selected
+installation/runtime and native capabilities, acquires an atomic generation-bound
+UI ticket, and redeems it through the memory Chromium session used by its windows.
+There is no managed fallback or persisted bearer on this path. Reconnect acquires
+the current generation. Legacy local startup requires an explicit development flag.
+
+The actual Chromium smoke passed: renderer cookie admission, empty renderer bearer
+and authority headers, separate browser locked, and service unchanged after shell
+quit. The test found and repaired menu Quit being intercepted by close-to-tray.
+Independent audits also repaired selected Node/version validation, reconnect window
+ordering, and preservation of custom native credential environment variables.
+
+Install and uninstall take a native data-root guard before package mutation.
+Guarded completion uses an explicit matching release, not EOF alone. Parent pipe
+loss retains ownership; process death leaves a protected marker blocking startup.
+Failed package changes retain recovery evidence. Uninstall checks exact removal
+roots and removes internal junctions without traversing their targets. Source-only
+syntax and disposable native PowerShell probes passed; no operator install changed.
+
+The installer records the selected native root. Full checks, regenerated graphs,
+release evidence and commits complete this slice. Existing-data migration, login
+startup, interrupted-install recovery and full settings/feature parity remain open.
+Concurrent OpenCode protocol work is preserved outside this native slice's validation.
+
 ## 2026-10-02 · Native supervisor and private GUI attachment · NND 20261002-2 / NNA 20261002-2
 
 Native service commands now launch the registered built NND child from the selected
