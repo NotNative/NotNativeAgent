@@ -3,6 +3,31 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-02 · Native supervisor and private GUI attachment · NND 20261002-2 / NNA 20261002-2
+
+Native service commands now launch the registered built NND child from the selected
+NNA installation, with a data-root lease, setup-first engine listener, authenticated
+controller and protected generation discovery. The native listener derives fixed
+operator/workspace authority on each request. Child headers cannot widen grants.
+Private pipe bootstrap replaces credential environment transport on this path.
+
+Actual disposable installed-payload composition passed: native CLI, genuine server
+bundle and PTY runtime, locked browser, one-use UI code, guarded execution while
+setup is required, status and graceful stop. Package metadata checks version,
+platform/runtime and actual server hash. Source installer generation uses this
+validator. The installed operator profile was not touched.
+
+Adversarial repairs cover false child-exit proof, duplicate protocol readiness,
+selected-root managed credentials, and HTTP mutations surviving socket closure.
+Shutdown stops admission and drains work before releasing ownership. Uncertain
+smoke cleanup preserves its disposable fixture.
+
+Full NND checks passed: 1,433 web and 1,630 UI tests, plus workspace TypeScript.
+Native full tests and final quality/build/smoke/release gates run before commit.
+Fresh-data admission is supported; existing data needs explicit migration. The
+desktop remains on its legacy launcher until the next attachment slice. Login
+startup, configuration save/repair, settings and feature coverage remain open.
+
 ## 2026-10-02 · Setup-first hosting and native UI authentication · NND 20261002-1 / NNA 20261002-1
 
 Native local integration now exposes authenticated setup health before restoring

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:221f29e7228031dae09c8fad5da56535f424a3a7438c9bdeffc6edddbceea5ac",
+  "source_digest": "sha256:2d91e1a2465a957078590692d6bdcbda511b102194340478b16b05e2148de4b1",
   "counts": {
-    "modules": 719,
+    "modules": 728,
     "component_edges": 16
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 226
+      "module_count": 227
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 34
+      "module_count": 42
     },
     {
       "id": "foundation",
@@ -87,6 +87,8 @@
     "node:os",
     "node:path",
     "node:process",
+    "node:readline",
+    "node:stream",
     "node:test",
     "node:url",
     "node:util",
@@ -5047,6 +5049,16 @@
       ]
     },
     {
+      "path": "packages/web/src/server/harness/nna-supervised.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/nna-local.ts",
+        "packages/web/src/server/harness/nna.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/harness/nna.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -5069,6 +5081,7 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts",
         "packages/web/src/server/harness/nna-local.ts",
+        "packages/web/src/server/harness/nna-supervised.ts",
         "packages/web/src/server/harness/nna.ts",
         "packages/web/src/server/lib/auth/native-ui-auth.ts",
         "packages/web/src/server/lib/auth/pairing-sessions.ts",
@@ -6959,6 +6972,22 @@
       "imports": []
     },
     {
+      "path": "scripts/installed-service-package.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/nnd-manifest-extensions.js"
+      ]
+    },
+    {
+      "path": "scripts/installed-service-package.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installed-service-package.mjs"
+      ]
+    },
+    {
       "path": "scripts/nna-source-smoke.mjs",
       "component": "gates",
       "entrypoint": false,
@@ -6975,6 +7004,15 @@
         "scripts/smoke-provider-route.mjs",
         "scripts/smoke-review-mode.mjs",
         "scripts/smoke-walkthrough.mjs"
+      ]
+    },
+    {
+      "path": "scripts/nna-supervised-smoke.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/smoke-http.mjs",
+        "scripts/supervised-smoke-fixture.mjs"
       ]
     },
     {
@@ -7045,7 +7083,8 @@
       "component": "gates",
       "entrypoint": false,
       "imports": [
-        "scripts/nnd-manifest-extensions.js"
+        "scripts/nnd-manifest-extensions.js",
+        "scripts/serve-supervised.mjs"
       ]
     },
     {
@@ -7054,6 +7093,23 @@
       "entrypoint": false,
       "imports": [
         "scripts/serve-installed.mjs"
+      ]
+    },
+    {
+      "path": "scripts/serve-supervised.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installed-service-package.mjs",
+        "scripts/supervised-protocol.mjs"
+      ]
+    },
+    {
+      "path": "scripts/serve-supervised.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installed-service-package.mjs"
       ]
     },
     {
@@ -7151,6 +7207,30 @@
       "component": "gates",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "scripts/supervised-protocol.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/nnd-service-contract.js"
+      ]
+    },
+    {
+      "path": "scripts/supervised-protocol.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/supervised-protocol.mjs"
+      ]
+    },
+    {
+      "path": "scripts/supervised-smoke-fixture.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installed-service-package.mjs"
+      ]
     },
     {
       "path": "scripts/web-css-gate.mjs",

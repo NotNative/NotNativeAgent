@@ -17,6 +17,7 @@ export interface NnaHarnessOptions {
   token: string;
   principal: string | (() => string);
   fetch?: typeof globalThis.fetch;
+  signal?: AbortSignal;
 }
 
 export function createNnaHarnessAdapter(options: NnaHarnessOptions): HarnessAdapter {
@@ -33,7 +34,7 @@ export function createNnaHarnessAdapter(options: NnaHarnessOptions): HarnessAdap
       // internal failure into an unhandled route error or forward credentials.
       return harnessError('NNA harness principal is unavailable', 502);
     }
-    return forward(request, endpoint, token, currentPrincipal, requestFetch);
+    return forward(request, endpoint, token, currentPrincipal, requestFetch, options.signal);
   } };
 }
 
@@ -44,7 +45,7 @@ export function createNnaHarnessAdapterFromEnvironment(environment: NodeJS.Proce
   });
 }
 
-async function forward(request: Request, endpoint: URL, token: string, principal: string, requestFetch: typeof fetch): Promise<Response> {
+async function forward(request: Request, endpoint: URL, token: string, principal: string, requestFetch: typeof fetch, generationSignal?: AbortSignal): Promise<Response> {
   const source = new URL(request.url);
   const path = source.pathname.replace(/^\/api(?=\/|$)/u, '') || '/';
   // Do not compose a URL from an untrusted path string: `/api//host` would
@@ -57,7 +58,7 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   // The browser may close an SSE stream after the upstream has sent headers.
   // Keep its signal attached to fetch for the stream lifetime so NNA can
   // release the subscriber instead of holding a ghost connection.
-  const signal = AbortSignal.any([controller.signal, request.signal]);
+  const signal = AbortSignal.any([controller.signal, request.signal, ...(generationSignal ? [generationSignal] : [])]);
   const timeoutMs = request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(path)
     ? WALKTHROUGH_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

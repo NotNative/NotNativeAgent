@@ -355,12 +355,10 @@ try {
 } finally { Pop-Location }
 
 Write-Heading 'Registering NND package with NNA'
-$manifestDir = Join-Path $InstallDir 'nna-integration\nnd-local'
-New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
-$release = (Get-Content -LiteralPath (Join-Path $InstallDir 'package.json') -Raw | ConvertFrom-Json).nnd_version
-if ([string]::IsNullOrWhiteSpace([string]$release)) { throw 'Installed NND version is missing.' }
-$manifest = [ordered]@{ id = 'nnd-local'; ownership = 'nnd'; scope = 'local-gui'; nna_integration_protocol = '1.0'; version = $release } | ConvertTo-Json -Compress
-[IO.File]::WriteAllText((Join-Path $manifestDir 'integration.json'), $manifest, (New-Object Text.UTF8Encoding($false)))
+$nnaForManifest = Get-InstalledNna
+if (!$nnaForManifest) { throw 'NNA runtime is unavailable for installed NND artifact validation.' }
+& $nnaForManifest.Node (Join-Path $InstallDir 'scripts\installed-service-package.mjs') $InstallDir
+if ($LASTEXITCODE -ne 0) { throw "Installed NND service manifest validation failed (exit $LASTEXITCODE)." }
 Invoke-NndRegistration 'activate' $targetPath
 
 Write-Heading "Creating shortcuts"

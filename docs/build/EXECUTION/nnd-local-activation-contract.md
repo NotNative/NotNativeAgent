@@ -1,9 +1,9 @@
 # NND local activation contract, revision 1.0
 
-Status: L1 validators, L2 native setup runtime and L3 UI authentication seams implemented;
-supervised child, controller and installed client wiring remain pending.
-This records decisions for L2-L5;
-it does not claim a running supervisor, startup registration, or installed acceptance.
+Status: validators, setup runtime, native UI authentication and explicit supervised
+service commands are implemented for fresh data. Login startup, existing-data migration,
+desktop attachment and full installed acceptance remain pending. This records decisions
+for L2-L5 and distinguishes current source behavior from remaining product work.
 The executable validators are mirrored in NNA `src/nnd-service-contract.js` and
 `src/nnd-manifest-extensions.js`, and NND `scripts/nnd-service-contract.js` and
 `scripts/nnd-manifest-extensions.js`. Paired tests must reject contract drift.
@@ -55,18 +55,18 @@ Readiness is a non-secret frame bound to the launched generation and package ide
 EOF or supervisor loss invalidates attachment; recovery never spawns a replacement NNA.
 L2 defines time/byte limits and tests truncated, duplicate and invalid bootstrap frames.
 
-Native requests use authenticated loopback HTTP on `127.0.0.1`, using the existing
-bearer transport. The integration token and short-lived scoped principal are distinct.
-L3 must issue/refresh native principal context through NNA; a static five-minute
-principal is not a persistent attachment contract. Restart/revocation invalidates
-credentials. The child cannot mint broader workspace/review grants.
+Supervised native requests use authenticated loopback HTTP on `127.0.0.1`.
+NNA derives fixed operator permission and configured-workspace grants for each request
+on this dedicated listener; caller authority envelopes are ignored. The child holds
+only its private native transport token. Legacy/NNO envelope behavior remains separate.
+Restart/revocation invalidates credentials. The child cannot mint workspace/review grants.
 
 CLI-to-supervisor commands use a separate generation-bound controller credential,
 read from an owner-only ACL-protected discovery record beneath NNA's runtime root.
 L2 must apply and verify Windows ACLs before writing credentials; POSIX mode 0600
 alone is insufficient on Windows. The implemented private-directory helper
 requires a local fixed drive and validates namespace/ACL ownership before creation;
-credential-file validation and discovery publication remain pending. Retain controller discovery while running so
+credential-file ACL validation and generation-bound discovery publication are implemented. Retain controller discovery while running so
 later clients can reconnect; remove only the exact owned generation at shutdown.
 The native engine token is never a browser bootstrap ticket. L3 supplies separately
 authenticated UI sessions with origin/guest checks. Network exposure is outside MVP.

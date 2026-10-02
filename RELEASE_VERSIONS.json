@@ -868,6 +868,10 @@
     {
       "version": "20261002-1",
       "content_sha256": "e68e1b574a4b9b520f26bf3604b5cf1e2074a8078867a32db1e5cbb1f2b48240"
+    },
+    {
+      "version": "20261002-2",
+      "content_sha256": "cf7e84ee3dabfcffd2c6d43d6763b9ff9fa70af5ed136d603fd9563009263d12"
     }
   ]
 }

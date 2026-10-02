@@ -174,3 +174,35 @@ and existing sockets. Audit and focused tests passed; full checks run before com
 
 These seams do not yet switch the installed launcher, renew engine principals or
 start a supervised GUI child. L2/L3 remain in-progress; L4-L6/C/F/V remain open.
+
+## L2 composed supervisor and L3 private child attachment
+
+NNA 20261002-2 / NND 20261002-2. Explicit native service commands now compose the
+selected installation, data-root lease, setup-first runtime, protected discovery,
+controller and registered NND child. The dedicated native listener derives fixed
+operator permissions and configured workspace grants per request. Child authority
+headers are ignored; no principal refresh or permission minting occurs in NND.
+
+NND's explicit `--supervised` installed path validates package/version/platform,
+bounded metadata and actual bundle hash before importing the server. Private
+bootstrap/control frames carry the native token in memory; renderer/environment/
+argv do not receive it. Ready frames bind generation and package identity. EOF,
+malformed frames or parent loss revoke attachment and close transports. UI-only
+codes issue over the private child channel through authenticated native control.
+Source installer metadata generation now hashes the built artifact.
+
+The disposable installed-payload smoke passes with copied native CLI and the genuine
+built NND bundle: setup-required service, locked browser, one-use UI code, guarded
+session execution, generation-bound status and graceful controller stop. No operator
+installation changed. Native/desktop release certification remains separate.
+
+Adversarial repairs include false process-exit proof after child errors, duplicate
+readiness frames, selected-root credential loading, and pending provider mutations
+after socket closure. Stop admission and dispatch drain precede lease release.
+Smoke preserves its fixture when descendant termination cannot be established.
+
+Fresh-data admission explicitly refuses existing manifest/session/tab data before
+opening its catalog. Current legacy serve uses the same lease; older installed
+hosts and data need verified migration. No broad TUI lock was introduced: its
+catalog is separate. Desktop attachment, login startup, restart policy, generic
+setup save and C/F/V product acceptance remain open. L2/L3 remain in-progress.

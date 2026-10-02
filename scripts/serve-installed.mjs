@@ -39,6 +39,10 @@ export function configureInstalledService(args, options = {}) {
 }
 
 export async function runInstalledService(args = process.argv.slice(2)) {
+  if (args.length === 1 && args[0] === '--supervised') {
+    const { runSupervisedService } = await import('./serve-supervised.mjs');
+    return runSupervisedService();
+  }
   const configured = configureInstalledService(args);
   // Invariant: stdout is protocol-only. Hono/terminal/relay diagnostics go to
   // stderr, so an NNA supervisor never mistakes logging for a readiness frame.

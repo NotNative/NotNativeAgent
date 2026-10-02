@@ -4,6 +4,7 @@
  * Runs on Node 22+ with native TypeScript transformation enabled by launchers.
  * The Electron main process will import startServer() in-process (doc 09, P12).
  */
+import { configureNativeHarness, type NativeHarnessOptions } from './harness/nna-supervised.ts';
 import type { NativeUiIdentity } from './lib/auth/native-ui-auth.ts';
 import { serve } from '@hono/node-server';
 import { randomBytes } from 'node:crypto';
@@ -35,13 +36,14 @@ import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tun
 import type { Server as HttpServer } from 'node:http';
 import { createPushServices, attachPushNotifications } from './push/runtime.ts';
 
-export async function startServer(options?: { nativeAuth?: NativeUiIdentity; desktopUpdater?: {
+export async function startServer(options?: { nativeHarness?: NativeHarnessOptions; nativeAuth?: NativeUiIdentity; desktopUpdater?: {
   check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
   download: () => Promise<unknown>;
   install: () => Promise<unknown>;
   getInstallError?: () => string | null;
   clearInstallError?: () => void;
-} }): Promise<{ port: number; browserControl: BrowserControlBroker; nativeAuth?: { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void }; dispose(): void }> {
+} }): Promise<{ port: number; browserControl: BrowserControlBroker; closed: Promise<void>; nativeAuth?: { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void }; dispose(): void }> {
+  if (options?.nativeHarness && !options.nativeAuth) throw new Error('Native harness requires native UI authentication');
   if (options?.nativeAuth && options.nativeAuth.origin !== new URL(`http://${ENV.host}:${ENV.port}`).origin) {
     throw new Error('Native UI origin must match the configured listener');
   }
@@ -52,14 +54,15 @@ export async function startServer(options?: { nativeAuth?: NativeUiIdentity; des
   try {
     browserControl = new BrowserControlBroker();
     const browserCallbackSecret = randomBytes(32).toString('base64url');
-    const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
+    const browserCallback = options?.nativeHarness || process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
       url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
     };
     const agentToolCallbackSecret = randomBytes(32).toString('base64url');
-    const agentToolCallback = agentMemoryEnabled() ? {
+    const agentToolCallback = !options?.nativeHarness && agentMemoryEnabled() ? {
       url: `http://127.0.0.1:${ENV.port}/api/agent-tool/callback`, token: agentToolCallbackSecret,
     } : undefined;
-    localNna = await configureHarness(browserCallback, agentToolCallback);
+    localNna = options?.nativeHarness ? configureNativeHarness(options.nativeHarness)
+      : await configureHarness(browserCallback, agentToolCallback);
     const running = await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
       agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater, lifecycle);
     const nativeAuth = nativeBinding?.controller.nativeHandle();
@@ -79,7 +82,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   browserCallbackSecret: string | undefined, agentToolCallbackSecret: string | undefined,
   desktopUpdater?: { check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
     download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }, lifecycle?: { attached: boolean; close(): void; release(): void }):
-  Promise<{ port: number; browserControl: BrowserControlBroker; dispose(): void }> {
+  Promise<{ port: number; browserControl: BrowserControlBroker; closed: Promise<void>; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const push = createPushServices();
@@ -89,6 +92,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
     ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
+  const closed = new Promise<void>((resolve) => server.once('close', resolve));
   if (lifecycle) {
     lifecycle.attached = true;
     server.once('close', () => { lifecycle.close(); lifecycle.release(); });
@@ -154,7 +158,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   };
   process.once('SIGINT', dispose);
   process.once('SIGTERM', dispose);
-  return { port: ENV.port, browserControl, dispose }; // shell and authenticated child callback share one broker
+  return { port: ENV.port, browserControl, closed, dispose }; // shell and authenticated child callback share one broker
 }
 
 function rollbackServerStart(server: HttpServer, terminal: ReturnType<typeof createTerminalRuntime>,
