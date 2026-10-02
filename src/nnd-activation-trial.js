@@ -58,13 +58,34 @@ async function verifyAndContinue(identity, trial, prepared, running, context, op
   await appendNndActivationPhase(bound, directory, serviceLease, registryLease, 'trial_healthy', hash(json(proof)));
   // The continuation runs with this same live child and both original locks.
   // The default is a dormant verification probe; it does not activate NND.
-  const continuationResult = await options.continuation?.(Object.freeze({ proof, status: trial.status,
-    prepareDiscovery: trial.prepareDiscovery, serviceLease, registryLease, signal }));
+  const selectionTasks = []; let acceptingSelection = true, continuationResult, continuationFailure;
+  const selectRegistration = () => {
+    if (!acceptingSelection) throw new ContractError('nnd_activation_registration_invalid',
+      'Unpublished trial continuation has ended');
+    const task = Promise.resolve().then(() => trial.selectRegistration({ operationId: options.operationId,
+      stageOperationId: options.stageOperationId }));
+    selectionTasks.push(task);
+    task.catch(() => {}); // An unawaited attempt still belongs to this trial.
+    return task;
+  };
+  try {
+    continuationResult = await options.continuation?.(Object.freeze({ proof, status: trial.status,
+      prepareDiscovery: trial.prepareDiscovery,
+      selectRegistration, serviceLease, registryLease, signal }));
+  } catch (error) { continuationFailure = error; }
+  acceptingSelection = false;
+  // A continuation cannot abandon or swallow an uncertain CAS, then stop the
+  // child and report a healthy pre-selection result while that write is live.
+  const settled = await Promise.allSettled(selectionTasks);
+  const failed = settled.find(result => result.status === 'rejected');
+  if (failed) throw failed.reason;
+  if (continuationFailure) throw continuationFailure;
   const stillHealthy = await trial.verify({ timeoutMs: options.healthTimeoutMs, signal });
   if (stillHealthy.generation !== proof.generation || stillHealthy.native_state !== proof.native_state) {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial changed during continuation');
   }
-  return Object.freeze({ state: 'trial_healthy', operation_id: options.operationId,
+  return Object.freeze({ state: trial.registrationSelected?.() ? 'registration_selected_unresolved' : 'trial_healthy',
+    operation_id: options.operationId,
     stage_operation_id: options.stageOperationId, ...proof,
     ...(options.continuation ? { continuation_result: continuationResult } : {}) });
 }

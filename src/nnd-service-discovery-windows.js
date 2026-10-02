@@ -14,8 +14,9 @@ try {
     exit 1
 }
 `;
-export function captureDiscoveryProcessIdentity(signal) {
-  return runPrivateWindowsProgram(PROCESS_PROGRAM, { pid: process.pid }, signal);
+export function captureDiscoveryProcessIdentity(signal, pid = process.pid) {
+  if (!Number.isSafeInteger(pid) || pid < 1) throw new Error('NND process identity requires a live PID');
+  return runPrivateWindowsProgram(PROCESS_PROGRAM, { pid }, signal);
 }
 
 const PROGRAM = PRIVATE_ACL_PROGRAM + String.raw`

@@ -15,6 +15,7 @@ import { launchNndServiceChild } from './nnd-service-child.js';
 import { admitFreshNndServiceData } from './nnd-service-admission.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { consumeNndTrialCapability } from './nnd-activation-candidate.js';
+import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
 import { userDataPaths } from './product.js';
 
 async function readMetadata(path) {
@@ -112,8 +113,24 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
     await startSupervisorChild(session, paths);
     monitorSupervisor(session);
     return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions),
-      ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease) } : {}) });
+      ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease),
+        selectRegistration: options => selectTrialRegistration(session, registryLease, options),
+        registrationSelected: () => session.state.registrationSelected === true } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }
+}
+async function selectTrialRegistration(session, registryLease, options) {
+  const { state } = session;
+  if (state.registrationSelecting || state.registrationSelected || state.stopping || state.child?.failed
+    || !state.controller || !state.record?.control_token || state.published) {
+    throw new ContractError('nnd_activation_registration_invalid', 'Unpublished trial cannot select registration');
+  }
+  state.registrationSelecting = true;
+  try {
+    const result = await selectNndTrialRegistrationUnderOwnership(state.identity, state, state.lease,
+      registryLease, { ...options, generation: state.record.instance_id });
+    state.registrationSelected = true;
+    return result;
+  } finally { state.registrationSelecting = false; }
 }
 async function prepareTrialDiscovery(session, registryLease) {
   const { state } = session;

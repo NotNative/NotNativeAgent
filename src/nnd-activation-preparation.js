@@ -46,15 +46,16 @@ function unb64(value, limit) {
 function paths(store, id) {
   const root = join(store.root, 'activations'), directory = join(root, id);
   const candidate = join(root, `${id}.candidate.json`), before = join(root, `${id}.registration.before`);
+  const child = join(root, `${id}.child.json`);
   const journal = join(directory, 'activation-00.json');
-  if (directory.length > 247 || [candidate, before, journal].some(path => path.length > 259)) throw invalid();
-  return { root, directory, candidate, before, journal, marker: store.pending,
+  if (directory.length > 247 || [candidate, before, child, journal].some(path => path.length > 259)) throw invalid();
+  return { root, directory, candidate, before, child, journal, marker: store.pending,
     initializer: join(store.root, 'activation-preparation.sqlite') };
 }
 async function privatePaths(location, createDirectory, signal) {
   const directories = createDirectory ? [location.root, location.directory] : [location.root];
   await runPrivateWindowsProgram(ACL, { directories, files: [location.candidate, location.before,
-    location.journal, location.marker, location.initializer] }, signal);
+    location.child, location.journal, location.marker, location.initializer] }, signal);
   if (!createDirectory) {
     try { await lstat(location.directory); }
     catch (error) { if (error.code === 'ENOENT') return; throw invalid(); }
@@ -66,7 +67,7 @@ async function auditRoot(location) {
   for await (const entry of await opendir(location.root)) {
     if (++count > 48) throw invalid();
     if (entry.isDirectory() && operationValid(entry.name)) continue;
-    if (entry.isFile() && /^(?:[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\.(?:candidate\.json|registration\.before)$/u.test(entry.name)) continue;
+    if (entry.isFile() && /^(?:[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\.(?:candidate\.json|registration\.before|child\.json)$/u.test(entry.name)) continue;
     throw invalid();
   }
 }
@@ -135,6 +136,9 @@ async function verifyComplete(identity, lease, registryLease, location, intent) 
 async function recoverRow(identity, store, lease, registryLease, row, signal) {
   const intent = parsePlan(row, identity), location = paths(store, intent.plan.operation_id);
   await privatePaths(location, false, signal); await auditRoot(location);
+  // A child can never have started while initialization is pending. Preserve
+  // unexpected process evidence instead of deleting an apparently known prefix.
+  if (await read(location.child, 2048, true) !== null) throw invalid();
   await currentBefore(registryLease, intent.before);
   const files = await observedFiles(location, intent);
   const complete = files.every(file => file.expected === null || file.actual?.equals(file.expected));

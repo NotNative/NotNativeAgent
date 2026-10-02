@@ -99,6 +99,9 @@ export async function runNndPackageCommand(args, paths) {
     return { registered: false };
   });
   const stored = await readNndPackageRegistration(paths);
+  // Status reports registry bytes and package validity only. A selected registration
+  // can still be behind the activation-pending barrier with its trial child stopped;
+  // an installer must use separate activation evidence before claiming readiness.
   if (!stored) return { registered: false };
   validateRegistration(stored);
   try {

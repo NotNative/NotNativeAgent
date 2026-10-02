@@ -33,7 +33,7 @@ test('phase journal appends a bounded hash chain only under both native ownershi
       assert.equal(prepared.sequence, 0); assert.equal(prepared.previous_sha256, null);
       const starting = await appendNndActivationPhase(f.identity, f.directory, lease, registry, 'trial_starting', B);
       assert.equal(starting.previous_sha256, prepared.receipt_sha256);
-      await assert.rejects(appendNndActivationPhase(f.identity, f.directory, lease, registry, 'pointer_cas', A),
+      await assert.rejects(appendNndActivationPhase(f.identity, f.directory, lease, registry, 'registration_cas', A),
         { code: 'nnd_activation_journal_invalid' });
       await appendNndActivationPhase(f.identity, f.directory, lease, registry, 'rollback_pending', A);
       await appendNndActivationPhase(f.identity, f.directory, lease, registry, 'rollback_complete', B);

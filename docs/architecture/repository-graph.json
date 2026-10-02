@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:7729b264b7f9dd243b5c52e00ab2092b356873b6d5ab3bcca99851db4c7886a2",
+  "source_digest": "sha256:a5f629451f250b918fa6ff7a33e7ff1f581dbcee33caa7e66bdcd24534c7330f",
   "counts": {
-    "modules": 467,
+    "modules": 468,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 171
+      "module_count": 172
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 420,
-      "module_count": 147
+      "import_count": 427,
+      "module_count": 148
     },
     {
       "from": "experience-engine",
@@ -174,8 +174,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 27,
-      "module_count": 20
+      "import_count": 30,
+      "module_count": 21
     },
     {
       "from": "providers",
@@ -292,6 +292,12 @@
       "module_count": 2
     },
     {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 7,
+      "module_count": 7
+    },
+    {
       "from": "gateway",
       "to": "foundation",
       "import_count": 7,
@@ -302,12 +308,6 @@
       "to": "guidance",
       "import_count": 6,
       "module_count": 3
-    },
-    {
-      "from": "foundation",
-      "to": "reliability-engine",
-      "import_count": 6,
-      "module_count": 6
     },
     {
       "from": "providers",
@@ -2029,6 +2029,23 @@
       ]
     },
     {
+      "path": "src/nnd-activation-registration.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-candidate.js",
+        "src/nnd-activation-journal.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-service-discovery-windows.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-files.js",
+        "src/persistence/manifest-lock.js",
+        "src/persistence/manifest-transaction.js",
+        "src/reliability/process-identity.js"
+      ]
+    },
+    {
       "path": "src/nnd-activation-trial.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2760,6 +2777,7 @@
       "imports": [
         "src/ids.js",
         "src/nnd-activation-candidate.js",
+        "src/nnd-activation-registration.js",
         "src/nnd-install-marker.js",
         "src/nnd-package.js",
         "src/nnd-service-admission.js",

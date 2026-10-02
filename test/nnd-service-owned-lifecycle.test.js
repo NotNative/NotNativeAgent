@@ -38,6 +38,8 @@ async function fixture(options={}) {
   createNndDiscoveryGeneration:async()=>{trace.push('discovery:create');return {instance_id:randomUUID()};},
   createNndTrialDiscoveryGeneration:async (_identity,_lease,{endpoint,instanceId})=>{
    trace.push('trial-discovery:create');return {instance_id:options.generationOverride??instanceId,endpoint,control_token:'private'};},
+  selectNndTrialRegistrationUnderOwnership:async (_identity,_state,_lease,_registry,selection)=>{
+   trace.push('registration:select');return {state:'registration_selected_unresolved',operation_id:selection.operationId};},
   discardNndTrialDiscoveryGeneration:async (_identity,_lease,instanceId)=>{
    assert.equal(instanceId,bootstrap.generation);trace.push('trial-discovery:discard');return {discarded:true};},
   publishNndDiscoveryGeneration:async()=>{trace.push('discovery:publish');},removeNndDiscoveryPointer:async()=>{trace.push('discovery:remove');},
@@ -121,6 +123,18 @@ test('mismatched fixed generation closes the dark controller and never publishes
  assert.equal(f.trace.includes('discovery:publish'),false);
  await owner.stop();
  assert.ok(f.trace.includes('trial-discovery:discard'));
+});
+test('registration selection is single-use and requires private discovery preparation',async()=>{
+ const f=await fixture();f.childReady.resolve();
+ const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.selectRegistration({operationId:randomUUID()}),{code:'nnd_activation_registration_invalid'});
+ await owner.prepareDiscovery();
+ const selected=await owner.selectRegistration({operationId:randomUUID()});
+ assert.equal(selected.state,'registration_selected_unresolved');
+ await assert.rejects(owner.selectRegistration({operationId:randomUUID()}),{code:'nnd_activation_registration_invalid'});
+ assert.equal(f.trace.filter(event=>event==='registration:select').length,1);
+ assert.equal(f.controller.getRecord(),null);assert.equal(f.trace.includes('discovery:publish'),false);
+ await owner.stop();
 });
 test('failed trial controller close is retried on stop and dark credential is discarded',async()=>{
  const f=await fixture({generationOverride:randomUUID(),controllerCloseFailsOnce:true});f.childReady.resolve();
