@@ -2,6 +2,9 @@
 
 Status: accepted product direction; implementation work packages remain open.
 Decision date: 2026-10-01. Implementation resumed; see the [execution ledger](EXECUTION/LEDGER.md).
+For a framework-first, multi-agent handoff from the current shipped baseline, use
+the [MVP executor handoff](EXECUTION/mvp-agent-handoff.md). It identifies the
+serial activation gates and the C/F work that can proceed in separate worktrees.
 
 ## Product and completion contract
 

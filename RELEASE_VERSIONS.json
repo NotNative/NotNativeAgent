@@ -1048,6 +1048,10 @@
     {
       "version": "20261003-32",
       "content_sha256": "77945a8d8351e3c96c3e415b362f71faf5ae5c2d96a77538e0e598a0682e2934"
+    },
+    {
+      "version": "20261003-33",
+      "content_sha256": "4d4ac7a00274db419b9f78c722b9342259349796be819be0c7a942bfd70031ce"
     }
   ]
 }
