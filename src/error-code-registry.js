@@ -298,6 +298,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'journal_compaction_snapshot_missing', 'journal_corrupt', 'journal_repair_evidence_missing',
     'journal_repair_prefix_invalid', 'journal_repair_prefix_too_large', 'journal_replace_invalid',
     'nnd_activity_invalid', 'nnd_activity_unavailable',
+    'nnd_activity_tombstones_capacity', 'nnd_activity_tombstones_invalid',
+    'nnd_activity_tombstones_request_invalid', 'nnd_activity_tombstones_unavailable',
     'nnd_child_snapshot_capacity', 'nnd_child_snapshot_invalid', 'nnd_child_snapshot_unavailable',
     'nnd_catalog_capacity', 'nnd_catalog_invalid', 'nnd_catalog_unavailable',
     'opencode_storage_unavailable',
