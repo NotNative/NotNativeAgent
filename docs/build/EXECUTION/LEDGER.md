@@ -610,3 +610,31 @@ this is a partial F1 safety guard, not multi-project/worktree admission. Its
 `/path` response lacks an immutable installation/data identity, so a same-path
 runtime switch cannot yet be proven at this boundary. F2 durable state and
 complete installed acceptance remain open.
+
+## NNA 20261002-30 — owned confirmed-stop continuation
+
+An unpublished native trial can run a private post-stop continuation after its
+child shutdown is confirmed while the same service lease and registry mutex
+remain held. A one-use proof binds the operation, generation, exact persisted
+child process identity, ownership objects and live signal. The continuation can
+observe an earlier failed registration step without reporting success; an
+uncertain stop never invokes it. Independent review registered the new shutdown
+error code and found no further concrete defect. This is a prerequisite for
+rollback, not a rollback or publication. The pending admission barrier stays.
+
+## NND 20261002-16 — reconnect session catalog reconciliation
+
+After a non-skipped stream reconnect, the GUI now reads complete authoritative
+root and child session catalogs for each active directory, then refreshes the
+inclusive sidebar catalog. Failed or malformed reads preserve the prior
+snapshot; a foreign-directory row cannot be merged into another workspace.
+Newer live events and overlapping bootstraps retain precedence, and an
+offline-deleted selected session is cleared only after a successful inclusive
+read confirms its absence. Archived selections remain valid.
+
+Independent review found and repaired silent native truncation at 500 sessions
+and the stale selected-session loading state. Focused reconnect and related
+tests, UI typecheck and diff checks passed. Initial bootstrap still uses its
+500-entry cap, and the native API does not provide a snapshot revision across
+the separate catalog reads. Durable event history, explicit gap signaling,
+redaction/tombstones and installed browser acceptance remain open F2 work.

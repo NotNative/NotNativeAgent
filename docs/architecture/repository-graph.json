@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:892b1a0347a2f83ce737d6bdc2264eeb342e646902ecce82910ae8c2adf84824",
+  "source_digest": "sha256:a7f748ddf05e502973b24fc28d4dcdf268d672f8cffae50daf54cb6ba18e7c2d",
   "counts": {
     "modules": 757,
     "component_edges": 16
@@ -138,8 +138,8 @@
     {
       "from": "sync-engine",
       "to": "runtime-io",
-      "import_count": 11,
-      "module_count": 9
+      "import_count": 12,
+      "module_count": 10
     },
     {
       "from": "runtime-io",
@@ -4458,7 +4458,9 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
+        "packages/ui/src/sync/bootstrap-directory.ts",
         "packages/ui/src/sync/bootstrap-enrichment.ts",
         "packages/ui/src/sync/child-store.ts",
         "packages/ui/src/sync/event-equality.ts",

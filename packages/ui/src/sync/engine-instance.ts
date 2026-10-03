@@ -72,6 +72,8 @@ class EngineCtx {
   disposed = false;
   finalized = false;
   bootedAt = 0;
+  catalogReadSequence = new Map<string, number>();
+  catalogPublishedSequence = new Map<string, number>();
 }
 
 export function buildEngineParts(transport: 'auto' | 'ws' | 'sse'): EngineParts {
@@ -111,6 +113,7 @@ function wireEngineModules(ctx: EngineCtx): void {
     loader: ctx.loader,
     routing: ctx.routing,
     afterMessageLoad: afterMaterializedLoad,
+    beginCatalog: (dir) => catalogMergeFor(ctx, dir, false),
   });
   installChildPlumbing(ctx.manager, ctx.loader, ctx.recovery);
   ctx.messagePoll = createMessageCompletionPoll({ disposed: () => ctx.disposed, manager: ctx.manager });
@@ -143,8 +146,18 @@ function wireEngineModules(ctx: EngineCtx): void {
 function bootstrapperFor(ctx: EngineCtx): Bootstrapper {
   return (dir, store, isCurrent) => bootstrapDirectory(dir, store, isCurrent, {
     activeProjectFor: () => null, // layout demand-driver arrives with doc 05
-    mergeBootstrap: (mergeDir, mergeStore, rootSessions, allSessions, baselineRevision) => mergeAuthoritative(ctx.routing, mergeDir, mergeStore, rootSessions, allSessions, baselineRevision),
+    mergeBootstrap: catalogMergeFor(ctx, dir, true),
   });
+}
+
+function catalogMergeFor(ctx: EngineCtx, directory: string, publishGlobal: boolean) {
+  const sequence = (ctx.catalogReadSequence.get(directory) ?? 0) + 1;
+  ctx.catalogReadSequence.set(directory, sequence);
+  return (dir: string, store: StoreApi<DirectoryStore>, roots: Session[], children: Session[] | null, baselineRevision: number): void => {
+    if ((ctx.catalogPublishedSequence.get(directory) ?? 0) > sequence) return;
+    mergeAuthoritative(ctx.routing, dir, store, roots, children, baselineRevision, publishGlobal);
+    ctx.catalogPublishedSequence.set(directory, sequence);
+  };
 }
 
 function partsIsRecentBoot(ctx: EngineCtx): boolean {
@@ -430,6 +443,7 @@ function mergeAuthoritative(
   rootSessions: Session[],
   allSessions: Session[] | null,
   baselineRevision: number,
+  publishGlobal = true,
 ): void {
   const before = store.getState();
   const liveEventIds = new Set<string>();
@@ -449,7 +463,7 @@ function mergeAuthoritative(
   });
   for (const session of merged) registerSessionDirectory(routing, session.id, dir);
   writeCachedSessions(dir, merged);
-  for (const session of merged) useGlobalSessionsStore.getState().upsertSession(session);
+  if (publishGlobal) for (const session of merged) useGlobalSessionsStore.getState().upsertSession(session);
 }
 
 /** Instance-grade child loader/eviction plumbing (§F.5): disposal churns the

@@ -16,13 +16,15 @@ import type { SessionMessageLoader, LoaderTarget } from './session-message-loade
 import type { EventRoutingIndex } from './routing-index.ts';
 import { registerSessionDirectory } from './routing-index.ts';
 import { getReconnectCandidateIds } from './session-actions.ts';
-import { useGlobalSessionStatusStore } from './global-stores.ts';
+import { useGlobalSessionsStore, useGlobalSessionStatusStore } from './global-stores.ts';
 import { useSessionOrderingStore } from './session-ordering.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { resyncBlockingKind } from './bootstrap-enrichment.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from './activity-snapshot.ts';
 import { shouldSkipStaleSessionEvent } from './event-equality.ts';
 import { adoptSessionProjection } from './nna-projection.ts';
+import { loadAuthoritativeSessions } from './bootstrap-directory.ts';
+import { getRuntimeKey } from '../lib/runtime-switch.ts';
 
 export interface RecoveryDeps {
   disposed: () => boolean;
@@ -30,18 +32,20 @@ export interface RecoveryDeps {
   loader: SessionMessageLoader;
   routing: EventRoutingIndex;
   afterMessageLoad: (store: StoreApi<DirectoryStore>, sessionID: string) => void;
+  beginCatalog: (directory: string) => (dir: string, store: StoreApi<DirectoryStore>, roots: Session[], children: Session[] | null, baselineRevision: number) => void;
 }
 
 interface RecoveryCtx {
   deps: RecoveryDeps;
   resyncingDirs: Set<string>;
+  inflight: Map<string, Promise<void>>;
   lastFullResyncAt: Map<string, number>;
 }
 
 export function createRecovery(deps: RecoveryDeps) {
-  const ctx: RecoveryCtx = { deps, resyncingDirs: new Set<string>(), lastFullResyncAt: new Map<string, number>() };
+  const ctx: RecoveryCtx = { deps, resyncingDirs: new Set<string>(), inflight: new Map<string, Promise<void>>(), lastFullResyncAt: new Map<string, number>() };
   return {
-    resyncDirectory: (directory: string, reason: string): Promise<void> => recoveryResyncDirectory(ctx, directory, reason),
+    resyncDirectory: (directory: string, reason: string): Promise<void> => recoveryResyncDirectory(ctx, directory, reason, false),
     authoritativeStatusResync: (directory: string, candidates: string[]): Promise<void> => recoveryStatusResync(ctx, directory, candidates),
     resyncAfterStreamGap: (reason: string): Promise<void> => recoveryAfterStreamGap(ctx, reason),
     stats: (): { resyncing: string[]; lastResyncAt: Map<string, number> } => ({
@@ -50,31 +54,57 @@ export function createRecovery(deps: RecoveryDeps) {
     }),
     forget: (directory: string): void => {
       ctx.resyncingDirs.delete(directory);
+      ctx.inflight.delete(directory);
       ctx.lastFullResyncAt.delete(directory);
     },
     reset: (): void => {
       ctx.resyncingDirs.clear();
+      ctx.inflight.clear();
       ctx.lastFullResyncAt.clear();
     },
   };
 }
 
 /** §D.5 full recovery for one directory. Deduped per directory. */
-async function recoveryResyncDirectory(ctx: RecoveryCtx, directory: string, reason: string): Promise<void> {
+async function recoveryResyncDirectory(ctx: RecoveryCtx, directory: string, reason: string, fullCatalog: boolean): Promise<void> {
   void reason;
-  if (ctx.deps.disposed() || ctx.resyncingDirs.has(directory)) return;
+  if (ctx.deps.disposed()) return;
+  const runtime = getRuntimeKey();
+  if (ctx.resyncingDirs.has(directory)) {
+    // A watchdog candidate pass must not consume a reconnect's full-catalog
+    // request. Let it finish, then perform the authoritative read.
+    if (fullCatalog) {
+      await ctx.inflight.get(directory)?.catch(() => undefined);
+      if (!ctx.deps.disposed() && getRuntimeKey() === runtime) await recoveryResyncDirectory(ctx, directory, reason, true);
+    }
+    return;
+  }
   ctx.resyncingDirs.add(directory);
   ctx.lastFullResyncAt.set(directory, Date.now());
+  const task = recoveryResyncBody(ctx, directory, fullCatalog);
+  ctx.inflight.set(directory, task);
   try {
-    await recoveryResyncBody(ctx, directory);
+    await task;
   } finally {
-    ctx.resyncingDirs.delete(directory);
+    if (ctx.inflight.get(directory) === task) {
+      ctx.resyncingDirs.delete(directory);
+      ctx.inflight.delete(directory);
+    }
   }
 }
 
-async function recoveryResyncBody(ctx: RecoveryCtx, directory: string): Promise<void> {
+async function recoveryResyncBody(ctx: RecoveryCtx, directory: string, fullCatalog: boolean): Promise<void> {
   const store = ctx.deps.manager.children.get(directory);
   if (!store) return;
+  if (fullCatalog) {
+    const runtime = getRuntimeKey();
+    const mergeCatalog = ctx.deps.beginCatalog(directory);
+    await loadAuthoritativeSessions(directory, store, () => isStable(ctx, directory, store)() && getRuntimeKey() === runtime, {
+      activeProjectFor: () => null,
+      mergeBootstrap: mergeCatalog,
+    }, true);
+  }
+  if (!isStable(ctx, directory, store)()) return;
   const view = useSessionViewStore.getState();
   const candidates = getReconnectCandidateIds(store, view.currentSessionId, normalizeDirectory(view.activeDirectory), directory);
   if (candidates.length === 0) return;
@@ -135,10 +165,27 @@ async function recoveryCandidates(ctx: RecoveryCtx, directory: string, store: St
 /** §D.5 gap catch-up across EVERY child directory, TWO at a time. */
 async function recoveryAfterStreamGap(ctx: RecoveryCtx, reason: string): Promise<void> {
   if (ctx.deps.disposed()) return;
+  const runtime = getRuntimeKey();
   const dirs = [...ctx.deps.manager.children.keys()].filter((dir) => dir !== 'global');
   for (let index = 0; index < dirs.length; index += 2) {
     const batch = dirs.slice(index, index + 2);
-    await Promise.allSettled(batch.map((dir) => recoveryResyncDirectory(ctx, dir, reason)));
+    await Promise.allSettled(batch.map((dir) => recoveryResyncDirectory(ctx, dir, reason, true)));
+    if (ctx.deps.disposed() || getRuntimeKey() !== runtime) return;
+  }
+  // The sidebar has its own inclusive (active + archived) catalog. Refresh it
+  // after child merges so older child upserts cannot reintroduce deletions.
+  if (!ctx.deps.disposed() && getRuntimeKey() === runtime) {
+    await useGlobalSessionsStore.getState().loadSessions();
+    if (ctx.deps.disposed() || getRuntimeKey() !== runtime) return;
+    const catalog = useGlobalSessionsStore.getState();
+    const selected = useSessionViewStore.getState().currentSessionId;
+    // An offline deletion has no event to retire the view pointer. Wait for
+    // the inclusive native read so an archived session is not mistaken for it.
+    if (catalog.status === 'ready' && selected
+      && !catalog.active.some(session => session.id === selected)
+      && !catalog.archived.some(session => session.id === selected)) {
+      useSessionViewStore.getState().setCurrentSession(null);
+    }
   }
 }
 

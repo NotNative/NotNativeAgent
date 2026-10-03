@@ -7,7 +7,7 @@
  */
 import type { StoreApi } from 'zustand/vanilla';
 import { retry } from './bootstrap.ts';
-import { harnessClient } from '../lib/nnd/client.ts';
+import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
 import type { Session, SessionStatus } from '../lib/nnd/types.ts';
 import type { DirectoryStore, SyncState } from './types.ts';
 import { GLOBAL_PAGE_SIZE } from './types.ts';
@@ -78,30 +78,45 @@ function seedDirectoryFromGlobal(directory: string, store: StoreApi<DirectorySto
 }
 
 /** Phase 3: paged inclusive-of-nothing list (roots, then best-effort children). */
-async function loadAuthoritativeSessions(
+export async function loadAuthoritativeSessions(
   directory: string,
   store: StoreApi<DirectoryStore>,
   isCurrent: () => boolean,
   ctx: DirectoryBootstrapContext,
+  requireComplete = false,
 ): Promise<boolean> {
   const baselineRevision = store.getState().sessionRevision;
   let rootSessions: Session[] = [];
   let allSessions: Session[] | null = null;
   try {
-    const roots = await retry(() => harnessClient.listSessions({ directory, roots: true, archived: false, limit: GLOBAL_PAGE_SIZE }));
-    rootSessions = (roots ?? []).map((session) => stripSessionListDetails({ ...session }));
+    const roots = await retry(() => harnessClient.listSessions({ directory, roots: true, archived: false,
+      ...(requireComplete ? {} : { limit: GLOBAL_PAGE_SIZE }) }));
+    rootSessions = catalogRows(roots, directory, requireComplete);
   } catch {
     return !isCurrent() ? false : store.getState().session.length > 0;
   }
   if (!isCurrent()) return false;
   try {
-    const children = await retry(() => harnessClient.listSessions({ directory, roots: false, archived: false, limit: GLOBAL_PAGE_SIZE }));
-    allSessions = (children ?? []).map((session) => stripSessionListDetails({ ...session }));
+    const children = await retry(() => harnessClient.listSessions({ directory, roots: false, archived: false,
+      ...(requireComplete ? {} : { limit: GLOBAL_PAGE_SIZE }) }));
+    allSessions = catalogRows(children, directory, requireComplete);
   } catch {
     allSessions = null; // best-effort second pass; roots-only fallback
   }
   if (!isCurrent()) return false;
+  // Reconnect uses this catalog to remove absent sessions. A failed child
+  // read cannot certify absence, so retain the prior list and try next time.
+  if (requireComplete && allSessions === null) return false;
   ctx.mergeBootstrap(directory, store, rootSessions, allSessions, baselineRevision);
   // web/desktop: an EMPTY authoritative list is authoritative — no retry loop
   return true;
+}
+
+function catalogRows(rows: Session[], directory: string, strict: boolean): Session[] {
+  if (!Array.isArray(rows) || rows.some(row => !row || typeof row.id !== 'string' || !row.id
+    || !row.time || typeof row.time !== 'object'
+    || strict && (typeof row.directory !== 'string' || normalizeDirectory(row.directory) !== directory))) {
+    throw new Error('Session catalog is invalid for this workspace');
+  }
+  return rows.map(session => stripSessionListDetails({ ...session }));
 }

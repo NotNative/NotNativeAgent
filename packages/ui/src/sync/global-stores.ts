@@ -99,7 +99,8 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
     set({ status: 'loading', lastError: null });
     const result = await harnessClient.listSessions({ archived: true });
     if (generation !== sessionLoadGeneration) return;
-    if (result.error || !result.data) {
+    if (result.error || !Array.isArray(result.data) || result.data.some(session =>
+      !session || typeof session.id !== 'string' || !session.id || !session.time || typeof session.time !== 'object')) {
       // failure preserves the previous snapshot — never an empty success
       set({ status: 'error', lastError: result.error ?? 'session list failed' });
       return;
