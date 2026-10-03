@@ -1,85 +1,111 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
-import { JournalStore } from '../store.js';
+import { JournalStore, recoverJournal } from '../store.js';
 import { retentionCompactionTarget, validateRetentionLimit } from './retention.js';
 
 const DEFAULT_RETENTION_ENTRIES = 10_000;
 const MAX_REPLAY_RECORDS = 1_000_000;
+const MAX_REPLACEMENT_RECORDS = 100_000;
 const MAX_COMPLETION_REQUESTS = 64;
 
 export class ReviewerLedger {
   #entries = new Map();
   #signatureCounts = new Map();
   #store = null;
+  #tail = Promise.resolve();
 
   constructor(options) {
     this.retentionEntries = validateRetentionLimit(options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES);
     if (options.durable) this.#store = new JournalStore(options.root, `${options.sessionId}.review`, {
       persistenceDeadlineMs: options.persistenceDeadlineMs,
+      resumeRecordLimit: MAX_REPLACEMENT_RECORDS,
     });
   }
 
   async initialize() {
-    if (!this.#store) return;
-    const recovered = await this.#store.open();
-    if (recovered.corruptTail) {
-      throw new ContractError('reviewer_ledger_corrupt', 'reviewer ledger has a corrupt tail');
-    }
-    for (const record of recovered.records.slice(0, MAX_REPLAY_RECORDS)) this.#apply(record.type, record.payload);
-    await this.#enforceRetention();
+    return this.#serialize(async () => {
+      if (!this.#store) return;
+      const recovered = await this.#store.open();
+      const replay = recovered.truncated ? await recoverJournal(this.#store.path) : recovered;
+      if (replay.corruptTail || replay.records.length > MAX_REPLAY_RECORDS
+        || replay.lastHash !== recovered.lastHash) {
+        throw new ContractError('reviewer_ledger_corrupt', 'reviewer ledger has a corrupt tail');
+      }
+      for (const record of replay.records) this.#apply(record.type, record.payload);
+      await this.#enforceRetention();
+    });
   }
 
   async propose(request, classification, causal = {}) {
-    const existing = this.#entries.get(request.id);
-    if (existing) return existing;
-    const entry = {
-      requestId: request.id, signature: operationSignature(request), toolName: request.toolName,
-      targetFingerprint: fingerprint(targetIdentity(request)), classification,
-      operationFingerprint: completionOperationFingerprint(request),
-      turnId: boundedIdentity(causal.turnId), operatorRequestId: boundedIdentity(causal.operatorRequestId),
-      decision: null, execution: null, repetition: this.#repetitionCount(request),
-    };
-    await this.#record('proposal', entry);
-    this.#addEntry(entry);
-    return entry;
+    return this.#serialize(async () => {
+      const existing = this.#entries.get(request.id);
+      if (existing) return existing;
+      const entry = {
+        requestId: request.id, signature: operationSignature(request), toolName: request.toolName,
+        targetFingerprint: fingerprint(targetIdentity(request)), classification,
+        operationFingerprint: completionOperationFingerprint(request),
+        turnId: boundedIdentity(causal.turnId), operatorRequestId: boundedIdentity(causal.operatorRequestId),
+        decision: null, execution: null, repetition: this.#repetitionCount(request),
+      };
+      await this.#record('proposal', entry);
+      this.#addEntry(entry);
+      return entry;
+    });
   }
 
   async commitDecision(requestId, decision) {
-    const entry = this.#require(requestId);
-    if (entry.decision) return entry.decision;
-    await this.#record('decision', { requestId, decision });
-    entry.decision = decision;
-    return decision;
+    return this.#serialize(async () => {
+      const entry = this.#require(requestId);
+      if (entry.decision) return entry.decision;
+      await this.#record('decision', { requestId, decision });
+      entry.decision = decision;
+      if (retentionSettled(entry)) {
+        this.#markRecentlySettled(entry);
+        await this.#enforceRetention();
+      }
+      return decision;
+    });
   }
 
   async commitOperatorDecision(requestId, decision) {
-    const entry = this.#require(requestId);
-    if (entry.decision?.outcome !== 'escalate_to_operator') {
-      throw new ContractError('operator_decision_unexpected', 'operator decision requires a committed escalation');
-    }
-    await this.#record('operator_decision', { requestId, decision });
-    entry.decision = decision;
-    return decision;
+    return this.#serialize(async () => {
+      const entry = this.#require(requestId);
+      if (entry.decision?.outcome !== 'escalate_to_operator') {
+        throw new ContractError('operator_decision_unexpected', 'operator decision requires a committed escalation');
+      }
+      await this.#record('operator_decision', { requestId, decision });
+      entry.decision = decision;
+      if (retentionSettled(entry)) {
+        this.#markRecentlySettled(entry);
+        await this.#enforceRetention();
+      }
+      return decision;
+    });
   }
 
   async executionStarted(requestId, decisionId) {
-    const entry = this.#require(requestId);
-    if (entry.execution) throw new ContractError('ledger_execution_duplicate', 'execution was already accounted');
-    const execution = { decisionId, status: 'running', terminal: null };
-    await this.#record('execution_started', { requestId, execution });
-    entry.execution = execution;
+    return this.#serialize(async () => {
+      const entry = this.#require(requestId);
+      if (entry.execution) throw new ContractError('ledger_execution_duplicate', 'execution was already accounted');
+      const execution = { decisionId, status: 'running', terminal: null };
+      await this.#record('execution_started', { requestId, execution });
+      entry.execution = execution;
+    });
   }
 
   async settle(requestId, terminal) {
-    const entry = this.#require(requestId);
-    if (!entry.execution) throw new ContractError('ledger_start_missing', 'execution start is missing');
-    if (entry.execution.terminal) return entry.execution.terminal;
-    await this.#record('execution_terminal', { requestId, terminal });
-    entry.execution.status = terminal.status;
-    entry.execution.terminal = terminal;
-    await this.#enforceRetention();
-    return terminal;
+    return this.#serialize(async () => {
+      const entry = this.#require(requestId);
+      if (!entry.execution) throw new ContractError('ledger_start_missing', 'execution start is missing');
+      if (entry.execution.terminal) return entry.execution.terminal;
+      await this.#record('execution_terminal', { requestId, terminal });
+      entry.execution.status = terminal.status;
+      entry.execution.terminal = terminal;
+      this.#markRecentlySettled(entry);
+      await this.#enforceRetention();
+      return terminal;
+    });
   }
 
   execution(requestId) {
@@ -148,7 +174,18 @@ export class ReviewerLedger {
   }
 
   async close() {
-    await this.#store?.close();
+    return this.#serialize(() => this.#store?.close());
+  }
+
+  #serialize(operation) {
+    const result = this.#tail.then(operation);
+    this.#tail = result.catch(() => undefined);
+    return result;
+  }
+
+  #markRecentlySettled(entry) {
+    this.#entries.delete(entry.requestId);
+    this.#entries.set(entry.requestId, entry);
   }
 
   #repetitionCount(request) {
@@ -178,8 +215,24 @@ export class ReviewerLedger {
   }
 
   async #enforceRetention() {
-    if (this.#entries.size <= this.retentionEntries) return;
-    const retained = [...this.#entries.values()].slice(-retentionCompactionTarget(this.retentionEntries));
+    const entries = [...this.#entries.values()];
+    const settled = entries.filter(retentionSettled);
+    if (settled.length <= this.retentionEntries) return;
+    const pendingRecordCount = entries.filter(entry => !retentionSettled(entry))
+      .reduce((count, entry) => count + entryRecords(entry).length, 0);
+    if (pendingRecordCount > MAX_REPLACEMENT_RECORDS) {
+      throw new ContractError('reviewer_ledger_capacity', 'pending reviewer evidence exceeds the safe compaction bound');
+    }
+    const historical = new Set();
+    let recordCount = pendingRecordCount;
+    for (const entry of settled.toReversed()) {
+      if (historical.size >= retentionCompactionTarget(this.retentionEntries)) break;
+      const required = entryRecords(entry).length;
+      if (recordCount + required > MAX_REPLACEMENT_RECORDS) break;
+      historical.add(entry);
+      recordCount += required;
+    }
+    const retained = entries.filter(entry => !retentionSettled(entry) || historical.has(entry));
     if (this.#store) await this.#store.replace(retained.flatMap(entryRecords));
     const retainedEntries = new Map(retained.map((entry) => [entry.requestId, entry]));
     const retainedSignatureCounts = new Map();
@@ -199,9 +252,12 @@ export class ReviewerLedger {
         this.#addEntry(payload);
         break;
       case 'decision':
-      case 'operator_decision':
-        this.#require(payload.requestId).decision = payload.decision;
+      case 'operator_decision': {
+        const entry = this.#require(payload.requestId);
+        entry.decision = payload.decision;
+        if (retentionSettled(entry)) this.#markRecentlySettled(entry);
         break;
+      }
       case 'execution_started':
         this.#require(payload.requestId).execution = payload.execution;
         break;
@@ -212,6 +268,7 @@ export class ReviewerLedger {
         }
         execution.status = payload.terminal.status;
         execution.terminal = payload.terminal;
+        this.#markRecentlySettled(this.#require(payload.requestId));
         break;
       }
       default:
@@ -288,6 +345,15 @@ function boundedIdentitySet(values) {
 }
 
 const DECISION_TERMINAL_OUTCOMES = new Set(['deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
+const RETENTION_TERMINAL_DECISIONS = new Set(['deny_with_guidance', 'hard_deny']);
+
+function retentionSettled(entry) {
+  // Invariant: a terminal result with a possible external effect still holds
+  // completion open. Compaction must not erase that obligation.
+  return confirmedExecution(entry)
+    || entry.execution?.terminal?.effect_certainty === 'none'
+    || !entry.execution && RETENTION_TERMINAL_DECISIONS.has(entry.decision?.outcome);
+}
 
 function confirmedExecution(entry) {
   const terminal = entry.execution?.terminal;

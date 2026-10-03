@@ -32,7 +32,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'preauthorization_request_expired', 'principal_invalid', 'principal_required',
     'question_request_invalid', 'question_unknown',
     'principal_stale', 'review_posture_invalid', 'reviewer_cancelled', 'semantic_review_timeout',
-    'reviewer_ledger_config_invalid', 'reviewer_ledger_corrupt', 'reviewer_missing_terminal',
+    'reviewer_ledger_config_invalid', 'reviewer_ledger_corrupt', 'reviewer_ledger_capacity', 'reviewer_missing_terminal',
     'reviewer_output_malformed', 'reviewer_output_too_large', 'reviewer_record_unknown',
     'reviewer_request_circular', 'reviewer_role_violation', 'secret_audit_unavailable',
     'secret_broker_authority_retired', 'secret_broker_bind_invalid', 'secret_broker_port_invalid',

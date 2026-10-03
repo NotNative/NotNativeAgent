@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { ReviewerLedger, requestDigest } from '../src/persistence/reviewer-ledger.js';
+import { JournalStore } from '../src/store.js';
 
 function request(id = 'tool-request-1') {
   return Object.freeze({
@@ -74,6 +75,127 @@ test('reviewer retention atomically removes expired durable entries', async () =
   await restored.initialize();
   assert.equal(restored.health().retention_entries, 2);
   assert.deepEqual(restored.audit().map((item) => item.request_id), ['retention-request-2', 'retention-request-3']);
+  await restored.close();
+});
+
+test('retention preserves an older pending review while newer reviews settle and survives replay', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-overlap-'));
+  const options = { durable: true, root, sessionId: 'overlap', retentionEntries: 1 };
+  const ledger = new ReviewerLedger(options);
+  await ledger.initialize();
+  const pending = request('pending-review');
+  await ledger.propose(pending, { risk: 'review_required', scope: 'workspace' });
+  const completed = request('completed-review');
+  await ledger.propose(completed, { risk: 'review_required', scope: 'workspace' });
+  await ledger.commitDecision(completed.id, { id: 'completed-decision', outcome: 'approve' });
+  await ledger.executionStarted(completed.id, 'completed-decision');
+  await ledger.settle(completed.id, { status: 'succeeded', effect_certainty: 'completed' });
+  const denied = request('denied-review');
+  await ledger.propose(denied, { risk: 'review_required', scope: 'workspace' });
+  await ledger.commitDecision(denied.id, { id: 'denied-decision', outcome: 'hard_deny' });
+  assert.deepEqual(ledger.audit().map(item => item.request_id), [pending.id, denied.id]);
+  await ledger.close();
+  const journalPath = join(root, 'overlap.review.journal.ndjson');
+  assert.doesNotMatch(await readFile(journalPath, 'utf8'), /completed-review/u);
+  const restored = new ReviewerLedger(options);
+  await restored.initialize();
+  assert.deepEqual(restored.audit().map(item => item.request_id), [pending.id, denied.id]);
+  const next = await restored.propose(request('next-review'), { risk: 'review_required', scope: 'workspace' });
+  assert.equal(next.repetition, 2);
+  await restored.commitDecision(pending.id, { id: 'pending-decision', outcome: 'approve' });
+  await restored.executionStarted(pending.id, 'pending-decision');
+  await restored.settle(pending.id, { status: 'succeeded', effect_certainty: 'completed' });
+  assert.deepEqual(restored.audit().map(item => item.request_id), [next.requestId, pending.id]);
+  await restored.close();
+  const again = new ReviewerLedger(options);
+  await again.initialize();
+  assert.deepEqual(again.audit().map(item => item.request_id), [next.requestId, pending.id]);
+  assert.equal(again.execution(pending.id)?.terminal?.status, 'succeeded');
+  await again.close();
+});
+
+test('a proposal arriving during durable compaction remains available in memory and after restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-compaction-race-'));
+  const options = { durable: true, root, sessionId: 'compaction-race', retentionEntries: 1 };
+  const ledger = new ReviewerLedger(options);
+  await ledger.initialize();
+  await ledger.propose(request('older-pending'), { risk: 'review_required', scope: 'workspace' });
+  for (const id of ['first-settled', 'second-settled']) {
+    await ledger.propose(request(id), { risk: 'review_required', scope: 'workspace' });
+    await ledger.commitDecision(id, { id: `${id}-decision`, outcome: 'approve' });
+    await ledger.executionStarted(id, `${id}-decision`);
+    if (id === 'first-settled') await ledger.settle(id, { status: 'succeeded', effect_certainty: 'completed' });
+  }
+  let enterReplace, releaseReplace;
+  const entered = new Promise(resolve => { enterReplace = resolve; });
+  const release = new Promise(resolve => { releaseReplace = resolve; });
+  const original = JournalStore.prototype.replace;
+  JournalStore.prototype.replace = async function (records) {
+    enterReplace();
+    await release;
+    return original.call(this, records);
+  };
+  try {
+    const settling = ledger.settle('second-settled', { status: 'succeeded', effect_certainty: 'completed' });
+    await entered;
+    const proposing = ledger.propose(request('new-pending'), { risk: 'review_required', scope: 'workspace' });
+    releaseReplace();
+    await Promise.all([settling, proposing]);
+    assert.deepEqual(ledger.audit().map(item => item.request_id),
+      ['older-pending', 'second-settled', 'new-pending']);
+  } finally {
+    releaseReplace();
+    JournalStore.prototype.replace = original;
+    await ledger.close();
+  }
+  const restored = new ReviewerLedger(options);
+  await restored.initialize();
+  assert.deepEqual(restored.audit().map(item => item.request_id),
+    ['older-pending', 'second-settled', 'new-pending']);
+  await restored.close();
+});
+
+test('pending operator escalation survives denial compaction until the operator decides', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-escalation-retention-'));
+  const options = { durable: true, root, sessionId: 'escalation', retentionEntries: 1 };
+  const ledger = new ReviewerLedger(options);
+  await ledger.initialize();
+  await ledger.propose(request('operator-pending'), { risk: 'review_required', scope: 'workspace' });
+  await ledger.commitDecision('operator-pending', { id: 'escalation', outcome: 'escalate_to_operator' });
+  for (const id of ['older-denial', 'newer-denial']) {
+    await ledger.propose(request(id), { risk: 'review_required', scope: 'workspace' });
+    await ledger.commitDecision(id, { id: `${id}-decision`, outcome: 'hard_deny' });
+  }
+  assert.deepEqual(ledger.audit().map(item => item.request_id), ['operator-pending', 'newer-denial']);
+  await ledger.close();
+  const restored = new ReviewerLedger(options);
+  await restored.initialize();
+  await restored.commitOperatorDecision('operator-pending', { id: 'operator-denial', outcome: 'deny_with_guidance' });
+  assert.deepEqual(restored.audit().map(item => item.request_id), ['operator-pending']);
+  await restored.close();
+});
+
+test('a failed tool with an uncertain external effect survives compaction and restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-uncertain-retention-'));
+  const options = { durable: true, root, sessionId: 'uncertain', retentionEntries: 1 };
+  const ledger = new ReviewerLedger(options);
+  await ledger.initialize();
+  const uncertain = request('uncertain-write');
+  await ledger.propose(uncertain, { risk: 'review_required', scope: 'workspace' }, { turnId: 'uncertain-turn' });
+  await ledger.commitDecision(uncertain.id, { id: 'uncertain-decision', outcome: 'approve' });
+  await ledger.executionStarted(uncertain.id, 'uncertain-decision');
+  await ledger.settle(uncertain.id, { status: 'failed', effect_certainty: 'unknown', reason_code: 'executor_failure' });
+  for (const id of ['older-denial', 'newer-denial']) {
+    await ledger.propose(request(id), { risk: 'review_required', scope: 'workspace' });
+    await ledger.commitDecision(id, { id: `${id}-decision`, outcome: 'hard_deny' });
+  }
+  assert.deepEqual(ledger.audit().map(item => item.request_id), [uncertain.id, 'newer-denial']);
+  assert.equal(ledger.completionState({ turnIds: ['uncertain-turn'] }).unresolved_count, 1);
+  await ledger.close();
+  const restored = new ReviewerLedger(options);
+  await restored.initialize();
+  assert.deepEqual(restored.audit().map(item => item.request_id), [uncertain.id, 'newer-denial']);
+  assert.equal(restored.completionState({ turnIds: ['uncertain-turn'] }).unresolved_count, 1);
   await restored.close();
 });
 
