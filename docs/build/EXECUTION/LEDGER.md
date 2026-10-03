@@ -712,3 +712,37 @@ tests, typecheck, and a disposable NND↔NNA source smoke prove the authoritativ
 ID and rejection of a second-directory create without creating a session.
 This remains primary-only admission; secondary project/worktree selection and
 installed supervisor activation are still open F1/L work.
+
+## NNA 20261003-8 through 20261003-20 — native safety and attach prerequisites
+
+NNA now rechecks the primary workspace at tool execution, exposes bounded
+owner-scoped durable Activity pages, and pairs a durable snapshot with the
+live event stream so the GUI can distinguish a complete handoff from a gap.
+Deletion tombstones and authenticated HTTP pages make removed sessions and
+retention gaps explicit. The native MCP configuration contract supports
+scoped read, preview, save, and operation receipts with identity and revision
+checks; credential-specific fields are excluded, while operator-supplied
+commands, arguments, and paths still require care. The activation path has a
+one-use private transition proof, closed-only native trial admission, and a
+private dark controller challenge that proves point-in-time listener health.
+These pieces do not yet make an operator principal effective or transfer the
+held child into a completed NND installation. NNA v16 passed its complete
+serial suite (2,139 passed, 8 skipped); v20 full integration validation is
+pending at this entry.
+
+## NND 20261003-2 through 20261003-8 — managed GUI and installer safeguards
+
+The GUI treats an SSE replay gap as an authority gate, recovering state before
+send, create, rename, and other mutations resume. It exposes bounded saved
+Activity separately from the live stream and probes the selected NNA service
+through the private supervised health contract. Managed native mode no longer
+offers the legacy OpenCode MCP editor or server API. Its replacement uses
+NNA's typed MCP preview/save and operation receipts, including uncertain
+result recovery. The installer and desktop launcher pin the selected NNA
+installation and data identity, rejecting a different root even if a command
+line supplies one. NND v6 passed 1,726 UI tests, 1,447 web tests, typechecks,
+and both release-gate passes. V8 installer validation remains pending at this
+entry. Existing root-only selection files need an installer rerun to acquire
+the new pin. Browser and desktop installed acceptance, optional dependency
+acquisition, public activation, full secondary workspace scope, and durable
+completion remain open for the MVP.

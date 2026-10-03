@@ -956,6 +956,14 @@
     {
       "version": "20261003-6",
       "content_sha256": "4301b003e6923b60d23b8a8df49a86d54b4bd0da936370d13947bd32405dea7a"
+    },
+    {
+      "version": "20261003-7",
+      "content_sha256": "28e480bf951434e900e33e78701afa7a9b141f0b3686f7189688ca6b72dbc23f"
+    },
+    {
+      "version": "20261003-8",
+      "content_sha256": "e95365c8e7c289a9e2503a2319f9f09a9c4ab7ac0c772e1ce695db9c8c528c3e"
     }
   ]
 }
