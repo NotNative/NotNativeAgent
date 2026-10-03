@@ -19,6 +19,7 @@ import { retirementCleanupPaths, inspectRetirementArtifacts,
 const invalid = () => new ContractError('nnd_activation_retirement_cleanup_invalid',
   'NND retirement cleanup is unresolved; preserve the pending barrier and remaining evidence.');
 const ACTIVE = new WeakSet();
+const CLEARED_ADMISSION_PROOFS = new WeakMap();
 const samePath = (left, right) => process.platform === 'win32'
   ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function assertOwner(identity, serviceLease, registryLease, options) {
@@ -255,4 +256,56 @@ export async function clearNndRetirementBarriersUnderOwnership(identity, state, 
     if (!started) ACTIVE.delete(serviceLease);
     throw error;
   });
+}
+
+/** Verify the completed clearance again under both genuine owners before transferring the live gate. */
+export async function verifyNndClearedAdmissionUnderOwnership(identity, state, serviceLease, registryLease, options,
+  transfer) {
+  assertOwner(identity, serviceLease, registryLease, options);
+  assertLive(state, identity, serviceLease, options);
+  if (!state.retainedLeaseArmed || !state.nativePrincipalPromoted || !state.registrationSelected
+    || ACTIVE.has(serviceLease) || typeof transfer !== 'function') throw invalid();
+  ACTIVE.add(serviceLease);
+  let started = false;
+  return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
+    started = true;
+    try {
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+        ...(options.signal ? [options.signal] : [])]);
+      const context = { identity, state, serviceLease, registryLease, options, signal,
+        place: retirementCleanupPaths(identity, options.operationId) };
+      const current = await inspectClearance(context);
+      if (!current.witnessBytes || current.present.length) throw invalid();
+      const repeated = await inspectClearance(context);
+      if (!repeated.witnessBytes?.equals(current.witnessBytes) || repeated.present.length) throw invalid();
+      const proof = Object.freeze({});
+      CLEARED_ADMISSION_PROOFS.set(proof, { identity, state, serviceLease, registryLease,
+        generation: options.generation, witness: hash(current.witnessBytes) });
+      try {
+        // Invariant: transfer runs synchronously while both ownership work scopes still protect verification.
+        const result = transfer(proof);
+        if (result && typeof result.then === 'function') throw invalid();
+        return result;
+      } finally { CLEARED_ADMISSION_PROOFS.delete(proof); }
+    } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
+    finally { ACTIVE.delete(serviceLease); }
+  }), { timeoutMs: 300000 }).catch(error => {
+    if (!started) ACTIVE.delete(serviceLease);
+    throw error;
+  });
+}
+
+// Security: proof is one-use and bound to the exact live owner and generation, never to caller-shaped JSON.
+export function consumeNndClearedAdmissionProof(proof, identity, state, serviceLease, registryLease) {
+  const entry = CLEARED_ADMISSION_PROOFS.get(proof);
+  CLEARED_ADMISSION_PROOFS.delete(proof);
+  if (!entry || entry.identity !== identity || entry.state !== state || entry.serviceLease !== serviceLease
+    || entry.registryLease !== registryLease || entry.generation !== state.record?.instance_id
+    || !ACTIVE.has(serviceLease)) throw invalid();
+  assertHeldNndServiceLease(serviceLease, identity.data_id);
+  if (!samePath(assertManifestLease(registryLease).path,
+    join(identity.data_root, 'config', 'nnd-package.json'))) throw invalid();
+  assertLive(state, identity, serviceLease, { operationId: state.activationOperationId,
+    stageOperationId: state.stageOperationId, generation: entry.generation });
+  return entry.witness;
 }

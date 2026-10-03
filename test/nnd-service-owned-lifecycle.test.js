@@ -32,6 +32,7 @@ async function fixture(options={}) {
    assert.equal(held,lease);assert.equal(guard,registry);assert.equal(binding.operationId,'operation');
    return Object.freeze({});
   },
+  transferRetainedNativeAdmission:async()=>{throw new ContractError('nnd_trial_admission_invalid','Trial transfer unavailable');},
   acquireNndServiceLock:async()=>{trace.push('lease:acquire');return lease;},
   open:async path=>{const bytes=Buffer.from(JSON.stringify(path.endsWith('nnd-package.json')?{root:packageInfo.root,version:packageInfo.version,protocol:'1.0'}:{service_activation:{entrypoint:'entry.mjs'}}));return {
    stat:async()=>({isFile:()=>true,size:bytes.length}),read:async buffer=>({bytesRead:bytes.copy(buffer)}),close:async()=>{}};},
@@ -82,10 +83,13 @@ test('unpublished owned trial cannot publish discovery or grant tickets and reta
  assert.equal(f.nativeOptions.unpublishedTrial,true);
  assert.equal(f.controller,undefined);assert.equal(f.trace.some(event=>event.startsWith('discovery:')),false);
  assert.deepEqual(Object.keys(owner).sort(),['cleanupRetirement','clearRetirementBarriers','commitRetirement',
-  'planRetirement','recordCompletion','recordRetirementDecision','status','stop','stopped','verify']);
+  'planRetirement','recordCompletion','recordRetirementDecision','status','stop','stopped',
+  'transferNativeAdmission','verify']);
  assert.equal(JSON.stringify(owner.status()).includes('private-engine-token'),false);
  await assert.rejects(owner.recordCompletion(f.registry,{operationId:'operation'}),{code:'nnd_activation_transition_proof_invalid'});
  await assert.rejects(owner.planRetirement(f.registry,{operationId:'operation'}),{code:'nnd_activation_retirement_invalid'});
+ await assert.rejects(owner.transferNativeAdmission(f.registry,{operationId:'operation'}),
+  {code:'nnd_trial_admission_invalid'});
  const gate=deferred();f.native.close=async()=>{f.trace.push('native:draining');await gate.promise;f.trace.push('native:drained');};
  let stopped=false;const closing=owner.stop().then(()=>{stopped=true;});await waitFor(()=>f.trace.includes('native:draining'));
  assert.equal(stopped,false);gate.resolve();await closing;assert.equal(f.trace.includes('lease:close'),false);

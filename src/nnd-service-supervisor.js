@@ -17,6 +17,7 @@ import { admitFreshNndServiceData } from './nnd-service-admission.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { consumeNndTrialCapability } from './nnd-activation-candidate.js';
 import { createNndTrialAdmissionGate } from './nnd-trial-admission.js';
+import { transferRetainedNativeAdmission } from './nnd-activation-native-admission-transfer.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
 import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
@@ -24,8 +25,7 @@ import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted
 import { recordNndCompletionUnderOwnership } from './nnd-activation-completion-receipt.js';
 import { planNndTerminalRetirementUnderOwnership } from './nnd-activation-retirement-plan.js';
 import { recordNndExternalRetirementDecisionUnderOwnership } from './nnd-activation-retirement-decision.js';
-import { cleanupNndRetirementEvidenceUnderOwnership,
-  recordNndTerminalRetirementCommitUnderOwnership,
+import { cleanupNndRetirementEvidenceUnderOwnership, recordNndTerminalRetirementCommitUnderOwnership,
   clearNndRetirementBarriersUnderOwnership } from './nnd-activation-retirement-cleanup.js';
 import { userDataPaths } from './product.js';
 
@@ -112,7 +112,8 @@ function createSupervisorSession(identity, lease, releaseLease) {
     commitRetirement: (registryLease, options) => recordNndTerminalRetirementCommitUnderOwnership(
       state.identity, state, state.lease, registryLease, options),
     clearRetirementBarriers: (registryLease, options) => clearNndRetirementBarriersUnderOwnership(
-      state.identity, state, state.lease, registryLease, options) }) };
+      state.identity, state, state.lease, registryLease, options),
+    transferNativeAdmission: (registryLease, options) => transferRetainedNativeAdmission(state, registryLease, options) }) };
 }
 async function recordRetainedCompletion(state, registryLease, options) {
   if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
@@ -159,6 +160,7 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
   try {
     const admissionGate = registryLease && binding
       ? createNndTrialAdmissionGate(identity, session.state, lease, registryLease, binding) : null;
+    session.state.trialAdmissionGate = admissionGate;
     session.state.native = await startNndNativeService(paths, identity,
       { ...options, unpublishedTrial: true, trialAdmissionGate: admissionGate });
     await startSupervisorChild(session, paths);

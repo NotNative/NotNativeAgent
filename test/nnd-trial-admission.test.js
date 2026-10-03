@@ -16,12 +16,13 @@ async function fixture() {
   const source = await readFile(new URL('../src/nnd-trial-admission.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export function', 'function');
   const api = Function('join', 'resolve', 'ContractError', 'assertHeldNndServiceLease', 'assertManifestLease',
-    'operationValid', executable + '\nreturn { createNndTrialAdmissionGate, assertNndTrialRequestAdmission, assertNndTrialOwnership };')(
+    'operationValid', 'consumeNndClearedAdmissionProof', executable + '\nreturn { createNndTrialAdmissionGate, assertNndTrialRequestAdmission, assertNndTrialOwnership, transferNndTrialAdmissionGate };')(
     join, resolve, ContractError,
     (lease, dataId) => { if (!serviceHeld || lease !== serviceLease || dataId !== identity.data_id) throw Error('lease lost'); },
     lease => { if (!registryHeld || lease !== registryLease) throw Error('registry lost');
       return { path: join(identity.data_root, 'config', 'nnd-package.json') }; },
-    value => ['operation', 'stage', 'generation'].includes(value));
+    value => ['operation', 'stage', 'generation'].includes(value),
+    proof => { if (proof !== 'verified') throw Error('unverified'); return 'a'.repeat(64); });
   const gate = api.createNndTrialAdmissionGate(identity, state, serviceLease, registryLease, binding);
   return { identity, serviceLease, registryLease, state, binding, gate, api,
     loseService: () => { serviceHeld = false; }, loseRegistry: () => { registryHeld = false; } };
@@ -36,6 +37,24 @@ test('unpublished native gate permits reads and denies every ordinary mutation r
   }
   assert.throws(() => f.api.assertNndTrialRequestAdmission({}, f.identity, { method: 'GET' }),
     { code: 'nnd_trial_admission_invalid' });
+});
+
+test('exact live-owner transfer permits ordinary native admission after registry release while service lease remains held', async () => {
+  const f = await fixture();
+  Object.assign(f.state, { retained: true, retainedLeaseArmed: true, nativePrincipalPromoted: true,
+    registrationSelected: true, native: { isListening: () => true }, controller: { isListening: () => true } });
+  assert.throws(() => f.api.transferNndTrialAdmissionGate(f.gate, f.identity, f.registryLease, 'forged'));
+  assert.throws(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
+    { method: 'POST', url: '/v1/sessions' }), { code: 'nnd_trial_mutation_denied' });
+  assert.equal(f.api.transferNndTrialAdmissionGate(f.gate, f.identity, f.registryLease, 'verified').state,
+    'native_admission_transferred_controller_dark');
+  f.loseRegistry();
+  assert.doesNotThrow(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
+    { method: 'POST', url: '/v1/sessions' }));
+  assert.throws(() => f.api.transferNndTrialAdmissionGate(f.gate, f.identity, f.registryLease, 'verified'));
+  f.loseService();
+  assert.throws(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
+    { method: 'GET', url: '/v1/health' }), { code: 'nnd_trial_admission_invalid' });
 });
 
 test('the gate fails closed after generation, operation, child or ownership changes', async () => {

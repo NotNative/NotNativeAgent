@@ -70,6 +70,7 @@ async function fixture({ nativeAcl = false } = {}) {
   await writeFile(decisionPath, json(decision));
   const terminalPath = join(placeRoot, 'activation-retirement-commit.json');
   const state = { identity, lease: serviceLease, unpublishedTrial: true, retained: true, retainedLeaseArmed: true,
+    nativePrincipalPromoted: true, registrationSelected: true,
     stopping: false, published: false, child: { failed: false, child: { pid: 4242, exitCode: null } },
     native: { isListening: () => true }, controller: { isListening: () => true }, record: pointer,
     activationOperationId: options.operationId, stageOperationId: options.stageOperationId };
@@ -99,11 +100,16 @@ async function fixture({ nativeAcl = false } = {}) {
       if (barrierRemoved === barrierInterrupt) throw Error('simulated death after barrier removal'); },
     writeInstallNew: async (path, content) => { await writeInstallNew(path, content); await afterCommitWrite?.(); } },
   ['cleanupNndRetirementEvidenceUnderOwnership', 'recordNndTerminalRetirementCommitUnderOwnership',
-    'clearNndRetirementBarriersUnderOwnership']);
+    'clearNndRetirementBarriersUnderOwnership', 'verifyNndClearedAdmissionUnderOwnership',
+    'consumeNndClearedAdmissionProof']);
   return { root, activations, directory, markerPath, planPath, decisionPath, terminalPath, files, options, state,
     run: () => api.cleanupNndRetirementEvidenceUnderOwnership(identity, state, serviceLease, registryLease, options),
     commit: () => api.recordNndTerminalRetirementCommitUnderOwnership(identity, state, serviceLease, registryLease, options),
     clear: () => api.clearNndRetirementBarriersUnderOwnership(identity, state, serviceLease, registryLease, options),
+    verifyAdmission: transfer => api.verifyNndClearedAdmissionUnderOwnership(identity, state, serviceLease,
+      registryLease, options, transfer ?? (proof => api.consumeNndClearedAdmissionProof(proof, identity,
+        state, serviceLease, registryLease))),
+    consumeAdmission: proof => api.consumeNndClearedAdmissionProof(proof, identity, state, serviceLease, registryLease),
     clearedPath: join(placeRoot, 'activation-retirement-cleared.json'),
     interruptBarrier: count => { barrierInterrupt = count; }, barrierRemoved: () => barrierRemoved,
     mutateAfterBarrierRemoval: fn => { afterBarrierRemoval = fn; },
@@ -323,4 +329,35 @@ test('a lone cleared witness remains an ordinary startup barrier', async () => {
     await unlink(f.terminalPath);
     assert.equal(await hasActivationEvidence(f.root), true);
   } finally { await f.cleanup(); }
+});
+
+test('cleared admission proof is one-use and only follows exact completed barrier retirement', async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(f.verifyAdmission(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    await f.run(); await f.commit();
+    await assert.rejects(f.verifyAdmission(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    await f.clear();
+    let proof;
+    assert.match(await f.verifyAdmission(value => { proof = value; return f.consumeAdmission(value); }), /^[a-f0-9]{64}$/u);
+    assert.throws(() => f.consumeAdmission(proof), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    assert.equal(f.state.published, false);
+  } finally { await f.cleanup(); }
+});
+
+test('cleared admission refuses missing terminal, changed witness, lost child, registration, or discovery', async () => {
+  for (const change of [
+    async f => unlink(f.terminalPath),
+    async f => writeFile(f.clearedPath, 'foreign'),
+    async f => { f.state.child.failed = true; },
+    async f => f.changeRegistration(),
+    async f => f.clearPointer(),
+    async f => { f.state.retainedLeaseArmed = false; },
+  ]) {
+    const f = await fixture();
+    try {
+      await f.run(); await f.commit(); await f.clear(); await change(f);
+      await assert.rejects(f.verifyAdmission());
+    } finally { await f.cleanup(); }
+  }
 });
