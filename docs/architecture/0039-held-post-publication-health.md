@@ -10,7 +10,9 @@ candidate and child evidence, forward registration receipt, selected registratio
 bytes, and the published discovery generation. It checks the recorded child PID
 and start identity and the owning NNA process identity before and after health
 requests. Native runtime health must answer with expected identity, state, and
-bounded response. The GUI's public `/health` is anonymous; its supervised
+bounded response while the original integration listener remains open. A
+replacement listener could read the probe bearer and imitate its health body.
+The GUI's public `/health` is anonymous; its supervised
 private challenge must answer with a bounded HMAC over a fresh nonce and the
 selected installation, data root, generation, and origin using its protected
 bootstrap key. The earlier unpublished-trial health probe requires the same
