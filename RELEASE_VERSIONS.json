@@ -976,6 +976,10 @@
     {
       "version": "20261003-14",
       "content_sha256": "3d47dc8b42eeb8d1a9236d77a5a95f65d9a94f26300f101600a746726cfa7437"
+    },
+    {
+      "version": "20261003-15",
+      "content_sha256": "624ee3577397e40086c8db0a997068200a794979ddc39a03ad96ecf9138f3dc9"
     }
   ]
 }

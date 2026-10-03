@@ -1,7 +1,8 @@
 # Prebuilt NND payload contract
 
-Status: exporter and native staging foundations; activation and rollback remain
-open. This contract does not enable NSIS distribution or replace `install.ps1` yet.
+Status: exporter and native staging foundations, with an opt-in prebuilt staging
+branch in `install.ps1`. Activation, rollback, and complete installation remain
+open; this branch does not enable NSIS distribution.
 
 ## Build and export
 

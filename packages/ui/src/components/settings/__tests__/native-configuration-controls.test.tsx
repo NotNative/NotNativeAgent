@@ -98,6 +98,65 @@ it('edits only advertised native attachment scalars with typed preview and CAS s
   expect(container.textContent).toContain('not applied');
 });
 
+it('offers only advertised native memory limits and saves a typed bounded value through the same CAS request', async () => {
+  const memoryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 750, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'memory.max_items', catalog_path: 'memory.max_items', explicit: { present: false },
+      effective: { present: true, value: 8, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'memory.max_bytes', catalog_path: 'memory.max_bytes', explicit: { present: false },
+      effective: { present: true, value: 16384, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const maxField = { path: 'memory.max_bytes', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    maxField, { path: 'memory.timeout_ms', type: 'integer', editability: field.editability },
+    { path: 'memory.max_items', type: 'integer', editability: field.editability },
+    { path: 'memory.unknown', type: 'integer', editability: field.editability },
+  ] });
+  const memoryRequest = { ...request, operations: [{ op: 'set' as const, field: maxField.path, value: 32768 }] };
+  vi.mocked(nativeChange).mockReturnValue(memoryRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: memoryView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(memoryView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.memory-limits"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('memory.unknown');
+  await act(async () => button('Maximum memory bytes').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('1024'); expect(input.max).toBe('262144'); expect(input.value).toBe('16384');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '32768');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(memoryView, maxField, 'set', '32768');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(memoryRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
+it('resets a native memory limit without sending a draft value', async () => {
+  const memoryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: true, value: 1000 },
+      effective: { present: true, value: 1000, source: 'user' }, application: 'not_applied' },
+  ] };
+  const timeoutField = { path: 'memory.timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [timeoutField] });
+  const resetRequest = { ...request, operations: [{ op: 'reset' as const, field: timeoutField.path }] };
+  vi.mocked(nativeChange).mockReturnValue(resetRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: memoryView });
+  mount(memoryView); await act(async () => {});
+  await act(async () => button('Memory timeout (ms)').click());
+  await act(async () => { const action = [...container.querySelectorAll('select')][1]!;
+    action.value = 'reset'; action.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(container.querySelector('input[type="number"]')).toBeNull();
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(memoryView, timeoutField, 'reset', '1000');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(resetRequest, expect.any(AbortSignal));
+});
+
 it('preserves the settings draft but disables native writes during a replay gap', async () => {
   mount(); await act(async () => {});
   await act(async () => { const select = container.querySelector('select')!; select.value = 'streaming';

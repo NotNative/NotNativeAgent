@@ -58,6 +58,16 @@ it('constructs bounded typed attachment intents without elevating authority', ()
   expect(() => nativeChange(view, maximum, 'set', '2048.5')).toThrow('nnd_configuration_request_invalid');
   expect(() => nativeChange(view, enabled, 'set', '"false"')).toThrow('nnd_configuration_request_invalid');
 });
+it('constructs integer memory limit and reset intents for the native preview contract', () => {
+  const limit = { ...field, path: 'memory.timeout_ms', type: 'integer' as const };
+  expect(nativeChange(view, limit, 'set', '1000').operations).toEqual([
+    { op: 'set', field: 'memory.timeout_ms', value: 1000 },
+  ]);
+  expect(nativeChange(view, limit, 'reset', '1000').operations).toEqual([
+    { op: 'reset', field: 'memory.timeout_ms' },
+  ]);
+  expect(() => nativeChange(view, limit, 'set', '1000.5')).toThrow('nnd_configuration_request_invalid');
+});
 it('preserves the operation id for uncertain outcomes and rejects a foreign receipt', async () => {
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'operation_not_found' }), { status: 404 }))
     .mockResolvedValueOnce(new Response(JSON.stringify({ ...receipt, data_id: 'foreign' })));

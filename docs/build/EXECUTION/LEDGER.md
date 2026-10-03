@@ -798,3 +798,15 @@ preflight ordering and selected-identity verification defects. This is a
 staging prerequisite, not an installed or activated GUI: transactional public
 activation, service launch, rollback, and operator-installed acceptance remain
 open.
+
+## NND 20261003-15 — native memory limits
+
+Managed Settings now offers NNA-advertised user-scope limits for memory timeout,
+item count, and bytes, using the native preview, revision-checked save, and
+operation-receipt flow. The settings search destination remains available even
+when the catalog is absent; an independent adversarial review found and fixed
+that concrete navigation defect. Memory enablement and required-mode toggles
+remain governed through NNA's coupled TUI flow until a safe paired native
+mutation contract is available.
+The full UI suite passed (1,737 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.

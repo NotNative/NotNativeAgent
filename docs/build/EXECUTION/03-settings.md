@@ -211,9 +211,10 @@ configuration page can read the catalog and edit NNA-authorized generic scalar
 fields through preview, revision-checked save, and operation receipt lookup.
 It now offers direct typed controls for `attachments.enabled`,
 `attachments.max_bytes`, and `attachments.retain`; native TUI preferences and
-reviewer/vision scalar routes also have focused controls. The attachment
-controls edit only the user manifest and do not assert that running sessions
-adopt the saved values. Other execution, context, recovery, memory, dream,
+reviewer/vision scalar routes also have focused controls. Typed controls for
+`memory.timeout_ms`, `memory.max_items`, and `memory.max_bytes` use the same
+native user-manifest preview and save path. These controls do not assert that
+running sessions adopt saved values. Other execution, context, recovery, dream,
 telemetry, and retention scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate

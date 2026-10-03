@@ -8,6 +8,13 @@ import { NativeTuiEditForm } from './native-tui-edit-form.tsx';
 import { NativeRouteEditForm } from './native-route-edit-form.tsx';
 import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
 
+const MEMORY_LIMITS: Record<string, { label: 'settings.nativeMemory.timeout' | 'settings.nativeMemory.maxItems'
+  | 'settings.nativeMemory.maxBytes'; min: number; max: number }> = {
+  'memory.timeout_ms': { label: 'settings.nativeMemory.timeout', min: 50, max: 30000 },
+  'memory.max_items': { label: 'settings.nativeMemory.maxItems', min: 1, max: 64 },
+  'memory.max_bytes': { label: 'settings.nativeMemory.maxBytes', min: 1024, max: 262144 },
+};
+
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
@@ -40,6 +47,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
     (field.path === 'attachments.enabled' || field.path === 'attachments.retain') && field.type === 'boolean'
       || field.path === 'attachments.max_bytes' && field.type === 'integer');
   const attachmentSelected = selected && attachmentFields.some(field => field.path === selected.path);
+  const memoryFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(MEMORY_LIMITS, field.path));
+  const memorySelected = selected?.type === 'integer' ? MEMORY_LIMITS[selected.path] : undefined;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -51,6 +60,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(field.path === 'attachments.enabled' ? 'settings.nativeAttachments.enabled'
           : field.path === 'attachments.retain' ? 'settings.nativeAttachments.retain' : 'settings.nativeAttachments.maxBytes')}
+      </button>)}</div>
+    </div> : null}
+    {memoryFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.memory-limits">
+      <h4 className="font-semibold">{t('settings.nativeMemory.title')}</h4>
+      <p>{t('settings.nativeMemory.description')}</p>
+      <div className="flex flex-wrap gap-2">{memoryFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(MEMORY_LIMITS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -83,7 +102,15 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
-      {model.mode === 'set' && !attachmentSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+      {model.mode === 'set' && memorySelected ? <label className="block">
+        {t(memorySelected.label)}
+        <input type="number" min={memorySelected.min} max={memorySelected.max} step="1"
+          value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
+      {model.mode === 'set' && !attachmentSelected && !memorySelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />
