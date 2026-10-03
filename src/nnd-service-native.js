@@ -10,6 +10,7 @@ import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
 import { assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
+import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
 
 const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
@@ -35,6 +36,8 @@ export function nativeNndTrialPrincipal(workspaceRoot) {
 
 export async function startNndNativeService(paths, identity, options = {}) {
   if (options.unpublishedTrial) assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, { method: 'GET' });
+  const trialSelection = options.unpublishedTrial
+    ? createNndNativePrincipalSelection(identity, options.trialAdmissionGate) : null;
   const token = randomBytes(32).toString('base64url');
   const broker = new SecretBroker({ realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault,
     keyPath: paths.secretKey, auditPath: paths.secretAudit });
@@ -61,8 +64,11 @@ export async function startNndNativeService(paths, identity, options = {}) {
   } catch (error) { await lifecycle.close(); throw error; }
   lifecycle.runtime.start();
   let closing;
-  return { runtime: lifecycle.runtime, endpoint: `http://127.0.0.1:${service.address.port}`, token,
+  const native = { runtime: lifecycle.runtime, endpoint: `http://127.0.0.1:${service.address.port}`, token,
     isListening: () => service.server.listening && service.server.address() !== null,
+    ...(trialSelection ? { selectTrialPrincipal: (proof, state, serviceLease, registryLease, binding) =>
+      trialSelection.select(native, proof, state, serviceLease, registryLease, binding),
+    selectedPrincipalEvidence: state => trialSelection.evidence(native, state) } : {}),
     close() {
       closing ??= (async () => {
         service.stopAdmission();
@@ -75,4 +81,5 @@ export async function startNndNativeService(paths, identity, options = {}) {
       })();
       return closing;
     } };
+  return native;
 }
