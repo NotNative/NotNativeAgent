@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { ContractError } from '../ids.js';
 
-const MAX_CONFIG_BYTES = 65_536;
+export const MAX_GATEWAY_CONFIG_BYTES = 65_536;
 const DEFAULT_POLLING_TIMEOUT_SECONDS = 25;
 const MIN_POLLING_TIMEOUT_SECONDS = 5;
 const MAX_POLLING_TIMEOUT_SECONDS = 50;
@@ -18,7 +18,7 @@ export const DEFAULT_GATEWAY_CONFIG = Object.freeze({
 export async function loadGatewayConfig(path) {
   try {
     const bytes = await readFile(path);
-    if (bytes.length > MAX_CONFIG_BYTES) throw new ContractError('gateway_config_too_large', 'gateway configuration exceeds its size bound');
+    if (bytes.length > MAX_GATEWAY_CONFIG_BYTES) throw new ContractError('gateway_config_too_large', 'gateway configuration exceeds its size bound');
     return normalizeGatewayConfig(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
   } catch (error) {
     if (error.code === 'ENOENT') return DEFAULT_GATEWAY_CONFIG;
