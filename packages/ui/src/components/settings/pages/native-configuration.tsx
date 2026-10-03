@@ -60,6 +60,10 @@ export function NativeConfigurationPage(): ReactNode {
       <h3 className="font-semibold">{t('settings.nativeMemory.title')}</h3>
       <p className="text-muted-foreground">{t('settings.nativeMemory.description')}</p>
     </div>
+    <div data-settings-item="native-configuration.provider-scheduling" className="text-xs">
+      <h3 className="font-semibold">{t('settings.nativeScheduling.title')}</h3>
+      <p className="text-muted-foreground">{t('settings.nativeScheduling.description')}</p>
+    </div>
     {loading ? <p role="status">{t('settings.nativeConfiguration.loading')}</p> : null}
     {error ? <p role="alert">{t(error === 'unsupported'
       ? 'settings.nativeConfiguration.unsupported' : 'settings.nativeConfiguration.error')}</p> : null}
