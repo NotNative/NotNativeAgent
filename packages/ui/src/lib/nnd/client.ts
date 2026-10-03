@@ -304,6 +304,13 @@ export const harnessClient = {
   async listActivity(sessionId: string, opts?: DirOption): Promise<HarnessResult<unknown[]>> {
     return request('listActivity', `/session/${sid(sessionId)}/activity`, undefined, undefined, opts?.directory);
   },
+  async readActivityHistoryPage(sessionId: string, cursor?: string): Promise<HarnessResult<unknown>> {
+    const query = `?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    // Native history accepts only limit/cursor; the authenticated principal,
+    // not the browser's ambient directory, selects the owned session.
+    return request('readActivityHistoryPage', `/v1/nnd/sessions/${sid(sessionId)}/activity-history${query}`,
+      undefined, undefined, '');
+  },
   async childSteeringCapability(sessionId: string, opts?: DirOption): Promise<HarnessResult<{
     session_id: string; revision: number; capabilities: { steer_subagent: boolean }; availability: string;
   }>> {
