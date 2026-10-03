@@ -77,11 +77,17 @@ export function validateNativeAttach(value, runtime) {
   if (!Number.isFinite(expiry) || expiry <= Date.now() || expiry > Date.now() + 61000) throw new Error('native-attach-expired');
   return { ...value, origin: url.origin };
 }
-export async function attachNativeService(selectedRoot) {
+export async function attachNativeService(selection) {
+  const selectedRoot = typeof selection === 'string' ? selection : selection?.installRoot;
   const runtime = readSelectedNativeRuntime(selectedRoot);
+  if (typeof selection === 'object' && (selection.installation_id !== runtime.installation_id
+    || selection.data_id !== runtime.data_id)) throw new Error('native-selection-identity-changed');
   await verifySelectedNode(runtime);
   const capabilities = await command(runtime, 'capabilities');
-  if (!identityMatches(capabilities, runtime) || capabilities.native_version !== runtime.version || !Array.isArray(capabilities.capabilities) || !capabilities.capabilities.includes('atomic_ui_attach')) {
+  if (!identityMatches(capabilities, runtime) || capabilities.native_version !== runtime.version
+    || !Array.isArray(capabilities.capabilities) || !Array.isArray(capabilities.commands)
+    || !['service_supervision', 'setup_control_plane', 'atomic_ui_attach', 'installer_guard'].every(item => capabilities.capabilities.includes(item))
+    || !['start', 'status', 'stop', 'attach', 'install-guard'].every(item => capabilities.commands.includes(item))) {
     throw new Error('native-service-upgrade-required');
   }
   let attached;

@@ -2,6 +2,8 @@
 import { openSync, fstatSync, readSync, closeSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+const pathKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
+
 export function readBoundedText(file) {
   const fd = openSync(file, 'r');
   try {
@@ -35,13 +37,20 @@ export function readNativeServiceSelection({ args, selectionFile, allowLegacy = 
   }
   if (indices.length > 1) throw new Error('native-selection-conflict');
   let selected = indices.length ? args[indices[0] + 1] : undefined;
-  if (!indices.length) {
+  let pin;
+  if (selectionFile) {
     let value;
     try { value = readBoundedJson(selectionFile); }
     catch { throw new Error('native-selection-required'); }
-    if (!value || Object.keys(value).sort().join(',') !== 'nna_install_root,schema_version'
-      || value.schema_version !== '1.0') throw new Error('native-selection-invalid');
-    selected = value.nna_install_root;
+    if (!value || Object.keys(value).sort().join(',') !== 'data_id,installation_id,nna_install_root,schema_version'
+      || value.schema_version !== '1.0'
+      || !/^nna_[a-f0-9]{64}$/u.test(value.installation_id ?? '')
+      || !/^data_[a-f0-9]{64}$/u.test(value.data_id ?? '')) throw new Error('native-selection-invalid');
+    const pinnedRoot = canonicalDirectory(value.nna_install_root);
+    if (selected && pathKey(canonicalDirectory(selected)) !== pathKey(pinnedRoot)) throw new Error('native-selection-conflict');
+    selected = pinnedRoot;
+    pin = { installation_id: value.installation_id, data_id: value.data_id };
   }
-  return { mode: 'native', installRoot: canonicalDirectory(selected) };
+  if (!selected) throw new Error('native-selection-required');
+  return { mode: 'native', installRoot: canonicalDirectory(selected), ...pin };
 }

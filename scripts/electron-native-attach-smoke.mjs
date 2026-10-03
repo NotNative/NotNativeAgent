@@ -3,11 +3,12 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createSupervisedFixture, removeSupervisedFixture } from './supervised-smoke-fixture.mjs';
 import { writeNnaSelection } from './write-nna-selection.mjs';
+import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
 import { withTimeout } from './smoke-http.mjs';
 import { verifyPrebuiltPayload } from './prebuilt-payload-validation.mjs';
 import { nativeConfigurationWriteExpression } from './electron-native-configuration-browser.mjs';
@@ -25,6 +26,11 @@ async function runCli(fixture, action) {
 async function prepareShell(fixture, root, nativeConfiguration = false, service = null, nativeWrite = false, tuiWrite = false, routeWrite = false, nativeReplayGap = false) {
   const from = join(root, 'packages/electron'), to = join(fixture.gui, 'packages/electron');
   if (!fixture.prebuilt) await copySourceShell(fixture, from, to);
+  else {
+    // Mirror installer-owned selection after the signed payload was admitted.
+    const selected = readSelectedNativeRuntime(fixture.install);
+    await writeNnaSelection(fixture.gui, fixture.install, selected.installation_id, selected.data_id);
+  }
   const harness = join(fixture.prebuilt ? fixture.root : fixture.gui, 'electron-smoke.mjs');
   const shellData = join(fixture.root, 'shell-data'); await mkdir(shellData);
   await writeFile(harness, shellHarness(shellData, to, nativeConfiguration, service, nativeWrite, tuiWrite, routeWrite, fixture.root,
@@ -38,7 +44,8 @@ async function copySourceShell(fixture, from, to) {
   }
   await cp(join(from, 'assets'), join(to, 'assets'), { recursive: true });
   await writeFile(join(fixture.gui, 'packages/install-mode.txt'), 'script\n');
-  await writeNnaSelection(fixture.gui, fixture.install);
+  const selected = readSelectedNativeRuntime(fixture.install);
+  await writeNnaSelection(fixture.gui, fixture.install, selected.installation_id, selected.data_id);
 }
 function shellHarness(shellData, to, nativeConfiguration, service, nativeWrite, tuiWrite, routeWrite, workspace, nativeReplayGap, replayModuleUrl) {
   const writeExpression = nativeWrite ? nativeConfigurationWriteExpression(workspace, service.installation_id, service.data_id, tuiWrite, routeWrite) : 'null';
@@ -133,6 +140,7 @@ async function main(nna, payloadRoot = null, nativeSlot = false, nativeConfigura
     await runCli(fixture, 'stop');
     await waitStopped(fixture); stopped = true;
     if (fixture.prebuilt) {
+      await unlink(join(fixture.gui, 'nna-service-selection.json'));
       const copied = await verifyPrebuiltPayload(fixture.gui), original = await verifyPrebuiltPayload(payloadRoot);
       assert.equal(copied.sha256, original.sha256, 'Runtime probe must not modify the immutable payload');
     }

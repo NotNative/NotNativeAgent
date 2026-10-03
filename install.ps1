@@ -449,7 +449,7 @@ Write-Heading 'Registering NND package with NNA'
 & $nna.Node (Join-Path $InstallDir 'scripts\installed-service-package.mjs') $InstallDir
 if ($LASTEXITCODE -ne 0) { throw "Installed NND service manifest validation failed (exit $LASTEXITCODE)." }
 Invoke-NndRegistration 'activate' $targetPath $nna
-& $nna.Node (Join-Path $InstallDir 'scripts\write-nna-selection.mjs') $InstallDir $nna.InstallRoot
+& $nna.Node (Join-Path $InstallDir 'scripts\write-nna-selection.mjs') $InstallDir $nna.InstallRoot $nnaCapabilities.installation_id $nnaCapabilities.data_id
 if ($LASTEXITCODE -ne 0) { throw "Installed NNA selection could not be saved (exit $LASTEXITCODE)." }
 
 Write-Heading "Creating shortcuts"

@@ -251,6 +251,11 @@ NNA. An existing compatible NNA is reused; incompatible installations remain
 untouched until the operator chooses an NNA upgrade or another installation.
 Persist the chosen NNA installation identity and custom roots into the protected
 launch configuration. Test without PATH and with two NNA installations.
+The current NNA `installation_id` and `data_id` derive from canonical install
+and data roots. A launcher pin detects a changed data root or redirected selected
+installation and rechecks native capabilities on each attach. Reinstalling NNA
+at the same canonical install and data roots has the same identity; detecting
+that case requires a durable NNA installation-incarnation identifier.
 
 Stage the complete payload outside the active version, verify hashes/build stamp,
 architecture, runtime and native PTY load, then validate NNA compatibility.

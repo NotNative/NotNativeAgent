@@ -1187,7 +1187,7 @@ async function bootNativeService() {
 }
 
 async function acquireNativeAttachment() {
-  const attachment = await attachNativeService(nativeSelection.installRoot);
+  const attachment = await attachNativeService(nativeSelection);
   const nextSession = session.fromPartition(`nnd-native-${attachment.installation_id}-${attachment.data_id}-${attachment.generation}`);
   await nextSession.setProxy({ mode: 'direct' });
   const next = await redeemNativeAttachment(attachment, nextSession);
