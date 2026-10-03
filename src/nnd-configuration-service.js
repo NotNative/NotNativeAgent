@@ -9,7 +9,8 @@ import { resolveConfiguration } from './configuration-sources.js';
 import { resolveManifest } from './config.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
-import { normalizeNndConfigurationOperations, applyNndConfigurationOperations, NND_CONFIGURATION_EDITABLE_FIELDS } from './nnd-configuration-intents.js';
+import { normalizeNndConfigurationOperations, applyNndConfigurationOperations, nndConfigurationOperationPaths,
+  NND_CONFIGURATION_EDITABLE_FIELDS } from './nnd-configuration-intents.js';
 import { createNndMcpConfigurationService } from './nnd-mcp-configuration.js';
 
 const identityPattern = /^[A-Za-z0-9_-]{1,128}$/u;
@@ -127,15 +128,26 @@ function requireRevision(context, request) {
 
 function candidate(context, operations, replacement) {
   const higher = context.sourceSnapshots.filter(({ name }) => name === 'project');
-  for (const { field } of operations) {
-    for (const source of higher) if (owns(source.manifest, field)) {
-      throw new ContractError('configuration_source_shadowed', 'The setting belongs to a higher-precedence source.');
+  for (const operation of operations) {
+    if (operation.op === 'bind_route' && !userOwnsProvider(context.persistedSource.manifest, operation.provider_id)) {
+      throw new ContractError('route_profile_missing', 'The selected user source does not own this provider profile.');
+    }
+    for (const field of nndConfigurationOperationPaths(operation)) {
+      for (const source of higher) if (owns(source.manifest, field)) {
+        throw new ContractError('configuration_source_shadowed', 'The setting belongs to a higher-precedence source.');
+      }
     }
   }
   const manifest = replacement ?? applyNndConfigurationOperations(context.persistedSource.manifest, operations);
   const sourceSnapshots = context.sourceSnapshots.map((source) => source.name === 'user' ? { ...source, manifest } : source);
   const resolved = resolveConfiguration(sourceSnapshots, { manifestOptions: NND_CONFIGURATION_OPTIONS });
   return { ...resolved, sourceSnapshots, persistedSource: { ...context.persistedSource, manifest } };
+}
+
+function userOwnsProvider(manifest, id) {
+  if (Array.isArray(manifest.providers)) return manifest.providers.some((provider) =>
+    record(provider) && provider.id === id);
+  return record(manifest.provider) && (manifest.provider.id ?? 'manifest-primary') === id;
 }
 
 function owns(manifest, path) {

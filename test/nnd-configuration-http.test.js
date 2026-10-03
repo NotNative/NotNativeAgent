@@ -29,6 +29,16 @@ test('native configuration remains authenticated and reachable while setup is re
   const read = await fetch(endpoint + '/v1/nnd/configuration', { headers });
   assert.equal(read.status, 200);
   assert.equal((await read.json()).source_state, 'missing');
+  const catalog = await fetch(endpoint + '/v1/nnd/configuration/catalog', { headers });
+  assert.equal(catalog.status, 200);
+  const fields = (await catalog.json()).fields;
+  const binding = fields.find((item) => item.path === 'routes.reviewer.provider_id');
+  assert.equal(binding.editability.available, true);
+  assert.equal(binding.editability.required_permission, 'nnd.configuration.manage');
+  assert.equal(binding.editability.operation, 'bind_route');
+  assert.deepEqual(binding.editability.paired_fields,
+    ['routes.reviewer.provider_id', 'routes.reviewer.model']);
+  assert.equal(fields.find((item) => item.path === 'routes.primary.provider_id').editability.available, false);
   const blocked = await fetch(endpoint + '/v1/nnd/configuration/save', {
     method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: '{}',
   });

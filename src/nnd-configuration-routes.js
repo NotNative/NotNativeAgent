@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { CONFIGURATION_CATALOG } from './configuration-catalog.js';
-import { NND_CONFIGURATION_EDITABLE_FIELDS } from './nnd-configuration-intents.js';
+import { NND_CONFIGURATION_EDITABLE_FIELDS, NND_ROUTE_BINDING_FIELDS } from './nnd-configuration-intents.js';
 import { projectNndConfigurationView } from './nnd-configuration-view.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readJsonBody, send } from './secret-broker-server.js';
@@ -14,6 +14,7 @@ const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
 const FIELDS = ['installation_id', 'data_id', 'scope', 'expected_revision', 'expected_resolution_revision'];
 const NATIVE_EDITABLE = new Set(NND_CONFIGURATION_EDITABLE_FIELDS);
+const ROUTE_BINDING = new Set(NND_ROUTE_BINDING_FIELDS);
 function invalid() { return new ContractError('nnd_configuration_request_invalid', 'Configuration request is outside the supported native contract.'); }
 
 export async function dispatchNndConfigurationRequest(request, response, context) {
@@ -60,9 +61,12 @@ async function dispatchConfigurationRequest(request, response, context) {
 function nativeCatalog(service) {
   const supportsSave = typeof service?.save === 'function';
   return { ...CONFIGURATION_CATALOG, fields: CONFIGURATION_CATALOG.fields.map((field) => {
-    if (!supportsSave || !NATIVE_EDITABLE.has(field.path)) return field;
+    if (!supportsSave || (!NATIVE_EDITABLE.has(field.path) && !ROUTE_BINDING.has(field.path))) return field;
     return { ...field, editability: { ...field.editability, available: true,
-      scope: 'user', required_permission: 'nnd.configuration.manage' } };
+      scope: 'user', required_permission: 'nnd.configuration.manage',
+      ...(ROUTE_BINDING.has(field.path) ? { operation: 'bind_route', paired_fields: [
+        field.path.replace(/\.(?:provider_id|model)$/u, '.provider_id'),
+        field.path.replace(/\.(?:provider_id|model)$/u, '.model')] } : {}) } };
   }) };
 }
 

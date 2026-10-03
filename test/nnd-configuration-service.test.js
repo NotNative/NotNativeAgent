@@ -41,6 +41,50 @@ test('typed intents reject grants, workspace, credentials, collections, duplicat
   }
 });
 
+test('paired reviewer binding previews and saves with native CAS without losing private source fields', async t => {
+  const f = await fixture(t);
+  const second = { id: 'second', endpoint: 'http://127.0.0.1:10/v1', model: 'other', trust_zone: 'loopback' };
+  await writeFile(f.path, JSON.stringify({ ...f.manifest, provider: undefined,
+    providers: [provider, second], routes: { reviewer: { temperature: 0.4 } } }));
+  const op = { op: 'bind_route', role: 'reviewer', provider_id: 'second', model: 'review-model' };
+  const input = await f.request([op], 'bind_reviewer');
+  const original = await readFile(f.path);
+  const { operation_id: unused, ...previewInput } = input;
+  const preview = await f.service.preview(principal, previewInput);
+  assert.equal(preview.snapshot.config.routes.reviewer.providerId, 'second');
+  assert.equal(preview.snapshot.config.routes.reviewer.model, 'review-model');
+  assert.deepEqual(await readFile(f.path), original);
+  const saved = await f.service.save(principal, input);
+  assert.equal(saved.persistence, 'saved'); assert.equal(saved.application, 'not_applied');
+  const document = JSON.parse(await readFile(f.path, 'utf8'));
+  assert.deepEqual(document.routes.reviewer, { temperature: 0.4, provider_id: 'second', model: 'review-model' });
+  assert.equal(document.extension_private.token, 'DO_NOT_DISCLOSE_UNKNOWN_SECRET');
+  assert.equal((await f.create().save(principal, input)).replayed, true);
+  await assert.rejects(f.service.save(principal, { ...input, operation_id: 'stale_bind' }), { code: 'manifest_revision_conflict' });
+});
+
+test('route binding rejects unowned providers, project shadow, malformed pair and missing manage permission', async t => {
+  const f = await fixture(t), original = await readFile(f.path);
+  const valid = { op: 'bind_route', role: 'vision', provider_id: 'local', model: 'vision-model' };
+  for (const operation of [{ ...valid, role: 'primary' }, { ...valid, model: '' },
+    { ...valid, provider_id: '__proto__' }, { ...valid, extra: true }]) {
+    assert.throws(() => normalizeNndConfigurationOperations([operation]), { code: 'nnd_configuration_request_invalid' });
+  }
+  const missing = await f.request([{ ...valid, provider_id: 'absent' }], 'missing_provider');
+  const { operation_id: unused, ...missingPreview } = missing;
+  await assert.rejects(f.service.preview(principal, missingPreview), { code: 'route_profile_missing' });
+  await assert.rejects(f.service.save(principal, missing), { code: 'route_profile_missing' });
+  const request = await f.request([valid], 'vision_bind');
+  await assert.rejects(f.service.save({ ...principal, permissions: ['nnd.configuration.read'] }, request),
+    { code: 'integration_permission_denied' });
+  await writeFile(f.paths.trustedWorkspaces, JSON.stringify({ version: 1,
+    workspaces: [{ root: await realpath(f.root), trustedAt: '2026-10-03T00:00:00.000Z' }] }));
+  await writeFile(join(f.root, '.nna', 'settings.json'), JSON.stringify({ routes: { vision: { model: 'project-model' } } }));
+  const shadowed = await f.request([valid], 'shadowed_bind');
+  await assert.rejects(f.service.save(principal, shadowed), { code: 'configuration_source_shadowed' });
+  assert.deepEqual(await readFile(f.path), original);
+});
+
 test('read projection omits unknown values and preview writes nothing', async (t) => {
   const f = await fixture(t), before = await readFile(f.path), snapshot = await f.service.read(principal);
   assert.ok(!JSON.stringify(projectNndConfigurationView(snapshot)).includes('DO_NOT_DISCLOSE_UNKNOWN_SECRET'));
