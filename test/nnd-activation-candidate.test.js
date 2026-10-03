@@ -90,7 +90,7 @@ test('prepared receipt and exact owned barrier mint one-use unpublished trial ca
   assert.deepEqual(Object.keys(token), []);
   await assert.rejects(f.api.issueNndTrialCapability(identity, f.lease, f.registry, stageId, activationId),
     { code: 'nnd_activation_candidate_invalid' });
-  assert.equal(f.api.consumeNndTrialCapability(token, identity, f.lease, f.registry).entrypoint,
+  assert.equal(f.api.consumeNndTrialCapability(token, identity, f.lease, f.registry).package.entrypoint,
     join(f.slot, 'packages/electron/dist-server/server.mjs'));
   assert.throws(() => f.api.consumeNndTrialCapability(token, identity, f.lease, f.registry),
     { code: 'nnd_activation_candidate_invalid' });

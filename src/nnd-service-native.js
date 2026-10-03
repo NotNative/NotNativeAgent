@@ -9,6 +9,7 @@ import { ProviderProfileStore } from './provider/profile-store.js';
 import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
+import { assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 
 const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
@@ -33,6 +34,7 @@ export function nativeNndTrialPrincipal(workspaceRoot) {
 }
 
 export async function startNndNativeService(paths, identity, options = {}) {
+  if (options.unpublishedTrial) assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, { method: 'GET' });
   const token = randomBytes(32).toString('base64url');
   const broker = new SecretBroker({ realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault,
     keyPath: paths.secretKey, auditPath: paths.secretAudit });
@@ -51,6 +53,8 @@ export async function startNndNativeService(paths, identity, options = {}) {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
       nndConfigurationService, nndWorkspaceGrantService,
+      ...(options.unpublishedTrial ? { assertAdmission: request =>
+        assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
       resolvePrincipal: () => options.unpublishedTrial
         ? nativeNndTrialPrincipal(lifecycle.getHost()?.workspaceRoot)
         : nativeNndPrincipal(lifecycle.getHost()?.workspaceRoot), host: '127.0.0.1', port: 0 });

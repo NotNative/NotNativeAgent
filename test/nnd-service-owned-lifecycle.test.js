@@ -25,7 +25,11 @@ async function fixture(options={}) {
   userDataPaths:()=>({root:identity.data_root,config:paths.config}),
   consumeNndTrialCapability:(value,_identity,held,guard)=>{
    if(value!==capability||held!==lease||guard!==registry)throw new ContractError('nnd_activation_candidate_invalid','Trial capability invalid');
-   return packageInfo;
+   return {package:packageInfo,activationOperationId:'operation',stageOperationId:'stage'};
+  },
+  createNndTrialAdmissionGate:(_identity,_state,held,guard,binding)=>{
+   assert.equal(held,lease);assert.equal(guard,registry);assert.equal(binding.operationId,'operation');
+   return Object.freeze({});
   },
   acquireNndServiceLock:async()=>{trace.push('lease:acquire');return lease;},
   open:async path=>{const bytes=Buffer.from(JSON.stringify(path.endsWith('nnd-package.json')?{root:packageInfo.root,version:packageInfo.version,protocol:'1.0'}:{service_activation:{entrypoint:'entry.mjs'}}));return {

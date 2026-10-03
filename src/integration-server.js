@@ -61,6 +61,9 @@ async function dispatch(request, response, context) {
   if (!authenticateIntegrationRequest(request, context.token)) {
     return send(response, 401, failure('unauthenticated', 'valid integration credential required'));
   }
+  // Security: an unpublished native listener denies ordinary mutations even
+  // if a later principal resolver returns broader permissions.
+  context.assertAdmission?.(request);
   // Security: supervised listeners derive authority natively, never from child headers.
   const principal = context.resolvePrincipal ? context.resolvePrincipal() : readIntegrationPrincipal(request);
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');

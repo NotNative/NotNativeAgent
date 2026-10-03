@@ -15,6 +15,7 @@ import { launchNndServiceChild } from './nnd-service-child.js';
 import { admitFreshNndServiceData } from './nnd-service-admission.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { consumeNndTrialCapability } from './nnd-activation-candidate.js';
+import { createNndTrialAdmissionGate } from './nnd-trial-admission.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
 import { userDataPaths } from './product.js';
 
@@ -100,16 +101,24 @@ export async function startNndOwnedTrial(identity, paths, lease, registryLease, 
   if (!paths || Object.entries(expected).some(([key, value]) => typeof paths[key] !== 'string' || !same(paths[key], value))) {
     throw new ContractError('nnd_activation_candidate_invalid', 'NND trial paths do not match the selected native data root');
   }
-  const admittedPackage = consumeNndTrialCapability(capability, identity, lease, registryLease);
-  return startUnpublishedTrial(identity, paths, lease, admittedPackage, options, registryLease);
+  const admitted = consumeNndTrialCapability(capability, identity, lease, registryLease);
+  return startUnpublishedTrial(identity, paths, lease, admitted.package, options, registryLease,
+    { operationId: admitted.activationOperationId, stageOperationId: admitted.stageOperationId });
 }
-async function startUnpublishedTrial(identity, paths, lease, admittedPackage, options = {}, registryLease = null) {
+async function startUnpublishedTrial(identity, paths, lease, admittedPackage, options = {}, registryLease = null, binding = null) {
   const session = createSupervisorSession(identity, lease, null);
   session.state.unpublishedTrial = true;
   session.state.package = admittedPackage;
   session.state.record = Object.freeze({ instance_id: randomUUID() });
+  if (binding) {
+    session.state.activationOperationId = binding.operationId;
+    session.state.stageOperationId = binding.stageOperationId;
+  }
   try {
-    session.state.native = await startNndNativeService(paths, identity, { ...options, unpublishedTrial: true });
+    const admissionGate = registryLease && binding
+      ? createNndTrialAdmissionGate(identity, session.state, lease, registryLease, binding) : null;
+    session.state.native = await startNndNativeService(paths, identity,
+      { ...options, unpublishedTrial: true, trialAdmissionGate: admissionGate });
     await startSupervisorChild(session, paths);
     monitorSupervisor(session);
     return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions),

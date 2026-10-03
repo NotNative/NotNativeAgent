@@ -126,6 +126,8 @@ function requireScope(principal, scope) {
 }
 function failure(code, message) { return { error: { code, message } }; }
 function failureStatus(code) {
+  if (code === 'nnd_trial_mutation_denied') return 403;
+  if (code === 'nnd_trial_admission_invalid') return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy') return 409;

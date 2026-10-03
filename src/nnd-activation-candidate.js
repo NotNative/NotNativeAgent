@@ -125,5 +125,6 @@ export function consumeNndTrialCapability(token, identity, serviceLease, registr
     || state.serviceLease !== serviceLease || state.registryLease !== registryLease) throw invalid();
   assertOwner(identity, serviceLease, registryLease);
   state.used = true;
-  return state.package;
+  return Object.freeze({ package: state.package, stageOperationId: state.stageOperationId,
+    activationOperationId: state.activationOperationId });
 }
