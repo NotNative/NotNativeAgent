@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:47e6a4553b38f4f4fdfde87641757e32ab6534ca14aaf962fd0c8ac8398931ad",
+  "source_digest": "sha256:34c672c4d5bc3114301acbae846360d0d51439dd90d364bce34635e45e92416d",
   "counts": {
-    "modules": 763,
+    "modules": 764,
     "component_edges": 17
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 229
+      "module_count": 230
     },
     {
       "id": "web-entry",
@@ -4961,6 +4961,7 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/goals/objective-routes.ts",
+        "packages/web/src/server/lib/auth/native-health-proof.ts",
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/request-security.ts",
@@ -5303,6 +5304,7 @@
         "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna-supervised.ts",
         "packages/web/src/server/harness/nna.ts",
+        "packages/web/src/server/lib/auth/native-health-proof.ts",
         "packages/web/src/server/lib/auth/native-ui-auth.ts",
         "packages/web/src/server/lib/auth/pairing-sessions.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
@@ -5326,6 +5328,14 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/native-health-proof.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/native-ui-auth.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/auth/native-ui-auth.ts",
