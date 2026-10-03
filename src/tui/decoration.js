@@ -43,6 +43,7 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   // Semantic record identity keeps wrapped rows in the same visual treatment
   // without adding renderer-only markers to copied transcript text.
   if (lineKind?.startsWith('user_input:')) return paint(TUI_THEME.inputTranscript, padCells(line, width));
+  if (lineKind === 'context_compaction_status') return paint(TUI_THEME.contextStatus, line);
   const toolActivity = decorateToolActivityLine(line, lineKind, paint);
   if (toolActivity) return toolActivity;
   if (lineKind?.startsWith('stream_delta:')) return decorateAssistantLine(line, lineKind);

@@ -25,6 +25,7 @@ export const TUI_THEME = Object.freeze({
   successStrong: '1;38;5;77',
   warning: '38;5;214',
   activity: '38;5;147',
+  contextStatus: '38;5;253',
 });
 
 const SGR_CODES = /^\d+(?:;\d+)*$/u;

@@ -119,7 +119,7 @@ export class ProviderRunner {
   #recordSucceeded(active, requestSpan, requestStarted) {
     this.telemetry?.record('provider.request', 'succeeded', {
       model: active.modelName, provider_profile: active.providerResource,
-      finish_reason: active.finishReason, usage: active.usage,
+      finish_reason: active.finishReason, usage: active.attemptUsage,
       response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
       step_reasoning_bytes: active.stepReasoningBytes,
       transport_bytes: active.attemptTransportBytes,
@@ -130,7 +130,7 @@ export class ProviderRunner {
   #recordFailed(active, error, requestSpan, requestStarted) {
     this.telemetry?.record('provider.request', active.cancelled ? 'cancelled' : 'failed', {
       model: active.modelName, provider_profile: active.providerResource,
-      finish_reason: active.finishReason, usage: active.usage,
+      finish_reason: active.finishReason, usage: active.attemptUsage,
       partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
       step_reasoning_bytes: active.stepReasoningBytes,
       transport_bytes: active.attemptTransportBytes,
