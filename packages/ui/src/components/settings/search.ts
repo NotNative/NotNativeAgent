@@ -95,6 +95,7 @@ export const SETTINGS_PAGE_ORDER: { slug: SettingsPageSlug; group: 'general' | '
 /** settingsItem notices for EVERY control rendered on the built pages. */
 export const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
   { id: 'native-configuration.inventory', page: 'native-configuration', titleKey: 'settings.page.nativeConfiguration.title', keywords: 'nna native configuration settings source explicit effective redacted revision' },
+  { id: 'native-configuration.attachments', page: 'native-configuration', titleKey: 'settings.nativeAttachments.title', keywords: 'nna native attachments upload maximum size retention enabled' },
   { id: 'native-tui.preferences', page: 'native-tui', titleKey: 'settings.page.nativeTui.title', keywords: 'nna tui terminal color reduced motion key bindings shortcuts' },
   { id: 'native-routes.tuning', page: 'native-routes', titleKey: 'settings.page.nativeRoutes.title', keywords: 'nna reviewer vision route model provider temperature budget deadline' },
   { id: 'appearance.theme-mode', page: 'appearance', titleKey: 'settings.search.themeMode', keywords: 'theme, color, dark mode, light mode, system' },

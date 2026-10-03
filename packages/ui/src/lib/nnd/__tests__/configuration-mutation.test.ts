@@ -43,6 +43,21 @@ it('uses the exact read revision and resolution for preview and the same request
   expect(() => nativeChange(view, field, 'set', '"false"')).toThrow();
   expect(nativeChange(view, field, 'reset', '').operations).toEqual([{ op: 'reset', field: 'streaming' }]);
 });
+it('constructs bounded typed attachment intents without elevating authority', () => {
+  const enabled = { ...field, path: 'attachments.enabled' };
+  const maximum = { ...field, path: 'attachments.max_bytes', type: 'integer' as const };
+  expect(nativeChange(view, enabled, 'set', 'false').operations).toEqual([
+    { op: 'set', field: 'attachments.enabled', value: false },
+  ]);
+  expect(nativeChange(view, maximum, 'set', '2048').operations).toEqual([
+    { op: 'set', field: 'attachments.max_bytes', value: 2048 },
+  ]);
+  expect(nativeChange(view, maximum, 'reset', '').operations).toEqual([
+    { op: 'reset', field: 'attachments.max_bytes' },
+  ]);
+  expect(() => nativeChange(view, maximum, 'set', '2048.5')).toThrow('nnd_configuration_request_invalid');
+  expect(() => nativeChange(view, enabled, 'set', '"false"')).toThrow('nnd_configuration_request_invalid');
+});
 it('preserves the operation id for uncertain outcomes and rejects a foreign receipt', async () => {
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'operation_not_found' }), { status: 404 }))
     .mockResolvedValueOnce(new Response(JSON.stringify({ ...receipt, data_id: 'foreign' })));

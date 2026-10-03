@@ -52,6 +52,10 @@ export function NativeConfigurationPage(): ReactNode {
       </button>
     </div>
     <p className="text-xs text-muted-foreground">{t('settings.nativeConfiguration.description')}</p>
+    <div data-settings-item="native-configuration.attachments" className="text-xs">
+      <h3 className="font-semibold">{t('settings.nativeAttachments.title')}</h3>
+      <p className="text-muted-foreground">{t('settings.nativeAttachments.description')}</p>
+    </div>
     {loading ? <p role="status">{t('settings.nativeConfiguration.loading')}</p> : null}
     {error ? <p role="alert">{t(error === 'unsupported'
       ? 'settings.nativeConfiguration.unsupported' : 'settings.nativeConfiguration.error')}</p> : null}

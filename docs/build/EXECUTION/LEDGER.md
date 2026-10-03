@@ -773,3 +773,15 @@ The supplied digest anchors the carried NNA files; NNA's separately selected
 or downloaded Node runtime has its own trust path. Published immutable NNA
 artifact discovery, download, and an authoritative checksum source are still
 needed for fully automatic dependency acquisition.
+
+## NND 20261003-13 — native attachment settings
+
+The managed Settings page now exposes NNA's advertised attachment enablement,
+maximum bytes, and retention controls. The typed inputs reuse NNA's native
+catalog, preview, revision-checked save, and operation receipt path. A project
+shadow or stale revision remains NNA-owned authority rather than a GUI guess.
+Independent adversarial review found no concrete defect in the native mutation
+path; the full UI suite (1,734 tests), web suite (1,447 tests), typecheck, and
+quality gates passed after repairing a missing search anchor for unavailable
+catalog data. Provider/model route bindings and external-store settings
+still need dedicated native mutation contracts and GUI coverage.

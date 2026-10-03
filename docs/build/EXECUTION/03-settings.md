@@ -206,6 +206,19 @@ Exit: every C1 entry in these families has successful, rejected, reset,
 conflict, persistence, and application evidence where applicable; changing
 reviewer settings still exercises the mandatory reviewer on real work.
 
+Current NND GUI coverage is narrower than this exit gate. The native
+configuration page can read the catalog and edit NNA-authorized generic scalar
+fields through preview, revision-checked save, and operation receipt lookup.
+It now offers direct typed controls for `attachments.enabled`,
+`attachments.max_bytes`, and `attachments.retain`; native TUI preferences and
+reviewer/vision scalar routes also have focused controls. The attachment
+controls edit only the user manifest and do not assert that running sessions
+adopt the saved values. Other execution, context, recovery, memory, dream,
+telemetry, and retention scalars remain generic JSON controls without complete
+family-specific UX or installed application evidence. Provider identities,
+credentials, authority grants, and external-store settings require separate
+native contracts and acceptance evidence; none are counted complete here.
+
 ### C5 — MCP, skills, hooks, trust, and project configuration
 
 Dependency: C3 plus C2 scope support. Replace NNA usage of

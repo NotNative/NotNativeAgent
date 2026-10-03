@@ -36,8 +36,23 @@ export function NativeConfigurationControls({ view, onReload, family }: { view: 
 function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeConfigurationView }): ReactNode {
   const { t } = useI18n(), selected = model.selected, row = model.selectedRow;
   const projected = model.preview?.result.view.fields.find(item => item.path === selected?.path)?.effective;
+  const attachmentFields = model.fields.filter(field =>
+    (field.path === 'attachments.enabled' || field.path === 'attachments.retain') && field.type === 'boolean'
+      || field.path === 'attachments.max_bytes' && field.type === 'integer');
+  const attachmentSelected = selected && attachmentFields.some(field => field.path === selected.path);
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
+    {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.attachments">
+      <h4 className="font-semibold">{t('settings.nativeAttachments.title')}</h4>
+      <p>{t('settings.nativeAttachments.description')}</p>
+      <div className="flex flex-wrap gap-2">{attachmentFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(field.path === 'attachments.enabled' ? 'settings.nativeAttachments.enabled'
+          : field.path === 'attachments.retain' ? 'settings.nativeAttachments.retain' : 'settings.nativeAttachments.maxBytes')}
+      </button>)}</div>
+    </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
       <select value={model.fieldPath} onChange={event => chooseNativeField(model, view, event.target.value)}
         disabled={model.busy || Boolean(model.pendingOperation)} className="ml-2 rounded border border-border bg-background p-1">
@@ -56,7 +71,19 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           <option value="reset">{t('settings.nativeConfiguration.reset')}</option>
         </select>
       </label>
-      {model.mode === 'set' && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+      {model.mode === 'set' && attachmentSelected && selected.type === 'boolean' ? <label className="flex items-center gap-2">
+        <input type="checkbox" checked={model.draft === 'true'} disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(JSON.stringify(event.target.checked)); }} />
+        {t(selected.path === 'attachments.enabled' ? 'settings.nativeAttachments.enabled' : 'settings.nativeAttachments.retain')}
+      </label> : null}
+      {model.mode === 'set' && attachmentSelected && selected.type === 'integer' ? <label className="block">
+        {t('settings.nativeAttachments.maxBytes')}
+        <input type="number" min="1024" max="104857600" step="1" value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
+      {model.mode === 'set' && !attachmentSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />

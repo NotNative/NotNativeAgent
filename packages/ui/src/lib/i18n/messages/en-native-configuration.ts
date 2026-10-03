@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 export const enNativeConfiguration = {
   'settings.page.nativeConfiguration.title': 'NNA configuration',
+  'settings.nativeAttachments.title': 'NNA attachments',
+  'settings.nativeAttachments.description': 'Edit native attachment enablement, size limit, and retention in the selected NNA user manifest. Preview before saving; saved changes are not applied to running work.',
+  'settings.nativeAttachments.enabled': 'Enable attachments',
+  'settings.nativeAttachments.maxBytes': 'Maximum attachment bytes',
+  'settings.nativeAttachments.retain': 'Retain attachments',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
   'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',

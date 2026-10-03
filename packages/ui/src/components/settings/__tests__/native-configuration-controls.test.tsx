@@ -60,6 +60,44 @@ it('requires native preview before save and retains the same CAS payload', async
   expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
 });
 
+it('edits only advertised native attachment scalars with typed preview and CAS save', async () => {
+  const attachmentView: NativeConfigurationView = { ...view, fields: [
+    { path: 'attachments.enabled', catalog_path: 'attachments.enabled', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'attachments.max_bytes', catalog_path: 'attachments.max_bytes', explicit: { present: false },
+      effective: { present: true, value: 10485760, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'attachments.retain', catalog_path: 'attachments.retain', explicit: { present: false },
+      effective: { present: true, value: false, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const maxField = { path: 'attachments.max_bytes', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    maxField, { path: 'attachments.enabled', type: 'boolean', editability: field.editability },
+    { path: 'attachments.retain', type: 'boolean', editability: field.editability },
+    { path: 'attachments.unknown', type: 'boolean', editability: field.editability },
+  ] });
+  const attachmentRequest = { ...request, operations: [{ op: 'set' as const, field: maxField.path, value: 2048 }] };
+  vi.mocked(nativeChange).mockReturnValue(attachmentRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: attachmentView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(attachmentView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.attachments"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('attachments.unknown');
+  await act(async () => button('Maximum attachment bytes').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.value).toBe('10485760');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '2048');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(attachmentView, maxField, 'set', '2048');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(attachmentRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
 it('preserves the settings draft but disables native writes during a replay gap', async () => {
   mount(); await act(async () => {});
   await act(async () => { const select = container.querySelector('select')!; select.value = 'streaming';
