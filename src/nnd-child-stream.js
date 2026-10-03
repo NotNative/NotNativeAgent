@@ -1,7 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import { observeNndPhaseActivity } from './nnd-phase-activity.js';
+import { appendActivity } from './nnd-activity-snapshot.js';
+import { publishNndProjection } from './nnd-projection.js';
 
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
+
+export function publishNndChildEvent(eventBus, activity, parent, child, type, properties, mirror = false) {
+  if (type === 'nnd.activity') {
+    if (properties?.sessionID !== child.id) return;
+    const records = activity.get(child.id);
+    if (!records) return;
+    const record = appendActivity(records, properties);
+    if (!record) return;
+    properties = record;
+  }
+  try { publishNndProjection(eventBus, { directory: child.directory, project: parent.workspaceIds.values().next().value,
+    subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds], sessionID: child.id, type, properties, mirror }); }
+  catch (error) {
+    try { parent.engine.telemetry?.record('nnd.event_delivery', 'failed', { event_type: type,
+      code: error?.code ?? 'event_delivery_failed' }); } catch { /* Observational diagnostics cannot fail delegated work. */ }
+  }
+}
 
 export function childLiveMessage(child, state) {
   return { info: { id: state.messageId, sessionID: child.id, role: 'assistant',

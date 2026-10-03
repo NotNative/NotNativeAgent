@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { nativeNndPrincipal } from '../src/nnd-service-native.js';
 
 test('nnd CLI child serves authenticated bootstrap and session projections', async (t) => {
   const root = await mkdtemp(join(homedir(), '.nna-nnd-process-'));
@@ -24,11 +25,11 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   child.stderr.on('data', (chunk) => { diagnostics = `${diagnostics}${chunk}`.slice(-2048); });
   try {
     const frame = await readiness(child);
-    await executionReady(frame);
+    await executionReady(frame, root);
     assert.equal(frame.type, 'ready');
     assert.equal(frame.protocol, '1.0');
     assert.match(frame.endpoint, /^http:\/\/127\.0\.0\.1:\d+$/u);
-    const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal() };
+    const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal(root) };
     const denied = await fetch(`${frame.endpoint}/global/health`, { signal: AbortSignal.timeout(5_000) });
     assert.equal(denied.status, 401);
     const health = await fetch(`${frame.endpoint}/global/health`, { headers, signal: AbortSignal.timeout(5_000) });
@@ -37,6 +38,9 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     const sessions = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(sessions.status, 200);
     assert.deepEqual(await sessions.json(), []);
+    const path = await fetch(`${frame.endpoint}/path`, { headers, signal: AbortSignal.timeout(5_000) });
+    assert.equal(path.status, 200);
+    assert.equal((await path.json()).workspace_id, nativeNndPrincipal(root).workspaceIds[0]);
     const created = await fetch(`${frame.endpoint}/session`, {
       method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
       body: JSON.stringify({ title: 'CLI contract' }), signal: AbortSignal.timeout(5_000),
@@ -52,7 +56,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     const messages = await fetch(`${frame.endpoint}/session/${session.id}/message`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(messages.status, 200);
     assert.deepEqual(await messages.json(), []);
-    const controls = { ...headers, 'x-nna-principal': principal(['nnd.read', 'nnd.session.create', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete']) };
+    const controls = { ...headers, 'x-nna-principal': principal(root, ['nnd.read', 'nnd.session.create', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete']) };
     const disposable = await fetch(`${frame.endpoint}/session`, {
       method: 'POST', headers: { ...controls, 'content-type': 'application/json' },
       body: JSON.stringify({ title: 'Disposable' }), signal: AbortSignal.timeout(5_000),
@@ -89,8 +93,8 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   reopened.stderr.resume();
   try {
     const frame = await readiness(reopened);
-    await executionReady(frame);
-    const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal() };
+    await executionReady(frame, root);
+    const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal(root) };
     const listed = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(listed.status, 200);
     assert.deepEqual((await listed.json()).map((entry) => [entry.id, entry.directory]), [[createdId, root]]);
@@ -99,19 +103,19 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   }
 });
 
-function principal(permissions = ['nnd.read', 'nnd.session.create']) {
+function principal(root, permissions = ['nnd.read', 'nnd.session.create']) {
   return Buffer.from(JSON.stringify({
     subject_id: 'local-operator', platform_role: 'operator', permissions,
-    workspace_ids: ['local'], group_ids: [], trace_id: 'trace', request_id: 'request',
+    workspace_ids: nativeNndPrincipal(root).workspaceIds, group_ids: [], trace_id: 'trace', request_id: 'request',
     issued_at: new Date().toISOString(),
   })).toString('base64url');
 }
 
-async function executionReady(frame) {
+async function executionReady(frame, root) {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     const response = await fetch(`${frame.endpoint}/v1/health`, {
-      headers: { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal(['integration.health']) },
+      headers: { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal(root, ['integration.health']) },
       signal: AbortSignal.timeout(5_000),
     });
     assert.equal(response.status, 200);

@@ -12,6 +12,7 @@ import { LOCAL_SECRET_REALM } from '../src/secret-contracts.js';
 import { trustWorkspace } from '../src/experience/trust.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { nativeNndPrincipal } from '../src/nnd-service-native.js';
 
 test('NND and standalone browser catalogs stay separate even with NND installed', async () => {
   const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-browser-surfaces-'));
@@ -79,7 +80,7 @@ test('NND sessions resolve the existing local provider secret, including delegat
     routes: { primary: { provider_id: 'primary', model: 'test' } },
   }));
   const host = await createIntegrationNndEngineHost(paths, { secretBroker: broker });
-  const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
+  const principal = { subjectId: 'operator', workspaceIds: nativeNndPrincipal(root).workspaceIds };
   try {
     const context = await host.create('session_secret', principal);
     const profile = context.engine.config.providerProfiles.primary;
@@ -237,7 +238,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   assert.ok(initialSkills.skills.some((skill) => skill.id === 'nnd-review'));
   assert.equal(JSON.stringify(initialSkills).includes('SKILL.md'), false);
   assert.equal(JSON.stringify(initialSkills).includes('Review the requested change.'), false);
-  const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
+  const principal = { subjectId: 'operator', workspaceIds: nativeNndPrincipal(root).workspaceIds };
   const context = await host.create('session_a', principal);
   assert.equal(context.engine.sessionId, 'session_a');
   assert.equal(context.engine.emitContextStatus, true);
@@ -293,7 +294,7 @@ test('provider route activation changes future NND sessions without mutating exi
   const host = await createIntegrationNndEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
   const profiles = new ProviderProfileStore({ configRoot });
-  const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
+  const principal = { subjectId: 'operator', workspaceIds: nativeNndPrincipal(root).workspaceIds };
   try {
     assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, false);
     const before = await host.create('session_before', principal);

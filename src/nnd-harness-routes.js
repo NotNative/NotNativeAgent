@@ -35,6 +35,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     const body = await readJsonBody(request);
     assertConfiguredSelection(body, host.get(id, context.principal)?.metadata?.nnd?.configuredModel ?? host.nndModel);
     const content = textContent(body?.parts);
+    await host.assertWorkspaceBound(id, context.principal);
     const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
     if (accepted.reason === 'busy') {
       return send(response, 409, { error: { code: 'session_busy', message: 'NND session already has an active turn' } });
@@ -137,7 +138,14 @@ async function dispatchBootstrapRequest(request, response, context) {
     return send(response, 200, context.nndEngineHost.pendingRequests(context.principal));
   }
   if (path === '/global/health') return send(response, 200, { healthy: true, version: '1.18.31' });
-  if (path === '/path') return send(response, 200, { home: '', state: '', config: '', worktree: workspace, directory: workspace });
+  if (path === '/path') {
+    const binding = await context.nndEngineHost?.primaryWorkspaceBinding?.();
+    if (binding && binding.configured_root !== workspace) {
+      throw new ContractError('nnd_workspace_binding_invalid', 'Native primary workspace changed during discovery');
+    }
+    return send(response, 200, { home: '', state: '', config: '', worktree: workspace, directory: workspace,
+      ...(binding ? { workspace_id: binding.id } : {}) });
+  }
   if (path === '/v1/nnd/mcp') {
     const inventory = context.nndEngineHost?.nndMcpInventory;
     if (!inventory) throw new ContractError('nnd_engine_unavailable', 'NND MCP inventory is unavailable');

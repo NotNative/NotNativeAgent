@@ -2,7 +2,7 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
-import { activityStatus, childLiveMessage, observeChildLifecycle, turnActivity } from './nnd-child-stream.js';
+import { activityStatus, childLiveMessage, observeChildLifecycle, publishNndChildEvent, turnActivity } from './nnd-child-stream.js';
 import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
@@ -24,9 +24,10 @@ import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
-import { requirePrincipal, samePrincipal, restoreNndContexts, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
-const CATALOG_LIMIT_BYTES = 1_048_576;
-const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
+import { requirePrincipal, samePrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
+import { preflightNndWorkspaceCatalog, resolveContextBinding, initializeBoundEngine,
+  assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
+const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
   #contexts = new Map();
@@ -41,7 +42,7 @@ export class NndEngineHost {
     if (!Number.isSafeInteger(limit) || limit < 1) {
       throw new ContractError('nnd_context_capacity_invalid', 'NND engine context capacity must be a positive integer');
     }
-    this.createEngine = options.createEngine;
+    this.createEngine = options.createEngine; this.primaryWorkspaceBinding = options.primaryWorkspaceBinding ?? null;
     this.limit = limit;
     this.eventBus = options.eventBus ?? createWireEventBus();
     this.childSessions = options.childSessions ?? new NndSessionRegistry(options.childSessionLimit ?? 256,
@@ -67,19 +68,19 @@ export class NndEngineHost {
     try { records = JSON.parse(source); } catch { throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid'); }
     if (!Array.isArray(records) || records.length > this.limit) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
     try {
+      await preflightNndWorkspaceCatalog(records, this.primaryWorkspaceBinding, validCatalogRecord);
       await restoreNndContexts(records, (sessionId, principal, options) => this.#createContext(sessionId, principal, options, true));
       for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
         this.childSessions.restoreCompleted?.(snapshot);
         this.#childActivity.set(snapshot.sessionId, snapshot.activity);
       }
+      if (this.primaryWorkspaceBinding && records.some(record => record.workspaceBinding === undefined)) await this.#commitCatalogChange(() => {}, () => {});
     } catch (error) {
       await this.shutdown().catch(() => undefined);
       throw error;
     }
   }
-  async create(sessionId, principal, options = {}) {
-    return this.#createContext(sessionId, principal, options, false);
-  }
+  async create(sessionId, principal, options = {}) { return this.#createContext(sessionId, principal, options, false); }
   async #createContext(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
@@ -92,16 +93,18 @@ export class NndEngineHost {
     this.#creating.add(sessionId);
     let engine;
     try {
+      const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
         output: (record) => this.observeOutput(sessionId, record) });
       if (!engine || typeof engine.initialize !== 'function') {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
       }
-      await engine.initialize();
+      await initializeBoundEngine(engine, this.primaryWorkspaceBinding, binding, principal, options, restoring);
       if (restoring) engine.reviewPosture = options.reviewMode === 'unattended' ? 'unattended' : 'auto-review';
       const createdAt = restoring ? options.createdAt : Date.now();
       const activity = restoring ? await loadActivity(this.catalogPath, sessionId, createdAt) : [];
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
+        ...(binding ? { workspaceBinding: binding } : {}),
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
         updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: restoring ? options.contextUsage : null,
         goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
@@ -125,9 +128,15 @@ export class NndEngineHost {
     }
   }
   async submit(sessionId, command, principal) {
+    await this.assertWorkspaceBound(sessionId, principal);
     const context = this.#owned(sessionId, principal);
     if (context.reviewArming > 0) throw new ContractError('nnd_session_unavailable', 'review mode change is pending');
     return context.ingress.submit(command, principal);
+  }
+  async assertWorkspaceBound(sessionId, principal) {
+    const context = this.#owned(sessionId, principal);
+    await assertLiveNndWorkspaceBinding(context, this.primaryWorkspaceBinding, principal,
+      () => this.#owned(sessionId, principal));
   }
   reviewMode(sessionId, principal) { return reviewModeSnapshot(this.#owned(sessionId, principal)); }
   setReviewMode(sessionId, principal, body) {
@@ -459,20 +468,7 @@ export class NndEngineHost {
     } finally { this.childSnapshotStore.observe(type, child, parent, this.childSessions, this.#childActivity.get(child.id) ?? []); }
   }
   #publishChild(parent, child, type, properties, mirror = false) {
-    if (type === 'nnd.activity') {
-      if (properties?.sessionID !== child.id) return;
-      const records = this.#childActivity.get(child.id);
-      if (!records) return;
-      const record = appendActivity(records, properties);
-      if (!record) return;
-      properties = record;
-    }
-    try { publishNndProjection(this.eventBus, { directory: child.directory, project: parent.workspaceIds.values().next().value,
-      subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds], sessionID: child.id, type, properties, mirror }); }
-    catch (error) {
-      try { parent.engine.telemetry?.record('nnd.event_delivery', 'failed', { event_type: type,
-        code: error?.code ?? 'event_delivery_failed' }); } catch { /* Observational diagnostics cannot fail delegated work. */ }
-    }
+    publishNndChildEvent(this.eventBus, this.#childActivity, parent, child, type, properties, mirror);
   }
   #publish(context, type, properties, mirror = false) {
     if (type === 'nnd.activity') {

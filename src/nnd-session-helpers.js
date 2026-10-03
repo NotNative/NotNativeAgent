@@ -7,6 +7,7 @@ import { directoryFor } from './nnd-session-description.js';
 export function catalogRecord(context) {
   return {
     sessionId: context.sessionId, subjectId: context.subjectId, workspaceIds: [...context.workspaceIds],
+    ...(context.workspaceBinding ? { workspaceBinding: context.workspaceBinding } : {}),
     title: context.title, directory: directoryFor(context), createdAt: context.createdAt,
     updatedAt: context.updatedAt, archivedAt: context.archivedAt, goalRevision: context.goalRevision,
     reviewMode: context.reviewMode, reviewRevision: context.reviewRevision,
@@ -20,6 +21,7 @@ export async function restoreNndContexts(records, createContext) {
     if (!validCatalogRecord(record)) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
     await createContext(record.sessionId, { subjectId: record.subjectId, workspaceIds: record.workspaceIds }, {
       title: record.title, directory: record.directory, createdAt: record.createdAt,
+      ...(record.workspaceBinding ? { workspaceBinding: record.workspaceBinding } : {}),
       updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
       goal: record.goal ?? null, goalRevision: record.goalRevision ?? 0, contextUsage: record.contextUsage ?? null,
       reviewMode: record.reviewMode ?? 'default', reviewRevision: record.reviewRevision ?? 0,

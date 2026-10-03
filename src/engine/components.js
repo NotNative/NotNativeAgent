@@ -144,7 +144,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       workspaceRoot: engine.config.workspaceRoot,
       run: (input, signal, launch) => engine.runSubagent(input, signal, launch),
     } : null,
-    workspaceControl: engine.config.executionManifest === null ? { change: (path) => engine.changeWorkspace(path) } : null,
+    workspaceControl: workspaceControl(engine),
     conversationWork: engine.work, terminalControl: { declare: (value) => declareTerminalOutcome(engine, value) }, questionBroker: engine.questionBroker,
     telegramNotifications: engine.telegramNotifications,
     activeTurnId: () => engine.active?.turnId ?? null, sessionHistory: historyToolOptions(engine),
@@ -168,6 +168,12 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     transportFactory: options.mcpTransportFactory,
     credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
   });
+}
+
+function workspaceControl(engine) {
+  // NND's native principal is bound to one configured workspace.
+  if (engine.config.executionManifest !== null || ['nnd', 'nnd_subagent'].includes(engine.surface)) return null;
+  return { change: (path) => engine.changeWorkspace(path) };
 }
 
 function administratorAdapter(engine, options) {

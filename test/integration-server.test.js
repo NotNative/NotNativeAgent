@@ -151,11 +151,12 @@ test('route activation is separately authorized and old sessions keep their mode
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
-  const submitted = [];
+  const submitted = []; let checked = 0;
   const host = {
     nndModel: { providerID: 'one', modelID: 'one' },
     async activateProviderRoute() { this.nndModel = { providerID: 'two', modelID: 'two' }; return this.nndModel; },
     get() { return { metadata: { nnd: { configuredModel: { providerID: 'one', modelID: 'one' } } } }; },
+    async assertWorkspaceBound() { checked++; },
     submitAsync(_id, command) { submitted.push(command); return { accepted: true }; },
   };
   const service = await startIntegrationServer({
@@ -171,9 +172,17 @@ test('route activation is separately authorized and old sessions keep their mode
       method: 'POST', body: { messageID: 'prompt_old', model: { providerID: 'one', modelID: 'one' }, parts: [{ type: 'text', text: 'hello' }] },
     })).status, 204);
     assert.equal(submitted.length, 1);
+    assert.equal(checked, 1);
     assert.equal((await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
       method: 'POST', body: { messageID: 'prompt_wrong', model: { providerID: 'two', modelID: 'two' }, parts: [{ type: 'text', text: 'hello' }] },
     })).status, 400);
+    host.assertWorkspaceBound = async () => { throw new ContractError('nnd_workspace_binding_invalid', 'replaced root'); };
+    const denied = await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
+      method: 'POST', body: { messageID: 'prompt_replaced', model: { providerID: 'one', modelID: 'one' }, parts: [{ type: 'text', text: 'hello' }] },
+    });
+    assert.equal(denied.status, 400);
+    assert.equal(denied.value.error.code, 'nnd_workspace_binding_invalid');
+    assert.equal(submitted.length, 1, 'binding denial must not queue the prompt');
   } finally { await service.close(); }
 });
 

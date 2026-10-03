@@ -28,7 +28,7 @@ export async function changeEngineWorkspace(engine, target, operations = {}) {
 
 export async function restoreEngineWorkspace(engine, target) {
   if (!target || samePath(engine.tools.paths.root, target)) return false;
-  if (engine.config.executionManifest !== null) {
+  if (engine.config.executionManifest !== null || nndBoundSurface(engine)) {
     throw new ContractError('workspace_change_forbidden', 'authenticated host workspace scope is immutable');
   }
   const prepared = await engine.tools.prepareWorkspaceRoot(target);
@@ -83,12 +83,16 @@ function assertWorkspaceTransition(engine) {
   if (!engine?.tools || !engine?.config || typeof engine.tools.prepareWorkspaceRoot !== 'function') {
     throw new ContractError('workspace_change_unavailable', 'working directory transition is unavailable');
   }
-  if (engine.config.executionManifest !== null) {
+  if (engine.config.executionManifest !== null || nndBoundSurface(engine)) {
     throw new ContractError('workspace_change_forbidden', 'authenticated host workspace scope is immutable');
   }
   if (!engine.active) {
     throw new ContractError('workspace_change_unavailable', 'working directory transition requires an active reviewed tool call');
   }
+}
+
+function nndBoundSurface(engine) {
+  return engine.surface === 'nnd' || engine.surface === 'nnd_subagent';
 }
 
 function samePath(left, right) {

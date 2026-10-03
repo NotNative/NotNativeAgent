@@ -70,6 +70,7 @@ export async function loadChildSnapshots(catalogPath, parents, limit) {
     if (snapshot.subjectId !== parent.subjectId || !sameWorkspaceIds(snapshot.workspaceIds, [...parent.workspaceIds])) {
       throw new ContractError('nnd_child_snapshot_invalid', 'NND child snapshot owner does not match its parent');
     }
+    assertChildWorkspace(snapshot, parent);
     restored.push({ snapshot: { ...snapshot, activity: (snapshot.activity ?? []).map((record) => ({
       id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
       status: record.status, summary: record.summary,
@@ -90,6 +91,12 @@ export async function loadChildSnapshots(catalogPath, parents, limit) {
     }
   }
   return restored.sort(snapshotOrder).map(({ snapshot }) => snapshot);
+}
+
+function assertChildWorkspace(snapshot, parent) {
+  if (parent.workspaceBinding && snapshot.directory !== parent.workspaceBinding.configured_root) {
+    throw new ContractError('nnd_child_snapshot_invalid', 'NND child snapshot workspace does not match its parent');
+  }
 }
 
 function snapshotOrder(left, right) {

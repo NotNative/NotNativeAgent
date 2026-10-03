@@ -12,6 +12,7 @@ import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { resolveManifest } from './config.js';
 import { SessionEngine } from './engine.js';
 import { NndEngineHost } from './nnd-engine-host.js';
+import { primaryNndWorkspaceBinding } from './nnd-workspace-binding.js';
 import { nndMcpInventory } from './nnd-mcp-inventory.js';
 import { nndSkillsInventory } from './nnd-skills-inventory.js';
 import { nndAgentInventory } from './nnd-agent-inventory.js';
@@ -173,6 +174,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     trusted, skillRoot: join(config.workspaceRoot, '.nna', 'skills'),
   });
   const host = new NndEngineHost({
+    primaryWorkspaceBinding: async () => primaryNndWorkspaceBinding(config.workspaceRoot),
     catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
     createEngine: async (input) => new SessionEngine({
       config: activeConfig, sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,

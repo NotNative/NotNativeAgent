@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -10,6 +10,7 @@ import { ExperienceEngine } from '../src/experience-engine.js';
 import { tabPoolRecords } from '../src/experience/presentation.js';
 import { FileChangeLedger } from '../src/persistence/file-change-ledger.js';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { restoreEngineWorkspace } from '../src/engine/workspace-transition.js';
 
 class WorkspaceProvider {
   constructor(target, inspect = () => undefined) {
@@ -196,6 +197,39 @@ test('workspace_change is unavailable under an authenticated host capability cei
   await registry.initialize();
   assert.equal(registry.definition('workspace_change'), undefined);
   await registry.close();
+});
+
+test('NND parent and child surfaces reject workspace transition and durable restart retains the primary root', async t => {
+  const parent = await mkdtemp(join(tmpdir(), 'nna-nnd-workspace-binding-'));
+  t.after(() => rm(parent, { recursive: true, force: true }));
+  const initial = join(parent, 'initial'), target = join(parent, 'target');
+  await mkdir(initial); await mkdir(target);
+  const options = { config: config(initial, 'durable'), sessionId: 'nnd-primary-session', surface: 'nnd',
+    storeRoot: join(parent, 'sessions'), reviewerRoot: join(parent, 'reviewers'),
+    governanceRoot: join(parent, 'governance'), telemetryRoot: join(parent, 'telemetry') };
+  const engine = new SessionEngine({ ...options, providerFactory: () => new WorkspaceProvider(target),
+    semanticReviewer: new ApprovingReviewer() });
+  await engine.initialize();
+  assert.equal(engine.tools.definition('workspace_change'), undefined);
+  await assert.rejects(engine.changeWorkspace(target), { code: 'workspace_change_forbidden' });
+  await assert.rejects(restoreEngineWorkspace(engine, target), { code: 'workspace_change_forbidden' });
+  await engine.submit({ request_id: 'nnd-transition-attempt', content: `Move this conversation into ${target}.` },
+    'authenticated-nnd-operator');
+  assert.equal(engine.config.workspaceRoot, initial);
+  assert.equal(engine.tools.paths.root, initial);
+  await engine.shutdown({ type: 'shutdown', request_id: 'nnd-first-shutdown' });
+  const restored = new SessionEngine({ ...options, providerFactory: () => ({
+    async *stream() { yield { type: 'terminal', finishReason: 'stop' }; },
+  }) });
+  await restored.initialize();
+  assert.equal(restored.config.workspaceRoot, initial);
+  await restored.shutdown({ type: 'shutdown', request_id: 'nnd-restored-shutdown' });
+  const child = new SessionEngine({ config: config(initial), surface: 'nnd_subagent',
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } }) });
+  await child.initialize();
+  assert.equal(child.tools.definition('workspace_change'), undefined);
+  await assert.rejects(child.changeWorkspace(target), { code: 'workspace_change_forbidden' });
+  await child.shutdown({ type: 'shutdown', request_id: 'nnd-child-shutdown' });
 });
 
 test('durable session recovery restores the last reviewed working directory', async () => {

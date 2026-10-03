@@ -81,6 +81,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_configuration_repair_unnecessary', 'nnd_configuration_request_invalid',
     'nnd_workspace_grant_invalid', 'nnd_workspace_grant_identity_mismatch',
     'nnd_workspace_grant_request_invalid', 'nnd_workspace_grant_unavailable',
+    'nnd_workspace_binding_invalid',
     'nnd_configuration_view_invalid',
     'nnd_package_incompatible', 'nnd_package_incomplete', 'nnd_package_manifest_invalid',
     'nnd_package_registry_invalid',
