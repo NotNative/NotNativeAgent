@@ -51,6 +51,9 @@ test('exact live-owner transfer permits ordinary native admission after registry
   f.loseRegistry();
   assert.doesNotThrow(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
     { method: 'POST', url: '/v1/sessions' }));
+  f.state.published = true;
+  assert.doesNotThrow(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
+    { method: 'POST', url: '/v1/sessions' }), 'public controller preserves transferred native admission');
   assert.throws(() => f.api.transferNndTrialAdmissionGate(f.gate, f.identity, f.registryLease, 'verified'));
   f.loseService();
   assert.throws(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,

@@ -18,6 +18,7 @@ import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { consumeNndTrialCapability } from './nnd-activation-candidate.js';
 import { createNndTrialAdmissionGate } from './nnd-trial-admission.js';
 import { transferRetainedNativeAdmission } from './nnd-activation-native-admission-transfer.js';
+import { publishRetainedNndController } from './nnd-activation-public-controller.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
 import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
@@ -28,9 +29,7 @@ import { recordNndExternalRetirementDecisionUnderOwnership } from './nnd-activat
 import { cleanupNndRetirementEvidenceUnderOwnership, recordNndTerminalRetirementCommitUnderOwnership,
   clearNndRetirementBarriersUnderOwnership } from './nnd-activation-retirement-cleanup.js';
 import { userDataPaths } from './product.js';
-
 const RETAINED_BY_LEASE = new WeakMap();
-
 async function readMetadata(path) {
   const file = await open(path, 'r');
   try {
@@ -113,7 +112,8 @@ function createSupervisorSession(identity, lease, releaseLease) {
       state.identity, state, state.lease, registryLease, options),
     clearRetirementBarriers: (registryLease, options) => clearNndRetirementBarriersUnderOwnership(
       state.identity, state, state.lease, registryLease, options),
-    transferNativeAdmission: (registryLease, options) => transferRetainedNativeAdmission(state, registryLease, options) }) };
+    transferNativeAdmission: (registryLease, options) => transferRetainedNativeAdmission(state, registryLease, options),
+    publishController: (registryLease, options) => publishRetainedNndController(state, registryLease, options) }) };
 }
 async function recordRetainedCompletion(state, registryLease, options) {
   if (!state.unpublishedTrial || !state.retainedLeaseArmed) {

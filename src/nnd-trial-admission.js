@@ -67,7 +67,7 @@ function assertNndTrialOwnerInternal(entry) {
   const { identity, state, serviceLease, registryLease } = entry;
   if (identity.installation_id !== entry.installationId || identity.data_id !== entry.dataId
     || identity.data_root !== entry.dataRoot || state.identity !== identity || state.lease !== serviceLease || !state.unpublishedTrial
-    || state.published || state.stopping || state.record?.instance_id !== entry.generation
+    || state.published && !entry.transferred || state.stopping || state.record?.instance_id !== entry.generation
     || state.activationOperationId !== entry.operationId || state.stageOperationId !== entry.stageOperationId
     || state.child?.failed || state.ui && !state.child?.child
     || state.child?.child?.exitCode !== undefined && state.child.child.exitCode !== null

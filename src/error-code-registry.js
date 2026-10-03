@@ -95,6 +95,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_activation_reconciliation_invalid', 'nnd_activation_publication_invalid', 'nnd_activation_health_invalid',
     'nnd_activation_transition_proof_invalid', 'nnd_activation_retirement_invalid',
     'nnd_activation_retirement_decision_invalid', 'nnd_activation_retirement_cleanup_invalid',
+    'nnd_activation_public_controller_invalid',
     'nnd_activation_rollback_invalid',
     'nnd_trial_admission_invalid', 'nnd_trial_mutation_denied',
     'nnd_payload_invalid',
