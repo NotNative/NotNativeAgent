@@ -215,6 +215,71 @@ it('previews and saves only advertised session deadlines with a bounded native C
   expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
 });
 
+it('edits a catalog-advertised context threshold through ordered native preview and CAS save', async () => {
+  const paths = ['context_compression_threshold', 'context_compression_level_2_threshold',
+    'context_compression_level_3_threshold', 'context_compaction_threshold'] as const;
+  const values = [0.4, 0.55, 0.7, 0.75];
+  const contextView: NativeConfigurationView = { ...view, fields: paths.map((path, index) => ({ path, catalog_path: path,
+    explicit: { present: false }, effective: { present: true, value: values[index]!, source: 'compiled_default' },
+    application: 'not_applied' })) };
+  const compression = { path: paths[0], type: 'number' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [compression,
+    { path: 'context_limit_bytes', type: 'integer', editability: field.editability },
+    { path: paths[1], type: 'number', editability: field.editability }] });
+  const contextRequest = { ...request, operations: [{ op: 'set' as const, field: compression.path, value: 0.42 }] };
+  const projectedView: NativeConfigurationView = { ...contextView, fields: contextView.fields.map((row, index) => ({ ...row,
+    effective: { present: true, value: [0.42, 0.56, 0.7, 0.75][index]!, source: 'user' } })) };
+  vi.mocked(nativeChange).mockReturnValue(contextRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: projectedView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(contextView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.context-budgets"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('Context byte ceiling');
+  expect(container.textContent).not.toContain('Third compression threshold');
+  await act(async () => button('First compression threshold').click());
+  const input = container.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+  expect(input.type).toBe('text'); expect(input.value).toBe('0.4');
+  for (const draft of ['0', '0.', '0.4', '0.42']) {
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, draft);
+      input.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(input.value).toBe(draft);
+    if (draft === '0.') expect((button('Preview change') as HTMLButtonElement).disabled).toBe(true);
+  }
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(contextView, compression, 'set', '0.42');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(contextRequest, expect.any(AbortSignal));
+  expect(container.textContent).toContain('0.4 → 0.42');
+  expect(container.textContent).toContain('0.55 → 0.56');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(contextRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
+});
+
+it('does not offer a save when NNA rejects a coupled context threshold during preview', async () => {
+  const contextView: NativeConfigurationView = { ...view, fields: [
+    { path: 'context_compression_threshold', catalog_path: 'context_compression_threshold',
+      explicit: { present: false }, effective: { present: true, value: 0.4, source: 'compiled_default' },
+      application: 'not_applied' },
+  ] };
+  const compression = { path: 'context_compression_threshold', type: 'number' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [compression] });
+  vi.mocked(nativeChange).mockReturnValue({ ...request, operations: [{ op: 'set', field: compression.path, value: 0.8 }] });
+  vi.mocked(previewNativeConfiguration).mockRejectedValue(Object.assign(new Error('order rejected'),
+    { code: 'context_thresholds_invalid' }));
+  mount(contextView); await act(async () => {});
+  await act(async () => button('First compression threshold').click());
+  const input = container.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '0.8');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => button('Preview change').click());
+  expect(container.textContent).toContain('context_thresholds_invalid');
+  expect(container.textContent).not.toContain('Save to NNA');
+  expect(saveNativeConfiguration).not.toHaveBeenCalled();
+});
+
 it('previews and saves a catalog-advertised dream idle limit with native CAS', async () => {
   const dreamView: NativeConfigurationView = { ...view, fields: [
     { path: 'dream.idle_ms', catalog_path: 'dream.idle_ms', explicit: { present: false },

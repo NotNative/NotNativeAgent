@@ -235,7 +235,11 @@ and recovery wall-clock limit remain generic JSON controls. Approval wait,
 persistence flush, and shutdown timeouts have bounded controls gated by the
 native catalog. Their save receipt does not claim application to running
 work or to the running service, nor does approval wait change permission
-scope. Other execution, context, telemetry, and retention scalars remain
+scope. The root context byte ceiling and four compression/compaction thresholds
+have catalog-gated typed controls; preview displays the complete ordered
+threshold set and NNA rejects an invalid ordering. Provider and route limits
+can further constrain the actual context window, and Save does not apply these
+values to running work. Other execution, telemetry, and retention scalars remain
 generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate

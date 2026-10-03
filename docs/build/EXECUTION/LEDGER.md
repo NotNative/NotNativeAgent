@@ -963,3 +963,15 @@ controls match the current native catalog bounds. Installed GUI acceptance
 remains open.
 The full UI suite passed (1,766 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-29 — native context budgets
+
+Managed Settings now offers catalog-gated controls for NNA's context byte
+ceiling and four compression/compaction thresholds. Fractional drafts remain
+editable while incomplete; native preview shows the ordered threshold set and
+NNA validates the final ordering. Saves use revision checks and operation
+receipts without claiming an effect on running work. Independent adversarial
+review fixed fractional typing that previously cleared `0.` before the
+operator could enter a value. Installed GUI acceptance remains open.
+The full UI suite passed (1,768 tests), as did the web suite (1,447 tests),
+workspace typechecks, and quality gates.

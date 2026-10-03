@@ -35,6 +35,20 @@ const SESSION_DEADLINES: Record<string, { label: 'settings.nativeSessionDeadline
 };
 const boundedPositiveInteger = (draft: string, field: { min: number; max: number }) => /^[1-9]\d*$/u.test(draft)
   && Number(draft) >= field.min && Number(draft) <= field.max;
+const CONTEXT_BUDGETS: Record<string, { label: 'settings.nativeContext.bytes' | 'settings.nativeContext.compression'
+  | 'settings.nativeContext.level2' | 'settings.nativeContext.level3' | 'settings.nativeContext.compaction';
+  type: 'integer' | 'number'; min: number; max: number }> = {
+  context_limit_bytes: { label: 'settings.nativeContext.bytes', type: 'integer', min: 65536, max: 16777216 },
+  context_compression_threshold: { label: 'settings.nativeContext.compression', type: 'number', min: 0.20, max: 0.90 },
+  context_compression_level_2_threshold: { label: 'settings.nativeContext.level2', type: 'number', min: 0.20, max: 0.99 },
+  context_compression_level_3_threshold: { label: 'settings.nativeContext.level3', type: 'number', min: 0.20, max: 0.99 },
+  context_compaction_threshold: { label: 'settings.nativeContext.compaction', type: 'number', min: 0.30, max: 0.99 },
+};
+const CONTEXT_THRESHOLD_PATHS = ['context_compression_threshold', 'context_compression_level_2_threshold',
+  'context_compression_level_3_threshold', 'context_compaction_threshold'] as const;
+const contextDraftValid = (draft: string, field: { type: 'integer' | 'number'; min: number; max: number }) =>
+  field.type === 'integer' ? boundedPositiveInteger(draft, field)
+    : /^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(draft) && Number(draft) >= field.min && Number(draft) <= field.max;
 const DREAM_LIMITS: Record<string, { label: 'settings.nativeDream.idle' | 'settings.nativeDream.interStage'
   | 'settings.nativeDream.inferenceIdle' | 'settings.nativeDream.hygieneIdle' | 'settings.nativeDream.retention'; min: number; max: number }> = {
   'dream.idle_ms': { label: 'settings.nativeDream.idle', min: 5000, max: 3600000 },
@@ -106,6 +120,9 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const recoverySelected = selected?.type === 'integer' ? RECOVERY_BUDGETS[selected.path] : undefined;
   const sessionDeadlineFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(SESSION_DEADLINES, field.path));
   const sessionDeadlineSelected = selected?.type === 'integer' ? SESSION_DEADLINES[selected.path] : undefined;
+  const contextFields = model.fields.filter(field => CONTEXT_BUDGETS[field.path]?.type === field.type);
+  const contextSelected = selected && CONTEXT_BUDGETS[selected.path]?.type === selected.type
+    ? CONTEXT_BUDGETS[selected.path] : undefined;
   const dreamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(DREAM_LIMITS, field.path)
     || field.path === 'dream.enabled' && field.type === 'boolean');
   const dreamSelected = selected?.type === 'integer' ? DREAM_LIMITS[selected.path] : undefined;
@@ -167,6 +184,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(SESSION_DEADLINES[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {contextFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.context-budgets">
+      <h4 className="font-semibold">{t('settings.nativeContext.title')}</h4>
+      <p>{t('settings.nativeContext.description')}</p>
+      <div className="flex flex-wrap gap-2">{contextFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(CONTEXT_BUDGETS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     {dreamFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -276,6 +303,18 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
+      {model.mode === 'set' && contextSelected ? <label className="block">
+        {t(contextSelected.label)}
+        <input type={contextSelected.type === 'integer' ? 'number' : 'text'}
+          inputMode={contextSelected.type === 'integer' ? 'numeric' : 'decimal'}
+          min={contextSelected.type === 'integer' ? contextSelected.min : undefined}
+          max={contextSelected.type === 'integer' ? contextSelected.max : undefined}
+          step={contextSelected.type === 'integer' ? '1' : undefined}
+          value={model.draft}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
       {model.mode === 'set' && dreamSelected ? <label className="block">
         {t(dreamSelected.label)}
         <input type="number" min={dreamSelected.min} max={dreamSelected.max} step="1"
@@ -338,7 +377,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
-        && !recoverySelected && !sessionDeadlineSelected
+        && !recoverySelected && !sessionDeadlineSelected && !contextSelected
         && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
         && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
@@ -349,6 +388,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         || Boolean(recoverySelected && model.mode === 'set' && (!/^[1-9]\d*$/u.test(model.draft)
           || Number(model.draft) < recoverySelected.min || Number(model.draft) > recoverySelected.max))
         || Boolean(sessionDeadlineSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, sessionDeadlineSelected))
+        || Boolean(contextSelected && model.mode === 'set' && !contextDraftValid(model.draft, contextSelected))
         || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))
         || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))}>
         {t('settings.nativeConfiguration.preview')}</button>
@@ -371,7 +411,14 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           const explicitAfter = model.preview?.result.view.fields.find(item => item.path === path)?.explicit;
           return <p key={path}>{t(PROVIDER_DEADLINE[path]!.label)}: {value(before)}{' → '}{value(after)}
             {path === selected.path ? <>; {t('settings.nativeDeadline.savedValue')}: {value(explicitBefore)}{' → '}{value(explicitAfter)}</> : null}</p>;
-        }) : memoryBooleanSelected ? (['memory.enabled', 'memory.required'] as const).map(path => {
+        }) : contextSelected && CONTEXT_THRESHOLD_PATHS.some(path => path === selected.path)
+          ? CONTEXT_THRESHOLD_PATHS.map(path => {
+            const before = view.fields.find(item => item.path === path)?.effective;
+            const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
+            const value = (item: typeof before) => item?.present && 'value' in item
+              ? String(item.value) : t('settings.nativeConfiguration.absent');
+            return <p key={path}>{t(CONTEXT_BUDGETS[path]!.label)}: {value(before)}{' → '}{value(after)}</p>;
+          }) : memoryBooleanSelected ? (['memory.enabled', 'memory.required'] as const).map(path => {
           const before = view.fields.find(item => item.path === path)?.effective;
           const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
           return <p key={path}>{t(MEMORY_BOOLEAN[path]!)}: {before?.present && 'value' in before ? String(before.value) : t('settings.nativeConfiguration.absent')}

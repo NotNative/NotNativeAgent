@@ -1032,6 +1032,10 @@
     {
       "version": "20261003-28",
       "content_sha256": "56e503aba04beb13153686aa685f2b4b48dbef48f7e554273733978623784ed7"
+    },
+    {
+      "version": "20261003-29",
+      "content_sha256": "a0d57d6a94f5f739d5eb03957e607f4c280a02a72caa75698c380d52f289acf5"
     }
   ]
 }
