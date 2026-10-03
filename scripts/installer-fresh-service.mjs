@@ -29,7 +29,7 @@ async function command(runtime, args, timeout = 30000) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) fail('native_response_invalid');
     return value;
   } catch (error) {
-    const code = /^nna: ([a-z][a-z0-9_]{1,100})\s*$/u.exec(String(error?.stderr ?? ''))?.[1];
+    const code = /(?:^|\r?\n)nna: ([a-z][a-z0-9_]{1,100})(?:\r?\n|$)/u.exec(String(error?.stderr ?? ''))?.[1];
     fail(code ?? 'native_command_failed');
   }
 }
@@ -80,6 +80,16 @@ async function awaitReadyStatus(runtime, version, initial) {
     status = await command(runtime, ['service', 'status', runtime.root], 5000);
   }
 }
+async function startFreshService(runtime) {
+  try { return await command(runtime, ['service', 'start', runtime.root], 90000); }
+  catch (error) {
+    // A cold Windows launch can fail before discovery is published. NNA owns
+    // singleton admission; one retry may start only after that failed owner exits.
+    if (error.message !== 'nnd_service_crashed') throw error;
+    await delay(500);
+    return command(runtime, ['service', 'start', runtime.root], 90000);
+  }
+}
 async function boundedBody(response, limit = 4096) {
   const reader = response.body?.getReader();
   if (!reader) fail('fresh_ui_response_invalid');
@@ -109,7 +119,7 @@ async function verifyBootstrap(attach) {
   if (session.status !== 200 || session.redirected || session.url !== sessionUrl
     || (await boundedBody(session))?.authenticated !== true) fail('fresh_ui_session_invalid');
   const isolated = await fetch(sessionUrl, { redirect: 'manual', signal: AbortSignal.timeout(5000) });
-  if (isolated.status !== 200 || (await boundedBody(isolated))?.authenticated !== false) fail('fresh_browser_isolation_invalid');
+  if (isolated.status !== 401 || (await boundedBody(isolated))?.authenticated !== false) fail('fresh_browser_isolation_invalid');
   const replay = await fetch(url, { ...request, signal: AbortSignal.timeout(5000) });
   if (replay.status !== 401) fail('fresh_ui_ticket_replay_allowed');
   await replay.body?.cancel();
@@ -120,7 +130,7 @@ export async function verifyFreshSourceService(root, target, installationId, dat
   const current = await registered(runtime);
   if (!current.registered || current.valid !== true || !same(current.root, canonicalTarget)
     || typeof current.version !== 'string' || !/^\d{8}-[1-9]\d{0,5}$/u.test(current.version)) fail('fresh_registration_invalid');
-  const started = await command(runtime, ['service', 'start', runtime.root]);
+  const started = await startFreshService(runtime);
   const status = await awaitReadyStatus(runtime, current.version, started);
   const attachment = validateNativeAttach(await command(runtime, ['service', 'attach', runtime.root]), runtime);
   if (attachment.generation !== status.instance_id || attachment.origin !== status.endpoint) fail('fresh_service_attach_invalid');

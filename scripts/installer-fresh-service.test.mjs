@@ -48,7 +48,8 @@ async function fixture(t) {
         : '{"authenticated":true}'); return;
     }
     if (request.url === '/auth/session') {
-      response.writeHead(200, { 'content-type': 'application/json' });
+      response.writeHead(request.headers.cookie === 'nnd_session=fixture' ? 200 : 401,
+        { 'content-type': 'application/json' });
       response.end(JSON.stringify({ authenticated: request.headers.cookie === 'nnd_session=fixture' })); return;
     }
     response.writeHead(404).end();
@@ -59,13 +60,17 @@ async function fixture(t) {
   const status = { protocol: '1.0', installation_id: installationId, data_id: dataId,
     service_state: 'setup_required', instance_id: generation, endpoint, package_version: version, package_state: 'ready' };
   await writeFile(join(data, 'fixture.json'), JSON.stringify({ root: target, version, status, ticket }));
-  await writeFile(cli, `import { readFileSync, existsSync } from 'node:fs';
+  await writeFile(cli, `import { readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 const row=JSON.parse(readFileSync(join(process.env.NNA_HOME,'fixture.json'),'utf8'));
 const [,,namespace,kind,action]=process.argv;
 let value;
 if(namespace==='nnd'&&kind==='package'&&action==='status')value=existsSync(join(process.env.NNA_HOME,'registered'))
   ? {registered:true,valid:true,root:row.root,version:row.version}:{registered:false};
+else if(namespace==='nnd'&&kind==='service'&&action==='start'&&existsSync(join(process.env.NNA_HOME,'fail-start-once'))){
+  unlinkSync(join(process.env.NNA_HOME,'fail-start-once'));
+  process.stderr.write('(node) startup warning\\n'+'nna: nnd_service_crashed\\n');process.exit(2);
+}
 else if(namespace==='nnd'&&kind==='service'&&['start','status'].includes(action))value=row.status;
 else if(namespace==='nnd'&&kind==='service'&&action==='attach')value={protocol:'1.0',installation_id:row.status.installation_id,
   data_id:row.status.data_id,generation:row.status.instance_id,endpoint:row.status.endpoint,ticket:row.ticket,
@@ -76,7 +81,8 @@ process.stdout.write(JSON.stringify(value)+'\\n');`);
     register: () => writeFile(join(data, 'registered'), 'yes'),
     setReplayAllowed: value => { replayAllowed = value; },
     setOversizedBootstrap: value => { oversizedBootstrap = value; },
-    setChangeRegistration: value => { changeRegistration = value; } };
+    setChangeRegistration: value => { changeRegistration = value; },
+    failStartOnce: () => writeFile(join(data, 'fail-start-once'), 'yes') };
 }
 
 test('fresh source bridge rejects existing target and registration before mutation',
@@ -101,6 +107,13 @@ test('fresh service verifier redeems once, isolates another browser, and retains
     assert.equal(verified.state, 'fresh_service_verified');
     assert.equal(verified.service_state, 'setup_required');
     assert.equal(verified.generation, f.generation);
+  });
+
+test('fresh verifier retries one confirmed cold-start crash after a native warning',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t); await mkdir(f.target); await f.register(); await f.failStartOnce();
+    const verified = await verifyFreshSourceService(f.root, f.target, f.installationId, f.dataId);
+    assert.equal(verified.state, 'fresh_service_verified');
   });
 
 test('fresh service verifier rejects replayable tickets without reporting success',

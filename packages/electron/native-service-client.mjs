@@ -49,7 +49,7 @@ async function command(runtime, action, timeout = 30000) {
     });
     return JSON.parse(stdout);
   } catch (error) {
-    const code = /^nna: ([a-z][a-z0-9_]{1,100})\s*$/u.exec(String(error?.stderr ?? ''))?.[1];
+    const code = /(?:^|\r?\n)nna: ([a-z][a-z0-9_]{1,100})(?:\r?\n|$)/u.exec(String(error?.stderr ?? ''))?.[1];
     throw new Error(code ?? 'native-command-failed');
   }
 }
@@ -100,9 +100,9 @@ export async function attachNativeService(selection) {
   return validateNativeAttach(attached, runtime);
 }
 async function awaitNativeAttach(runtime) {
-  const deadline = Date.now() + 25000;
+  const deadline = Date.now() + 45000;
   for (;;) {
-    try { return await command(runtime, 'attach', 5000); }
+    try { return await command(runtime, 'attach', 20000); }
     catch (error) {
       if (error.message !== 'nnd_health_unavailable' || Date.now() >= deadline) throw error;
       await delay(200);

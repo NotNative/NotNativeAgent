@@ -33,6 +33,7 @@ param(
     [string]$NnaSourceRoot,
     [string]$NnaDependencyRoot,
     [string]$NnaDependencyManifestSha256,
+    [string]$ShortcutRoot,
     [string]$PrebuiltPayloadRoot,
     [string]$PrebuiltManifestSha256,
     [switch]$StagePrebuiltPayload,
@@ -72,6 +73,27 @@ $ElectronExe = Join-Path $InstallDir "packages\electron\node_modules\electron\di
 $MainScript = "packages\electron\main.mjs"
 $DesktopDir = [Environment]::GetFolderPath("Desktop")
 $StartMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+$hasShortcutRoot = $PSBoundParameters.ContainsKey('ShortcutRoot')
+if ($hasShortcutRoot) {
+    if (!$ShortcutRoot -or ![IO.Path]::IsPathRooted($ShortcutRoot)) { throw '-ShortcutRoot must be absolute.' }
+    $shortcutBase = [IO.Path]::GetFullPath($ShortcutRoot).TrimEnd('\', '/')
+    if (!(Test-Path -LiteralPath $shortcutBase -PathType Container)) { throw '-ShortcutRoot must be an existing directory.' }
+    $shortcutMarker = Join-Path $shortcutBase '.nnd-disposable-shortcuts'
+    if (!(Test-Path -LiteralPath $shortcutMarker -PathType Leaf) -or
+        (Get-Item -LiteralPath $shortcutMarker -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or
+        (Get-Content -LiteralPath $shortcutMarker -Raw).Trim() -cne 'nnd-disposable-shortcuts-v1') {
+        throw '-ShortcutRoot requires a disposable shortcut fixture marker.'
+    }
+    $current = $shortcutBase
+    while ($current) {
+        $item = Get-Item -LiteralPath $current -Force
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw '-ShortcutRoot cannot traverse a reparse point.' }
+        $parent = [IO.Directory]::GetParent($current)
+        $current = if ($parent) { $parent.FullName } else { $null }
+    }
+    $DesktopDir = Join-Path $shortcutBase 'Desktop'
+    $StartMenuDir = Join-Path $shortcutBase 'StartMenu'
+}
 
 function Write-Heading([string]$Text) { Write-Host "" ; Write-Host $Text -ForegroundColor Cyan }
 function Write-Good([string]$Text) { Write-Host "  $Text" -ForegroundColor Green }
@@ -573,6 +595,14 @@ if ($LASTEXITCODE -ne 0) { throw "Installed NNA selection could not be saved (ex
 
 Write-Heading "Creating shortcuts"
 foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
+    if ($hasShortcutRoot) {
+        if (!(Test-Path -LiteralPath $anchor)) { New-Item -ItemType Directory -Path $anchor | Out-Null }
+        if (!(Test-Path -LiteralPath $anchor -PathType Container) -or
+            (Get-Item -LiteralPath $anchor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or
+            (Test-Path -LiteralPath (Join-Path $anchor 'NotNativeDesktop.lnk'))) {
+            throw 'Disposable shortcut target is not fresh and safe.'
+        }
+    }
     $shell = New-Object -ComObject WScript.Shell
     $link = $shell.CreateShortcut((Join-Path $anchor "NotNativeDesktop.lnk"))
     $link.TargetPath = $ElectronExe

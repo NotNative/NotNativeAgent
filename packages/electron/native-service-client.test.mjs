@@ -24,6 +24,10 @@ async function fixture(t) {
     const id={protocol:'1.0',installation_id:'nna_'+hash(d.install_root),data_id:'data_'+hash(d.data_root)};
     if(process.env.NODE_OPTIONS||process.env.NNA_HOME) throw new Error('unsafe environment');
     const action=process.argv[4];
+    if(action==='attach'&&fs.existsSync(d.data_root+'/slow-attach'))await new Promise(done=>setTimeout(done,6000));
+    if(action==='attach'&&fs.existsSync(d.data_root+'/fail-attach')){
+      console.error('(node) SQLite warning');console.error('nna: nnd_owner_unverified');process.exit(2);
+    }
     console.log(JSON.stringify(action==='capabilities'?{...id,native_version:d.version,capabilities:['service_supervision','setup_control_plane','atomic_ui_attach','installer_guard'],commands:['start','status','stop','attach','install-guard']}:
       {...id,generation:'fixture',endpoint:'http://127.0.0.1:4555',ticket:'a'.repeat(43),expires_at:new Date(Date.now()+60000).toISOString()}));`);
   return {root,data,base,descriptor};
@@ -71,6 +75,14 @@ test('private CLI attachment uses selected runtime and generation identity',wind
   const f=await fixture(t); const attached=await attachNativeService(f.root);
   assert.equal(attached.generation,'fixture'); assert.equal(attached.origin,'http://127.0.0.1:4555');
   assert.throws(()=>validateNativeAttach({...attached,installation_id:'wrong'},readSelectedNativeRuntime(f.root)));
+});
+test('desktop attachment allows slow selected-native response and preserves a native error after warnings',windows,async t=>{
+  const f=await fixture(t);
+  await writeFile(join(f.data,'slow-attach'),'yes');
+  assert.equal((await attachNativeService(f.root)).generation,'fixture');
+  await rm(join(f.data,'slow-attach'));
+  await writeFile(join(f.data,'fail-attach'),'yes');
+  await assert.rejects(attachNativeService(f.root),/nnd_owner_unverified/);
 });
 test('runtime major mismatch is rejected before invoking capabilities',windows,async t=>{
   const f=await fixture(t);
