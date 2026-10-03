@@ -165,7 +165,14 @@ async function verifyOwned(identity, state, serviceLease, registryLease, options
   verifyJournal(identity, options, evidence, record);
   await checkProcesses(state, evidence.child, options, signal);
   const serviceState = await probeHealth(identity, state, record, options.fetchImpl ?? fetch, signal);
+  if (typeof state.controller.probeDark !== 'function') throw invalid();
+  const dark = await state.controller.probeDark(record, { signal, timeoutMs: 5000 });
+  if (!exactRecord(dark, ['protocol', 'installation_id', 'data_id', 'generation', 'endpoint', 'service_state'])
+    || dark.protocol !== '1.0' || dark.installation_id !== identity.installation_id
+    || dark.data_id !== identity.data_id || dark.generation !== options.generation
+    || dark.endpoint !== state.ui || dark.service_state !== serviceState) throw invalid();
   await checkProcesses(state, evidence.child, options, signal);
+  if (state.native.runtime.snapshot()?.service_state !== serviceState || state.controller.isListening?.() !== true) throw invalid();
   const after = await selectedEvidence(identity, state, serviceLease, registryLease, options);
   const privateAfter = await readNndPrivateDiscoveryGeneration(identity, serviceLease, options.generation);
   verifyJournal(identity, options, after, privateAfter);

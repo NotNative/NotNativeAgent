@@ -61,6 +61,27 @@ test('unpublished controller stays live but denies status and attach without iss
   } finally { await controller.close(); }
   assert.equal(controller.isListening(), false);
 });
+test('one-use dark controller challenge proves exact generation without a public attach ticket', async () => {
+  let tickets = 0;
+  const controller = await startNndController({ getRecord: () => null, status, stop() {},
+    ticket: async () => { tickets++; return ticket(); } });
+  try {
+    const stray = await fetch(`${controller.endpoint}/__nna/dark-attach`, { headers: {
+      authorization: `Bearer ${record.control_token}`, 'x-nnd-generation': record.instance_id } });
+    assert.equal(stray.status, 401); await stray.body?.cancel();
+    const proof = await controller.probeDark(record);
+    assert.deepEqual(proof, { protocol: '1.0', installation_id: record.installation_id,
+      data_id: record.data_id, generation: record.instance_id, endpoint: status().endpoint,
+      service_state: 'setup_required' });
+    assert.equal(Object.hasOwn(proof, 'ticket'), false);
+    for (const [method, path] of [['GET', 'status'], ['POST', 'attach'], ['POST', 'ui-ticket']]) {
+      const response = await fetch(`${controller.endpoint}/${path}`, { method, headers: {
+        authorization: `Bearer ${record.control_token}`, 'x-nnd-generation': record.instance_id } });
+      assert.equal(response.status, 401); await response.body?.cancel();
+    }
+    assert.equal(tickets, 0);
+  } finally { await controller.close(); }
+});
 test('capabilities identify native installation without credentials or runtime requirements', () => {
   const result = nndServiceCapabilities({ ...record, version: '20261002-2' });
   assert.equal(result.native_version, '20261002-2'); assert.ok(result.capabilities.includes('atomic_ui_attach'));

@@ -42,7 +42,13 @@ async function fixture(options = {}) {
     data_id: identity.data_id, instance_id: generation, endpoint: 'http://127.0.0.1:5003',
     control_token: 'x'.repeat(43), process_identity: parentIdentity, created_at: '2026-10-03T00:00:00.000Z' };
   const state = { registrationSelected: true, published: false, stopping: false,
-    package: packageInfo, record, controller: { endpoint: record.endpoint, isListening: () => !options.closedController },
+    package: packageInfo, record, controller: { endpoint: record.endpoint, isListening: () => !options.closedController,
+      probeDark: async selected => {
+        assert.equal(selected, record);
+        return { protocol: '1.0', installation_id: identity.installation_id, data_id: identity.data_id,
+          generation, endpoint: options.foreignDarkEndpoint ? 'http://127.0.0.1:4999' : state.ui,
+          service_state: 'ready' };
+      } },
     uiHealthKey: Buffer.alloc(32, 0x58).toString('base64url'),
     ui: 'http://127.0.0.1:5002', native: { endpoint: 'http://127.0.0.1:5001', token: 'y'.repeat(43),
       isListening: () => !options.closedNative,
@@ -138,6 +144,12 @@ test('held post-publication health confirms native GUI and gated controller with
   assert.equal(f.probes, 5);
   assert.equal(f.attachTickets, 0);
   assert.equal(f.state.published, false);
+});
+test('published health rejects a dark controller probe for another UI endpoint', async () => {
+  const f = await fixture({ foreignDarkEndpoint: true });
+  await assert.rejects(f.run(), { code: 'nnd_activation_health_invalid' });
+  assert.equal(f.state.published, false);
+  assert.equal(f.attachTickets, 0);
 });
 
 test('optional private transition callback receives proof only after health and it retires on return', async () => {
