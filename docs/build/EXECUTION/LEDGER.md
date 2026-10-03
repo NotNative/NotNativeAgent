@@ -834,3 +834,14 @@ review found no concrete defect, including after integration with reviewer and
 vision route bindings.
 The full UI suite passed (1,744 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-18 — read-only active package launch plan
+
+The new resolver reads the selected NNA installation and data identity, checks
+the active native NND package registration, verifies the immutable payload and
+slot identity, and returns a bounded launch plan without starting a process.
+It rechecks registration and the NNA descriptor after payload verification;
+independent adversarial review found and fixed a descriptor-change race that
+could otherwise return a plan for the wrong data root. This prerequisite does
+not attest activation completion or live GUI health, and no installed launcher
+uses it yet.

@@ -988,6 +988,10 @@
     {
       "version": "20261003-17",
       "content_sha256": "1757716e98b0c67467482143d4db41224f936d07ea07328a114f751b6955152b"
+    },
+    {
+      "version": "20261003-18",
+      "content_sha256": "b9c50f10bf4aa792edebb77d3ef56d2ca40f7ead7243a3410dcc7b38f416a1d7"
     }
   ]
 }

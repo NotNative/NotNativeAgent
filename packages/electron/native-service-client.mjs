@@ -36,7 +36,7 @@ export function readSelectedNativeRuntime(selected) {
   if (metadata.name !== 'not-native-agent' || metadata.nna_version !== descriptor.version || version !== descriptor.version) throw new Error('native-install-invalid');
   const node = regularFile(descriptor.node);
   if (path.basename(node).toLowerCase() !== 'node.exe') throw new Error('native-install-invalid');
-  return Object.freeze({ root, node, cli, nodeMajor: descriptor.node_major, version: descriptor.version, installation_id: `nna_${digest(root)}`, data_id: `data_${digest(data)}` });
+  return Object.freeze({ root, dataRoot: data, node, cli, nodeMajor: descriptor.node_major, version: descriptor.version, installation_id: `nna_${digest(root)}`, data_id: `data_${digest(data)}` });
 }
 function environment() {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) =>

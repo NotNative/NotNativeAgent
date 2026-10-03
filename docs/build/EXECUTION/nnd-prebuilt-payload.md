@@ -25,6 +25,17 @@ pass `--nna-install-root` with the exact selected installation as a separate
 argument. It must not write per-machine selection into an immutable version slot.
 Current explicit native shell attachment already accepts that argument.
 
+`scripts/resolve-active-nnd-package.mjs ABSOLUTE_SELECTION_FILE` is a read-only
+launcher prerequisite. It checks the external pinned NNA installation/data IDs,
+queries that selected NNA's `nnd package status` with its data root, requires the
+registered root to be a child of that data root's immutable `versions` directory,
+and verifies the complete prebuilt payload and slot name. It returns a launch
+plan without starting a process or changing registration. Package status proves
+registered bytes only; the activation-pending barrier can still prevent a usable
+service. A future stable shortcut must preserve the external selection, recheck
+native completion/health, and bind launch to the selected generation. Do not use
+the resolver result alone as installation completion or activation evidence.
+
 ## Artifact identity
 
 `NND_PAYLOAD.json` has exactly these fields:
