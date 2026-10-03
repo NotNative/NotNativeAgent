@@ -18,6 +18,7 @@ import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { useGlobalSyncStore } from './global-stores.ts';
 import { adoptSessionProjection, sessionProjection } from './nna-projection.ts';
 import { shouldSkipStaleSessionEvent } from './event-equality.ts';
+import { assertFreshAuthority } from './authority-sync.ts';
 
 export interface SendFailureRecord {
   at: number;
@@ -107,6 +108,8 @@ export async function optimisticSend(
   await engine.waitForConnection();
   const store = engine.ensureChild(directory);
   const knowledge = await pendingKnowledge(directory, input.sessionID);
+  // A gap can be discovered while connection or knowledge preflight is pending.
+  assertFreshAuthority();
   const sendInput: optimisticSendInput = knowledge === undefined
     ? input
     : { ...input, parts: [knowledge.part, ...input.parts] };
@@ -187,6 +190,7 @@ async function dispatchPrompt(
   messageID: string,
   store: StoreApi<DirectoryStore>,
 ): Promise<void> {
+  assertFreshAuthority();
   const result = await harnessClient.promptAsync(
     input.sessionID,
     {

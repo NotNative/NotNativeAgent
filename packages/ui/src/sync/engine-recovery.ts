@@ -46,8 +46,11 @@ export function createRecovery(deps: RecoveryDeps) {
   const ctx: RecoveryCtx = { deps, resyncingDirs: new Set<string>(), inflight: new Map<string, Promise<void>>(), lastFullResyncAt: new Map<string, number>() };
   return {
     resyncDirectory: (directory: string, reason: string): Promise<void> => recoveryResyncDirectory(ctx, directory, reason, false),
-    authoritativeStatusResync: (directory: string, candidates: string[]): Promise<void> => recoveryStatusResync(ctx, directory, candidates),
+    authoritativeStatusResync: async (directory: string, candidates: string[]): Promise<void> => {
+      await recoveryStatusResync(ctx, directory, candidates);
+    },
     resyncAfterStreamGap: (reason: string): Promise<void> => recoveryAfterStreamGap(ctx, reason),
+    recoverAuthorityGap: (reason: string): Promise<boolean> => recoveryAuthorityGap(ctx, reason),
     stats: (): { resyncing: string[]; lastResyncAt: Map<string, number> } => ({
       resyncing: [...ctx.resyncingDirs],
       lastResyncAt: new Map(ctx.lastFullResyncAt),
@@ -123,12 +126,12 @@ function isStable(ctx: RecoveryCtx, directory: string, store: StoreApi<Directory
 }
 
 /** §D.5 authoritative status resync: snapshot replaces candidates; absence ⇒ idle. */
-async function recoveryStatusResync(ctx: RecoveryCtx, directory: string, candidates: string[]): Promise<void> {
-  if (candidates.length === 0) return;
+async function recoveryStatusResync(ctx: RecoveryCtx, directory: string, candidates: string[]): Promise<boolean> {
+  if (candidates.length === 0) return true;
   const store = ctx.deps.manager.children.get(directory);
   const result = await harnessClient.sessionStatus({ directory });
-  if (ctx.deps.disposed() || result.error || !result.data) return; // null preserves state, never empty success
-  if (!store || ctx.deps.manager.children.get(directory) !== store) return;
+  if (ctx.deps.disposed() || result.error || !result.data) return false; // null preserves state, never empty success
+  if (!store || ctx.deps.manager.children.get(directory) !== store) return false;
   useGlobalSessionStatusStore.getState().applySnapshot(result.data, candidates, 'authoritative');
   useSessionOrderingStore.getState().reconcileSnapshot(entriesSnapshot(result.data, candidates));
   const nextStatus = { ...store.getState().session_status };
@@ -141,6 +144,7 @@ async function recoveryStatusResync(ctx: RecoveryCtx, directory: string, candida
       ctx.deps.afterMessageLoad(store, sessionID);
     }
   }
+  return true;
 }
 
 async function recoveryCandidates(ctx: RecoveryCtx, directory: string, store: StoreApi<DirectoryStore>, candidates: string[]): Promise<void> {
@@ -187,6 +191,43 @@ async function recoveryAfterStreamGap(ctx: RecoveryCtx, reason: string): Promise
       useSessionViewStore.getState().setCurrentSession(null);
     }
   }
+}
+
+/** A native authority gap needs a complete catalog, not the ordinary
+ * best-effort reconnect path that intentionally preserves stale snapshots. */
+async function recoveryAuthorityGap(ctx: RecoveryCtx, reason: string): Promise<boolean> {
+  if (ctx.deps.disposed()) return false;
+  const runtime = getRuntimeKey();
+  const dirs = [...ctx.deps.manager.children.keys()].filter((dir) => dir !== 'global');
+  for (let index = 0; index < dirs.length; index += 2) {
+    const batch = dirs.slice(index, index + 2);
+    const results = await Promise.all(batch.map(async (dir) => {
+      const store = ctx.deps.manager.children.get(dir);
+      if (!store) return false;
+      const complete = await loadAuthoritativeSessions(dir, store,
+        () => !ctx.deps.disposed() && getRuntimeKey() === runtime && ctx.deps.manager.children.get(dir) === store,
+        { activeProjectFor: () => null, mergeBootstrap: ctx.deps.beginCatalog(dir) }, true);
+      if (!complete) return false;
+      await recoveryResyncDirectory(ctx, dir, reason, false);
+      if (ctx.deps.disposed() || getRuntimeKey() !== runtime || ctx.deps.manager.children.get(dir) !== store) return false;
+      // Best-effort reconnect reads can preserve stale status or blocking cards
+      // on failure. A native authority gap requires explicit successful reads.
+      const view = useSessionViewStore.getState();
+      const candidates = getReconnectCandidateIds(store, view.currentSessionId,
+        normalizeDirectory(view.activeDirectory), dir);
+      if (!await recoveryStatusResync(ctx, dir, candidates)) return false;
+      const stable = () => !ctx.deps.disposed() && getRuntimeKey() === runtime
+        && ctx.deps.manager.children.get(dir) === store;
+      const [questions, permissions] = await Promise.all([
+        resyncBlockingKind(store, dir, 'question', stable),
+        resyncBlockingKind(store, dir, 'permission', stable),
+      ]);
+      return questions && permissions && stable();
+    }));
+    if (results.some((ok) => !ok) || ctx.deps.disposed() || getRuntimeKey() !== runtime) return false;
+  }
+  await useGlobalSessionsStore.getState().loadSessions();
+  return !ctx.deps.disposed() && getRuntimeKey() === runtime && useGlobalSessionsStore.getState().status === 'ready';
 }
 
 function entriesSnapshot(snapshot: Record<string, SessionStatus>, candidates: string[]): { sessionID: string; status: SessionStatus }[] {

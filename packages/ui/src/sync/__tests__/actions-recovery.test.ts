@@ -25,6 +25,8 @@ import { useConfigStore } from '../../stores/useConfigStore.ts';
 import type { EngineServices as LegacyServices } from '../session-lifecycle.ts';
 import type { DirectoryStore } from '../types.ts';
 import { INITIAL_STATE } from '../types.ts';
+import { beginAuthorityRecovery, finishAuthorityRecovery } from '../authority-sync.ts';
+import { createSessionActions } from '../engine-actions.ts';
 import type { PermissionRequest, Session, SessionStatus } from '../../lib/nnd/types.ts';
 
 function freshStore(seed: Partial<DirectoryStore> = {}): StoreApi<DirectoryStore> {
@@ -71,7 +73,35 @@ function services(overrides: Partial<LegacyServices> = {}): LegacyServices {
 
 beforeEach(() => configureHarness({}));
 
+it('blocks prompt, create, fork, rename, and question decisions while native authority is stale', async () => {
+  const actions = createSessionActions(services(), () => new Map());
+  const token = beginAuthorityRecovery('test-runtime');
+  try {
+    expect(() => actions.send({ directory: 'D:/work', sessionID: 's1', parts: [{ type: 'text', text: 'run' }],
+      model: { providerID: 'p', modelID: 'm' } })).toThrow(/resynchronizing/);
+    expect(() => actions.createSession({ directory: 'D:/work' })).toThrow(/resynchronizing/);
+    await expect(actions.fork('s1', 'm1')).rejects.toThrow(/resynchronizing/);
+    await expect(actions.rename('s1', 'new title')).rejects.toThrow(/resynchronizing/);
+    expect(() => actions.replyQuestion('s1', { id: 'q1' } as never, [['yes']], false)).toThrow(/resynchronizing/);
+    for (const name of ['promptAsync', 'createSession', 'forkSession', 'updateSession', 'replyToQuestion']) {
+      expect(callsFor(name as Parameters<typeof callsFor>[0])).toHaveLength(0);
+    }
+  } finally { finishAuthorityRecovery('test-runtime', token, true); }
+});
+
 describe('optimistic send (§E.2)', () => {
+  it('does not send when a replay gap appears during connection wait', async () => {
+    let resume!: () => void;
+    const engine = services({ waitForConnection: () => new Promise<void>((resolve) => { resume = resolve; }) });
+    const pending = optimisticSend(engine, { directory: 'D:/work', sessionID: 's1',
+      parts: [{ type: 'text', text: 'hi' }], model: { providerID: 'p', modelID: 'm' } });
+    const token = beginAuthorityRecovery('test-runtime');
+    resume();
+    try {
+      await expect(pending).rejects.toThrow(/resynchronizing/);
+      expect(callsFor('promptAsync')).toHaveLength(0);
+    } finally { finishAuthorityRecovery('test-runtime', token, true); }
+  });
   it('publishes local busy and rollback to the global child-status index', async () => {
     let rejectSend: ((reason: Error) => void) | undefined;
     configureHarness({ promptAsync: () => new Promise((_resolve, reject) => { rejectSend = reject; }) });

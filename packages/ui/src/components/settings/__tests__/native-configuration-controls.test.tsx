@@ -9,6 +9,7 @@ import { nativeChange, nativeRepairDocument, previewNativeConfiguration, repairN
   requestNativeConfigurationCatalog, saveNativeConfiguration, newNativeOperationId,
   lookupNativeConfigurationOperation } from '../../../lib/nnd/configuration-mutation.ts';
 import { NativeConfigurationControls } from '../pages/native-configuration-controls.tsx';
+import { beginAuthorityRecovery, finishAuthorityRecovery } from '../../../sync/authority-sync.ts';
 
 const runtimeState = vi.hoisted(() => ({ key: 'local', origin: 'http://127.0.0.1:3000' }));
 vi.mock('../../../lib/runtime-switch.ts', async importOriginal => ({ ...(await importOriginal<object>()),
@@ -37,6 +38,7 @@ function mount(current: NativeConfigurationView = view) {
 function button(label: string) { const found = [...container.querySelectorAll('button')].find(item => item.textContent?.includes(label));
   if (!found) throw new Error('button missing: ' + label); return found; }
 beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); runtimeState.key = 'local'; runtimeState.origin = 'http://127.0.0.1:3000';
+  const token = beginAuthorityRecovery('local'); finishAuthorityRecovery('local', token, true);
   vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [field] }); });
 afterEach(() => { act(() => root?.unmount()); container?.remove(); sessionStorage.clear(); });
 
@@ -56,6 +58,25 @@ it('requires native preview before save and retains the same CAS payload', async
   await act(async () => { button('Save to NNA').click(); });
   expect(saveNativeConfiguration).toHaveBeenCalledWith(request, expect.any(String), expect.any(AbortSignal));
   expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
+});
+
+it('preserves the settings draft but disables native writes during a replay gap', async () => {
+  mount(); await act(async () => {});
+  await act(async () => { const select = container.querySelector('select')!; select.value = 'streaming';
+    select.dispatchEvent(new Event('change', { bubbles: true })); });
+  const draft = container.querySelector('textarea') as HTMLTextAreaElement;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(draft, 'false');
+    draft.dispatchEvent(new Event('input', { bubbles: true })); });
+  let token = 0;
+  await act(async () => { token = beginAuthorityRecovery('local'); });
+  expect((container.querySelector('fieldset') as HTMLFieldSetElement).disabled).toBe(true);
+  expect(container.querySelector('textarea')?.value).toBe('false');
+  button('Preview change').click();
+  expect(previewNativeConfiguration).not.toHaveBeenCalled();
+  await act(async () => { finishAuthorityRecovery('local', token, false); });
+  expect((container.querySelector('fieldset') as HTMLFieldSetElement).disabled).toBe(true);
+  await act(async () => { token = beginAuthorityRecovery('local'); finishAuthorityRecovery('local', token, true); });
+  expect((container.querySelector('fieldset') as HTMLFieldSetElement).disabled).toBe(false);
 });
 
 it('repair requires explicit confirmation and a user-supplied replacement document', async () => {

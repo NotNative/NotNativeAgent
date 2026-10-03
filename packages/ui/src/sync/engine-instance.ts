@@ -20,7 +20,7 @@ import { bootstrapDirectory } from './bootstrap-directory.ts';
 import { runGlobalBootstrap } from './bootstrap.ts';
 import { mergeBootstrapLists } from './session-actions.ts';
 import { adoptPersistedActivity, resetActivityTiming, useStreamingStore } from './activity-streaming.ts';
-import { markActivityGap } from './activity-gap.ts';
+import { recoverGapAuthority } from './engine-authority-recovery.ts';
 import { createMaterializationScheduler } from './engine-materialization.ts';
 import { createRecovery } from './engine-recovery.ts';
 import { startWatchdog } from './engine-watchdog.ts';
@@ -255,10 +255,9 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
     onEvents: (eventDirectory, events) => partsHandleFlush(ctx, eventDirectory, events),
     onConnected: async ({ replayReset, skipResync, signal, explicitGap }) => {
       if (signal.aborted || ctx.disposed || ctx.connectionEpoch !== connectionEpoch || getRuntimeKey() !== runtimeKey) return;
-      const nnd = useGlobalSyncStore.getState().config?.['nnd'];
-      if (explicitGap && nnd && typeof nnd === 'object' && !Array.isArray(nnd)
-        && (nnd as Record<string, unknown>)['engine'] === 'nna') markActivityGap(runtimeKey);
-      if (!skipResync) await ctx.recovery.resyncAfterStreamGap(replayReset ? 'replay-reset' : 'stream-reconnect');
+      const authorityGap = await recoverGapAuthority(ctx.recovery, runtimeKey, signal, explicitGap === true,
+        () => !ctx.disposed && ctx.connectionEpoch === connectionEpoch);
+      if (!authorityGap && !skipResync) await ctx.recovery.resyncAfterStreamGap(replayReset ? 'replay-reset' : 'stream-reconnect');
       if (signal.aborted || ctx.disposed || ctx.connectionEpoch !== connectionEpoch || getRuntimeKey() !== runtimeKey) return;
       useConfigStore.setState({ isConnected: true, haveEverConnected: true, connectionPhase: 'connected', lastDisconnectReason: null });
     },

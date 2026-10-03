@@ -45,14 +45,14 @@ async function loadBlockingInto(
   directory: string,
   kind: 'question' | 'permission',
   isCurrent: () => boolean,
-): Promise<void> {
+): Promise<boolean> {
   const mapOf = (state: SyncState): Record<string, { id: string }[]> =>
     kind === 'question' ? state.question : state.permission;
   const signatureBefore = requestSignature(Object.values(mapOf(store.getState())).flat());
   const result = kind === 'question'
     ? await harnessClient.listQuestions({ directory })
     : await harnessClient.listPermissions({ directory });
-  if (!isCurrent() || result.error || !Array.isArray(result.data)) return; // failure is not empty success
+  if (!isCurrent() || result.error || !Array.isArray(result.data)) return false; // failure is not empty success
   // merge against the CURRENT state (post-fetch): live SSE arrivals that moved
   // the set mid-flight are protected; a stable signature proves the response's
   // omissions are real deletions, never a resurrection of a pre-read snapshot
@@ -78,6 +78,7 @@ async function loadBlockingInto(
     if (liveBucket) next[sessionID] = liveBucket as QuestionRequest[] & PermissionRequest[];
   }
   store.setState(kind === 'question' ? { question: next } : { permission: next });
+  return true;
 }
 
 /** Fetch + signature-guarded merge for one blocking-request kind. */
@@ -86,8 +87,8 @@ export async function resyncBlockingKind(
   directory: string,
   kind: 'question' | 'permission',
   isCurrent: () => boolean,
-): Promise<void> {
-  await loadBlockingInto(store, directory, kind, isCurrent);
+): Promise<boolean> {
+  return loadBlockingInto(store, directory, kind, isCurrent);
 }
 
 /** Feeds the global live-status index from an authoritative snapshot. */

@@ -11,6 +11,7 @@ import type { MaterializationRequest, DirectoryStore } from './types.ts';
 import type { EngineServices } from './session-lifecycle.ts';
 import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction, abortSessionAction, runShellAction, renameSessionAction, forkSessionAction, revertSessionAction, unrevertSessionAction } from './session-lifecycle.ts';
 import { optimisticSend, replyToPermission, replyToQuestion, dismissOpenRequestsForSession } from './session-actions.ts';
+import { assertFreshAuthority } from './authority-sync.ts';
 
 export type SessionActionsApi = {
   send: (input: Parameters<typeof optimisticSend>[1]) => Promise<void>;
@@ -35,18 +36,24 @@ export function createSessionActions(
   children: () => Map<string, StoreApi<DirectoryStore>>,
 ): SessionActionsApi {
   return {
-    send: (input) => optimisticSend(services, input),
-    createSession: (input) => createSession(services, input),
-    archive: (sessionID, directory) => archiveSessionAction(sessionID, directory),
-    restore: (sessionID, directory) => restoreSessionAction(sessionID, directory),
-    deleteSession: (sessionID, directory) => deleteSessionAction(services, sessionID, directory),
+    send: (input) => { assertFreshAuthority(); return optimisticSend(services, input); },
+    createSession: (input) => { assertFreshAuthority(); return createSession(services, input); },
+    archive: (sessionID, directory) => { assertFreshAuthority(); return archiveSessionAction(sessionID, directory); },
+    restore: (sessionID, directory) => { assertFreshAuthority(); return restoreSessionAction(sessionID, directory); },
+    deleteSession: (sessionID, directory) => { assertFreshAuthority(); return deleteSessionAction(services, sessionID, directory); },
     rename: async (sessionID, title) => {
+      assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await renameSessionAction(sessionID, title, directory);
     },
     fork: async (sessionID, messageID) => {
+      assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       const childID = await forkSessionAction(sessionID, messageID, directory);
+      try { assertFreshAuthority(); } catch {
+        throw new Error(`NNA created fork ${childID} while native authority was resynchronizing. `
+          + 'The fork remains recoverable in NNA; refresh before sending.');
+      }
       // §A.2/BTW: a forked child must MATERIALIZE its transcript like any
       // other surfaced session — register the route and enqueue the loader
       // demand; the mock copies entries harness-side with no message events.
@@ -56,24 +63,28 @@ export function createSessionActions(
       return childID;
     },
     revert: async (sessionID, messageID) => {
+      assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await revertSessionAction(sessionID, messageID, directory);
     },
     unrevert: async (sessionID) => {
+      assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await unrevertSessionAction(sessionID, directory);
     },
     runShell: async (sessionID, command) => {
+      assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await runShellAction(sessionID, command, directory);
     },
     abort: async (sessionID) => {
+      assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await abortSessionAction(sessionID, directory);
     },
-    replyPermission: (sessionID, request, reply) => replyToPermission(services, children(), sessionID, request, reply),
-    replyQuestion: (sessionID, request, answers, reject) => replyToQuestion(services, children(), sessionID, request, answers, reject),
-    dismissRequests: (rootSessionID) => dismissOpenRequestsForSession(services, children(), rootSessionID),
+    replyPermission: (sessionID, request, reply) => { assertFreshAuthority(); return replyToPermission(services, children(), sessionID, request, reply); },
+    replyQuestion: (sessionID, request, answers, reject) => { assertFreshAuthority(); return replyToQuestion(services, children(), sessionID, request, answers, reject); },
+    dismissRequests: (rootSessionID) => { assertFreshAuthority(); return dismissOpenRequestsForSession(services, children(), rootSessionID); },
   };
 }
 

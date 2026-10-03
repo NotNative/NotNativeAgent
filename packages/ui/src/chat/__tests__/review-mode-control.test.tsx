@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { ReviewModeControl } from '../review-mode-control.tsx';
 import { harnessClient, type HarnessResult } from '../../lib/nnd/client.ts';
 import type { ReviewModeSnapshot } from '../../lib/nnd/review-mode.ts';
+import { beginAuthorityRecovery, finishAuthorityRecovery } from '../../sync/authority-sync.ts';
 
 const runtime = vi.hoisted(() => ({ key: 'local', listener: () => {} }));
 vi.mock('../../lib/runtime-switch.ts', () => ({
@@ -107,4 +108,19 @@ it('ignores an older read when switching sessions', async () => {
   await render('s2');
   await act(async () => { for (const finish of replies) finish({ data: snapshot('unattended', 1) }); });
   expect(container.querySelector('select')?.value).toBe('auto-review');
+});
+
+it('closes permission mode during a replay gap and requires a fresh revision after recovery', async () => {
+  await render();
+  let token = 0;
+  await act(async () => { token = beginAuthorityRecovery('local'); });
+  expect(container.querySelector('select')).toBeNull();
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('reconnect');
+  expect(harnessClient.setSessionReviewMode).not.toHaveBeenCalled();
+  vi.mocked(harnessClient.getSessionReviewMode).mockResolvedValue({ data: snapshot('auto-review', 4) });
+  await act(async () => { finishAuthorityRecovery('local', token, false); });
+  expect(container.querySelector('select')).toBeNull();
+  await act(async () => { token = beginAuthorityRecovery('local'); finishAuthorityRecovery('local', token, true); });
+  expect(container.querySelector('select')?.value).toBe('auto-review');
+  expect(container.querySelector('select')?.disabled).toBe(false);
 });

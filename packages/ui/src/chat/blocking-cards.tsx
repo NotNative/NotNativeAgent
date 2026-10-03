@@ -18,6 +18,7 @@ import type { PermissionRequest, QuestionRequest } from '../lib/nnd/types.ts';
 import { toast } from 'sonner';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
+import { authorityState, subscribeAuthority } from '../sync/authority-sync.ts';
 
 interface ColumnProps {
   store: StoreApi<DirectoryStore>;
@@ -29,20 +30,21 @@ interface ColumnProps {
 export function BlockingCardsColumn({ store, engine, sessionID }: ColumnProps): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const globalConfig = useGlobalSyncStore((state) => state.config);
+  const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const nnaReview = nnaOwnsPermissionReview(snapshot.config) || nnaOwnsPermissionReview(globalConfig);
   const permissions = snapshot.permission[sessionID] ?? [];
   const questions = snapshot.question[sessionID] ?? [];
   if (permissions.length === 0 && questions.length === 0) return null;
   return (
     <div className="flex flex-col gap-2" data-testid="blocking-cards" onKeyDown={(event) => {
-      if (nnaReview || !event.altKey || permissions.length === 0) return;
+      if (authority !== 'ready' || nnaReview || !event.altKey || permissions.length === 0) return;
       const newest = permissions.at(-1) as PermissionRequest | undefined;
       if (!newest) return;
       event.preventDefault();
       if (event.key === 'Enter' && !event.shiftKey) void engine.actions.replyPermission(sessionID, newest, 'once');
       else if (event.key === 'Backspace') void engine.actions.replyPermission(sessionID, newest, 'reject');
     }}>
-      {permissions.map((request) => <PermissionCardView key={request.id} request={request} engine={engine} sessionID={sessionID} nnaReview={nnaReview} />)}
+      {permissions.map((request) => <PermissionCardView key={request.id} request={request} engine={engine} sessionID={sessionID} nnaReview={nnaReview} authorityReady={authority === 'ready'} />)}
       {questions.map((request) => <QuestionCardView key={request.id} request={request} engine={engine} sessionID={sessionID} />)}
     </div>
   );
@@ -52,7 +54,7 @@ export function BlockingCardsColumn({ store, engine, sessionID }: ColumnProps): 
 
 const TOOL_LABEL: Record<string, string | undefined> = { bash: 'Bash', edit: 'Edit', write: 'Write', webfetch: 'Web fetch', read: 'Read' };
 
-function PermissionCardView({ request, engine, sessionID, nnaReview }: { request: PermissionRequest; engine: SyncEngine; sessionID: string; nnaReview: boolean }): ReactNode {
+function PermissionCardView({ request, engine, sessionID, nnaReview, authorityReady }: { request: PermissionRequest; engine: SyncEngine; sessionID: string; nnaReview: boolean; authorityReady: boolean }): ReactNode {
   const tool = String(request.permission ?? 'tool');
   return (
     <section className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3" data-testid="permission-card" data-permission-tool={tool}>
@@ -64,10 +66,11 @@ function PermissionCardView({ request, engine, sessionID, nnaReview }: { request
       <PermissionCardBody request={request} tool={tool} />
       <PatternsLine patterns={request.patterns} />
       {nnaReview ? <p className="mt-2 text-[11px] text-neutral-400">NNA reviews permissions under its configured policy and scope. Restate your intent in the conversation if further authority is needed.</p> : <div className="mt-2 flex items-center gap-2">
-        <button type="button" data-testid="permission-allow-once" className="rounded bg-emerald-600/80 px-2 py-1 text-[11px] text-white" onClick={() => void engine.actions.replyPermission(sessionID, request, 'once')}>Allow once</button>
-        <button type="button" data-testid="permission-deny" className="rounded bg-red-900/60 px-2 py-1 text-[11px] text-red-200" onClick={() => void engine.actions.replyPermission(sessionID, request, 'reject')}>Deny</button>
+        <button type="button" disabled={!authorityReady} data-testid="permission-allow-once" className="rounded bg-emerald-600/80 px-2 py-1 text-[11px] text-white" onClick={() => { if (authorityReady) void engine.actions.replyPermission(sessionID, request, 'once'); }}>Allow once</button>
+        <button type="button" disabled={!authorityReady} data-testid="permission-deny" className="rounded bg-red-900/60 px-2 py-1 text-[11px] text-red-200" onClick={() => { if (authorityReady) void engine.actions.replyPermission(sessionID, request, 'reject'); }}>Deny</button>
         <span className="ml-auto text-[10px] text-neutral-600">Alt+Enter once · Alt+Backspace deny</span>
       </div>}
+      {!authorityReady ? <p role="alert" className="mt-2 text-xs text-amber-300">Permission actions are paused until native authority has resynchronized.</p> : null}
     </section>
   );
 }

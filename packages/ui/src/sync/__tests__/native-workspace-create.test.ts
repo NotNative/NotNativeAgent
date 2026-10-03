@@ -3,6 +3,8 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { harnessClient } from '../../lib/nnd/client.ts';
 import { runtimeFetch } from '../../lib/runtime-fetch.ts';
 import { createSession, type EngineServices } from '../session-lifecycle.ts';
+import { beginAuthorityRecovery, finishAuthorityRecovery } from '../authority-sync.ts';
+import { getRuntimeKey } from '../../lib/runtime-switch.ts';
 
 vi.mock('../../lib/nnd/client.ts', () => ({
   normalizeDirectory: (value: string) => value.trim().replaceAll('\\', '/').replace(/^([a-z]):/u, (_: string, drive: string) => `${drive.toUpperCase()}:`).replace(/\/+$/u, ''),
@@ -49,4 +51,32 @@ it('selects a new session only when NNA confirms the same attached workspace', a
   expect(harnessClient.createSession).toHaveBeenCalledWith({ title: undefined, directory: rootA });
   expect(route).toHaveBeenCalledWith('ses_a', rootA);
   expect(selection).toHaveBeenCalledWith('ses_a', rootA);
+});
+
+it('does not issue create when a replay gap appears during native workspace admission', async () => {
+  let admit!: (response: Response) => void;
+  vi.mocked(runtimeFetch).mockImplementation(() => new Promise((resolve) => { admit = resolve; }));
+  const pending = createSession(engine, { directory: rootA });
+  const runtime = getRuntimeKey();
+  const token = beginAuthorityRecovery(runtime);
+  admit(admission(rootA));
+  try {
+    await expect(pending).rejects.toThrow(/resynchronizing/);
+    expect(harnessClient.createSession).not.toHaveBeenCalled();
+  } finally { finishAuthorityRecovery(runtime, token, true); }
+});
+
+it('preserves a session created as native authority closes without selecting it', async () => {
+  let created!: (response: Awaited<ReturnType<typeof harnessClient.createSession>>) => void;
+  vi.mocked(harnessClient.createSession).mockImplementation(() => new Promise((resolve) => { created = resolve; }));
+  const pending = createSession(engine, { directory: rootA });
+  await vi.waitFor(() => expect(harnessClient.createSession).toHaveBeenCalledOnce());
+  const runtime = getRuntimeKey();
+  const token = beginAuthorityRecovery(runtime);
+  created({ data: { id: 'ses_race', directory: rootA } as never });
+  try {
+    await expect(pending).rejects.toThrow(/ses_race.*recoverable/);
+    expect(selection).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  } finally { finishAuthorityRecovery(runtime, token, true); }
 });

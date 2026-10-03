@@ -12,6 +12,7 @@ import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
 import { runtimeFetch } from '../lib/runtime-fetch.ts';
 import { metadataWithProjectContextPins, type ProjectContextPinTargets } from '../chat/project-context-pins.ts';
 import { isNotFound } from './session-actions.ts';
+import { assertFreshAuthority } from './authority-sync.ts';
 
 export interface EngineServices {
   activeDirectory: () => string;
@@ -39,9 +40,12 @@ export async function createSession(engine: EngineServices, input: { directory: 
   projectContextPins?: ProjectContextPinTargets }): Promise<Session> {
   const requested = normalizeDirectory(input.directory);
   const selected = await nativeWorkspaceForCreate(requested);
+  // Native admission is async; a replay gap discovered during it closes writes.
+  assertFreshAuthority();
   const result = await harnessClient.createSession({ title: input.title, directory: requested, ...(input.parentID ? { parentID: input.parentID } : {}) });
   if (result.error || !result.data) throw new Error(result.error ?? 'createSession failed');
   const session = result.data;
+  assertCreatedSessionAuthority(session.id);
   // A configuration transition can race the read-only preflight. Preserve a
   // session created in the new root, but never select or dispatch into it.
   const sessionDirectory = typeof session.directory === 'string' ? normalizeDirectory(session.directory) : '';
@@ -68,12 +72,20 @@ export async function createSession(engine: EngineServices, input: { directory: 
     }
     session.metadata = committed.data.metadata;
   }
+  assertCreatedSessionAuthority(session.id);
   const store = engine.ensureChild(sessionDirectory);
   engine.registerSessionRoute(session.id, sessionDirectory);
   insertCreatedSession(store, session);
   engine.loaderInitializeCreated(sessionDirectory, session.id, store);
   engine.onSelectSession(session.id, sessionDirectory);
   return session;
+}
+
+function assertCreatedSessionAuthority(sessionID: string): void {
+  try { assertFreshAuthority(); } catch {
+    throw new Error(`NNA created session ${sessionID} while native authority was resynchronizing. `
+      + 'The session remains recoverable in NNA; refresh before sending.');
+  }
 }
 
 function boundedWorkspace(value: unknown): string | null {

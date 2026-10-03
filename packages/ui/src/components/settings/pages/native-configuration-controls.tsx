@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import type { NativeConfigurationView } from '../../../lib/nnd/configuration.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { chooseNativeField, inspectNativeOperation, previewNativeField, publishNativeField, repairNativeSource } from './native-configuration-controls-actions.ts';
 import { invalidateNativePreview, useNativeConfigurationControlsModel, type ControlsModel } from './native-configuration-controls-model.ts';
 import { NativeTuiEditForm } from './native-tui-edit-form.tsx';
 import { NativeRouteEditForm } from './native-route-edit-form.tsx';
+import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
+  const authority = useSyncExternalStore(subscribeAuthority, authorityState);
+  const priorAuthority = useRef(authority);
+  useEffect(() => {
+    if (authority !== 'ready') invalidateNativePreview(model);
+    else if (priorAuthority.current !== 'ready') onReload();
+    priorAuthority.current = authority;
+  }, [authority]);
   const title = family === 'tui' ? 'settings.page.nativeTui.title' : family === 'routes'
     ? 'settings.page.nativeRoutes.title' : 'settings.nativeConfiguration.manageTitle';
   return <section className="mt-4 space-y-2 border-t border-border pt-3 text-xs" aria-label={t(title)}>
     <h3 className="font-semibold">{t(title)}</h3>
+    {authority !== 'ready' ? <p role="alert">Native settings changes are paused until authority has resynchronized.</p> : null}
     {model.catalogError ? <p role="status">{t('settings.nativeConfiguration.catalogUnavailable')}</p> : null}
-    {view.source_state === 'present' && model.catalog ? family === 'tui'
+    <fieldset disabled={authority !== 'ready'}>{view.source_state === 'present' && model.catalog ? family === 'tui'
       ? <NativeTuiEditForm model={model} view={view} /> : family === 'routes'
         ? <NativeRouteEditForm model={model} view={view} /> : <NativeEditForm model={model} view={view} /> : null}
     {view.source_state !== 'present' && model.catalog ? family === 'tui'
       ? <p role="status">{t('settings.nativeTui.sourceMissing')}</p> : family === 'routes'
-        ? <p role="status">{t('settings.nativeRoutes.sourceMissing')}</p> : <NativeRepairForm model={model} view={view} /> : null}
+        ? <p role="status">{t('settings.nativeRoutes.sourceMissing')}</p> : <NativeRepairForm model={model} view={view} /> : null}</fieldset>
     <NativeOutcome model={model} view={view} onReload={onReload} />
   </section>;
 }

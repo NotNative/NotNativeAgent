@@ -2,6 +2,7 @@
 /** NNA remains the sole authority for preview, CAS publication and repair. */
 import { runtimeFetch } from '../runtime-fetch.ts';
 import { parseNativeConfigurationView, type NativeConfigurationView } from './configuration.ts';
+import { authorityState } from '../../sync/authority-sync.ts';
 
 const BASE = '/api/v1/nnd/configuration';
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
@@ -133,6 +134,7 @@ function receipt(raw: unknown, identity: { installation_id: string; data_id: str
   return raw as unknown as NativeReceipt;
 }
 export async function saveNativeConfiguration(request: NativeChangeRequest, operationId: string, signal: AbortSignal): Promise<NativeReceipt> {
+  if (authorityState() !== 'ready') throw new NativeConfigurationFailure('nnd_configuration_unavailable');
   return receipt(await call('/save', 'POST', signal, { ...request, operation_id: operationId }), request, operationId, request.expected_revision);
 }
 export async function lookupNativeConfigurationOperation(identity: { installation_id: string; data_id: string }, operationId: string,
@@ -154,6 +156,7 @@ export function nativeRepairDocument(input: unknown): Record<string, unknown> {
 }
 export async function repairNativeConfiguration(view: NativeConfigurationView, document: Record<string, unknown>, operationId: string,
   signal: AbortSignal): Promise<NativeReceipt> {
+  if (authorityState() !== 'ready') throw new NativeConfigurationFailure('nnd_configuration_unavailable');
   if (view.source_state === 'present' || !REVISION.test(view.source_revision ?? '') || !ID.test(operationId)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
   return receipt(await call('/repair', 'POST', signal, { installation_id: view.installation_id, data_id: view.data_id,
     scope: 'user', expected_revision: view.source_revision, operation_id: operationId,
