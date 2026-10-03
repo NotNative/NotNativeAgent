@@ -21,7 +21,7 @@ test('owner death inside final held-live window leaves exact journal and admissi
     const directory = join(root, 'runtime', 'nnd', 'install-slots', 'activations', operationId);
     await mkdir(root, { recursive: true });
     t.after(() => rm(root, { recursive: true, force: true }));
-    const child = fork(new URL('./support/nnd-final-window-worker.js', import.meta.url),
+    const child = fork(new URL('../scripts/test-support/nnd-final-window-worker.js', import.meta.url),
       [root, operationId, stageOperationId], { silent: true, execArgv: [] });
     t.after(() => { if (child.exitCode === null) child.kill(); });
     let timer;
