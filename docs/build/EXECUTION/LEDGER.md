@@ -877,9 +877,8 @@ legacy inherited sentinel rather than a fixed limit. Independent adversarial
 review found and corrected that misleading case. The full UI suite passed
 (1,750 tests), as did the web suite (1,447 tests), typechecks, quality gates,
 and the NND-to-NNA v29 source smoke. Packaged Chromium native-write acceptance
-remains under investigation: the direct selected source reports missing while
-the GUI renders edit controls, so this slice does not claim an installed GUI
-write journey.
+was still under investigation at this slice; the stale smoke selector was
+repaired in v22. This slice does not claim an installed GUI write journey.
 
 ## NND 20261003-22 — packaged native settings acceptance repair
 
@@ -891,3 +890,16 @@ and service survival after the desktop shell quits. Independent adversarial
 review found no defect in the corrected fixture. This is a disposable
 packaged-payload journey; operator installation, startup, and public slot
 activation remain open.
+
+## NND 20261003-23 — native provider deadlines
+
+Managed Settings now exposes NNA-advertised global provider and primary-route
+deadlines through bounded controls. Zero disables a deadline; nonzero values
+use NNA's 100–86,400,000 ms bounds. Preview shows the saved explicit-value
+change and both effective values, including when the primary override masks
+the global change until it is cleared. Saves retain native preview, revision
+checks, and receipts and remain unapplied to current work. Independent
+adversarial review found and fixed the masked-change preview and invalid
+numeric draft cases. Installed GUI acceptance remains open.
+The full UI suite passed (1,753 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.

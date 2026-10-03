@@ -34,6 +34,12 @@ const RUNTIME_TIMEOUTS: Record<string, { label: 'settings.nativeTimeouts.connect
   provider_connect_timeout_ms: { label: 'settings.nativeTimeouts.connect', min: 100, max: 600000 },
   semantic_review_timeout_ms: { label: 'settings.nativeTimeouts.semanticReview', min: 100, max: 86400000 },
 };
+const PROVIDER_DEADLINE: Record<string, { label: 'settings.nativeDeadline.global' | 'settings.nativeDeadline.primary'; min: number; max: number }> = {
+  provider_timeout_ms: { label: 'settings.nativeDeadline.global', min: 100, max: 86400000 },
+  'routes.primary.deadline_ms': { label: 'settings.nativeDeadline.primary', min: 100, max: 86400000 },
+};
+const providerDeadlineValid = (draft: string) => /^(?:0|[1-9]\d*)$/u.test(draft) && (draft === '0'
+  || Number(draft) >= 100 && Number(draft) <= 86400000);
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -81,6 +87,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const dreamEnabledSelected = selected?.path === 'dream.enabled' && selected.type === 'boolean';
   const timeoutFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(RUNTIME_TIMEOUTS, field.path));
   const timeoutSelected = selected?.type === 'integer' ? RUNTIME_TIMEOUTS[selected.path] : undefined;
+  const deadlineFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(PROVIDER_DEADLINE, field.path));
+  const deadlineSelected = selected?.type === 'integer' ? PROVIDER_DEADLINE[selected.path] : undefined;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -132,6 +140,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(RUNTIME_TIMEOUTS[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {deadlineFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.provider-deadline">
+      <h4 className="font-semibold">{t('settings.nativeDeadline.title')}</h4>
+      <p>{t('settings.nativeDeadline.description')}</p>
+      <div className="flex flex-wrap gap-2">{deadlineFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(PROVIDER_DEADLINE[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -206,6 +224,22 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
+      {model.mode === 'set' && deadlineSelected ? <>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={model.draft === '0'} disabled={model.busy || Boolean(model.pendingOperation)}
+            onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.checked ? '0'
+              : String(row?.effective.present && 'value' in row.effective && typeof row.effective.value === 'number'
+                && row.effective.value >= 100 && row.effective.value <= 86400000 ? row.effective.value : 1800000)); }} />
+          {t('settings.nativeDeadline.disabled')}
+        </label>
+        <label className="block">{t(deadlineSelected.label)}
+          <input type="number" min={deadlineSelected.min} max={deadlineSelected.max} step="1"
+            value={/^\d+$/u.test(model.draft) && model.draft !== '0' ? model.draft : ''}
+            disabled={model.busy || Boolean(model.pendingOperation) || model.draft === '0'}
+            onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+            className="ml-2 rounded border border-border bg-background p-1" />
+        </label>
+      </> : null}
       {model.mode === 'set' && selected.path === 'semantic_review_timeout_ms' && model.draft === '15000'
         ? <p role="status">{t('settings.nativeTimeouts.legacySemanticReview')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.enabled' && model.draft === 'false'
@@ -213,16 +247,27 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
-        && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+        && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />
       </label>}
-      <button type="button" onClick={() => previewNativeField(model, view)} disabled={model.busy || Boolean(model.pendingOperation)}>
+      <button type="button" onClick={() => previewNativeField(model, view)} disabled={model.busy || Boolean(model.pendingOperation)
+        || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))}>
         {t('settings.nativeConfiguration.preview')}</button>
       {model.preview && <div role="status" className="rounded border border-border p-2">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>
-        {memoryBooleanSelected ? (['memory.enabled', 'memory.required'] as const).map(path => {
+        {deadlineSelected ? (['provider_timeout_ms', 'routes.primary.deadline_ms'] as const).map(path => {
+          const before = view.fields.find(item => item.path === path)?.effective;
+          const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
+          const value = (item: typeof before) => item?.present && 'value' in item
+            ? item.value === null || item.value === 0 ? t('settings.nativeDeadline.disabled') : String(item.value)
+            : t('settings.nativeConfiguration.absent');
+          const explicitBefore = view.fields.find(item => item.path === path)?.explicit;
+          const explicitAfter = model.preview?.result.view.fields.find(item => item.path === path)?.explicit;
+          return <p key={path}>{t(PROVIDER_DEADLINE[path]!.label)}: {value(before)}{' → '}{value(after)}
+            {path === selected.path ? <>; {t('settings.nativeDeadline.savedValue')}: {value(explicitBefore)}{' → '}{value(explicitAfter)}</> : null}</p>;
+        }) : memoryBooleanSelected ? (['memory.enabled', 'memory.required'] as const).map(path => {
           const before = view.fields.find(item => item.path === path)?.effective;
           const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
           return <p key={path}>{t(MEMORY_BOOLEAN[path]!)}: {before?.present && 'value' in before ? String(before.value) : t('settings.nativeConfiguration.absent')}

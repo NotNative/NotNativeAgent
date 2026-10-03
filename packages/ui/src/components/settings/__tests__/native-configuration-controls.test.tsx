@@ -292,6 +292,80 @@ it('warns that the legacy semantic-review value does not set a 15-second timeout
   expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('15000');
 });
 
+it('previews both provider deadline values before saving zero as a primary override', async () => {
+  const deadlineView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider_timeout_ms', catalog_path: 'provider_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 300000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'routes.primary.deadline_ms', catalog_path: 'routes.primary.deadline_ms', explicit: { present: true, value: 300000 },
+      effective: { present: true, value: 300000, source: 'user' }, application: 'not_applied' },
+  ] };
+  const disabledView: NativeConfigurationView = { ...deadlineView, fields: deadlineView.fields.map(row => ({ ...row,
+    effective: { present: true as const, value: 0, source: 'user' as const } })) };
+  const primary = { path: 'routes.primary.deadline_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [primary,
+    { path: 'provider_timeout_ms', type: 'integer', editability: field.editability }] });
+  const deadlineRequest = { ...request, operations: [{ op: 'set' as const, field: primary.path, value: 0 }] };
+  vi.mocked(nativeChange).mockReturnValue(deadlineRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: disabledView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(deadlineView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.provider-deadline"]')).not.toBeNull();
+  await act(async () => button('Primary route deadline (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('100'); expect(input.max).toBe('86400000');
+  await act(async () => { (container.querySelector('input[type="checkbox"]') as HTMLInputElement).click(); });
+  expect((container.querySelector('input[type="number"]') as HTMLInputElement).disabled).toBe(true);
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(deadlineView, primary, 'set', '0');
+  expect(container.textContent).toContain('Global provider timeout (ms): 300000 → Disable deadline (0)');
+  expect(container.textContent).toContain('Primary route deadline (ms): 300000 → Disable deadline (0)');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(deadlineRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
+it('shows a saved global timeout change hidden by a primary override', async () => {
+  const deadlineView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider_timeout_ms', catalog_path: 'provider_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 300000, source: 'user' }, application: 'not_applied' },
+    { path: 'routes.primary.deadline_ms', catalog_path: 'routes.primary.deadline_ms', explicit: { present: true, value: 300000 },
+      effective: { present: true, value: 300000, source: 'user' }, application: 'not_applied' },
+  ] };
+  const previewView: NativeConfigurationView = { ...deadlineView, fields: deadlineView.fields.map(row => row.path === 'provider_timeout_ms'
+    ? { ...row, explicit: { present: true as const, value: 600000 } } : row) };
+  const global = { path: 'provider_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [global] });
+  vi.mocked(nativeChange).mockReturnValue({ ...request, operations: [{ op: 'set', field: global.path, value: 600000 }] });
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: previewView });
+  mount(deadlineView); await act(async () => {});
+  await act(async () => button('Global provider timeout (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '600000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => button('Preview change').click());
+  expect(container.textContent).toContain('300000 → 300000; Saved value: Not set → 600000');
+});
+
+it('rejects an in-between provider deadline before native preview', async () => {
+  const deadlineView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider_timeout_ms', catalog_path: 'provider_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 1800000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'provider_timeout_ms', type: 'integer', editability: field.editability }] });
+  mount(deadlineView); await act(async () => {});
+  await act(async () => button('Global provider timeout (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '99');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(button('Preview change').disabled).toBe(true);
+  expect(previewNativeConfiguration).not.toHaveBeenCalled();
+});
+
 it('resets a native memory limit without sending a draft value', async () => {
   const memoryView: NativeConfigurationView = { ...view, fields: [
     { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: true, value: 1000 },

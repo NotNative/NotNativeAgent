@@ -100,6 +100,7 @@ export const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
   { id: 'native-configuration.provider-scheduling', page: 'native-configuration', titleKey: 'settings.nativeScheduling.title', keywords: 'nna provider concurrency queue limit scheduling requests' },
   { id: 'native-configuration.dream', page: 'native-configuration', titleKey: 'settings.nativeDream.title', keywords: 'nna dream maintenance idle inference hygiene retention enabled' },
   { id: 'native-configuration.runtime-timeouts', page: 'native-configuration', titleKey: 'settings.nativeTimeouts.title', keywords: 'nna provider connection semantic review timeout latency milliseconds' },
+  { id: 'native-configuration.provider-deadline', page: 'native-configuration', titleKey: 'settings.nativeDeadline.title', keywords: 'nna global provider timeout primary route deadline disable milliseconds' },
   { id: 'native-tui.preferences', page: 'native-tui', titleKey: 'settings.page.nativeTui.title', keywords: 'nna tui terminal color reduced motion key bindings shortcuts' },
   { id: 'native-routes.tuning', page: 'native-routes', titleKey: 'settings.page.nativeRoutes.title', keywords: 'nna reviewer vision route model provider temperature budget deadline' },
   { id: 'appearance.theme-mode', page: 'appearance', titleKey: 'settings.search.themeMode', keywords: 'theme, color, dark mode, light mode, system' },
