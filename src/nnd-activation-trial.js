@@ -184,6 +184,28 @@ function probePromotedAttach(trial, running, options, window, signal, tasks) {
   return task;
 }
 
+function recordPromotedAttach(trial, running, options, window, signal, tasks) {
+  if (!window.active || !window.promotionResult || window.attachUsed
+    || typeof trial.recordPromotedPrivateAttach !== 'function') {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND promoted attach recording is unavailable');
+  }
+  window.attachUsed = true;
+  const task = Promise.resolve().then(async () => {
+    const recorded = await trial.recordPromotedPrivateAttach({ operationId: options.operationId,
+      stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
+    if (recorded?.state !== 'promoted_attach_recorded_unresolved'
+      || recorded.operation_id !== options.operationId || recorded.generation !== running.instance_id
+      || recorded.ticket_receipt_sha256 !== window.ticketResult.ticket_receipt_sha256) {
+      throw new ContractError('nnd_activation_transition_proof_invalid',
+        'NND promoted attach receipt changed');
+    }
+    return recorded;
+  });
+  tasks.push(task); task.catch(() => {});
+  return task;
+}
+
 async function runFinalOwnedTask(identity, trial, running, serviceLease, registryLease, options, proof, signal, operation) {
   signal.throwIfAborted();
   assertHeldNndServiceLease(serviceLease, identity.data_id);
@@ -214,7 +236,8 @@ async function runFinalOwnedTask(identity, trial, running, serviceLease, registr
       return ticketTask;
     },
     promotePrivatePrincipal: () => promoteVerifiedTicket(trial, running, options, window),
-    probePromotedPrivateAttach: () => probePromotedAttach(trial, running, options, window, signal, ticketTasks) });
+    probePromotedPrivateAttach: () => probePromotedAttach(trial, running, options, window, signal, ticketTasks),
+    recordPromotedPrivateAttach: () => recordPromotedAttach(trial, running, options, window, signal, ticketTasks) });
   let result, failure;
   try { result = await operation(context); }
   catch (error) { failure = error; }

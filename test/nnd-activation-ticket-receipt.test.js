@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from '../src/ids.js';
-import { privateTicketEvidenceSha } from '../src/nnd-activation-ticket-evidence.js';
+import { privateTicketEvidenceSha, promotedAttachEvidenceSha } from '../src/nnd-activation-ticket-evidence.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -48,7 +48,8 @@ async function fixture() {
   const files = new Map([[join(identity.data_root, 'runtime', 'nnd', 'installation-pending.json'), marker],
     [join(activation, `${operationId}.candidate.json`), json(candidate.evidence)],
     [join(activation, `${operationId}.child.json`), childBytes]]);
-  const dependencies = { join, resolve, isDeepStrictEqual, ContractError, privateTicketEvidenceSha, hash, json,
+  const dependencies = { join, resolve, isDeepStrictEqual, ContractError, privateTicketEvidenceSha,
+    promotedAttachEvidenceSha, hash, json,
     serializeManifestBytes: value => json(value),
     readNndSelectedActivationCandidate: async () => candidate,
     exactRecord: (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
@@ -73,7 +74,7 @@ async function fixture() {
   const observe = Function(...Object.keys(dependencies),
     `${executable}\nreturn readNndPrivateTicketReceiptUnderOwnership;`)(...Object.values(dependencies));
   return { observe: () => observe(identity, serviceLease, registryLease, options), journal, files,
-    candidate,
+    candidate, options, childBytes, revision,
     setPointer: value => { pointer = value; }, identity, operationId };
 }
 
@@ -81,6 +82,15 @@ test('durable private ticket receipt reopens as unresolved evidence only', async
   const f = await fixture();
   assert.equal((await f.observe()).state, 'private_ticket_recorded_unresolved');
   f.journal[6].evidence_sha256 = hash('foreign proof');
+  await assert.rejects(f.observe(), { code: 'nnd_activation_health_invalid' });
+});
+test('ticket observer validates a later promoted attach receipt without claiming completion', async () => {
+  const f = await fixture();
+  f.journal.push({ phase: 'promoted_attach_verified', receipt_sha256: hash('promoted receipt'),
+    evidence_sha256: promotedAttachEvidenceSha(f.identity, f.options,
+      f.journal[6].receipt_sha256, f.revision, hash(f.childBytes)) });
+  assert.equal((await f.observe()).state, 'private_ticket_recorded_unresolved');
+  f.journal[7].evidence_sha256 = hash('foreign promoted evidence');
   await assert.rejects(f.observe(), { code: 'nnd_activation_health_invalid' });
 });
 test('foreign selected pointer and missing marker cannot recover a private ticket receipt', async () => {

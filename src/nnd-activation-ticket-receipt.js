@@ -8,7 +8,7 @@ import { assertManifestLease, runManifestLeaseWork } from './persistence/manifes
 import { readNndActivationJournal, appendNndActivationPhase } from './nnd-activation-journal.js';
 import { probeNndPrivateTicketUnderOwnership } from './nnd-activation-private-ticket.js';
 import { verifyNndPublishedTrialHealthUnderOwnership } from './nnd-activation-post-publication-health.js';
-import { privateTicketEvidenceSha } from './nnd-activation-ticket-evidence.js';
+import { privateTicketEvidenceSha, promotedAttachEvidenceSha } from './nnd-activation-ticket-evidence.js';
 import { readNndSelectedActivationCandidate } from './nnd-activation-candidate.js';
 import { readInstallBytes, hash, json, operationValid } from './nnd-install-storage.js';
 import { serializeManifestBytes } from './persistence/manifest-files.js';
@@ -20,8 +20,13 @@ import { validIdentity } from './reliability/process-identity.js';
 const invalid = () => new ContractError('nnd_activation_health_invalid',
   'Private NND ticket receipt is unresolved; preserve the pending barrier and both owners.');
 const unknown = operationId => Object.freeze({ state: 'unknown', operation_id: operationId });
-const ticketPhase = journal => journal.length === 7 && journal[5].phase === 'discovery_published'
-  && journal[6].phase === 'private_ticket_verified';
+const ticketPhase = journal => [7, 8].includes(journal.length) && journal[5].phase === 'discovery_published'
+  && journal[6].phase === 'private_ticket_verified'
+  && (journal.length === 7 || journal[7].phase === 'promoted_attach_verified');
+function assertPromotedEvidence(journal, identity, options, revision, childSha) {
+  if (journal.length === 8 && journal[7].evidence_sha256 !== promotedAttachEvidenceSha(identity,
+    options, journal[6].receipt_sha256, revision, childSha)) throw invalid();
+}
 const recordedReceipt = (options, journal, registrationRevision) => Object.freeze({ state: 'private_ticket_recorded_unresolved',
   operation_id: options.operationId, generation: options.generation, receipt_sha256: journal[6].receipt_sha256,
   publication_sha256: journal[5].receipt_sha256, registration_revision: registrationRevision });
@@ -78,8 +83,7 @@ export async function readNndPrivateTicketReceiptUnderOwnership(identity, servic
       || !childBytes.equals(json(child)) || child.protocol !== '1.0' || child.operation_id !== options.operationId
       || child.installation_id !== identity.installation_id || child.data_id !== identity.data_id
       || child.generation !== options.generation || child.version !== candidate.package.version) throw invalid();
-    const childSha = hash(childBytes);
-    const desired = serializeManifestBytes({ root: candidate.package.root,
+    const childSha = hash(childBytes), desired = serializeManifestBytes({ root: candidate.package.root,
       version: candidate.package.version, protocol: candidate.package.protocol });
     const desiredRevision = hash(desired);
     const forward = await readLockedManifestOperation(registryLease, `nnd-activate-${options.operationId}`);
@@ -105,6 +109,7 @@ export async function readNndPrivateTicketReceiptUnderOwnership(identity, servic
       generation: options.generation, discovery_sha256: hash(json(privateRecord)) }))) throw invalid();
     if (journal[6].evidence_sha256 !== privateTicketEvidenceSha(identity, options,
       journal[5].receipt_sha256, desiredRevision, childSha)) throw invalid();
+    assertPromotedEvidence(journal, identity, options, desiredRevision, childSha);
     signal.throwIfAborted();
     return recordedReceipt(options, journal, desiredRevision);
   }), { timeoutMs: 300000 });

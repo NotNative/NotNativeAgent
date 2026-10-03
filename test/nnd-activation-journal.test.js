@@ -61,8 +61,12 @@ test('private ticket receipt is unresolved and cannot skip proof or pending barr
       { code: 'nnd_activation_health_invalid' });
       assert.equal((await readNndActivationJournal(f.identity, f.directory)).length, 6);
       await appendNndActivationPhase(f.identity, f.directory, lease, registry, 'private_ticket_verified', B);
+      await assert.rejects(appendNndActivationPhase(f.identity, f.directory, lease, registry, 'completed', B),
+        { code: 'nnd_activation_journal_invalid' });
+      await appendNndActivationPhase(f.identity, f.directory, lease, registry, 'promoted_attach_verified', B);
       const journal = await readNndActivationJournal(f.identity, f.directory);
       assert.equal(journal[6].phase, 'private_ticket_verified');
+      assert.equal(journal[7].phase, 'promoted_attach_verified');
       assert.equal(journal.some(row => row.phase === 'completed'), false);
       const marker = join(f.root, 'runtime', 'nnd', 'installation-pending.json');
       await writeFile(marker, json({ protocol: '3.0', purpose: 'nnd_activation', operation_id: operationId,
@@ -73,7 +77,7 @@ test('private ticket receipt is unresolved and cannot skip proof or pending barr
     // Reopening after the owner exits still reports an unresolved phase and
     // the durable pending marker continues to deny ordinary admission.
     assert.equal((await readNndActivationJournal(f.identity, f.directory)).at(-1).phase,
-      'private_ticket_verified');
+      'promoted_attach_verified');
     await assert.rejects(assertNoNndInstallTransaction(f.identity), { code: 'nnd_install_transaction_pending' });
     const last = join(f.directory, 'activation-06.json');
     const damaged = (await readFile(last, 'utf8')).replace(f.identity.operation_id, randomUUID());

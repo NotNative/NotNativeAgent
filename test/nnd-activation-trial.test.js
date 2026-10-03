@@ -41,6 +41,9 @@ async function harness(overrides = {}) {
     return overrides.probePromotedPrivateAttach?.() ?? { state: 'promoted_private_attach_verified_unresolved',
       operation_id: operationId, generation: proof.generation,
       ticket_receipt_sha256: digest('ticket'), native_state: proof.native_state }; },
+  recordPromotedPrivateAttach: async () => { trace.push('record-promoted-private-attach');
+    return overrides.recordPromotedPrivateAttach?.() ?? { state: 'promoted_attach_recorded_unresolved',
+      operation_id: operationId, generation: proof.generation, ticket_receipt_sha256: digest('ticket') }; },
   trialChildPid: () => 4321,
   stop: async () => { trace.push('stop'); if (overrides.stop) return overrides.stop(); } };
   const child = { protocol: '1.0', operation_id: operationId,
@@ -207,6 +210,27 @@ test('post-promotion private attach must follow promotion and settles before sto
   assert.deepEqual(f.trace.filter(item => ['verify-held-ticket', 'promote-private-principal',
     'probe-promoted-private-attach', 'stop'].includes(item)),
   ['verify-held-ticket', 'promote-private-principal', 'probe-promoted-private-attach', 'stop']);
+});
+test('durable promoted attach task settles before stop and cannot be replayed after callback exit', async () => {
+  let release, retained;
+  const pending = new Promise(resolve => { release = resolve; });
+  const f = await harness({ recordPromotedPrivateAttach: () => pending });
+  const running = f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal, recordPromotedPrivateAttach }) => {
+      await verifyHeldTicket(); promotePrivatePrincipal();
+      retained = recordPromotedPrivateAttach;
+      void recordPromotedPrivateAttach();
+      assert.throws(() => recordPromotedPrivateAttach(), { code: 'nnd_activation_transition_proof_invalid' });
+    }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.trace.includes('stop'), false);
+  release({ state: 'promoted_attach_recorded_unresolved', operation_id: operationId,
+    generation: f.proof.generation, ticket_receipt_sha256: digest('ticket') });
+  await running;
+  assert.throws(() => retained(), { code: 'nnd_activation_transition_proof_invalid' });
+  assert.deepEqual(f.trace.filter(item => ['verify-held-ticket', 'promote-private-principal',
+    'record-promoted-private-attach', 'stop'].includes(item)),
+  ['verify-held-ticket', 'promote-private-principal', 'record-promoted-private-attach', 'stop']);
 });
 test('a swallowed uncertain registration selection never returns trial_healthy', async () => {
   const uncertain = new ContractError('manifest_publication_unknown', 'CAS may have saved');

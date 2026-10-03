@@ -9,7 +9,7 @@ import { ContractError } from '../src/ids.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { exactRecord, isNndLoopbackEndpoint } from '../src/nnd-service-contract.js';
 import { validIdentity } from '../src/reliability/process-identity.js';
-import { privateTicketEvidenceSha } from '../src/nnd-activation-ticket-evidence.js';
+import { privateTicketEvidenceSha, promotedAttachEvidenceSha } from '../src/nnd-activation-ticket-evidence.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -107,7 +107,7 @@ async function fixture(options = {}) {
   };
   const dependencies = { isDeepStrictEqual, join, resolve, createHmac, randomBytes, timingSafeEqual,
     ContractError, serializeManifestBytes,
-    exactRecord, isNndLoopbackEndpoint, validIdentity, privateTicketEvidenceSha, hash, json,
+    exactRecord, isNndLoopbackEndpoint, validIdentity, privateTicketEvidenceSha, promotedAttachEvidenceSha, hash, json,
     operationValid: value => [operationId, stageOperationId, generation].includes(value),
     assertHeldNndServiceLease: lease => { if (lease !== serviceLease) throw Error('foreign service lease'); },
     withNndServiceLease: (_lease, _dataId, callback) => callback(new AbortController().signal),
@@ -157,6 +157,23 @@ test('private ticket receipt remains unresolved through repeated health checks',
         generation: f.state.record.instance_id }, before.journal_sha256, before.registration_revision, hash(child)) });
   assert.equal((await f.run()).state, 'published_healthy_unresolved');
   f.journal[6].evidence_sha256 = hash('foreign ticket proof');
+  await assert.rejects(f.run(), { code: 'nnd_activation_health_invalid' });
+});
+test('post-promotion journal receipt remains historical and tampering stops fresh health', async () => {
+  const f = await fixture();
+  const before = await f.run();
+  const child = f.files.get(join(f.identity.data_root, 'runtime', 'nnd', 'install-slots',
+    'activations', `${f.operationId}.child.json`));
+  const options = { operationId: f.operationId, stageOperationId: f.stageOperationId,
+    generation: f.state.record.instance_id };
+  f.journal.push({ phase: 'private_ticket_verified', receipt_sha256: hash('ticket'),
+    evidence_sha256: privateTicketEvidenceSha(f.identity, options,
+      before.journal_sha256, before.registration_revision, hash(child)) });
+  f.journal.push({ phase: 'promoted_attach_verified', receipt_sha256: hash('promoted attach'),
+    evidence_sha256: promotedAttachEvidenceSha(f.identity, options,
+      f.journal[6].receipt_sha256, before.registration_revision, hash(child)) });
+  assert.equal((await f.run()).state, 'published_healthy_unresolved');
+  f.journal[7].evidence_sha256 = hash('foreign promoted proof');
   await assert.rejects(f.run(), { code: 'nnd_activation_health_invalid' });
 });
 test('published health rejects a dark controller probe for another UI endpoint', async () => {

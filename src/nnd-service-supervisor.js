@@ -19,6 +19,7 @@ import { createNndTrialAdmissionGate } from './nnd-trial-admission.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
 import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
+import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted-attach-receipt.js';
 import { userDataPaths } from './product.js';
 
 async function readMetadata(path) {
@@ -130,6 +131,8 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
         promotePrivatePrincipal: options => session.state.native.promoteTrialPrincipal(session.state,
           lease, registryLease, options),
         probePromotedPrivateAttach: options => probeNndPromotedPrivateAttachUnderOwnership(identity, session.state,
+          lease, registryLease, options),
+        recordPromotedPrivateAttach: options => recordNndPromotedAttachUnderOwnership(identity, session.state,
           lease, registryLease, options),
         trialChildPid: () => session.state.child?.child?.pid ?? null,
         registrationSelected: () => session.state.registrationSelected === true } : {}) });

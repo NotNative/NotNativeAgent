@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:56ed407cd0a9134972b6c45a93cacd1cb62d3e07dd259e203497135369695906",
+  "source_digest": "sha256:0a525b8a7f99cdee29da52a99f5f5e992a0b5ca7e51dba75ca2630f0dfdbc367",
   "counts": {
-    "modules": 502,
+    "modules": 503,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 199
+      "module_count": 200
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 543,
-      "module_count": 174
+      "import_count": 551,
+      "module_count": 175
     },
     {
       "from": "experience-engine",
@@ -150,8 +150,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 55,
-      "module_count": 36
+      "import_count": 56,
+      "module_count": 37
     },
     {
       "from": "agentic-engine",
@@ -2128,6 +2128,21 @@
       ]
     },
     {
+      "path": "src/nnd-activation-promoted-attach-receipt.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-journal.js",
+        "src/nnd-activation-promoted-private-attach.js",
+        "src/nnd-activation-ticket-evidence.js",
+        "src/nnd-activation-ticket-receipt.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-lock.js"
+      ]
+    },
+    {
       "path": "src/nnd-activation-promoted-private-attach.js",
       "component": "foundation",
       "entrypoint": false,
@@ -3084,6 +3099,7 @@
         "src/ids.js",
         "src/nnd-activation-candidate.js",
         "src/nnd-activation-held-ticket.js",
+        "src/nnd-activation-promoted-attach-receipt.js",
         "src/nnd-activation-promoted-private-attach.js",
         "src/nnd-activation-registration.js",
         "src/nnd-install-marker.js",
