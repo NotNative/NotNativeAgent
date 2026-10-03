@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:454b701cf2760535b954cb83817e2d0e6611e45d400ccb326e1b83972c4d6c99",
+  "source_digest": "sha256:ec2e6d83bd243ecc12a906c1bb501532cbc63bee57877d1a71cdb84506118180",
   "counts": {
-    "modules": 479,
+    "modules": 481,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 178
+      "module_count": 180
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 453,
-      "module_count": 153
+      "import_count": 457,
+      "module_count": 155
     },
     {
       "from": "experience-engine",
@@ -168,13 +168,13 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 36,
-      "module_count": 24
+      "import_count": 37,
+      "module_count": 25
     },
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 36,
+      "import_count": 37,
       "module_count": 10
     },
     {
@@ -186,8 +186,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 22,
-      "module_count": 11
+      "import_count": 25,
+      "module_count": 13
     },
     {
       "from": "foundation",
@@ -1924,6 +1924,7 @@
         "src/nnd-harness-routes.js",
         "src/nnd-operator-routes.js",
         "src/nnd-setup-routes.js",
+        "src/nnd-workspace-grant-routes.js",
         "src/nno-integration-activation.js",
         "src/provider/bootstrap.js",
         "src/secret-broker-server.js"
@@ -2807,6 +2808,7 @@
         "src/integration-server.js",
         "src/nnd-configuration-service.js",
         "src/nnd-setup-config.js",
+        "src/nnd-workspace-grants.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
         "src/secret-broker.js",
@@ -2954,6 +2956,27 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/nnd-workspace-grant-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-workspace-grants.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/nnd-configuration-sources.js",
+        "src/persistence/manifest-transaction.js"
+      ]
     },
     {
       "path": "src/nnm-governance-receipts.js",
