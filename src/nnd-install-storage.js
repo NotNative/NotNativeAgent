@@ -17,7 +17,7 @@ export const operationValid = value => typeof value==='string' && /^[a-f0-9]{8}-
 const PROGRAM=PRIVATE_ACL_PROGRAM+String.raw`
 try {
  $r=[Console]::In.ReadToEnd()|ConvertFrom-Json
- foreach($p in $r.directories) { Create-PrivateDirectory $p; Assert-Directory $p $true }
+ foreach($p in $r.directories) { if ($r.create) { Create-PrivateDirectory $p }; Assert-Directory $p $true }
  $count=0
  foreach($directory in $r.evidence) {
   if(-not [IO.Directory]::Exists($directory)) { continue }
@@ -58,16 +58,16 @@ export async function assertNoNndInstallTransaction(identity) {
   &&!await hasActivationEvidence(identity.data_root)) return; if(error.code!=='ENOENT')throw installError(); }
  throw new ContractError('nnd_install_transaction_pending','NND installation or activation has pending evidence; native recovery is required.');
 }
-export async function openInstallStore(identity,signal) {
- const runtime=await ensurePrivateNndRuntimeDirectory(identity.data_root,{signal});
+export async function openInstallStore(identity,signal,{readOnly=false}={}) {
+ const runtime=await ensurePrivateNndRuntimeDirectory(identity.data_root,{signal,create:!readOnly});
  const root=join(runtime.path,'install-slots'),versions=join(root,'versions'),transactions=join(root,'transactions'),provenance=join(root,'provenance');
- await runPrivateWindowsProgram(PROGRAM,{directories:[root,versions,transactions,provenance],evidence:[runtime.path,root,provenance]},signal);
+ await runPrivateWindowsProgram(PROGRAM,{directories:[root,versions,transactions,provenance],evidence:[runtime.path,root,provenance],create:!readOnly},signal);
  const binding={protocol:'2.0',installation_id:identity.installation_id,data_id:identity.data_id,
   install_root:(await realpath(identity.install_root)).toLowerCase(),data_root:(await realpath(identity.data_root)).toLowerCase()};
  if(identity.installation_id!==`nna_${hash(binding.install_root)}` || identity.data_id!==`data_${hash(binding.data_root)}`) throw installError();
  const bytes=json(binding),path=join(root,'binding.json'),existing=await readInstallBytes(path,16384,true);
  if(existing && !existing.equals(bytes)) throw installError();
- if(!existing) await writeInstallNew(path,bytes);
+ if(!existing) { if(readOnly) throw installError(); await writeInstallNew(path,bytes); }
  const store={root,versions,transactions,provenance,pending:join(runtime.path,'installation-pending.json'),binding};
  const directories=[];
  for await(const entry of await opendir(transactions)) {
@@ -81,5 +81,5 @@ export async function newInstallTransaction(store,id,signal) {
  let count=0;for await(const _entry of await opendir(store.transactions)) if(++count>=16) throw installCapacity();
  const directory=join(store.transactions,id);
  try {await lstat(directory);throw installError();} catch(error) {if(error.code!=='ENOENT') throw error;}
- await runPrivateWindowsProgram(PROGRAM,{directories:[directory],evidence:[]},signal);return directory;
+ await runPrivateWindowsProgram(PROGRAM,{directories:[directory],evidence:[],create:true},signal);return directory;
 }

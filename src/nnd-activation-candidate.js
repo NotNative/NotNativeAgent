@@ -67,12 +67,12 @@ async function verifiedCandidate(identity, store, stageOperationId, registryLeas
 
 // Security: only a genuine owner of the data root and its registration mutex can evaluate a slot.
 // The candidate is descriptive; it does not publish registration, discovery or a browser ticket.
-async function candidateOwned(identity, serviceLease, registryLease, stageOperationId, expectedMarker, expectedRevision) {
+async function candidateOwned(identity, serviceLease, registryLease, stageOperationId, expectedMarker, expectedRevision, readOnly = false) {
   if (!operationValid(stageOperationId)) throw invalid();
   if (expectedRevision !== undefined && !/^(absent|[a-f0-9]{64})$/u.test(expectedRevision)) throw invalid();
   assertOwner(identity, serviceLease, registryLease);
   return withNndServiceLease(serviceLease, identity.data_id, signal => runManifestLeaseWork(registryLease, async () => {
-    const store = await openInstallStore(identity, signal);
+    const store = await openInstallStore(identity, signal, { readOnly });
     const marker = await readInstallBytes(store.pending, 1024, true);
     if (expectedMarker ? !marker?.equals(expectedMarker) : marker !== null) throw invalid();
     const candidate = await verifiedCandidate(identity, store, stageOperationId, registryLease, signal, expectedRevision);
@@ -88,7 +88,7 @@ export async function readNndPreparedActivationCandidate(identity, serviceLease,
 // For post-selection verification only: the original revision is supplied from
 // private preparation evidence while the currently selected manifest is checked by its caller.
 export async function readNndSelectedActivationCandidate(identity, serviceLease, registryLease, stageOperationId, marker, beforeRevision) {
-  return candidateOwned(identity, serviceLease, registryLease, stageOperationId, marker, beforeRevision);
+  return candidateOwned(identity, serviceLease, registryLease, stageOperationId, marker, beforeRevision, true);
 }
 
 // Security: a prepared journal receipt and an owned pending barrier are both required before a

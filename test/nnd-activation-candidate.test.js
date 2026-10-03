@@ -14,6 +14,7 @@ const identity = { install_root: 'C:\\native', data_root: 'C:\\data', installati
 const stageId = randomUUID(), activationId = randomUUID(), payloadSha = sha('inventory');
 async function fixture() {
   const state = { marker: null, ready: null, journal: [], proof: null, payloadSha, packageVersion: '20261002-8',
+    lastStoreOptions: null,
     dropJournalOnVerify: false };
   const store = { pending: join(identity.data_root, 'runtime', 'nnd', 'installation-pending.json'),
     provenance: join(identity.data_root, 'runtime', 'nnd', 'install-slots', 'provenance') };
@@ -35,7 +36,8 @@ async function fixture() {
       return { path: join(identity.data_root, 'config', 'nnd-package.json') }; },
     runManifestLeaseWork: async (_registry, operation) => operation(),
     readLockedManifestSnapshot: async () => ({ revision: 'absent' }),
-    openInstallStore: async () => store, readInstallBytes: async path => path === store.pending ? state.marker
+    openInstallStore: async (_identity, _signal, options) => { state.lastStoreOptions = options; return store; },
+    readInstallBytes: async path => path === store.pending ? state.marker
       : path === join(transaction.directory, 'ready.json') ? state.ready : null,
     json, hash: sha, serializeManifestBytes, operationValid: value => /^[a-f0-9-]{36}$/u.test(value),
     loadInstallTransaction: async (_identity, _store, id) => { assert.equal(id, stageId); return transaction; },
@@ -51,7 +53,7 @@ async function fixture() {
   const source = await readFile(new URL('../src/nnd-activation-candidate.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export async function', 'async function')
     .replaceAll('export function', 'function');
-  const api = Function(...Object.keys(dependencies), executable + '\nreturn {readNndActivationCandidate,issueNndTrialCapability,consumeNndTrialCapability};')
+  const api = Function(...Object.keys(dependencies), executable + '\nreturn {readNndActivationCandidate,readNndSelectedActivationCandidate,issueNndTrialCapability,consumeNndTrialCapability};')
     (...Object.values(dependencies));
   return { api, state, lease, registry, transaction, slot };
 }
@@ -65,8 +67,18 @@ test('verified staged slot produces identity-bound evidence and no trial authori
   assert.equal(candidate.evidence.desired_registration_sha256, sha(serializeManifestBytes(record)));
   assert.notEqual(candidate.evidence.desired_registration_sha256, sha(json(record)));
   assert.equal(candidate.evidence_sha256, sha(json(candidate.evidence)));
+  assert.deepEqual(f.state.lastStoreOptions, { readOnly: false });
   await assert.rejects(f.api.issueNndTrialCapability(identity, f.lease, f.registry, stageId, activationId),
     { code: 'nnd_activation_candidate_invalid' });
+});
+test('post-selection slot verification opens existing storage without creating evidence', async () => {
+  const f = await fixture();
+  const marker = json({ protocol: '3.0', purpose: 'nnd_activation' });
+  f.state.marker = marker;
+  const candidate = await f.api.readNndSelectedActivationCandidate(identity, f.lease, f.registry,
+    stageId, marker, 'absent');
+  assert.equal(candidate.evidence.registry_before_revision, 'absent');
+  assert.deepEqual(f.state.lastStoreOptions, { readOnly: true });
 });
 test('prepared receipt and exact owned barrier mint one-use unpublished trial capability', async () => {
   const f = await fixture();

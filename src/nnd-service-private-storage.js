@@ -17,10 +17,10 @@ try {
     if ($drive.DriveType -ne [IO.DriveType]::Fixed) { throw 'nnd_private_path_invalid' }
     Assert-Ancestors $root
     $runtime = [IO.Path]::Combine($root, 'runtime')
-    Create-PrivateDirectory $runtime
+    if ($request.create) { Create-PrivateDirectory $runtime }
     Assert-Ancestors $runtime
     $privatePath = [IO.Path]::Combine($runtime, 'nnd')
-    Create-PrivateDirectory $privatePath
+    if ($request.create) { Create-PrivateDirectory $privatePath }
     Assert-Ancestors $privatePath
     Assert-Directory $privatePath $true
     [Console]::Out.WriteLine((@{path=$privatePath; owner_sid=$operatorSid} | ConvertTo-Json -Compress))
@@ -32,13 +32,13 @@ try {
 }
 `;
 function failure(code) { return new ContractError(code, 'NND private runtime storage could not be verified'); }
-export async function ensurePrivateNndRuntimeDirectory(dataRoot, { signal } = {}) {
+export async function ensurePrivateNndRuntimeDirectory(dataRoot, { signal, create = true } = {}) {
   if (process.platform !== 'win32') throw failure('nnd_private_platform_unsupported');
   if (typeof dataRoot !== 'string' || dataRoot.length > 4096 || !/^[A-Za-z]:\\/u.test(dataRoot)
     || /[\u0000-\u001f]/u.test(dataRoot) || !isAbsolute(dataRoot)) throw failure('nnd_private_path_invalid');
   const systemRoot = process.env.SystemRoot;
   if (typeof systemRoot !== 'string' || !isAbsolute(systemRoot)) throw failure('nnd_private_storage_unavailable');
-  const result = await runPrivateWindowsProgram(ACL_PROGRAM, { data_root: dataRoot }, signal);
+  const result = await runPrivateWindowsProgram(ACL_PROGRAM, { data_root: dataRoot, create }, signal);
   try {
     const expected = join(await realpath(dataRoot), 'runtime', 'nnd');
     const actual = await realpath(result.path);
