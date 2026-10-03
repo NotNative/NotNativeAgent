@@ -41,6 +41,14 @@ export function createWireEventBus({ heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
     publishGlobal(type, properties) {
       return publish(subscribers, replay, globalEnvelope(eventId(), type, properties), {}, remove);
     },
+    /** Retained, session-scoped bookmark. The next SSE subscription either
+     * replays strictly after it or reports gap if this ring/generation lost it. */
+    checkpointSession({ directory, sessionID, project, subjectId, workspaceIds }) {
+      const id = eventId();
+      const scope = { project, subjectId, workspaceIds };
+      retainReplay(replay, scopedEnvelope(directory, project, id, 'nnd.activity.boundary', { sessionID }), scope);
+      return replay.entries.some((entry) => entry.envelope.payload.id === id) ? id : null;
+    },
     // Why: observed OC shapes — server/global events ride as {payload}; every
     // session-scoped event carries {directory, project, payload}. Durable
     // session events additionally emit a `sync` mirror with the SAME event id,
@@ -115,10 +123,18 @@ function replayAdmission(entries, cursor, subscriber) {
   // complete replay, even if its event remains in the shared retention ring.
   if (typeof cursor !== 'string' || cursor.length > 256) return { replayStatus: 'gap', replayIndex: -1 };
   const replayIndex = entries.findIndex((entry) => entry.envelope.payload.id === cursor);
-  if (replayIndex < 0 || !visibleTo(subscriber, entries[replayIndex].envelope, entries[replayIndex].scope)) {
+  if (replayIndex < 0 || !visibleTo(subscriber, entries[replayIndex].envelope, entries[replayIndex].scope)
+    || entries[replayIndex].envelope.payload.type === 'nnd.activity.boundary'
+      && !sameCheckpointScope(subscriber, entries[replayIndex].scope)) {
     return { replayStatus: 'gap', replayIndex: -1 };
   }
   return { replayStatus: 'complete', replayIndex };
+}
+
+function sameCheckpointScope(subscriber, scope) {
+  if (subscriber.subjectId !== scope.subjectId || !subscriber.workspaceIds
+    || !Array.isArray(scope.workspaceIds) || subscriber.workspaceIds.size !== scope.workspaceIds.length) return false;
+  return scope.workspaceIds.every((id) => subscriber.workspaceIds.has(id));
 }
 
 function publish(subscribers, replay, envelope, scope, remove) {

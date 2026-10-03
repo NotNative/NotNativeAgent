@@ -147,6 +147,30 @@ test('bus replays an ordered bounded suffix after the SSE cursor without re-emit
   bus.close();
 });
 
+test('session checkpoint replays only later events to its owner and fails across a new bus', () => {
+  const bus = createWireEventBus();
+  const scope = { directory: 'C:\\mine', project: 'primary', sessionID: 's',
+    subjectId: 'operator', workspaceIds: ['primary'] };
+  const cursor = bus.checkpointSession(scope);
+  assert.match(cursor, /^evt_/u);
+  bus.publishSession({ ...scope, type: 'nnd.activity', properties: { sessionID: 's', id: 'later' } });
+  const owned = [];
+  bus.subscribe(fakeRes(owned), { lastEventId: cursor, subjectId: 'operator', workspaceIds: ['primary'] });
+  assert.equal(payload(owned, 0).payload.properties.replayStatus, 'complete');
+  assert.deepEqual(owned.slice(1).map((_, index) => payload(owned, index + 1).payload.properties.id), ['later']);
+  const foreign = [];
+  bus.subscribe(fakeRes(foreign), { lastEventId: cursor, subjectId: 'other', workspaceIds: ['primary'] });
+  assert.equal(payload(foreign, 0).payload.properties.replayStatus, 'gap');
+  const expanded = [];
+  bus.subscribe(fakeRes(expanded), { lastEventId: cursor, subjectId: 'operator', workspaceIds: ['primary', 'newly_granted'] });
+  assert.equal(payload(expanded, 0).payload.properties.replayStatus, 'gap');
+  bus.close();
+  const restarted = createWireEventBus(); const after = [];
+  restarted.subscribe(fakeRes(after), { lastEventId: cursor, subjectId: 'operator', workspaceIds: ['primary'] });
+  assert.equal(payload(after, 0).payload.properties.replayStatus, 'gap');
+  restarted.close();
+});
+
 test('replay enforces principal and complete workspace grants and rejects unknown cursors', () => {
   const bus = createWireEventBus();
   const first = [];

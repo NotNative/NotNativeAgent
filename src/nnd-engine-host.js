@@ -14,7 +14,7 @@ import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
-import { readOwnedActivityPage } from './nnd-activity-history.js';
+import { readActivityPageWithBoundary } from './nnd-activity-boundary.js';
 import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
 import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalContextEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
@@ -380,7 +380,7 @@ export class NndEngineHost {
   }
   async activityHistoryPage(sessionId, principal, options = {}) {
     const context = this.#owned(sessionId, principal);
-    return readOwnedActivityPage(this.catalogPath, context, options, () => this.#owned(sessionId, principal));
+    return readActivityPageWithBoundary(this.catalogPath, context, options, () => this.#owned(sessionId, principal), this.eventBus);
   }
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);

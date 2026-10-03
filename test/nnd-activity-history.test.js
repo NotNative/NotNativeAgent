@@ -19,7 +19,7 @@ async function fixture(t) {
   const context = await host.create('session_a', owner);
   const createdAt = host.get(context.sessionId, owner).time.created;
   const save = (records) => persistActivity(catalogPath, 'session_a', createdAt, records);
-  return { catalogPath, createHost, createdAt, host, save };
+  return { catalogPath, createHost, createdAt, context, host, save };
 }
 
 function rows(count) {
@@ -38,6 +38,7 @@ test('owner pages one exact durable Activity suffix across restart without proje
     summary: 'Tool completed', toolEvidence: { tool: 'shell_run', target: 'private-command-123',
       arguments: { token: 'private-token-123' }, effect: 'read_only' } });
   await f.save(records);
+  f.context.activity.push(...records);
   const first = await f.host.activityHistoryPage('session_a', owner, { limit: 2 });
   assert.equal(first.status, 'page');
   assert.deepEqual(first.records.map((row) => row.id), ['event_4', 'tool_safe']);
@@ -46,6 +47,9 @@ test('owner pages one exact durable Activity suffix across restart without proje
   assert.equal(first.snapshot.retainedLowerBound, 'event_0');
   assert.equal(first.snapshot.retainedUpperBound, 'tool_safe');
   assert.equal(first.snapshot.historyComplete, false);
+  assert.equal(first.liveBoundary.status, 'paired');
+  assert.equal(first.liveBoundary.sessionID, 'session_a');
+  assert.match(first.liveBoundary.cursor, /^evt_/u);
   assert.equal(JSON.stringify(first).includes('private-command-123'), false);
   assert.equal(JSON.stringify(first).includes('private-token-123'), false);
   await f.host.shutdown();
@@ -61,6 +65,19 @@ test('owner pages one exact durable Activity suffix across restart without proje
   await assert.rejects(reopened.activityHistoryPage('session_a', { ...owner, subjectId: 'other' }),
     { code: 'nnd_session_unavailable' });
   await reopened.shutdown();
+});
+
+test('a durable snapshot lagging observed live Activity reports a pairing gap', async t => {
+  const f = await fixture(t);
+  await f.save(rows(2));
+  appendActivity(f.context.activity, { id: 'not_yet_durable', sessionID: 'session_a',
+    kind: 'notice', status: 'completed', summary: 'Pending' });
+  const page = await f.host.activityHistoryPage('session_a', owner, { limit: 2 });
+  assert.equal(page.status, 'page');
+  assert.deepEqual(page.records.map(row => row.id), ['event_0', 'event_1']);
+  assert.deepEqual(page.liveBoundary, { status: 'gap', sessionID: 'session_a', cursor: null,
+    reason: 'durable_snapshot_behind_live' });
+  await f.host.shutdown();
 });
 
 test('changed durable snapshot and session reincarnation return explicit gaps instead of mixing pages', async t => {

@@ -20,7 +20,7 @@ async function fixture(t) {
   const host = new NndEngineHost({ catalogPath, createEngine: async () => ({
     config: { executionManifest: null }, async initialize() {}, async shutdown() {},
   }) });
-  await host.create('session_a', { subjectId: 'operator', workspaceIds: ['primary'] });
+  const context = await host.create('session_a', { subjectId: 'operator', workspaceIds: ['primary'] });
   const createdAt = host.get('session_a', { subjectId: 'operator', workspaceIds: ['primary'] }).time.created;
   const service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(),
     token, nndEngineHost: host, port: 0 });
@@ -31,7 +31,7 @@ async function fixture(t) {
       headers: { authorization: `Bearer ${token}`, 'x-nna-principal': Buffer.from(JSON.stringify(principal)).toString('base64url') } });
     return { status: response.status, body: await response.json() };
   };
-  return { catalogPath, createdAt, host, base, request };
+  return { catalogPath, createdAt, context, host, base, request };
 }
 
 test('authenticated owner pages durable Activity and receives an explicit snapshot gap', async t => {
@@ -40,11 +40,14 @@ test('authenticated owner pages durable Activity and receives an explicit snapsh
   for (let i = 0; i < 3; i++) appendActivity(rows, { id: `event_${i}`, sessionID: 'session_a',
     kind: 'notice', status: 'completed', summary: `Event ${i}` });
   await persistActivity(f.catalogPath, 'session_a', f.createdAt, rows);
+  f.context.activity.push(...rows);
   const path = '/v1/nnd/sessions/session_a/activity-history';
   const first = await f.request(path + '?limit=1');
   assert.equal(first.status, 200);
   assert.deepEqual(first.body.records.map(row => row.id), ['event_2']);
   assert.equal(first.body.snapshot.historyComplete, false);
+  assert.equal(first.body.liveBoundary.status, 'paired');
+  assert.match(first.body.liveBoundary.cursor, /^evt_/u);
   assert.ok(first.body.nextCursor);
   const second = await f.request(path + '?limit=1&cursor=' + encodeURIComponent(first.body.nextCursor));
   assert.deepEqual(second.body.records.map(row => row.id), ['event_1']);
