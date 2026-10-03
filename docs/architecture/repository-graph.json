@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:5cb6f0362ef27a1d51f3ca3aa6a5e2b52a450ef3999cc7d87990c77ab7621c16",
+  "source_digest": "sha256:88637ba60de2c5a0aff28535dc115c8f3902fdb349293bbf181cca2fce02f314",
   "counts": {
-    "modules": 501,
+    "modules": 502,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 198
+      "module_count": 199
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 542,
-      "module_count": 173
+      "import_count": 543,
+      "module_count": 174
     },
     {
       "from": "experience-engine",
@@ -150,8 +150,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 54,
-      "module_count": 35
+      "import_count": 55,
+      "module_count": 36
     },
     {
       "from": "agentic-engine",
@@ -180,8 +180,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 28,
-      "module_count": 15
+      "import_count": 29,
+      "module_count": 16
     },
     {
       "from": "providers",
@@ -460,6 +460,12 @@
       "module_count": 2
     },
     {
+      "from": "foundation",
+      "to": "gateway",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
       "from": "governance-engine",
       "to": "reliability-engine",
       "import_count": 2,
@@ -516,12 +522,6 @@
     {
       "from": "experience-engine",
       "to": "reliability-engine",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "foundation",
-      "to": "gateway",
       "import_count": 1,
       "module_count": 1
     },
@@ -2463,6 +2463,17 @@
         "src/nnd-workspace-binding.js",
         "src/opencode/wire-events.js",
         "src/persistence/atomic-json.js"
+      ]
+    },
+    {
+      "path": "src/nnd-gateway-timeout-transaction.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/gateway/config.js",
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/persistence/manifest-transaction.js"
       ]
     },
     {
