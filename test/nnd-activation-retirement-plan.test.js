@@ -49,7 +49,7 @@ async function fixture() {
   };
   const source = await readFile(new URL('../src/nnd-activation-retirement-plan.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '')
-    .replaceAll('export async function', 'async function');
+    .replaceAll('export async function', 'async function').replaceAll('export function', 'function');
   const dependencies = { lstat, opendir, join, resolve, ContractError,
     assertHeldNndServiceLease: lease => assert.equal(lease, serviceLease),
     withNndServiceLease: (_lease, _id, work) => work(new AbortController().signal),

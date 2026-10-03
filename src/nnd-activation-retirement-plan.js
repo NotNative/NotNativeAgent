@@ -66,6 +66,11 @@ function parsePlan(bytes, identity, options) {
     || plan.files.find(file => file.name === 'child.json')?.present !== true) throw invalid();
   return plan;
 }
+// The external decision reader needs to verify this exact canonical plan after
+// journal files have been removed; parsing alone never attests live state.
+export function parseNndTerminalRetirementPlanBytes(bytes, identity, options) {
+  return parsePlan(bytes, identity, options);
+}
 async function fileBytes(path, limit, optional = false) {
   try { return await readInstallBytes(path, limit, optional); } catch { throw invalid(); }
 }

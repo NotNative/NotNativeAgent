@@ -23,6 +23,7 @@ import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-pr
 import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted-attach-receipt.js';
 import { recordNndCompletionUnderOwnership } from './nnd-activation-completion-receipt.js';
 import { planNndTerminalRetirementUnderOwnership } from './nnd-activation-retirement-plan.js';
+import { recordNndExternalRetirementDecisionUnderOwnership } from './nnd-activation-retirement-decision.js';
 import { userDataPaths } from './product.js';
 
 const RETAINED_BY_LEASE = new WeakMap();
@@ -101,7 +102,8 @@ function createSupervisorSession(identity, lease, releaseLease) {
   };
   return { state, stop, handle: Object.freeze({ status: () => status(state), stop, stopped,
     recordCompletion: (registryLease, options) => recordRetainedCompletion(state, registryLease, options),
-    planRetirement: (registryLease, options) => planRetainedRetirement(state, registryLease, options) }) };
+    planRetirement: (registryLease, options) => planRetainedRetirement(state, registryLease, options),
+    recordRetirementDecision: (registryLease, options) => recordRetainedRetirementDecision(state, registryLease, options) }) };
 }
 async function recordRetainedCompletion(state, registryLease, options) {
   if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
@@ -116,6 +118,13 @@ async function planRetainedRetirement(state, registryLease, options) {
       'NND retained owner is unavailable for retirement planning');
   }
   return planNndTerminalRetirementUnderOwnership(state.identity, state, state.lease, registryLease, options);
+}
+async function recordRetainedRetirementDecision(state, registryLease, options) {
+  if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
+    throw new ContractError('nnd_activation_retirement_decision_invalid',
+      'NND retained owner is unavailable for a retirement decision');
+  }
+  return recordNndExternalRetirementDecisionUnderOwnership(state.identity, state, state.lease, registryLease, options);
 }
 // Security: the only exported trial entry consumes a one-use, receipt-bound native capability.
 export async function startNndOwnedTrial(identity, paths, lease, registryLease, capability, options = {}) {

@@ -49,7 +49,12 @@ export async function hasActivationInitialization(dataRoot) {
   try { return row(db) !== null; } finally { db.close(); }
 }
 export async function hasActivationEvidence(dataRoot) {
-  const directory = join(dataRoot, 'runtime', 'nnd', 'install-slots', 'activations');
+  const root = join(dataRoot, 'runtime', 'nnd', 'install-slots');
+  // A terminal decision is intentionally outside the journal directory. It must
+  // keep ordinary admission barred even after that directory and marker vanish.
+  if (await regular(join(root, 'activation-retirement-decision.json'), true)
+    || await regular(join(root, 'activation-retirement.json'), true)) return true;
+  const directory = join(root, 'activations');
   try { await lstat(directory); } catch (error) { if (error.code === 'ENOENT') return false; throw invalid(); }
   try {
     await noLinks(directory);
