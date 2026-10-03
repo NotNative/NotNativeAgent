@@ -366,6 +366,87 @@ it('rejects an in-between provider deadline before native preview', async () => 
   expect(previewNativeConfiguration).not.toHaveBeenCalled();
 });
 
+it('declines ambiguous stream sentinels and saves a fixed first-token timeout through native CAS', async () => {
+  const streamView: NativeConfigurationView = { ...view, fields: [
+    { path: 'first_token_timeout_ms', catalog_path: 'first_token_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 600000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'idle_timeout_ms', catalog_path: 'idle_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 300000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const first = { path: 'first_token_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [first,
+    { path: 'idle_timeout_ms', type: 'integer', editability: field.editability }] });
+  const fixedRequest = { ...request, operations: [{ op: 'set' as const, field: first.path, value: 120000 }] };
+  vi.mocked(nativeChange).mockReturnValue(fixedRequest);
+  const projected: NativeConfigurationView = { ...streamView, fields: streamView.fields.map(row => row.path === first.path
+    ? { ...row, explicit: { present: true as const, value: 120000 },
+      effective: { present: true as const, value: 120000, source: 'user' as const } } : row) };
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: projected });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(streamView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.stream-timeouts"]')).not.toBeNull();
+  await act(async () => button('First-token timeout (ms)').click());
+  expect(button('Preview change').disabled).toBe(true);
+  expect(container.textContent).toContain('cannot pin 30000 ms or 600000 ms');
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('100'); expect(input.max).toBe('86400000');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '120000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(streamView, first, 'set', '120000');
+  expect(container.textContent).toContain('First-token timeout (ms): 600000 → 120000');
+  expect(container.textContent).toContain('Idle timeout (ms): 300000 → 300000');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(fixedRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
+it('offers zero as disabled while refusing idle legacy and paired-default values', async () => {
+  const streamView: NativeConfigurationView = { ...view, fields: [
+    { path: 'idle_timeout_ms', catalog_path: 'idle_timeout_ms', explicit: { present: true, value: 45000 },
+      effective: { present: true, value: 300000, source: 'user' }, application: 'not_applied' },
+  ] };
+  const idle = { path: 'idle_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [idle] });
+  vi.mocked(nativeChange).mockReturnValue({ ...request, operations: [{ op: 'set', field: idle.path, value: 0 }] });
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: streamView });
+  mount(streamView); await act(async () => {});
+  await act(async () => button('Idle timeout (ms)').click());
+  expect(button('Preview change').disabled).toBe(true);
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '300000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(button('Preview change').disabled).toBe(true);
+  await act(async () => { (container.querySelector('input[type="checkbox"]') as HTMLInputElement).click(); });
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(streamView, idle, 'set', '0');
+});
+
+it('resets a legacy stream timeout to inherited native policy', async () => {
+  const streamView: NativeConfigurationView = { ...view, fields: [
+    { path: 'idle_timeout_ms', catalog_path: 'idle_timeout_ms', explicit: { present: true, value: 45000 },
+      effective: { present: true, value: 300000, source: 'user' }, application: 'not_applied' },
+  ] };
+  const idle = { path: 'idle_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [idle] });
+  const resetRequest = { ...request, operations: [{ op: 'reset' as const, field: idle.path }] };
+  vi.mocked(nativeChange).mockReturnValue(resetRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: streamView });
+  mount(streamView); await act(async () => {});
+  await act(async () => button('Idle timeout (ms)').click());
+  await act(async () => { const action = [...container.querySelectorAll('select')][1]!;
+    action.value = 'reset'; action.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(container.querySelector('input[type="number"]')).toBeNull();
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(streamView, idle, 'reset', '45000');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(resetRequest, expect.any(AbortSignal));
+});
+
 it('resets a native memory limit without sending a draft value', async () => {
   const memoryView: NativeConfigurationView = { ...view, fields: [
     { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: true, value: 1000 },

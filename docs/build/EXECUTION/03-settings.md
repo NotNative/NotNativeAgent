@@ -223,7 +223,11 @@ assert that running sessions adopt saved values. Provider connection and
 semantic-review timeouts also have bounded native controls. Global provider
 timeout and primary route deadline controls preserve NNA's zero-disables and
 primary-route override semantics; preview shows both effective values before
-the same revision-checked save. Other execution, context, recovery,
+the same revision-checked save. First-token and idle timeout controls offer
+zero (disabled), reset (inherit), and unambiguous fixed values. They decline
+the exact legacy sentinels (30s/45s) and the 600s/300s default pair values
+because NNA can reinterpret them as inherited; preview shows both effective
+stream timeouts before the same revision-checked save. Other execution, context, recovery,
 telemetry, and retention scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate

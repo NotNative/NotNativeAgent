@@ -40,6 +40,14 @@ const PROVIDER_DEADLINE: Record<string, { label: 'settings.nativeDeadline.global
 };
 const providerDeadlineValid = (draft: string) => /^(?:0|[1-9]\d*)$/u.test(draft) && (draft === '0'
   || Number(draft) >= 100 && Number(draft) <= 86400000);
+const STREAM_TIMEOUTS: Record<string, { label: 'settings.nativeStreamTimeouts.firstToken' | 'settings.nativeStreamTimeouts.idle';
+  legacy: number; pairedDefault: number }> = {
+  first_token_timeout_ms: { label: 'settings.nativeStreamTimeouts.firstToken', legacy: 30000, pairedDefault: 600000 },
+  idle_timeout_ms: { label: 'settings.nativeStreamTimeouts.idle', legacy: 45000, pairedDefault: 300000 },
+};
+const streamTimeoutValid = (draft: string, field: { legacy: number; pairedDefault: number }) => /^(?:0|[1-9]\d*)$/u.test(draft)
+  && (draft === '0' || Number(draft) >= 100 && Number(draft) <= 86400000
+    && Number(draft) !== field.legacy && Number(draft) !== field.pairedDefault);
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -89,6 +97,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const timeoutSelected = selected?.type === 'integer' ? RUNTIME_TIMEOUTS[selected.path] : undefined;
   const deadlineFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(PROVIDER_DEADLINE, field.path));
   const deadlineSelected = selected?.type === 'integer' ? PROVIDER_DEADLINE[selected.path] : undefined;
+  const streamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(STREAM_TIMEOUTS, field.path));
+  const streamSelected = selected?.type === 'integer' ? STREAM_TIMEOUTS[selected.path] : undefined;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -150,6 +160,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(PROVIDER_DEADLINE[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {streamFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.stream-timeouts">
+      <h4 className="font-semibold">{t('settings.nativeStreamTimeouts.title')}</h4>
+      <p>{t('settings.nativeStreamTimeouts.description')}</p>
+      <div className="flex flex-wrap gap-2">{streamFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(STREAM_TIMEOUTS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -240,6 +260,24 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
             className="ml-2 rounded border border-border bg-background p-1" />
         </label>
       </> : null}
+      {model.mode === 'set' && streamSelected ? <>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={model.draft === '0'} disabled={model.busy || Boolean(model.pendingOperation)}
+            onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.checked ? '0'
+              : String(row?.effective.present && 'value' in row.effective && typeof row.effective.value === 'number'
+                && streamTimeoutValid(String(row.effective.value), streamSelected) ? row.effective.value : 120000)); }} />
+          {t('settings.nativeStreamTimeouts.disabled')}
+        </label>
+        <label className="block">{t(streamSelected.label)}
+          <input type="number" min="100" max="86400000" step="1"
+            value={/^\d+$/u.test(model.draft) && model.draft !== '0' ? model.draft : ''}
+            disabled={model.busy || Boolean(model.pendingOperation) || model.draft === '0'}
+            onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+            className="ml-2 rounded border border-border bg-background p-1" />
+        </label>
+        <p>{t('settings.nativeStreamTimeouts.sentinels', { legacy: streamSelected.legacy,
+          pairedDefault: streamSelected.pairedDefault })}</p>
+      </> : null}
       {model.mode === 'set' && selected.path === 'semantic_review_timeout_ms' && model.draft === '15000'
         ? <p role="status">{t('settings.nativeTimeouts.legacySemanticReview')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.enabled' && model.draft === 'false'
@@ -247,17 +285,26 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
-        && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+        && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
+        && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />
       </label>}
       <button type="button" onClick={() => previewNativeField(model, view)} disabled={model.busy || Boolean(model.pendingOperation)
-        || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))}>
+        || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))
+        || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))}>
         {t('settings.nativeConfiguration.preview')}</button>
       {model.preview && <div role="status" className="rounded border border-border p-2">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>
-        {deadlineSelected ? (['provider_timeout_ms', 'routes.primary.deadline_ms'] as const).map(path => {
+        {streamSelected ? (['first_token_timeout_ms', 'idle_timeout_ms'] as const).map(path => {
+          const before = view.fields.find(item => item.path === path)?.effective;
+          const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
+          const value = (item: typeof before) => item?.present && 'value' in item
+            ? item.value === null || item.value === 0 ? t('settings.nativeStreamTimeouts.disabled') : String(item.value)
+            : t('settings.nativeConfiguration.absent');
+          return <p key={path}>{t(STREAM_TIMEOUTS[path]!.label)}: {value(before)}{' → '}{value(after)}</p>;
+        }) : deadlineSelected ? (['provider_timeout_ms', 'routes.primary.deadline_ms'] as const).map(path => {
           const before = view.fields.find(item => item.path === path)?.effective;
           const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
           const value = (item: typeof before) => item?.present && 'value' in item

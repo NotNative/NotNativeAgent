@@ -903,3 +903,15 @@ adversarial review found and fixed the masked-change preview and invalid
 numeric draft cases. Installed GUI acceptance remains open.
 The full UI suite passed (1,753 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-24 — native stream timeouts
+
+Managed Settings now provides catalog-gated first-token and idle timeout
+controls. Zero disables, reset inherits, and fixed values use NNA's bounds.
+The GUI declines legacy values that NNA migrates to inherited semantics,
+including its paired defaults, so it cannot promise a fixed override that
+would not be applied. Preview shows both effective stream values and saves
+retain native revision checks and receipts. Independent adversarial review
+found no concrete defect. Installed GUI acceptance remains open.
+The full UI suite passed (1,756 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.
