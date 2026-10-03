@@ -192,6 +192,38 @@ function Assert-SafeRoot([string]$Path, [string[]]$Forbidden) {
     }
 }
 
+function Assert-ExistingDataAcl([string]$Path) {
+    $OperatorSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $Trusted = @($OperatorSid, 'S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $DangerousRights = 0x100D0040
+    $Current = [IO.DirectoryInfo]::new($Path)
+    for ($Depth = 0; $null -ne $Current -and $Depth -lt 128; $Depth++) {
+        if ($Current.Exists) {
+            if ($Current.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Unsafe NNA user data path (reparse point): $($Current.FullName)"
+            }
+            $Acl = $Current.GetAccessControl()
+            $Raw = [Security.AccessControl.RawSecurityDescriptor]::new($Acl.GetSecurityDescriptorBinaryForm(), 0)
+            if ($null -eq $Raw.DiscretionaryAcl -or
+                $Trusted -notcontains $Acl.GetOwner([Security.Principal.SecurityIdentifier]).Value) {
+                throw "Unsafe NNA user data directory ACL: $($Current.FullName)"
+            }
+            $Rules = $Acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])
+            if ($Rules.Count -gt 256) { throw "Unsafe NNA user data directory ACL: $($Current.FullName)" }
+            foreach ($Rule in $Rules) {
+                if ($Rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) { continue }
+                if ($Rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+                    $Trusted -notcontains $Rule.IdentityReference.Value -and
+                    ([int]$Rule.FileSystemRights -band $DangerousRights)) {
+                    throw "Unsafe NNA user data directory ACL: $($Current.FullName). Remove write access for other accounts before installing."
+                }
+            }
+        }
+        $Current = $Current.Parent
+    }
+    if ($null -ne $Current) { throw "Unsafe NNA user data path: $Path" }
+}
+
 function Add-UserPathEntry([string]$Entry) {
     $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $Mutex = New-Object Threading.Mutex($false, "Local\NotNativeAgent-UserPath-$CurrentSid")
@@ -304,6 +336,13 @@ function Remove-LegacyGatewayTask {
 
 Assert-SafeRoot $InstallRoot @([IO.Path]::GetPathRoot($InstallRoot), $UserHome, $LocalAppData)
 Assert-SafeRoot $DataRoot @([IO.Path]::GetPathRoot($DataRoot), $UserHome)
+$DataRootExisted = Test-Path -LiteralPath $DataRoot
+foreach ($Directory in @($DataRoot, (Join-Path $DataRoot 'sessions'), (Join-Path $DataRoot 'reviewer-ledger'), (Join-Path $DataRoot 'config'), (Join-Path $DataRoot 'logs'), (Join-Path $DataRoot 'support'))) {
+    Assert-ExistingDataAcl $Directory
+    # Check the actual inherited ACL before replacing an existing payload.
+    New-Item -ItemType Directory -Force -Path $Directory | Out-Null
+    Assert-ExistingDataAcl $Directory
+}
 
 function Assert-ChildPath([string]$Path, [string]$Parent) {
     $ResolvedPath = [IO.Path]::GetFullPath($Path).TrimEnd('\')
@@ -431,6 +470,10 @@ $NodeVersion = (& $NodePath -p 'process.versions.node').Trim()
 Write-InstallerOk "Node.js v$NodeVersion ($NodeSource)"
 Write-InstallerLine "      $NodePath" DarkGray
 Initialize-Ripgrep
+$StartupManifestPath = Join-Path $DataRoot 'config\manifest.json'
+$ManifestCheck = "import { pathToFileURL } from 'node:url'; import { join } from 'node:path'; try { const { manifestTarget } = await import(pathToFileURL(join(process.argv[1], 'src', 'persistence', 'manifest-files.js'))); await manifestTarget(process.argv[2]); } catch { process.exitCode = 1; }"
+& $NodePath --disable-warning=ExperimentalWarning --input-type=module -e $ManifestCheck $SourceRoot $StartupManifestPath | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Unsafe NNA user data manifest target: $StartupManifestPath" }
 $GatewayStoppedForUpgrade = $false
 $OpencodeStoppedForUpgrade = $false
 
@@ -476,7 +519,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot 'transitory') 
 Write-InstallerSection 'User data and security'
 Write-InstallerStep 'Preparing durable sessions, configuration, logs, and support storage'
 $DataMarkerPath = Join-Path $DataRoot '.nna-install.json'
-$DeleteAllowed = -not (Test-Path -LiteralPath $DataRoot)
+$DeleteAllowed = -not $DataRootExisted
 if (Test-Path -LiteralPath $DataMarkerPath) {
     $ExistingDataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $DeleteAllowed = $ExistingDataMarker.product -eq $Product -and $ExistingDataMarker.deletable -eq $true

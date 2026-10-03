@@ -11,6 +11,7 @@ import { loadManifest, parseCli, readPrompt } from '../src/cli-options.js';
 import { discoverLocalProvider, loadStartupManifest } from '../src/onboarding.js';
 import { runUninstallCommand } from '../src/uninstall-cli.js';
 import { loadWebSearchConfig } from '../src/web-search-config.js';
+import { manifestTarget } from '../src/persistence/manifest-files.js';
 
 const projectRoot = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1))), '..');
 
@@ -344,6 +345,149 @@ test('Windows installer rejects an invalid explicit WebSearch endpoint without r
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('Windows installer rejects a writable existing data root before replacing the application', {
+  skip: process.platform !== 'win32', timeout: 30_000,
+}, async () => {
+  const root = await mkdtemp(join(homedir(), 'nna-unsafe-data-install-'));
+  const app = join(root, 'app');
+  const data = join(root, 'home', '.nna');
+  try {
+    await mkdir(data, { recursive: true });
+    const grant = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `
+      $ErrorActionPreference = 'Stop'
+      $path = [Console]::In.ReadToEnd()
+      $acl = ([IO.DirectoryInfo]::new($path)).GetAccessControl()
+      $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+        [Security.Principal.SecurityIdentifier]::new('S-1-1-0'),
+        [Security.AccessControl.FileSystemRights]::Modify,
+        [Security.AccessControl.AccessControlType]::Allow)
+      $acl.AddAccessRule($rule)
+      ([IO.DirectoryInfo]::new($path)).SetAccessControl($acl)
+    `], { input: data, encoding: 'utf8', timeout: 5000 });
+    assert.equal(grant.status, 0, grant.stderr);
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(projectRoot, 'install.ps1'),
+      '-SourceRoot', projectRoot, '-InstallRoot', app, '-DataRoot', data,
+      '-SkipPathUpdate', '-SkipDependencyInstall', '-SkipRipgrepSetup', '-SkipProviderSetup',
+      '-SkipPlaywrightSetup', '-SkipGatewaySetup',
+    ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data directory ACL.*\.nna/u);
+    assert.doesNotMatch(result.stdout, /INSTALL COMPLETE/u);
+    assert.equal(existsSync(app), false, 'unsafe data must stop installation before payload mutation');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Windows installer rejects write access inherited by a newly created data root before replacing the application', {
+  skip: process.platform !== 'win32', timeout: 30_000,
+}, async () => {
+  const root = await mkdtemp(join(homedir(), 'nna-inherited-data-install-'));
+  const app = join(root, 'app');
+  const home = join(root, 'home');
+  const data = join(home, '.nna');
+  try {
+    await mkdir(home);
+    const grant = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `
+      $ErrorActionPreference = 'Stop'
+      $path = [Console]::In.ReadToEnd()
+      $info = [IO.DirectoryInfo]::new($path)
+      $acl = $info.GetAccessControl()
+      $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+        [Security.Principal.SecurityIdentifier]::new('S-1-1-0'),
+        [Security.AccessControl.FileSystemRights]::Modify,
+        [Security.AccessControl.InheritanceFlags]::ContainerInherit,
+        [Security.AccessControl.PropagationFlags]::InheritOnly,
+        [Security.AccessControl.AccessControlType]::Allow)
+      $acl.AddAccessRule($rule)
+      $info.SetAccessControl($acl)
+    `], { input: home, encoding: 'utf8', timeout: 5000 });
+    assert.equal(grant.status, 0, grant.stderr);
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(projectRoot, 'install.ps1'),
+      '-SourceRoot', projectRoot, '-InstallRoot', app, '-DataRoot', data,
+      '-SkipPathUpdate', '-SkipDependencyInstall', '-SkipRipgrepSetup', '-SkipProviderSetup',
+      '-SkipPlaywrightSetup', '-SkipGatewaySetup',
+    ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data directory ACL.*\.nna/u);
+    assert.doesNotMatch(result.stdout, /INSTALL COMPLETE/u);
+    assert.equal(existsSync(app), false, 'unsafe inheritance must stop installation before payload mutation');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Windows installer rejects an unsafe existing startup manifest before replacing the application', {
+  skip: process.platform !== 'win32', timeout: 30_000,
+}, async () => {
+  const root = await mkdtemp(join(homedir(), 'nna-unsafe-manifest-install-'));
+  const app = join(root, 'app');
+  const data = join(root, 'home', '.nna');
+  const manifest = join(data, 'config', 'manifest.json');
+  try {
+    await mkdir(join(data, 'config'), { recursive: true });
+    await writeFile(manifest, '{}\n');
+    const grant = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `
+      $ErrorActionPreference = 'Stop'
+      $path = [Console]::In.ReadToEnd()
+      $info = [IO.FileInfo]::new($path)
+      $acl = $info.GetAccessControl()
+      $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+        [Security.Principal.SecurityIdentifier]::new('S-1-1-0'),
+        [Security.AccessControl.FileSystemRights]::Modify,
+        [Security.AccessControl.AccessControlType]::Allow)
+      $acl.AddAccessRule($rule)
+      $info.SetAccessControl($acl)
+    `], { input: manifest, encoding: 'utf8', timeout: 5000 });
+    assert.equal(grant.status, 0, grant.stderr);
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(projectRoot, 'install.ps1'),
+      '-SourceRoot', projectRoot, '-InstallRoot', app, '-DataRoot', data,
+      '-SkipPathUpdate', '-SkipDependencyInstall', '-SkipRipgrepSetup', '-SkipProviderSetup',
+      '-SkipPlaywrightSetup', '-SkipGatewaySetup',
+    ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
+    const launch = result.status === 0 ? spawnSync(process.execPath, [join(app, 'installed', 'src', 'cli.js'), 'text', 'hello'], {
+      cwd: root, encoding: 'utf8', timeout: 10_000, env: { ...process.env, NNA_HOME: data },
+    }) : null;
+    assert.notEqual(result.status, 0, `installer reported success; launch status=${launch?.status}, stderr=${launch?.stderr}`);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data[\s\S]*manifest\.json/u);
+    assert.equal(existsSync(app), false, 'unsafe manifest must stop installation before payload mutation');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Windows installer rejects unsafe existing startup manifest storage before replacing the application', {
+  skip: process.platform !== 'win32', timeout: 30_000,
+}, async () => {
+  const root = await mkdtemp(join(homedir(), 'nna-unsafe-manifest-storage-'));
+  const app = join(root, 'app');
+  const data = join(root, 'home', '.nna');
+  const manifest = join(data, 'config', 'manifest.json');
+  try {
+    await mkdir(join(data, 'config'), { recursive: true });
+    const target = await manifestTarget(manifest);
+    const grant = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `
+      $ErrorActionPreference = 'Stop'
+      $path = [Console]::In.ReadToEnd()
+      $info = [IO.DirectoryInfo]::new($path)
+      $acl = $info.GetAccessControl()
+      $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+        [Security.Principal.SecurityIdentifier]::new('S-1-1-0'),
+        [Security.AccessControl.FileSystemRights]::Modify,
+        [Security.AccessControl.AccessControlType]::Allow)
+      $acl.AddAccessRule($rule)
+      $info.SetAccessControl($acl)
+    `], { input: target.storage, encoding: 'utf8', timeout: 5000 });
+    assert.equal(grant.status, 0, grant.stderr);
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(projectRoot, 'install.ps1'),
+      '-SourceRoot', projectRoot, '-InstallRoot', app, '-DataRoot', data,
+      '-SkipPathUpdate', '-SkipDependencyInstall', '-SkipRipgrepSetup', '-SkipProviderSetup',
+      '-SkipPlaywrightSetup', '-SkipGatewaySetup',
+    ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data[\s\S]*manifest\.json/u);
+    assert.equal(existsSync(app), false, 'unsafe manifest storage must stop installation before payload mutation');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('AC-PROD-05 installation, primary, and headless guidance disclose operator responsibility', async () => {
   for (const path of ['README.md', 'docs/INSTALLATION.md', 'docs/HEADLESS.md']) {
     const source = await readFile(join(projectRoot, path), 'utf8');
@@ -490,6 +634,7 @@ function windowsSmoke(root, app, data) {
   const force = process.env.NNA_TEST_DEPENDENCY_BOOTSTRAP === '1' ? ' -ForceBundledNode' : '';
   const command = [
     `& '${install}' -SourceRoot '${projectRoot}' -InstallRoot '${app}' -DataRoot '${data}' -SkipPathUpdate${force}`,
+    `if (-not ((Get-Content -LiteralPath '${join(data, '.nna-install.json')}' -Raw | ConvertFrom-Json).deletable)) { throw 'fresh data root lost installer ownership' }`,
     `Set-Content -LiteralPath '${join(app, 'installed', 'stale.txt')}' -Value 'replace me'`,
     `New-Item -ItemType Directory -Force -Path '${join(app, 'runtime')}' | Out-Null`,
     `Set-Content -LiteralPath '${join(app, 'runtime', 'keep.txt')}' -Value 'runtime state'`,
