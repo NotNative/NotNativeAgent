@@ -105,6 +105,21 @@ an earlier overlong fixture before publication; a shorter disposable path passed
 
 ## Remaining installation work
 
+`install.ps1 -StagePrebuiltPayload -PrebuiltPayloadRoot ABSOLUTE_DIRECTORY
+-PrebuiltManifestSha256 TRUSTED_SHA256` is a narrow installer entry for the
+existing native staging foundation. It can install a carried NNA dependency
+after checking the payload root, target separation, manifest bound, version
+shape, and externally pinned exact manifest digest. It then validates selected
+NNA capabilities and invokes NNA's bounded `stage-payload` command using the
+selected NNA Node runtime. No `node` or `pnpm` command on `PATH` is required.
+For an existing NND install, pinned selection identities must still match the
+selected NNA capabilities before staging; a changed data root is refused.
+It does not copy into the active NND install, update registration or shortcuts,
+launch a service, or claim an installed GUI. A failed or uncertain native
+response prints the operation UUID for explicit `stage-recover`; it does not
+delete evidence or guess rollback. A `slot_ready` result is inert pending
+transactional activation. The source-build path remains separate.
+
 The installer must delegate to native staging, maintain continuous lease ownership
 through trial activation, and compare-and-swap the sole native package registration.
 Previous-registration backups and durable staging evidence already exist; final

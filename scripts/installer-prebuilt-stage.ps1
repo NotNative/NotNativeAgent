@@ -1,0 +1,89 @@
+# A staged payload is inert. Native NNA owns its immutable slot and recovery evidence.
+function Assert-NndPrebuiltPayload([string]$PayloadRoot, [string]$ManifestSha256, [string]$TargetPath) {
+    if ($ManifestSha256 -cnotmatch '^[a-fA-F0-9]{64}$' -or ![IO.Path]::IsPathRooted($PayloadRoot)) {
+        throw 'Prebuilt staging requires an absolute payload root and an independently obtained manifest SHA-256.'
+    }
+    $payload = [IO.Path]::GetFullPath($PayloadRoot).TrimEnd('\', '/')
+    $target = [IO.Path]::GetFullPath($TargetPath).TrimEnd('\', '/')
+    if ($payload.Equals($target, [StringComparison]::OrdinalIgnoreCase) -or
+        $payload.StartsWith("$target\", [StringComparison]::OrdinalIgnoreCase) -or
+        $target.StartsWith("$payload\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Prebuilt payload and NND installation target must be separate.'
+    }
+    $manifest = Join-Path $payload 'NND_PAYLOAD.json'
+    $item = Get-Item -LiteralPath $manifest -Force -ErrorAction Stop
+    if ($item.PSIsContainer -or $item.Length -gt 33554432 -or
+        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'Prebuilt payload manifest is not a bounded regular file.'
+    }
+    $stream = [IO.File]::Open($manifest, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try { $actual = [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '') }
+    finally { $hasher.Dispose(); $stream.Dispose() }
+    if (!$actual.Equals($ManifestSha256, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Prebuilt payload manifest SHA-256 does not match the trusted digest; nothing was staged.'
+    }
+    $metadata = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+    if ($metadata.version -isnot [string] -or $metadata.version -cnotmatch '^\d{8}-[1-9]\d{0,5}$') {
+        throw 'Prebuilt payload manifest version is invalid; nothing was staged.'
+    }
+    return @{ Root = $payload; Sha256 = $actual.ToLowerInvariant(); Version = $metadata.version }
+}
+
+function Invoke-NndPrebuiltStage($SelectedNna, $CheckedPayload) {
+    $payload = $CheckedPayload.Root
+    $actual = $CheckedPayload.Sha256
+    $operation = [Guid]::NewGuid().ToString()
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $SelectedNna.Node
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service stage-payload ' +
+        (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot) + ' ' +
+        (ConvertTo-NndNativeArgument $payload) + ' ' + $operation
+    $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $false
+    $startInfo.EnvironmentVariables['NNA_HOME'] = $SelectedNna.DataRoot
+    foreach ($key in @('NODE_OPTIONS', 'NODE_PATH', 'ELECTRON_RUN_AS_NODE')) { $startInfo.EnvironmentVariables.Remove($key) }
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    $started = $false
+    try {
+        if (!$process.Start()) { throw 'Native staging did not start.' }
+        $started = $true
+        $buffer = New-Object char[] 1024
+        $output = New-Object System.Text.StringBuilder
+        $deadline = [DateTime]::UtcNow.AddMinutes(5)
+        while ($true) {
+            $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+            if ($remaining -le 0) { throw 'Native staging exceeded its deadline.' }
+            $read = $process.StandardOutput.ReadAsync($buffer, 0, $buffer.Length)
+            if (!$read.Wait($remaining)) { throw 'Native staging exceeded its deadline.' }
+            if ($read.Result -eq 0) { break }
+            [void]$output.Append($buffer, 0, $read.Result)
+            if ($output.Length -gt 8192) { throw 'Native staging response exceeded its bound.' }
+        }
+        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+        if ($remaining -le 0 -or !$process.WaitForExit($remaining) -or $process.ExitCode -ne 0) {
+            throw 'Native staging did not confirm completion.'
+        }
+        $result = $output.ToString() | ConvertFrom-Json
+        $keys = @($result.PSObject.Properties.Name)
+        $expected = @('state', 'operation_id', 'version', 'payload_sha256', 'slot', 'replay_window')
+        if ($keys.Count -ne $expected.Count -or @($expected | Where-Object { $_ -notin $keys }).Count -ne 0 -or
+            $result.state -cne 'slot_ready' -or $result.operation_id -cne $operation -or
+            $result.payload_sha256 -cne $actual.ToLowerInvariant() -or
+            $result.version -cne $CheckedPayload.Version -or
+            $result.slot -isnot [string] -or ![IO.Path]::IsPathRooted($result.slot) -or
+            $result.replay_window -cne 'last_16_terminal_operations') {
+            throw 'Native staging response did not confirm the selected payload.'
+        }
+        return $result
+    } catch {
+        throw "NND payload was not activated. Native staging outcome may be uncertain for operation $operation. Use selected NNA 'nnd service stage-recover' before retrying. $($_.Exception.Message)"
+    } finally {
+        if ($started -and !$process.HasExited) { $process.Kill(); [void]$process.WaitForExit(5000) }
+        $process.Dispose()
+    }
+}

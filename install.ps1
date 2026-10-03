@@ -11,6 +11,7 @@
 #   .\install.ps1 -InstallDir D:\apps\nnd
 #   .\install.ps1 -InstallNnaIfMissing   # unattended opt-in to local NNA bootstrap
 #   .\install.ps1 -InstallNnaIfMissing -NnaDependencyRoot C:\NNA-release -NnaDependencyManifestSha256 <trusted SHA-256>
+#   .\install.ps1 -StagePrebuiltPayload -PrebuiltPayloadRoot C:\NND-payload -PrebuiltManifestSha256 <trusted SHA-256>
 #   .\install.ps1 -SkipBuild            # reuse an existing built install
 #   .\install.ps1 -Uninstall            # remove shortcuts + installed tree
 #   .\install.ps1 -Uninstall -PurgeData # also erase user data/logs/prefs
@@ -36,6 +37,9 @@ param(
     [string]$NnaSourceRoot,
     [string]$NnaDependencyRoot,
     [string]$NnaDependencyManifestSha256,
+    [string]$PrebuiltPayloadRoot,
+    [string]$PrebuiltManifestSha256,
+    [switch]$StagePrebuiltPayload,
     [switch]$InstallNnaIfMissing,
     [switch]$SkipNnaPathUpdate,
     [switch]$Uninstall,
@@ -47,6 +51,13 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'scripts\installer-native-guard.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-preflight.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-dependency.ps1')
+. (Join-Path $PSScriptRoot 'scripts\installer-prebuilt-stage.ps1')
+if ($StagePrebuiltPayload -and (!$PrebuiltPayloadRoot -or !$PrebuiltManifestSha256 -or $Uninstall -or $PurgeData -or $SkipBuild)) {
+    throw '-StagePrebuiltPayload requires -PrebuiltPayloadRoot and -PrebuiltManifestSha256 and cannot be combined with uninstall or source-build options.'
+}
+if (!$StagePrebuiltPayload -and ($PrebuiltPayloadRoot -or $PrebuiltManifestSha256)) {
+    throw 'Prebuilt payload options require -StagePrebuiltPayload.'
+}
 if ($NnaDependencyRoot -and $NnaSourceRoot) { throw 'Choose either a verified NNA dependency release or the development source fallback.' }
 if ([bool]$NnaDependencyRoot -ne [bool]$NnaDependencyManifestSha256) {
     throw 'A carried NNA dependency requires both -NnaDependencyRoot and -NnaDependencyManifestSha256.'
@@ -97,11 +108,11 @@ function Test-InstallRunning([string]$ExePath) {
     return $procs.Count -gt 0
 }
 
-# The NND installer registers only with a validated co-installed NNA. The
-# registration is metadata, not a daemon launch; the legacy desktop child
-# remains available until NNA owns the GUI service lifecycle.
+# Source installation registers only with a validated co-installed NNA.
+# Prebuilt staging delegates to NNA but does not select or launch its slot.
 function Get-InstalledNna {
     $nnaRoot = if ($NnaInstallRoot) { $NnaInstallRoot } else { Join-Path $env:LOCALAPPDATA 'NotNativeAgent' }
+    $selectionPin = $null
     $selectionPath = Join-Path $InstallDir 'nna-service-selection.json'
     $hasSelection = !$NnaInstallRoot -and (Test-Path -LiteralPath $selectionPath)
     if ($hasSelection) {
@@ -122,6 +133,7 @@ function Get-InstalledNna {
                 $selection.data_id -isnot [string] -or
                 $selection.data_id -cnotmatch '^data_[a-f0-9]{64}$'))) { throw 'Installed NNA selection is invalid.' }
         $nnaRoot = $selection.nna_install_root
+        if ($isPinned) { $selectionPin = @{ InstallationId = $selection.installation_id; DataId = $selection.data_id } }
     }
     if (!$NnaInstallRoot -and !$hasSelection -and !$Uninstall -and !(Test-Path -LiteralPath (Join-Path $nnaRoot 'install.json') -PathType Leaf)) {
         $launcher = Get-Command 'nna.cmd' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -145,7 +157,14 @@ function Get-InstalledNna {
     if (!(Test-Path -LiteralPath $descriptor.node -PathType Leaf) -or !(Test-Path -LiteralPath $cli -PathType Leaf)) {
         throw 'Installed NNA runtime is incomplete; NND registration was not attempted.'
     }
-    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root; Version = $descriptor.version }
+    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root; Version = $descriptor.version; SelectionPin = $selectionPin }
+}
+
+function Assert-NndSelectedPin($SelectedNna, $Capabilities) {
+    $pin = $SelectedNna.SelectionPin
+    if ($pin -and ($pin.InstallationId -cne $Capabilities.installation_id -or $pin.DataId -cne $Capabilities.data_id)) {
+        throw 'Installed NNA selection identity changed; restore the selected NNA installation before changing NND.'
+    }
 }
 
 function Assert-NndRemovalTarget([string]$Candidate, [string]$SourceRoot) {
@@ -322,6 +341,23 @@ if ($targetPath.Equals($sourcePath, [StringComparison]::OrdinalIgnoreCase) -or
     $targetPath.StartsWith("$sourcePath\", [StringComparison]::OrdinalIgnoreCase)) {
     throw "-InstallDir must be outside the source repo (got $InstallDir)"
 }
+if ($StagePrebuiltPayload) {
+    # This branch does not change the current NND install or registration. It
+    # delegates immutable slot preparation to the selected installed NNA.
+    $checkedPayload = Assert-NndPrebuiltPayload $PrebuiltPayloadRoot $PrebuiltManifestSha256 $targetPath
+    $nna = Get-InstalledNna
+    if (!$nna) { Install-RequiredNna; $nna = Get-InstalledNna }
+    $capabilities = Assert-NndNnaCapabilities $nna
+    Assert-NndSelectedPin $nna $capabilities
+    $slot = Invoke-NndPrebuiltStage $nna $checkedPayload
+    Write-Heading 'Prebuilt NND payload staged; activation remains pending'
+    Write-Host "  selected NNA : $($capabilities.installation_id) / $($capabilities.data_id)"
+    Write-Host "  operation    : $($slot.operation_id)"
+    Write-Host "  version      : $($slot.version)"
+    Write-Host "  slot         : $($slot.slot)"
+    Write-Host '  The active NND package and shortcuts were not changed.'
+    exit 0
+}
 if (Test-InstallRunning $ElectronExe) {
     throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
 }
@@ -353,6 +389,7 @@ Write-Host "  source : $Source"
 Write-Host "  target : $InstallDir"
 Write-Good "NNA found at $($nna.Cli)"
 $nnaCapabilities = Assert-NndNnaCapabilities $nna
+Assert-NndSelectedPin $nna $nnaCapabilities
 Write-Good "NNA native NND protocol $($nnaCapabilities.protocol) is compatible"
 Invoke-NndRegistration 'status' $targetPath $nna
 
