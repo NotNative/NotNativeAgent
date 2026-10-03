@@ -880,3 +880,14 @@ and the NND-to-NNA v29 source smoke. Packaged Chromium native-write acceptance
 remains under investigation: the direct selected source reports missing while
 the GUI renders edit controls, so this slice does not claim an installed GUI
 write journey.
+
+## NND 20261003-22 — packaged native settings acceptance repair
+
+The real Electron/Chromium native-write smoke now uses the memory checkbox
+provided by the current GUI, rather than an obsolete textarea. The packaged
+v20 payload against NNA v29 passed selected-source repair, native preview and
+save receipt, stale-revision rejection, cookie admission, browser isolation,
+and service survival after the desktop shell quits. Independent adversarial
+review found no defect in the corrected fixture. This is a disposable
+packaged-payload journey; operator installation, startup, and public slot
+activation remain open.

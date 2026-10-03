@@ -56,8 +56,9 @@ async function saveEditorField(before) {
   const select = section.querySelector('select');
   if (!select) throw new Error('Native field selector missing');
   setValue(select, 'memory.enabled');
-  const editor = await waitFor('section[aria-label="Manage native configuration"] textarea');
-  setValue(editor, 'false');
+  const editor = await waitFor('section[aria-label="Manage native configuration"] input[type="checkbox"]');
+  if (editor.checked) editor.click();
+  await waitFor('section[aria-label="Manage native configuration"] input[type="checkbox"]', node => !node.checked);
   button(section, 'Preview change').click();
   await waitFor('section[aria-label="Manage native configuration"]', node =>
     [...node.querySelectorAll('button')].some(item => item.textContent?.trim() === 'Save to NNA' && !item.disabled));
