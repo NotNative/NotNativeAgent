@@ -9,6 +9,11 @@ const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
 const revision = (value: unknown): value is string => typeof value === 'string' && REVISION.test(value);
 const MAX_RESPONSE = 2 * 1024 * 1024;
+const MEMORY_PAIR = ['memory.enabled', 'memory.required'] as const;
+const memoryField = (path: string) => MEMORY_PAIR.some(item => item === path);
+const advertisedMemoryPair = (field: NativeEditableField) =>
+  field.editability.coupled_fields?.length === 2
+  && MEMORY_PAIR.every((path, index) => field.editability.coupled_fields?.[index] === path);
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 export class NativeConfigurationFailure extends Error {
   constructor(readonly code: string) { super(code); }
@@ -25,7 +30,7 @@ export interface NativeEditableField {
   path: string;
   type: 'integer' | 'number' | 'string' | 'boolean' | 'enum' | 'array';
   enum?: string[];
-  editability: { available: true; scope: 'user'; required_permission: 'nnd.configuration.manage' };
+  editability: { available: true; scope: 'user'; required_permission: 'nnd.configuration.manage'; coupled_fields?: string[] };
 }
 export type NativeRouteRole = 'reviewer' | 'vision';
 export interface NativeConfigurationCatalog { fields: NativeEditableField[]; routeBindings?: NativeRouteRole[] }
@@ -99,12 +104,16 @@ export async function requestNativeConfigurationCatalog(signal: AbortSignal): Pr
       || raw.editability.scope !== 'user' || raw.editability.required_permission !== 'nnd.configuration.manage'
       || raw.sensitivity === 'credential_reference') throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
     if (raw.type === 'enum' && (!Array.isArray(raw.enum) || raw.enum.length > 64 || raw.enum.some(item => typeof item !== 'string'))) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
-    fields.push(raw as unknown as NativeEditableField);
+    const field = raw as unknown as NativeEditableField;
+    if (memoryField(field.path) && !advertisedMemoryPair(field)) continue;
+    fields.push(field);
   }
   if (new Set(fields.map(field => field.path)).size !== fields.length) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+  const paired = MEMORY_PAIR.every(path => fields.some(field => field.path === path));
+  const editableFields = paired ? fields : fields.filter(field => !memoryField(field.path));
   const routeBindings = (['reviewer', 'vision'] as NativeRouteRole[]).filter(role =>
     bindingPaths.has(`routes.${role}.provider_id`) && bindingPaths.has(`routes.${role}.model`));
-  return { fields, routeBindings };
+  return { fields: editableFields, routeBindings };
 }
 export function nativeRouteBindingChange(view: NativeConfigurationView, catalog: NativeConfigurationCatalog,
   role: NativeRouteRole, providerId: string, model: string): NativeChangeRequest {
@@ -124,7 +133,8 @@ export function nativeChange(view: NativeConfigurationView, field: NativeEditabl
   if (view.scope !== 'user' || view.source_state !== 'present' || !REVISION.test(view.source_revision ?? '')
     || !/^[a-f0-9]{64}$/u.test(view.resolution_revision ?? '') || !ID.test(view.installation_id) || !ID.test(view.data_id)
     || !field.editability.available || field.editability.scope !== 'user'
-    || field.editability.required_permission !== 'nnd.configuration.manage') throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+    || field.editability.required_permission !== 'nnd.configuration.manage'
+    || (memoryField(field.path) && !advertisedMemoryPair(field))) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
   let operation: NativeOperation = { op: 'reset', field: field.path };
   if (mode === 'set') {
     let value: unknown;
@@ -150,6 +160,13 @@ export async function previewNativeConfiguration(request: NativeChangeRequest, s
     || raw.expected_revision !== request.expected_revision || raw.resolution_revision !== request.expected_resolution_revision) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
   const view = parseNativeConfigurationView(raw.view);
   if (!view || view.installation_id !== request.installation_id || view.data_id !== request.data_id) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+  const memory = request.operations[0];
+  const pairedValue = memory?.op === 'set' && (memory.field === 'memory.enabled' && memory.value === false
+    ? false : memory.field === 'memory.required' && memory.value === true ? true : null);
+  if (pairedValue !== null && MEMORY_PAIR.some(path => {
+    const row = view.fields.find(field => field.path === path);
+    return !row?.effective.present || !('value' in row.effective) || row.effective.value !== pairedValue;
+  })) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
   return { valid: true, expected_revision: request.expected_revision, resolution_revision: request.expected_resolution_revision,
     application: 'not_applied', view };
 }

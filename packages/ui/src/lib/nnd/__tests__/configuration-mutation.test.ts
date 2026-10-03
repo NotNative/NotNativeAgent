@@ -88,6 +88,46 @@ it('constructs integer memory limit and reset intents for the native preview con
   ]);
   expect(() => nativeChange(view, limit, 'set', '1000.5')).toThrow('nnd_configuration_request_invalid');
 });
+it('admits coupled memory controls only when both fields carry the native capability marker', async () => {
+  const memoryCatalog = { ...catalog, fields: [
+    ...catalog.fields,
+    ...(['memory.enabled', 'memory.required'] as const).map(path => ({ ...field, path,
+      classification: 'operator_setting', sensitivity: 'public', editability: { ...field.editability,
+        generic_editable: true, coupled_fields: ['memory.enabled', 'memory.required'] } })),
+  ] };
+  vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify(memoryCatalog)));
+  const selected = await requestNativeConfigurationCatalog(signal);
+  expect(selected.fields.map(item => item.path)).toEqual(['streaming', 'memory.enabled', 'memory.required']);
+  expect(nativeChange(view, selected.fields[1]!, 'set', 'false').operations).toEqual([
+    { op: 'set', field: 'memory.enabled', value: false },
+  ]);
+  expect(nativeChange(view, selected.fields[2]!, 'reset', '').operations).toEqual([
+    { op: 'reset', field: 'memory.required' },
+  ]);
+  expect(() => nativeChange(view, { ...field, path: 'memory.enabled' }, 'set', 'false'))
+    .toThrow('nnd_configuration_request_invalid');
+  vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ ...memoryCatalog,
+    fields: memoryCatalog.fields.map(item => item.path === 'memory.required'
+      ? { ...item, editability: { ...item.editability, coupled_fields: undefined } } : item) })));
+  expect((await requestNativeConfigurationCatalog(signal)).fields.map(item => item.path)).toEqual(['streaming']);
+});
+it('requires native preview to show both coupled memory effects before saving', async () => {
+  const coupled = { ...field, path: 'memory.enabled', editability: { ...field.editability,
+    coupled_fields: ['memory.enabled', 'memory.required'] } };
+  const request = nativeChange(view, coupled, 'set', 'false');
+  const previewView: NativeConfigurationView = { ...view, fields: (['memory.enabled', 'memory.required'] as const).map(path => ({
+    path, catalog_path: path, explicit: { present: true, value: false },
+    effective: { present: true, value: false, source: 'user' as const }, application: 'not_applied' as const,
+  })) };
+  const response = { valid: true, expected_revision: digest, resolution_revision: 'b'.repeat(64),
+    application: 'not_applied', view: previewView };
+  vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify(response)))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ...response, view: { ...previewView,
+      fields: previewView.fields.map(item => item.path === 'memory.required'
+        ? { ...item, effective: { present: true, value: true, source: 'user' } } : item) } })));
+  expect((await previewNativeConfiguration(request, signal)).view.fields).toHaveLength(2);
+  await expect(previewNativeConfiguration(request, signal)).rejects.toThrow('nnd_configuration_view_invalid');
+});
 it('preserves the operation id for uncertain outcomes and rejects a foreign receipt', async () => {
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'operation_not_found' }), { status: 404 }))
     .mockResolvedValueOnce(new Response(JSON.stringify({ ...receipt, data_id: 'foreign' })));

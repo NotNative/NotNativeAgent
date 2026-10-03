@@ -15,6 +15,9 @@ const MEMORY_LIMITS: Record<string, { label: 'settings.nativeMemory.timeout' | '
   'memory.max_items': { label: 'settings.nativeMemory.maxItems', min: 1, max: 64 },
   'memory.max_bytes': { label: 'settings.nativeMemory.maxBytes', min: 1024, max: 262144 },
 };
+const MEMORY_BOOLEAN: Record<string, 'settings.nativeMemory.enabled' | 'settings.nativeMemory.required'> = {
+  'memory.enabled': 'settings.nativeMemory.enabled', 'memory.required': 'settings.nativeMemory.required',
+};
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -50,8 +53,10 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
     (field.path === 'attachments.enabled' || field.path === 'attachments.retain') && field.type === 'boolean'
       || field.path === 'attachments.max_bytes' && field.type === 'integer');
   const attachmentSelected = selected && attachmentFields.some(field => field.path === selected.path);
-  const memoryFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(MEMORY_LIMITS, field.path));
+  const memoryFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(MEMORY_LIMITS, field.path)
+    || field.type === 'boolean' && Object.hasOwn(MEMORY_BOOLEAN, field.path));
   const memorySelected = selected?.type === 'integer' ? MEMORY_LIMITS[selected.path] : undefined;
+  const memoryBooleanSelected = selected?.type === 'boolean' ? MEMORY_BOOLEAN[selected.path] : undefined;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -72,7 +77,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       <div className="flex flex-wrap gap-2">{memoryFields.map(field => <button type="button" key={field.path}
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
-        {t(MEMORY_LIMITS[field.path]!.label)}
+        {t(field.type === 'boolean' ? MEMORY_BOOLEAN[field.path]! : MEMORY_LIMITS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -113,7 +118,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
-      {model.mode === 'set' && !attachmentSelected && !memorySelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+      {model.mode === 'set' && memoryBooleanSelected ? <label className="flex items-center gap-2">
+        <input type="checkbox" checked={model.draft === 'true'} disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(JSON.stringify(event.target.checked)); }} />
+        {t(memoryBooleanSelected)}
+      </label> : null}
+      {model.mode === 'set' && selected.path === 'memory.enabled' && model.draft === 'false'
+        ? <p>{t('settings.nativeMemory.disableAlsoClearsRequired')}</p> : null}
+      {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
+        ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
+      {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />
@@ -122,7 +136,12 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         {t('settings.nativeConfiguration.preview')}</button>
       {model.preview && <div role="status" className="rounded border border-border p-2">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>
-        <p>{projected?.present ? JSON.stringify(projected) : t('settings.nativeConfiguration.absent')}</p>
+        {memoryBooleanSelected ? (['memory.enabled', 'memory.required'] as const).map(path => {
+          const before = view.fields.find(item => item.path === path)?.effective;
+          const after = model.preview?.result.view.fields.find(item => item.path === path)?.effective;
+          return <p key={path}>{t(MEMORY_BOOLEAN[path]!)}: {before?.present && 'value' in before ? String(before.value) : t('settings.nativeConfiguration.absent')}
+            {' → '}{after?.present && 'value' in after ? String(after.value) : t('settings.nativeConfiguration.absent')}</p>;
+        }) : <p>{projected?.present ? JSON.stringify(projected) : t('settings.nativeConfiguration.absent')}</p>}
         <button type="button" onClick={() => publishNativeField(model, view)} disabled={model.busy}>{t('settings.nativeConfiguration.save')}</button>
       </div>}
     </>}

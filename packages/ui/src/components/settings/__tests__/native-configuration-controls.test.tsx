@@ -157,6 +157,62 @@ it('resets a native memory limit without sending a draft value', async () => {
   expect(previewNativeConfiguration).toHaveBeenCalledWith(resetRequest, expect.any(AbortSignal));
 });
 
+it('shows both coupled memory values before saving the same native CAS request', async () => {
+  const rows = (['memory.enabled', 'memory.required'] as const).map(path => ({ path, catalog_path: path,
+    explicit: { present: true as const, value: true }, effective: { present: true as const, value: true,
+      source: 'user' as const }, application: 'not_applied' as const }));
+  const memoryView: NativeConfigurationView = { ...view, fields: rows };
+  const previewView: NativeConfigurationView = { ...view, fields: rows.map(row => ({ ...row,
+    explicit: { present: true as const, value: false }, effective: { present: true as const, value: false,
+      source: 'user' as const } })) };
+  const paired = ['memory.enabled', 'memory.required'];
+  const enabledField = { path: 'memory.enabled', type: 'boolean' as const,
+    editability: { ...field.editability, coupled_fields: paired } };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [enabledField,
+    { ...enabledField, path: 'memory.required' }] });
+  const memoryRequest = { ...request, operations: [{ op: 'set' as const, field: 'memory.enabled', value: false }] };
+  vi.mocked(nativeChange).mockReturnValue(memoryRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: previewView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(memoryView); await act(async () => {});
+  await act(async () => button('Enable memory').click());
+  expect(container.textContent).toContain('NNA memory');
+  await act(async () => { (container.querySelector('input[type="checkbox"]') as HTMLInputElement).click(); });
+  expect(container.textContent).toContain('Disabling memory also turns off required memory.');
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(memoryView, enabledField, 'set', 'false');
+  expect(container.textContent).toContain('Enable memory: true → false');
+  expect(container.textContent).toContain('Require memory: true → false');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(memoryRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
+it('keeps save unavailable when a coupled memory preview is shadowed by a project setting', async () => {
+  const memoryView: NativeConfigurationView = { ...view, fields: (['memory.enabled', 'memory.required'] as const).map(path => ({
+    path, catalog_path: path, explicit: { present: false as const },
+    effective: { present: true as const, value: true, source: 'user' as const }, application: 'not_applied' as const,
+  })) };
+  const coupled_fields = ['memory.enabled', 'memory.required'];
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: memoryView.fields.map(row => ({
+    path: row.path, type: 'boolean' as const, editability: { ...field.editability, coupled_fields },
+  })) });
+  vi.mocked(nativeChange).mockReturnValue({ ...request,
+    operations: [{ op: 'set', field: 'memory.required', value: true }] });
+  vi.mocked(previewNativeConfiguration).mockRejectedValue(Object.assign(new Error('shadowed'),
+    { code: 'configuration_source_shadowed' }));
+  mount(memoryView); await act(async () => {});
+  await act(async () => button('Require memory').click());
+  await act(async () => button('Preview change').click());
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('configuration_source_shadowed');
+  expect(container.textContent).not.toContain('Save to NNA');
+  expect(saveNativeConfiguration).not.toHaveBeenCalled();
+});
+
 it('preserves the settings draft but disables native writes during a replay gap', async () => {
   mount(); await act(async () => {});
   await act(async () => { const select = container.querySelector('select')!; select.value = 'streaming';
