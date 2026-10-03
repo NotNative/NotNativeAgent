@@ -6,6 +6,7 @@ import { pendingForms, getForm, settleForm } from './v2-forms.js';
 import { realpath, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { manifestFromConfig } from '../provider/route-configuration.js';
+import { physicalContextAllowance } from '../reliability/context-budget.js';
 
 export function createV2Workspace(operations, options) {
   const states = new Map(); const creating = new Set();
@@ -97,7 +98,7 @@ function admitPrompt(state, body, operations, options) {
   if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
   if (state.selecting) throw apiError(409, 'ConflictError', 'Model selection is in progress');
   objectInput(body, ['id', 'text', 'files', 'agents', 'skills', 'metadata', 'delivery', 'resume']);
-  textInput(body.text, 'text');
+  textInput(body.text, 'text', physicalContextAllowance(options.registry?.get(state.info.id)?.engine?.ingressContextWindowTokens ?? 65_536));
   for (const field of ['files', 'agents', 'skills']) {
     if (body[field] !== undefined && (!Array.isArray(body[field]) || body[field].length)) throw invalid(`${field} are not supported by this surface`);
   }

@@ -7,10 +7,11 @@
 // frames ride bare; the sync prompt response resolves after the turn closes.
 import { ContractError, newId } from '../ids.js';
 import { createHash } from 'node:crypto';
+import { physicalContextAllowance } from '../reliability/context-budget.js';
 
 const QUEUE_LIMIT = 64;
 const MAX_PROMPT_PARTS = 128;
-const MAX_PART_TEXT = 65_536;
+const DEFAULT_PART_TEXT_ALLOWANCE = physicalContextAllowance(65_536);
 const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
 
 export function createWireSession({ record, bus, info, version }) {
@@ -56,7 +57,9 @@ function observeEngineRecord(state, record) {
 }
 
 function admit(state, parts, input = {}) {
-  const text = buildPromptCommand(parts);
+  const text = buildPromptCommand(parts, { maxText: physicalContextAllowance(
+    state.record.engine?.ingressContextWindowTokens ?? state.record.engine?.lastContextMeasurement?.windowTokens ?? 65_536,
+  ) });
   if (state.ledger.length >= QUEUE_LIMIT) {
     throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
   }
@@ -273,7 +276,7 @@ export function buildPromptCommand(parts, limits = {}) {
 
 function composePromptText(parts, limits) {
   const maxParts = limits.maxParts ?? MAX_PROMPT_PARTS;
-  const maxText = limits.maxText ?? MAX_PART_TEXT;
+  const maxText = limits.maxText ?? DEFAULT_PART_TEXT_ALLOWANCE;
   if (!Array.isArray(parts) || parts.length === 0) {
     throw new ContractError('opencode_prompt_parts_invalid', 'prompt requires at least one text part');
   }

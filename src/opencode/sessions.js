@@ -29,7 +29,7 @@ export function createOpenCodeSessionWorkspace(options = {}) {
   const pendingQuestions = new Map();
   const workspace = { registry, bus, wiredVersion, pendingQuestions };
   const operations = defineWorkspaceOperations(workspace, options);
-  const v2 = createV2Workspace(operations, options);
+  const v2 = createV2Workspace(operations, { ...options, registry });
   workspace.v2 = v2;
   const publishSession = bus.publishSession;
   bus.publishSession = (event) => { v2.observe(event); return publishSession(event); };

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Pure OpenCode wire helpers: SSE write/parity, JSON body reads with bounds,
 // Basic auth parsing, and URL targeting. Nothing here imports engine code.
+import { physicalContextAllowance } from '../reliability/context-budget.js';
 import { MAX_REQUEST_BODY_BYTES } from './version.js';
 
 export function sendJson(res, status, payload) {
@@ -99,4 +100,17 @@ export function parseTarget(url) {
   const parsed = new URL(url, 'http://127.0.0.1');
   const directory = parsed.searchParams.get('directory');
   return { pathname: parsed.pathname, query: Object.fromEntries(parsed.searchParams), directory: directory ?? undefined };
+}
+
+export async function contextRequestBodyLimit(ctx) {
+  const parts = ctx.target.pathname.split('/');
+  const index = parts.indexOf('session');
+  const id = index >= 0 ? decodeURIComponent(parts[index + 1] ?? '') : '';
+  const engine = ctx.options.registry?.get(id)?.engine;
+  if (!engine?.modelRuntime || !engine.router) return physicalContextAllowance(65536);
+  const route = engine.router.resolve('primary');
+  const runtime = await engine.modelRuntime.resolve(engine.router, route, AbortSignal.timeout(3000));
+  const budget = engine.reliability.planContextBudget(engine.config, [route], runtime);
+  engine.ingressContextWindowTokens = budget.windowTokens;
+  return physicalContextAllowance(budget.windowTokens);
 }

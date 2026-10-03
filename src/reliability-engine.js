@@ -45,6 +45,7 @@ export class ReliabilityEngine {
       telemetry: options.telemetry,
       recordTokenReceipt: options.tokenReceiptRecorder,
     });
+    this.contextRequestTokenCounter = options.contextRequestTokenCounter ?? null;
     this.contextTokenCounter = options.contextTokenCounter ?? null;
     this.contextTokenizerIdentity = options.contextTokenizerIdentity ?? null;
     this.contextTokenizerExact = options.contextTokenizerExact === true;
@@ -109,10 +110,11 @@ export class ReliabilityEngine {
   interruptedToolRepairs(records, interruptedTurnIds = []) {
     return interruptedToolRepairs(records, interruptedTurnIds);
   }
-  providerEnvelope(request, context, options = {}) { return measureProviderEnvelope(request, context, options); }
+  providerEnvelope(request, context, options = {}) { return measureProviderEnvelope(request, context, { requestTokenCounter: this.contextRequestTokenCounter,
+    tokenizerIdentity: this.contextTokenizerIdentity, tokenizerExact: this.contextTokenizerExact, ...options }); }
   assertProviderEnvelopeFits(envelope, budget) { return assertProviderEnvelopeFits(envelope, budget); }
   providerRequestManifest(request, context, route, active, options = {}) {
-    const envelope = measureProviderEnvelope(request, context, {
+    const envelope = this.providerEnvelope(request, context, {
       outputReserveTokens: options.outputReserveTokens ?? active?.contextBudget?.outputReserveTokens,
     });
     return providerRequestManifest(request, context, route, active, envelope);
@@ -125,7 +127,7 @@ export class ReliabilityEngine {
   }
   aggregateTokenReceipts(receipts) { return aggregateTokenReceipts(receipts); }
   combineTokenAccounting(summaries) { return combineTokenAccounting(summaries); }
-  appendReasoningChunk(current, chunk) { return appendReasoningChunk(current, chunk); }
+  appendReasoningChunk(current, chunk, maxTokens) { return appendReasoningChunk(current, chunk, maxTokens); }
   captureReasoningContinuation(active, calls) { return captureReasoningContinuation(active, calls); }
   boundedReasoningContinuations(entries, maxContextBytes) {
     return boundedReasoningContinuations(entries, maxContextBytes);

@@ -6,7 +6,6 @@ import { inspectDataPermissions } from './data-permissions.js';
 import { inspectNetworkDestinations } from './network-destinations.js';
 import { boundedProviderCapabilities } from './provider/capabilities.js';
 
-const MAX_TRANSCRIPT_RECORDS = 512;
 const CONTEXT_PRESSURE_WARNING_RATIO = 0.8;
 const DEFAULT_PROVIDER_HEALTH_DEADLINE_MS = 2_000;
 const HEALTH = Object.freeze({
@@ -30,7 +29,7 @@ export class HealthInspector {
       safeInspection(() => engine.telemetry.health(), 'telemetry_health_failed'),
       engine.lock ? safeInspection(() => engine.lock.health(), 'lock_health_failed') : status(HEALTH.DISABLED, { mode: 'ephemeral' }),
     ]);
-    const contextBytes = Buffer.byteLength(JSON.stringify(engine.transcript.slice(-MAX_TRANSCRIPT_RECORDS)));
+    const context = engine.lastContextMeasurement ?? null;
     return Object.freeze({
       checked_at: new Date().toISOString(), read_only: true,
       installation: status(HEALTH.READY, { version: VERSION, runtime: process.version, platform: process.platform, arch: process.arch }),
@@ -50,8 +49,8 @@ export class HealthInspector {
       sandbox: status(engine.tools?.paths?.root ? HEALTH.READY : HEALTH.UNAVAILABLE, { root: engine.tools?.paths?.root ?? null }),
       memory, skills: skillHealth(engine.skills), hooks: engine.hooks.health(), events: engine.events.health(),
       forensic_telemetry: telemetry, mcp: engine.mcp.status(), extensions: extensionHealth(engine.extensions), stale_locks: staleLocks,
-      context_pressure: status(contextBytes > engine.config.limits.maxContextBytes * CONTEXT_PRESSURE_WARNING_RATIO ? HEALTH.WARNING : HEALTH.READY, {
-        bytes: contextBytes, limit: engine.config.limits.maxContextBytes,
+      context_pressure: status(!context?.limitTokens ? HEALTH.UNKNOWN : context.tokens > context.limitTokens * CONTEXT_PRESSURE_WARNING_RATIO ? HEALTH.WARNING : HEALTH.READY, {
+        estimated_tokens: context?.tokens ?? null, limit_tokens: context?.limitTokens ?? null, bytes: context?.bytes ?? null,
       }),
     });
   }

@@ -18,14 +18,14 @@ The denominator is the discovered model window after the bounded output reserve.
 configure the compression and full-compaction boundaries through `/context` or the Context
 entry in `/config`; the two intermediate tiers are derived between them. Compression must
 remain below full compaction. When discovery is unavailable, NNA plans against a conservative
-65,536-token window with the configured output allowance reserved, as well as its validated byte
-ceiling. Unknown capacity therefore activates
+65,536-token window with the configured output allowance reserved. Physical transport allowances
+are derived from that window and do not independently decide context capacity. Unknown capacity therefore activates
 pressure controls instead of behaving like an unbounded token window.
 
 ## Long-horizon compression
 
 Pressure is not the only checkpoint trigger. NNA also refreshes its continuation after 8
-completed turns, when settled tool-result payload reaches 10% of the effective input window,
+completed turns, when estimated settled tool-result tokens reach 10% of the effective input window,
 or when a fingerprint proves that retained checkpoint records drifted. Only records after the
 latest checkpoint contribute to the interval and payload triggers.
 

@@ -13,7 +13,6 @@ import {
 } from './provider/rejection-classification.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
-const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
 const PROVIDER_STREAM_BYTES_PER_OUTPUT_TOKEN = 1_024;
 export class OpenAICompatibleProvider {
   constructor(profile, limits = {}, options = {}) {
@@ -284,9 +283,9 @@ function providerStreamByteLimit(limits, request) {
   // so legitimate token-by-token reasoning is not rejected merely for framing cost.
   const workloadAllowance = outputTokens === null
     ? UNDECLARED_PROVIDER_STREAM_BYTES
-    : Math.min(MAX_PROVIDER_STREAM_BYTES, outputTokens * PROVIDER_STREAM_BYTES_PER_OUTPUT_TOKEN);
+    : Math.min(Number.MAX_SAFE_INTEGER, outputTokens * PROVIDER_STREAM_BYTES_PER_OUTPUT_TOKEN);
   return Math.min(
-    MAX_PROVIDER_STREAM_BYTES,
+    Number.MAX_SAFE_INTEGER,
     Math.max(MIN_PROVIDER_STREAM_BYTES, configuredFloor, workloadAllowance),
   );
 }

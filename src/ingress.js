@@ -25,7 +25,9 @@ export class CanonicalIngress {
   // agent turn.  The NND compatibility API is deliberately asynchronous, but
   // it must still share this ingress's validation and idempotency window.
   start(rawCommand, principal = 'stdio-host') {
-    const command = validateCommand(rawCommand, { interactive: this.interactive, questions: this.questions });
+    const command = validateCommand(rawCommand, { interactive: this.interactive, questions: this.questions,
+      contextWindowTokens: this.engine.lastContextMeasurement?.windowTokens ?? this.engine.active?.contextBudget?.windowTokens
+        ?? this.engine.ingressContextWindowTokens ?? 65536 });
     const prior = this.#seen.get(command.request_id);
     if (prior) {
       return {

@@ -2,6 +2,7 @@
 import { activeContextRecords, buildContext, measureContext } from '../context.js';
 import { estimateContextTokens } from '../reliability/context-budget.js';
 import { buildColdEvidence } from '../reliability/cold-context.js';
+import { providerRequest } from './runtime-helpers.js';
 import { ContractError } from '../ids.js';
 import { shouldInspectProject } from '../project-intake.js';
 import { synchronizeWorkCadence } from './runtime-helpers.js';
@@ -34,7 +35,7 @@ export async function buildReportedContext(
   active.contextLimitBytes = limitBytes;
   const rawContext = buildContext(engine.config, records, content, baseEnrichment, Number.MAX_SAFE_INTEGER);
   const rawContextBytes = measureContext(rawContext);
-  const rawContextTokens = engine.reliability?.estimateContextTokens(rawContext) ?? estimateContextTokens(rawContext);
+  const rawContextTokens = completeInputTokens(engine, rawContext, active, budget);
   const projection = options.projectContext ? await options.projectContext({
     records, rawContextBytes, rawContextTokens,
     effectiveInputTokens: budget?.effectiveInputTokens ?? null,
@@ -45,11 +46,12 @@ export async function buildReportedContext(
     ?? buildColdEvidence(records, providerRecords, content);
   const resolvedEnrichment = { ...baseEnrichment, coldEvidence };
   recordColdEvidence(engine, active, coldEvidence);
-  const context = buildContext(engine.config, contextRecords, content, resolvedEnrichment, budgetBytes);
+  const context = buildContext(engine.config, contextRecords, content, resolvedEnrichment, Number.MAX_SAFE_INTEGER);
   active.contextBytes = measureContext(context);
-  active.contextTokens = engine.reliability?.estimateContextTokens(context) ?? estimateContextTokens(context);
+  active.contextTokens = completeInputTokens(engine, context, active, budget);
   active.rawContextBytes = rawContextBytes;
   active.rawContextTokens = rawContextTokens;
+  engine.lastContextMeasurement = { tokens: active.contextTokens, windowTokens: budget?.windowTokens ?? null, limitTokens: budget?.effectiveInputTokens ?? null, bytes: active.contextBytes };
   if (budget?.scaledTokens !== undefined && budget?.scaledTokens !== null
     && active.contextTokens > budget.scaledTokens) {
     throw new ContractError('context_too_large', 'context exceeds conservative token bound');
@@ -95,7 +97,7 @@ export async function emitCurrentContextUsage(engine, active, stepId = active.st
   };
   const context = buildContext(engine.config, records, '', enrichment, Number.MAX_SAFE_INTEGER);
   active.rawContextBytes = measureContext(context);
-  active.rawContextTokens = engine.reliability?.estimateContextTokens(context) ?? estimateContextTokens(context);
+  active.rawContextTokens = completeInputTokens(engine, context, active, active.contextBudget);
   await engine.output({
     version: '1.0', type: CONTEXT_USAGE_EVENT, session_id: engine.sessionId,
     turn_id: active.turnId, step_id: stepId,
@@ -124,4 +126,12 @@ export function selectedContextLimit(config, routes) {
     .map((route) => route.contextLimitBytes)
     .filter((value) => Number.isInteger(value) && value > 0);
   return Math.min(config.limits.maxContextBytes, ...(known.length > 0 ? known : [config.limits.maxContextBytes]));
+}
+
+function completeInputTokens(engine, context, active, budget) {
+  const route = engine.router?.candidates('primary', { requiredCapabilities: ['tools'] })?.[0];
+  if (!route || !engine.reliability?.providerEnvelope) return estimateContextTokens(context);
+  const request = providerRequest(engine, route, context, { outputReserveTokens: budget?.outputReserveTokens,
+    conversationIntent: active.conversationIntent, approvedProposal: active.approvedProposal });
+  return engine.reliability.providerEnvelope(request, context, { outputReserveTokens: budget?.outputReserveTokens }).estimated_input_tokens;
 }

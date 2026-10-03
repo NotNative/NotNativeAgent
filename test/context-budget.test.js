@@ -126,7 +126,7 @@ test('context planning honors configured thresholds and never divides by paralle
   assert.equal(budget.effectiveInputTokens, 122880);
   assert.equal(budget.thresholdTokens, 104448);
   assert.equal(budget.parallelCapacity, 4);
-  assert.equal(budget.thresholdBytes, 313344);
+  assert.equal(budget.thresholdBytes, budget.scaledTokens * 768);
   assert.equal(budget.compactionThreshold, 0.85);
   assert.equal(budget.compressionThreshold, 0.40);
   assert.ok(estimateContextTokens([{ role: 'user', content: 'hello' }]) > 0);

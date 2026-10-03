@@ -5,7 +5,7 @@
 import { createServer } from 'node:http';
 import { handleV2Request } from './v2-routes.js';
 import {
-  sendJson, sendEmpty, sendNoContent, sendText, sendUnknownError, readJsonBody, matchesBasicAuthorization, parseTarget, basicAuthorization,
+  sendJson, sendEmpty, sendNoContent, sendText, sendUnknownError, readJsonBody, contextRequestBodyLimit, matchesBasicAuthorization, parseTarget, basicAuthorization,
   sseOpen,
 } from './protocol.js';
 import {
@@ -161,7 +161,7 @@ async function listSessions({ res, options }) {
 }
 
 async function createSession(ctx) {
-  const read = await readJsonBody(ctx.req);
+  const read = await readJsonBody(ctx.req, await contextRequestBodyLimit(ctx));
   if (read.error) return sendEmpty(ctx.res, 400);
   const payload = typeof read.value === 'object' && read.value !== null ? read.value : {};
   const created = await ctx.options.operations.create({ title: payload.title, directory: ctx.target.directory ?? payload.directory });
@@ -193,7 +193,7 @@ async function sessionMessages(ctx) {
 async function promptMessage(ctx) {
   const gate = jsonContentGate(ctx.req);
   if (gate) return gate(ctx.res);
-  const read = await readJsonBody(ctx.req);
+  const read = await readJsonBody(ctx.req, await contextRequestBodyLimit(ctx));
   if (read.error) return sendUnknownError(ctx.res, 400, 'prompt body was malformed JSON');
   try {
     const response = await ctx.options.operations.prompt(ctx.params.id, read.value?.parts ?? []);
@@ -206,7 +206,7 @@ async function promptMessage(ctx) {
 async function promptSessionAsync(ctx) {
   const gate = jsonContentGate(ctx.req);
   if (gate) return gate(ctx.res);
-  const read = await readJsonBody(ctx.req);
+  const read = await readJsonBody(ctx.req, await contextRequestBodyLimit(ctx));
   if (read.error) return sendUnknownError(ctx.res, 400, 'prompt body was malformed JSON');
   try {
     ctx.options.operations.promptAsync(ctx.params.id, read.value?.parts ?? []).catch((error) => {
@@ -247,7 +247,7 @@ async function sessionAbort(ctx) {
 async function questionReply(ctx) {
   const gate = jsonContentGate(ctx.req);
   if (gate) return gate(ctx.res);
-  const read = await readJsonBody(ctx.req);
+  const read = await readJsonBody(ctx.req, await contextRequestBodyLimit(ctx));
   if (read.error) return sendUnknownError(ctx.res, 400, 'question reply body was malformed JSON');
   try {
     sendJson(ctx.res, 200, await ctx.options.operations.questionReply(ctx.params.id, read.value ?? {}));
@@ -259,7 +259,7 @@ async function questionReply(ctx) {
 async function questionReject(ctx) {
   const gate = jsonContentGate(ctx.req);
   if (gate) return gate(ctx.res);
-  const read = await readJsonBody(ctx.req);
+  const read = await readJsonBody(ctx.req, await contextRequestBodyLimit(ctx));
   if (read.error) return sendUnknownError(ctx.res, 400, 'question reject body was malformed JSON');
   try {
     sendJson(ctx.res, 200, await ctx.options.operations.questionReject(ctx.params.id, read.value ?? {}));

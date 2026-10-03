@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { estimateTokenValue } from './context-token-measurement.js';
 import { ContractError } from '../ids.js';
 
 /** Refresh older turns under measured pressure, or reduce a substantial tool payload. */
 export const LONG_HORIZON_POLICY = Object.freeze({
-  completedTurns: 8, toolPayloadRatio: 0.10, estimatedBytesPerToken: 4,
+  completedTurns: 8, toolPayloadRatio: 0.10,
 });
 
 export function longHorizonCompressionTrigger(records, options = {}) {
@@ -23,17 +24,11 @@ export function longHorizonCompressionTrigger(records, options = {}) {
     && effectiveInputTokens > 0 && inputTokens >= effectiveInputTokens * refreshThreshold) {
     return trigger('completed_turn_interval', checkpoint?.index ?? -1, records, { completedTurns });
   }
-  const payloadBytes = toolPayloadBytes(tail);
-  // Four UTF-8 bytes per token is a conservative tokenizer-free default; measured runtimes may override it.
-  const estimatedBytesPerToken = Number(options.estimatedBytesPerToken ?? LONG_HORIZON_POLICY.estimatedBytesPerToken);
-  if (!Number.isFinite(estimatedBytesPerToken) || estimatedBytesPerToken <= 0) {
-    throw new ContractError('long_horizon_options_invalid', 'estimated bytes per token must be positive');
-  }
-  const inputBytes = Number.isFinite(effectiveInputTokens) && effectiveInputTokens > 0
-    ? effectiveInputTokens * estimatedBytesPerToken : null;
-  if (payloadBytes > 0 && inputBytes
-    && payloadBytes >= Math.max(1, Math.floor(inputBytes * LONG_HORIZON_POLICY.toolPayloadRatio))) {
-    return trigger('tool_payload_budget', checkpoint?.index ?? -1, records, { payloadBytes, inputBytes });
+  const payloadTokens = tail.filter((record) => record.type === 'tool_result')
+    .reduce((sum, record) => sum + estimateTokenValue(record.content ?? ''), 0);
+  if (payloadTokens > 0 && effectiveInputTokens > 0
+    && payloadTokens >= Math.max(1, Math.floor(effectiveInputTokens * LONG_HORIZON_POLICY.toolPayloadRatio))) {
+    return trigger('tool_payload_budget', checkpoint?.index ?? -1, records, { payloadTokens, effectiveInputTokens });
   }
   return null;
 }
@@ -69,18 +64,6 @@ function countCompletedTurns(records, activeTurnId) {
     else if (!turnId) { legacy += 1; turns.add(`legacy:${legacy}`); }
   }
   return turns.size;
-}
-
-function toolPayloadBytes(records) {
-  return records.filter((record) => record.type === 'tool_result')
-    .reduce((sum, record) => sum + contentBytes(record.content), 0);
-}
-
-function contentBytes(content) {
-  if (content === undefined || content === null) return 0;
-  if (typeof content === 'string') return Buffer.byteLength(content, 'utf8');
-  try { return Buffer.byteLength(JSON.stringify(content), 'utf8'); }
-  catch (error) { const failure = invalidRecords(); failure.cause = error; throw failure; }
 }
 
 function invalidRecords() {

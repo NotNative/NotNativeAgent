@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, requireExternalId } from './ids.js';
 import { failureEnvelope } from './failure-envelope.js';
+import { physicalContextAllowance } from './reliability/context-budget.js';
 
 export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 1 });
 /** Terminal turn outcomes exposed to protocol consumers and configuration validation. */
@@ -26,7 +27,7 @@ const INPUT_TYPES = new Set([
 export function parseProtocolLine(line, limits = {}) {
   if (typeof line !== 'string') throw new ContractError('malformed_json', 'input must be a text line');
   limits = isRecord(limits) ? limits : {};
-  const maxBytes = boundedProtocolLimit(limits.maxLineBytes, PROTOCOL_LIMITS.lineBytes);
+  const maxBytes = boundedProtocolLimit(limits.maxLineBytes, limits.contextWindowTokens ? physicalContextAllowance(limits.contextWindowTokens) : PROTOCOL_LIMITS.lineBytes);
   if (Buffer.byteLength(line, 'utf8') > maxBytes) {
     throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);
   }
@@ -38,7 +39,7 @@ export function parseProtocolLine(line, limits = {}) {
   }
   // Parsed input is bounded and schema-checked below.
   validateTree(value, limits);
-  return validateCommand(value);
+  return validateCommand(value, limits);
 }
 
 export function validateCommand(value, options = {}) {
@@ -53,9 +54,9 @@ export function validateCommand(value, options = {}) {
   if (version.major !== PROTOCOL_VERSION.major) {
     throw new ContractError('incompatible_version', 'protocol major version is incompatible');
   }
-  if (value.type === 'submit' || value.type === 'steer') validateContent(value.content);
+  if (value.type === 'submit' || value.type === 'steer') validateContent(value.content, options.contextWindowTokens);
   if (value.type === 'attachment_retry') {
-    validateContent(value.content);
+    validateContent(value.content, options.contextWindowTokens);
     validateAttachmentId(value.attachment_id);
   }
   if (value.type === 'attachment_remove') validateAttachmentId(value.attachment_id);
@@ -175,12 +176,12 @@ function parseVersion(value) {
   return { major, minor };
 }
 
-function validateContent(value) {
+function validateContent(value, contextWindowTokens = null) {
   if (typeof value !== 'string' || value.length === 0) {
     throw new ContractError('invalid_content', 'submit content must be non-empty text');
   }
-  if (Buffer.byteLength(value, 'utf8') > PROTOCOL_LIMITS.contentBytes) {
-    throw new ContractError('content_too_large', 'submit content exceeds 131072 bytes');
+  if (Buffer.byteLength(value, 'utf8') > (contextWindowTokens ? physicalContextAllowance(contextWindowTokens) : PROTOCOL_LIMITS.contentBytes)) {
+    throw new ContractError('content_too_large', 'submit content exceeds token-derived input allowance');
   }
 }
 
@@ -200,7 +201,7 @@ function validateTree(root, limits = {}) {
     if (count > maxNodes || item.depth > maxDepth) {
       throw new ContractError('structure_too_large', 'input structure exceeds bounds');
     }
-    if (typeof item.value === 'string' && item.value.length > PROTOCOL_LIMITS.stringChars) {
+    if (typeof item.value === 'string' && item.value.length > (limits.contextWindowTokens ? physicalContextAllowance(limits.contextWindowTokens) : PROTOCOL_LIMITS.stringChars)) {
       throw new ContractError('string_too_large', 'input string exceeds bound');
     }
     if (Array.isArray(item.value)) pushChildren(stack, item.value, item.depth);

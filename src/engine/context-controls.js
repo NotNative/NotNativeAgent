@@ -8,12 +8,13 @@ export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
   engine.telemetry?.record('context.compaction', 'started', { trigger: 'operator_command' });
   try {
-    const compacted = engine.reliability.compactTranscript(engine.transcript, engine.config.limits.maxContextBytes, {
-      requireProgress: true,
-    });
     const route = engine.router.resolve('primary');
     const signal = AbortSignal.timeout(CONTEXT_OPERATION_TIMEOUT_MS);
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
+    const budget = engine.reliability.planContextBudget(engine.config, [route], runtime);
+    const compacted = engine.reliability.compactTranscript(engine.transcript, budget.scaledTokens, {
+      requireProgress: true, unit: 'tokens',
+    });
     let fact = await engine.reliability.refineContinuation(compacted.fact, engine.router, route, runtime, signal);
     try {
       const checkpointPath = await writeTaskCheckpoint(engine, fact);

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { boundedTokenText as boundedHeadTail } from './context-token-measurement.js';
 import { createHash } from 'node:crypto';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
@@ -80,7 +81,7 @@ function receiptProjection(records, cold) {
     // teaches the provider a shape that the tool schema will correctly reject on reuse.
     if (item.type === 'tool_request') return item;
     if (item.type === 'message' && item.role === 'assistant') {
-      return { ...item, content: boundedHeadTail(item.content ?? '', 4_096), pressureCompacted: true };
+      return { ...item, content: boundedHeadTail(item.content ?? '', 1024), pressureCompacted: true };
     }
     return item;
   });
@@ -101,11 +102,11 @@ function createActiveCheckpoint(records, cold, options, tier) {
   const operator = records.filter((item) => recordTurnId(item) === options.turnId
     && item.type === 'message' && item.role === 'user').at(0);
   const progress = selected.filter((item) => item.type === 'message' && item.role === 'assistant')
-    .map((item) => boundedHeadTail(item.content ?? '', 1_024)).filter(Boolean).slice(-6);
+    .map((item) => boundedHeadTail(item.content ?? '', 256)).filter(Boolean).slice(-6);
   const tools = selected.filter((item) => item.type === 'tool_result').slice(-20).map((item) => {
     const request = requests.get(item);
     const target = requestTarget(request);
-    const excerpt = boundedHeadTail(item.content ?? '', 768).replace(/\s+/gu, ' ').trim();
+    const excerpt = boundedHeadTail(item.content ?? '', 192).replace(/\s+/gu, ' ').trim();
     return Object.freeze({
       tool: item.toolName ?? request?.toolName ?? 'unknown', toolLifecycleStatus: toolLifecycleStatus(item) ?? 'unknown',
       requestId: item.requestId ?? item.providerCallId ?? null, target,
@@ -126,7 +127,7 @@ function createActiveCheckpoint(records, cold, options, tier) {
 function renderCheckpoint(checkpointData) {
   const lines = [
     'NNA active-turn checkpoint. This is a deterministic working-context projection; full attributed records remain in the durable session journal.',
-    `Authenticated objective: ${boundedHeadTail(checkpointData.operator, 2_048) || '(not recorded)'}`,
+    `Authenticated objective: ${boundedHeadTail(checkpointData.operator, 512) || '(not recorded)'}`,
   ];
   if (checkpointData.progress.length > 0) lines.push(`Recent model-reported progress:\n- ${checkpointData.progress.join('\n- ')}`);
   if (checkpointData.tools.length > 0) {
@@ -137,7 +138,7 @@ function renderCheckpoint(checkpointData) {
     }).join('\n')}`);
   }
   lines.push('Use session_search_history and session_read_history when complete omitted evidence is needed.');
-  return boundedHeadTail(lines.join('\n\n'), checkpointData.tier === 'aggressive' ? 16_384 : 24_576);
+  return boundedHeadTail(lines.join('\n\n'), checkpointData.tier === 'aggressive' ? 4096 : 6144);
 }
 
 function measureEvidenceRetention(source, projected, turnId) {
@@ -190,24 +191,12 @@ function requestTarget(item) {
   if (!args || typeof args !== 'object') return null;
   const key = ['path', 'target', 'source', 'destination', 'url', 'query', 'executable', 'script']
     .find((candidate) => typeof args[candidate] === 'string' && args[candidate]);
-  return key ? boundedHeadTail(`${key}=${args[key]}`, 512) : null;
+  return key ? boundedHeadTail(`${key}=${args[key]}`, 128) : null;
 }
 
 function recordTurnId(item) { return item.turnId ?? item.turn_id ?? null; }
 function recordStepId(item) { return item.stepId ?? item.step_id ?? null; }
 function positive(value) { return Number.isFinite(value) && value > 0; }
-
-function boundedHeadTail(value, limit) {
-  const text = String(value ?? '');
-  const encoded = Buffer.from(text, 'utf8');
-  if (encoded.byteLength <= limit) return text;
-  const edge = Math.max(1, Math.floor(limit / 2));
-  let headEnd = edge;
-  while (headEnd > 0 && (encoded[headEnd] & 0xc0) === 0x80) headEnd -= 1;
-  let tailStart = encoded.byteLength - edge;
-  while (tailStart < encoded.byteLength && (encoded[tailStart] & 0xc0) === 0x80) tailStart += 1;
-  return `${encoded.subarray(0, headEnd).toString('utf8')}\n...[checkpoint excerpt]...\n${encoded.subarray(tailStart).toString('utf8')}`;
-}
 
 function fingerprint(records) {
   return createHash('sha256').update(JSON.stringify(records)).digest('hex');

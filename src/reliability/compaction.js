@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { estimateTokenValue, boundedTokenText } from './context-token-measurement.js';
 import { createHash } from 'node:crypto';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import {
@@ -18,28 +19,30 @@ const SUMMARY_BUDGET_RATIO = 0.35;
 const MINIMUM_SUMMARY_BYTES = 1_024;
 const COLD_MESSAGE_BYTES = 32_768;
 export function compactTranscript(transcript, maxBytes, options = {}) {
+  const sizing = compactionSizing(options);
   const source = latestCompactionProjection(transcript);
   const budget = Math.floor(maxBytes * RECORD_BUDGET_RATIO);
-  let selected = selectRecentRecords(source, budget, options);
+  let selected = selectRecentRecords(source, budget, options, sizing);
   let policy = 'protected_recency_v1';
   if (options.requireProgress && source.length > 2 && selected.length === source.length) {
-    const originalBytes = source.reduce((sum, item) => sum + recordBytes(item), 0);
-    const adaptiveBudget = Math.max(16_384, Math.min(budget, Math.floor(originalBytes * RECORD_BUDGET_RATIO)));
+    const originalBytes = source.reduce((sum, item) => sum + sizing.measure(item), 0);
+    const adaptiveBudget = Math.max(sizing.minimum, Math.min(budget, Math.floor(originalBytes * RECORD_BUDGET_RATIO)));
     selected = selectRecentRecords(source, adaptiveBudget, {
-      ...options, protectedCompletedTurns: 0,
-    });
+      ...options, protectedCompletedTurns: options.unit === 'tokens'
+        ? options.protectedCompletedTurns ?? DEFAULT_PROTECTED_COMPLETED_TURNS : 0,
+    }, sizing);
     policy = 'adaptive_recent_history_v2';
   }
-  let bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+  let bytes = selected.reduce((sum, entry) => sum + sizing.measure(entry.item), 0);
   if (bytes > maxBytes * EMERGENCY_THRESHOLD_RATIO) {
-    selected = emergencyContinuationRecords(source, maxBytes, selected.metrics);
-    bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+    selected = emergencyContinuationRecords(source, maxBytes, selected.metrics, sizing);
+    bytes = selected.reduce((sum, entry) => sum + sizing.measure(entry.item), 0);
     policy = 'hierarchical_continuation_v1';
   }
   const omitted = Math.max(0, source.length - selected.length);
   const continuation = hierarchicalContinuationArtifact(source, omitted);
-  const summaryBudget = Math.min(maxBytes, Math.max(MINIMUM_SUMMARY_BYTES, Math.floor(maxBytes * SUMMARY_BUDGET_RATIO)));
-  const summary = renderContinuation(continuation, summaryBudget);
+  const summaryBudget = Math.min(maxBytes, Math.max(sizing.summaryMinimum, Math.floor(maxBytes * SUMMARY_BUDGET_RATIO)));
+  const summary = sizing.text(renderContinuation(continuation, Number.MAX_SAFE_INTEGER), summaryBudget);
   const fact = Object.freeze({
     type: 'compaction', version: 2, omitted,
     sourceFingerprint: fingerprint(source),
@@ -47,7 +50,7 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
     summary,
     retainedRecords: Object.freeze(selected.map((entry) => Object.freeze(entry.item))),
     projection: Object.freeze({
-      policy,
+      policy, measurementUnit: options.unit ?? 'bytes',
       protectedCompletedTurns: selected.metrics.protectedCompletedTurns,
       protectedTurnCount: selected.metrics.protectedTurnCount,
       protectedRecordCount: selected.metrics.protectedRecordCount,
@@ -58,10 +61,13 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
       duplicateResultRecords: selected.metrics.duplicateResultRecords,
       duplicateResultBytesSaved: selected.metrics.duplicateResultBytesSaved,
       originalBytes: selected.metrics.originalBytes,
-      projectedBytes: bytes + Buffer.byteLength(summary, 'utf8'),
+      originalTokens: options.unit === 'tokens' ? source.reduce((sum, item) => sum + estimateTokenValue(item), 0) : null,
+      projectedBytes: selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0) + Buffer.byteLength(summary, 'utf8'),
+      projectedTokens: options.unit === 'tokens' ? bytes + estimateTokenValue(summary) : null,
       retainedFingerprint: retainedRecordsFingerprint(selected.map((entry) => entry.item)),
       hierarchyChunks: continuation.hierarchyChunks ?? 1,
-      summaryBudgetBytes: summaryBudget,
+      summaryBudgetBytes: options.unit === 'tokens' ? summaryBudget * 768 : summaryBudget,
+      summaryBudgetTokens: options.unit === 'tokens' ? summaryBudget : null,
     }),
   });
   return Object.freeze({ records: fact.retainedRecords, fact });
@@ -112,7 +118,7 @@ export function createHandoffFact(transcript) {
   });
 }
 
-function emergencyContinuationRecords(transcript, maxBytes, priorMetrics) {
+function emergencyContinuationRecords(transcript, maxBytes, priorMetrics, sizing) {
   const target = Math.max(1_024, Math.floor(maxBytes * 0.2));
   const messages = transcript.map((item, index) => ({ item, index }))
     .filter((entry) => entry.item.type === 'message');
@@ -126,7 +132,7 @@ function emergencyContinuationRecords(transcript, maxBytes, priorMetrics) {
     index: entry.index, protected: true, turnKey: null,
     item: {
       ...entry.item,
-      content: `${boundedHeadTail(entry.item.content ?? '', perRecord)}\n[Recent message reduced into an emergency continuation checkpoint; the complete text remains in the durable session ledger.]`,
+      content: `${sizing.text(entry.item.content ?? '', perRecord)}\n[Recent message reduced into an emergency continuation checkpoint; the complete text remains in the durable session ledger.]`,
       metadata: {
         ...boundedMetadata(entry.item.metadata), compacted: true,
         reason: 'hierarchical_continuation_fallback', ledgerRef: ledgerReference(entry.item),
@@ -142,14 +148,14 @@ function emergencyContinuationRecords(transcript, maxBytes, priorMetrics) {
   return retained;
 }
 
-function selectRecentRecords(transcript, budget, options) {
+function selectRecentRecords(transcript, budget, options, sizing) {
   const protection = protectedRecency(transcript, options);
   const duplicates = projectDuplicateToolResults(transcript, protection.indexes);
   const projection = supersedeColdToolResults(duplicates.records, protection.indexes);
   const turns = turnEntries(projection.records);
   const exchanges = toolExchanges(projection.records);
   const normalized = projection.records.map((item, index) => ({
-    index, item: compactRecord(item, budget, protection.indexes.has(index), exchanges.requests.get(item)),
+    index, item: compactRecord(item, budget, protection.indexes.has(index), exchanges.requests.get(item), sizing),
     protected: protection.indexes.has(index),
     turnKey: turns[index].turnKey,
   }));
@@ -167,7 +173,7 @@ function selectRecentRecords(transcript, budget, options) {
   const latestUser = [...normalized].reverse().find((entry) => entry.item.type === 'message' && entry.item.role === 'user');
   const selected = new Map(); let bytes = 0;
   const add = (unit, required = false) => {
-    const size = unit.entries.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+    const size = unit.entries.reduce((sum, entry) => sum + sizing.measure(entry.item), 0);
     if (!required && bytes + size > budget) return false;
     for (const entry of unit.entries) selected.set(entry.index, entry);
     bytes += size; return true;
@@ -180,7 +186,7 @@ function selectRecentRecords(transcript, budget, options) {
     if (unit.entries.some((entry) => selected.has(entry.index))) continue;
     add(unit);
   }
-  const retained = shrinkOversizedProtectedRecords([...selected.values()].sort((a, b) => a.index - b.index), budget);
+  const retained = shrinkOversizedProtectedRecords([...selected.values()].sort((a, b) => a.index - b.index), budget, sizing);
   retained.metrics = selectionMetrics(retained, transcript, protection, projection, duplicates);
   return retained;
 }
@@ -252,18 +258,18 @@ function keyed(name, values) {
   return `${name}:${JSON.stringify(values)}`;
 }
 
-function compactRecord(item, budget, protectedRecord = false, request = null) {
+function compactRecord(item, budget, protectedRecord, request, sizing) {
   if (item.type === 'tool_result') {
     // Invariant: unresolved evidence cannot acquire another exchange's receipt target.
     if (!request) return { ...item };
     if (item.metadata?.reason === 'duplicate_result') return { ...item };
     if (contextCompressionPolicy(item).automatic === false) return { ...item };
     const cap = protectedRecord
-      ? Math.max(16_384, Math.min(131_072, Math.floor(budget / 4)))
-      : Math.max(2_048, Math.min(16_384, Math.floor(budget / 8)));
-    if (protectedRecord && recordBytes(item) <= cap) return { ...item };
+      ? Math.max(sizing.hotMinimum, Math.min(sizing.hotMaximum, Math.floor(budget / 4)))
+      : Math.max(sizing.coldMinimum, Math.min(sizing.minimum, Math.floor(budget / 8)));
+    if (protectedRecord && sizing.measure(item) <= cap) return { ...item };
     if (!protectedRecord) return createToolContextReceipt(item, request);
-    const content = boundedHeadTail(item.content ?? '', cap);
+    const content = sizing.text(item.content ?? '', cap);
     const truncated = content !== (item.content ?? '');
     return {
       ...item,
@@ -285,7 +291,7 @@ function compactRecord(item, budget, protectedRecord = false, request = null) {
   if (item.type === 'tool_request') return { ...item };
   if (item.type === 'message') {
     if (protectedRecord) return { ...item };
-    const content = boundedHeadTail(item.content ?? '', COLD_MESSAGE_BYTES);
+    const content = sizing.text(item.content ?? '', sizing.messageMaximum);
     return content === (item.content ?? '') ? { ...item } : {
       ...item, content,
       metadata: { ...boundedMetadata(item.metadata), compacted: true, reason: 'cold_message' },
@@ -296,7 +302,7 @@ function compactRecord(item, budget, protectedRecord = false, request = null) {
     return checkpoint;
   }
   if (typeof item.content !== 'string') return item;
-  const content = boundedHeadTail(item.content, COLD_MESSAGE_BYTES);
+  const content = sizing.text(item.content, sizing.messageMaximum);
   return content === item.content ? item : {
     ...item, content,
     metadata: { ...boundedMetadata(item.metadata), compacted: true, reason: 'unknown_record_content' },
@@ -345,8 +351,8 @@ function turnEntries(transcript) {
 
 function unique(values) { return [...new Set(values)]; }
 
-function shrinkOversizedProtectedRecords(entries, budget) {
-  let bytes = entries.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+function shrinkOversizedProtectedRecords(entries, budget, sizing) {
+  let bytes = entries.reduce((sum, entry) => sum + sizing.measure(entry.item), 0);
   if (bytes <= budget) return entries;
   const candidates = entries.filter((entry) => entry.protected && entry.item.type === 'message')
     .sort((left, right) => {
@@ -356,17 +362,17 @@ function shrinkOversizedProtectedRecords(entries, budget) {
   const cap = Math.max(512, Math.floor(budget / Math.max(5, candidates.length)));
   for (const entry of candidates) {
     if (bytes <= budget) break;
-    if (Buffer.byteLength(entry.item.content ?? '', 'utf8') <= cap) continue;
-    const before = recordBytes(entry.item);
+    if (sizing.measure(entry.item.content ?? '') <= cap) continue;
+    const before = sizing.measure(entry.item);
     entry.item = {
       ...entry.item,
-      content: `${boundedHeadTail(entry.item.content ?? '', cap)}\n[Oversized recent message compacted for provider admission; the complete text remains in the durable session ledger.]`,
+      content: `${sizing.text(entry.item.content ?? '', cap)}\n[Oversized recent message compacted for provider admission; the complete text remains in the durable session ledger.]`,
       metadata: {
         ...boundedMetadata(entry.item.metadata), compacted: true,
         reason: 'oversized_protected_record', ledgerRef: ledgerReference(entry.item),
       },
     };
-    bytes -= before - recordBytes(entry.item);
+    bytes -= before - sizing.measure(entry.item);
   }
   if (bytes <= budget) return entries;
   const lastAssistant = new Map();
@@ -379,7 +385,7 @@ function shrinkOversizedProtectedRecords(entries, budget) {
   for (const entry of candidates) {
     if (bytes <= budget) break;
     if (entry.item.role !== 'assistant' || lastAssistant.get(entry.turnKey) === entry.index) continue;
-    bytes -= recordBytes(entry.item);
+    bytes -= sizing.measure(entry.item);
     removed.add(entry.index);
   }
   const retained = entries.filter((entry) => !removed.has(entry.index));
@@ -407,4 +413,13 @@ function fingerprint(transcript) {
   const hash = createHash('sha256');
   for (const item of transcript.slice(-4096)) hash.update(JSON.stringify(item));
   return hash.digest('hex');
+}
+
+function compactionSizing(options) {
+  if (options.unit === 'tokens') return {
+    measure: estimateTokenValue, text: boundedTokenText, minimum: 4096, summaryMinimum: 256,
+    hotMinimum: 4096, hotMaximum: 32768, coldMinimum: 512, messageMaximum: 8192,
+  };
+  return { measure: recordBytes, text: boundedHeadTail, minimum: 16384, summaryMinimum: MINIMUM_SUMMARY_BYTES,
+    hotMinimum: 16384, hotMaximum: 131072, coldMinimum: 2048, messageMaximum: COLD_MESSAGE_BYTES };
 }

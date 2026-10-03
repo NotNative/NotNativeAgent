@@ -19,7 +19,8 @@ receipt targets, supersession, and continuation completion facts require a resol
 Full compaction reports comparable estimated complete provider input before and after the
 projection, including tool schemas and generated instructions. Serialized journal estimates
 are separate diagnostic fields. Status and telemetry identify the counting basis, trigger,
-window, output reserve, calibration and retry scales, and limiting byte or token ceiling.
+window, output reserve, calibration and retry scales, and limiting token ceiling. Byte totals
+remain diagnostics of physical transport and storage size; they do not trigger context reduction.
 Compression efficacy identifies its own projection basis; provider-reported usage remains
 separate from tokenizer estimates.
 
@@ -101,13 +102,15 @@ reduction alone is not evidence of an equivalent agent outcome.
 ## Tokenizer identity
 
 The dependency-free UTF-8 estimator remains the universal fallback. It estimates ordinary
-ASCII from serialized bytes while counting non-ASCII UTF-16 units individually so combining
+ASCII from semantic text while counting non-ASCII UTF-16 units individually so combining
 characters, emoji, and finely split non-Latin scripts cannot inherit an English-only ratio.
 A provider or host may
 inject a model-specific token counter, including a Qwen tokenizer, but every measurement
 records its bounded identity and whether its count is exact. A failing, invalid, or
 unavailable counter degrades to the conservative estimator rather than blocking execution.
 NNA does not treat `cl100k_base` or any other unrelated tokenizer as exact for every model.
+When an exact counter is supplied, it receives the complete provider request, including tool
+schemas and generated instructions. Serialized JSON escaping is physical overhead, not model text.
 
 ## Invariants
 

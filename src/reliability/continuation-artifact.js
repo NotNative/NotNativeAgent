@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { boundedTokenText } from './context-token-measurement.js';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import { toolExchanges } from './tool-exchanges.js';
 
@@ -85,7 +86,7 @@ export function renderContinuation(item, maximumBytes = 49_152) {
   if (item.latestOutcome) sections.push(`Latest recorded outcome: ${item.latestOutcome}`);
   if (item.hierarchyChunks > 1) sections.push(`Historical context was reduced through ${item.hierarchyChunks} bounded deterministic chunks; exact attributed records remain searchable in the durable session ledger.`);
   if (item.taskStatePath) sections.push(`Durable task checkpoint: ${item.taskStatePath}. Use it for operational continuation; consult the session ledger for exact attributed evidence.`);
-  return bounded(sections.join('\n\n'), Math.min(49_152, maximumBytes));
+  return bounded(sections.join('\n\n'), maximumBytes);
 }
 
 export function enrichCompactionFact(fact, semantic) {
@@ -94,7 +95,8 @@ export function enrichCompactionFact(fact, semantic) {
     verifiedFacts: fact.continuation.verifiedFacts,
     openQuestions: Object.freeze(semantic.openQuestions), nextActions: Object.freeze(semantic.nextActions),
   });
-  const summary = renderContinuation(continuation, fact.projection?.summaryBudgetBytes);
+  const rendered = renderContinuation(continuation, fact.projection?.summaryBudgetBytes);
+  const summary = fact.projection?.summaryBudgetTokens ? boundedTokenText(rendered, fact.projection.summaryBudgetTokens) : rendered;
   return Object.freeze({
     ...fact, continuation, summary,
     projection: Object.freeze({
@@ -107,7 +109,8 @@ export function enrichCompactionFact(fact, semantic) {
 
 export function attachTaskCheckpoint(fact, taskStatePath) {
   const continuation = Object.freeze({ ...fact.continuation, taskStatePath });
-  const summary = renderContinuation(continuation, fact.projection?.summaryBudgetBytes ?? 49_152);
+  const rendered = renderContinuation(continuation, fact.projection?.summaryBudgetBytes ?? 49_152);
+  const summary = fact.projection?.summaryBudgetTokens ? boundedTokenText(rendered, fact.projection.summaryBudgetTokens) : rendered;
   return Object.freeze({
     ...fact, continuation, summary,
     projection: Object.freeze({

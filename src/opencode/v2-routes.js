@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { tmpdir } from 'node:os';
-import { readJsonBody, sendJson, sendNoContent } from './protocol.js';
+import { readJsonBody, contextRequestBodyLimit, sendJson, sendNoContent } from './protocol.js';
 import { apiError, invalid, objectInput, validateSelection } from './v2-contract.js';
 import { catalogResponse, requestDirectory } from './v2-catalog.js';
 import { providerCatalog, providerMutation } from './provider-api.js';
@@ -109,7 +109,7 @@ async function sessionPost(ctx, state, action) {
 
 async function body(ctx) {
   if (ctx.req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw invalid('Use application/json');
-  const result = await readJsonBody(ctx.req);
+  const result = await readJsonBody(ctx.req, await contextRequestBodyLimit(ctx));
   if (result.error) throw invalid(result.error === 'body_too_large' ? 'Request body exceeds the size limit' : 'Malformed JSON');
   return result.value;
 }

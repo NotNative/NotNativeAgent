@@ -13,10 +13,6 @@ const MAX_OUTPUT_RESERVE_TOKENS = DEFAULT_MODEL_OUTPUT_TOKENS;
 const CONSERVATIVE_UNKNOWN_WINDOW_TOKENS = 65_536;
 
 export function contextBudget(config, routes, runtime, retryScale = 1, estimateScale = 1) {
-  const knownBytes = routes.slice(0, routes[0]?.budget ?? routes.length)
-    .map((route) => route.contextLimitBytes).filter(positive);
-  if (positive(runtime?.contextLimitBytes)) knownBytes.push(runtime.contextLimitBytes);
-  const hardLimitBytes = Math.min(config.limits.maxContextBytes, ...(knownBytes.length ? knownBytes : [config.limits.maxContextBytes]));
   // Why: an unknown provider window cannot mean unbounded context pressure. A conservative
   // planning window makes compaction activate before a local model rejects an oversized turn.
   const declaredWindowTokens = positiveValue(runtime?.contextWindowTokens);
@@ -36,10 +32,9 @@ export function contextBudget(config, routes, runtime, retryScale = 1, estimateS
   const conservativeEstimateScale = boundedEstimateScale(estimateScale);
   const scaledTokens = thresholdTokens
     ? Math.max(1, Math.floor((thresholdTokens * retryScale) / conservativeEstimateScale)) : null;
-  const thresholdBytes = Math.min(
-    Math.floor(hardLimitBytes * compactionThreshold * retryScale),
-    scaledTokens ? scaledTokens * TOKEN_BYTE_RATIO : Number.MAX_SAFE_INTEGER,
-  );
+  // Compatibility: legacy byte fields describe token-derived physical allowances, never independent context ceilings.
+  const hardLimitBytes = physicalContextAllowance(windowTokens);
+  const thresholdBytes = physicalContextAllowance(scaledTokens);
   return Object.freeze({
     hardLimitBytes, thresholdBytes, windowTokens, outputReserveTokens,
     effectiveInputTokens, thresholdTokens, scaledTokens,
@@ -103,4 +98,11 @@ function positiveValue(value) {
 
 function boundedEstimateScale(value) {
   return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1;
+}
+
+export function physicalContextAllowance(tokens) {
+  const count = Number.isSafeInteger(tokens) && tokens > 0 ? tokens : CONSERVATIVE_UNKNOWN_WINDOW_TOKENS;
+  // A deliberately wide transport allowance covers vocabulary bytes and sixfold JSON escaping.
+  // Context admission still uses the measured request in tokens, never this allowance.
+  return Math.min(Number.MAX_SAFE_INTEGER, count * 768);
 }

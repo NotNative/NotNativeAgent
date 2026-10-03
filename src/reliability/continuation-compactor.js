@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { estimateTokenValue } from './context-token-measurement.js';
 import { enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { createHash } from 'node:crypto';
@@ -170,8 +171,8 @@ function cacheTokenEvidence(usage) {
 }
 
 function converges(fact) {
-  const original = fact.projection?.originalBytes;
-  const projected = fact.projection?.projectedBytes;
+  const original = fact.projection?.measurementUnit === 'tokens' ? fact.projection.originalTokens : fact.projection?.originalBytes;
+  const projected = fact.projection?.measurementUnit === 'tokens' ? estimateTokenValue(fact.retainedRecords) + estimateTokenValue(fact.summary) : fact.projection?.projectedBytes;
   const summaryBudget = fact.projection?.summaryBudgetBytes;
   const summaryBytes = Buffer.byteLength(fact.summary ?? '', 'utf8');
   return Number.isSafeInteger(original) && Number.isSafeInteger(projected)

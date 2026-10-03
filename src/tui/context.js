@@ -22,7 +22,7 @@ export function contextOverlay(session, config, options = {}) {
     `Output reserved: ${count(session.contextOutputReserveTokens)} tokens`,
     `Loaded parallel capacity: ${count(session.contextParallelCapacity)}`,
     `Runtime source: ${session.contextSource ?? 'configured byte fallback'}`,
-    `Hard byte ceiling: ${bytes(session.contextLimitBytes)}`,
+    `Token-derived physical allowance: ${bytes(session.contextLimitBytes)}`,
   ];
   if (session.contextCompaction) lines.push(
     `Compaction active: ${count(session.contextCompaction.beforeTokens)} -> target <= ${count(session.contextCompaction.targetTokens)} tokens`,

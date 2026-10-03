@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:bac160935e55f95c48e9e284f9832607de53053b236881a144b0a09e375e1382",
+  "source_digest": "sha256:7c1c416ceb864b4481fc25950d2146f668a8844cfb2b0a01ea4986c1cd143b0a",
   "counts": {
-    "modules": 488,
-    "component_edges": 81
+    "modules": 489,
+    "component_edges": 82
   },
   "components": [
     {
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 36
+      "module_count": 37
     },
     {
       "id": "gateway",
@@ -144,8 +144,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 49,
-      "module_count": 18
+      "import_count": 57,
+      "module_count": 21
     },
     {
       "from": "agentic-engine",
@@ -246,7 +246,13 @@
     {
       "from": "foundation",
       "to": "reliability-engine",
-      "import_count": 11,
+      "import_count": 12,
+      "module_count": 12
+    },
+    {
+      "from": "reliability-engine",
+      "to": "foundation",
+      "import_count": 12,
       "module_count": 11
     },
     {
@@ -254,12 +260,6 @@
       "to": "persistence",
       "import_count": 11,
       "module_count": 5
-    },
-    {
-      "from": "reliability-engine",
-      "to": "foundation",
-      "import_count": 11,
-      "module_count": 10
     },
     {
       "from": "tools",
@@ -376,6 +376,12 @@
       "module_count": 3
     },
     {
+      "from": "opencode-surface",
+      "to": "reliability-engine",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
       "from": "tools",
       "to": "governance-engine",
       "import_count": 4,
@@ -568,14 +574,14 @@
       "module_count": 1
     },
     {
-      "from": "opencode-surface",
-      "to": "agentic-engine",
+      "from": "integrations",
+      "to": "reliability-engine",
       "import_count": 1,
       "module_count": 1
     },
     {
       "from": "opencode-surface",
-      "to": "reliability-engine",
+      "to": "agentic-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -778,7 +784,8 @@
       "entrypoint": false,
       "imports": [
         "src/failure-envelope.js",
-        "src/ids.js"
+        "src/ids.js",
+        "src/reliability/context-budget.js"
       ]
     },
     {
@@ -1783,6 +1790,7 @@
         "src/product.js",
         "src/provider/launch-overrides.js",
         "src/provider/route-configuration.js",
+        "src/reliability/context-budget.js",
         "src/structured-log.js"
       ]
     },
@@ -3135,7 +3143,8 @@
       "component": "opencode-surface",
       "entrypoint": false,
       "imports": [
-        "src/opencode/version.js"
+        "src/opencode/version.js",
+        "src/reliability/context-budget.js"
       ]
     },
     {
@@ -3320,7 +3329,8 @@
         "src/opencode/v2-events.js",
         "src/opencode/v2-forms.js",
         "src/opencode/v2-projection.js",
-        "src/provider/route-configuration.js"
+        "src/provider/route-configuration.js",
+        "src/reliability/context-budget.js"
       ]
     },
     {
@@ -3343,7 +3353,8 @@
       "component": "opencode-surface",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/reliability/context-budget.js"
       ]
     },
     {
@@ -3822,6 +3833,7 @@
       "entrypoint": false,
       "imports": [
         "src/reliability/context-compression.js",
+        "src/reliability/context-token-measurement.js",
         "src/reliability/continuation-artifact.js",
         "src/reliability/duplicate-results.js",
         "src/reliability/long-horizon-context.js",
@@ -3862,6 +3874,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/reliability/context-token-measurement.js",
         "src/reliability/duplicate-results.js",
         "src/reliability/tool-exchanges.js",
         "src/tools/context-receipt.js",
@@ -3869,10 +3882,20 @@
       ]
     },
     {
+      "path": "src/reliability/context-token-measurement.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/context-budget.js"
+      ]
+    },
+    {
       "path": "src/reliability/continuation-artifact.js",
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/reliability/context-token-measurement.js",
         "src/reliability/tool-exchanges.js",
         "src/tools/tool-result-contract.js"
       ]
@@ -3884,6 +3907,7 @@
       "imports": [
         "src/ids.js",
         "src/provider/reasoning.js",
+        "src/reliability/context-token-measurement.js",
         "src/reliability/continuation-artifact.js"
       ]
     },
@@ -3938,7 +3962,8 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/reliability/context-token-measurement.js"
       ]
     },
     {
@@ -3977,7 +4002,9 @@
       "path": "src/reliability/reasoning-continuity.js",
       "component": "reliability-engine",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/reliability/context-budget.js"
+      ]
     },
     {
       "path": "src/reliability/recovery-supervisor.js",
@@ -4015,7 +4042,8 @@
         "src/ids.js",
         "src/provider/reasoning.js",
         "src/provider/request-metadata.js",
-        "src/reliability/context-budget.js"
+        "src/reliability/context-budget.js",
+        "src/reliability/context-token-measurement.js"
       ]
     },
     {

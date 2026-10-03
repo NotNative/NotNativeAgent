@@ -10,9 +10,8 @@ import { writeTaskCheckpoint } from '../task-checkpoint.js';
 import { toolLifecycleStatus, toolReviewOutcome } from '../tools/tool-result-contract.js';
 import { compactionBudgetDetail, measureCompactionInput } from './compaction-measurement.js';
 
-const MIN_COMPACTION_BUDGET_BYTES = 8_192;
+const MIN_COMPACTION_BUDGET_TOKENS = 2_048;
 const COMPACTION_REDUCTION_FACTOR = 0.6;
-const ESTIMATED_BYTES_PER_TOKEN = 3;
 
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
@@ -24,12 +23,12 @@ export async function prepareEngineContext(engine, records, content, active, for
   recordBudget(engine, runtime, planned, active);
   const hardLimit = planned.hardLimitBytes;
   const thresholdBudget = planned.thresholdBytes;
-  const budget = thresholdBudget;
+  const budget = planned.scaledTokens;
   active.contextLimitBytes = hardLimit;
   if (!force) {
     try {
       const context = await buildReportedContext(
-        engine, records, content, active.enrichment, active, budget, hardLimit, planned,
+        engine, records, content, active.enrichment, active, Number.MAX_SAFE_INTEGER, hardLimit, planned,
         { projectContext: (measurement) => pressureProjection(engine, active, operations, measurement) },
       );
       assertCompleteEnvelope(engine, routes[0], context, planned, active);
@@ -58,7 +57,7 @@ async function compactContext(engine, records, content, active, operations, plan
   engine.state.transition('compacting_context', { trigger: 'context_preflight', turnId: active.turnId });
   const beforeEstimatedTokens = measureCompactionInput(engine, routes[0], plan.beforeContext, active, planned).estimated_input_tokens;
   const targetTokens = desiredCompactionTarget(planned, beforeEstimatedTokens);
-  const budget = Math.min(plan.budget, Math.max(MIN_COMPACTION_BUDGET_BYTES, targetTokens * ESTIMATED_BYTES_PER_TOKEN));
+  const budget = Math.min(plan.budget, Math.max(MIN_COMPACTION_BUDGET_TOKENS, targetTokens));
   const started = { ...compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens),
     journal_estimated_tokens: estimateUtf8Tokens(JSON.stringify(records)) + estimateUtf8Tokens(content) };
   await emitCompactionStatus(engine, active, 'started', started);
@@ -124,7 +123,7 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
       // Invariant: optional refresh cannot increase input or create a checkpoint merely for cadence.
       if (after >= plan.beforeEstimatedTokens && compactionTrigger(active) !== 'stale_continuation_artifact') {
         if (['completed_turn_interval', 'tool_payload_budget'].includes(compactionTrigger(active))
-          && measureContext(plan.beforeContext) <= plan.validationBudget) {
+          && plan.beforeEstimatedTokens <= plan.validationBudget) {
           assertCompleteEnvelope(engine, plan.route, plan.beforeContext, plan.planned, active);
           return { fact: null, context: plan.beforeContext, rejectedEstimatedTokens: after };
         }
@@ -151,7 +150,7 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
     } catch (error) {
       if (!['context_too_large', 'context_compaction_no_reduction'].includes(error.code)) throw error;
       lastError = error;
-      budget = Math.max(MIN_COMPACTION_BUDGET_BYTES, Math.floor(budget * COMPACTION_REDUCTION_FACTOR));
+      budget = Math.max(MIN_COMPACTION_BUDGET_TOKENS, Math.floor(budget * COMPACTION_REDUCTION_FACTOR));
     }
   }
   if (lastError?.code === 'context_compaction_no_reduction' && compactionTrigger(active) === 'provider_context_limit') {
@@ -164,7 +163,7 @@ async function createCompactionCandidate(engine, records, active, plan) {
   const source = includeUnprojectedActiveRecords(records, engine.transcript, active.turnId);
   const compacted = engine.reliability.compactTranscript(source, plan.budget, {
     activeTurnId: active.turnId, activeStepId: active.stepId,
-    protectedActiveSteps: 3, requireProgress: true,
+    protectedActiveSteps: 3, requireProgress: true, unit: 'tokens',
   });
   const repeated = active.lastCompactionSourceFingerprint === compacted.fact.sourceFingerprint
     ? active.compactionNoProgressAttempts + 1 : 0;
@@ -304,7 +303,7 @@ function compressionTriggerKey(horizon) {
   if (!horizon) return null;
   return createHash('sha256').update(JSON.stringify({
     reason: horizon.reason, checkpointIndex: horizon.checkpointIndex,
-    completedTurns: horizon.completedTurns, payloadBytes: horizon.payloadBytes,
+    completedTurns: horizon.completedTurns, payloadTokens: horizon.payloadTokens,
   })).digest('hex');
 }
 

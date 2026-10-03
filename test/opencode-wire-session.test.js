@@ -93,13 +93,23 @@ test('prompts while busy queue their durable events at admit time and serialize 
 test('prompt validation rejects empty, oversized, and non-text parts before any event', async () => {
   const bus = recordingBus();
   const record = makeRecord(async () => ({ outcome: 'completed', text: '' }));
+  record.engine = { ingressContextWindowTokens: 1 };
   const wireSession = freshWireSession(record, bus);
   assert.throws(() => wireSession.prompt([]), /at least one text part/u);
   assert.throws(() => wireSession.prompt([{ type: 'file', mime: 'text/x' }]), /only text prompt parts/u);
   assert.throws(() => wireSession.prompt([{ type: 'text', text: '' }]), /require text/u);
-  const oversized = { type: 'text', text: '.'.repeat(65_537) };
+  const oversized = { type: 'text', text: '.'.repeat(769) };
   assert.throws(() => wireSession.prompt([oversized]), /exceeds bounds/u);
   assert.equal(bus.frames.length, 0, 'the recording stub emits nothing; validation rejects before lift-off');
+});
+
+test('prompt admission accepts token-valid text beyond the former character ceiling', async () => {
+  const record = makeRecord(async (command) => ({ outcome: 'completed', text: command.content }));
+  record.engine = { ingressContextWindowTokens: 300_000 };
+  const wireSession = freshWireSession(record, recordingBus());
+  const text = '界'.repeat(70_000);
+  const response = await wireSession.prompt([{ type: 'text', text }]);
+  assert.equal(response.parts[1].text, text);
 });
 
 test('turn failures still answer with a settled assistant response and idle sentinels', async () => {

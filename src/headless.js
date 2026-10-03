@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { physicalContextAllowance } from './reliability/context-budget.js';
 import { once } from 'node:events';
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -21,10 +22,10 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
   let activeRequestId = null; let unregisterFatalCleanup = () => undefined;
   const owned = new Set();
   try {
-    for await (const line of interruptibleLines(input, writer, options.maxLineBytes ?? 262_144)) {
+    for await (const line of interruptibleLines(input, writer, () => options.maxLineBytes ?? (engine ? physicalContextAllowance(engine.lastContextMeasurement?.windowTokens ?? 65536) : 262_144))) {
       if (line.trim().length === 0) continue;
       activeRequestId = null;
-      const command = parseProtocolLine(line);
+      const command = parseProtocolLine(line, engine ? { contextWindowTokens: engine.lastContextMeasurement?.windowTokens ?? 65536 } : {});
       activeRequestId = command.request_id;
       if (!engine) {
         const initialized = await initialize(command, writer, logger, options);
@@ -213,8 +214,8 @@ export class ProtocolWriter {
 
   constructor(stream, limits = {}) {
     this.stream = stream;
-    this.maxQueuedBytes = limits?.maxQueuedBytes ?? 4_194_304;
-    this.maxLineBytes = limits?.maxLineBytes ?? 2_359_296;
+    this.maxQueuedBytes = limits?.maxQueuedBytes ?? physicalContextAllowance(32000);
+    this.maxLineBytes = limits?.maxLineBytes ?? physicalContextAllowance(32000);
     this.failure = new Promise((_resolve, reject) => { this.#rejectFailure = reject; });
     this.failure.catch(() => undefined);
     stream.on('error', (error) => this.#fail(error));
@@ -277,13 +278,13 @@ async function* boundedLines(stream, maxBytes) {
   let pending = Buffer.alloc(0);
   for await (const chunk of stream) {
     pending = Buffer.concat([pending, Buffer.from(chunk)]);
-    if (pending.length > maxBytes && pending.indexOf(0x0a) < 0) {
-      throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);
+    if (pending.length > (typeof maxBytes === 'function' ? maxBytes() : maxBytes) && pending.indexOf(0x0a) < 0) {
+      throw new ContractError('line_too_large', `input exceeds ${typeof maxBytes === 'function' ? maxBytes() : maxBytes} bytes`);
     }
     let newline = pending.indexOf(0x0a);
     while (newline >= 0) {
       const line = pending.subarray(0, newline);
-      if (line.length > maxBytes) throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);
+      if (line.length > (typeof maxBytes === 'function' ? maxBytes() : maxBytes)) throw new ContractError('line_too_large', `input exceeds ${typeof maxBytes === 'function' ? maxBytes() : maxBytes} bytes`);
       yield new TextDecoder('utf-8', { fatal: true }).decode(line).replace(/\r$/u, '');
       pending = pending.subarray(newline + 1);
       newline = pending.indexOf(0x0a);

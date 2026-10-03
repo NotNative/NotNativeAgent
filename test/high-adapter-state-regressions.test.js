@@ -41,7 +41,7 @@ test('shell advisory tolerates absent and nontext input', () => {
 });
 
 test('reasoning overflow sentinel cannot restart capture', () => {
-  assert.equal(appendReasoningChunk('', 'x'.repeat(262145)), null);
+  assert.equal(appendReasoningChunk('', 'x'.repeat(196609)), null);
   assert.equal(appendReasoningChunk(null, 'suffix'), null);
   assert.equal(appendReasoningChunk(null, ''), null);
   assert.equal(appendReasoningChunk(undefined, 'start'), 'start');

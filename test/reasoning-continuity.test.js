@@ -81,8 +81,9 @@ test('one model step replays text, reasoning, and parallel tool calls as one ass
 });
 
 test('reasoning continuity rejects an oversized block instead of retaining a misleading suffix', () => {
-  const oversized = appendReasoningChunk('', `old-${'x'.repeat(300_000)}-latest`);
+  const oversized = appendReasoningChunk('', `old-${'x'.repeat(300_000)}-latest`, 65_536);
   assert.equal(oversized, null);
+  assert.equal(appendReasoningChunk('', 'x'.repeat(270_000), 100_000)?.length, 270_000);
 });
 
 test('reasoning continuity preserves complete blocks until actual available context is exhausted', () => {

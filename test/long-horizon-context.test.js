@@ -28,7 +28,8 @@ test('historical tool payload budget scales with the effective model input windo
   const records = [{ type: 'tool_result', content: 'x'.repeat(4_100), status: 'succeeded' }];
   const trigger = longHorizonCompressionTrigger(records, { effectiveInputTokens: 10_000 });
   assert.equal(trigger.reason, 'tool_payload_budget');
-  assert.equal(trigger.inputBytes, 40_000);
+  assert.equal(trigger.effectiveInputTokens, 10_000);
+  assert.equal(trigger.payloadTokens, 1367);
   assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 20_000 }), null);
 });
 

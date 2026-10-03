@@ -71,6 +71,7 @@ function installReliability(engine, options, hooks) {
     scheduler: engine.scheduler,
     telemetry: engine.telemetry,
     contextTokenCounter: options.contextTokenCounter,
+    contextRequestTokenCounter: options.contextRequestTokenCounter,
     contextTokenizerIdentity: options.contextTokenizerIdentity,
     contextTokenizerExact: options.contextTokenizerExact,
     tokenReceiptRecorder: recorder,

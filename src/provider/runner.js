@@ -287,7 +287,7 @@ export class ProviderRunner {
       if (!active.attemptReasoningOverflow) {
         const appendReasoningChunk = this.reliability?.appendReasoningChunk;
         const appended = typeof appendReasoningChunk === 'function'
-          ? appendReasoningChunk(active.attemptReasoningText, item.text)
+          ? appendReasoningChunk(active.attemptReasoningText, item.text, active.attemptOutputLimitTokens ?? undefined)
           : `${active.attemptReasoningText ?? ''}${item.text}`;
         if (appended === null) {
           active.attemptReasoningText = '';

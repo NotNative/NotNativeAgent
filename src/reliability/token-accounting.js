@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { providerReasoningControls } from '../provider/reasoning.js';
 import { providerRequestMetadata } from '../provider/request-metadata.js';
+import { estimateTokenValue } from './context-token-measurement.js';
 import { estimateUtf8Tokens } from './context-budget.js';
 
 const TOKEN_BYTE_RATIO = 3;
@@ -37,12 +38,22 @@ export function measureProviderEnvelope(request, context = [], options = {}) {
   addSection(sections, 'request.tool_schemas', request.tools ?? []);
   addSection(sections, 'request.configuration', requestConfiguration(request));
   const inventory = boundedInventory(sections);
-  const inputTokens = inventory.reduce((total, item) => total + item.estimated_tokens, 0);
+  let inputTokens = inventory.reduce((total, item) => total + item.estimated_tokens, 0);
+  let degraded = false;
+  if (typeof options.requestTokenCounter === 'function') {
+    try {
+      const counted = options.requestTokenCounter(request);
+      if (!Number.isSafeInteger(counted) || counted < 0) throw new Error('invalid token count');
+      inputTokens = counted;
+    } catch { degraded = true; }
+  }
   const outputReserve = positiveInteger(options.outputReserveTokens) ?? 0;
   return Object.freeze({
-    schema: 'nna.provider-envelope.v1', measurement: 'estimated',
+    schema: 'nna.provider-envelope.v1', measurement: options.requestTokenCounter && !degraded && options.tokenizerExact ? 'measured' : 'estimated',
+    tokenizer_identity: options.requestTokenCounter && !degraded ? options.tokenizerIdentity ?? 'custom_request_counter' : 'semantic_text_script_aware_v3',
+    tokenizer_degraded: degraded,
     provenance_status: provenanceStatus,
-    estimator: 'serialized_utf8_script_aware_v2',
+    estimator: 'semantic_text_script_aware_v3',
     estimated_input_tokens: inputTokens,
     reserved_output_tokens: outputReserve,
     reserved_total_tokens: inputTokens + outputReserve,
@@ -215,7 +226,7 @@ function addSection(sections, id, value) {
   const serialized = serializedValue(value);
   const bytes = Buffer.byteLength(serialized, 'utf8');
   const current = sections.get(id) ?? { bytes: 0, tokens: 0, items: 0 };
-  current.bytes += bytes; current.tokens += estimateUtf8Tokens(serialized); current.items += 1;
+  current.bytes += bytes; current.tokens += estimateTokenValue(value); current.items += 1;
   sections.set(id, current);
 }
 

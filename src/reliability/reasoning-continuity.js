@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const MAX_REASONING_BLOCK_BYTES = 262_144;
+import { estimateUtf8Tokens } from './context-budget.js';
 
-export function appendReasoningChunk(current, chunk) {
+const DEFAULT_REASONING_TOKENS = 65_536;
+
+export function appendReasoningChunk(current, chunk, maxTokens = DEFAULT_REASONING_TOKENS) {
   if (current === null) return null;
   if (typeof chunk !== 'string' || chunk.length === 0) return current ?? '';
   const combined = `${current ?? ''}${chunk}`;
-  return Buffer.byteLength(combined, 'utf8') <= MAX_REASONING_BLOCK_BYTES ? combined : null;
+  return estimateUtf8Tokens(combined) <= maxTokens ? combined : null;
 }
 
 export function captureReasoningContinuation(active, calls = []) {

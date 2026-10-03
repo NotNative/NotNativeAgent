@@ -71,6 +71,15 @@ test('legacy creation cannot supply internal v2 session authority fields', async
   assert.notEqual(record.engine.config.workspaceRoot, 'D:\\unauthorized');
 });
 
+test('v2 prompt accepts text beyond the old 65536-character ceiling', async (t) => {
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const prompt = await request(`/api/session/${session.id}/prompt`, 'POST', { text: 'a'.repeat(70_000) });
+  assert.equal(prompt.status, 200, await prompt.text());
+  assert.equal((await request(`/api/experimental/session/${session.id}/wait`, 'POST')).status, 204);
+  assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'succeeded');
+});
+
 test('v2 discovery, configured catalogs, and session CRUD conform to published schemas', async (t) => {
   const { json, request, root } = await fixtureServer(t);
   const info = await json('/api/info'); contract('ServerInfo', info); assert.equal(info.version, '2.0.21');
