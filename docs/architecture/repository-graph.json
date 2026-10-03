@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:89f48bde1d218a3094ff95579003e7462c2001ade6965cd4ead9d4559ac2fd0e",
+  "source_digest": "sha256:0291293985bf63948e75b860675c3afd4ec6327be2eac0a745d621506b6f3d71",
   "counts": {
     "modules": 500,
     "component_edges": 82
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 534,
+      "import_count": 535,
       "module_count": 172
     },
     {
@@ -2754,6 +2754,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-activation-held-ticket.js",
         "src/nnd-activation-principal-proof.js",
         "src/nnd-trial-admission.js"
       ]
