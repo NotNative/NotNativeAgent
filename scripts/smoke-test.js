@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { createApp } from '../packages/web/src/server/app.ts';
-import { registerHarnessAdapter } from '../packages/web/src/server/harness/adapter.ts';
-import { mockHarness } from '../packages/web/src/server/harness/mock/index.ts';
+
+// This probe deliberately runs the in-process harness. Set the mode before
+// loading the server modules: ENV snapshots it at import time, and otherwise
+// the native-only session admission rejects this mock session's empty root.
+process.env.NOTNATIVE_HARNESS = 'mock';
+const [{ createApp }, { registerHarnessAdapter }, { mockHarness }, { ENV }] = await Promise.all([
+  import('../packages/web/src/server/app.ts'),
+  import('../packages/web/src/server/harness/adapter.ts'),
+  import('../packages/web/src/server/harness/mock/index.ts'),
+  import('../packages/web/src/server/env.ts'),
+]);
+assert.equal(ENV.harness, 'mock', 'smoke must run against its explicit mock harness');
 
 const REPLY_WINDOW_MS = 10_000;
 const STEP_TIMEOUT_MS = 5_000;

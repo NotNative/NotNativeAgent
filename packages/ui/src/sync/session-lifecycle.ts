@@ -9,6 +9,7 @@ import type { Message, Part, PermissionRequest, QuestionRequest, Session, Sessio
 import type { DirectoryStore, MaterializationRequest } from './types.ts';
 import type { SessionMessageLoader } from './session-message-loader.ts';
 import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
+import { runtimeFetch } from '../lib/runtime-fetch.ts';
 import { metadataWithProjectContextPins, type ProjectContextPinTargets } from '../chat/project-context-pins.ts';
 import { isNotFound } from './session-actions.ts';
 
@@ -37,24 +38,32 @@ export interface EngineServices {
 export async function createSession(engine: EngineServices, input: { directory: string; title?: string; parentID?: string;
   projectContextPins?: ProjectContextPinTargets }): Promise<Session> {
   const requested = normalizeDirectory(input.directory);
+  const selected = await nativeWorkspaceForCreate(requested);
   const result = await harnessClient.createSession({ title: input.title, directory: requested, ...(input.parentID ? { parentID: input.parentID } : {}) });
   if (result.error || !result.data) throw new Error(result.error ?? 'createSession failed');
   const session = result.data;
-  // SERVER-AUTHORITATIVE directory, not the requested one
-  const sessionDirectory = normalizeDirectory(session.directory ?? requested);
+  // A configuration transition can race the read-only preflight. Preserve a
+  // session created in the new root, but never select or dispatch into it.
+  const sessionDirectory = typeof session.directory === 'string' ? normalizeDirectory(session.directory) : '';
+  if (sessionDirectory !== selected) {
+    throw new Error(`NNA created session ${session.id} in ${sessionDirectory || 'an unknown workspace'} after its workspace changed. `
+      + 'The session remains recoverable in NNA; refresh the workspace before sending.');
+  }
   session.directory = sessionDirectory;
   const metadata = metadataWithProjectContextPins(session.metadata, input.projectContextPins ?? { notes: [], plans: [] });
   if (metadata) {
     const current = await harnessClient.getSession(session.id, { directory: sessionDirectory });
     if (current.error || !current.data) throw new Error(current.error ?? 'Could not read the new session for context pins');
-    if (current.data.id !== session.id || normalizeDirectory(current.data.directory ?? sessionDirectory) !== sessionDirectory) {
+    if (current.data.id !== session.id || typeof current.data.directory !== 'string'
+      || normalizeDirectory(current.data.directory) !== sessionDirectory) {
       throw new Error('Could not read the new session for context pins');
     }
     const merged = metadataWithProjectContextPins(current.data.metadata, input.projectContextPins ?? { notes: [], plans: [] });
     if (!merged) throw new Error('Could not merge project context pins');
     const committed = await harnessClient.updateSession(session.id, { metadata: merged }, { directory: sessionDirectory });
     if (committed.error || !committed.data) throw new Error(committed.error ?? 'Could not transfer project context pins');
-    if (committed.data.id !== session.id || normalizeDirectory(committed.data.directory ?? sessionDirectory) !== sessionDirectory) {
+    if (committed.data.id !== session.id || typeof committed.data.directory !== 'string'
+      || normalizeDirectory(committed.data.directory) !== sessionDirectory) {
       throw new Error('Could not transfer project context pins');
     }
     session.metadata = committed.data.metadata;
@@ -65,6 +74,30 @@ export async function createSession(engine: EngineServices, input: { directory: 
   engine.loaderInitializeCreated(sessionDirectory, session.id, store);
   engine.onSelectSession(session.id, sessionDirectory);
   return session;
+}
+
+function boundedWorkspace(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length < 2 || value.length > 4096 || /[\u0000-\u001f\u007f]/u.test(value)) return null;
+  const path = normalizeDirectory(value);
+  if (!/^(?:[A-Z]:\/|\/)/u.test(path) || path.split('/').some(part => part === '.' || part === '..')) return null;
+  // UNC, device and drive-relative spellings need native opaque root admission.
+  if (path.startsWith('//') || /^[A-Z]:[^/]/u.test(path)) return null;
+  return path;
+}
+
+async function nativeWorkspaceForCreate(requested: string): Promise<string> {
+  const chosen = boundedWorkspace(requested);
+  if (!chosen) {
+    throw new Error('NNA workspace identity is unavailable. Refresh the native connection before creating a session.');
+  }
+  const response = await runtimeFetch(`/api/native-workspace/admission?directory=${encodeURIComponent(chosen)}`);
+  const payload = await response.json().catch(() => null) as { directory?: unknown; error?: { message?: unknown } } | null;
+  if (!response.ok) {
+    throw new Error(typeof payload?.error?.message === 'string' ? payload.error.message : 'NNA workspace identity is unavailable.');
+  }
+  const native = boundedWorkspace(payload?.directory);
+  if (!native || native !== chosen) throw new Error('NNA workspace identity is unavailable. Refresh the native connection before creating a session.');
+  return native;
 }
 
 function insertCreatedSession(store: StoreApi<DirectoryStore>, session: Session): void {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:df6e3d07e62a70781760eb7449f29aef9c00471f21efb1a6922ef2219405b56a",
+  "source_digest": "sha256:892b1a0347a2f83ce737d6bdc2264eeb342e646902ecce82910ae8c2adf84824",
   "counts": {
-    "modules": 756,
+    "modules": 757,
     "component_edges": 16
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 227
+      "module_count": 228
     },
     {
       "id": "web-entry",
@@ -132,20 +132,20 @@
     {
       "from": "gates",
       "to": "web-server",
-      "import_count": 22,
+      "import_count": 23,
       "module_count": 7
+    },
+    {
+      "from": "sync-engine",
+      "to": "runtime-io",
+      "import_count": 11,
+      "module_count": 9
     },
     {
       "from": "runtime-io",
       "to": "harness-facade",
       "import_count": 10,
       "module_count": 7
-    },
-    {
-      "from": "sync-engine",
-      "to": "runtime-io",
-      "import_count": 10,
-      "module_count": 8
     },
     {
       "from": "web-entry",
@@ -4687,6 +4687,7 @@
         "packages/ui/src/chat/project-context-pins.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
         "packages/ui/src/sync/session-actions.ts",
         "packages/ui/src/sync/session-message-loader.ts",
         "packages/ui/src/sync/types.ts"
@@ -4914,7 +4915,6 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/goals/objective-routes.ts",
-        "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/http/request-security.ts",
@@ -4928,6 +4928,7 @@
         "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/push/routes.ts",
         "packages/web/src/server/push/runtime.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts",
         "packages/web/src/server/queue/queue-routes.ts",
         "packages/web/src/server/routes/agent-memory.ts",
         "packages/web/src/server/routes/agent-tool.ts",
@@ -4945,6 +4946,7 @@
         "packages/web/src/server/routes/magic-prompts.ts",
         "packages/web/src/server/routes/markdown-image-grants.ts",
         "packages/web/src/server/routes/mcp-config.ts",
+        "packages/web/src/server/routes/native-workspace-admission.ts",
         "packages/web/src/server/routes/notnative.ts",
         "packages/web/src/server/routes/projects.ts",
         "packages/web/src/server/routes/relay.ts",
@@ -6187,7 +6189,8 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/harness/adapter.ts",
-        "packages/web/src/server/lib/harnessNaming.ts"
+        "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/routes/native-workspace-admission.ts"
       ]
     },
     {
@@ -6452,6 +6455,16 @@
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/lib/mcp/mcp-config.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/native-workspace-admission.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/lib/harnessNaming.ts"
       ]
     },
     {
@@ -7462,6 +7475,7 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/app.ts",
+        "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts"
       ]

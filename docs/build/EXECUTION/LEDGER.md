@@ -582,3 +582,31 @@ A disposable source-payload Electron/Chromium run saved
 readback, and rejected stale CAS. This is a real browser path, not a prebuilt
 slot or production installer acceptance. Full C4 route and provider management
 remains open.
+
+## NNA 20261002-29 — exact raw manifest transaction prerequisite
+
+Native persistence now supports a receipt-backed, held-mutex compare-and-swap
+of exact bounded bytes or true absence. An independent audit found no confirmed
+defect and verified compatibility with the held-owner registration reconciler.
+The full serial Windows suite passed 2,035 tests with eight skips and zero
+failures. This primitive does not by itself prove writer shutdown, roll back a
+selected NND package, publish discovery or clear the admission barrier.
+
+## NND 20261002-15 — single native workspace admission guard
+
+The shared GUI create path checks NNA's authoritative `/path` before opening a
+session and verifies the created session's returned directory before selecting
+it. The authenticated NND server admission route checks filesystem ancestry
+and rejects an alternate repository or linked/ambiguous root. Independent
+review found that direct API and background creation bypassed the first UI-only
+check; the shared server harness adapter now applies the same admission to
+session create/fork calls and preserves a race-created session for recovery.
+The release smoke was corrected to initialize its explicit mock mode before
+loading the server modules; native-mode admission is not bypassed.
+
+Disposable two-repository and junction tests, direct server/API tests, UI race
+tests and typechecks pass. NNA still has only a single native workspace root;
+this is a partial F1 safety guard, not multi-project/worktree admission. Its
+`/path` response lacks an immutable installation/data identity, so a same-path
+runtime switch cannot yet be proven at this boundary. F2 durable state and
+complete installed acceptance remain open.

@@ -2,7 +2,6 @@
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { ENV } from './env.ts';
-import { getHarnessAdapter } from './harness/adapter.ts';
 import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
 import { peekRelayServerId } from './lib/relay/identity.ts';
@@ -29,6 +28,8 @@ import { registerMcpConfigRoutes } from './routes/mcp-config.ts';
 import { registerSmallModelRoutes } from './routes/small-model.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { registerNativeWorkspaceAdmissionRoute } from './routes/native-workspace-admission.ts';
+import { callHarness } from './queue/queue-adapter-calls.ts';
 import { createNnaSessionHarnessPorts } from './session-orchestration/session-harness-ports.ts';
 import { registerMarkdownImageGrantRoutes } from './routes/markdown-image-grants.ts';
 import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
@@ -152,7 +153,7 @@ export function registerPublicHygiene(app: Hono): void {
 function registerHarnessProxy(app: Hono): void {
   app.all('/api/*', async (c) => {
     try {
-      const response = await getHarnessAdapter().handle(c.req.raw);
+      const response = await callHarness(c.req.raw);
       const listPath = /^\/api\/(experimental\/)?session$/.test(new URL(c.req.raw.url).pathname);
       if (listPath && c.req.method === 'GET') return await sanitizeSessionList(response);
       return response;
@@ -325,6 +326,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   app.route('/', createPushRoutes(notificationServices));
   app.route('/', createNotificationRoutes(notificationServices));
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
+  registerNativeWorkspaceAdmissionRoute(app);
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.17 session orchestration: server-side create/send/fork/archive.
   registerOpenChamberSessionRoutes(app);

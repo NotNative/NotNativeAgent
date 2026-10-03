@@ -26,6 +26,11 @@ export function dedupeNames(list: DraftAttachment[]): DraftAttachment[] {
 }
 
 export function describeSendFailure(error: unknown, hadAttachments: boolean): void {
+  const message = error instanceof Error ? error.message : '';
+  if (/^(?:NNA is attached to |NNA workspace identity is unavailable|NNA created session )/u.test(message)) {
+    toast.error(message);
+    return;
+  }
   const kind = sendErrorKind(error);
   if (kind === 'runtime-changed') toast.error('Message failed to send. Attachments restored.');
   else if (kind === 'payload-too-large') toast.error('Attachments are too large to send. Trim the batch and try again.');

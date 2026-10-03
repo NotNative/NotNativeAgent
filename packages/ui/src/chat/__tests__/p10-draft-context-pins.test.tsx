@@ -12,6 +12,7 @@ import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 import { createSession } from '../../sync/session-lifecycle.ts';
 import { createDirectoryStore } from '../../sync/child-store.ts';
 import { harnessClient } from '../../lib/nnd/client.ts';
+import { runtimeFetch } from '../../lib/runtime-fetch.ts';
 import type { Session } from '../../lib/nnd/types.ts';
 import { getProjectContext, type ProjectContext } from '../../lib/project-context-api.ts';
 import type { DirectoryStore } from '../../sync/types.ts';
@@ -29,6 +30,7 @@ vi.mock('../../lib/nnd/client.ts', () => ({
     updateSession: vi.fn(),
   },
 }));
+vi.mock('../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 const harnessCreate = vi.mocked(harnessClient.createSession);
 const harnessUpdate = vi.mocked(harnessClient.updateSession);
@@ -134,6 +136,7 @@ describe('fresh-session pin transfer', () => {
       project_context_pins: { notes: ['note-1'], plans: ['plan-1'] } } };
     const storeForCreate = createDirectoryStore();
     harnessCreate.mockResolvedValue({ data: created as unknown as Session });
+    vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify({ directory: '/work' })));
     harnessGet.mockResolvedValue({ data: created as unknown as Session });
     harnessUpdate.mockResolvedValue({ data: { ...created, metadata: merged } as unknown as Session });
     const engine = {
