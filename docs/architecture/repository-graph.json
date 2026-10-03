@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:73c0dad95030a41e7e1fbdd4ff6c102ec7e312c118baf5d7ac19cb529d1875fd",
+  "source_digest": "sha256:07e27f7525000a8de3fed113e93fff6f2ea90ce79dec4bd8c6327acb3e67144f",
   "counts": {
-    "modules": 484,
+    "modules": 485,
     "component_edges": 81
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 49
+      "module_count": 50
     },
     {
       "id": "guidance",
@@ -132,13 +132,13 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 61,
-      "module_count": 39
+      "import_count": 62,
+      "module_count": 40
     },
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 57,
+      "import_count": 58,
       "module_count": 20
     },
     {
@@ -150,7 +150,7 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 47,
+      "import_count": 48,
       "module_count": 18
     },
     {
@@ -1021,6 +1021,7 @@
         "src/mcp-manager.js",
         "src/memory.js",
         "src/nnd-questions.js",
+        "src/nnd-workspace-binding.js",
         "src/notifications/telegram.js",
         "src/permission-broker.js",
         "src/persistence/reviewer-ledger.js",
@@ -4361,6 +4362,7 @@
         "src/tools/text-edit-helpers.js",
         "src/tools/turn-completion.js",
         "src/tools/workflow-leases.js",
+        "src/tools/workspace-identity-guard.js",
         "src/tools/workspace.js",
         "src/tools/write-target.js",
         "src/web-browse-tool.js",
@@ -4679,6 +4681,14 @@
       "component": "tools",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/tools/workspace-identity-guard.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/tools/workspace.js",
