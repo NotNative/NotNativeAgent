@@ -101,9 +101,18 @@ function Get-InstalledNna {
         if ($selectionFile.PSIsContainer -or $selectionFile.Length -gt 16384 -or
             ($selectionFile.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Installed NNA selection is invalid.' }
         $selection = Get-Content -LiteralPath $selectionPath -Raw | ConvertFrom-Json
-        if (@($selection.PSObject.Properties).Count -ne 2 -or $selection.schema_version -ne '1.0' -or
+        $selectionKeys = @($selection.PSObject.Properties.Name)
+        $legacyKeys = @('schema_version', 'nna_install_root')
+        $pinnedKeys = @('schema_version', 'nna_install_root', 'installation_id', 'data_id')
+        $isLegacy = $selectionKeys.Count -eq $legacyKeys.Count -and @($legacyKeys | Where-Object { $_ -notin $selectionKeys }).Count -eq 0
+        $isPinned = $selectionKeys.Count -eq $pinnedKeys.Count -and @($pinnedKeys | Where-Object { $_ -notin $selectionKeys }).Count -eq 0
+        if ((!$isLegacy -and !$isPinned) -or $selection.schema_version -ne '1.0' -or
             $selection.nna_install_root -isnot [string] -or $selection.nna_install_root.Length -gt 4096 -or
-            ![IO.Path]::IsPathRooted($selection.nna_install_root)) { throw 'Installed NNA selection is invalid.' }
+            ![IO.Path]::IsPathRooted($selection.nna_install_root) -or
+            ($isPinned -and ($selection.installation_id -isnot [string] -or
+                $selection.installation_id -cnotmatch '^nna_[a-f0-9]{64}$' -or
+                $selection.data_id -isnot [string] -or
+                $selection.data_id -cnotmatch '^data_[a-f0-9]{64}$'))) { throw 'Installed NNA selection is invalid.' }
         $nnaRoot = $selection.nna_install_root
     }
     if (!$NnaInstallRoot -and !$hasSelection -and !$Uninstall -and !(Test-Path -LiteralPath (Join-Path $nnaRoot 'install.json') -PathType Leaf)) {

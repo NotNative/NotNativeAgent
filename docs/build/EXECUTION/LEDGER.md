@@ -730,7 +730,7 @@ held child into a completed NND installation. NNA v16 passed its complete
 serial suite (2,139 passed, 8 skipped); v20 full integration validation is
 pending at this entry.
 
-## NND 20261003-2 through 20261003-8 — managed GUI and installer safeguards
+## NND 20261003-2 through 20261003-10 — managed GUI and installer safeguards
 
 The GUI treats an SSE replay gap as an authority gate, recovering state before
 send, create, rename, and other mutations resume. It exposes bounded saved
@@ -741,8 +741,10 @@ NNA's typed MCP preview/save and operation receipts, including uncertain
 result recovery. The installer and desktop launcher pin the selected NNA
 installation and data identity, rejecting a different root even if a command
 line supplies one. NND v6 passed 1,726 UI tests, 1,447 web tests, typechecks,
-and both release-gate passes. V8 installer validation remains pending at this
+and both release-gate passes. V10 installer validation remains pending at this
 entry. Existing root-only selection files need an installer rerun to acquire
 the new pin. Browser and desktop installed acceptance, optional dependency
 acquisition, public activation, full secondary workspace scope, and durable
 completion remain open for the MVP.
+
+\n
