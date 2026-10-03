@@ -25,12 +25,16 @@ try {
  [Console]::Out.WriteLine('{"ok":true}')
 } catch { [Console]::Out.WriteLine('{"error_code":"nnd_private_storage_unavailable"}'); exit 1 }
 `;
+export async function assertRetirementBarrierAcl(place, files, signal) {
+  await runPrivateWindowsProgram(ACL, { directories: [place.activations], files }, signal);
+}
 export function retirementCleanupPaths(identity, operationId) {
   const root = join(identity.data_root, 'runtime', 'nnd', 'install-slots');
   const activations = join(root, 'activations');
   return { activations, directory: join(activations, operationId),
     plan: join(root, 'activation-retirement.json'), decision: join(root, 'activation-retirement-decision.json'),
     terminal: join(root, 'activation-retirement-commit.json'),
+    cleared: join(root, 'activation-retirement-cleared.json'),
     marker: join(identity.data_root, 'runtime', 'nnd', 'installation-pending.json') };
 }
 export function retirementArtifactPath(place, operationId, name) {

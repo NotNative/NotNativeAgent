@@ -52,7 +52,8 @@ export async function hasActivationEvidence(dataRoot) {
   const root = join(dataRoot, 'runtime', 'nnd', 'install-slots');
   // External retirement evidence keeps ordinary admission barred even after
   // the journal, earlier proofs, and marker have been retired.
-  if (await regular(join(root, 'activation-retirement-commit.json'), true)
+  if (await regular(join(root, 'activation-retirement-cleared.json'), true)
+    || await regular(join(root, 'activation-retirement-commit.json'), true)
     || await regular(join(root, 'activation-retirement-decision.json'), true)
     || await regular(join(root, 'activation-retirement.json'), true)) return true;
   const directory = join(root, 'activations');

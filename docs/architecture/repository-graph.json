@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:0b6aa9ef831e0edaf4628f478012cfa10eb07b1cfa6f499864c87151ecf596e7",
+  "source_digest": "sha256:707218d964fd3193b3f6e9c4b0e40e613f6ddb1e22021a2da703e0eaad11cdbd",
   "counts": {
     "modules": 510,
     "component_edges": 82
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 593,
+      "import_count": 594,
       "module_count": 182
     },
     {
@@ -130,16 +130,16 @@
       "module_count": 59
     },
     {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 62,
+      "module_count": 41
+    },
+    {
       "from": "tools",
       "to": "foundation",
       "import_count": 62,
       "module_count": 40
-    },
-    {
-      "from": "foundation",
-      "to": "persistence",
-      "import_count": 61,
-      "module_count": 41
     },
     {
       "from": "tools",
@@ -2256,10 +2256,12 @@
         "src/nnd-activation-retirement-decision.js",
         "src/nnd-activation-retirement-plan.js",
         "src/nnd-install-storage.js",
+        "src/nnd-payload-contract-files.js",
         "src/nnd-service-discovery-windows.js",
         "src/nnd-service-discovery.js",
         "src/nnd-service-lock.js",
-        "src/persistence/manifest-lock.js"
+        "src/persistence/manifest-lock.js",
+        "src/persistence/manifest-transaction.js"
       ]
     },
     {

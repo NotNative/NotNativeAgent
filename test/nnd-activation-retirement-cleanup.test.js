@@ -83,6 +83,7 @@ async function fixture({ nativeAcl = false } = {}) {
     captureDiscoveryProcessIdentity: async () => childIdentity, readNndServiceDiscovery: async () => pointer };
   const decisionApi = await load('nnd-activation-retirement-decision', dependencies, ['readNndExternalRetirementDecisionUnderOwnership']);
   let removed = 0, interruptAt = null, afterRemoval = null, deniedAcl = false, afterCommitWrite = null;
+  let barrierRemoved = 0, barrierInterrupt = null, afterBarrierRemoval = null;
   const remove = operation => async path => {
     await operation(path); removed++;
     if (afterRemoval) await afterRemoval();
@@ -92,13 +93,20 @@ async function fixture({ nativeAcl = false } = {}) {
     unlink: remove(unlink), rmdir: remove(rmdir), PRIVATE_ACL_PROGRAM: nativeAcl ? PRIVATE_ACL_PROGRAM : '', runPrivateWindowsProgram: nativeAcl ? runPrivateWindowsProgram : async () => {
       if (deniedAcl) throw Error('private ownership rejected'); return { ok: true };
     } },
-  ['retirementCleanupPaths', 'inspectRetirementArtifacts', 'removeRetirementArtifact']);
+  ['retirementCleanupPaths', 'inspectRetirementArtifacts', 'removeRetirementArtifact', 'assertRetirementBarrierAcl']);
   const api = await load('nnd-activation-retirement-cleanup', { ...dependencies, ...decisionApi, ...fileApi,
+    noLinks, unlink: async path => { await unlink(path); barrierRemoved++; await afterBarrierRemoval?.();
+      if (barrierRemoved === barrierInterrupt) throw Error('simulated death after barrier removal'); },
     writeInstallNew: async (path, content) => { await writeInstallNew(path, content); await afterCommitWrite?.(); } },
-  ['cleanupNndRetirementEvidenceUnderOwnership', 'recordNndTerminalRetirementCommitUnderOwnership']);
+  ['cleanupNndRetirementEvidenceUnderOwnership', 'recordNndTerminalRetirementCommitUnderOwnership',
+    'clearNndRetirementBarriersUnderOwnership']);
   return { root, activations, directory, markerPath, planPath, decisionPath, terminalPath, files, options, state,
     run: () => api.cleanupNndRetirementEvidenceUnderOwnership(identity, state, serviceLease, registryLease, options),
     commit: () => api.recordNndTerminalRetirementCommitUnderOwnership(identity, state, serviceLease, registryLease, options),
+    clear: () => api.clearNndRetirementBarriersUnderOwnership(identity, state, serviceLease, registryLease, options),
+    clearedPath: join(placeRoot, 'activation-retirement-cleared.json'),
+    interruptBarrier: count => { barrierInterrupt = count; }, barrierRemoved: () => barrierRemoved,
+    mutateAfterBarrierRemoval: fn => { afterBarrierRemoval = fn; },
     interrupt: count => { interruptAt = count; }, removed: () => removed,
     mutateAfterRemoval: fn => { afterRemoval = fn; }, clearPointer: () => { pointer = null; },
     afterCommitWrite: fn => { afterCommitWrite = fn; },
@@ -249,4 +257,70 @@ test('changed live evidence prevents terminal commit after cleanup', async () =>
       await assert.rejects(lstat(f.terminalPath), { code: 'ENOENT' });
     } finally { await f.cleanup(); }
   }
+});
+
+test('barrier clearance records witness before removal and resumes each crash prefix while admission stays barred', async () => {
+  for (let prefix = 1; prefix <= 3; prefix++) {
+    const f = await fixture();
+    try {
+      await f.run(); await f.commit();
+      f.interruptBarrier(prefix);
+      await assert.rejects(f.clear(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+      const witness = await readFile(f.clearedPath);
+      assert.equal(JSON.parse(witness).state, 'barriers_cleared_admission_barred');
+      assert.equal(await hasActivationEvidence(f.root), true);
+      f.interruptBarrier(null);
+      const result = await f.clear();
+      assert.equal(result.state, 'barriers_cleared_admission_barred');
+      assert.equal(f.barrierRemoved(), 3);
+      assert.equal(await hasActivationEvidence(f.root), true);
+      assert.equal((await f.clear()).witness_sha256, hash(witness));
+      for (const path of [f.markerPath, f.planPath, f.decisionPath])
+        await assert.rejects(lstat(path), { code: 'ENOENT' });
+      assert.ok((await lstat(f.terminalPath)).isFile());
+      assert.equal(f.state.published, false);
+    } finally { await f.cleanup(); }
+  }
+});
+
+test('barrier clearance rejects premature, foreign, and owner-lost evidence without further deletion', async () => {
+  for (const mutate of [
+    async f => {},
+    async f => { await f.run(); await f.commit(); await writeFile(f.markerPath, 'foreign'); },
+    async f => { await f.run(); await f.commit(); f.clearPointer(); },
+    async f => { await f.run(); await f.commit(); f.changeRegistration(); },
+    async f => { await f.run(); await f.commit(); f.state.stopping = true; },
+    async f => { await f.run(); await f.commit(); await writeFile(join(f.activations, 'foreign'), 'foreign'); },
+  ]) {
+    const f = await fixture();
+    try {
+      await mutate(f);
+      await assert.rejects(f.clear());
+      assert.equal(f.barrierRemoved(), 0);
+    } finally { await f.cleanup(); }
+  }
+});
+
+test('witness write uncertainty preserves bytes and permits only exact live-owner recovery', async () => {
+  const f = await fixture();
+  try {
+    await f.run(); await f.commit();
+    f.afterCommitWrite(() => { throw Error('lost witness write response'); });
+    await assert.rejects(f.clear(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    const bytes = await readFile(f.clearedPath);
+    f.afterCommitWrite(null);
+    f.clearPointer();
+    await assert.rejects(f.clear());
+    assert.deepEqual(await readFile(f.clearedPath), bytes);
+    assert.equal(f.barrierRemoved(), 0);
+  } finally { await f.cleanup(); }
+});
+
+test('a lone cleared witness remains an ordinary startup barrier', async () => {
+  const f = await fixture();
+  try {
+    await f.run(); await f.commit(); await f.clear();
+    await unlink(f.terminalPath);
+    assert.equal(await hasActivationEvidence(f.root), true);
+  } finally { await f.cleanup(); }
 });

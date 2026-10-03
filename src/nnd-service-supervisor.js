@@ -25,7 +25,8 @@ import { recordNndCompletionUnderOwnership } from './nnd-activation-completion-r
 import { planNndTerminalRetirementUnderOwnership } from './nnd-activation-retirement-plan.js';
 import { recordNndExternalRetirementDecisionUnderOwnership } from './nnd-activation-retirement-decision.js';
 import { cleanupNndRetirementEvidenceUnderOwnership,
-  recordNndTerminalRetirementCommitUnderOwnership } from './nnd-activation-retirement-cleanup.js';
+  recordNndTerminalRetirementCommitUnderOwnership,
+  clearNndRetirementBarriersUnderOwnership } from './nnd-activation-retirement-cleanup.js';
 import { userDataPaths } from './product.js';
 
 const RETAINED_BY_LEASE = new WeakMap();
@@ -109,6 +110,8 @@ function createSupervisorSession(identity, lease, releaseLease) {
     cleanupRetirement: (registryLease, options) => cleanupNndRetirementEvidenceUnderOwnership(
       state.identity, state, state.lease, registryLease, options),
     commitRetirement: (registryLease, options) => recordNndTerminalRetirementCommitUnderOwnership(
+      state.identity, state, state.lease, registryLease, options),
+    clearRetirementBarriers: (registryLease, options) => clearNndRetirementBarriersUnderOwnership(
       state.identity, state, state.lease, registryLease, options) }) };
 }
 async function recordRetainedCompletion(state, registryLease, options) {

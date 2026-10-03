@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Resumable exact evidence cleanup. Admission and the selected controller stay barred. */
 import { join, resolve } from 'node:path';
+import { opendir, unlink } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
 import { assertHeldNndServiceLease, withNndServiceLease } from './nnd-service-lock.js';
@@ -9,9 +10,11 @@ import { readNndExternalRetirementDecisionUnderOwnership } from './nnd-activatio
 import { parseNndTerminalRetirementPlanBytes } from './nnd-activation-retirement-plan.js';
 import { readNndServiceDiscovery } from './nnd-service-discovery.js';
 import { captureDiscoveryProcessIdentity } from './nnd-service-discovery-windows.js';
+import { readLockedManifestSnapshot } from './persistence/manifest-transaction.js';
+import { noLinks } from './nnd-payload-contract-files.js';
 import { readInstallBytes, writeInstallNew, hash, json, operationValid } from './nnd-install-storage.js';
 import { retirementCleanupPaths, inspectRetirementArtifacts,
-  removeRetirementArtifact } from './nnd-activation-retirement-cleanup-files.js';
+  removeRetirementArtifact, assertRetirementBarrierAcl } from './nnd-activation-retirement-cleanup-files.js';
 
 const invalid = () => new ContractError('nnd_activation_retirement_cleanup_invalid',
   'NND retirement cleanup is unresolved; preserve the pending barrier and remaining evidence.');
@@ -133,6 +136,119 @@ export async function recordNndTerminalRetirementCommitUnderOwnership(identity, 
       return Object.freeze({ state: 'terminal_committed_barred', operation_id: options.operationId,
         generation: options.generation, commit_sha256: hash(content), marker_state: 'present',
         pointer_state: 'selected' });
+    } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
+    finally { ACTIVE.delete(serviceLease); }
+  }), { timeoutMs: 300000 }).catch(error => {
+    if (!started) ACTIVE.delete(serviceLease);
+    throw error;
+  });
+}
+
+const TERMINAL_KEYS = ['protocol', 'state', 'operation_id', 'stage_operation_id', 'installation_id',
+  'data_id', 'generation', 'plan_sha256', 'decision_sha256', 'completion_sha256',
+  'marker_sha256', 'registration_revision', 'discovery_sha256', 'child_process_identity'];
+const SHA = /^[a-f0-9]{64}$/u;
+function canonicalRecord(bytes, keys) {
+  let value;
+  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+  catch { throw invalid(); }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== keys.length
+    || keys.some(key => !Object.hasOwn(value, key)) || !json(value).equals(bytes)) throw invalid();
+  return value;
+}
+function witnessFor(terminal, terminalSha) {
+  return { protocol: '1.0', state: 'barriers_cleared_admission_barred',
+    operation_id: terminal.operation_id, stage_operation_id: terminal.stage_operation_id,
+    installation_id: terminal.installation_id, data_id: terminal.data_id,
+    generation: terminal.generation, terminal_sha256: terminalSha,
+    plan_sha256: terminal.plan_sha256, decision_sha256: terminal.decision_sha256,
+    completion_sha256: terminal.completion_sha256, marker_sha256: terminal.marker_sha256,
+    registration_revision: terminal.registration_revision, discovery_sha256: terminal.discovery_sha256,
+    child_process_identity: terminal.child_process_identity };
+}
+async function inspectClearance(context) {
+  const { identity, state, serviceLease, registryLease, options, signal, place } = context;
+  signal.throwIfAborted();
+  assertOwner(identity, serviceLease, registryLease, options);
+  assertLive(state, identity, serviceLease, options);
+  const terminalBytes = await readInstallBytes(place.terminal, 4096);
+  const terminal = canonicalRecord(terminalBytes, TERMINAL_KEYS);
+  if (terminal.protocol !== '1.0' || terminal.state !== 'terminal_committed_barred'
+    || terminal.operation_id !== options.operationId || terminal.stage_operation_id !== options.stageOperationId
+    || terminal.installation_id !== identity.installation_id || terminal.data_id !== identity.data_id
+    || terminal.generation !== options.generation
+    || ![terminal.plan_sha256, terminal.decision_sha256, terminal.completion_sha256,
+      terminal.marker_sha256, terminal.registration_revision, terminal.discovery_sha256].every(value => SHA.test(value))) throw invalid();
+  const expected = witnessFor(terminal, hash(terminalBytes));
+  const witnessBytes = await readInstallBytes(place.cleared, 4096, true);
+  if (witnessBytes && !witnessBytes.equals(json(expected))) throw invalid();
+  const present = [];
+  for (const [name, expectedSha, limit] of [['marker', terminal.marker_sha256, 1024],
+    ['plan', terminal.plan_sha256, 4096], ['decision', terminal.decision_sha256, 4096]]) {
+    const bytes = await readInstallBytes(place[name], limit, true);
+    if (!witnessBytes && !bytes || bytes && hash(bytes) !== expectedSha) throw invalid();
+    if (bytes) present.push(name);
+  }
+  await noLinks(place.activations);
+  for await (const _entry of await opendir(place.activations)) throw invalid();
+  await assertRetirementBarrierAcl(place, [place.terminal, ...(witnessBytes ? [place.cleared] : []),
+    ...present.map(name => place[name])], signal);
+  const manifest = await readLockedManifestSnapshot(registryLease);
+  if (!manifest.rawBytes || manifest.revision !== terminal.registration_revision
+    || hash(manifest.rawBytes) !== terminal.registration_revision) throw invalid();
+  const pointer = await readNndServiceDiscovery(identity);
+  if (!pointer || pointer.instance_id !== options.generation || !isDeepStrictEqual(pointer, state.record)
+    || hash(json(pointer)) !== terminal.discovery_sha256) throw invalid();
+  const child = await captureDiscoveryProcessIdentity(signal, state.child.child.pid);
+  if (!isDeepStrictEqual(child, terminal.child_process_identity)) throw invalid();
+  assertLive(state, identity, serviceLease, options);
+  signal.throwIfAborted();
+  return { terminal, expected, witnessBytes, present };
+}
+
+/** Retire three external barriers only behind a durable witness; terminal commit still bars admission. */
+export async function clearNndRetirementBarriersUnderOwnership(identity, state, serviceLease, registryLease, options) {
+  assertOwner(identity, serviceLease, registryLease, options);
+  assertLive(state, identity, serviceLease, options);
+  if (ACTIVE.has(serviceLease)) throw invalid();
+  ACTIVE.add(serviceLease);
+  let started = false;
+  return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
+    started = true;
+    try {
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(60000),
+        ...(options.signal ? [options.signal] : [])]);
+      const context = { identity, state, serviceLease, registryLease, options, signal,
+        place: retirementCleanupPaths(identity, options.operationId) };
+      let current = await inspectClearance(context);
+      if (!current.witnessBytes) {
+        // The full historical chain is still available before the first write.
+        const proof = await verify(context);
+        if (proof.present.length || proof.hasDirectory || proof.planSha !== current.terminal.plan_sha256
+          || proof.decisionSha !== current.terminal.decision_sha256
+          || proof.plan.completion_sha256 !== current.terminal.completion_sha256
+          || proof.plan.marker_sha256 !== current.terminal.marker_sha256
+          || proof.decision.registration_revision !== current.terminal.registration_revision
+          || proof.decision.discovery_sha256 !== current.terminal.discovery_sha256
+          || !isDeepStrictEqual(proof.decision.child_process_identity, current.terminal.child_process_identity)) throw invalid();
+        current = await inspectClearance(context);
+        signal.throwIfAborted();
+        await writeInstallNew(context.place.cleared, json(current.expected));
+        current = await inspectClearance(context);
+        if (!current.witnessBytes) throw invalid();
+      }
+      for (const name of ['decision', 'plan', 'marker']) {
+        if (!current.present.includes(name)) continue;
+        const bytes = await readInstallBytes(context.place[name], name === 'marker' ? 1024 : 4096);
+        if (hash(bytes) !== current.terminal[`${name}_sha256`]) throw invalid();
+        signal.throwIfAborted();
+        await unlink(context.place[name]);
+        current = await inspectClearance(context);
+      }
+      if (current.present.length) throw invalid();
+      return Object.freeze({ state: 'barriers_cleared_admission_barred',
+        operation_id: options.operationId, generation: options.generation,
+        witness_sha256: hash(current.witnessBytes), terminal_sha256: current.expected.terminal_sha256 });
     } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
     finally { ACTIVE.delete(serviceLease); }
   }), { timeoutMs: 300000 }).catch(error => {

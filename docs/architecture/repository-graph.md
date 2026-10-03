@@ -58,11 +58,11 @@ Counts represent static local imports. Same-component imports are included becau
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| Product foundation | Product foundation | 593 | 182 |
+| Product foundation | Product foundation | 594 | 182 |
 | Experience Engine | Experience Engine | 170 | 57 |
 | Experience Engine | Product foundation | 86 | 59 |
+| Product foundation | Persistence | 62 | 41 |
 | Tools | Product foundation | 62 | 40 |
-| Product foundation | Persistence | 61 | 41 |
 | Tools | Tools | 58 | 20 |
 | Reliability Engine | Reliability Engine | 57 | 21 |
 | Agentic Engine | Product foundation | 48 | 18 |
@@ -91,4 +91,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:0b6aa9ef831e0edaf4628f478012cfa10eb07b1cfa6f499864c87151ecf596e7`.
+Source fingerprint: `sha256:707218d964fd3193b3f6e9c4b0e40e613f6ddb1e22021a2da703e0eaad11cdbd`.
