@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Private external-store transaction prerequisite. No HTTP route uses this yet. */
+/** Narrow external-store transaction used by native gateway settings routes. */
 import { createHash } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { ContractError } from './ids.js';

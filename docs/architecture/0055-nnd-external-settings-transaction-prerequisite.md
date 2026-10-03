@@ -1,7 +1,6 @@
 # Architecture decision 0055: External-store settings need a shared writer boundary
 
-Status: private gateway timeout transaction prerequisite; no HTTP endpoint or GUI
-capability is advertised.
+Status: native HTTP gateway timeout capability implemented; GUI integration pending.
 
 The WebSearch, WebFetch, and Telegram gateway settings are separate JSON files,
 not fields in the NNA user manifest. Existing Console, CLI, installer, and TUI
@@ -34,11 +33,14 @@ stale revision. First-party writes preserve unknown raw fields and never put
 the token in transaction receipt payloads. Uncertain publication remains an
 error; the caller must inspect current state rather than assuming a save.
 
-The transaction remains private. A subsequent native
-HTTP route must derive the gateway path and selected identity from trusted
-installation state rather than client input. It also needs a bounded public
-projector and error taxonomy, then NND browser
-and desktop GUI acceptance. WebFetch trust origins, gateway enablement and
+The native `/v1/nnd/configuration/gateway` route derives the gateway file path
+and selected identity from the installed NNA service. Read, catalog, preview,
+save, and operation lookup require the scoped native principal. The route
+accepts only the bounded timeout intent and projects only timeout, identity,
+revision, and durable receipt fields. It never projects the token, authorized
+users, unknown raw fields, or gateway enablement. Saved receipts say
+`not_applied` and direct the operator to restart the gateway. NND browser and
+desktop GUI acceptance remains to be completed. WebFetch trust origins, gateway enablement and
 authorized users are separate authority-grant designs and are not part of this
 timeout intent. Existing gateway processes need restart before a saved timeout
 affects polling; a receipt must never claim live application.
