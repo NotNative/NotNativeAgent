@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:34c672c4d5bc3114301acbae846360d0d51439dd90d364bce34635e45e92416d",
+  "source_digest": "sha256:c893055068885e51fcb4dc3fe40f721166ff0a2e992d8b2c73b8bf695fecb2d1",
   "counts": {
-    "modules": 764,
+    "modules": 766,
     "component_edges": 17
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 44
+      "module_count": 45
     },
     {
       "id": "harness-facade",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 181
+      "module_count": 182
     },
     {
       "id": "web-server",
@@ -108,14 +108,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 296,
-      "module_count": 121
+      "import_count": 297,
+      "module_count": 122
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 83,
-      "module_count": 40
+      "import_count": 85,
+      "module_count": 41
     },
     {
       "from": "ui-shell",
@@ -126,8 +126,8 @@
     {
       "from": "sync-engine",
       "to": "harness-facade",
-      "import_count": 55,
-      "module_count": 39
+      "import_count": 56,
+      "module_count": 40
     },
     {
       "from": "gates",
@@ -621,6 +621,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/operator-activity-filter.ts",
+        "packages/ui/src/chat/saved-activity-window.tsx",
         "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/sync/activity-gap.ts",
         "packages/ui/src/sync/activity-log.ts",
@@ -772,6 +773,16 @@
         "packages/ui/src/lib/nnd/review-mode.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/saved-activity-window.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/activity-log.ts",
+        "packages/ui/src/sync/durable-activity-history.ts"
       ]
     },
     {
@@ -4404,6 +4415,15 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/durable-activity-history.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/sync/activity-log.ts"
       ]
     },
     {
