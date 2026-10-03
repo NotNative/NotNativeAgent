@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8cb4533117f5e623f819f35f2290bc85ad591c8aadadacab65c674d74ee45019",
+  "source_digest": "sha256:bac160935e55f95c48e9e284f9832607de53053b236881a144b0a09e375e1382",
   "counts": {
-    "modules": 487,
+    "modules": 488,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 185
+      "module_count": 186
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 487,
-      "module_count": 160
+      "import_count": 489,
+      "module_count": 161
     },
     {
       "from": "experience-engine",
@@ -2194,6 +2194,15 @@
       "imports": []
     },
     {
+      "path": "src/nnd-activity-boundary.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/nnd-activity-history.js",
+        "src/nnd-session-description.js"
+      ]
+    },
+    {
       "path": "src/nnd-activity-history.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2321,7 +2330,7 @@
         "src/ids.js",
         "src/ingress.js",
         "src/nnd-active-tools.js",
-        "src/nnd-activity-history.js",
+        "src/nnd-activity-boundary.js",
         "src/nnd-activity-snapshot.js",
         "src/nnd-child-snapshot.js",
         "src/nnd-child-stream.js",
