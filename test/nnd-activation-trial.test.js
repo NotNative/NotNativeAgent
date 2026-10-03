@@ -30,7 +30,12 @@ async function harness(overrides = {}) {
     selected = true;
     return { state: 'registration_selected_unresolved' }; },
   registrationSelected: () => selected,
+  trialChildPid: () => 4321,
   stop: async () => { trace.push('stop'); if (overrides.stop) return overrides.stop(); } };
+  const child = { protocol: '1.0', operation_id: operationId,
+    installation_id: identity.installation_id, data_id: identity.data_id,
+    generation: proof.generation, version: proof.version,
+    process_identity: { version: 1, pid: 4321, platform: 'win32', start_id: '123456789' } };
   const dependencies = { join, resolve, ContractError,
     assertHeldNndServiceLease: actual => { assert.equal(actual, lease); trace.push('lease:assert'); },
     withNndServiceLease: (_lease,_dataId,operation) => operation(controller.signal),
@@ -43,13 +48,20 @@ async function harness(overrides = {}) {
     appendNndActivationPhase: async (_id,_directory,_lease,_registry,phase) => { trace.push(phase); },
     startNndOwnedTrial: async () => { trace.push('start'); return owner; },
     hash: value => digest(value), json: value => Buffer.from(JSON.stringify(value)),
+    readInstallBytes: async () => overrides.childEvidence === false ? null : Buffer.from(JSON.stringify(child)),
     operationValid: value => value === stageOperationId || value === operationId };
   const source = await readFile(new URL('../src/nnd-activation-trial.js', import.meta.url), 'utf8');
-  const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export async function', 'async function');
-  const run = Function(...Object.keys(dependencies), executable + '\nreturn runNndUnpublishedTrialUnderOwnership;')
+  const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '')
+    .replaceAll('export async function', 'async function').replaceAll('export function', 'function');
+  const { run, consume } = Function(...Object.keys(dependencies), executable
+    + '\nreturn {run: runNndUnpublishedTrialUnderOwnership, consume: consumeNndStoppedTrialProof};')
     (...Object.values(dependencies));
   return { run: options => run(identity, {}, lease, registryLease,
-    { stageOperationId, operationId, ...options }), trace, proof, lease, registryLease, controller };
+    { stageOperationId, operationId, ...options }),
+  consume: (token, overrides = {}) => consume(token, identity,
+    overrides.lease ?? lease, overrides.registryLease ?? registryLease,
+    { operationId, stageOperationId, generation: overrides.generation ?? proof.generation }),
+  trace, proof, lease, registryLease, controller };
 }
 test('owned trial holds lease and registry through preparation, unpublished health, and confirmed stop', async () => {
   const f = await harness();
@@ -129,6 +141,85 @@ test('unconfirmed writer stop is surfaced without claiming a settled trial', asy
   const f = await harness({ stop: () => { throw new Error('writer still alive'); } });
   await assert.rejects(f.run(), /retain both ownership locks and the admission barrier/u);
   assert.equal(f.trace.at(-1), 'stop');
+});
+test('post-stop continuation receives one-use bound proof only after confirmed cleanup', async () => {
+  const f = await harness(); let retained;
+  const result = await f.run({ afterStop: async ({ generation, serviceLease, registryLease, withShutdownProof }) => {
+    assert.equal(f.trace.filter(item => !item.endsWith(':assert')).at(-1), 'stop');
+    assert.equal(generation, f.proof.generation);
+    assert.equal(serviceLease, f.lease); assert.equal(registryLease, f.registryLease);
+    return withShutdownProof(proof => {
+      retained = proof;
+      const evidence = f.consume(proof);
+      assert.equal(evidence.generation, generation);
+      assert.deepEqual(evidence.child_identity, { pid: 4321, start_id: '123456789',
+        sha256: digest(Buffer.from(JSON.stringify({ protocol: '1.0', operation_id: operationId,
+          installation_id: identity.installation_id, data_id: identity.data_id,
+          generation, version: f.proof.version,
+          process_identity: { version: 1, pid: 4321, platform: 'win32', start_id: '123456789' } }))) });
+      assert.throws(() => f.consume(proof), { code: 'nnd_activation_shutdown_invalid' });
+      return 'observed';
+    });
+  } });
+  assert.equal(result.state, 'trial_healthy');
+  assert.equal(result.post_stop_result, 'observed');
+  assert.throws(() => f.consume(retained), { code: 'nnd_activation_shutdown_invalid' });
+});
+test('post-stop proof cannot use another mutex or generation', async () => {
+  const f = await harness();
+  await f.run({ afterStop: ({ withShutdownProof }) => withShutdownProof(proof => {
+    assert.throws(() => f.consume(proof, { registryLease: {} }), { code: 'nnd_activation_shutdown_invalid' });
+    assert.throws(() => f.consume(proof, { generation: 'other' }), { code: 'nnd_activation_shutdown_invalid' });
+    assert.equal(f.consume(proof).child_identity.pid, 4321);
+  }) });
+});
+test('uncertain selection reaches post-stop observation without hiding original failure', async () => {
+  const uncertain = new ContractError('manifest_publication_unknown', 'CAS may have saved');
+  const f = await harness({ selectRegistration: () => { throw uncertain; } });
+  await assert.rejects(f.run({ continuation: ({ selectRegistration }) => selectRegistration(),
+    afterStop: ({ prior_error, trial_result, withShutdownProof }) => {
+      assert.equal(prior_error, uncertain); assert.equal(trial_result, null);
+      assert.equal(f.trace.filter(item => !item.endsWith(':assert')).at(-1), 'stop');
+      return withShutdownProof(proof => { assert.equal(f.consume(proof).child_identity.pid, 4321);
+        return 'unresolved-evidence'; });
+    } }), error => error instanceof AggregateError && error.errors[0] === uncertain
+      && error.post_stop_result === 'unresolved-evidence');
+});
+test('unconfirmed stop never invokes post-stop continuation', async () => {
+  const f = await harness({ stop: () => { throw new Error('child alive'); } });
+  let called = false;
+  await assert.rejects(f.run({ afterStop: () => { called = true; } }), /retain both ownership locks/u);
+  assert.equal(called, false);
+});
+test('unawaited post-stop work settles before proof revocation and return', async () => {
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const f = await harness(); let retained;
+  const running = f.run({ afterStop: ({ withShutdownProof }) => {
+    void withShutdownProof(async proof => { retained = proof; await pending; return f.consume(proof); });
+  } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.trace.includes('stop'), true);
+  let settled = false; running.finally(() => { settled = true; });
+  assert.equal(settled, false);
+  release(); await running;
+  assert.throws(() => f.consume(retained), { code: 'nnd_activation_shutdown_invalid' });
+});
+test('missing child evidence and aborted ownership cannot authorize post-stop mutation', async () => {
+  const missing = await harness({ childEvidence: false });
+  await missing.run({ afterStop: ({ withShutdownProof }) => withShutdownProof(proof => {
+    assert.throws(() => missing.consume(proof), { code: 'nnd_activation_shutdown_invalid' });
+    return 'observation-only';
+  }) });
+  const aborted = await harness();
+  await assert.rejects(aborted.run({ continuation: () => aborted.controller.abort(),
+    afterStop: ({ withShutdownProof, signal }) => {
+      assert.equal(signal.aborted, true);
+      return withShutdownProof(proof => {
+        assert.throws(() => aborted.consume(proof), { code: 'nnd_activation_shutdown_invalid' });
+        return 'unresolved';
+      });
+    } }), { name: 'AbortError' });
 });
 test('trial native principal admits inspection while denying all interactive mutations', () => {
   const trial = nativeNndTrialPrincipal('C:\\workspace');

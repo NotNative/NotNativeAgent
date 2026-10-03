@@ -348,6 +348,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   ]),
   shutdown: Object.freeze([
     'shutdown_state_invalid', 'shutdown_timeout',
+    'nnd_activation_shutdown_invalid',
     'nnd_setup_stopped', 'nnd_setup_cleanup_failed', 'nnd_setup_shutdown_timeout',
     'nnd_stop_timeout',
   ]),

@@ -7,7 +7,9 @@ import { prepareNndActivationUnderOwnership } from './nnd-activation-preparation
 import { issueNndTrialCapability } from './nnd-activation-candidate.js';
 import { appendNndActivationPhase } from './nnd-activation-journal.js';
 import { startNndOwnedTrial } from './nnd-service-supervisor.js';
-import { hash, json, operationValid } from './nnd-install-storage.js';
+import { hash, json, operationValid, readInstallBytes } from './nnd-install-storage.js';
+
+const STOPPED = new WeakMap();
 
 function assertTrialOwner(identity, serviceLease, registryLease, options) {
   if (!operationValid(options.stageOperationId) || !operationValid(options.operationId)) {
@@ -16,6 +18,9 @@ function assertTrialOwner(identity, serviceLease, registryLease, options) {
   if (options.continuation !== undefined && typeof options.continuation !== 'function') {
     throw new ContractError('nnd_activation_candidate_invalid', 'NND trial continuation is invalid');
   }
+  if (options.afterStop !== undefined && typeof options.afterStop !== 'function') {
+    throw new ContractError('nnd_activation_candidate_invalid', 'NND post-stop continuation is invalid');
+  }
   assertHeldNndServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
   const registryPath = join(identity.data_root, 'config', 'nnd-package.json');
@@ -23,6 +28,95 @@ function assertTrialOwner(identity, serviceLease, registryLease, options) {
     ? resolve(target.path).toLowerCase() === resolve(registryPath).toLowerCase()
     : resolve(target.path) === resolve(registryPath);
   if (!same) throw new ContractError('nnd_activation_candidate_invalid', 'NND trial registry ownership is invalid');
+}
+
+async function stoppedChildEvidence(identity, operationId, generation, version, pid) {
+  const path = join(identity.data_root, 'runtime', 'nnd', 'install-slots', 'activations', `${operationId}.child.json`);
+  const bytes = await readInstallBytes(path, 2048, true);
+  if (!bytes) return null;
+  let child;
+  try { child = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+  catch { throw new ContractError('nnd_activation_registration_invalid', 'Stopped trial child evidence is invalid'); }
+  const keys = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
+  const processKeys = ['version', 'pid', 'platform', 'start_id'];
+  if (!child || typeof child !== 'object' || Array.isArray(child)
+    || Object.keys(child).length !== keys.length || keys.some(key => !Object.hasOwn(child, key))
+    || !child.process_identity || typeof child.process_identity !== 'object'
+    || Object.keys(child.process_identity).length !== processKeys.length
+    || processKeys.some(key => !Object.hasOwn(child.process_identity, key))
+    || child.protocol !== '1.0' || child.operation_id !== operationId
+    || child.installation_id !== identity.installation_id || child.data_id !== identity.data_id
+    || child.generation !== generation || child.version !== version
+    || child.process_identity.version !== 1 || child.process_identity.pid !== pid
+    || child.process_identity.platform !== 'win32'
+    || !/^\d{1,32}$/u.test(child.process_identity.start_id) || !json(child).equals(bytes)) {
+    throw new ContractError('nnd_activation_registration_invalid', 'Stopped trial child evidence changed');
+  }
+  return Object.freeze({ pid, start_id: child.process_identity.start_id, sha256: hash(bytes) });
+}
+
+export function consumeNndStoppedTrialProof(proof, identity, serviceLease, registryLease, options) {
+  const state = STOPPED.get(proof);
+  if (!state?.active || state.used || !state.childIdentity || state.signal.aborted
+    || state.serviceLease !== serviceLease || state.registryLease !== registryLease
+    || state.installationId !== identity?.installation_id || state.dataId !== identity?.data_id
+    || state.operationId !== options?.operationId || state.stageOperationId !== options?.stageOperationId
+    || state.generation !== options?.generation) {
+    throw new ContractError('nnd_activation_shutdown_invalid', 'Confirmed NND trial shutdown proof is unavailable');
+  }
+  assertHeldNndServiceLease(serviceLease, identity.data_id);
+  const target = assertManifestLease(registryLease);
+  const expected = join(identity.data_root, 'config', 'nnd-package.json');
+  const same = process.platform === 'win32'
+    ? resolve(target.path).toLowerCase() === resolve(expected).toLowerCase()
+    : resolve(target.path) === resolve(expected);
+  if (!same) {
+    throw new ContractError('nnd_activation_shutdown_invalid', 'NND shutdown registry ownership changed');
+  }
+  state.used = true;
+  return Object.freeze({ operation_id: state.operationId, stage_operation_id: state.stageOperationId,
+    generation: state.generation, child_identity: state.childIdentity });
+}
+
+async function afterConfirmedStop(identity, serviceLease, registryLease, options, running, childPid, result, failure, signal) {
+  assertHeldNndServiceLease(serviceLease, identity.data_id);
+  const target = assertManifestLease(registryLease);
+  const expected = join(identity.data_root, 'config', 'nnd-package.json');
+  const same = process.platform === 'win32'
+    ? resolve(target.path).toLowerCase() === resolve(expected).toLowerCase()
+    : resolve(target.path) === resolve(expected);
+  if (!same) throw new ContractError('nnd_activation_shutdown_invalid', 'NND shutdown registry ownership changed');
+  const childIdentity = await stoppedChildEvidence(identity, options.operationId,
+    running.instance_id, running.package_version, childPid);
+  const token = Object.freeze({});
+  const state = { installationId: identity.installation_id, dataId: identity.data_id,
+    serviceLease, registryLease, operationId: options.operationId, stageOperationId: options.stageOperationId,
+    generation: running.instance_id, childIdentity, signal, active: true, used: false };
+  STOPPED.set(token, state);
+  const tasks = []; let accepting = true, output, callbackFailure;
+  const withShutdownProof = operation => {
+    if (!accepting || typeof operation !== 'function') {
+      throw new ContractError('nnd_activation_shutdown_invalid', 'NND post-stop continuation has ended');
+    }
+    const task = Promise.resolve().then(() => operation(token));
+    tasks.push(task); task.catch(() => {});
+    return task;
+  };
+  try {
+    output = await options.afterStop(Object.freeze({ operation_id: options.operationId,
+      stage_operation_id: options.stageOperationId, generation: running.instance_id,
+      prior_error: failure ?? null, trial_result: result ?? null,
+      serviceLease, registryLease, signal, withShutdownProof }));
+  } catch (error) { callbackFailure = error; }
+  accepting = false;
+  const settled = await Promise.allSettled(tasks);
+  state.active = false;
+  const taskFailure = settled.find(item => item.status === 'rejected');
+  if (callbackFailure && taskFailure) throw new AggregateError([callbackFailure, taskFailure.reason],
+    'NND post-stop continuation and owned task failed');
+  if (taskFailure) throw taskFailure.reason;
+  if (callbackFailure) throw callbackFailure;
+  return output;
 }
 
 async function preparedTrial(identity, serviceLease, registryLease, options, signal) {
@@ -92,11 +186,11 @@ async function verifyAndContinue(identity, trial, prepared, running, context, op
 
 async function liveTrial(identity, paths, serviceLease, registryLease, options, signal) {
   const { prepared, capability, bound, directory } = await preparedTrial(identity, serviceLease, registryLease, options, signal);
-  let trial, result, failure;
+  let trial, running, childPid, result, failure;
   try {
     signal.throwIfAborted();
     trial = await startNndOwnedTrial(identity, paths, serviceLease, registryLease, capability);
-    const running = trial.status();
+    running = trial.status(); childPid = trial.trialChildPid?.();
     if (running.installation_id !== identity.installation_id || running.data_id !== identity.data_id
       || running.package_version !== prepared.version || !running.instance_id) {
       throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial identity changed');
@@ -111,18 +205,32 @@ async function liveTrial(identity, paths, serviceLease, registryLease, options, 
         'Unpublished NND trial shutdown is unconfirmed; retain both ownership locks and the admission barrier');
     }
   }
+  let postStopResult, postStopFailure;
+  if (trial && running && options.afterStop) {
+    try { postStopResult = await afterConfirmedStop(identity, serviceLease, registryLease,
+      options, running, childPid, result, failure, signal); }
+    catch (error) { postStopFailure = error; }
+  }
+  if (failure && postStopFailure) throw new AggregateError([failure, postStopFailure],
+    'NND trial and post-stop continuation failed; activation remains unresolved');
+  if (failure && options.afterStop) {
+    const error = new AggregateError([failure], 'NND trial failed after confirmed shutdown; activation remains unresolved');
+    error.post_stop_result = postStopResult;
+    throw error;
+  }
   if (failure) throw failure;
+  if (postStopFailure) throw postStopFailure;
   assertHeldNndServiceLease(serviceLease, identity.data_id);
   signal.throwIfAborted();
-  return result;
+  return options.afterStop ? Object.freeze({ ...result, post_stop_result: postStopResult }) : result;
 }
 
 // The caller owns the genuine data-root lease and registry mutex for the entire
 // operation. A rejected shutdown is unresolved writer ownership, not permission
 // to release either lock or clear the pending activation barrier.
 export async function runNndUnpublishedTrialUnderOwnership(identity, paths, serviceLease, registryLease,
-  { stageOperationId, operationId, healthTimeoutMs = 5000, continuation } = {}) {
-  const options = { stageOperationId, operationId, healthTimeoutMs, continuation };
+  { stageOperationId, operationId, healthTimeoutMs = 5000, continuation, afterStop } = {}) {
+  const options = { stageOperationId, operationId, healthTimeoutMs, continuation, afterStop };
   assertTrialOwner(identity, serviceLease, registryLease, options);
   return withNndServiceLease(serviceLease, identity.data_id,
     signal => runManifestLeaseWork(registryLease,

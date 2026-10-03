@@ -115,6 +115,7 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
     return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions),
       ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease),
         selectRegistration: options => selectTrialRegistration(session, registryLease, options),
+        trialChildPid: () => session.state.child?.child?.pid ?? null,
         registrationSelected: () => session.state.registrationSelected === true } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }
 }
