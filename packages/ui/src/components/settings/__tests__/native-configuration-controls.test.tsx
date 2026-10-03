@@ -132,6 +132,57 @@ it('offers bounded provider scheduling controls only for fields advertised by NN
   expect(container.textContent).toContain('not applied');
 });
 
+it('previews and saves a catalog-advertised dream idle limit with native CAS', async () => {
+  const dreamView: NativeConfigurationView = { ...view, fields: [
+    { path: 'dream.idle_ms', catalog_path: 'dream.idle_ms', explicit: { present: false },
+      effective: { present: true, value: 45000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const idle = { path: 'dream.idle_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [idle,
+    { path: 'dream.unknown', type: 'integer', editability: field.editability }] });
+  const dreamRequest = { ...request, operations: [{ op: 'set' as const, field: idle.path, value: 60000 }] };
+  vi.mocked(nativeChange).mockReturnValue(dreamRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: dreamView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(dreamView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.dream"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('dream.unknown');
+  await act(async () => button('Idle before maintenance (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('5000'); expect(input.max).toBe('3600000'); expect(input.value).toBe('45000');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '60000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(dreamView, idle, 'set', '60000');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(dreamRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
+it('shows host-effective dream enablement from the native preview rather than claiming activation', async () => {
+  const dreamView: NativeConfigurationView = { ...view, fields: [
+    { path: 'dream.enabled', catalog_path: 'dream.enabled', explicit: { present: false },
+      effective: { present: true, value: false, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const enabled = { path: 'dream.enabled', type: 'boolean' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [enabled] });
+  vi.mocked(nativeChange).mockReturnValue({ ...request, operations: [{ op: 'set', field: enabled.path, value: true }] });
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: dreamView });
+  mount(dreamView); await act(async () => {});
+  await act(async () => button('Enable dream maintenance').click());
+  await act(async () => { (container.querySelector('input[type="checkbox"]') as HTMLInputElement).click(); });
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(dreamView, enabled, 'set', 'true');
+  expect(container.textContent).toContain('"value":false');
+  expect(container.textContent).toContain('new constructed context');
+  expect(saveNativeConfiguration).not.toHaveBeenCalled();
+});
+
 it('offers only advertised native memory limits and saves a typed bounded value through the same CAS request', async () => {
   const memoryView: NativeConfigurationView = { ...view, fields: [
     { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: false },

@@ -22,6 +22,14 @@ const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeScheduling.co
   provider_concurrency: { label: 'settings.nativeScheduling.concurrency', min: 1, max: 16 },
   provider_queue_limit: { label: 'settings.nativeScheduling.queueLimit', min: 1, max: 4096 },
 };
+const DREAM_LIMITS: Record<string, { label: 'settings.nativeDream.idle' | 'settings.nativeDream.interStage'
+  | 'settings.nativeDream.inferenceIdle' | 'settings.nativeDream.hygieneIdle' | 'settings.nativeDream.retention'; min: number; max: number }> = {
+  'dream.idle_ms': { label: 'settings.nativeDream.idle', min: 5000, max: 3600000 },
+  'dream.inter_stage_ms': { label: 'settings.nativeDream.interStage', min: 1000, max: 300000 },
+  'dream.inference_idle_ms': { label: 'settings.nativeDream.inferenceIdle', min: 10000, max: 3600000 },
+  'dream.hygiene_idle_ms': { label: 'settings.nativeDream.hygieneIdle', min: 30000, max: 7200000 },
+  'dream.retention_days': { label: 'settings.nativeDream.retention', min: 1, max: 365 },
+};
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -63,6 +71,10 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const memoryBooleanSelected = selected?.type === 'boolean' ? MEMORY_BOOLEAN[selected.path] : undefined;
   const schedulingFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(PROVIDER_SCHEDULING, field.path));
   const schedulingSelected = selected?.type === 'integer' ? PROVIDER_SCHEDULING[selected.path] : undefined;
+  const dreamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(DREAM_LIMITS, field.path)
+    || field.path === 'dream.enabled' && field.type === 'boolean');
+  const dreamSelected = selected?.type === 'integer' ? DREAM_LIMITS[selected.path] : undefined;
+  const dreamEnabledSelected = selected?.path === 'dream.enabled' && selected.type === 'boolean';
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -94,6 +106,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(PROVIDER_SCHEDULING[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {dreamFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.dream">
+      <h4 className="font-semibold">{t('settings.nativeDream.title')}</h4>
+      <p>{t('settings.nativeDream.description')}</p>
+      <div className="flex flex-wrap gap-2">{dreamFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(field.path === 'dream.enabled' ? 'settings.nativeDream.enabled' : DREAM_LIMITS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -147,11 +169,25 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
+      {model.mode === 'set' && dreamSelected ? <label className="block">
+        {t(dreamSelected.label)}
+        <input type="number" min={dreamSelected.min} max={dreamSelected.max} step="1"
+          value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
+      {model.mode === 'set' && dreamEnabledSelected ? <label className="flex items-center gap-2">
+        <input type="checkbox" checked={model.draft === 'true'} disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(JSON.stringify(event.target.checked)); }} />
+        {t('settings.nativeDream.enabled')}
+      </label> : null}
       {model.mode === 'set' && selected.path === 'memory.enabled' && model.draft === 'false'
         ? <p>{t('settings.nativeMemory.disableAlsoClearsRequired')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
-      {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+      {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
+        && !dreamSelected && !dreamEnabledSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />

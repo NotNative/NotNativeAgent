@@ -856,3 +856,14 @@ native catalog is unavailable. Independent adversarial review found no
 concrete defect in the bounds or authority flow.
 The full UI suite passed (1,745 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-20 — native dream maintenance controls
+
+Managed Settings now offers NNA-advertised dream enablement, idle and stage
+delays, and retention limits through bounded typed controls and the native
+preview, revision-checked save, and receipt flow. The GUI explains that host
+authority may keep dream disabled and that saved values affect newly built
+contexts. Search remains navigable without a catalog. Independent adversarial
+review found no concrete defect in the native bounds or authority behavior.
+The full UI suite passed (1,747 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.
