@@ -928,3 +928,14 @@ dead ends for unpublished saves and operation receipts evicted from NNA's
 bounded replay window. Installed GUI acceptance remains open.
 The full UI suite passed (1,764 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-26 — selected NNA stage recovery
+
+The Windows installer can now reconcile a previously started immutable payload
+stage by its exact operation ID through the selected installed NNA. It validates
+the terminal native response and reports whether a slot is ready or the operation
+was unpublished; neither outcome is presented as activation. An existing pinned
+NND selection cannot be overridden with a different explicit NNA root. An
+independent adversarial review found and fixed an empty recovery ID that could
+otherwise fall through to normal installation. Public service activation and
+operator-installed acceptance remain open.

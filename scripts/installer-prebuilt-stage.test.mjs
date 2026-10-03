@@ -33,6 +33,15 @@ if (action === 'capabilities') {
     payload_sha256: sha256(bytes), slot: join(root, 'private-slot'), replay_window: 'last_16_terminal_operations' };
   if (process.env.NND_TEST_STAGE_MODE === 'wrong-response') result.payload_sha256 = '0'.repeat(64);
   process.stdout.write(JSON.stringify(result));
+} else if (action === 'stage-recover') {
+  const operation = process.argv[6];
+  writeFileSync(process.env.NND_TEST_RECOVER_MARKER, operation);
+  const state = process.env.NND_TEST_RECOVER_MODE === 'unpublished' ? 'unpublished' : 'slot_ready';
+  const result = state === 'unpublished' ? { state, operation_id: operation } :
+    { state, operation_id: operation, version: '20261003-12', payload_sha256: 'a'.repeat(64),
+      slot: join(root, 'private-slot'), replay_window: 'last_16_terminal_operations' };
+  if (process.env.NND_TEST_RECOVER_MODE === 'wrong-response') result.operation_id = '00000000-0000-4000-8000-000000000000';
+  process.stdout.write(JSON.stringify(result));
 } else process.exit(6);
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }`;
 
@@ -56,7 +65,7 @@ async function fixture(t) {
   const cli = join(native, 'installed', 'src', 'cli.js'); await writeFile(cli, fakeCli);
   await writeFile(join(native, 'install.json'), JSON.stringify({ product: 'NotNativeAgent', version,
     node: process.execPath, install_root: native, data_root: data }));
-  return { base, payload, target, native, marker: join(base, 'stage-marker'), digest: sha(manifest) };
+  return { base, payload, target, native, marker: join(base, 'stage-marker'), recoverMarker: join(base, 'recover-marker'), digest: sha(manifest) };
 }
 
 function stage(f, digest = f.digest, mode = '') {
@@ -67,6 +76,55 @@ function stage(f, digest = f.digest, mode = '') {
     env: { ...process.env, Path: '', NND_TEST_STAGE_MARKER: f.marker, NND_TEST_STAGE_MODE: mode },
   });
 }
+
+const operation = 'b2b728f5-6aca-49b6-8675-c4f9e06c262c';
+function recover(f, mode = '', id = operation) {
+  return spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+    '-RecoverPrebuiltStageOperation', id, '-NnaInstallRoot', f.native, '-InstallDir', f.target], {
+    encoding: 'utf8', windowsHide: true, timeout: 20000,
+    env: { ...process.env, Path: '', NND_TEST_RECOVER_MARKER: f.recoverMarker, NND_TEST_RECOVER_MODE: mode },
+  });
+}
+
+test('prebuilt stage recovery reports native terminal outcome without changing installed NND',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t);
+    const ready = recover(f);
+    assert.equal(ready.status, 0, ready.stderr);
+    assert.match(ready.stdout, /state\s+: slot_ready/u);
+    assert.match(ready.stdout, /activation remains pending/u);
+    assert.equal(await readFile(f.recoverMarker, 'utf8'), operation);
+    const unpublished = recover(f, 'unpublished');
+    assert.equal(unpublished.status, 0, unpublished.stderr);
+    assert.match(unpublished.stdout, /state\s+: unpublished/u);
+    assert.match(unpublished.stdout, /was not changed/u);
+    assert.deepEqual(await readdir(f.target), ['keep.txt']);
+  });
+
+test('prebuilt stage recovery rejects invalid operation, mismatched native response, and pinned NNA change',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t);
+    const invalid = recover(f, '', 'bad');
+    assert.notEqual(invalid.status, 0);
+    assert.match(invalid.stderr, /canonical v4 operation UUID/u);
+    await assert.rejects(readFile(f.recoverMarker), { code: 'ENOENT' });
+    const empty = recover(f, '', '');
+    assert.notEqual(empty.status, 0);
+    assert.match(empty.stderr, /canonical v4 operation UUID/u);
+    await assert.rejects(readFile(f.recoverMarker), { code: 'ENOENT' });
+    assert.deepEqual(await readdir(f.target), ['keep.txt']);
+    const mismatched = recover(f, 'wrong-response');
+    assert.notEqual(mismatched.status, 0);
+    assert.match(mismatched.stderr, /recovery remains unresolved/u);
+    await writeFile(join(f.target, 'nna-service-selection.json'), JSON.stringify({ schema_version: '1.0',
+      nna_install_root: f.native, installation_id: 'nna_' + '0'.repeat(64), data_id: 'data_' + '0'.repeat(64) }));
+    await rm(f.recoverMarker);
+    const changed = recover(f);
+    assert.notEqual(changed.status, 0);
+    assert.match(changed.stderr, /selection identity changed/u);
+    await assert.rejects(readFile(f.recoverMarker), { code: 'ENOENT' });
+    assert.deepEqual((await readdir(f.target)).sort(), ['keep.txt', 'nna-service-selection.json']);
+  });
 
 test('prebuilt staging uses selected NNA without PATH and preserves the live NND target',
   { skip: process.platform !== 'win32' }, async t => {
@@ -88,7 +146,7 @@ test('wrong trusted digest rejects before native stage and malformed native outc
     await assert.rejects(readFile(f.marker), { code: 'ENOENT' });
     const unresolved = stage(f, f.digest, 'wrong-response');
     assert.notEqual(unresolved.status, 0);
-    assert.match(unresolved.stderr, /stage-recover/u);
+    assert.match(unresolved.stderr, /-RecoverPrebuiltStageOperation/u);
     assert.match(await readFile(f.marker, 'utf8'), /^[a-f0-9-]{36}$/u);
     assert.deepEqual(await readdir(f.target), ['keep.txt']);
   });
@@ -139,7 +197,7 @@ test('payload file tamper fails native admission and overlapping target is refus
     await writeFile(join(f.payload, 'packages/web/dist/index.html'), '<html>tampered</html>');
     const invalid = stage(f);
     assert.notEqual(invalid.status, 0);
-    assert.match(invalid.stderr, /stage-recover/u);
+    assert.match(invalid.stderr, /-RecoverPrebuiltStageOperation/u);
     await assert.rejects(readFile(f.marker), { code: 'ENOENT' });
     assert.deepEqual(await readdir(f.target), ['keep.txt']);
   });

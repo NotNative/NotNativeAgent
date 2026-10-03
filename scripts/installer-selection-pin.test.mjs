@@ -14,7 +14,7 @@ $ast=[Management.Automation.Language.Parser]::ParseFile('${installer}',[ref]$tok
 if($errors.Count){ throw 'Installer PowerShell source does not parse' }
 $fn=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-InstalledNna'},$true);
 Invoke-Expression $fn.Extent.Text;
-$InstallDir=$env:NND_TEST_INSTALL; $NnaInstallRoot=''; $Uninstall=$env:NND_TEST_UNINSTALL -eq '1';
+$InstallDir=$env:NND_TEST_INSTALL; $NnaInstallRoot=$env:NND_TEST_EXPLICIT_ROOT; $Uninstall=$env:NND_TEST_UNINSTALL -eq '1';
 try { $selected=Get-InstalledNna; [Console]::Out.WriteLine('OK '+$selected.InstallRoot); exit 0 }
 catch { [Console]::Error.WriteLine($_.Exception.Message); exit 12 }`;
 
@@ -30,10 +30,11 @@ test('installer reuses pinned and legacy NNA selections for upgrade and uninstal
       version: '20261003-1', node, install_root: nna, data_root: data }));
     const file = join(nnd, 'nna-service-selection.json');
     const baseSelection = { schema_version: '1.0', nna_install_root: nna };
-    function select(uninstall = false) {
+    function select(uninstall = false, explicitRoot = '') {
       return spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', script], {
         encoding: 'utf8', windowsHide: true, timeout: 10000,
-        env: { ...process.env, Path: '', NND_TEST_INSTALL: nnd, NND_TEST_UNINSTALL: uninstall ? '1' : '0' },
+        env: { ...process.env, Path: '', NND_TEST_INSTALL: nnd, NND_TEST_UNINSTALL: uninstall ? '1' : '0',
+          NND_TEST_EXPLICIT_ROOT: explicitRoot },
       });
     }
     for (const selection of [baseSelection, { ...baseSelection,
@@ -44,6 +45,10 @@ test('installer reuses pinned and legacy NNA selections for upgrade and uninstal
         assert.equal(result.status, 0, result.stderr);
         assert.equal(result.stdout.trim(), `OK ${nna}`);
       }
+      assert.equal(select(false, nna).status, 0, 'The explicit selected root remains valid');
+      const conflict = select(false, join(base, 'other NNA'));
+      assert.equal(conflict.status, 12, conflict.stderr);
+      assert.match(conflict.stderr, /conflicts with the installed NND selection/u);
     }
     for (const selection of [{ ...baseSelection, installation_id: 'wrong', data_id: `data_${'b'.repeat(64)}` },
       { ...baseSelection, installation_id: `nna_${'a'.repeat(64)}`, data_id: `data_${'b'.repeat(64)}`, extra: true }]) {

@@ -132,6 +132,15 @@ response prints the operation UUID for explicit `stage-recover`; it does not
 delete evidence or guess rollback. A `slot_ready` result is inert pending
 transactional activation. The source-build path remains separate.
 
+`install.ps1 -RecoverPrebuiltStageOperation OPERATION_UUID` delegates that
+reconciliation to the already selected installed NNA. It checks the existing
+selection pin and native capability identity before invoking `stage-recover`,
+requires the exact requested operation ID in a bounded terminal response, and
+reports either `slot_ready` or `unpublished`. It does not bootstrap a different
+NNA, change package registration, create shortcuts, or mark activation complete.
+An explicit NNA root cannot override an installed NND selection; this also
+protects source upgrades and uninstall from silently switching native owners.
+
 The installer must delegate to native staging, maintain continuous lease ownership
 through trial activation, and compare-and-swap the sole native package registration.
 Previous-registration backups and durable staging evidence already exist; final

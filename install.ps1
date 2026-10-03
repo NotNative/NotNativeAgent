@@ -12,6 +12,7 @@
 #   .\install.ps1 -InstallNnaIfMissing   # unattended opt-in to local NNA bootstrap
 #   .\install.ps1 -InstallNnaIfMissing -NnaDependencyRoot C:\NNA-release -NnaDependencyManifestSha256 <trusted SHA-256>
 #   .\install.ps1 -StagePrebuiltPayload -PrebuiltPayloadRoot C:\NND-payload -PrebuiltManifestSha256 <trusted SHA-256>
+#   .\install.ps1 -RecoverPrebuiltStageOperation <operation UUID>
 #   .\install.ps1 -SkipBuild            # reuse an existing built install
 #   .\install.ps1 -Uninstall            # remove shortcuts + installed tree
 #   .\install.ps1 -Uninstall -PurgeData # also erase user data/logs/prefs
@@ -40,6 +41,7 @@ param(
     [string]$PrebuiltPayloadRoot,
     [string]$PrebuiltManifestSha256,
     [switch]$StagePrebuiltPayload,
+    [string]$RecoverPrebuiltStageOperation,
     [switch]$InstallNnaIfMissing,
     [switch]$SkipNnaPathUpdate,
     [switch]$Uninstall,
@@ -57,6 +59,14 @@ if ($StagePrebuiltPayload -and (!$PrebuiltPayloadRoot -or !$PrebuiltManifestSha2
 }
 if (!$StagePrebuiltPayload -and ($PrebuiltPayloadRoot -or $PrebuiltManifestSha256)) {
     throw 'Prebuilt payload options require -StagePrebuiltPayload.'
+}
+$recoverPrebuiltStageRequested = $PSBoundParameters.ContainsKey('RecoverPrebuiltStageOperation')
+if ($recoverPrebuiltStageRequested) {
+    if ($RecoverPrebuiltStageOperation -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$' -or
+        $StagePrebuiltPayload -or $Uninstall -or $PurgeData -or $SkipBuild -or $InstallNnaIfMissing -or
+        $NnaDependencyRoot -or $NnaDependencyManifestSha256 -or $NnaSourceRoot) {
+        throw '-RecoverPrebuiltStageOperation requires a canonical v4 operation UUID and an existing selected NNA; it cannot be combined with other installer modes or dependency setup.'
+    }
 }
 if ($NnaDependencyRoot -and $NnaSourceRoot) { throw 'Choose either a verified NNA dependency release or the development source fallback.' }
 if ([bool]$NnaDependencyRoot -ne [bool]$NnaDependencyManifestSha256) {
@@ -114,7 +124,7 @@ function Get-InstalledNna {
     $nnaRoot = if ($NnaInstallRoot) { $NnaInstallRoot } else { Join-Path $env:LOCALAPPDATA 'NotNativeAgent' }
     $selectionPin = $null
     $selectionPath = Join-Path $InstallDir 'nna-service-selection.json'
-    $hasSelection = !$NnaInstallRoot -and (Test-Path -LiteralPath $selectionPath)
+    $hasSelection = Test-Path -LiteralPath $selectionPath
     if ($hasSelection) {
         $selectionFile = Get-Item -LiteralPath $selectionPath -Force
         if ($selectionFile.PSIsContainer -or $selectionFile.Length -gt 16384 -or
@@ -132,6 +142,10 @@ function Get-InstalledNna {
                 $selection.installation_id -cnotmatch '^nna_[a-f0-9]{64}$' -or
                 $selection.data_id -isnot [string] -or
                 $selection.data_id -cnotmatch '^data_[a-f0-9]{64}$'))) { throw 'Installed NNA selection is invalid.' }
+        if ($NnaInstallRoot -and !([IO.Path]::GetFullPath($NnaInstallRoot).TrimEnd('\', '/')).Equals(
+            [IO.Path]::GetFullPath($selection.nna_install_root).TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Explicit NNA root conflicts with the installed NND selection; restore the selected NNA installation.'
+        }
         $nnaRoot = $selection.nna_install_root
         if ($isPinned) { $selectionPin = @{ InstallationId = $selection.installation_id; DataId = $selection.data_id } }
     }
@@ -340,6 +354,25 @@ if ($Uninstall) {
 if ($targetPath.Equals($sourcePath, [StringComparison]::OrdinalIgnoreCase) -or
     $targetPath.StartsWith("$sourcePath\", [StringComparison]::OrdinalIgnoreCase)) {
     throw "-InstallDir must be outside the source repo (got $InstallDir)"
+}
+if ($recoverPrebuiltStageRequested) {
+    $nna = Get-InstalledNna
+    if (!$nna) { throw 'Selected NNA is not installed; restore it before recovering the NND stage operation.' }
+    $capabilities = Assert-NndNnaCapabilities $nna
+    Assert-NndSelectedPin $nna $capabilities
+    $recovered = Invoke-NndPrebuiltStageRecover $nna $RecoverPrebuiltStageOperation
+    Write-Heading 'Prebuilt NND staging recovery'
+    Write-Host "  selected NNA : $($capabilities.installation_id) / $($capabilities.data_id)"
+    Write-Host "  operation    : $($recovered.operation_id)"
+    Write-Host "  state        : $($recovered.state)"
+    if ($recovered.state -eq 'slot_ready') {
+        Write-Host "  version      : $($recovered.version)"
+        Write-Host "  slot         : $($recovered.slot)"
+        Write-Host '  The slot is staged; activation remains pending.'
+    } else {
+        Write-Host '  The operation was unpublished; the NND installation was not changed.'
+    }
+    exit 0
 }
 if ($StagePrebuiltPayload) {
     # This branch does not change the current NND install or registration. It
