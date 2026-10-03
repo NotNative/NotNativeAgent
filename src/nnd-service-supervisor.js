@@ -3,6 +3,7 @@ import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import { createServer } from 'node:net';
 import { open, mkdir, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
 import { validateNndPackage } from './nnd-package.js';
 import { acquireNndServiceLock, assertHeldNndServiceLease } from './nnd-service-lock.js';
@@ -424,16 +425,44 @@ async function closeSupervisor(state) {
   const results = await Promise.allSettled([state.native?.close(), state.child?.close(),
     ...(state.unpublishedTrial ? [state.controller?.close()] : [])]);
   const errors = results.filter((item) => item.status === 'rejected').map((item) => item.reason);
-  if (state.trialDiscoveryAttempted) {
-    try { await discardNndTrialDiscoveryGeneration(state.identity, state.lease, state.record.instance_id); }
-    catch (error) { errors.push(error); }
-  }
   // Invariant: uncertain writers retain both the process and singleton lease for operator diagnosis.
   if (errors.length) throw new AggregateError(errors, 'NND shutdown incomplete; singleton remains held');
+  if (state.trialDiscoveryAttempted) await retireStoppedTrialDiscovery(state);
   if (state.published) await removeNndDiscoveryPointer(state.identity, state.lease, state.record.instance_id);
   if (!state.unpublishedTrial) await state.controller?.close();
   state.shutdownComplete = true;
   await state.releaseLease?.();
+}
+async function retireStoppedTrialDiscovery(state) {
+  assertHeldNndServiceLease(state.lease, state.identity.data_id);
+  const generation = state.record?.instance_id;
+  if (!generation) throw new ContractError('nnd_discovery_invalid',
+    'Stopped NND trial has no selected discovery generation; retain its owner and admission barrier');
+  // Invariant: a retained trial can have a published current.json while its
+  // in-memory public controller remains dark. The pointer is authoritative.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const pointer = await readNndServiceDiscovery(state.identity);
+    if (pointer === null) break;
+    if (pointer.instance_id !== generation || !isDeepStrictEqual(pointer, state.record)) {
+      throw new ContractError('nnd_discovery_conflict',
+        'Stopped NND trial discovery belongs to another owner; preserve the singleton and barrier');
+    }
+    // The private discovery writer can commit removal before its response is
+    // lost. Reopen the pointer, and retry only if the exact own record remains.
+    try { await removeNndDiscoveryPointer(state.identity, state.lease, generation); }
+    catch { /* Exact readback below decides whether the write committed. */ }
+    const after = await readNndServiceDiscovery(state.identity);
+    if (after === null) break;
+    if (after.instance_id !== generation || !isDeepStrictEqual(after, state.record)) {
+      throw new ContractError('nnd_discovery_conflict',
+        'NND discovery changed during retained trial shutdown; preserve the singleton and barrier');
+    }
+    if (attempt === 1) throw new ContractError('nnd_discovery_invalid',
+      'NND discovery removal is unconfirmed; preserve the singleton and barrier');
+  }
+  // Discard is idempotent when pointer removal already deleted the private
+  // generation. A failed discard still retains the singleton for diagnosis.
+  await discardNndTrialDiscoveryGeneration(state.identity, state.lease, generation);
 }
 function status(state) {
   const runtime = state.native?.runtime.snapshot();
