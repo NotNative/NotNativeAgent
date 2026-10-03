@@ -169,3 +169,19 @@ export async function publishManifest(target, staged, absent) {
   }
   } catch (error) { error.manifestPublished = published; throw error; }
 }
+export async function removeManifest(target) {
+  let published = false;
+  try {
+    for (let attempt = 0; ; attempt++) {
+      try { await unlink(target.path); published = true; break; }
+      catch (error) {
+        if (process.platform !== 'win32' || !['EPERM', 'EBUSY', 'EACCES'].includes(error.code) || attempt >= 40) throw error;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+    }
+    if (process.platform !== 'win32') {
+      const directory = await open(dirname(target.path), 'r');
+      try { await directory.sync(); } finally { await directory.close(); }
+    }
+  } catch (error) { error.manifestPublished = published; throw error; }
+}
