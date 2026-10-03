@@ -11,8 +11,11 @@ the planning corpus supplies reference behavior and UX detail.
   (NNA) owns the engine, governance, and lifecycle. NND is its optional GUI
   integration package, not an independently installed agent runtime. The
   installed NND package requires NNA and registers with it during setup. When
-  NNA is absent, the source installer offers to install it from the sibling
-  NNA checkout; unattended runs require an explicit opt-in flag.
+  NNA is absent, the installer can install a carried NNA release after checking
+  its release manifest against a SHA-256 obtained from a trusted source. Pass
+  `-NnaDependencyRoot`, `-NnaDependencyManifestSha256`, and
+  `-InstallNnaIfMissing` for unattended setup. The sibling checkout remains a
+  development-only source fallback; unattended runs require explicit opt-in.
   A mock harness remains available for isolated development tests.
 - **Surfaces today:** local web GUI and Electron desktop shell. VS Code and
   mobile are long-term deferred.

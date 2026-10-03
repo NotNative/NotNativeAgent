@@ -249,6 +249,12 @@ then discover and validate that NNA installation normally. Do not copy NNA's
 engine into NND's package or make NND removal uninstall an independently usable
 NNA. An existing compatible NNA is reused; incompatible installations remain
 untouched until the operator chooses an NNA upgrade or another installation.
+The source installer currently accepts a carried extracted NNA release only
+with an externally obtained SHA-256 of its `RELEASE_MANIFEST.sha256`. It stages
+the manifest-listed files privately, rejects extras and reparse points, checks
+each staged hash, then runs NNA's installer and rediscovers native capabilities.
+The sibling NNA checkout remains a development fallback. Network retrieval and
+automatic trust-anchor discovery await an immutable published NNA artifact.
 Persist the chosen NNA installation identity and custom roots into the protected
 launch configuration. Test without PATH and with two NNA installations.
 The current NNA `installation_id` and `data_id` derive from canonical install

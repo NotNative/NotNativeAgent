@@ -10,6 +10,7 @@
 #   .\install.ps1                       # install to %LOCALAPPDATA%\NotNativeDesktop
 #   .\install.ps1 -InstallDir D:\apps\nnd
 #   .\install.ps1 -InstallNnaIfMissing   # unattended opt-in to local NNA bootstrap
+#   .\install.ps1 -InstallNnaIfMissing -NnaDependencyRoot C:\NNA-release -NnaDependencyManifestSha256 <trusted SHA-256>
 #   .\install.ps1 -SkipBuild            # reuse an existing built install
 #   .\install.ps1 -Uninstall            # remove shortcuts + installed tree
 #   .\install.ps1 -Uninstall -PurgeData # also erase user data/logs/prefs
@@ -33,6 +34,8 @@ param(
     [string]$NnaInstallRoot,
     [string]$NnaDataRoot,
     [string]$NnaSourceRoot,
+    [string]$NnaDependencyRoot,
+    [string]$NnaDependencyManifestSha256,
     [switch]$InstallNnaIfMissing,
     [switch]$SkipNnaPathUpdate,
     [switch]$Uninstall,
@@ -43,6 +46,11 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'scripts\installer-native-guard.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-preflight.ps1')
+. (Join-Path $PSScriptRoot 'scripts\installer-nna-dependency.ps1')
+if ($NnaDependencyRoot -and $NnaSourceRoot) { throw 'Choose either a verified NNA dependency release or the development source fallback.' }
+if ([bool]$NnaDependencyRoot -ne [bool]$NnaDependencyManifestSha256) {
+    throw 'A carried NNA dependency requires both -NnaDependencyRoot and -NnaDependencyManifestSha256.'
+}
 $Source = $PSScriptRoot
 $ElectronExe = Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"
 $MainScript = "packages\electron\main.mjs"
@@ -191,32 +199,38 @@ function Remove-NndTree([string]$Candidate, [string]$SourceRoot) {
 }
 
 function Install-RequiredNna {
-    $candidate = if ($NnaSourceRoot) { $NnaSourceRoot } else { Join-Path (Split-Path -Parent $Source) 'NotNativeAgent' }
-    $installer = Join-Path $candidate 'install.ps1'
-    $manifestPath = Join-Path $candidate 'package.json'
-    if (!(Test-Path -LiteralPath $installer -PathType Leaf) -or !(Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-        throw "NNA is not installed and no local NNA installer was found at $candidate. Install NNA first, or supply -NnaSourceRoot."
-    }
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.name -ne 'not-native-agent') { throw "Local NNA source identity is invalid at $candidate." }
-    if (!$InstallNnaIfMissing) {
-        if (![Environment]::UserInteractive -or [Console]::IsInputRedirected) {
-            throw 'NNA is not installed. Run interactively to confirm its installation, or pass -InstallNnaIfMissing for an unattended local-source bootstrap.'
+    $stage = $null
+    try {
+        $candidate = if ($NnaDependencyRoot) {
+            $stage = Stage-NndNnaDependency $NnaDependencyRoot $NnaDependencyManifestSha256 $targetPath
+            $stage
+        } elseif ($NnaSourceRoot) { $NnaSourceRoot } else { Join-Path (Split-Path -Parent $Source) 'NotNativeAgent' }
+        $installer = Join-Path $candidate 'install.ps1'
+        $manifestPath = Join-Path $candidate 'package.json'
+        if (!(Test-Path -LiteralPath $installer -PathType Leaf) -or !(Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+            throw "NNA is not installed and no local NNA installer was found at $candidate. Install NNA first, or supply -NnaDependencyRoot."
         }
-        $answer = Read-Host "NNA is required. Install it from $candidate now? [y/N]"
-        if ($answer -notin @('y', 'Y', 'yes', 'YES')) { throw 'NNA installation declined; NND was not installed.' }
-    }
-    Write-Heading "Installing required NNA from $candidate"
-    $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $installer)
-    if ($NnaInstallRoot) { $arguments += @('-InstallRoot', $NnaInstallRoot) }
-    if ($NnaDataRoot) { $arguments += @('-DataRoot', $NnaDataRoot) }
-    if ($SkipNnaPathUpdate) { $arguments += '-SkipPathUpdate' }
-    if ($InstallNnaIfMissing) {
-        $arguments += @('-SkipProviderSetup', '-SkipWebSearchSetup', '-SkipPlaywrightSetup', '-SkipGatewaySetup', '-SkipRipgrepSetup')
-    }
-    & powershell @arguments
-    if ($LASTEXITCODE -ne 0) { throw "NNA installation failed (exit $LASTEXITCODE); NND was not installed." }
-    if (!(Get-InstalledNna)) { throw 'NNA installer finished without a valid installed runtime; NND was not installed.' }
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        if ($manifest.name -ne 'not-native-agent') { throw "Local NNA source identity is invalid at $candidate." }
+        if (!$InstallNnaIfMissing) {
+            if (![Environment]::UserInteractive -or [Console]::IsInputRedirected) {
+                throw 'NNA is not installed. Run interactively to confirm its installation, or pass -InstallNnaIfMissing for unattended setup.'
+            }
+            $answer = Read-Host "NNA is required. Install it from $candidate now? [y/N]"
+            if ($answer -notin @('y', 'Y', 'yes', 'YES')) { throw 'NNA installation declined; NND was not installed.' }
+        }
+        Write-Heading "Installing required NNA from $candidate"
+        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $installer)
+        if ($NnaInstallRoot) { $arguments += @('-InstallRoot', $NnaInstallRoot) }
+        if ($NnaDataRoot) { $arguments += @('-DataRoot', $NnaDataRoot) }
+        if ($SkipNnaPathUpdate) { $arguments += '-SkipPathUpdate' }
+        if ($InstallNnaIfMissing) {
+            $arguments += @('-SkipProviderSetup', '-SkipWebSearchSetup', '-SkipPlaywrightSetup', '-SkipGatewaySetup', '-SkipRipgrepSetup')
+        }
+        & (Join-Path $PSHOME 'powershell.exe') @arguments
+        if ($LASTEXITCODE -ne 0) { throw "NNA installation failed (exit $LASTEXITCODE); NND was not installed." }
+        if (!(Get-InstalledNna)) { throw 'NNA installer finished without a valid installed runtime; NND was not installed.' }
+    } finally { if ($stage) { Remove-NndDependencyStage $stage } }
 }
 
 function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
