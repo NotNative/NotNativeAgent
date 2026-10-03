@@ -21,6 +21,9 @@ function assertTrialOwner(identity, serviceLease, registryLease, options) {
   if (options.afterStop !== undefined && typeof options.afterStop !== 'function') {
     throw new ContractError('nnd_activation_candidate_invalid', 'NND post-stop continuation is invalid');
   }
+  if (options.afterFinalVerification !== undefined && typeof options.afterFinalVerification !== 'function') {
+    throw new ContractError('nnd_activation_candidate_invalid', 'NND final held-live continuation is invalid');
+  }
   assertHeldNndServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
   const registryPath = join(identity.data_root, 'config', 'nnd-package.json');
@@ -178,6 +181,72 @@ async function verifyAndContinue(identity, trial, prepared, running, context, op
   if (stillHealthy.generation !== proof.generation || stillHealthy.native_state !== proof.native_state) {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial changed during continuation');
   }
+  // Invariant: this private seam runs only after the final health check, while
+  // both original owners still exist. It cannot suppress the confirmed stop.
+  if (options.afterFinalVerification) {
+    signal.throwIfAborted();
+    const tasks = []; let accepting = true, used = false, callbackFailure;
+    const withFinalOwnership = operation => {
+      if (!accepting || used || typeof operation !== 'function') {
+        throw new ContractError('nnd_activation_transition_proof_invalid',
+          'NND final held-live ownership window has ended');
+      }
+      used = true;
+      const task = Promise.resolve().then(async () => {
+        signal.throwIfAborted();
+        assertHeldNndServiceLease(serviceLease, identity.data_id);
+        assertManifestLease(registryLease);
+        let active = true, ticketUsed = false;
+        const ticketTasks = [];
+        const context = Object.freeze({ proof: stillHealthy, serviceLease, registryLease, signal,
+          verifyHeldTicket: () => {
+            if (!active || ticketUsed || typeof trial.verifyHeldTicket !== 'function') {
+              throw new ContractError('nnd_activation_transition_proof_invalid',
+                'NND private ticket verifier is unavailable');
+            }
+            ticketUsed = true;
+            const ticketTask = Promise.resolve().then(async () => {
+              const verified = await trial.verifyHeldTicket({ operationId: options.operationId,
+                stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
+              if (verified?.state !== 'held_private_ticket_verified_unresolved'
+                || verified.operation_id !== options.operationId || verified.generation !== running.instance_id
+                || verified.native_state !== stillHealthy.native_state) {
+                throw new ContractError('nnd_activation_transition_proof_invalid',
+                  'NND held-live ticket state changed');
+              }
+              return verified;
+            });
+            ticketTasks.push(ticketTask); ticketTask.catch(() => {});
+            return ticketTask;
+          } });
+        let result, failure;
+        try { result = await operation(context); }
+        catch (error) { failure = error; }
+        active = false;
+        const settledTicket = await Promise.allSettled(ticketTasks);
+        const ticketFailure = settledTicket.find(item => item.status === 'rejected');
+        if (failure && ticketFailure) throw new AggregateError([failure, ticketFailure.reason],
+          'NND held-live operation and ticket verification failed');
+        if (ticketFailure) throw ticketFailure.reason;
+        if (failure) throw failure;
+        return result;
+      });
+      tasks.push(task); task.catch(() => {});
+      return task;
+    };
+    try {
+      await options.afterFinalVerification(Object.freeze({ proof: stillHealthy,
+        status: trial.status, signal, withFinalOwnership }));
+    } catch (error) { callbackFailure = error; }
+    accepting = false;
+    const settled = await Promise.allSettled(tasks);
+    const taskFailure = settled.find(item => item.status === 'rejected');
+    if (callbackFailure && taskFailure) throw new AggregateError([callbackFailure, taskFailure.reason],
+      'NND final held-live callback and owned task failed');
+    if (taskFailure) throw taskFailure.reason;
+    if (callbackFailure) throw callbackFailure;
+    signal.throwIfAborted();
+  }
   return Object.freeze({ state: trial.registrationSelected?.() ? 'registration_selected_unresolved' : 'trial_healthy',
     operation_id: options.operationId,
     stage_operation_id: options.stageOperationId, ...proof,
@@ -229,8 +298,8 @@ async function liveTrial(identity, paths, serviceLease, registryLease, options, 
 // operation. A rejected shutdown is unresolved writer ownership, not permission
 // to release either lock or clear the pending activation barrier.
 export async function runNndUnpublishedTrialUnderOwnership(identity, paths, serviceLease, registryLease,
-  { stageOperationId, operationId, healthTimeoutMs = 5000, continuation, afterStop } = {}) {
-  const options = { stageOperationId, operationId, healthTimeoutMs, continuation, afterStop };
+  { stageOperationId, operationId, healthTimeoutMs = 5000, continuation, afterFinalVerification, afterStop } = {}) {
+  const options = { stageOperationId, operationId, healthTimeoutMs, continuation, afterFinalVerification, afterStop };
   assertTrialOwner(identity, serviceLease, registryLease, options);
   return withNndServiceLease(serviceLease, identity.data_id,
     signal => runManifestLeaseWork(registryLease,

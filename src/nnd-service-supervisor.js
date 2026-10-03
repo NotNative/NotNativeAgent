@@ -17,6 +17,7 @@ import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { consumeNndTrialCapability } from './nnd-activation-candidate.js';
 import { createNndTrialAdmissionGate } from './nnd-trial-admission.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
+import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { userDataPaths } from './product.js';
 
 async function readMetadata(path) {
@@ -124,6 +125,7 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
     return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions),
       ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease),
         selectRegistration: options => selectTrialRegistration(session, registryLease, options),
+        verifyHeldTicket: options => verifyNndHeldTicketUnderOwnership(identity, session.state, lease, registryLease, options),
         trialChildPid: () => session.state.child?.child?.pid ?? null,
         registrationSelected: () => session.state.registrationSelected === true } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }

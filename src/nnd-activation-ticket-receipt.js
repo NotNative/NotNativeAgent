@@ -22,8 +22,9 @@ const invalid = () => new ContractError('nnd_activation_health_invalid',
 const unknown = operationId => Object.freeze({ state: 'unknown', operation_id: operationId });
 const ticketPhase = journal => journal.length === 7 && journal[5].phase === 'discovery_published'
   && journal[6].phase === 'private_ticket_verified';
-const recordedReceipt = (options, journal) => Object.freeze({ state: 'private_ticket_recorded_unresolved',
-  operation_id: options.operationId, generation: options.generation, receipt_sha256: journal[6].receipt_sha256 });
+const recordedReceipt = (options, journal, registrationRevision) => Object.freeze({ state: 'private_ticket_recorded_unresolved',
+  operation_id: options.operationId, generation: options.generation, receipt_sha256: journal[6].receipt_sha256,
+  publication_sha256: journal[5].receipt_sha256, registration_revision: registrationRevision });
 const CHILD_KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
 const IDENTITY_KEYS = ['version', 'pid', 'platform', 'start_id'];
 const samePath = (left, right) => process.platform === 'win32'
@@ -105,7 +106,7 @@ export async function readNndPrivateTicketReceiptUnderOwnership(identity, servic
     if (journal[6].evidence_sha256 !== privateTicketEvidenceSha(identity, options,
       journal[5].receipt_sha256, desiredRevision, childSha)) throw invalid();
     signal.throwIfAborted();
-    return recordedReceipt(options, journal);
+    return recordedReceipt(options, journal, desiredRevision);
   }), { timeoutMs: 300000 });
 }
 function sameProof(left, right) {

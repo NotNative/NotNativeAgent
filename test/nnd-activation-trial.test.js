@@ -30,6 +30,9 @@ async function harness(overrides = {}) {
     selected = true;
     return { state: 'registration_selected_unresolved' }; },
   registrationSelected: () => selected,
+  verifyHeldTicket: async () => { trace.push('verify-held-ticket'); return overrides.verifyHeldTicket?.()
+    ?? { state: 'held_private_ticket_verified_unresolved', operation_id: operationId,
+      generation: proof.generation, native_state: proof.native_state }; },
   trialChildPid: () => 4321,
   stop: async () => { trace.push('stop'); if (overrides.stop) return overrides.stop(); } };
   const child = { protocol: '1.0', operation_id: operationId,
@@ -88,6 +91,79 @@ test('trusted continuation observes the same live unpublished child and both ori
   assert.equal(result.state, 'registration_selected_unresolved');
   assert.deepEqual(f.trace.filter(item => ['trial_healthy','continuation','verify','stop'].includes(item)),
     ['verify','trial_healthy','continuation','verify','stop']);
+});
+test('final held-live window runs after final verification and settles its one owned task before stop', async () => {
+  const f = await harness(); let release, retained;
+  const pending = new Promise(resolve => { release = resolve; });
+  const running = f.run({ afterFinalVerification: ({ proof, status, withFinalOwnership }) => {
+    assert.equal(proof.generation, f.proof.generation);
+    assert.equal(status().instance_id, proof.generation);
+    retained = withFinalOwnership;
+    void withFinalOwnership(async ({ serviceLease, registryLease }) => {
+      assert.equal(serviceLease, f.lease); assert.equal(registryLease, f.registryLease);
+      f.trace.push('final-task-start'); await pending; f.trace.push('final-task-end');
+    });
+    f.trace.push('final-callback');
+  } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.trace.includes('stop'), false);
+  assert.deepEqual(f.trace.filter(item => ['verify', 'final-task-start', 'final-task-end', 'stop'].includes(item)),
+    ['verify', 'verify', 'final-task-start']);
+  release();
+  assert.equal((await running).state, 'trial_healthy');
+  assert.equal(f.trace.filter(item => ['final-task-end', 'stop'].includes(item)).join(','), 'final-task-end,stop');
+  assert.throws(() => retained(() => {}), { code: 'nnd_activation_transition_proof_invalid' });
+});
+test('final held-live callback cannot turn a failed task into success or skip confirmed stop', async () => {
+  const f = await harness();
+  await assert.rejects(f.run({ afterFinalVerification: ({ withFinalOwnership }) => {
+    void withFinalOwnership(() => { throw new Error('late task failure'); });
+  } }), /late task failure/u);
+  assert.equal(f.trace.at(-1), 'stop');
+  let checks = 0;
+  const changed = await harness({ verify: proof => ++checks === 2
+    ? { ...proof, native_state: 'ready' } : proof });
+  let entered = false;
+  await assert.rejects(changed.run({ continuation: () => {}, afterFinalVerification: () => { entered = true; } }),
+    { code: 'nnd_health_unavailable' });
+  assert.equal(entered, false);
+  assert.equal(changed.trace.at(-1), 'stop');
+});
+test('unawaited private ticket verification settles before stop and cannot be replayed', async () => {
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const f = await harness({ verifyHeldTicket: () => pending }); let retained;
+  const running = f.run({ afterFinalVerification: ({ withFinalOwnership }) => {
+    void withFinalOwnership(({ verifyHeldTicket }) => {
+      retained = verifyHeldTicket;
+      void verifyHeldTicket();
+      assert.throws(() => verifyHeldTicket(), { code: 'nnd_activation_transition_proof_invalid' });
+    });
+  } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.trace.includes('verify-held-ticket'), true);
+  assert.equal(f.trace.includes('stop'), false);
+  release({ state: 'held_private_ticket_verified_unresolved', operation_id: operationId,
+    generation: f.proof.generation, native_state: f.proof.native_state });
+  await running;
+  assert.equal(f.trace.filter(item => !item.endsWith(':assert')).at(-1), 'stop');
+  assert.throws(() => retained(), { code: 'nnd_activation_transition_proof_invalid' });
+});
+test('unawaited private ticket verification failure stays unresolved after confirmed stop', async () => {
+  const f = await harness({ verifyHeldTicket: () => { throw new Error('receipt changed'); } });
+  await assert.rejects(f.run({ afterFinalVerification: ({ withFinalOwnership }) => {
+    void withFinalOwnership(({ verifyHeldTicket }) => { void verifyHeldTicket(); });
+  } }), /receipt changed/u);
+  assert.equal(f.trace.filter(item => !item.endsWith(':assert')).at(-1), 'stop');
+});
+test('final window rejects a ticket proof for changed native runtime state', async () => {
+  const f = await harness({ verifyHeldTicket: () => ({ state: 'held_private_ticket_verified_unresolved',
+    operation_id: operationId, generation: 'generation-1', native_state: 'ready' }) });
+  await assert.rejects(f.run({ afterFinalVerification: ({ withFinalOwnership }) => {
+    void withFinalOwnership(({ verifyHeldTicket }) => { void verifyHeldTicket(); });
+  } }),
+  { code: 'nnd_activation_transition_proof_invalid' });
+  assert.equal(f.trace.filter(item => !item.endsWith(':assert')).at(-1), 'stop');
 });
 test('a swallowed uncertain registration selection never returns trial_healthy', async () => {
   const uncertain = new ContractError('manifest_publication_unknown', 'CAS may have saved');
