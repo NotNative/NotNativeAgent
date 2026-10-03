@@ -58,6 +58,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
   lifecycle.runtime.start();
   let closing;
   return { runtime: lifecycle.runtime, endpoint: `http://127.0.0.1:${service.address.port}`, token,
+    isListening: () => service.server.listening && service.server.address() !== null,
     close() {
       closing ??= (async () => {
         service.stopAdmission();

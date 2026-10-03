@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { ContractError } from '../src/ids.js';
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const identity={installation_id:'native',data_id:'data',install_root:'C:/native',data_root:'C:/data'};
@@ -13,11 +13,12 @@ const packageInfo={root:'C:/package',manifestPath:'C:/package/integration.json',
 async function fixture(options={}) {
  const trace=[],lost=deferred(),childReady=deferred(),exited=deferred(),fatal=deferred();let controller,bootstrap,nativeOptions,closeCalls=0;
  const lease={held:true,lost:lost.promise,close:async()=>{trace.push('lease:close');}};
- const native={endpoint:'http://127.0.0.1:1000',token:'private-engine-token',runtime:{snapshot:()=>({service_state:'setup_required'})},close:async()=>{trace.push('native:close');}};
+ const native={endpoint:'http://127.0.0.1:1000',token:'private-engine-token',isListening:()=>!options.closedNative,
+  runtime:{snapshot:()=>({service_state:'setup_required'})},close:async()=>{trace.push('native:close');}};
  const child={ready:childReady.promise,exited:exited.promise,fatal:fatal.promise,close:async()=>{trace.push('child:close');},command:async type=>{trace.push(type);return {ticket:'private-ticket'};}};
  const assertLease=(value,dataId)=>{if(value!==lease||!lease.held||dataId!==identity.data_id)throw new ContractError('nnd_lock_lost','Genuine lease required');};
  const capability=Object.freeze({}),registry={held:true};
- const dependencies={randomUUID,join,resolve: path=>path,ContractError,assertHeldNndServiceLease:assertLease,
+ const dependencies={createHmac,randomBytes,randomUUID,timingSafeEqual,join,resolve: path=>path,ContractError,assertHeldNndServiceLease:assertLease,
   assertManifestLease:value=>{if(value!==registry||!registry.held)throw new ContractError('manifest_lock_invalid','Registry ownership lost');
    return {path:join(identity.data_root,'config','nnd-package.json')};},
   runManifestLeaseWork:(_lease,operation)=>operation(),
@@ -152,7 +153,11 @@ test('unpublished trial proves exact native identity and loopback GUI before exp
   if(url.endsWith('/v1/health'))assert.equal(options.headers.authorization,'Bearer private-engine-token');
   const value=url.endsWith('/v1/health')
    ? {service_state:'setup_required',instance_id:identity.installation_id}
-   : {ok:true,runtime:'service'};
+   : url.endsWith('/__nna/health-proof')
+    ? {protocol:'1.0',mac:createHmac('sha256',Buffer.from(f.bootstrap.health_key,'base64url'))
+      .update(JSON.stringify(['NND_SUPERVISED_HEALTH_V1',JSON.parse(options.body).nonce,identity.installation_id,
+       identity.data_id,f.bootstrap.generation,f.bootstrap.ui_origin])).digest('hex')}
+    : {ok:true,runtime:'service'};
   return {status:200,redirected:false,url,body:new Response(JSON.stringify(value)).body};
  }});
  assert.equal(proof.installation_id,identity.installation_id);assert.equal(proof.data_id,identity.data_id);
@@ -160,6 +165,25 @@ test('unpublished trial proves exact native identity and loopback GUI before exp
  assert.equal(proof.gui_http_status,200);assert.equal(observed[1].url,`${owner.status().endpoint}/health`);
  assert.equal(observed[0].url,`${f.native.endpoint}/v1/health`);
  assert.equal(observed[0].redirect,'manual');
+ assert.equal(observed[2].url,`${owner.status().endpoint}/__nna/health-proof`);
+ await owner.stop();
+});
+test('unpublished trial refuses a replacement listener that copies public health',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startNndOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:url.endsWith('/__nna/health-proof')?404:200,
+  redirected:false,url,body:new Response(JSON.stringify(url.endsWith('/v1/health')
+   ? {service_state:'setup_required',instance_id:identity.installation_id}:{ok:true,runtime:'service'})).body})}),
+  {code:'nnd_health_unavailable'});
+ await owner.stop();
+});
+test('unpublished trial refuses a native-port replacement after its real listener closes',async()=>{
+ const f=await fixture({closedNative:true});f.childReady.resolve();
+ const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ let probes=0;
+ await assert.rejects(owner.verify({fetchImpl:async url=>{probes++;return {status:200,redirected:false,url,
+  body:new Response(JSON.stringify({service_state:'setup_required',instance_id:identity.installation_id})).body};}}),
+ {code:'nnd_health_unavailable'});
+ assert.equal(probes,0);
  await owner.stop();
 });
 test('unpublished trial rejects dead child and a redirected or timed-out GUI probe',async()=>{

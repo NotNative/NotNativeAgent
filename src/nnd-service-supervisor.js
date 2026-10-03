@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:net';
 import { open, mkdir, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -191,7 +191,7 @@ async function verifyUnpublishedTrial(state, { timeoutMs = 5000, signal, fetchIm
     before = status(state);
   }
   if (state.stopping || state.child?.failed || !['ready', 'setup_required'].includes(before.service_state)
-    || before.runtime_state !== 'ready' || before.endpoint !== state.ui
+    || state.native.isListening?.() !== true || before.runtime_state !== 'ready' || before.endpoint !== state.ui
     || before.package_version !== state.package.version) {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial is not healthy');
   }
@@ -222,15 +222,44 @@ async function verifyUnpublishedTrial(state, { timeoutMs = 5000, signal, fetchIm
   if (body?.ok !== true || body.runtime !== 'service') {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI health body is invalid');
   }
+  await verifyTrialGuiProof(state, requestSignal, fetchImpl);
   const after = status(state);
   assertHeldNndServiceLease(state.lease, state.identity.data_id);
-  if (state.child.failed || state.stopping || after.service_state !== before.service_state
+  if (state.child.failed || state.stopping || state.native.isListening?.() !== true
+    || after.service_state !== before.service_state
     || after.instance_id !== before.instance_id || after.endpoint !== before.endpoint) {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial changed during health verification');
   }
   return Object.freeze({ installation_id: after.installation_id, data_id: after.data_id,
     generation: after.instance_id, version: after.package_version, native_state: after.service_state,
     gui_http_status: response.status });
+}
+async function verifyTrialGuiProof(state, requestSignal, fetchImpl) {
+  // Security: a live child PID does not prove that it still owns its former UI port.
+  if (!/^[A-Za-z0-9_-]{43}$/u.test(state.uiHealthKey ?? '')) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof key is invalid');
+  }
+  const nonce = randomBytes(32).toString('base64url');
+  const proofUrl = `${state.ui}/__nna/health-proof`;
+  let proofResponse;
+  try {
+    proofResponse = await fetchImpl(proofUrl, { method: 'POST', redirect: 'manual', signal: requestSignal,
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce }) });
+  } catch { throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof did not respond'); }
+  if (proofResponse.status !== 200 || proofResponse.redirected || proofResponse.url !== proofUrl) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof response is invalid');
+  }
+  const proof = await boundedHealthBody(proofResponse);
+  if (!proof || Object.keys(proof).sort().join(',') !== 'mac,protocol' || proof.protocol !== '1.0'
+    || typeof proof.mac !== 'string' || !/^[a-f0-9]{64}$/u.test(proof.mac)) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof body is invalid');
+  }
+  const expected = createHmac('sha256', Buffer.from(state.uiHealthKey, 'base64url'))
+    .update(JSON.stringify(['NND_SUPERVISED_HEALTH_V1', nonce, state.identity.installation_id,
+      state.identity.data_id, state.record.instance_id, state.ui])).digest();
+  if (!timingSafeEqual(Buffer.from(proof.mac, 'hex'), expected)) {
+    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof identity differs');
+  }
 }
 async function boundedHealthBody(response) {
   let body;
@@ -254,10 +283,12 @@ async function startSupervisorChild(session, paths) {
   assertHeldNndServiceLease(state.lease, identity.data_id);
   const nndData = join(identity.data_root, 'nnd'); await mkdir(nndData, { recursive: true });
   const ui_origin = await availableUiOrigin();
+  state.uiHealthKey = randomBytes(32).toString('base64url');
   state.child = launchNndServiceChild(identity, state.package.entrypoint, {
     type: 'bootstrap', protocol: '1.0', installation_id: identity.installation_id, data_id: identity.data_id,
     generation: state.record.instance_id, nna_install_root: identity.install_root, nna_data_root: identity.data_root,
-    nnd_data_root: await realpath(nndData), ui_origin, engine: { endpoint: state.native.endpoint, token: state.native.token },
+    nnd_data_root: await realpath(nndData), ui_origin, health_key: state.uiHealthKey,
+    engine: { endpoint: state.native.endpoint, token: state.native.token },
   }, { version: state.package.version });
   await state.child.ready;
   assertHeldNndServiceLease(state.lease, identity.data_id);

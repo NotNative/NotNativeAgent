@@ -44,6 +44,23 @@ test('authenticated controller attachment requires exact generation and selected
     assert.equal((await fetch(`${controller.endpoint}/attach`, { method: 'POST' })).status, 401);
   } finally { await controller.close(); }
 });
+
+test('unpublished controller stays live but denies status and attach without issuing a ticket', async () => {
+  let tickets = 0;
+  const controller = await startNndController({ getRecord: () => null, status, stop() {},
+    ticket: async () => { tickets++; return ticket(); } });
+  try {
+    assert.equal(controller.isListening(), true);
+    for (const [method, path] of [['GET', 'status'], ['POST', 'attach']]) {
+      const result = await fetch(`${controller.endpoint}/${path}`, { method,
+        headers: { authorization: `Bearer ${record.control_token}`, 'x-nnd-generation': record.instance_id } });
+      assert.equal(result.status, 401);
+      await result.body?.cancel();
+    }
+    assert.equal(tickets, 0);
+  } finally { await controller.close(); }
+  assert.equal(controller.isListening(), false);
+});
 test('capabilities identify native installation without credentials or runtime requirements', () => {
   const result = nndServiceCapabilities({ ...record, version: '20261002-2' });
   assert.equal(result.native_version, '20261002-2'); assert.ok(result.capabilities.includes('atomic_ui_attach'));

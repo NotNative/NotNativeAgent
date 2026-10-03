@@ -82,6 +82,7 @@ test('native fixed authority ignores child headers and binds only configured wor
   const { paths, identity } = await fixture(t);
   const service = await startNndNativeService(paths, identity);
   try {
+    assert.equal(service.isListening(), true);
     const headers = { authorization: `Bearer ${service.token}`, 'x-nna-principal': Buffer.from(JSON.stringify({ permissions: ['*'] })).toString('base64url') };
     const response = await fetch(`${service.endpoint}/v1/nnd/setup/status`, { headers });
     assert.equal(response.status, 200);
@@ -91,7 +92,7 @@ test('native fixed authority ignores child headers and binds only configured wor
     assert.notDeepEqual(nativeNndPrincipal('C:\\one').workspaceIds, nativeNndPrincipal('C:\\two').workspaceIds);
     assert.equal(nativeNndPrincipal('C:\\one').permissions.includes('secret.use'), false);
     assert.equal(nativeNndPrincipal('C:\\one').permissions.includes('*'), false);
-  } finally { await service.close(); }
+  } finally { await service.close(); assert.equal(service.isListening(), false); }
 });
 
 test('configured NNA with TUI history starts supervised NND without altering native files', { skip: process.platform !== 'win32', timeout: 30000 }, async (t) => {

@@ -29,6 +29,7 @@ export async function startNndController({ getRecord, status, stop, ticket }) {
     server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolve(); });
   });
   return { endpoint: `http://127.0.0.1:${server.address().port}`,
+    isListening: () => server.listening && server.address() !== null,
     close: () => new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve()); server.closeAllConnections();
     }) };
