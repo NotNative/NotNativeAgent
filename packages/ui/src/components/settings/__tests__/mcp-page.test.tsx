@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-vi.mock('../../../lib/runtime-switch.ts', () => ({ onRuntimeEndpointChanged: vi.fn(() => () => undefined) }));
+vi.mock('../../../lib/runtime-switch.ts', () => ({ onRuntimeEndpointChanged: vi.fn(() => () => undefined),
+  getRuntimeKey: () => 'test-runtime', isTransientRuntimeKey: () => false }));
 vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
@@ -81,12 +82,18 @@ beforeEach(() => {
     }));
     if (path.includes('/mcp?directory=')) return Promise.resolve(jsonResponse({ alpha: { status: 'connected' } }));
     if (path.includes('/v1/nnd/mcp')) return Promise.resolve(jsonResponse({ version: 1, state: 'configured', servers: [] }));
+    if (path.includes('/v1/nnd/configuration/mcp')) return Promise.resolve(jsonResponse({
+      schema_version: '1.0', installation_id: 'install_mcp', data_id: 'data_mcp', scope: 'user', source_state: 'present',
+      source_revision: 'a'.repeat(64), resolution_revision: 'b'.repeat(64), project_shadowed: false,
+      application: 'not_applied', servers: [],
+    }));
     return Promise.reject(new Error(`unexpected request: ${path}`));
   });
   useSessionViewStore.getState().setActiveDirectory('C:/ws');
   useMcpStore.getState().resetForRuntimeSwitch();
   useMcpConfigStore.getState().resetForRuntimeSwitch();
   document.body.innerHTML = '';
+  sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -105,7 +112,7 @@ describe('MCP settings page', () => {
     renderPage();
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     expect(document.querySelector('[data-testid="mcp-config"]')).toBeNull();
-    expect(document.body.textContent).toContain('OpenCode configuration does not change NNA');
+    expect(document.body.textContent).toContain('Native MCP configuration');
     expect(document.body.textContent).toContain('Configured servers in this NNA process');
   });
 

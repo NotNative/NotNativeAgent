@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f11e844487acdbddfe86adb2c04d3bb2f5d54ce3594508fbd2f57e9c132f28a7",
+  "source_digest": "sha256:974847fc6323ccc163ed960bf5ae4d21692e13e4f6b03ae98a24c9d2b626f447",
   "counts": {
-    "modules": 766,
+    "modules": 771,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 10
+      "module_count": 12
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 182
+      "module_count": 185
     },
     {
       "id": "web-server",
@@ -108,20 +108,20 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 297,
-      "module_count": 122
+      "import_count": 301,
+      "module_count": 124
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 86,
-      "module_count": 41
+      "import_count": 88,
+      "module_count": 44
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 81,
-      "module_count": 63
+      "import_count": 84,
+      "module_count": 64
     },
     {
       "from": "sync-engine",
@@ -142,6 +142,12 @@
       "module_count": 13
     },
     {
+      "from": "harness-facade",
+      "to": "runtime-io",
+      "import_count": 10,
+      "module_count": 8
+    },
+    {
       "from": "runtime-io",
       "to": "harness-facade",
       "import_count": 10,
@@ -158,12 +164,6 @@
       "to": "harness-facade",
       "import_count": 9,
       "module_count": 9
-    },
-    {
-      "from": "harness-facade",
-      "to": "runtime-io",
-      "import_count": 8,
-      "module_count": 6
     },
     {
       "from": "runtime-io",
@@ -190,6 +190,12 @@
       "module_count": 3
     },
     {
+      "from": "harness-facade",
+      "to": "sync-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
       "from": "gates",
       "to": "runtime-io",
       "import_count": 1,
@@ -197,12 +203,6 @@
     },
     {
       "from": "gates",
-      "to": "sync-engine",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "harness-facade",
       "to": "sync-engine",
       "import_count": 1,
       "module_count": 1
@@ -1742,20 +1742,32 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/mcp-legacy.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/stores/useMcpConfigStore.ts",
+        "packages/ui/src/stores/useMcpStore.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/mcp.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/mcp-inventory.tsx",
+        "packages/ui/src/components/settings/pages/mcp-legacy.tsx",
+        "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
-        "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/runtime-switch.ts",
-        "packages/ui/src/stores/useMcpConfigStore.ts",
-        "packages/ui/src/stores/useMcpStore.ts",
-        "packages/ui/src/sync/global-stores.ts",
-        "packages/ui/src/sync/view-store.ts"
+        "packages/ui/src/sync/global-stores.ts"
       ]
     },
     {
@@ -1808,6 +1820,30 @@
         "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/pages/native-mcp-model.ts",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-mcp-model.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
+        "packages/ui/src/lib/nnd/native-mcp-pending.ts",
+        "packages/ui/src/lib/nnd/native-mcp.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -3249,6 +3285,23 @@
       "imports": [
         "packages/ui/src/lib/runtime-auth.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/native-mcp-pending.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/native-mcp.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
