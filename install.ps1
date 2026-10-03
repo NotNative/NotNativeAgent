@@ -21,15 +21,10 @@
 # PowerShell error stream - $ErrorActionPreference Stop would otherwise abort
 # on harmless build-tool output (proven failure mode).
 #
-# Upgrade semantics (second run): the copy is merge-only (robocopy /E, never
-# /MIR). Files deleted upstream linger until a full reinstall; every runtime
-# artifact is regenerated wholesale by electron-package --no-nsis, so stale
-# leftovers cannot change behavior, only disk. Clean reset = -Uninstall +
-# reinstall. The install REFUSES to copy while the installed app is running
-# (a running electron.exe would fail the copy mid-tree with exit 8 and no
-# diagnosis); -Uninstall refuses the tree drop for the same reason and erases
-# data gracefully (locked files stay behind with a warning, nothing half-dies
-# silently).
+# This source-build path admits only a fresh NND target and absent native
+# registration. Existing or interrupted installations require diagnosis; this
+# script never treats a merge-copy as a safe upgrade. Immutable prebuilt staging
+# remains a separate operation and does not activate the staged slot.
 # =============================================================================
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "NotNativeDesktop"),
@@ -290,6 +285,34 @@ function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
     } finally { $env:NNA_HOME = $previous }
 }
 
+function Invoke-NndFreshPreflight($SelectedNna, [string]$Root) {
+    $helper = Join-Path $Source 'scripts\installer-fresh-service.mjs'
+    $exit = Invoke-Native $SelectedNna.Node @($helper, 'preflight', $SelectedNna.InstallRoot,
+        $Root, $nnaCapabilities.installation_id, $nnaCapabilities.data_id) 'fresh-preflight-errors.log' 'fresh-preflight-out.log'
+    if ($exit -ne 0) {
+        Show-NativeFailures 'fresh-preflight-errors.log' 4
+        throw 'Fresh NND installation refused: the selected package, target, or NNA identity is already in use or unresolved. Existing installs require explicit recovery or upgrade; no files were copied.'
+    }
+}
+
+function Invoke-NndFreshVerification($SelectedNna, [string]$Root) {
+    $helper = Join-Path $Root 'scripts\installer-fresh-service.mjs'
+    $exit = Invoke-Native $SelectedNna.Node @($helper, 'verify', $SelectedNna.InstallRoot,
+        $Root, $nnaCapabilities.installation_id, $nnaCapabilities.data_id) 'fresh-verify-errors.log' 'fresh-verify-out.log'
+    if ($exit -ne 0) {
+        Show-NativeFailures 'fresh-verify-errors.log' 4
+        throw 'NND registration exists but fresh service verification did not complete. Installation is incomplete; preserve the selected NNA and NND paths and inspect native service status before any retry. No upgrade or activation success was claimed.'
+    }
+    $result = Get-Content -LiteralPath 'fresh-verify-out.log' -Raw | ConvertFrom-Json
+    if ($result.state -cne 'fresh_service_verified' -or
+        $result.installation_id -cne $nnaCapabilities.installation_id -or
+        $result.data_id -cne $nnaCapabilities.data_id -or
+        $result.service_state -cnotin @('ready', 'setup_required')) {
+        throw 'Fresh NND service result changed; installation remains incomplete.'
+    }
+    return $result
+}
+
 # Normalize before either operation. Raw string equality misses `..`, case,
 # and relative spellings; uninstall in particular must never recurse over the
 # source checkout or an ancestor of it.
@@ -425,6 +448,7 @@ $nnaCapabilities = Assert-NndNnaCapabilities $nna
 Assert-NndSelectedPin $nna $nnaCapabilities
 Write-Good "NNA native NND protocol $($nnaCapabilities.protocol) is compatible"
 Invoke-NndRegistration 'status' $targetPath $nna
+Invoke-NndFreshPreflight $nna $targetPath
 
 $installationGuard = Start-NndInstallationGuard $nna
 $guardMatchesPreflight = $installationGuard.Frame.installation_id -ceq $nnaCapabilities.installation_id -and
@@ -433,12 +457,14 @@ if (!$guardMatchesPreflight) {
     Stop-NndInstallationGuard $installationGuard
     throw 'Selected NNA identity changed between compatibility preflight and installation guard; NND was not installed.'
 }
+try { Invoke-NndFreshPreflight $nna $targetPath }
+catch { Stop-NndInstallationGuard $installationGuard; throw }
 $installationComplete = $false
 try {
 Write-Heading "Copying source"
 $copyExit = Invoke-Native "robocopy" @(
     $Source, $InstallDir, "/E", "/NFL", "/NDL", "/NJH", "/NP", "/R:2", "/W:1",
-    "/XD", "node_modules", ".pnpm-store", ".git", ".vite", "coverage", "dist", "dist-server",
+    "/XD", "node_modules", ".pnpm-store", ".git", ".tmp", ".agents-workspace", ".vite", "coverage", "dist", "dist-server",
     "dist-electron", "resources", "__pycache__",
     "/XF", "*.log", ".env.local", "packaging-*.log", "install-mode.txt"
 ) "robocopy-errors.log" "robocopy-out.log"
@@ -558,13 +584,25 @@ foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
     Write-Good "shortcut: $anchor\NotNativeDesktop.lnk"
 }
 
-Write-Heading "Done"
-Write-Host "  start     : desktop or Start Menu shortcut (tray icon appears immediately)"
-Write-Host "  logs      : %APPDATA%\NotNativeDesktop\logs\main.log"
-Write-Host "  data      : %USERPROFILE%\.notnative-desktop"
-Write-Host "  uninstall : .\install.ps1 -Uninstall [-PurgeData]"
 $installationComplete = $true
 } finally {
     if ($installationComplete) { Stop-NndInstallationGuard $installationGuard }
     else { Abandon-NndInstallationGuard $installationGuard }
 }
+
+# The guard's marker denies native startup. Only after its exact release can
+# the selected NNA start, attach and verify the GUI with a one-use ticket.
+$verified = Invoke-NndFreshVerification $nna $targetPath
+Write-Heading "Fresh NND service verified"
+Write-Host "  service   : $($verified.service_state)"
+Write-Host "  browser   : $($verified.endpoint)"
+Write-Host "  browser sign-in: in PowerShell run:"
+Write-Host "    & `"$($nna.Node)`" `"$($nna.Cli)`" nnd service ui-ticket `"$($nna.InstallRoot)`""
+Write-Host "  Paste only the returned ticket value into the browser's Native code form. Keep it out of URLs and logs."
+Write-Host "  NNA node  : $($nna.Node)"
+Write-Host "  NNA CLI   : $($nna.Cli)"
+Write-Host "  NNA root  : $($nna.InstallRoot)"
+Write-Host "  desktop   : desktop or Start Menu shortcut"
+Write-Host "  logs      : %APPDATA%\NotNativeDesktop\logs\main.log"
+Write-Host "  data      : %USERPROFILE%\.notnative-desktop"
+Write-Host "  uninstall : .\install.ps1 -Uninstall [-PurgeData]"

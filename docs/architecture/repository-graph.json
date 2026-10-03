@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f1f45e97d88a3697bfd7161efed2767ffd947e773dd15495d1a964842368fab5",
+  "source_digest": "sha256:18d0db1db1ef4fa1fdc1e88fd5f013432e44aff6d6dbbe3b81b9d10df185c8eb",
   "counts": {
-    "modules": 782,
+    "modules": 784,
     "component_edges": 17
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 62
+      "module_count": 64
     },
     {
       "id": "foundation",
@@ -90,6 +90,7 @@
     "node:readline",
     "node:stream",
     "node:test",
+    "node:timers/promises",
     "node:url",
     "node:util",
     "node:zlib",
@@ -7412,6 +7413,20 @@
       "entrypoint": false,
       "imports": [
         "scripts/installed-service-package.mjs"
+      ]
+    },
+    {
+      "path": "scripts/installer-fresh-service.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/installer-fresh-service.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installer-fresh-service.mjs"
       ]
     },
     {

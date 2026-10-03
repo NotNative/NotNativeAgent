@@ -975,3 +975,19 @@ review fixed fractional typing that previously cleared `0.` before the
 operator could enter a value. Installed GUI acceptance remains open.
 The full UI suite passed (1,768 tests), as did the web suite (1,447 tests),
 workspace typechecks, and quality gates.
+
+## NND 20261003-30 — fresh source installer service verification
+
+The Windows source installer now admits only a fresh target and absent selected
+NNA package registration, repeats that check under NNA's install guard, and
+reports success only after the guard releases and the selected NNA starts a
+service with the exact installation, data, package, generation, and loopback
+identity. A one-use attach ticket must authenticate the GUI, fail on replay,
+and leave an independent browser locked. The installer prints the browser
+origin and selected NNA command for a separate one-use browser code. An
+independent audit fixed unbounded local UI response reads, a same-version
+registration swap before success, and ambient authority inherited by the
+detached native service. Interrupted installs remain explicitly incomplete;
+existing installations and immutable prebuilt upgrades need separate recovery
+and activation. The focused verifier suite passed (7 tests); operator-installed
+browser/desktop acceptance remains open.
