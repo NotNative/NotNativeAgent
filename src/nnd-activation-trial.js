@@ -142,15 +142,58 @@ async function preparedTrial(identity, serviceLease, registryLease, options, sig
   return { prepared, capability, bound, directory };
 }
 
+function promoteVerifiedTicket(trial, running, options, window) {
+  if (!window.active || !window.ticketResult || window.promoted
+    || typeof trial.promotePrivatePrincipal !== 'function') {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND private principal promotion is unavailable');
+  }
+  window.promoted = true;
+  const promoted = trial.promotePrivatePrincipal({ operationId: options.operationId,
+    stageOperationId: options.stageOperationId, generation: running.instance_id });
+  if (promoted?.state !== 'native_principal_promoted_unresolved'
+    || promoted.operation_id !== options.operationId || promoted.generation !== running.instance_id
+    || promoted.ticket_receipt_sha256 !== window.ticketResult.ticket_receipt_sha256) {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND promoted principal evidence changed');
+  }
+  window.promotionResult = promoted;
+  return promoted;
+}
+
+function probePromotedAttach(trial, running, options, window, signal, tasks) {
+  if (!window.active || !window.promotionResult || window.attachUsed
+    || typeof trial.probePromotedPrivateAttach !== 'function') {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND post-promotion private attach is unavailable');
+  }
+  window.attachUsed = true;
+  const task = Promise.resolve().then(async () => {
+    const verified = await trial.probePromotedPrivateAttach({ operationId: options.operationId,
+      stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
+    if (verified?.state !== 'promoted_private_attach_verified_unresolved'
+      || verified.operation_id !== options.operationId || verified.generation !== running.instance_id
+      || verified.ticket_receipt_sha256 !== window.ticketResult.ticket_receipt_sha256
+      || verified.native_state !== window.ticketResult.native_state) {
+      throw new ContractError('nnd_activation_transition_proof_invalid',
+        'NND post-promotion private attach evidence changed');
+    }
+    return verified;
+  });
+  tasks.push(task); task.catch(() => {});
+  return task;
+}
+
 async function runFinalOwnedTask(identity, trial, running, serviceLease, registryLease, options, proof, signal, operation) {
   signal.throwIfAborted();
   assertHeldNndServiceLease(serviceLease, identity.data_id);
   assertManifestLease(registryLease);
-  let active = true, ticketUsed = false;
+  let ticketUsed = false;
+  const window = { active: true, ticketResult: null, promoted: false, promotionResult: null, attachUsed: false };
   const ticketTasks = [];
   const context = Object.freeze({ proof, serviceLease, registryLease, signal,
     verifyHeldTicket: () => {
-      if (!active || ticketUsed || typeof trial.verifyHeldTicket !== 'function') {
+      if (!window.active || ticketUsed || typeof trial.verifyHeldTicket !== 'function') {
         throw new ContractError('nnd_activation_transition_proof_invalid',
           'NND private ticket verifier is unavailable');
       }
@@ -164,15 +207,18 @@ async function runFinalOwnedTask(identity, trial, running, serviceLease, registr
           throw new ContractError('nnd_activation_transition_proof_invalid',
             'NND held-live ticket state changed');
         }
+        window.ticketResult = verified;
         return verified;
       });
       ticketTasks.push(ticketTask); ticketTask.catch(() => {});
       return ticketTask;
-    } });
+    },
+    promotePrivatePrincipal: () => promoteVerifiedTicket(trial, running, options, window),
+    probePromotedPrivateAttach: () => probePromotedAttach(trial, running, options, window, signal, ticketTasks) });
   let result, failure;
   try { result = await operation(context); }
   catch (error) { failure = error; }
-  active = false;
+  window.active = false;
   const settledTicket = await Promise.allSettled(ticketTasks);
   const ticketFailure = settledTicket.find(item => item.status === 'rejected');
   if (failure && ticketFailure) throw new AggregateError([failure, ticketFailure.reason],

@@ -9,7 +9,7 @@ import { ProviderProfileStore } from './provider/profile-store.js';
 import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
-import { assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
+import { assertNndTrialOwnership, assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
 
 const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
@@ -35,7 +35,7 @@ export function nativeNndTrialPrincipal(workspaceRoot) {
 }
 
 export async function startNndNativeService(paths, identity, options = {}) {
-  if (options.unpublishedTrial) assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, { method: 'GET' });
+  if (options.unpublishedTrial) assertNndTrialOwnership(options.trialAdmissionGate, identity);
   const trialSelection = options.unpublishedTrial
     ? createNndNativePrincipalSelection(identity, options.trialAdmissionGate) : null;
   const token = randomBytes(32).toString('base64url');
@@ -58,7 +58,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
       nndConfigurationService, nndWorkspaceGrantService,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
-      resolvePrincipal: () => options.unpublishedTrial
+      resolvePrincipal: () => options.unpublishedTrial && !trialSelection.promoted()
         ? nativeNndTrialPrincipal(lifecycle.getHost()?.workspaceRoot)
         : nativeNndPrincipal(lifecycle.getHost()?.workspaceRoot), host: '127.0.0.1', port: 0 });
   } catch (error) { await lifecycle.close(); throw error; }
@@ -71,7 +71,11 @@ export async function startNndNativeService(paths, identity, options = {}) {
     selectedPrincipalEvidence: state => trialSelection.evidence(native, state),
     confirmHeldTicket: (proof, state, serviceLease, registryLease, binding) =>
       trialSelection.confirmTicket(native, proof, state, serviceLease, registryLease, binding),
-    confirmedHeldTicketEvidence: state => trialSelection.confirmedTicket(native, state) } : {}),
+    confirmedHeldTicketEvidence: state => trialSelection.confirmedTicket(native, state),
+    promoteTrialPrincipal: (state, serviceLease, registryLease, binding) =>
+      trialSelection.promote(native, state, serviceLease, registryLease, binding),
+    promotedPrincipalEvidence: state => trialSelection.promoted()
+      ? trialSelection.confirmedTicket(native, state) : null } : {}),
     close() {
       closing ??= (async () => {
         service.stopAdmission();

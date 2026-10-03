@@ -32,7 +32,15 @@ async function harness(overrides = {}) {
   registrationSelected: () => selected,
   verifyHeldTicket: async () => { trace.push('verify-held-ticket'); return overrides.verifyHeldTicket?.()
     ?? { state: 'held_private_ticket_verified_unresolved', operation_id: operationId,
-      generation: proof.generation, native_state: proof.native_state }; },
+      generation: proof.generation, native_state: proof.native_state,
+      ticket_receipt_sha256: digest('ticket') }; },
+  promotePrivatePrincipal: () => { trace.push('promote-private-principal'); return overrides.promotePrivatePrincipal?.()
+    ?? { state: 'native_principal_promoted_unresolved', operation_id: operationId,
+      generation: proof.generation, ticket_receipt_sha256: digest('ticket') }; },
+  probePromotedPrivateAttach: async () => { trace.push('probe-promoted-private-attach');
+    return overrides.probePromotedPrivateAttach?.() ?? { state: 'promoted_private_attach_verified_unresolved',
+      operation_id: operationId, generation: proof.generation,
+      ticket_receipt_sha256: digest('ticket'), native_state: proof.native_state }; },
   trialChildPid: () => 4321,
   stop: async () => { trace.push('stop'); if (overrides.stop) return overrides.stop(); } };
   const child = { protocol: '1.0', operation_id: operationId,
@@ -164,6 +172,41 @@ test('final window rejects a ticket proof for changed native runtime state', asy
   } }),
   { code: 'nnd_activation_transition_proof_invalid' });
   assert.equal(f.trace.filter(item => !item.endsWith(':assert')).at(-1), 'stop');
+});
+test('final window promotes only after verified ticket and still confirms trial stop', async () => {
+  const f = await harness(); let retained;
+  const result = await f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal }) => {
+      assert.throws(() => promotePrivatePrincipal(), { code: 'nnd_activation_transition_proof_invalid' });
+      await verifyHeldTicket();
+      retained = promotePrivatePrincipal;
+      assert.equal(promotePrivatePrincipal().state, 'native_principal_promoted_unresolved');
+      assert.throws(() => promotePrivatePrincipal(), { code: 'nnd_activation_transition_proof_invalid' });
+    }) });
+  assert.equal(result.state, 'trial_healthy');
+  assert.deepEqual(f.trace.filter(item => ['verify-held-ticket', 'promote-private-principal', 'stop'].includes(item)),
+    ['verify-held-ticket', 'promote-private-principal', 'stop']);
+  assert.throws(() => retained(), { code: 'nnd_activation_transition_proof_invalid' });
+});
+test('post-promotion private attach must follow promotion and settles before stop', async () => {
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const f = await harness({ probePromotedPrivateAttach: () => pending });
+  const running = f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal, probePromotedPrivateAttach }) => {
+      assert.throws(() => probePromotedPrivateAttach(), { code: 'nnd_activation_transition_proof_invalid' });
+      await verifyHeldTicket(); promotePrivatePrincipal();
+      void probePromotedPrivateAttach();
+      assert.throws(() => probePromotedPrivateAttach(), { code: 'nnd_activation_transition_proof_invalid' });
+    }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.trace.includes('stop'), false);
+  release({ state: 'promoted_private_attach_verified_unresolved', operation_id: operationId,
+    generation: f.proof.generation, ticket_receipt_sha256: digest('ticket'), native_state: f.proof.native_state });
+  await running;
+  assert.deepEqual(f.trace.filter(item => ['verify-held-ticket', 'promote-private-principal',
+    'probe-promoted-private-attach', 'stop'].includes(item)),
+  ['verify-held-ticket', 'promote-private-principal', 'probe-promoted-private-attach', 'stop']);
 });
 test('a swallowed uncertain registration selection never returns trial_healthy', async () => {
   const uncertain = new ContractError('manifest_publication_unknown', 'CAS may have saved');

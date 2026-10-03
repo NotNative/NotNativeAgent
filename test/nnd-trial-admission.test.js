@@ -16,7 +16,7 @@ async function fixture() {
   const source = await readFile(new URL('../src/nnd-trial-admission.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export function', 'function');
   const api = Function('join', 'resolve', 'ContractError', 'assertHeldNndServiceLease', 'assertManifestLease',
-    'operationValid', executable + '\nreturn { createNndTrialAdmissionGate, assertNndTrialRequestAdmission };')(
+    'operationValid', executable + '\nreturn { createNndTrialAdmissionGate, assertNndTrialRequestAdmission, assertNndTrialOwnership };')(
     join, resolve, ContractError,
     (lease, dataId) => { if (!serviceHeld || lease !== serviceLease || dataId !== identity.data_id) throw Error('lease lost'); },
     lease => { if (!registryHeld || lease !== registryLease) throw Error('registry lost');
@@ -57,4 +57,21 @@ test('the gate fails closed after generation, operation, child or ownership chan
   const foreign = await fixture();
   assert.throws(() => foreign.api.assertNndTrialRequestAdmission(foreign.gate, { ...foreign.identity }, { method: 'GET' }),
     { code: 'nnd_trial_admission_invalid' });
+});
+test('promoted trial keeps the same listener health-only while completion remains pending', async () => {
+  const f = await fixture();
+  f.state.native = { isListening: () => true };
+  f.state.controller = { isListening: () => true };
+  f.state.nativePrincipalPromoted = true;
+  assert.doesNotThrow(() => f.api.assertNndTrialOwnership(f.gate, f.identity));
+  assert.doesNotThrow(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
+    { method: 'GET', url: '/v1/health' }));
+  for (const request of [{ method: 'GET', url: '/v1/configuration' },
+    { method: 'HEAD', url: '/v1/health' }, { method: 'GET', url: '/v1/health?next=1' },
+    { method: 'GET' }, { method: 'POST', url: '/v1/health' }]) {
+    assert.throws(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity, request));
+  }
+  f.state.controller = { isListening: () => false };
+  assert.throws(() => f.api.assertNndTrialRequestAdmission(f.gate, f.identity,
+    { method: 'GET', url: '/v1/health' }), { code: 'nnd_trial_admission_invalid' });
 });

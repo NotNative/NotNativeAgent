@@ -47,7 +47,7 @@ async function readBody(response) {
   catch { throw invalid(); }
 }
 
-async function redeemPrivateTicket(endpoint, ticket, signal) {
+export async function redeemNndPrivateTicket(endpoint, ticket, signal) {
   const url = `${endpoint}/auth/native-bootstrap`;
   const redeemed = await fetch(url, { method: 'POST', redirect: 'error', signal,
     headers: { origin: endpoint, 'content-type': 'application/json' }, body: JSON.stringify({ ticket }) });
@@ -88,7 +88,7 @@ export async function probeNndPrivateTicketUnderOwnership(identity, state, servi
       assertNndAttach({ protocol: '1.0', installation_id: identity.installation_id,
         data_id: identity.data_id, generation: options.generation, endpoint: state.ui,
         ticket: frame.ticket, expires_at: frame.expires_at }, state.record);
-      await redeemPrivateTicket(state.ui, frame.ticket, signal);
+      await redeemNndPrivateTicket(state.ui, frame.ticket, signal);
       const after = await verifyNndPublishedTrialHealthUnderOwnership(identity, state,
         serviceLease, registryLease, { ...options, signal, afterVerified: undefined });
       if (after.registration_revision !== before.registration_revision || after.journal_sha256 !== before.journal_sha256

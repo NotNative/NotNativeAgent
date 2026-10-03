@@ -10,7 +10,7 @@ import { assertNndAttach } from '../src/nnd-service-attach.js';
 
 async function privateProbe(dependencies) {
   const source = await readFile(new URL('../src/nnd-activation-private-ticket.js', import.meta.url), 'utf8');
-  const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replace('export async function', 'async function');
+  const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export async function', 'async function');
   return Function(...Object.keys(dependencies), executable + '\nreturn probeNndPrivateTicketUnderOwnership;')
     (...Object.values(dependencies));
 }
