@@ -84,3 +84,12 @@ export async function readNndServiceDiscovery(identity) {
   if (!result || !Object.hasOwn(result, 'record')) throw invalid();
   return result.record === null ? null : validateRecord(result.record, identity);
 }
+// Internal activation evidence reader. It does not select current.json or reveal the token in CLI status.
+export async function readNndPrivateDiscoveryGeneration(identity, lease, instanceId) {
+  assertHeldNndServiceLease(lease, identity?.data_id);
+  if (typeof instanceId !== 'string' || !UUID.test(instanceId)) throw invalid();
+  return withNndServiceLease(lease, identity.data_id, async signal => {
+    const result = await runDiscoveryOperation({ ...await storage(identity, signal), action: 'inspect', instance_id: instanceId }, signal);
+    return validateRecord(result?.record, identity);
+  });
+}

@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { acquireNndServiceLock, withNndServiceLease } from '../src/nnd-service-lock.js';
 import { ensurePrivateNndRuntimeDirectory } from '../src/nnd-service-private-storage.js';
 import { createNndDiscoveryGeneration, createNndTrialDiscoveryGeneration, discardNndTrialDiscoveryGeneration,
-  publishNndDiscoveryGeneration,
+  publishNndDiscoveryGeneration, readNndPrivateDiscoveryGeneration,
   readNndServiceDiscovery, removeNndDiscoveryPointer } from '../src/nnd-service-discovery.js';
 
 const windows = { skip: process.platform !== 'win32' };
@@ -75,6 +75,7 @@ test('fixed trial generation stays dark, preserves a third-party pointer, and ca
   const trial = await createNndTrialDiscoveryGeneration(f.identity, f.lease, { endpoint, instanceId });
   assert.equal(trial.instance_id, instanceId);
   assert.equal(trial.endpoint, endpoint);
+  assert.deepEqual(await readNndPrivateDiscoveryGeneration(f.identity, f.lease, instanceId), trial);
   assert.equal((await readNndServiceDiscovery(f.identity)).instance_id, previous.instance_id);
   await assert.rejects(createNndTrialDiscoveryGeneration(f.identity, f.lease, { endpoint, instanceId }));
   assert.equal((await readNndServiceDiscovery(f.identity)).instance_id, previous.instance_id);
@@ -83,6 +84,7 @@ test('fixed trial generation stays dark, preserves a third-party pointer, and ca
   await assert.rejects(discardNndTrialDiscoveryGeneration(f.identity, f.lease, previous.instance_id),
     { code: 'nnd_discovery_conflict' });
   assert.deepEqual(await discardNndTrialDiscoveryGeneration(f.identity, f.lease, instanceId), { discarded: true });
+  await assert.rejects(readNndPrivateDiscoveryGeneration(f.identity, f.lease, instanceId), { code: 'nnd_discovery_invalid' });
   assert.equal((await readNndServiceDiscovery(f.identity)).instance_id, previous.instance_id);
   assert.equal((await createNndTrialDiscoveryGeneration(f.identity, f.lease, { endpoint, instanceId })).instance_id, instanceId);
 });

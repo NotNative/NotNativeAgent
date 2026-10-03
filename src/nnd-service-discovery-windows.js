@@ -202,6 +202,14 @@ try {
                 $result = @{created=$true}
             }
             'read' { $result = @{record=(Read-Current)} }
+            'inspect' {
+                $generation = Read-Record ([IO.Path]::Combine($directory,'generation-'+$request.instance_id+'.json'))
+                Assert-Generation $generation
+                if ($generation.instance_id -cne $request.instance_id -or
+                    $generation.installation_id -cne $request.installation_id -or
+                    $generation.data_id -cne $request.data_id) { throw 'nnd_discovery_invalid' }
+                $result = @{record=$generation}
+            }
             'publish' { $result = Mutate-Current }
             'remove' { $result = Mutate-Current }
             'discard' { $result = Discard-Generation }
