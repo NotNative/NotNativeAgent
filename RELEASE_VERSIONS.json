@@ -940,6 +940,10 @@
     {
       "version": "20261003-1",
       "content_sha256": "464145a8b911a7001579329b8efd7e080230bde28546ed5e574673fcee71ff55"
+    },
+    {
+      "version": "20261003-3",
+      "content_sha256": "27b67e4b256b87c7c0a6f7a24f7d1e56d7a430fb2cd56b2c68f1e71349d01fbd"
     }
   ]
 }
