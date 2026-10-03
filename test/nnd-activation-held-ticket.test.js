@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { ContractError } from '../src/ids.js';
 
 async function harness() {
-  const identity = {}, state = {}, serviceLease = {}, registryLease = {};
+  const identity = {}, state = { native: {} }, serviceLease = {}, registryLease = {};
   const options = { operationId: randomUUID(), stageOperationId: randomUUID(), generation: randomUUID() };
   const receipt = { state: 'private_ticket_recorded_unresolved', operation_id: options.operationId,
     generation: options.generation, receipt_sha256: 'a'.repeat(64),
@@ -33,10 +33,18 @@ async function harness() {
     } };
   const source = await readFile(new URL('../src/nnd-activation-held-ticket.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '')
-    .replaceAll('export async function', 'async function');
-  const run = Function(...Object.keys(dependencies), `${executable}\nreturn verifyNndHeldTicketUnderOwnership;`)
+    .replaceAll('export async function', 'async function').replaceAll('export function', 'function');
+  const functions = Function(...Object.keys(dependencies), `${executable}\nreturn {
+    verify: verifyNndHeldTicketUnderOwnership, consume: consumeNndHeldTicketConfirmation };`)
     (...Object.values(dependencies));
-  return { run: () => run(identity, state, serviceLease, registryLease, options), receipt,
+  let usedProof;
+  state.native.confirmHeldTicket = (proof, selected, lease, registry, given) => {
+    usedProof = proof;
+    return functions.consume(proof, identity, selected, lease, registry, given);
+  };
+  return { run: () => functions.verify(identity, state, serviceLease, registryLease, options), receipt,
+    replay: () => functions.consume(usedProof, identity, state, serviceLease, registryLease, options),
+    forge: () => functions.consume(Object.freeze({}), identity, state, serviceLease, registryLease, options),
     get reads() { return readCount; }, get consumes() { return consumeCount; },
     changeReceipt: () => { changed = true; }, failHealth: () => { failed = true; },
     foreignProof: () => { foreignProof = true; } };
@@ -50,6 +58,8 @@ test('held-live bridge binds receipt to one consumed live principal proof withou
     publication_sha256: f.receipt.publication_sha256,
     ticket_receipt_sha256: f.receipt.receipt_sha256, native_state: 'ready' });
   assert.equal(f.reads, 2); assert.equal(f.consumes, 1);
+  assert.throws(f.replay, { code: 'nnd_activation_transition_proof_invalid' });
+  assert.throws(f.forge, { code: 'nnd_activation_transition_proof_invalid' });
 });
 test('changed receipt after live proof or failed health cannot yield a transition', async () => {
   const changed = await harness(); changed.changeReceipt();

@@ -4,11 +4,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { ContractError } from '../src/ids.js';
 
-async function selector(consume, gate) {
+async function selector(consume, gate, consumeTicket = () => { throw new Error('ticket unavailable'); }) {
   const source = await readFile(new URL('../src/nnd-native-principal-selection.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replace('export function', 'function');
   return Function('ContractError', 'assertNndTrialRequestAdmission', 'consumeNndPrincipalTransitionProof',
-    executable + '\nreturn createNndNativePrincipalSelection;')(ContractError, gate, consume);
+    'consumeNndHeldTicketConfirmation', executable + '\nreturn createNndNativePrincipalSelection;')
+    (ContractError, gate, consume, consumeTicket);
 }
 
 test('same-process principal selection consumes one proof but keeps native writes closed', async () => {
@@ -51,4 +52,76 @@ test('foreign native, lost gate and rejected proof cannot select authority', asy
   assert.equal(selection.evidence(native, state), null);
   const closed = await selector(() => { throw Error('must not consume'); }, () => { throw Error('lease lost'); });
   assert.throws(() => closed(identity, {}).select(native, {}, state, {}, {}, {}), /lease lost/u);
+});
+test('ticket confirmation binds selected same-process evidence but does not open trial admission', async () => {
+  const identity = {}, state = { native: { isListening: () => true }, controller: { isListening: () => true } };
+  const selected = { operation_id: 'operation', stage_operation_id: 'stage', generation: 'generation',
+    registration_revision: 'a'.repeat(64), journal_sha256: 'b'.repeat(64), native_state: 'ready' };
+  const ticket = { operation_id: selected.operation_id, stage_operation_id: selected.stage_operation_id,
+    generation: selected.generation, registration_revision: selected.registration_revision,
+    publication_sha256: selected.journal_sha256, ticket_receipt_sha256: 'c'.repeat(64), native_state: 'ready' };
+  let writesDenied = true, consumed = 0;
+  const create = await selector(() => selected, (_gate, _identity, request) => {
+    if (request.method !== 'GET' || !writesDenied) throw new Error('admission widened');
+  }, () => { consumed++; return ticket; });
+  const selection = create(identity, {}), lease = {}, registry = {}, options = {};
+  selection.select(state.native, {}, state, lease, registry, options);
+  assert.equal(selection.confirmedTicket(state.native, state), null);
+  assert.equal(selection.confirmTicket(state.native, {}, state, lease, registry, options), ticket);
+  assert.equal(selection.confirmedTicket(state.native, state), ticket);
+  assert.equal(consumed, 1);
+  assert.throws(() => selection.confirmTicket(state.native, {}, state, lease, registry, options),
+    { code: 'nnd_activation_transition_proof_invalid' });
+});
+test('foreign ticket evidence cannot latch a principal confirmation', async () => {
+  const identity = {}, state = { native: { isListening: () => true }, controller: { isListening: () => true } };
+  const selected = { operation_id: 'operation', stage_operation_id: 'stage', generation: 'generation',
+    registration_revision: 'a'.repeat(64), journal_sha256: 'b'.repeat(64), native_state: 'ready' };
+  const create = await selector(() => selected, () => {}, () => ({ ...selected,
+    publication_sha256: 'c'.repeat(64) }));
+  const selection = create(identity, {}), lease = {}, registry = {};
+  selection.select(state.native, {}, state, lease, registry, {});
+  assert.throws(() => selection.confirmTicket(state.native, {}, state, lease, registry, {}),
+    { code: 'nnd_activation_transition_proof_invalid' });
+  assert.equal(selection.confirmedTicket(state.native, state), null);
+});
+test('ownership loss after ticket proof consumption cannot publish confirmed state', async () => {
+  const identity = {}, state = { native: { isListening: () => true }, controller: { isListening: () => true } };
+  const selected = { operation_id: 'operation', stage_operation_id: 'stage', generation: 'generation',
+    registration_revision: 'a'.repeat(64), journal_sha256: 'b'.repeat(64), native_state: 'ready' };
+  let calls = 0, loseAfterConsume = false;
+  const create = await selector(() => selected, () => {
+    calls++;
+    if (loseAfterConsume && calls === 4) throw new ContractError('nnd_trial_admission_invalid', 'lease lost');
+  }, () => ({ operation_id: selected.operation_id, stage_operation_id: selected.stage_operation_id,
+    generation: selected.generation, registration_revision: selected.registration_revision,
+    publication_sha256: selected.journal_sha256, native_state: selected.native_state }));
+  const selection = create(identity, {}), lease = {}, registry = {};
+  selection.select(state.native, {}, state, lease, registry, {});
+  loseAfterConsume = true;
+  assert.throws(() => selection.confirmTicket(state.native, {}, state, lease, registry, {}),
+    { code: 'nnd_trial_admission_invalid' });
+  assert.equal(selection.confirmedTicket(state.native, state), null);
+});
+test('closed controller cannot latch or expose stale held-live ticket evidence', async () => {
+  const identity = {}; let controllerListening = true;
+  const state = { native: { isListening: () => true }, controller: { isListening: () => controllerListening } };
+  const selected = { operation_id: 'operation', stage_operation_id: 'stage', generation: 'generation',
+    registration_revision: 'a'.repeat(64), journal_sha256: 'b'.repeat(64), native_state: 'ready' };
+  const ticket = { operation_id: selected.operation_id, stage_operation_id: selected.stage_operation_id,
+    generation: selected.generation, registration_revision: selected.registration_revision,
+    publication_sha256: selected.journal_sha256, ticket_receipt_sha256: 'c'.repeat(64), native_state: 'ready' };
+  const create = await selector(() => selected, () => {}, () => ticket);
+  const before = create(identity, {}), lease = {}, registry = {}, options = {};
+  before.select(state.native, {}, state, lease, registry, options);
+  controllerListening = false;
+  assert.throws(() => before.confirmTicket(state.native, {}, state, lease, registry, options),
+    { code: 'nnd_activation_transition_proof_invalid' });
+  assert.equal(before.confirmedTicket(state.native, state), null);
+  controllerListening = true;
+  const after = create(identity, {});
+  after.select(state.native, {}, state, lease, registry, options);
+  assert.equal(after.confirmTicket(state.native, {}, state, lease, registry, options), ticket);
+  controllerListening = false;
+  assert.equal(after.confirmedTicket(state.native, state), null);
 });

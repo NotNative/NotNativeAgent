@@ -68,7 +68,10 @@ export async function startNndNativeService(paths, identity, options = {}) {
     isListening: () => service.server.listening && service.server.address() !== null,
     ...(trialSelection ? { selectTrialPrincipal: (proof, state, serviceLease, registryLease, binding) =>
       trialSelection.select(native, proof, state, serviceLease, registryLease, binding),
-    selectedPrincipalEvidence: state => trialSelection.evidence(native, state) } : {}),
+    selectedPrincipalEvidence: state => trialSelection.evidence(native, state),
+    confirmHeldTicket: (proof, state, serviceLease, registryLease, binding) =>
+      trialSelection.confirmTicket(native, proof, state, serviceLease, registryLease, binding),
+    confirmedHeldTicketEvidence: state => trialSelection.confirmedTicket(native, state) } : {}),
     close() {
       closing ??= (async () => {
         service.stopAdmission();
