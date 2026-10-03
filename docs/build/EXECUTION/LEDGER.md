@@ -758,3 +758,18 @@ and never labels the page a complete deletion history. Independent review
 fixed retention-floor drift between pages and stale owner data after a same-
 endpoint credential switch. The complete UI suite passed (1,732 tests), the
 web suite passed (1,447 tests), and typecheck and quality gates passed.
+
+## NND 20261003-12 — carried NNA dependency admission
+
+When NNA is absent, the one-installer flow can accept a carried NNA release
+directory plus an independently obtained SHA-256 of its release manifest. It
+stages only listed regular files outside the NND target, verifies each file
+and the manifest, executes the staged NNA installer, then rediscovers and
+checks NNA before changing the NND target. The development source fallback
+remains explicit. Independent review fixed a temp-directory overlap that
+could otherwise write inside the NND target before rejection. Disposable
+installer tests cover hash, tree, path, reparse, and target-overlap failures.
+The supplied digest anchors the carried NNA files; NNA's separately selected
+or downloaded Node runtime has its own trust path. Published immutable NNA
+artifact discovery, download, and an authoritative checksum source are still
+needed for fully automatic dependency acquisition.
