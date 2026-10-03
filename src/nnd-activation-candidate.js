@@ -80,7 +80,7 @@ async function candidateOwned(identity, serviceLease, registryLease, stageOperat
   }), { timeoutMs: 300000 });
 }
 export async function readNndActivationCandidate(identity, serviceLease, registryLease, stageOperationId) {
-  return candidateOwned(identity, serviceLease, registryLease, stageOperationId, null);
+  return candidateOwned(identity, serviceLease, registryLease, stageOperationId, null, undefined, true);
 }
 export async function readNndPreparedActivationCandidate(identity, serviceLease, registryLease, stageOperationId, marker) {
   return candidateOwned(identity, serviceLease, registryLease, stageOperationId, marker);

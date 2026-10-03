@@ -184,6 +184,8 @@ function help() {
     '  nna nnd service start|run|status|stop|ui-ticket|attach|capabilities|install-guard|migrate|migration-recover INSTALL_ROOT',
     '  nna nnd service stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID',
     '  nna nnd service stage-recover INSTALL_ROOT [OPERATION_UUID]',
+    '  nna nnd service activation-preflight INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
+    '  nna nnd service activation-preparation-recover INSTALL_ROOT ACTIVATION_UUID',
     '  nna nnd package activate ROOT|deactivate ROOT|status',
     '                                           Register or inspect an installed NND GUI package',
     '  nna opencode start|stop|status',

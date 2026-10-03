@@ -13,6 +13,10 @@ test('stage CLI refuses missing and surplus arguments before reading an installa
     ['stage-payload', 'missing'], ['stage-payload', 'missing', 'payload'],
     ['stage-payload', 'missing', 'payload', 'operation', 'extra'],
     ['stage-recover'], ['stage-recover', 'missing', 'operation', 'extra'],
+    ['activation-preflight', 'missing', 'stage'],
+    ['activation-preflight', 'missing', 'stage', 'activation', 'extra'],
+    ['activation-preparation-recover', 'missing'],
+    ['activation-preparation-recover', 'missing', 'activation', 'extra'],
   ]) await assert.rejects(runNndServiceCommand(args), { code: 'nnd_command_invalid' });
 });
 

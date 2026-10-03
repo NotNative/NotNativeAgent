@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e499de0811613e01ab955ab3aa84f16cf375dd756b5a10ea9a0bef93b369b755",
+  "source_digest": "sha256:5dc6dc6baeedd18de088f7c4c74225f94cfdde6e61aceb849afd33f6e2dee091",
   "counts": {
-    "modules": 512,
+    "modules": 513,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 209
+      "module_count": 210
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 603,
-      "module_count": 184
+      "import_count": 612,
+      "module_count": 185
     },
     {
       "from": "experience-engine",
@@ -132,8 +132,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 62,
-      "module_count": 41
+      "import_count": 63,
+      "module_count": 42
     },
     {
       "from": "tools",
@@ -2043,6 +2043,22 @@
       ]
     },
     {
+      "path": "src/nnd-activation-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-candidate.js",
+        "src/nnd-activation-preparation.js",
+        "src/nnd-install-marker.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-legacy-census.js",
+        "src/nnd-migration-storage.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
       "path": "src/nnd-activation-completion-receipt.js",
       "component": "foundation",
       "entrypoint": false,
@@ -3095,6 +3111,7 @@
       "imports": [
         "src/ids.js",
         "src/mcp-credentials.js",
+        "src/nnd-activation-cli.js",
         "src/nnd-install-guard.js",
         "src/nnd-install-slots.js",
         "src/nnd-migration.js",

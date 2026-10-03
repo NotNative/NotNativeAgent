@@ -67,7 +67,7 @@ test('verified staged slot produces identity-bound evidence and no trial authori
   assert.equal(candidate.evidence.desired_registration_sha256, sha(serializeManifestBytes(record)));
   assert.notEqual(candidate.evidence.desired_registration_sha256, sha(json(record)));
   assert.equal(candidate.evidence_sha256, sha(json(candidate.evidence)));
-  assert.deepEqual(f.state.lastStoreOptions, { readOnly: false });
+  assert.deepEqual(f.state.lastStoreOptions, { readOnly: true });
   await assert.rejects(f.api.issueNndTrialCapability(identity, f.lease, f.registry, stageId, activationId),
     { code: 'nnd_activation_candidate_invalid' });
 });
