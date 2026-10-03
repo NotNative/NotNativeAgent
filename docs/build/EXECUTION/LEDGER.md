@@ -951,3 +951,15 @@ could offer an invalid Preview and corrected the application guidance.
 Installed GUI acceptance remains open.
 The full UI suite passed (1,765 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-28 — native session deadlines
+
+Managed Settings now exposes NNA-advertised approval, persistence-flush, and
+shutdown timeouts through bounded user-manifest controls. Native preview,
+revision checks, and operation receipts remain the authority for every save.
+Saved values are not presented as a permission-mode change or as applied to
+running work. Independent adversarial review found no concrete defect; the
+controls match the current native catalog bounds. Installed GUI acceptance
+remains open.
+The full UI suite passed (1,766 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.

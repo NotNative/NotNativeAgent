@@ -1028,6 +1028,10 @@
     {
       "version": "20261003-27",
       "content_sha256": "d17f76f0ac37e3944701e1b6f3526cf62bebcad143809dff57b1b584b572bafc"
+    },
+    {
+      "version": "20261003-28",
+      "content_sha256": "56e503aba04beb13153686aa685f2b4b48dbef48f7e554273733978623784ed7"
     }
   ]
 }

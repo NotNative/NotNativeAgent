@@ -173,6 +173,48 @@ it('edits advertised recovery budgets through native preview, CAS save, and rece
   expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
 });
 
+it('previews and saves only advertised session deadlines with a bounded native CAS request', async () => {
+  const deadlineView: NativeConfigurationView = { ...view, fields: [
+    { path: 'approval_timeout_ms', catalog_path: 'approval_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 120000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'shutdown_timeout_ms', catalog_path: 'shutdown_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 15000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const approval = { path: 'approval_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [approval,
+    { path: 'persistence_flush_timeout_ms', type: 'integer', editability: field.editability },
+    { path: 'session_deadline_unknown', type: 'integer', editability: field.editability }] });
+  const deadlineRequest = { ...request, operations: [{ op: 'set' as const, field: approval.path, value: 180000 }] };
+  vi.mocked(nativeChange).mockReturnValue(deadlineRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: deadlineView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(deadlineView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.session-deadlines"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('Persistence flush timeout (ms)');
+  expect(container.textContent).not.toContain('Shutdown timeout (ms)');
+  expect(container.textContent).not.toContain('session_deadline_unknown');
+  await act(async () => button('Approval wait (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('1000'); expect(input.max).toBe('3600000'); expect(input.value).toBe('120000');
+  for (const invalid of ['0', '01000', '3600001']) {
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, invalid);
+      input.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect((button('Preview change') as HTMLButtonElement).disabled).toBe(true);
+  }
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '180000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(deadlineView, approval, 'set', '180000');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(deadlineRequest, expect.any(AbortSignal));
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(deadlineRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
+});
+
 it('previews and saves a catalog-advertised dream idle limit with native CAS', async () => {
   const dreamView: NativeConfigurationView = { ...view, fields: [
     { path: 'dream.idle_ms', catalog_path: 'dream.idle_ms', explicit: { present: false },
