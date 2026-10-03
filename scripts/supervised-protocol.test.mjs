@@ -14,11 +14,13 @@ test('bootstrap binds selected canonical identities and rejects credentials in U
     const hash = createHash('sha256').update(process.platform === 'win32' ? path.toLowerCase() : path).digest('hex');
     const frame = { type: 'bootstrap', protocol: '1.0', installation_id: `nna_${hash}`, data_id: `data_${hash}`,
       generation: 'test', nna_install_root: path, nna_data_root: path, nnd_data_root: path,
-      ui_origin: 'http://127.0.0.1:80', engine: { endpoint: 'http://127.0.0.1:4501', token: 'a'.repeat(32) } };
+      ui_origin: 'http://127.0.0.1:80', health_key: Buffer.alloc(32, 0x58).toString('base64url'),
+      engine: { endpoint: 'http://127.0.0.1:4501', token: 'a'.repeat(32) } };
     assert.equal((await validateBootstrap(frame)).ui_origin, frame.ui_origin);
     await assert.rejects(validateBootstrap({ ...frame, data_id: `data_${'b'.repeat(64)}` }));
     await assert.rejects(validateBootstrap({ ...frame, engine: { ...frame.engine, endpoint: 'http://user@127.0.0.1' } }));
     await assert.rejects(validateBootstrap({ ...frame, extra: true }));
+    await assert.rejects(validateBootstrap({ ...frame, health_key: 'a'.repeat(43) }));
   } finally { await rm(path, { recursive: true, force: true }); }
 });
 test('control is generation-bound and cannot carry authority', () => {

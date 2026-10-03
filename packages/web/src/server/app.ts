@@ -41,6 +41,7 @@ import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerOpenChamberSessionRoutes } from './session-orchestration/openchamber-sessions.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { createNativeHealthProof, type NativeHealthProofIdentity } from './lib/auth/native-health-proof.ts';
 import { readMergedSettings } from './lib/settings-store.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
 import { registerProbeUrlRoutes } from './preview/probe-url.ts';
@@ -178,6 +179,7 @@ async function nativeAuthGate(c: Context, next: Next): Promise<Response | void> 
 
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
   push?: ReturnType<typeof createPushServices>;
+  nativeHealthProof?: NativeHealthProofIdentity;
   browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
   agentToolCallbackSecret?: string;
   desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void } }) {
@@ -190,7 +192,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   app.use('*', desktopUiCors);
   app.use('*', browserWriteGate);
 
-  registerHealthRoute(app);
+  registerHealthRoute(app, options?.nativeHealthProof);
   // Deliberately registered before /api auth: compatibility metadata is a
   // public, non-sensitive discovery surface used before selecting a host.
   app.route('/', createVersionRoutes());
@@ -233,7 +235,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   return app;
 }
 
-function registerHealthRoute(app: Hono): void {
+function registerHealthRoute(app: Hono, nativeHealthProof?: NativeHealthProofIdentity): void {
   app.get('/health', async (c) =>
     c.json({
       ok: true,
@@ -247,6 +249,29 @@ function registerHealthRoute(app: Hono): void {
       serverId: await peekRelayServerId(),
     }),
   );
+  if (nativeHealthProof) {
+    const sign = createNativeHealthProof(nativeHealthProof);
+    app.post('/__nna/health-proof', async (c) => {
+      try {
+        const reader = c.req.raw.body?.getReader();
+        if (!reader) throw new Error('missing challenge');
+        const chunks: Uint8Array[] = []; let size = 0;
+        for (;;) {
+          const item = await reader.read();
+          if (item.done) break;
+          size += item.value.length;
+          if (size > 128) { await reader.cancel(); throw new Error('oversized challenge'); }
+          chunks.push(item.value);
+        }
+        const body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
+        if (!body || typeof body !== 'object' || Array.isArray(body)
+          || Object.keys(body).length !== 1 || typeof body.nonce !== 'string') throw new Error('invalid challenge');
+        return c.json({ protocol: '1.0', mac: sign(body.nonce) }, 200, { 'cache-control': 'no-store' });
+      } catch {
+        return c.json({ error: 'Invalid native health challenge' }, 400, { 'cache-control': 'no-store' });
+      }
+    });
+  }
 }
 
 /** A sandboxed preview has an opaque Origin but can still issue simple

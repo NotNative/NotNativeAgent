@@ -6,6 +6,7 @@
  */
 import { configureNativeHarness, type NativeHarnessOptions } from './harness/nna-supervised.ts';
 import type { NativeUiIdentity } from './lib/auth/native-ui-auth.ts';
+import type { NativeHealthProofIdentity } from './lib/auth/native-health-proof.ts';
 import { serve } from '@hono/node-server';
 import { randomBytes } from 'node:crypto';
 import { createApp } from './app.ts';
@@ -36,7 +37,8 @@ import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tun
 import type { Server as HttpServer } from 'node:http';
 import { createPushServices, attachPushNotifications } from './push/runtime.ts';
 
-export async function startServer(options?: { nativeHarness?: NativeHarnessOptions; nativeAuth?: NativeUiIdentity; desktopUpdater?: {
+export async function startServer(options?: { nativeHarness?: NativeHarnessOptions; nativeAuth?: NativeUiIdentity;
+  nativeHealthProof?: NativeHealthProofIdentity; desktopUpdater?: {
   check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
   download: () => Promise<unknown>;
   install: () => Promise<unknown>;
@@ -44,6 +46,11 @@ export async function startServer(options?: { nativeHarness?: NativeHarnessOptio
   clearInstallError?: () => void;
 } }): Promise<{ port: number; browserControl: BrowserControlBroker; closed: Promise<void>; nativeAuth?: { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void }; dispose(): void }> {
   if (options?.nativeHarness && !options.nativeAuth) throw new Error('Native harness requires native UI authentication');
+  if (options?.nativeHealthProof && (!options.nativeAuth ||
+    options.nativeHealthProof.installationId !== options.nativeAuth.installationId ||
+    options.nativeHealthProof.dataId !== options.nativeAuth.dataId ||
+    options.nativeHealthProof.generation !== options.nativeAuth.generation ||
+    options.nativeHealthProof.origin !== options.nativeAuth.origin)) throw new Error('Native health proof identity differs');
   if (options?.nativeAuth && options.nativeAuth.origin !== new URL(`http://${ENV.host}:${ENV.port}`).origin) {
     throw new Error('Native UI origin must match the configured listener');
   }
@@ -64,7 +71,7 @@ export async function startServer(options?: { nativeHarness?: NativeHarnessOptio
     localNna = options?.nativeHarness ? configureNativeHarness(options.nativeHarness)
       : await configureHarness(browserCallback, agentToolCallback);
     const running = await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
-      agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater, lifecycle);
+      agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater, lifecycle, options?.nativeHealthProof);
     const nativeAuth = nativeBinding?.controller.nativeHandle();
     return { ...running, ...(nativeAuth ? { nativeAuth: { issueTicket: nativeAuth.issueTicket, revoke: () => running.dispose() } } : {}) };
   } catch (error) {
@@ -81,13 +88,14 @@ export async function startServer(options?: { nativeHarness?: NativeHarnessOptio
 async function startConfiguredServer(localNna: LocalNnaHarness | undefined, browserControl: BrowserControlBroker,
   browserCallbackSecret: string | undefined, agentToolCallbackSecret: string | undefined,
   desktopUpdater?: { check: () => Promise<{ available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null }>;
-    download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }, lifecycle?: { attached: boolean; close(): void; release(): void }):
+    download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }, lifecycle?: { attached: boolean; close(): void; release(): void },
+  nativeHealthProof?: NativeHealthProofIdentity):
   Promise<{ port: number; browserControl: BrowserControlBroker; closed: Promise<void>; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const push = createPushServices();
   const app = createApp({ terminal, harnessPort: localNna ? Number(new URL(localNna.endpoint).port) : undefined,
-    push,
+    push, ...(nativeHealthProof ? { nativeHealthProof } : {}),
     ...(desktopUpdater ? { desktopUpdater } : {}),
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
     ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });

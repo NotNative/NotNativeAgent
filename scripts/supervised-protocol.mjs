@@ -21,11 +21,13 @@ function identity(prefix, path) {
 }
 export async function validateBootstrap(value) {
   if (!exact(value, ['type','protocol','installation_id','data_id','generation','nna_install_root',
-    'nna_data_root','nnd_data_root','ui_origin','engine']) || value.type !== 'bootstrap' || value.protocol !== '1.0'
+    'nna_data_root','nnd_data_root','ui_origin','engine','health_key']) || value.type !== 'bootstrap' || value.protocol !== '1.0'
     || typeof value.generation !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(value.generation)
     || !exact(value.engine, ['endpoint','token']) || !isNndLoopbackEndpoint(value.ui_origin)
     || !isNndLoopbackEndpoint(value.engine.endpoint) || typeof value.engine.token !== 'string'
-    || !/^[A-Za-z0-9_-]{32,512}$/u.test(value.engine.token)) fail();
+    || !/^[A-Za-z0-9_-]{32,512}$/u.test(value.engine.token)
+    || typeof value.health_key !== 'string' || !/^[A-Za-z0-9_-]{43}$/u.test(value.health_key)
+    || Buffer.from(value.health_key, 'base64url').toString('base64url') !== value.health_key) fail();
   const roots = await Promise.all([value.nna_install_root,value.nna_data_root,value.nnd_data_root].map(canonicalRoot));
   if (identity('nna_', roots[0]) !== value.installation_id || identity('data_', roots[1]) !== value.data_id) fail();
   return Object.freeze({ ...value, nna_install_root: roots[0], nna_data_root: roots[1], nnd_data_root: roots[2] });

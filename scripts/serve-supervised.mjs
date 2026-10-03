@@ -73,6 +73,8 @@ export async function runSupervisedService({ input = process.stdin, output = pro
     const { startServer } = await import(pathToFileURL(installed.bundle).href);
     handle = await startServer({ nativeAuth: { installationId: bootstrap.installation_id,
       dataId: bootstrap.data_id, generation: bootstrap.generation, origin: new URL(bootstrap.ui_origin).origin },
+    nativeHealthProof: { installationId: bootstrap.installation_id, dataId: bootstrap.data_id,
+      generation: bootstrap.generation, origin: new URL(bootstrap.ui_origin).origin, key: bootstrap.health_key },
     nativeHarness: { ...bootstrap.engine, endpoint: new URL(bootstrap.engine.endpoint).origin, signal: controller.signal } });
     if (controller.signal.aborted) throw new Error('NND_SUPERVISED_INPUT_CLOSED');
     if (handle.port !== Number(new URL(bootstrap.ui_origin).port || 80) || !handle.nativeAuth || !handle.closed) {

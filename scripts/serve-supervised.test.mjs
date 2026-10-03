@@ -21,7 +21,8 @@ async function fixture(t) {
   await writeFile(join(root, 'packages/electron/dist-server/server.mjs'), `
     import { createServer } from 'node:http';
     export async function startServer(options) {
-      if (!options.nativeAuth || !options.nativeHarness || process.env.NNA_INTEGRATION_TOKEN
+      if (!options.nativeAuth || !options.nativeHarness || !options.nativeHealthProof
+        || options.nativeHealthProof.key !== '${Buffer.alloc(32, 0x58).toString('base64url')}' || process.env.NNA_INTEGRATION_TOKEN
         || process.env.NOTNATIVE_NNA_MODE !== 'attach') throw new Error('invalid private startup');
       const server = createServer((_req,res) => res.end('fixture'));
       const closed = new Promise(resolve => server.once('close', resolve));
@@ -48,6 +49,7 @@ async function bootstrap(root) {
   const hash = createHash('sha256').update(root.toLowerCase()).digest('hex');
   return { type:'bootstrap',protocol:'1.0',installation_id:`nna_${hash}`,data_id:`data_${hash}`,generation:'fixture',
     nna_install_root:root,nna_data_root:root,nnd_data_root:root,ui_origin:`http://127.0.0.1:${port}`,
+    health_key:Buffer.alloc(32,0x58).toString('base64url'),
     engine:{endpoint:'http://127.0.0.1:4555',token:'a'.repeat(32)} };
 }
 const windows = { skip: process.platform !== 'win32', timeout: 15000 };
