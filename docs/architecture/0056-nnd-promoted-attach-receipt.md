@@ -20,10 +20,9 @@ neither result proves a live process or a retained in-memory principal. A
 foreign or malformed receipt fails closed. The pending marker and activation
 directory remain, so ordinary startup stays blocked after owner death.
 
-`completed` now requires this receipt in the journal sequence, but writing it
-is still unsafe. The current trial path unconditionally stops the child and
-discards discovery after the final callback; its session has no long-lived
-lease-release handoff. The later completion transaction must retain that same
-supervisor and singleton lease, durably decide completion and terminal barrier
-retirement with crash recovery, then open and verify public attach. This slice
-does not report successful installation or relax native or controller admission.
+`completed` requires this receipt in the journal sequence, but writing it
+remains unsafe. A later private slice can retain the same quarantined child and
+singleton lease after this receipt. It still leaves the pending marker and
+activation evidence in place. Durable completion, terminal barrier retirement,
+public attach and crash recovery remain separate work. This receipt alone does
+not report successful installation or relax native or controller admission.

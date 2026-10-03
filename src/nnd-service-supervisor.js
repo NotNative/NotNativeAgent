@@ -22,6 +22,8 @@ import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-pr
 import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted-attach-receipt.js';
 import { userDataPaths } from './product.js';
 
+const RETAINED_BY_LEASE = new WeakMap();
+
 async function readMetadata(path) {
   const file = await open(path, 'r');
   try {
@@ -132,11 +134,74 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
           lease, registryLease, options),
         probePromotedPrivateAttach: options => probeNndPromotedPrivateAttachUnderOwnership(identity, session.state,
           lease, registryLease, options),
-        recordPromotedPrivateAttach: options => recordNndPromotedAttachUnderOwnership(identity, session.state,
-          lease, registryLease, options),
+        recordPromotedPrivateAttach: options => recordTrialPromotedAttach(session, registryLease, options),
+        retainQuarantinedOwner: () => retainQuarantinedTrial(session),
         trialChildPid: () => session.state.child?.child?.pid ?? null,
         registrationSelected: () => session.state.registrationSelected === true } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }
+}
+async function recordTrialPromotedAttach(session, registryLease, options) {
+  const { state } = session;
+  if (state.promotedAttachReceipt || state.retained) {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND promoted attach receipt has already been consumed');
+  }
+  const receipt = await recordNndPromotedAttachUnderOwnership(state.identity, state,
+    state.lease, registryLease, options);
+  if (receipt?.state !== 'promoted_attach_recorded_unresolved'
+    || receipt.operation_id !== state.activationOperationId
+    || receipt.generation !== state.record?.instance_id) {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND promoted attach receipt changed');
+  }
+  state.promotedAttachReceipt = receipt;
+  return receipt;
+}
+function retainQuarantinedTrial(session) {
+  const { state } = session;
+  assertHeldNndServiceLease(state.lease, state.identity.data_id);
+  if (!state.unpublishedTrial || state.stopping || state.retained || state.published
+    || state.promotedAttachReceipt?.operation_id !== state.activationOperationId
+    || state.promotedAttachReceipt?.generation !== state.record?.instance_id
+    || !state.controller?.isListening() || !state.native?.isListening()
+    || state.child?.failed || !state.ui || !state.record?.control_token) {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'Quarantined NND trial owner is unavailable');
+  }
+  // Invariant: the same live supervisor keeps the singleton lease. The native
+  // quarantine and controller darkness remain until a separate terminal commit.
+  state.retained = true;
+  state.retainedOwner = session.handle;
+  state.retainedStop = session.stop;
+  RETAINED_BY_LEASE.set(state.lease, state);
+  return session.handle;
+}
+// The trial's outer lease operation must settle before shutdown may close the
+// singleton. Closing it inside that operation would wait on itself.
+export async function armNndRetainedLeaseAfterTrial(serviceLease, expectedOwner = null) {
+  const state = RETAINED_BY_LEASE.get(serviceLease);
+  if (!state) {
+    if (expectedOwner) throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND retained owner was lost before lease handoff');
+    return;
+  }
+  if (!expectedOwner || state.retainedOwner !== expectedOwner || state.stopping
+    || state.child?.failed || !state.native?.isListening() || !state.controller?.isListening()
+    || !['ready', 'setup_required'].includes(status(state).service_state)) {
+    const changed = new ContractError('nnd_activation_transition_proof_invalid',
+      'NND quarantined owner changed before lease handoff');
+    try { await state.retainedStop(); }
+    catch (stopError) { throw new AggregateError([changed, stopError],
+      'NND quarantined owner handoff and shutdown are unresolved'); }
+    if (state.shutdownComplete) {
+      RETAINED_BY_LEASE.delete(serviceLease);
+      await serviceLease.close();
+    }
+    throw changed;
+  }
+  assertHeldNndServiceLease(serviceLease, state.identity.data_id);
+  RETAINED_BY_LEASE.delete(serviceLease);
+  state.releaseLease = () => serviceLease.close();
 }
 async function selectTrialRegistration(session, registryLease, options) {
   const { state } = session;
@@ -347,6 +412,7 @@ async function closeSupervisor(state) {
   if (errors.length) throw new AggregateError(errors, 'NND shutdown incomplete; singleton remains held');
   if (state.published) await removeNndDiscoveryPointer(state.identity, state.lease, state.record.instance_id);
   if (!state.unpublishedTrial) await state.controller?.close();
+  state.shutdownComplete = true;
   await state.releaseLease?.();
 }
 function status(state) {

@@ -44,6 +44,8 @@ async function harness(overrides = {}) {
   recordPromotedPrivateAttach: async () => { trace.push('record-promoted-private-attach');
     return overrides.recordPromotedPrivateAttach?.() ?? { state: 'promoted_attach_recorded_unresolved',
       operation_id: operationId, generation: proof.generation, ticket_receipt_sha256: digest('ticket') }; },
+  retainQuarantinedOwner: () => { trace.push('retain-quarantined-owner'); overrides.retainQuarantinedOwner?.(controller);
+    return Object.freeze({ status: owner.status, stop: owner.stop }); },
   trialChildPid: () => 4321,
   stop: async () => { trace.push('stop'); if (overrides.stop) return overrides.stop(); } };
   const child = { protocol: '1.0', operation_id: operationId,
@@ -52,7 +54,8 @@ async function harness(overrides = {}) {
     process_identity: { version: 1, pid: 4321, platform: 'win32', start_id: '123456789' } };
   const dependencies = { join, resolve, ContractError,
     assertHeldNndServiceLease: actual => { assert.equal(actual, lease); trace.push('lease:assert'); },
-    withNndServiceLease: (_lease,_dataId,operation) => operation(controller.signal),
+    withNndServiceLease: (_lease,_dataId,operation) => overrides.leaseOperation
+      ? overrides.leaseOperation(operation, controller) : operation(controller.signal),
     assertManifestLease: actual => { assert.equal(actual, registryLease); trace.push('registry:assert');
       return { path: join(identity.data_root, 'config', 'nnd-package.json') }; },
     runManifestLeaseWork: (_lease,operation) => operation(),
@@ -61,6 +64,7 @@ async function harness(overrides = {}) {
     issueNndTrialCapability: async () => { trace.push('capability'); return Object.freeze({}); },
     appendNndActivationPhase: async (_id,_directory,_lease,_registry,phase) => { trace.push(phase); },
     startNndOwnedTrial: async () => { trace.push('start'); return owner; },
+    armNndRetainedLeaseAfterTrial: async () => { await overrides.armRetainedLease?.(); },
     hash: value => digest(value), json: value => Buffer.from(JSON.stringify(value)),
     readInstallBytes: async () => overrides.childEvidence === false ? null : Buffer.from(JSON.stringify(child)),
     operationValid: value => value === stageOperationId || value === operationId };
@@ -231,6 +235,75 @@ test('durable promoted attach task settles before stop and cannot be replayed af
   assert.deepEqual(f.trace.filter(item => ['verify-held-ticket', 'promote-private-principal',
     'record-promoted-private-attach', 'stop'].includes(item)),
   ['verify-held-ticket', 'promote-private-principal', 'record-promoted-private-attach', 'stop']);
+});
+test('quarantined owner retention requires the recorded attach and keeps the same child live', async () => {
+  const f = await harness(); let retained;
+  const result = await f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal,
+      recordPromotedPrivateAttach, retainQuarantinedOwner }) => {
+      assert.throws(() => retainQuarantinedOwner(), { code: 'nnd_activation_transition_proof_invalid' });
+      await verifyHeldTicket(); promotePrivatePrincipal();
+      const pending = recordPromotedPrivateAttach();
+      assert.throws(() => retainQuarantinedOwner(), { code: 'nnd_activation_transition_proof_invalid' });
+      await pending;
+      retained = retainQuarantinedOwner;
+      return retainQuarantinedOwner();
+    }) });
+  assert.equal(result.state, 'quarantined_owner_held_unresolved');
+  assert.equal(f.trace.includes('stop'), false);
+  assert.equal(typeof result.owner.stop, 'function');
+  assert.throws(() => retained(), { code: 'nnd_activation_transition_proof_invalid' });
+  await result.owner.stop();
+  assert.equal(f.trace.at(-1), 'stop');
+});
+test('failure after private retention still stops the trial', async () => {
+  const f = await harness();
+  await assert.rejects(f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal,
+      recordPromotedPrivateAttach, retainQuarantinedOwner }) => {
+      await verifyHeldTicket(); promotePrivatePrincipal(); await recordPromotedPrivateAttach();
+      retainQuarantinedOwner();
+      throw new Error('caller failed after retaining');
+    }) }), /NND final held-live callback and owned task failed/u);
+  assert.equal(f.trace.at(-1), 'stop');
+});
+test('cancellation during owner retention stops the child instead of stranding a live owner', async () => {
+  const f = await harness({ retainQuarantinedOwner: controller => controller.abort() });
+  await assert.rejects(f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal,
+      recordPromotedPrivateAttach, retainQuarantinedOwner }) => {
+      await verifyHeldTicket(); promotePrivatePrincipal(); await recordPromotedPrivateAttach();
+      retainQuarantinedOwner();
+    }) }), { name: 'AbortError' });
+  assert.equal(f.trace.at(-1), 'stop');
+});
+test('outer lease timeout defers handoff cleanup until its underlying trial settles', async () => {
+  let signalRetained, releaseTask, signalArmed;
+  const retained = new Promise(resolve => { signalRetained = resolve; });
+  const gate = new Promise(resolve => { releaseTask = resolve; });
+  const armed = new Promise(resolve => { signalArmed = resolve; });
+  const f = await harness({
+    leaseOperation: async (operation, controller) => {
+      void operation(controller.signal).catch(() => {});
+      await retained;
+      controller.abort();
+      throw new ContractError('nnd_lock_lost', 'outer lease deadline');
+    },
+    armRetainedLease: () => { f.trace.push('arm-retained-lease'); signalArmed(); },
+  });
+  await assert.rejects(f.run({ afterFinalVerification: ({ withFinalOwnership }) =>
+    withFinalOwnership(async ({ verifyHeldTicket, promotePrivatePrincipal,
+      recordPromotedPrivateAttach, retainQuarantinedOwner }) => {
+      await verifyHeldTicket(); promotePrivatePrincipal(); await recordPromotedPrivateAttach();
+      retainQuarantinedOwner(); signalRetained(); await gate;
+    }) }), { code: 'nnd_lock_lost' });
+  assert.equal(f.trace.includes('arm-retained-lease'), false);
+  assert.equal(f.trace.includes('stop'), true,
+    'outer cancellation must stop the retained child before the callback settles');
+  releaseTask();
+  await armed;
+  assert.equal(f.trace.includes('stop'), true);
+  assert.equal(f.trace.at(-1), 'arm-retained-lease');
 });
 test('a swallowed uncertain registration selection never returns trial_healthy', async () => {
   const uncertain = new ContractError('manifest_publication_unknown', 'CAS may have saved');

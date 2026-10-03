@@ -6,10 +6,11 @@ import { assertManifestLease, runManifestLeaseWork } from './persistence/manifes
 import { prepareNndActivationUnderOwnership } from './nnd-activation-preparation.js';
 import { issueNndTrialCapability } from './nnd-activation-candidate.js';
 import { appendNndActivationPhase } from './nnd-activation-journal.js';
-import { startNndOwnedTrial } from './nnd-service-supervisor.js';
+import { startNndOwnedTrial, armNndRetainedLeaseAfterTrial } from './nnd-service-supervisor.js';
 import { hash, json, operationValid, readInstallBytes } from './nnd-install-storage.js';
 
 const STOPPED = new WeakMap();
+const RETAINED_ABORT = new WeakMap();
 
 function assertTrialOwner(identity, serviceLease, registryLease, options) {
   if (!operationValid(options.stageOperationId) || !operationValid(options.operationId)) {
@@ -200,18 +201,23 @@ function recordPromotedAttach(trial, running, options, window, signal, tasks) {
       throw new ContractError('nnd_activation_transition_proof_invalid',
         'NND promoted attach receipt changed');
     }
+    window.attachResult = recorded;
     return recorded;
   });
   tasks.push(task); task.catch(() => {});
   return task;
 }
 
+function finalWindowState() {
+  return { active: true, ticketResult: null, promoted: false, promotionResult: null,
+    attachUsed: false, attachResult: null, retained: false };
+}
 async function runFinalOwnedTask(identity, trial, running, serviceLease, registryLease, options, proof, signal, operation) {
   signal.throwIfAborted();
   assertHeldNndServiceLease(serviceLease, identity.data_id);
   assertManifestLease(registryLease);
   let ticketUsed = false;
-  const window = { active: true, ticketResult: null, promoted: false, promotionResult: null, attachUsed: false };
+  const window = finalWindowState();
   const ticketTasks = [];
   const context = Object.freeze({ proof, serviceLease, registryLease, signal,
     verifyHeldTicket: () => {
@@ -237,7 +243,23 @@ async function runFinalOwnedTask(identity, trial, running, serviceLease, registr
     },
     promotePrivatePrincipal: () => promoteVerifiedTicket(trial, running, options, window),
     probePromotedPrivateAttach: () => probePromotedAttach(trial, running, options, window, signal, ticketTasks),
-    recordPromotedPrivateAttach: () => recordPromotedAttach(trial, running, options, window, signal, ticketTasks) });
+    recordPromotedPrivateAttach: () => recordPromotedAttach(trial, running, options, window, signal, ticketTasks),
+    retainQuarantinedOwner: () => {
+      if (!window.active || !window.attachResult || window.retained
+        || typeof trial.retainQuarantinedOwner !== 'function') {
+        throw new ContractError('nnd_activation_transition_proof_invalid',
+          'NND quarantined owner transfer requires the promoted attach receipt');
+      }
+      signal.throwIfAborted();
+      const owner = trial.retainQuarantinedOwner();
+      window.retained = true;
+      window.retainedOwner = owner;
+      const onAbort = () => { void owner.stop().catch(() => {}); };
+      RETAINED_ABORT.set(serviceLease, { signal, onAbort });
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      return owner;
+    } });
   let result, failure;
   try { result = await operation(context); }
   catch (error) { failure = error; }
@@ -248,13 +270,13 @@ async function runFinalOwnedTask(identity, trial, running, serviceLease, registr
     'NND held-live operation and ticket verification failed');
   if (ticketFailure) throw ticketFailure.reason;
   if (failure) throw failure;
-  return result;
+  return { result, retainedOwner: window.retainedOwner ?? null };
 }
 
 async function runFinalVerificationWindow(identity, trial, running, serviceLease, registryLease, options, proof, signal) {
   if (!options.afterFinalVerification) return;
   // Invariant: this private seam runs only after the final health check, while
-  // both original owners still exist. It cannot suppress the confirmed stop.
+  // both original owners still exist. Retention requires the recorded attach.
   signal.throwIfAborted();
   const tasks = []; let accepting = true, used = false, callbackFailure;
   const withFinalOwnership = operation => {
@@ -279,6 +301,7 @@ async function runFinalVerificationWindow(identity, trial, running, serviceLease
   if (taskFailure) throw taskFailure.reason;
   if (callbackFailure) throw callbackFailure;
   signal.throwIfAborted();
+  return settled.find(item => item.status === 'fulfilled' && item.value.retainedOwner)?.value.retainedOwner ?? null;
 }
 
 async function verifyAndContinue(identity, trial, prepared, running, context, options, signal) {
@@ -320,12 +343,12 @@ async function verifyAndContinue(identity, trial, prepared, running, context, op
   if (stillHealthy.generation !== proof.generation || stillHealthy.native_state !== proof.native_state) {
     throw new ContractError('nnd_health_unavailable', 'Unpublished NND trial changed during continuation');
   }
-  await runFinalVerificationWindow(identity, trial, running, serviceLease, registryLease,
+  const retainedOwner = await runFinalVerificationWindow(identity, trial, running, serviceLease, registryLease,
     options, stillHealthy, signal);
-  return Object.freeze({ state: trial.registrationSelected?.() ? 'registration_selected_unresolved' : 'trial_healthy',
+  return { retainedOwner, value: Object.freeze({ state: trial.registrationSelected?.() ? 'registration_selected_unresolved' : 'trial_healthy',
     operation_id: options.operationId,
     stage_operation_id: options.stageOperationId, ...proof,
-    ...(options.continuation ? { continuation_result: continuationResult } : {}) });
+    ...(options.continuation ? { continuation_result: continuationResult } : {}) }) };
 }
 
 async function liveTrial(identity, paths, serviceLease, registryLease, options, signal) {
@@ -342,7 +365,11 @@ async function liveTrial(identity, paths, serviceLease, registryLease, options, 
     result = await verifyAndContinue(identity, trial, prepared, running,
       { bound, directory, serviceLease, registryLease }, options, signal);
   } catch (error) { failure = error; }
-  if (trial) {
+  if (result?.retainedOwner && options.afterStop) {
+    failure = new ContractError('nnd_activation_transition_proof_invalid',
+      'NND retained owner cannot also use post-stop continuation');
+  }
+  if (trial && (!result?.retainedOwner || failure)) {
     try { await trial.stop(); }
     catch (stopError) {
       throw new AggregateError(failure ? [failure, stopError] : [stopError],
@@ -352,7 +379,7 @@ async function liveTrial(identity, paths, serviceLease, registryLease, options, 
   let postStopResult, postStopFailure;
   if (trial && running && options.afterStop) {
     try { postStopResult = await afterConfirmedStop(identity, serviceLease, registryLease,
-      options, running, childPid, result, failure, signal); }
+      options, running, childPid, result?.value, failure, signal); }
     catch (error) { postStopFailure = error; }
   }
   if (failure && postStopFailure) throw new AggregateError([failure, postStopFailure],
@@ -364,9 +391,20 @@ async function liveTrial(identity, paths, serviceLease, registryLease, options, 
   }
   if (failure) throw failure;
   if (postStopFailure) throw postStopFailure;
-  assertHeldNndServiceLease(serviceLease, identity.data_id);
-  signal.throwIfAborted();
-  return options.afterStop ? Object.freeze({ ...result, post_stop_result: postStopResult }) : result;
+  try {
+    assertHeldNndServiceLease(serviceLease, identity.data_id);
+    signal.throwIfAborted();
+  } catch (error) {
+    if (result.retainedOwner) {
+      try { await trial.stop(); }
+      catch (stopError) { throw new AggregateError([error, stopError],
+        'NND retained trial cancellation and shutdown are unresolved'); }
+    }
+    throw error;
+  }
+  if (result.retainedOwner) return Object.freeze({ ...result.value, state: 'quarantined_owner_held_unresolved',
+    owner: result.retainedOwner });
+  return options.afterStop ? Object.freeze({ ...result.value, post_stop_result: postStopResult }) : result.value;
 }
 
 // The caller owns the genuine data-root lease and registry mutex for the entire
@@ -376,8 +414,30 @@ export async function runNndUnpublishedTrialUnderOwnership(identity, paths, serv
   { stageOperationId, operationId, healthTimeoutMs = 5000, continuation, afterFinalVerification, afterStop } = {}) {
   const options = { stageOperationId, operationId, healthTimeoutMs, continuation, afterFinalVerification, afterStop };
   assertTrialOwner(identity, serviceLease, registryLease, options);
-  return withNndServiceLease(serviceLease, identity.data_id,
-    signal => runManifestLeaseWork(registryLease,
-      () => liveTrial(identity, paths, serviceLease, registryLease, options, signal)),
-    { timeoutMs: 60000 });
+  let completed, pending, pendingSettled = false;
+  const finishHandoff = async () => {
+    const guard = RETAINED_ABORT.get(serviceLease);
+    if (guard) {
+      guard.signal.removeEventListener('abort', guard.onAbort);
+      RETAINED_ABORT.delete(serviceLease);
+    }
+    await armNndRetainedLeaseAfterTrial(serviceLease, completed?.owner);
+  };
+  try {
+    completed = await withNndServiceLease(serviceLease, identity.data_id,
+      signal => {
+        pending = Promise.resolve().then(() => runManifestLeaseWork(registryLease,
+          () => liveTrial(identity, paths, serviceLease, registryLease, options, signal)));
+        pending.then(() => { pendingSettled = true; }, () => { pendingSettled = true; });
+        return pending;
+      },
+      { timeoutMs: 60000 });
+    return completed;
+  } finally {
+    if (pending && !pendingSettled) {
+      // The outer deadline can reject before its writer settles. Preserve its
+      // abort guard and original lease until that writer actually exits.
+      void pending.then(finishHandoff, finishHandoff).catch(() => {});
+    } else await finishHandoff();
+  }
 }
