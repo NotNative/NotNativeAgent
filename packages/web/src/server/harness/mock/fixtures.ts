@@ -73,6 +73,7 @@ export const COMMANDS: CommandInfo[] = [
 ];
 
 export const CONFIG: HarnessConfig = {
+  nnd: { engine: 'mock' },
   $schema: 'https://notnative.local/schema.json',
   model: 'nnd-mock/mock-smart',
   small_model: 'nnd-mock/mock-small',

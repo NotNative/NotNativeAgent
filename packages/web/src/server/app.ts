@@ -363,7 +363,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerSnippetRoutes(app);
   // Session-knowledge project pins/memory context (doc 15 §B): before proxy.
   registerSessionKnowledgeRoutes(app);
-  registerMcpConfigRoutes(app);
+  registerMcpConfigRoutes(app, ENV.harness === 'mock');
   registerSmallModelRoutes(app, {
     settings: async () => readMergedSettings('web'),
   });

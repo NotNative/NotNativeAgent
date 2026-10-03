@@ -2,7 +2,7 @@
 /** P10-44 MCP config-layer routes (doc 15 F.1/F.2): bounded records,
  * layer provenance, persistence, and deferred-restart payloads. */
 import { describe, expect, it, afterAll, beforeAll } from 'vitest';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
 import { Hono } from 'hono';
@@ -17,7 +17,7 @@ const { registerMcpConfigRoutes } = await import('../routes/mcp-config.ts');
 const { listMcpConfig } = await import('../lib/mcp/mcp-config.ts');
 
 const app = new Hono();
-registerMcpConfigRoutes(app);
+registerMcpConfigRoutes(app, true);
 
 const call = (path: string, init?: RequestInit): Promise<Response> =>
   app.fetch(new Request(`http://t.test${path}`, {
@@ -44,6 +44,25 @@ const readProject = (): Record<string, unknown> =>
   JSON.parse(readFileSync(PROJECT_FILE, 'utf8')) as Record<string, unknown>;
 
 describe('MCP config-layer routes (P10-44)', () => {
+  it('rejects legacy reads and writes when the harness is not explicitly mock', async () => {
+    const disabled = new Hono();
+    registerMcpConfigRoutes(disabled, false);
+    const before = existsSync(USER_FILE) ? readFileSync(USER_FILE, 'utf8') : null;
+    for (const [method, path] of [
+      ['GET', '/api/config/mcp'],
+      ['GET', '/api/config/mcp/shared-name'],
+      ['POST', '/api/config/mcp/blocked'],
+      ['PATCH', '/api/config/mcp/shared-name'],
+      ['DELETE', '/api/config/mcp/shared-name'],
+    ] as const) {
+      const response = await disabled.fetch(new Request(`http://t.test${path}`, {
+        method, headers: { 'content-type': 'application/json' },
+        ...(['POST', 'PATCH'].includes(method) ? { body: JSON.stringify({ type: 'local', command: ['x'] }) } : {}),
+      }));
+      expect(response.status).toBe(409);
+    }
+    expect(existsSync(USER_FILE) ? readFileSync(USER_FILE, 'utf8') : null).toBe(before);
+  });
   it('creates layered entries and overlays project over user', async () => {
     const local = await send('/api/config/mcp/shared-name', 'POST', {
       scope: 'user', type: 'local', command: ['npx', '-y', '@scope/server'],

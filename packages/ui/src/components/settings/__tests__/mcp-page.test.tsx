@@ -10,6 +10,8 @@ vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
+import { harnessClient } from '../../../lib/nnd/client.ts';
+import { useGlobalSyncStore } from '../../../sync/global-stores.ts';
 import { directoryKey, useMcpStore } from '../../../stores/useMcpStore.ts';
 import { useMcpConfigStore } from '../../../stores/useMcpConfigStore.ts';
 import { useSessionViewStore } from '../../../sync/view-store.ts';
@@ -60,8 +62,16 @@ async function clickNnaRefresh(): Promise<void> {
 function fixture(name: string, config: Record<string, unknown>) {
   return { name, scope: 'user', enabled: true, ...config };
 }
+function switchRuntime(): void {
+  for (const [listener] of onRuntimeEndpointChangedMock.mock.calls) listener({
+    apiBaseUrl: 'http://fresh.test', previousApiBaseUrl: 'http://stale.test',
+    previousRuntimeKey: 'stale', runtimeKey: 'fresh',
+  });
+}
 
 beforeEach(() => {
+  vi.spyOn(harnessClient, 'getConfig').mockResolvedValue({ data: { nnd: { engine: 'mock' } } });
+  useGlobalSyncStore.getState().reset();
   runtimeFetchMock.mockReset();
   onRuntimeEndpointChangedMock.mockClear();
   runtimeFetchMock.mockImplementation((url: unknown) => {
@@ -80,6 +90,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.mocked(harnessClient.getConfig).mockRestore();
   useI18nStore.getState().setLocale('en');
   try { act(() => rootHandle?.unmount()); } finally {
     container?.remove();
@@ -89,6 +100,35 @@ afterEach(() => {
 });
 
 describe('MCP settings page', () => {
+  it('hides OpenCode writes on NNA while keeping the native inventory visible', async () => {
+    vi.mocked(harnessClient.getConfig).mockResolvedValue({ data: { nnd: { engine: 'nna' } } });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="mcp-config"]')).toBeNull();
+    expect(document.body.textContent).toContain('OpenCode configuration does not change NNA');
+    expect(document.body.textContent).toContain('Configured servers in this NNA process');
+  });
+
+  it('keeps the legacy editor hidden when the engine authority cannot be read', async () => {
+    vi.mocked(harnessClient.getConfig).mockResolvedValue({ error: 'unavailable' });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="mcp-config"]')).toBeNull();
+    expect(document.body.textContent).toContain('MCP editing is unavailable');
+  });
+
+  it('does not assume an unknown engine is OpenCode', async () => {
+    vi.mocked(harnessClient.getConfig).mockResolvedValue({ data: { nnd: { engine: 'future-engine' } } });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="mcp-config"]')).toBeNull();
+  });
+  it('does not enable legacy editing for a missing engine marker', async () => {
+    vi.mocked(harnessClient.getConfig).mockResolvedValue({ data: {} });
+    renderPage();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="mcp-config"]')).toBeNull();
+  });
   it('loads workspace configuration and separate connection status', async () => {
     renderPage();
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
@@ -158,13 +198,7 @@ describe('MCP settings page', () => {
     ] };
     await clickNnaRefresh();
     expect(document.body.textContent).toContain('Loading MCP inventory…');
-    const listener = onRuntimeEndpointChangedMock.mock.calls.at(-1)![0];
-    await act(async () => {
-      listener({
-        apiBaseUrl: 'http://fresh.test', previousApiBaseUrl: 'http://stale.test',
-        previousRuntimeKey: 'stale', runtimeKey: 'fresh',
-      });
-    });
+    await act(async () => { switchRuntime(); });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -295,13 +329,7 @@ describe('MCP settings page', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     await clickButton('Edit');
     await clickButton('Save');
-    const listener = onRuntimeEndpointChangedMock.mock.calls[0]![0];
-    await act(async () => {
-      listener({
-        apiBaseUrl: 'http://fresh.test', previousApiBaseUrl: 'http://stale.test',
-        previousRuntimeKey: 'stale', runtimeKey: 'fresh',
-      });
-    });
+    await act(async () => { switchRuntime(); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     await act(async () => {
       resolvePatch(jsonResponse({ ok: true, requiresRestart: true, restartDeferred: true, message: 'updated' }));
@@ -367,13 +395,7 @@ describe('MCP settings page', () => {
       setter.call(input, 'stale-runtime-code');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const listener = onRuntimeEndpointChangedMock.mock.calls[0]![0];
-    await act(async () => {
-      listener({
-        apiBaseUrl: 'http://fresh.test', previousApiBaseUrl: 'http://stale.test',
-        previousRuntimeKey: 'stale', runtimeKey: 'fresh',
-      });
-    });
+    await act(async () => { switchRuntime(); });
     expect(inputByPlaceholder('authorization code').value).toBe('');
   });
 

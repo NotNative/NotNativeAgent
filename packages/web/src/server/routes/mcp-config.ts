@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** MCP config layer routes (doc 03 §5.8; doc 15 F.2). */
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { createMcpConfig, deleteMcpConfig, listMcpConfig, McpConfigError,
   readMcpConfig, updateMcpConfig } from '../lib/mcp/mcp-config.ts';
@@ -23,7 +23,17 @@ function errorResponse(error: unknown): MappedError {
   return { status: 500, error: error instanceof Error ? error.message : 'MCP configuration failed' };
 }
 
-export function registerMcpConfigRoutes(app: Hono): void {
+function registerUnavailableMcpRoutes(app: Hono): void {
+  // An NNA or unrecognized harness must never touch OpenCode's config files,
+  // including when an old browser sends a saved request directly.
+  const unavailable = (context: Context) =>
+    context.json({ error: 'OpenCode MCP configuration is unavailable for this runtime' }, 409);
+  app.all('/api/config/mcp', unavailable);
+  app.all('/api/config/mcp/*', unavailable);
+}
+
+export function registerMcpConfigRoutes(app: Hono, legacyEnabled: boolean): void {
+  if (!legacyEnabled) return registerUnavailableMcpRoutes(app);
   app.get('/api/config/mcp', async (context) => {
     try { return context.json(await listMcpConfig(context.req.query('directory'))); }
     catch (error) { const mapped = errorResponse(error); return context.json({ error: mapped.error }, mapped.status); }

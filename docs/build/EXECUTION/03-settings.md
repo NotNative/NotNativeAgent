@@ -213,6 +213,10 @@ Dependency: C3 plus C2 scope support. Replace NNA usage of
 `stores/useMcpConfigStore.ts`, and `pages/mcp.tsx` with native contracts.
 Extend `pages/skills.tsx` and `skills-catalog.tsx` only through native skill
 management; inventory existing NND companion skills separately where needed.
+As of the NNA v12 contract, `/v1/nnd/mcp` is read-only inventory and the
+configuration catalog does not offer mutation for `mcp_servers[*]`. NND must
+hide its OpenCode MCP writer on an NNA runtime. C5 requires a scoped native
+MCP preview/save/receipt API before the GUI can claim that a save changes NNA.
 Add hooks/trust/project-source controls and supported native lifecycle actions.
 Do not silently import OpenCode configuration: provide a preview, mapped and
 unmapped fields, target scope, and an explicit operator import action.

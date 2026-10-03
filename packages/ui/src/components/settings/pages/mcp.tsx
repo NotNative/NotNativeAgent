@@ -24,12 +24,12 @@ import { useI18n } from '../../I18nProvider.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
 import { NnaMcpInventory } from './mcp-inventory.tsx';
 import { onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
+import { harnessClient } from '../../../lib/nnd/client.ts';
+import { useGlobalSyncStore } from '../../../sync/global-stores.ts';
 
 type ActionFeedback = { kind: 'localized'; key: I18nKey; params?: Record<string, unknown> }
   | { kind: 'raw'; message: string }
   | { kind: 'importSummary'; created: number; updated: number };
-
-
 function formatActionFeedback(feedback: ActionFeedback, t: (key: I18nKey, params?: Record<string, unknown>) => string): string {
   if (feedback.kind === 'raw') return feedback.message;
   if (feedback.kind === 'localized') return t(feedback.key, feedback.params);
@@ -41,9 +41,31 @@ function formatActionFeedback(feedback: ActionFeedback, t: (key: I18nKey, params
 }
 
 export function McpPage(): ReactNode {
+  const { t } = useI18n();
+  const globalEngine = (useGlobalSyncStore((state) => state.config)?.nnd as { engine?: unknown } | undefined)?.engine;
+  const [engine, setEngine] = useState<'nna' | 'legacy' | null>(null);
+  const generation = useRef(0);
+  useEffect(() => {
+    const inspect = () => {
+      const current = ++generation.current;
+      setEngine(null);
+      void harnessClient.getConfig().then((result) => {
+        if (current !== generation.current) return;
+        const reported = (result.data?.nnd as { engine?: unknown } | undefined)?.engine;
+        setEngine(result.error || !result.data ? null : reported === 'nna' ? 'nna'
+          : reported === 'mock' ? 'legacy' : null);
+      }, () => { if (current === generation.current) setEngine(null); });
+    };
+    inspect();
+    const off = onRuntimeEndpointChanged(inspect);
+    return () => { off(); generation.current += 1; };
+  }, []);
+  const mode = globalEngine === 'nna' || engine === 'nna' ? 'nna' : engine === 'legacy' ? 'legacy' : 'unknown';
   return (
     <SettingsSection item="mcp">
-      <WorkspaceMcpConfig />
+      {mode === 'legacy' ? <WorkspaceMcpConfig /> : <p role="status" className="mb-4 rounded border border-border/40 p-3 text-xs">
+        {mode === 'nna' ? t('settings.mcp.nativeManagementUnavailable') : t('settings.mcp.engineUnknown')}
+      </p>}
       <NnaMcpInventory />
     </SettingsSection>
   );
