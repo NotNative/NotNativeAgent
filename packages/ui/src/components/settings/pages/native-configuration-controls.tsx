@@ -30,6 +30,10 @@ const DREAM_LIMITS: Record<string, { label: 'settings.nativeDream.idle' | 'setti
   'dream.hygiene_idle_ms': { label: 'settings.nativeDream.hygieneIdle', min: 30000, max: 7200000 },
   'dream.retention_days': { label: 'settings.nativeDream.retention', min: 1, max: 365 },
 };
+const RUNTIME_TIMEOUTS: Record<string, { label: 'settings.nativeTimeouts.connect' | 'settings.nativeTimeouts.semanticReview'; min: number; max: number }> = {
+  provider_connect_timeout_ms: { label: 'settings.nativeTimeouts.connect', min: 100, max: 600000 },
+  semantic_review_timeout_ms: { label: 'settings.nativeTimeouts.semanticReview', min: 100, max: 86400000 },
+};
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -75,6 +79,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
     || field.path === 'dream.enabled' && field.type === 'boolean');
   const dreamSelected = selected?.type === 'integer' ? DREAM_LIMITS[selected.path] : undefined;
   const dreamEnabledSelected = selected?.path === 'dream.enabled' && selected.type === 'boolean';
+  const timeoutFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(RUNTIME_TIMEOUTS, field.path));
+  const timeoutSelected = selected?.type === 'integer' ? RUNTIME_TIMEOUTS[selected.path] : undefined;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -116,6 +122,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(field.path === 'dream.enabled' ? 'settings.nativeDream.enabled' : DREAM_LIMITS[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {timeoutFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.runtime-timeouts">
+      <h4 className="font-semibold">{t('settings.nativeTimeouts.title')}</h4>
+      <p>{t('settings.nativeTimeouts.description')}</p>
+      <div className="flex flex-wrap gap-2">{timeoutFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(RUNTIME_TIMEOUTS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -182,12 +198,22 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(JSON.stringify(event.target.checked)); }} />
         {t('settings.nativeDream.enabled')}
       </label> : null}
+      {model.mode === 'set' && timeoutSelected ? <label className="block">
+        {t(timeoutSelected.label)}
+        <input type="number" min={timeoutSelected.min} max={timeoutSelected.max} step="1"
+          value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
+      {model.mode === 'set' && selected.path === 'semantic_review_timeout_ms' && model.draft === '15000'
+        ? <p role="status">{t('settings.nativeTimeouts.legacySemanticReview')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.enabled' && model.draft === 'false'
         ? <p>{t('settings.nativeMemory.disableAlsoClearsRequired')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
-        && !dreamSelected && !dreamEnabledSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+        && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />

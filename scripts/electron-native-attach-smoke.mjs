@@ -117,7 +117,8 @@ async function main(nna, payloadRoot = null, nativeSlot = false, nativeConfigura
     electronExit = once(electron, 'exit');
     electron.stdout.on('data', (chunk) => { output += chunk; if (output.length > 65536) electron.kill(); });
     electron.stderr.on('data', (chunk) => { if (diagnostics.length < 65536) diagnostics += String(chunk).slice(0, 65536 - diagnostics.length); });
-    assert.equal((await withTimeout(electronExit, nativeWrite || nativeReplayGap ? 135_000 : 45_000, 'Real Electron shell timeout'))[0], 0);
+    const electronCode = (await withTimeout(electronExit, nativeWrite || nativeReplayGap ? 135_000 : 45_000, 'Real Electron shell timeout'))[0];
+    assert.equal(electronCode, 0, `Real Electron shell exited ${electronCode}.\nstdout (tail): ${output.slice(-4000)}\nstderr (tail): ${diagnostics.slice(-4000)}`);
     assertSmokeMarkers(output, { nativeReplayGap, nativeConfiguration, nativeWrite, tuiWrite, routeWrite });
     if (nativeWrite) {
       const manifest = JSON.parse(await readFile(join(fixture.data, 'config/manifest.json'), 'utf8'));

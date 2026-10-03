@@ -219,7 +219,8 @@ when NNA advertises them. Dream maintenance enablement, idle/stage delays,
 and retention also have typed controls gated by the native catalog. NNA can
 still disable dream maintenance through host authority; a saved user-manifest
 value is not applied to an existing constructed context. These controls do not
-assert that running sessions adopt saved values. Other execution, context, recovery,
+assert that running sessions adopt saved values. Provider connection and
+semantic-review timeouts also have bounded native controls. Other execution, context, recovery,
 telemetry, and retention scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate

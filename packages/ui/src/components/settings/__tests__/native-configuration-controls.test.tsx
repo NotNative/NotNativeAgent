@@ -221,6 +221,77 @@ it('offers only advertised native memory limits and saves a typed bounded value 
   expect(container.textContent).toContain('not applied');
 });
 
+it('previews and saves bounded connection timeout through native CAS', async () => {
+  const timeoutView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider_connect_timeout_ms', catalog_path: 'provider_connect_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 10000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'semantic_review_timeout_ms', catalog_path: 'semantic_review_timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 1800000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const connection = { path: 'provider_connect_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [connection,
+    { path: 'semantic_review_timeout_ms', type: 'integer', editability: field.editability },
+    { path: 'unknown_timeout_ms', type: 'integer', editability: field.editability }] });
+  const timeoutRequest = { ...request, operations: [{ op: 'set' as const, field: connection.path, value: 20000 }] };
+  vi.mocked(nativeChange).mockReturnValue(timeoutRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: timeoutView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(timeoutView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.runtime-timeouts"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('unknown_timeout_ms');
+  await act(async () => button('Provider connection timeout (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('100'); expect(input.max).toBe('600000'); expect(input.value).toBe('10000');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '20000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(timeoutView, connection, 'set', '20000');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(timeoutRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
+it('resets semantic-review timeout to its native inherited value', async () => {
+  const timeoutView: NativeConfigurationView = { ...view, fields: [
+    { path: 'semantic_review_timeout_ms', catalog_path: 'semantic_review_timeout_ms', explicit: { present: true, value: 250000 },
+      effective: { present: true, value: 250000, source: 'user' }, application: 'not_applied' },
+  ] };
+  const semantic = { path: 'semantic_review_timeout_ms', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [semantic] });
+  const resetRequest = { ...request, operations: [{ op: 'reset' as const, field: semantic.path }] };
+  vi.mocked(nativeChange).mockReturnValue(resetRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: timeoutView });
+  mount(timeoutView); await act(async () => {});
+  await act(async () => button('Semantic review timeout (ms)').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('100'); expect(input.max).toBe('86400000');
+  await act(async () => { const action = [...container.querySelectorAll('select')][1]!;
+    action.value = 'reset'; action.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(container.querySelector('input[type="number"]')).toBeNull();
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(timeoutView, semantic, 'reset', '250000');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(resetRequest, expect.any(AbortSignal));
+});
+
+it('warns that the legacy semantic-review value does not set a 15-second timeout', async () => {
+  const timeoutView: NativeConfigurationView = { ...view, fields: [
+    { path: 'semantic_review_timeout_ms', catalog_path: 'semantic_review_timeout_ms', explicit: { present: true, value: 15000 },
+      effective: { present: true, value: 1800000, source: 'user' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'semantic_review_timeout_ms', type: 'integer', editability: field.editability },
+  ] });
+  mount(timeoutView); await act(async () => {});
+  await act(async () => button('Semantic review timeout (ms)').click());
+  expect(container.textContent).toContain('NNA treats 15000 ms as a legacy inherited value');
+  expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('15000');
+});
+
 it('resets a native memory limit without sending a draft value', async () => {
   const memoryView: NativeConfigurationView = { ...view, fields: [
     { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: true, value: 1000 },

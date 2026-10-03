@@ -867,3 +867,16 @@ contexts. Search remains navigable without a catalog. Independent adversarial
 review found no concrete defect in the native bounds or authority behavior.
 The full UI suite passed (1,747 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-21 — native connection and review timeouts
+
+Managed Settings now exposes NNA-advertised provider connection and semantic
+review timeout fields with native bounds, preview, revision-checked save,
+reset, and receipts. A 15-second semantic review value is identified as NNA's
+legacy inherited sentinel rather than a fixed limit. Independent adversarial
+review found and corrected that misleading case. The full UI suite passed
+(1,750 tests), as did the web suite (1,447 tests), typechecks, quality gates,
+and the NND-to-NNA v29 source smoke. Packaged Chromium native-write acceptance
+remains under investigation: the direct selected source reports missing while
+the GUI renders edit controls, so this slice does not claim an installed GUI
+write journey.

@@ -1000,6 +1000,10 @@
     {
       "version": "20261003-20",
       "content_sha256": "1fb90c1af6e2cd4f5575e93c97753bc68e08fd1ff061e22cea1a829c50e05b00"
+    },
+    {
+      "version": "20261003-21",
+      "content_sha256": "7f3ec9ce0e4f147385c4cd8402154a5c2db59f0f7c3bde91302ed4fb5c2168fe"
     }
   ]
 }
