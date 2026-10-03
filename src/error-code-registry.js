@@ -335,7 +335,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'provider_profile_conflict', 'provider_profile_invalid', 'provider_profile_mismatch',
     'provider_profile_missing', 'provider_qualification_invalid', 'provider_qualification_timeout',
     'provider_reasoning_mode_invalid', 'provider_request_body_invalid',
-    'provider_request_invalid', 'provider_request_metadata_invalid', 'provider_request_reconstruction_desync', 'provider_response_format_invalid', 'provider_response_invalid',
+    'provider_request_invalid', 'provider_request_metadata_invalid', 'provider_request_reconstruction_desync', 'provider_response_format_invalid', 'provider_response_format_unsupported', 'provider_response_invalid',
     'provider_role_invalid', 'provider_route_invalid', 'provider_route_missing',
     'provider_session_missing', 'provider_store_unavailable', 'provider_stream_invalid',
     'provider_system_message_invalid', 'provider_timeout', 'provider_tool_call_mode_invalid',

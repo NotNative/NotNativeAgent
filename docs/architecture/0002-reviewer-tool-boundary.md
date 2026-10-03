@@ -70,7 +70,12 @@ mechanically safe work, enforces structured mission ceilings,
 and reserves a short immutable denial floor for prohibited operations. Other uncertain
 or consequential operations reach semantic review. Review-required work uses a
 tool-less `reviewer` model route with a portable structural JSON Schema response
-constraint, including an explicit outcome enumeration, strict local decision validation, bounded
+constraint when supported. A route declaring structured output unavailable uses a JSON-text
+request instead. An explicit response-format or grammar rejection permits one retry on the same
+route without server-side constraints. The request still contains the decision schema; tool calls,
+invalid decisions, and unsupported authority anchors remain rejected locally. Authentication,
+model selection, and unrelated provider errors do not trigger this compatibility retry. Both
+formats retain an explicit outcome enumeration, strict local decision validation, bounded
 time, and a fail-closed default. If the first response is malformed, NNA records that provider
 attempt and makes one schema-repair attempt with a separate receipt. A second malformed response
 fails closed. The semantic default is permissive toward a reasonable, proportionate

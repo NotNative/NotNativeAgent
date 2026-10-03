@@ -9,7 +9,7 @@ import { providerModelLimits } from './provider/model-metadata.js';
 import { chatCompletionBody } from './provider/tool-call-compatibility.js';
 import { probeToolCallMode, qualifyProviderRequests } from './provider/qualification.js';
 import {
-  isContextLimitError, isGrammarFailure, isImageUnsupportedError, isReasoningControlRejection,
+  isContextLimitError, isGrammarFailure, isImageUnsupportedError, isReasoningControlRejection, isResponseFormatRejection,
 } from './provider/rejection-classification.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
@@ -106,7 +106,7 @@ export class OpenAICompatibleProvider {
       throw normalizeProviderTransportError(error, signal);
     }
     try {
-      if (!response.ok) throw await providerErrorResponse(response, this.profile.trustZone);
+      if (!response.ok) throw await providerErrorResponse(response, this.profile.trustZone, request.responseFormat);
       if (!response.body) throw new ContractError('provider_empty_body', 'provider returned no stream');
       yield* parseSse(response.body, providerStreamByteLimit(this.limits, request), signal);
     } catch (error) {
@@ -412,7 +412,7 @@ function providerError(status, message, retryAfterMs = null) {
   return error;
 }
 
-async function providerErrorResponse(response, trustZone) {
+async function providerErrorResponse(response, trustZone, responseFormat = null) {
   let body = null;
   try {
     body = await boundedResponseJson(response);
@@ -425,6 +425,9 @@ async function providerErrorResponse(response, trustZone) {
   }
   if (isReasoningControlRejection(body)) {
     return new ContractError('provider_reasoning_control_rejected', 'provider rejected the configured reasoning controls');
+  }
+  if (responseFormat && (isResponseFormatRejection(body) || isGrammarFailure(body))) {
+    return new ContractError('provider_response_format_unsupported', 'provider rejected the requested structured response format');
   }
   if (isGrammarFailure(body)) {
     return new ContractError('provider_tool_schema_rejected', 'provider could not compile the supplied tool schema into a valid grammar');

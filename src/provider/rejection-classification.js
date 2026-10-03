@@ -42,6 +42,15 @@ export function isGrammarFailure(value) {
     || /failed to initialize samplers.{0,96}grammar/u.test(text);
 }
 
+export function isResponseFormatRejection(value) {
+  const fields = boundedErrorStrings(value);
+  if (fields.some((item) => ['unsupported_response_format', 'response_format_not_supported',
+    'json_schema_not_supported', 'structured_output_not_supported'].includes(normalizedCode(item)))) return true;
+  const text = fields.join(' ').toLowerCase();
+  return /(?:response_format|json_schema|structured output).{0,96}(?:unsupported|not supported|not implemented|unknown|unrecognized|invalid)/u.test(text)
+    || /(?:unsupported|not supported|not implemented|unknown|unrecognized|invalid).{0,96}(?:response_format|json_schema|structured output)/u.test(text);
+}
+
 export function isContextLimitError(value) {
   const fields = boundedErrorStrings(value);
   if (fields.some((item) => CONTEXT_LIMIT_CODES.has(normalizedCode(item)))) return true;

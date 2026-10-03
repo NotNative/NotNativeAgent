@@ -95,7 +95,7 @@ async function providerHealth(engine, deadlineMs) {
 function reviewerModelHealth(engine) {
   const health = engine.reviewer.health();
   try {
-    const route = engine.router.resolve('reviewer', { requiredCapabilities: ['structured_output'] });
+    const route = engine.router.resolve('reviewer');
     if (!route?.profile?.id || typeof route.model !== 'string') throw Object.assign(new Error('reviewer route is invalid'), { code: 'reviewer_route_invalid' });
     return status(health.semantic_status === 'configured' ? HEALTH.READY : HEALTH.UNAVAILABLE, {
       component: health.semantic_component, provider: route.profile.id, model: route.model,

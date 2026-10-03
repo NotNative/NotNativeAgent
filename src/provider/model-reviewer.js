@@ -24,14 +24,13 @@ export class RoutedSemanticReviewer {
   }
 
   async review(input, signal, correlation = {}) {
-    // Why: a structured-output transport failure on the inherited Primary route must
-    // advance through the configured Reviewer fallback graph instead of failing closed.
-    const routes = this.router.candidates('reviewer', { requiredCapabilities: ['structured_output'] });
+    // Invariant: server-side JSON grammar is an optimization, not a prerequisite for locally validated review.
+    const routes = this.router.candidates('reviewer');
     if (routes.length === 0) {
-      throw new ContractError('route_capability_unavailable', 'no trust-compatible reviewer route supports structured output');
+      throw new ContractError('route_capability_unavailable', 'no trust-compatible reviewer route is available');
     }
     const logicalRequestId = newId('reviewer_route');
-    let invalidOutput = null;
+    const state = { invalidOutput: null, repairs: 0 };
     let lastError = null;
     for (let index = 0; index < routes.length; index += 1) {
       const route = routes[index];
@@ -55,22 +54,12 @@ export class RoutedSemanticReviewer {
         continue;
       }
       try {
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          const request = reviewerRequest(route, input, invalidOutput);
-          try {
-            return await this.#runAttempt({
-              provider, request, signal, route, profileId, logicalRequestId, correlation,
-            });
-          } catch (error) {
-            lastError = error;
-            if (attempt === 0 && error?.code === 'reviewer_output_malformed') {
-              invalidOutput = error.reviewerOutput ?? '';
-              continue;
-            }
-            break;
-          }
-        }
-        if (!retryableReviewerError(lastError)) break;
+        return await runReviewerAttempts(route, input, signal, state, (request) => this.#runAttempt({
+          provider, request, signal, route, profileId, logicalRequestId, correlation,
+        }));
+      } catch (error) {
+        lastError = error;
+        if (!retryableReviewerError(error)) break;
       } finally {
         release();
       }
@@ -117,9 +106,31 @@ export class RoutedSemanticReviewer {
   }
 }
 
-function reviewerRequest(route, input, invalidOutput) {
+async function runReviewerAttempts(route, input, signal, state, run) {
+  let constrained = route.profile?.capabilities?.structuredOutput !== false;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await run(reviewerRequest(route, input, state.invalidOutput, constrained));
+    } catch (error) {
+      if (!signal?.aborted && constrained && error?.code === 'provider_response_format_unsupported') {
+        constrained = false;
+        continue;
+      }
+      if (!signal?.aborted && state.repairs === 0 && error?.code === 'reviewer_output_malformed') {
+        state.repairs += 1;
+        state.invalidOutput = error.reviewerOutput ?? '';
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
+}
+
+function reviewerRequest(route, input, invalidOutput, constrained) {
   const messages = [
-    { role: 'system', content: reviewerPolicy() },
+    { role: 'system', content: reviewerPolicy() + (constrained ? ''
+      : ` Required JSON schema: ${JSON.stringify(reviewerResponseFormat().json_schema.schema)}`) },
     { role: 'user', content: JSON.stringify(input) },
   ];
   if (invalidOutput !== null) messages.push(
@@ -130,7 +141,7 @@ function reviewerRequest(route, input, invalidOutput) {
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
     // Why: reviewer JSON is bounded by responseFormat and local validation. Reasoning controls
     // are provider dialect settings; a universal "off" request is invalid for some models.
-    ...routeReasoningFields(route), messages, tools: [], responseFormat: reviewerResponseFormat(),
+    ...routeReasoningFields(route), messages, tools: [], responseFormat: constrained ? reviewerResponseFormat() : null,
   });
 }
 
