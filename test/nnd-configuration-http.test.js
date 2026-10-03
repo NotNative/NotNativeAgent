@@ -38,6 +38,11 @@ test('native configuration remains authenticated and reachable while setup is re
   assert.equal(binding.editability.operation, 'bind_route');
   assert.deepEqual(binding.editability.paired_fields,
     ['routes.reviewer.provider_id', 'routes.reviewer.model']);
+  for (const path of ['memory.enabled', 'memory.required']) {
+    const memory = fields.find((item) => item.path === path);
+    assert.equal(memory.editability.available, true);
+    assert.deepEqual(memory.editability.coupled_fields, ['memory.enabled', 'memory.required']);
+  }
   assert.equal(fields.find((item) => item.path === 'routes.primary.provider_id').editability.available, false);
   const blocked = await fetch(endpoint + '/v1/nnd/configuration/save', {
     method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: '{}',

@@ -15,6 +15,7 @@ const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
 const FIELDS = ['installation_id', 'data_id', 'scope', 'expected_revision', 'expected_resolution_revision'];
 const NATIVE_EDITABLE = new Set(NND_CONFIGURATION_EDITABLE_FIELDS);
 const ROUTE_BINDING = new Set(NND_ROUTE_BINDING_FIELDS);
+const COUPLED_MEMORY = new Set(['memory.enabled', 'memory.required']);
 function invalid() { return new ContractError('nnd_configuration_request_invalid', 'Configuration request is outside the supported native contract.'); }
 
 export async function dispatchNndConfigurationRequest(request, response, context) {
@@ -64,6 +65,7 @@ function nativeCatalog(service) {
     if (!supportsSave || (!NATIVE_EDITABLE.has(field.path) && !ROUTE_BINDING.has(field.path))) return field;
     return { ...field, editability: { ...field.editability, available: true,
       scope: 'user', required_permission: 'nnd.configuration.manage',
+      ...(COUPLED_MEMORY.has(field.path) ? { coupled_fields: ['memory.enabled', 'memory.required'] } : {}),
       ...(ROUTE_BINDING.has(field.path) ? { operation: 'bind_route', paired_fields: [
         field.path.replace(/\.(?:provider_id|model)$/u, '.provider_id'),
         field.path.replace(/\.(?:provider_id|model)$/u, '.model')] } : {}) } };

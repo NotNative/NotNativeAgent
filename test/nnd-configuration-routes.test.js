@@ -9,7 +9,7 @@ import { dispatchNndConfigurationRequest } from '../src/nnd-configuration-routes
 import { createNndConfigurationService } from '../src/nnd-configuration-service.js';
 import { ContractError } from '../src/ids.js';
 import { CONFIGURATION_CATALOG } from '../src/configuration-catalog.js';
-import { NND_CONFIGURATION_EDITABLE_FIELDS } from '../src/nnd-configuration-intents.js';
+import { NND_CONFIGURATION_EDITABLE_FIELDS, NND_ROUTE_BINDING_FIELDS } from '../src/nnd-configuration-intents.js';
 
 const base = '/v1/nnd/configuration';
 const snapshot = { installationId: 'nna_test', dataId: 'data_test', sourceState: 'missing', sourceRevision: 'absent', rawBytes: 'PRIVATE' };
@@ -42,10 +42,11 @@ test('native catalog describes its finite user-scope save capability without gra
   const service = { save: () => receipt };
   const catalog = (await dispatch(base + '/catalog', 'GET', ['nnd.configuration.read'], service)).body;
   const nativeFields = new Set(NND_CONFIGURATION_EDITABLE_FIELDS);
+  const routeFields = new Set(NND_ROUTE_BINDING_FIELDS);
   assert.ok(nativeFields.size > 0);
   for (const field of catalog.fields) {
-    assert.equal(field.editability.available, nativeFields.has(field.path), field.path);
-    if (nativeFields.has(field.path)) {
+    assert.equal(field.editability.available, nativeFields.has(field.path) || routeFields.has(field.path), field.path);
+    if (nativeFields.has(field.path) || routeFields.has(field.path)) {
       assert.equal(field.editability.scope, 'user');
       assert.equal(field.editability.required_permission, 'nnd.configuration.manage');
     }

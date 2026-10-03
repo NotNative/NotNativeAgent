@@ -18,6 +18,9 @@ writing. Save uses the existing source/resolution compare-and-swap and returns
 project source owns either field that a paired operation would write, the
 operation fails with `configuration_source_shadowed` before persistence.
 
-The catalog continues to advertise both fields as typed native settings. A
-GUI should use preview to show any coupled change before save and refresh the
-resolved view after the resulting persistence receipt.
+The native catalog marks both fields with
+`editability.coupled_fields: ["memory.enabled", "memory.required"]` only when
+the save contract is available. A GUI must require that marker before offering
+the coupled controls, use preview to show both resulting values before save,
+and refresh after the persistence receipt. Older catalogs without the marker
+cannot promise the paired behavior.
