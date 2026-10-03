@@ -30,6 +30,7 @@ export function retirementCleanupPaths(identity, operationId) {
   const activations = join(root, 'activations');
   return { activations, directory: join(activations, operationId),
     plan: join(root, 'activation-retirement.json'), decision: join(root, 'activation-retirement-decision.json'),
+    terminal: join(root, 'activation-retirement-commit.json'),
     marker: join(identity.data_root, 'runtime', 'nnd', 'installation-pending.json') };
 }
 export function retirementArtifactPath(place, operationId, name) {

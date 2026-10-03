@@ -9,7 +9,7 @@ import { readNndExternalRetirementDecisionUnderOwnership } from './nnd-activatio
 import { parseNndTerminalRetirementPlanBytes } from './nnd-activation-retirement-plan.js';
 import { readNndServiceDiscovery } from './nnd-service-discovery.js';
 import { captureDiscoveryProcessIdentity } from './nnd-service-discovery-windows.js';
-import { readInstallBytes, hash, operationValid } from './nnd-install-storage.js';
+import { readInstallBytes, writeInstallNew, hash, json, operationValid } from './nnd-install-storage.js';
 import { retirementCleanupPaths, inspectRetirementArtifacts,
   removeRetirementArtifact } from './nnd-activation-retirement-cleanup-files.js';
 
@@ -54,7 +54,7 @@ async function verify(context) {
   const artifacts = await inspectRetirementArtifacts(place, options.operationId, plan, signal);
   assertLive(state, identity, serviceLease, options);
   signal.throwIfAborted();
-  return { ...artifacts, plan, decisionSha: proof.decision_sha256, planSha: proof.plan_sha256 };
+  return { ...artifacts, plan, decision, decisionSha: proof.decision_sha256, planSha: proof.plan_sha256 };
 }
 async function clean(context) {
   let current = await verify(context);
@@ -87,6 +87,55 @@ export async function cleanupNndRetirementEvidenceUnderOwnership(identity, state
     finally { ACTIVE.delete(serviceLease); }
   }), { timeoutMs: 300000 }).catch(error => {
     // Invariant: a timed-out registered operation owns ACTIVE until its actual filesystem work settles.
+    if (!started) ACTIVE.delete(serviceLease);
+    throw error;
+  });
+}
+
+/** A single-use, external proof that exact cleanup finished; all admission barriers stay in place. */
+export async function recordNndTerminalRetirementCommitUnderOwnership(identity, state, serviceLease, registryLease, options) {
+  assertOwner(identity, serviceLease, registryLease, options);
+  assertLive(state, identity, serviceLease, options);
+  if (ACTIVE.has(serviceLease)) throw invalid();
+  ACTIVE.add(serviceLease);
+  let started = false;
+  return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
+    started = true;
+    try {
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+        ...(options.signal ? [options.signal] : [])]);
+      const context = { identity, state, serviceLease, registryLease, options, signal,
+        place: retirementCleanupPaths(identity, options.operationId) };
+      const before = await verify(context);
+      if (before.present.length || before.hasDirectory) throw invalid();
+      const commit = { protocol: '1.0', state: 'terminal_committed_barred',
+        operation_id: options.operationId, stage_operation_id: options.stageOperationId,
+        installation_id: identity.installation_id, data_id: identity.data_id,
+        generation: options.generation, plan_sha256: before.planSha,
+        decision_sha256: before.decisionSha, completion_sha256: before.plan.completion_sha256,
+        marker_sha256: before.plan.marker_sha256,
+        registration_revision: before.decision.registration_revision,
+        discovery_sha256: before.decision.discovery_sha256,
+        child_process_identity: before.decision.child_process_identity };
+      const content = json(commit);
+      if (content.length > 4096) throw invalid();
+      // Invariant: `wx` leaves an interrupted or uncertain write for explicit reconciliation.
+      const checked = await verify(context);
+      if (checked.present.length || checked.hasDirectory || checked.planSha !== before.planSha
+        || checked.decisionSha !== before.decisionSha) throw invalid();
+      signal.throwIfAborted();
+      await writeInstallNew(context.place.terminal, content);
+      const reopened = await readInstallBytes(context.place.terminal, 4096);
+      if (!reopened.equals(content)) throw invalid();
+      const after = await verify(context);
+      if (after.present.length || after.hasDirectory || after.planSha !== before.planSha
+        || after.decisionSha !== before.decisionSha) throw invalid();
+      return Object.freeze({ state: 'terminal_committed_barred', operation_id: options.operationId,
+        generation: options.generation, commit_sha256: hash(content), marker_state: 'present',
+        pointer_state: 'selected' });
+    } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
+    finally { ACTIVE.delete(serviceLease); }
+  }), { timeoutMs: 300000 }).catch(error => {
     if (!started) ACTIVE.delete(serviceLease);
     throw error;
   });

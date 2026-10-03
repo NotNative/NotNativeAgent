@@ -8,12 +8,13 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from '../src/ids.js';
-import { readInstallBytes, hash, json, operationValid } from '../src/nnd-install-storage.js';
+import { readInstallBytes, writeInstallNew, hash, json, operationValid } from '../src/nnd-install-storage.js';
 import { noLinks } from '../src/nnd-payload-contract-files.js';
 import { exactRecord } from '../src/nnd-service-contract.js';
 import { validIdentity } from '../src/reliability/process-identity.js';
 import { parseNndTerminalRetirementPlanBytes } from '../src/nnd-activation-retirement-plan.js';
 import { runPrivateWindowsProgram, PRIVATE_ACL_PROGRAM } from '../src/nnd-service-private-windows.js';
+import { hasActivationEvidence } from '../src/nnd-activation-initialization-db.js';
 
 async function load(name, dependencies, exports) {
   const source = await readFile(new URL(`../src/${name}.js`, import.meta.url), 'utf8');
@@ -67,6 +68,7 @@ async function fixture({ nativeAcl = false } = {}) {
     registration_operation_id: `nnd-activate-${options.operationId}`, discovery_sha256: hash(json(pointer)), child_process_identity: childIdentity };
   const decisionPath = join(placeRoot, 'activation-retirement-decision.json');
   await writeFile(decisionPath, json(decision));
+  const terminalPath = join(placeRoot, 'activation-retirement-commit.json');
   const state = { identity, lease: serviceLease, unpublishedTrial: true, retained: true, retainedLeaseArmed: true,
     stopping: false, published: false, child: { failed: false, child: { pid: 4242, exitCode: null } },
     native: { isListening: () => true }, controller: { isListening: () => true }, record: pointer,
@@ -80,7 +82,7 @@ async function fixture({ nativeAcl = false } = {}) {
     readLockedManifestSnapshot: async () => ({ revision: hash(registrationBytes), rawBytes: registrationBytes }),
     captureDiscoveryProcessIdentity: async () => childIdentity, readNndServiceDiscovery: async () => pointer };
   const decisionApi = await load('nnd-activation-retirement-decision', dependencies, ['readNndExternalRetirementDecisionUnderOwnership']);
-  let removed = 0, interruptAt = null, afterRemoval = null, deniedAcl = false;
+  let removed = 0, interruptAt = null, afterRemoval = null, deniedAcl = false, afterCommitWrite = null;
   const remove = operation => async path => {
     await operation(path); removed++;
     if (afterRemoval) await afterRemoval();
@@ -91,12 +93,15 @@ async function fixture({ nativeAcl = false } = {}) {
       if (deniedAcl) throw Error('private ownership rejected'); return { ok: true };
     } },
   ['retirementCleanupPaths', 'inspectRetirementArtifacts', 'removeRetirementArtifact']);
-  const api = await load('nnd-activation-retirement-cleanup', { ...dependencies, ...decisionApi, ...fileApi },
-    ['cleanupNndRetirementEvidenceUnderOwnership']);
-  return { root, activations, directory, markerPath, planPath, decisionPath, files, options, state,
+  const api = await load('nnd-activation-retirement-cleanup', { ...dependencies, ...decisionApi, ...fileApi,
+    writeInstallNew: async (path, content) => { await writeInstallNew(path, content); await afterCommitWrite?.(); } },
+  ['cleanupNndRetirementEvidenceUnderOwnership', 'recordNndTerminalRetirementCommitUnderOwnership']);
+  return { root, activations, directory, markerPath, planPath, decisionPath, terminalPath, files, options, state,
     run: () => api.cleanupNndRetirementEvidenceUnderOwnership(identity, state, serviceLease, registryLease, options),
+    commit: () => api.recordNndTerminalRetirementCommitUnderOwnership(identity, state, serviceLease, registryLease, options),
     interrupt: count => { interruptAt = count; }, removed: () => removed,
     mutateAfterRemoval: fn => { afterRemoval = fn; }, clearPointer: () => { pointer = null; },
+    afterCommitWrite: fn => { afterCommitWrite = fn; },
     changeRegistration: () => { registrationBytes = Buffer.from('foreign'); },
     denyAcl: () => { deniedAcl = true; },
     cleanup: () => rm(root, { recursive: true, force: true }) };
@@ -186,3 +191,62 @@ test('Windows private ACL verifier accepts exact cleanup and retains all admissi
       for (const path of [f.markerPath, f.planPath, f.decisionPath]) assert.ok((await lstat(path)).isFile());
     } finally { await f.cleanup(); }
   });
+
+test('terminal commit requires exact completed cleanup and remains barred after a canonical single write', async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(f.commit(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    await assert.rejects(lstat(f.terminalPath), { code: 'ENOENT' });
+    await f.run();
+    const result = await f.commit();
+    assert.equal(result.state, 'terminal_committed_barred');
+    const bytes = await readFile(f.terminalPath);
+    const committed = JSON.parse(bytes.toString('utf8'));
+    assert.equal(hash(bytes), result.commit_sha256);
+    assert.equal(committed.marker_sha256, hash(await readFile(f.markerPath)));
+    assert.equal(committed.decision_sha256, hash(await readFile(f.decisionPath)));
+    assert.equal(committed.registration_revision.length, 64);
+    assert.equal(f.state.published, false);
+    await assert.rejects(f.commit(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    assert.deepEqual(await readFile(f.terminalPath), bytes);
+    for (const path of [f.markerPath, f.planPath, f.decisionPath]) assert.ok((await lstat(path)).isFile());
+  } finally { await f.cleanup(); }
+});
+
+test('uncertain terminal write is preserved, never retried or treated as published', async () => {
+  const f = await fixture();
+  try {
+    await f.run();
+    f.afterCommitWrite(() => { throw Error('lost response after durable write'); });
+    await assert.rejects(f.commit(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    const bytes = await readFile(f.terminalPath);
+    f.afterCommitWrite(null);
+    await assert.rejects(f.commit(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+    assert.deepEqual(await readFile(f.terminalPath), bytes);
+    assert.ok((await lstat(f.markerPath)).isFile());
+  } finally { await f.cleanup(); }
+});
+
+test('a lone terminal commit remains an ordinary admission barrier after earlier proofs vanish', async () => {
+  const f = await fixture();
+  try {
+    await f.run();
+    await f.commit();
+    await unlink(f.markerPath);
+    await unlink(f.planPath);
+    await unlink(f.decisionPath);
+    assert.equal(await hasActivationEvidence(f.root), true);
+  } finally { await f.cleanup(); }
+});
+
+test('changed live evidence prevents terminal commit after cleanup', async () => {
+  for (const change of [f => f.clearPointer(), f => f.changeRegistration(), f => { f.state.stopping = true; },
+    f => writeFile(f.markerPath, 'foreign')]) {
+    const f = await fixture();
+    try {
+      await f.run(); await change(f);
+      await assert.rejects(f.commit(), { code: 'nnd_activation_retirement_cleanup_invalid' });
+      await assert.rejects(lstat(f.terminalPath), { code: 'ENOENT' });
+    } finally { await f.cleanup(); }
+  }
+});
