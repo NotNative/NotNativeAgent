@@ -24,6 +24,7 @@ import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted
 import { recordNndCompletionUnderOwnership } from './nnd-activation-completion-receipt.js';
 import { planNndTerminalRetirementUnderOwnership } from './nnd-activation-retirement-plan.js';
 import { recordNndExternalRetirementDecisionUnderOwnership } from './nnd-activation-retirement-decision.js';
+import { cleanupNndRetirementEvidenceUnderOwnership } from './nnd-activation-retirement-cleanup.js';
 import { userDataPaths } from './product.js';
 
 const RETAINED_BY_LEASE = new WeakMap();
@@ -103,7 +104,9 @@ function createSupervisorSession(identity, lease, releaseLease) {
   return { state, stop, handle: Object.freeze({ status: () => status(state), stop, stopped,
     recordCompletion: (registryLease, options) => recordRetainedCompletion(state, registryLease, options),
     planRetirement: (registryLease, options) => planRetainedRetirement(state, registryLease, options),
-    recordRetirementDecision: (registryLease, options) => recordRetainedRetirementDecision(state, registryLease, options) }) };
+    recordRetirementDecision: (registryLease, options) => recordRetainedRetirementDecision(state, registryLease, options),
+    cleanupRetirement: (registryLease, options) => cleanupNndRetirementEvidenceUnderOwnership(
+      state.identity, state, state.lease, registryLease, options) }) };
 }
 async function recordRetainedCompletion(state, registryLease, options) {
   if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
