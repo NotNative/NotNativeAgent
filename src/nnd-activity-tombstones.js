@@ -64,9 +64,12 @@ async function readJournal(path, owner) {
     || journal.entries.some((entry) => !validEntry(entry))) throw invalid();
   let previous = journal.floor;
   for (const entry of journal.entries) {
-    if (entry.sequence <= previous || entry.sequence >= journal.nextSequence) throw invalid();
+    // Invariant: a missing retained deletion must be an explicit gap, never
+    // silently skipped by an otherwise syntactically valid journal.
+    if (entry.sequence !== previous + 1 || entry.sequence >= journal.nextSequence) throw invalid();
     previous = entry.sequence;
   }
+  if (previous !== journal.nextSequence - 1) throw invalid();
   return journal;
 }
 

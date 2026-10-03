@@ -7,10 +7,11 @@ import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
 const ACTIVITY_HISTORY_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/activity-history$/u;
+const ACTIVITY_TOMBSTONES_ROUTE = '/v1/nnd/activity-tombstones';
 const MESSAGE_LIMIT_MAX = 200;
 const LIVE_BOUNDARY_PREFIX = 'nnd-live-boundary:';
 export async function dispatchNndHarnessRequest(request, response, context) {
-  if (await readActivityHistory(request, response, context)) return true;
+  if (await readActivityTombstones(request, response, context) || await readActivityHistory(request, response, context)) return true;
   if (openEventStream(request, response, context)) return true;
   if (await dispatchNndQuestionRequest(request, response, context)) return true;
   if (await dispatchNndNotificationRequest(request, response, context)) return true;
@@ -68,6 +69,28 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     return send(response, 200, true);
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+/** Owner-scoped deletion receipts, never a complete history or a foreign-session lookup. */
+async function readActivityTombstones(request, response, context) {
+  if (context.url.pathname !== ACTIVITY_TOMBSTONES_ROUTE) return false;
+  if (request.method !== 'GET') return send(response, 405,
+    { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+  requireIntegrationPermission(context.principal, 'nnd.read');
+  const host = context.nndEngineHost;
+  if (!host?.activityTombstonesPage) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
+  const params = context.url.searchParams;
+  if ([...params.keys()].some((key) => !['after', 'limit'].includes(key))
+    || params.getAll('after').length > 1 || params.getAll('limit').length > 1) {
+    throw new ContractError('nnd_activity_tombstones_request_invalid', 'NND Activity tombstone page request is invalid');
+  }
+  const after = params.get('after'); const limit = params.get('limit');
+  if (after !== null && (!/^(?:0|[1-9]\d{0,15})$/u.test(after) || !Number.isSafeInteger(Number(after)))
+    || limit !== null && (!/^[1-9]\d{0,2}$/u.test(limit) || Number(limit) > 100)) {
+    throw new ContractError('nnd_activity_tombstones_request_invalid', 'NND Activity tombstone page request is invalid');
+  }
+  return send(response, 200, await host.activityTombstonesPage(context.principal,
+    { ...(after === null ? {} : { after: Number(after) }), ...(limit === null ? {} : { limit: Number(limit) }) }));
 }
 
 /** Durable-only pages. SSE IDs do not index this snapshot; callers must treat

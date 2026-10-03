@@ -138,6 +138,8 @@ function failureStatus(code) {
   if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy'].includes(code)) return 409;
   if (code === 'nnd_goal_audit_unavailable') return 503;
   if (code === 'nnd_pending_unavailable') return 503;
+  if (code === 'nnd_activity_tombstones_unavailable') return 503;
+  if (code === 'nnd_activity_tombstones_invalid') return 500;
   if (code === 'nnd_walkthrough_unavailable') return 503;
   if (code === 'nnd_goal_audit_timeout') return 504;
   if (code === 'nnd_walkthrough_timeout') return 504;
