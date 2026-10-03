@@ -18,6 +18,10 @@ const MEMORY_LIMITS: Record<string, { label: 'settings.nativeMemory.timeout' | '
 const MEMORY_BOOLEAN: Record<string, 'settings.nativeMemory.enabled' | 'settings.nativeMemory.required'> = {
   'memory.enabled': 'settings.nativeMemory.enabled', 'memory.required': 'settings.nativeMemory.required',
 };
+const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeScheduling.concurrency' | 'settings.nativeScheduling.queueLimit'; min: number; max: number }> = {
+  provider_concurrency: { label: 'settings.nativeScheduling.concurrency', min: 1, max: 16 },
+  provider_queue_limit: { label: 'settings.nativeScheduling.queueLimit', min: 1, max: 4096 },
+};
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -57,6 +61,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
     || field.type === 'boolean' && Object.hasOwn(MEMORY_BOOLEAN, field.path));
   const memorySelected = selected?.type === 'integer' ? MEMORY_LIMITS[selected.path] : undefined;
   const memoryBooleanSelected = selected?.type === 'boolean' ? MEMORY_BOOLEAN[selected.path] : undefined;
+  const schedulingFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(PROVIDER_SCHEDULING, field.path));
+  const schedulingSelected = selected?.type === 'integer' ? PROVIDER_SCHEDULING[selected.path] : undefined;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -78,6 +84,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(field.type === 'boolean' ? MEMORY_BOOLEAN[field.path]! : MEMORY_LIMITS[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {schedulingFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.provider-scheduling">
+      <h4 className="font-semibold">{t('settings.nativeScheduling.title')}</h4>
+      <p>{t('settings.nativeScheduling.description')}</p>
+      <div className="flex flex-wrap gap-2">{schedulingFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(PROVIDER_SCHEDULING[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     <label className="block">{t('settings.nativeConfiguration.chooseField')}
@@ -123,11 +139,19 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(JSON.stringify(event.target.checked)); }} />
         {t(memoryBooleanSelected)}
       </label> : null}
+      {model.mode === 'set' && schedulingSelected ? <label className="block">
+        {t(schedulingSelected.label)}
+        <input type="number" min={schedulingSelected.min} max={schedulingSelected.max} step="1"
+          value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
       {model.mode === 'set' && selected.path === 'memory.enabled' && model.draft === 'false'
         ? <p>{t('settings.nativeMemory.disableAlsoClearsRequired')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
-      {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
+      {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />

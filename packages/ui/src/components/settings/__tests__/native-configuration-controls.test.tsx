@@ -98,6 +98,40 @@ it('edits only advertised native attachment scalars with typed preview and CAS s
   expect(container.textContent).toContain('not applied');
 });
 
+it('offers bounded provider scheduling controls only for fields advertised by NNA', async () => {
+  const schedulingView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider_concurrency', catalog_path: 'provider_concurrency', explicit: { present: false },
+      effective: { present: true, value: 1, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'provider_queue_limit', catalog_path: 'provider_queue_limit', explicit: { present: false },
+      effective: { present: true, value: 256, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const concurrency = { path: 'provider_concurrency', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [concurrency,
+    { path: 'provider_queue_limit', type: 'integer', editability: field.editability },
+    { path: 'provider_unknown', type: 'integer', editability: field.editability }] });
+  const schedulingRequest = { ...request, operations: [{ op: 'set' as const, field: concurrency.path, value: 4 }] };
+  vi.mocked(nativeChange).mockReturnValue(schedulingRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: schedulingView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(schedulingView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.provider-scheduling"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('provider_unknown');
+  await act(async () => button('Concurrent provider requests').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('1'); expect(input.max).toBe('16'); expect(input.value).toBe('1');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '4');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(schedulingView, concurrency, 'set', '4');
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(schedulingRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('not applied');
+});
+
 it('offers only advertised native memory limits and saves a typed bounded value through the same CAS request', async () => {
   const memoryView: NativeConfigurationView = { ...view, fields: [
     { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: false },

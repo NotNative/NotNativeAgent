@@ -213,8 +213,10 @@ It now offers direct typed controls for `attachments.enabled`,
 `attachments.max_bytes`, and `attachments.retain`; native TUI preferences and
 reviewer/vision scalar routes also have focused controls. Typed controls for
 `memory.timeout_ms`, `memory.max_items`, and `memory.max_bytes` use the same
-native user-manifest preview and save path. These controls do not assert that
-running sessions adopt saved values. Other execution, context, recovery, dream,
+native user-manifest preview and save path. The provider scheduling limits
+`provider_concurrency` and `provider_queue_limit` also have bounded controls
+when NNA advertises them. These controls do not assert that running sessions
+adopt saved values. Other execution, context, recovery, dream,
 telemetry, and retention scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate
