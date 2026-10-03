@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e05548d55afe56b930a4df44af9581147d4c0197be4b657106097baa1e40c142",
+  "source_digest": "sha256:0ee71f1dc208e002aeac00f871e1a2fbf50c69d597bfb7e486a3cd834c6cb8d2",
   "counts": {
-    "modules": 477,
+    "modules": 478,
     "component_edges": 81
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 176
+      "module_count": 177
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 437,
-      "module_count": 151
+      "import_count": 445,
+      "module_count": 152
     },
     {
       "from": "experience-engine",
@@ -174,8 +174,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 31,
-      "module_count": 22
+      "import_count": 34,
+      "module_count": 23
     },
     {
       "from": "providers",
@@ -274,6 +274,12 @@
       "module_count": 8
     },
     {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 8,
+      "module_count": 8
+    },
+    {
       "from": "integrations",
       "to": "integrations",
       "import_count": 8,
@@ -290,12 +296,6 @@
       "to": "providers",
       "import_count": 7,
       "module_count": 2
-    },
-    {
-      "from": "foundation",
-      "to": "reliability-engine",
-      "import_count": 7,
-      "module_count": 7
     },
     {
       "from": "gateway",
@@ -2059,6 +2059,25 @@
         "src/nnd-service-private-windows.js",
         "src/persistence/manifest-lock.js",
         "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
+      "path": "src/nnd-activation-reconciliation.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-journal.js",
+        "src/nnd-install-storage.js",
+        "src/nnd-install-transaction.js",
+        "src/nnd-service-contract.js",
+        "src/nnd-service-discovery-windows.js",
+        "src/nnd-service-discovery.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-files.js",
+        "src/persistence/manifest-lock.js",
+        "src/persistence/manifest-transaction.js",
+        "src/reliability/process-identity.js"
       ]
     },
     {

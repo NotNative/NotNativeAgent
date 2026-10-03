@@ -111,6 +111,20 @@ export async function readManifestOperation(path, operationId, options = {}) {
   });
 }
 
+// Recovery callers already own the target mutex. Reacquiring it would deadlock;
+// reconcile the durable receipt under that same lease before reporting its state.
+export async function readLockedManifestOperation(lease, operationId) {
+  if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(operationId)) throw manifestFailure('manifest_request_invalid');
+  return exclusiveLeaseWork(lease, async () => {
+    const database = await openManifestReceipts(lease);
+    try {
+      await reconcileManifestReceipts(lease, database);
+      const row = database.prepare('SELECT * FROM operations WHERE id=?').get(operationId);
+      return row ? receiptOutcome(row, true) : null;
+    } finally { database.close(); }
+  });
+}
+
 async function cleanupArtifact(path, persistence) {
   try { await unlink(path); } catch (error) {
     if (error.code !== 'ENOENT') throw manifestFailure('manifest_cleanup_failed', persistence);

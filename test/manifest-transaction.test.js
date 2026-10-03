@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
+import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, readLockedManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 
 async function fixture(t) {
@@ -107,6 +107,17 @@ test('locked snapshots reject expired leases', async t=>{
   const path=await fixture(t);let captured;
   await withManifestLock(path,{},async lease=>{captured=lease;});
   await assert.rejects(readLockedManifestSnapshot(captured),{code:'manifest_lock_invalid'});
+});
+test('held owner can reconcile its manifest receipt without reacquiring the mutex', async t => {
+  const path = await fixture(t);
+  await withManifestLock(path, {}, async lease => {
+    assert.equal(await readLockedManifestOperation(lease, 'missing'), null);
+    const result = await transactLockedManifest(lease, request(path, 'absent', 'activation-cas', { selected: true }));
+    const receipt = await readLockedManifestOperation(lease, 'activation-cas');
+    assert.equal(receipt.persistence, 'saved');
+    assert.equal(receipt.beforeRevision, 'absent');
+    assert.equal(receipt.persistedRevision, result.persistedRevision);
+  });
 });
 
 test('crash after initial publication link recovers only its prepared stage', {timeout:15000}, async t=>{
