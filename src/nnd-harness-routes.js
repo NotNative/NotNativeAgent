@@ -6,9 +6,11 @@ import { sseOpen } from './opencode/protocol.js';
 import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
+const ACTIVITY_HISTORY_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/activity-history$/u;
 const MESSAGE_LIMIT_MAX = 200;
 const LIVE_BOUNDARY_PREFIX = 'nnd-live-boundary:';
 export async function dispatchNndHarnessRequest(request, response, context) {
+  if (await readActivityHistory(request, response, context)) return true;
   if (openEventStream(request, response, context)) return true;
   if (await dispatchNndQuestionRequest(request, response, context)) return true;
   if (await dispatchNndNotificationRequest(request, response, context)) return true;
@@ -66,6 +68,32 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     return send(response, 200, true);
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+/** Durable-only pages. SSE IDs do not index this snapshot; callers must treat
+ * a changed snapshot as a gap and re-read from the newest page. */
+async function readActivityHistory(request, response, context) {
+  const match = ACTIVITY_HISTORY_ROUTE.exec(context.url.pathname);
+  if (!match) return false;
+  if (request.method !== 'GET') return send(response, 405,
+    { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+  requireIntegrationPermission(context.principal, 'nnd.read');
+  const host = context.nndEngineHost;
+  if (!host?.activityHistoryPage) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
+  let id;
+  try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
+  catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
+  const params = context.url.searchParams;
+  if ([...params.keys()].some((key) => !['limit', 'cursor'].includes(key))
+    || params.getAll('limit').length > 1 || params.getAll('cursor').length > 1) {
+    throw new ContractError('nnd_activity_page_invalid', 'NND activity history page request is invalid');
+  }
+  const limit = params.get('limit'); const cursor = params.get('cursor');
+  if (limit !== null && !/^[1-9]\d{0,2}$/u.test(limit)) {
+    throw new ContractError('nnd_activity_page_invalid', 'NND activity history page request is invalid');
+  }
+  return send(response, 200, await host.activityHistoryPage(id, context.principal,
+    { ...(limit === null ? {} : { limit: Number(limit) }), ...(cursor === null ? {} : { cursor }) }));
 }
 
 function readSession(response, context, host, id, detail) {
