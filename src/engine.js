@@ -65,6 +65,7 @@ export class SessionEngine {
       webFetchConfigPath: options.webFetchConfigPath, lspConfigPath: options.lspConfigPath,
       lspSpawnProcess: options.lspSpawnProcess, attachmentRoot: options.attachmentRoot,
       reviewerRoot: options.reviewerRoot, governanceRoot: options.governanceRoot, telemetryRoot: options.telemetryRoot,
+      workspaceBinding: options.workspaceBinding, workspaceBindingResolver: options.workspaceBindingResolver,
     };
     this.telemetry = createEngineTelemetry(this, options);
     this.state.setObserver(this.telemetry.stateObserver?.());

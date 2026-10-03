@@ -9,6 +9,10 @@ initialization and rechecks the binding before publication.
 NND parent and subagent engines do not expose `workspace_change`; direct transition calls and
 replay of an earlier workspace-change record are also rejected. The native prompt route
 rechecks the stored filesystem identity immediately before handing the prompt to the engine.
+The host passes that immutable identity to NND parent engines and their derived subagents.
+Each tool call checks it before sealing arguments, before the reviewed decision enters
+execution, and immediately before the executor runs. A changed identity yields a
+no-effect rejection; it does not reuse the reviewer decision for a different tree.
 
 On restart, each catalog record is checked against the currently configured primary path,
 principal ID, and filesystem identity **before** constructing its engine. Legacy records
@@ -23,6 +27,6 @@ single-root contract. The authenticated managed `/path` response now includes NN
 authoritative `workspace_id` when a configured engine is available, so an attached NND
 client need not invent a synthetic principal scope. A later phase must supply per-session configuration and grant-aware
 principal scope before secondary workspaces can execute.
-The prompt check cannot pin a Windows directory across an active turn. A later F1 slice must
-bind tool operations to the same root identity so a directory replacement during execution
-cannot redirect a tool to a new tree at the old path.
+These checks do not pin a Windows directory handle for the lifetime of an active tool. A
+replacement after the final check, or while a long-running process operates, still requires
+handle-based or OS-level isolation in a later F1 slice.

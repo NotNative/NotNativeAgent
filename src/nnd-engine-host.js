@@ -95,6 +95,7 @@ export class NndEngineHost {
     try {
       const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
+        workspaceBinding: binding, workspaceBindingResolver: this.primaryWorkspaceBinding,
         output: (record) => this.observeOutput(sessionId, record) });
       if (!engine || typeof engine.initialize !== 'function') {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');

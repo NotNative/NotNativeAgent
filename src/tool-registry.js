@@ -30,7 +30,8 @@ import { prepareLineEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
-import { allowedByManifest, catalogVisible, isToolSurfaceEligible } from './tools/provider-surface.js';
+import { allowedByManifest, catalogVisible, compactPurpose, isToolSurfaceEligible } from './tools/provider-surface.js';
+import { workspaceIdentityGuard } from './tools/workspace-identity-guard.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 import { requireCanonicalToolName } from './tool-name.js';
@@ -49,6 +50,7 @@ import { consumeWorkflowLease, grantWorkflowLeases } from './tools/workflow-leas
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
 export class ToolRegistry {
+  #workspaceIdentityGuard;
   #definitions = new Map();
   #history = new Map();
   #providerIds = new Set();
@@ -60,6 +62,7 @@ export class ToolRegistry {
     this.enabled = options.enabled !== false;
     this.hosted = options.hosted === true; this.browserSurface = options.browserSurface === 'nnd' ? 'nnd' : 'playwright';
     this.allowedTools = Array.isArray(options.allowedTools) ? new Set(options.allowedTools) : null;
+    this.#workspaceIdentityGuard = workspaceIdentityGuard(options.workspaceIdentityCheck);
     this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace, protectedRoots: [userDataPaths().root] });
     this.#changes = new FileChangeLedger(this.paths.inputRoot);
     this.guidance = new GuidanceCatalog(options.guidanceRoot);
@@ -186,7 +189,9 @@ export class ToolRegistry {
       ...options, hasDefinition: (name) => this.#definitions.has(name),
     }, (leaseNames) => this.#workflowLeaseCapacity(leaseNames));
   }
+  async assertWorkspaceIdentity() { await this.#workspaceIdentityGuard.assert(); }
   async seal(call, context) {
+    await this.assertWorkspaceIdentity();
     if (this.#providerIds.has(call.providerCallId)) {
       throw new ContractError('duplicate_tool_call', 'provider tool-call identity was already used');
     }
@@ -287,6 +292,7 @@ export class ToolRegistry {
     const { normalizeArgs: _normalizeArgs, ...installedDefinition } = definition;
     const frozen = Object.freeze({
       ...installedDefinition, maxOutputBytes,
+      executor: this.#workspaceIdentityGuard.wrap(installedDefinition.executor),
       validate: async (args) => {
         const aliased = normalizeArgs(args); const normalized = await validateShape(aliased);
         const validated = await validate(normalized);
@@ -299,15 +305,6 @@ export class ToolRegistry {
   }
 }
 
-function compactPurpose(definition) {
-  const override = definition.providerFacade?.description;
-  const purpose = typeof override === 'string' && override.trim() ? override.trim() : definition.purpose;
-  const text = typeof purpose === 'string' ? purpose.trim().replace(/\s+/gu, ' ') : `Call ${definition.name}`;
-  // Why: conditional contracts often live after the first sentence. Preserve
-  // the complete bounded purpose so local models do not have to infer omitted
-  // behavior from a tool name.
-  return text.length <= 320 ? text : `${text.slice(0, 319)}…`;
-}
 function writeDefinition(paths, changes, receipts) {
   return {
     name: 'fs_write_text', version: 2, purpose: 'Atomically write one bounded UTF-8 file payload, creating missing parent directories for a new target and recording the resulting authored state.',

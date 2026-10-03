@@ -97,6 +97,7 @@ export class ToolGovernor {
 
   async beginExecution(request, decision, current) {
     this.#revalidate(request, decision, current);
+    await this.registry.assertWorkspaceIdentity?.();
     await this.reviewer.ledger.executionStarted(request.id, decision.id);
     this.#activeDecisions.set(request.id, decision.id);
   }

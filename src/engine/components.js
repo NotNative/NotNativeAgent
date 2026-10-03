@@ -13,6 +13,7 @@ import { MandatoryReviewer } from '../reviewer.js';
 import { mandatoryReviewEventTimeout, ToolGovernor } from '../tools/governor.js';
 import { ToolLoop } from '../tools/loop.js';
 import { ToolRegistry } from '../tool-registry.js';
+import { nndToolWorkspaceIdentityCheck } from '../nnd-workspace-binding.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { userDataPaths } from '../product.js';
 import { HookRuntime } from '../hook-runtime.js';
@@ -110,9 +111,8 @@ function installExtensions(engine, options) {
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
-  installNotifications(engine, options); const imageObserver = createImageObserver(engine); engine.work = options.conversationWork ?? new ConversationWork({
-    persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId, deferCompletion: () => engine.active !== null,
-  });
+  installNotifications(engine, options); const imageObserver = createImageObserver(engine);
+  installConversationWork(engine, options, hooks);
   engine.skills = options.skillRegistry ?? new SkillRegistry({
     hosted: engine.config.executionManifest !== null,
     hostSkills: engine.config.skills,
@@ -120,6 +120,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     allowedTools: engine.config.executionManifest?.allowedTools,
   });
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
+    workspaceIdentityCheck: nndToolWorkspaceIdentityCheck(engine, options.workspaceBinding, options.workspaceBindingResolver),
     browserSurface: options.surface === 'nnd' || options.surface === 'nnd_subagent' ? 'nnd' : 'playwright',
     hosted: engine.config.executionManifest !== null, boundedToWorkspace: engine.config.executionManifest !== null,
     administrator: administratorAdapter(engine, options),
@@ -167,6 +168,13 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
     credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
+  });
+}
+
+function installConversationWork(engine, options, hooks) {
+  engine.work = options.conversationWork ?? new ConversationWork({
+    persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId,
+    deferCompletion: () => engine.active !== null,
   });
 }
 

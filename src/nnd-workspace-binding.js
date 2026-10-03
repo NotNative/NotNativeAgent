@@ -27,14 +27,33 @@ export async function primaryNndWorkspaceBinding(configuredRoot) {
 }
 
 export function assertPrimaryNndWorkspaceBinding(binding, principal, directory, expected, restoring) {
-  if (!binding || typeof binding !== 'object' || Array.isArray(binding)
-    || Object.keys(binding).length !== KEYS.length || KEYS.some(key => !Object.hasOwn(binding, key))
-    || KEYS.some(key => binding[key] !== expected[key])) throw mismatch();
+  assertSameNndWorkspaceBinding(binding, expected);
   if (!Array.isArray(principal?.workspaceIds) || principal.workspaceIds.length !== 1
     || principal.workspaceIds[0] !== expected.id) throw mismatch();
   if (restoring ? directory !== expected.configured_root
     : directory !== undefined && directory !== expected.configured_root) throw mismatch();
   return expected;
+}
+
+function assertSameNndWorkspaceBinding(binding, expected) {
+  if (!binding || typeof binding !== 'object' || Array.isArray(binding)
+    || Object.keys(binding).length !== KEYS.length || KEYS.some(key => !Object.hasOwn(binding, key))
+    || !expected || KEYS.some(key => binding[key] !== expected[key])) throw mismatch();
+}
+
+// Security: a captured native identity, not the mutable working-directory string,
+// controls both tool sealing and the final handoff to an executor.
+export function nndToolWorkspaceIdentityCheck(engine, binding, resolver) {
+  if (!binding) return null;
+  if (typeof resolver !== 'function') throw mismatch();
+  const captured = Object.freeze({ ...binding });
+  return async () => {
+    assertBoundEngineWorkspace(engine, captured);
+    let current;
+    try { current = await resolver(); } catch { throw mismatch(); }
+    assertSameNndWorkspaceBinding(captured, current);
+    assertBoundEngineWorkspace(engine, captured);
+  };
 }
 
 export function assertLegacyNndWorkspaceBinding(principal, directory, expected) {
