@@ -727,8 +727,8 @@ one-use private transition proof, closed-only native trial admission, and a
 private dark controller challenge that proves point-in-time listener health.
 These pieces do not yet make an operator principal effective or transfer the
 held child into a completed NND installation. NNA v16 passed its complete
-serial suite (2,139 passed, 8 skipped); v20 full integration validation is
-pending at this entry.
+serial suite (2,139 passed, 8 skipped). V20 passed the complete serial suite
+with 2,157 passed, 8 skipped, and no failures.
 
 ## NND 20261003-2 through 20261003-10 — managed GUI and installer safeguards
 
@@ -741,10 +741,20 @@ NNA's typed MCP preview/save and operation receipts, including uncertain
 result recovery. The installer and desktop launcher pin the selected NNA
 installation and data identity, rejecting a different root even if a command
 line supplies one. NND v6 passed 1,726 UI tests, 1,447 web tests, typechecks,
-and both release-gate passes. V10 installer validation remains pending at this
-entry. Existing root-only selection files need an installer rerun to acquire
-the new pin. Browser and desktop installed acceptance, optional dependency
+and both release-gate passes. V10's pinned and legacy installer-selection
+regressions passed, as did both release-gate passes, a cross-product source
+smoke, and a disposable prebuilt Chromium/native-slot attachment. Existing
+root-only selection files need an installer rerun to acquire the new pin.
+Browser and desktop operator-install acceptance, optional dependency
 acquisition, public activation, full secondary workspace scope, and durable
 completion remain open for the MVP.
 
-\n
+## NND 20261003-11 — owner-scoped retained deletion receipts
+
+The Activity rail can read NNA's bounded deletion receipts independently of
+the selected session and live event stream. It shows the retention floor,
+clears rows when the floor moves or the runtime/authentication scope changes,
+and never labels the page a complete deletion history. Independent review
+fixed retention-floor drift between pages and stale owner data after a same-
+endpoint credential switch. The complete UI suite passed (1,732 tests), the
+web suite passed (1,447 tests), and typecheck and quality gates passed.

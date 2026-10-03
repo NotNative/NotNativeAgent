@@ -9,6 +9,7 @@ import type { ToolEvidence } from '../sync/activity-log.ts';
 import { ACTIVITY_FILTERS, filterActivityRecords, type ActivityFilter } from './operator-activity-filter.ts';
 import { activityGapAt, subscribeActivityGap } from '../sync/activity-gap.ts';
 import { SavedActivityWindow } from './saved-activity-window.tsx';
+import { DeletedActivityWindow } from './deleted-activity-window.tsx';
 
 export function ActivitySurface({ store, directory, sessionID, expanded, onReviewPath, onOpenSubagent }: {
   store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; expanded: boolean;
@@ -67,6 +68,7 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
           <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>Retry</button>
         </div> : null}
         {nnaSource && sessionID ? <SavedActivityWindow directory={directory} sessionID={sessionID} /> : null}
+        {nnaSource ? <DeletedActivityWindow /> : null}
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
           {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
             className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}

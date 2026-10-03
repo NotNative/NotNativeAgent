@@ -311,6 +311,10 @@ export const harnessClient = {
     return request('readActivityHistoryPage', `/v1/nnd/sessions/${sid(sessionId)}/activity-history${query}`,
       undefined, undefined, '');
   },
+  async readActivityTombstones(after = 0): Promise<HarnessResult<unknown>> {
+    return request('readActivityTombstones', `/v1/nnd/activity-tombstones?after=${after}&limit=50`,
+      undefined, undefined, '');
+  },
   async childSteeringCapability(sessionId: string, opts?: DirOption): Promise<HarnessResult<{
     session_id: string; revision: number; capabilities: { steer_subagent: boolean }; availability: string;
   }>> {

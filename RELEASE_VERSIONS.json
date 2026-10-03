@@ -960,6 +960,10 @@
     {
       "version": "20261003-10",
       "content_sha256": "f51f621671af29d47667fbbe5d38ee714a4f676b424a7964c8536aebf9da8bd8"
+    },
+    {
+      "version": "20261003-11",
+      "content_sha256": "d9c7a5f261568dd8355f5e04963945237d14e7a39767f1e7546ff12f2a04920c"
     }
   ]
 }
