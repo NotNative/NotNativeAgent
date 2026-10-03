@@ -116,7 +116,11 @@ async function fixture(options = {}) {
     readNndPrivateDiscoveryGeneration: async () => record,
     readNndServiceDiscovery: async () => pointer,
     captureDiscoveryProcessIdentity: async (_signal, pid) => pid === undefined ? parentIdentity
-      : options.reusedPid ? { ...childIdentity, start_id: '999' } : childIdentity };
+      : options.reusedPid ? { ...childIdentity, start_id: '999' } : childIdentity,
+    issueNndPrincipalTransitionProof: () => {
+      const proof = Object.freeze({}); let retired = false;
+      return { proof, retire: () => { retired = true; options.onProofRetired?.(); }, get retired() { return retired; } };
+    } };
   const run = await verifier(dependencies);
   return { run: (more = {}) => run(identity, state, serviceLease, registryLease,
     { operationId, stageOperationId, generation, fetchImpl, ...more }),
@@ -133,6 +137,47 @@ test('held post-publication health confirms native GUI and gated controller with
     journal_sha256: hash('published'), native_state: 'ready' });
   assert.equal(f.probes, 5);
   assert.equal(f.attachTickets, 0);
+  assert.equal(f.state.published, false);
+});
+
+test('optional private transition callback receives proof only after health and it retires on return', async () => {
+  let retired = false, received;
+  const f = await fixture({ onProofRetired: () => { retired = true; } });
+  await f.run({ afterVerified: ({ proof, health }) => {
+    received = proof;
+    assert.equal(f.probes, 5);
+    assert.equal(health.state, 'published_healthy_unresolved');
+    assert.equal(f.state.published, false);
+  } });
+  assert.deepEqual(received, {});
+  assert.equal(retired, true);
+  assert.equal(f.state.published, false);
+});
+
+test('private transition callback is refused after a failed health probe', async () => {
+  let called = false;
+  const f = await fixture({ spoofUi: true });
+  await assert.rejects(f.run({ afterVerified: () => { called = true; } }), { code: 'nnd_activation_health_invalid' });
+  assert.equal(called, false);
+});
+
+test('private transition proof retires when a callback throws or attempts asynchronous use', async () => {
+  for (const afterVerified of [() => { throw Error('callback failed'); }, async () => {}]) {
+    let retired = false;
+    const f = await fixture({ onProofRetired: () => { retired = true; } });
+    await assert.rejects(f.run({ afterVerified }), { code: 'nnd_activation_health_invalid' });
+    assert.equal(retired, true);
+    assert.equal(f.state.published, false);
+  }
+});
+
+test('rejected asynchronous transition callback cannot crash the held owner later', async () => {
+  const f = await fixture();
+  let rejectLater;
+  const pending = new Promise((_, reject) => { rejectLater = reject; });
+  await assert.rejects(f.run({ afterVerified: () => pending }), { code: 'nnd_activation_health_invalid' });
+  rejectLater(Error('late callback failure'));
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(f.state.published, false);
 });
 

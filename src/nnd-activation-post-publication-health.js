@@ -14,6 +14,7 @@ import { readNndPrivateDiscoveryGeneration, readNndServiceDiscovery } from './nn
 import { captureDiscoveryProcessIdentity } from './nnd-service-discovery-windows.js';
 import { exactRecord, isNndLoopbackEndpoint } from './nnd-service-contract.js';
 import { validIdentity } from './reliability/process-identity.js';
+import { issueNndPrincipalTransitionProof } from './nnd-activation-principal-proof.js';
 
 const invalid = () => new ContractError('nnd_activation_health_invalid',
   'Published NND trial health is unresolved; preserve the pending barrier and both owners.');
@@ -183,14 +184,33 @@ async function verifyOwned(identity, state, serviceLease, registryLease, options
 export async function verifyNndPublishedTrialHealthUnderOwnership(identity, state, serviceLease, registryLease, options = {}) {
   assertOwner(identity, serviceLease, registryLease, options);
   liveState(state, options);
-  if (options.fetchImpl !== undefined && typeof options.fetchImpl !== 'function') throw invalid();
+  if (options.fetchImpl !== undefined && typeof options.fetchImpl !== 'function'
+    || options.afterVerified !== undefined && typeof options.afterVerified !== 'function') throw invalid();
   const timeoutMs = options.timeoutMs ?? 15000;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) throw invalid();
   return withNndServiceLease(serviceLease, identity.data_id,
     leaseSignal => runManifestLeaseWork(registryLease, async () => {
       const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(timeoutMs),
         ...(options.signal ? [options.signal] : [])]);
-      try { return await verifyOwned(identity, state, serviceLease, registryLease, options, signal); }
+      try {
+        const health = await verifyOwned(identity, state, serviceLease, registryLease, options, signal);
+        if (options.afterVerified) {
+          // Security: this proof exists only inside the final verified, held-owner
+          // callback. Async work cannot retain it after the callback returns.
+          const issued = issueNndPrincipalTransitionProof(identity, state, serviceLease, registryLease,
+            options, health, signal);
+          try {
+            const result = options.afterVerified(Object.freeze({ proof: issued.proof, health }));
+            if (result && typeof result.then === 'function') {
+              // Rejecting an async callback must not leave its later rejection
+              // unhandled and crash the owner while the activation is unresolved.
+              void Promise.resolve(result).catch(() => {});
+              throw invalid();
+            }
+          } finally { issued.retire(); }
+        }
+        return health;
+      }
       catch { throw invalid(); }
     }), { timeoutMs: 300000 });
 }

@@ -24,7 +24,13 @@ currently has `releaseLease: null` and its stop path discards the trial
 generation. It must not spawn a replacement child or release the registry
 mutex before the durable completion decision.
 
-The current code has no such proof or transfer transition. Returning a live
+The private post-publication health verifier can now issue a one-use,
+same-process transition proof during a synchronous held-owner callback. The
+proof is bound to its verified registration revision and journal receipt, live
+trial objects, operation, generation, and both original leases. It is retired
+when that callback returns. Consuming it only returns unresolved evidence: no
+principal changes, completion receipt, ownership transfer, or public attach
+follow from consumption. The current code has no transfer transition. Returning a live
 handle from the trial now would end `runManifestLeaseWork` while selection and
 completion remain unresolved under the registry mutex.
 Suppressing `trial.stop()` on a callback's unverified return would leave a
