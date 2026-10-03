@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c893055068885e51fcb4dc3fe40f721166ff0a2e992d8b2c73b8bf695fecb2d1",
+  "source_digest": "sha256:f11e844487acdbddfe86adb2c04d3bb2f5d54ce3594508fbd2f57e9c132f28a7",
   "counts": {
     "modules": 766,
     "component_edges": 17
@@ -114,14 +114,14 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 85,
+      "import_count": 86,
       "module_count": 41
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 80,
-      "module_count": 62
+      "import_count": 81,
+      "module_count": 63
     },
     {
       "from": "sync-engine",
@@ -1750,9 +1750,11 @@
         "packages/ui/src/components/settings/pages/mcp-inventory.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/stores/useMcpConfigStore.ts",
         "packages/ui/src/stores/useMcpStore.ts",
+        "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },
