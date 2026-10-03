@@ -822,3 +822,15 @@ paired mutation or GUI flow. Primary and subagent routes retain their separate
 native contracts.
 The full UI suite passed (1,740 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-17 — catalog-gated memory toggles
+
+Managed Settings now offers memory enablement and required-mode controls only
+when NNA advertises the paired native mutation contract for both fields. The
+preview shows the effect on both values and rejects inconsistent coupling;
+save uses the selected NNA's revision-checked operation and receipt path.
+Older NNA catalogs keep these controls unavailable. Independent adversarial
+review found no concrete defect, including after integration with reviewer and
+vision route bindings.
+The full UI suite passed (1,744 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.
