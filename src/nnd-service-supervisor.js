@@ -21,6 +21,7 @@ import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
 import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted-attach-receipt.js';
 import { recordNndCompletionUnderOwnership } from './nnd-activation-completion-receipt.js';
+import { planNndTerminalRetirementUnderOwnership } from './nnd-activation-retirement-plan.js';
 import { userDataPaths } from './product.js';
 
 const RETAINED_BY_LEASE = new WeakMap();
@@ -98,7 +99,8 @@ function createSupervisorSession(identity, lease, releaseLease) {
     closing.catch(() => {}); return closing;
   };
   return { state, stop, handle: Object.freeze({ status: () => status(state), stop, stopped,
-    recordCompletion: (registryLease, options) => recordRetainedCompletion(state, registryLease, options) }) };
+    recordCompletion: (registryLease, options) => recordRetainedCompletion(state, registryLease, options),
+    planRetirement: (registryLease, options) => planRetainedRetirement(state, registryLease, options) }) };
 }
 async function recordRetainedCompletion(state, registryLease, options) {
   if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
@@ -106,6 +108,13 @@ async function recordRetainedCompletion(state, registryLease, options) {
       'NND retained owner is unavailable for completion');
   }
   return recordNndCompletionUnderOwnership(state.identity, state, state.lease, registryLease, options);
+}
+async function planRetainedRetirement(state, registryLease, options) {
+  if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
+    throw new ContractError('nnd_activation_retirement_invalid',
+      'NND retained owner is unavailable for retirement planning');
+  }
+  return planNndTerminalRetirementUnderOwnership(state.identity, state, state.lease, registryLease, options);
 }
 // Security: the only exported trial entry consumes a one-use, receipt-bound native capability.
 export async function startNndOwnedTrial(identity, paths, lease, registryLease, capability, options = {}) {
