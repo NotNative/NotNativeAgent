@@ -35,8 +35,8 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Client sync and state engine | 42 | Harness SDK facade, Runtime adaptation, UI shell | Quality gates, Runtime adaptation, UI shell, Web server |
-| Harness SDK facade | 10 | Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
+| Client sync and state engine | 44 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
+| Harness SDK facade | 10 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
 | Runtime adaptation | 229 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
 | UI shell | 181 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 229 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
@@ -49,11 +49,11 @@ graph LR
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
 | UI shell | Runtime adaptation | 296 | 121 |
+| UI shell | Client sync and state engine | 83 | 40 |
 | UI shell | Harness SDK facade | 80 | 62 |
-| UI shell | Client sync and state engine | 80 | 38 |
-| Client sync and state engine | Harness SDK facade | 54 | 38 |
+| Client sync and state engine | Harness SDK facade | 55 | 39 |
 | Quality gates | Web server | 23 | 7 |
-| Client sync and state engine | Runtime adaptation | 13 | 11 |
+| Client sync and state engine | Runtime adaptation | 15 | 13 |
 | Runtime adaptation | Harness SDK facade | 10 | 7 |
 | Web entrypoints | Web server | 9 | 3 |
 | Web server | Harness SDK facade | 9 | 9 |
@@ -64,6 +64,7 @@ graph LR
 | Web server | Client sync and state engine | 3 | 3 |
 | Quality gates | Runtime adaptation | 1 | 1 |
 | Quality gates | Client sync and state engine | 1 | 1 |
+| Harness SDK facade | Client sync and state engine | 1 | 1 |
 
 ## Process entry points
 
@@ -72,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:4dc5d7ce5844281e3be1cd091d3d179efc67f5d81772c373e5c5c3799de3ffae`.
+Source fingerprint: `sha256:47e6a4553b38f4f4fdfde87641757e32ab6534ca14aaf962fd0c8ac8398931ad`.

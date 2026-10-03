@@ -2,17 +2,17 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4dc5d7ce5844281e3be1cd091d3d179efc67f5d81772c373e5c5c3799de3ffae",
+  "source_digest": "sha256:47e6a4553b38f4f4fdfde87641757e32ab6534ca14aaf962fd0c8ac8398931ad",
   "counts": {
-    "modules": 761,
-    "component_edges": 16
+    "modules": 763,
+    "component_edges": 17
   },
   "components": [
     {
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 42
+      "module_count": 44
     },
     {
       "id": "harness-facade",
@@ -113,21 +113,21 @@
     },
     {
       "from": "ui-shell",
+      "to": "sync-engine",
+      "import_count": 83,
+      "module_count": 40
+    },
+    {
+      "from": "ui-shell",
       "to": "harness-facade",
       "import_count": 80,
       "module_count": 62
     },
     {
-      "from": "ui-shell",
-      "to": "sync-engine",
-      "import_count": 80,
-      "module_count": 38
-    },
-    {
       "from": "sync-engine",
       "to": "harness-facade",
-      "import_count": 54,
-      "module_count": 38
+      "import_count": 55,
+      "module_count": 39
     },
     {
       "from": "gates",
@@ -138,8 +138,8 @@
     {
       "from": "sync-engine",
       "to": "runtime-io",
-      "import_count": 13,
-      "module_count": 11
+      "import_count": 15,
+      "module_count": 13
     },
     {
       "from": "runtime-io",
@@ -200,6 +200,12 @@
       "to": "sync-engine",
       "import_count": 1,
       "module_count": 1
+    },
+    {
+      "from": "harness-facade",
+      "to": "sync-engine",
+      "import_count": 1,
+      "module_count": 1
     }
   ],
   "modules": [
@@ -253,6 +259,7 @@
       "imports": [
         "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/authority-sync.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts"
@@ -763,7 +770,8 @@
         "packages/ui/src/lib/i18n/messages/en-review-mode.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/review-mode.ts",
-        "packages/ui/src/lib/runtime-switch.ts"
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -1771,7 +1779,8 @@
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
         "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
         "packages/ui/src/components/settings/pages/native-tui-edit-form.tsx",
-        "packages/ui/src/lib/nnd/configuration.ts"
+        "packages/ui/src/lib/nnd/configuration.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -3194,7 +3203,8 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/configuration.ts",
-        "packages/ui/src/lib/runtime-fetch.ts"
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -4307,6 +4317,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/sync/authority-sync.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/sync/blocking-reducer.ts",
       "component": "sync-engine",
       "entrypoint": false,
@@ -4395,9 +4413,23 @@
       "imports": [
         "packages/ui/src/chat/project-context-pins.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/authority-sync.ts",
         "packages/ui/src/sync/session-actions.ts",
         "packages/ui/src/sync/session-lifecycle.ts",
         "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-authority-recovery.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/activity-gap.ts",
+        "packages/ui/src/sync/authority-sync.ts",
+        "packages/ui/src/sync/engine-recovery.ts",
+        "packages/ui/src/sync/global-stores.ts"
       ]
     },
     {
@@ -4412,13 +4444,13 @@
         "packages/ui/src/lib/session-route.ts",
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/stores/useSkillsCatalogStore.ts",
-        "packages/ui/src/sync/activity-gap.ts",
         "packages/ui/src/sync/activity-streaming.ts",
         "packages/ui/src/sync/boot-open-readiness.ts",
         "packages/ui/src/sync/bootstrap-directory.ts",
         "packages/ui/src/sync/bootstrap.ts",
         "packages/ui/src/sync/child-store.ts",
         "packages/ui/src/sync/engine-actions.ts",
+        "packages/ui/src/sync/engine-authority-recovery.ts",
         "packages/ui/src/sync/engine-materialization.ts",
         "packages/ui/src/sync/engine-message-poll.ts",
         "packages/ui/src/sync/engine-recovery.ts",
@@ -4682,6 +4714,7 @@
         "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/session-knowledge-api.ts",
+        "packages/ui/src/sync/authority-sync.ts",
         "packages/ui/src/sync/event-equality.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/materialization.ts",
@@ -4700,6 +4733,7 @@
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/authority-sync.ts",
         "packages/ui/src/sync/session-actions.ts",
         "packages/ui/src/sync/session-message-loader.ts",
         "packages/ui/src/sync/types.ts"
