@@ -19,6 +19,11 @@ import { validIdentity } from './reliability/process-identity.js';
 
 const invalid = () => new ContractError('nnd_activation_health_invalid',
   'Private NND ticket receipt is unresolved; preserve the pending barrier and both owners.');
+const unknown = operationId => Object.freeze({ state: 'unknown', operation_id: operationId });
+const ticketPhase = journal => journal.length === 7 && journal[5].phase === 'discovery_published'
+  && journal[6].phase === 'private_ticket_verified';
+const recordedReceipt = (options, journal) => Object.freeze({ state: 'private_ticket_recorded_unresolved',
+  operation_id: options.operationId, generation: options.generation, receipt_sha256: journal[6].receipt_sha256 });
 const CHILD_KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
 const IDENTITY_KEYS = ['version', 'pid', 'platform', 'start_id'];
 const samePath = (left, right) => process.platform === 'win32'
@@ -51,8 +56,7 @@ export async function readNndPrivateTicketReceiptUnderOwnership(identity, servic
   return withNndServiceLease(serviceLease, identity.data_id, signal => runManifestLeaseWork(registryLease, async () => {
     signal.throwIfAborted();
     const journal = await readNndActivationJournal({ ...identity, operation_id: options.operationId }, place.directory);
-    if (journal.length !== 7 || journal[5].phase !== 'discovery_published'
-      || journal[6].phase !== 'private_ticket_verified') return Object.freeze({ state: 'unknown', operation_id: options.operationId });
+    if (!ticketPhase(journal)) return unknown(options.operationId);
     const marker = json({ protocol: '3.0', purpose: 'nnd_activation', operation_id: options.operationId,
       installation_id: identity.installation_id, data_id: identity.data_id,
       prepared_sha256: journal[0].receipt_sha256 });
@@ -87,7 +91,7 @@ export async function readNndPrivateTicketReceiptUnderOwnership(identity, servic
       || !current.rawBytes?.equals(desired) || current.revision !== desiredRevision
       || !isDeepStrictEqual(pointer, privateRecord)
       || pointer?.installation_id !== identity.installation_id || pointer.data_id !== identity.data_id
-      || pointer.instance_id !== options.generation) return Object.freeze({ state: 'unknown', operation_id: options.operationId });
+      || pointer.instance_id !== options.generation) return unknown(options.operationId);
     if (journal[1].evidence_sha256 !== hash(json({ operation_id: options.operationId,
       stage_operation_id: options.stageOperationId, installation_id: identity.installation_id,
       data_id: identity.data_id, version: child.version, payload_sha256: candidate.evidence.payload_sha256 }))
@@ -101,8 +105,7 @@ export async function readNndPrivateTicketReceiptUnderOwnership(identity, servic
     if (journal[6].evidence_sha256 !== privateTicketEvidenceSha(identity, options,
       journal[5].receipt_sha256, desiredRevision, childSha)) throw invalid();
     signal.throwIfAborted();
-    return Object.freeze({ state: 'private_ticket_recorded_unresolved', operation_id: options.operationId,
-      generation: options.generation, receipt_sha256: journal[6].receipt_sha256 });
+    return recordedReceipt(options, journal);
   }), { timeoutMs: 300000 });
 }
 function sameProof(left, right) {
