@@ -9,6 +9,7 @@ import { ContractError } from '../src/ids.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { exactRecord, isNndLoopbackEndpoint } from '../src/nnd-service-contract.js';
 import { validIdentity } from '../src/reliability/process-identity.js';
+import { privateTicketEvidenceSha } from '../src/nnd-activation-ticket-evidence.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -106,7 +107,7 @@ async function fixture(options = {}) {
   };
   const dependencies = { isDeepStrictEqual, join, resolve, createHmac, randomBytes, timingSafeEqual,
     ContractError, serializeManifestBytes,
-    exactRecord, isNndLoopbackEndpoint, validIdentity, hash, json,
+    exactRecord, isNndLoopbackEndpoint, validIdentity, privateTicketEvidenceSha, hash, json,
     operationValid: value => [operationId, stageOperationId, generation].includes(value),
     assertHeldNndServiceLease: lease => { if (lease !== serviceLease) throw Error('foreign service lease'); },
     withNndServiceLease: (_lease, _dataId, callback) => callback(new AbortController().signal),
@@ -130,7 +131,7 @@ async function fixture(options = {}) {
   const run = await verifier(dependencies);
   return { run: (more = {}) => run(identity, state, serviceLease, registryLease,
     { operationId, stageOperationId, generation, fetchImpl, ...more }),
-    state, journal, files, identity, operationId, get probes() { return probes; },
+    state, journal, files, identity, operationId, stageOperationId, get probes() { return probes; },
     get attachTickets() { return attachTickets; }, set pointer(value) { pointer = value; } };
 }
 
@@ -144,6 +145,19 @@ test('held post-publication health confirms native GUI and gated controller with
   assert.equal(f.probes, 5);
   assert.equal(f.attachTickets, 0);
   assert.equal(f.state.published, false);
+});
+test('private ticket receipt remains unresolved through repeated health checks', async () => {
+  const f = await fixture();
+  const before = await f.run();
+  const child = f.files.get(join(f.identity.data_root, 'runtime', 'nnd', 'install-slots',
+    'activations', `${f.operationId}.child.json`));
+  f.journal.push({ phase: 'private_ticket_verified', receipt_sha256: hash('ticket'),
+    evidence_sha256: privateTicketEvidenceSha(f.identity,
+      { operationId: f.operationId, stageOperationId: f.stageOperationId,
+        generation: f.state.record.instance_id }, before.journal_sha256, before.registration_revision, hash(child)) });
+  assert.equal((await f.run()).state, 'published_healthy_unresolved');
+  f.journal[6].evidence_sha256 = hash('foreign ticket proof');
+  await assert.rejects(f.run(), { code: 'nnd_activation_health_invalid' });
 });
 test('published health rejects a dark controller probe for another UI endpoint', async () => {
   const f = await fixture({ foreignDarkEndpoint: true });

@@ -15,6 +15,7 @@ import { captureDiscoveryProcessIdentity } from './nnd-service-discovery-windows
 import { exactRecord, isNndLoopbackEndpoint } from './nnd-service-contract.js';
 import { validIdentity } from './reliability/process-identity.js';
 import { issueNndPrincipalTransitionProof } from './nnd-activation-principal-proof.js';
+import { privateTicketEvidenceSha } from './nnd-activation-ticket-evidence.js';
 
 const invalid = () => new ContractError('nnd_activation_health_invalid',
   'Published NND trial health is unresolved; preserve the pending barrier and both owners.');
@@ -62,8 +63,9 @@ function exactChild(bytes, identity, options, version, pid) {
 async function selectedEvidence(identity, state, serviceLease, registryLease, options) {
   const place = location(identity, options.operationId);
   const journal = await readNndActivationJournal({ ...identity, operation_id: options.operationId }, place.directory);
-  if (journal.length !== 6 || journal[4].phase !== 'registration_cas'
-    || journal[5].phase !== 'discovery_published') throw invalid();
+  if (![6, 7].includes(journal.length) || journal[4].phase !== 'registration_cas'
+    || journal[5].phase !== 'discovery_published'
+    || journal.length === 7 && journal[6].phase !== 'private_ticket_verified') throw invalid();
   const marker = json({ protocol: '3.0', purpose: 'nnd_activation', operation_id: options.operationId,
     installation_id: identity.installation_id, data_id: identity.data_id,
     prepared_sha256: journal[0].receipt_sha256 });
@@ -81,6 +83,8 @@ async function selectedEvidence(identity, state, serviceLease, registryLease, op
   const desired = serializeManifestBytes({ root: candidate.package.root,
     version: candidate.package.version, protocol: candidate.package.protocol });
   const revision = hash(desired), childSha = hash(childBytes);
+  if (journal.length === 7 && journal[6].evidence_sha256 !== privateTicketEvidenceSha(identity, options,
+    journal[5].receipt_sha256, revision, childSha)) throw invalid();
   const forward = await readLockedManifestOperation(registryLease, `nnd-activate-${options.operationId}`);
   const current = await readLockedManifestSnapshot(registryLease);
   if (candidate.evidence.desired_registration_sha256 !== revision || forward?.persistence !== 'saved'
@@ -177,7 +181,7 @@ async function verifyOwned(identity, state, serviceLease, registryLease, options
   const privateAfter = await readNndPrivateDiscoveryGeneration(identity, serviceLease, options.generation);
   verifyJournal(identity, options, after, privateAfter);
   if (after.childSha !== evidence.childSha || after.revision !== evidence.revision
-    || after.journal[5].receipt_sha256 !== evidence.journal[5].receipt_sha256
+    || after.journal.at(-1).receipt_sha256 !== evidence.journal.at(-1).receipt_sha256
     || !isDeepStrictEqual(privateAfter, record)
     || !isDeepStrictEqual(await readNndServiceDiscovery(identity), record)) throw invalid();
   signal.throwIfAborted();

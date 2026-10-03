@@ -1,0 +1,7 @@
+# NND private ticket receipt
+
+Status: dormant, unresolved activation prerequisite. No public activation command invokes this operation.
+
+The held owner may append `private_ticket_verified` only after the selected live child has issued a one-use UI ticket, NNA has redeemed it on loopback, verified the authenticated session and denied replay, and post-publication health still matches the exact publication receipt. The new journal receipt contains a hash of the operation, stage operation, installation and data identities, generation, publication receipt, registration revision, and durable child bytes. It contains no ticket, cookie, or controller credential. An uncertain append is not retried with a second ticket; recovery reads the receipt under both original ownership locks and validates staged slot provenance, candidate and prior bytes, forward registration receipt, current registration, pointer, marker, child, and journal evidence.
+
+`private_ticket_verified` is deliberately distinct from `completed`. The pending marker and preparation evidence remain, so ordinary service admission is blocked. Public controller routes and native mutation admission remain closed. The receipt proves a past private ticket exchange, not present child liveness or successful browser attach. A later held-live transition must promote the same process, durably decide completion, transfer supervision, retire terminal barrier evidence, and verify public attach before reporting success. Missing or contradictory evidence remains unresolved for recovery.
