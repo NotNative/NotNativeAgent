@@ -33,20 +33,27 @@ export function emitEvent(directory: string, type: string, properties: Record<st
   }
 }
 
-function replayAfter(lastEventId: string | null, directory: string | null): GlobalEvent[] {
+function replayAfter(lastEventId: string | null, directory: string | null): {
+  status: 'fresh' | 'complete' | 'gap'; events: GlobalEvent[];
+} {
   const matches = (env: GlobalEvent) =>
     directory === null || env.directory === directory || env.directory === 'global';
-  if (lastEventId === null) return []; // fresh connect: no replay (client boots from snapshots)
+  if (lastEventId === null) return { status: 'fresh', events: [] }; // client boots from snapshots
   const index = ring.findIndex((env) => env.payload.id === lastEventId);
-  if (index < 0) return []; // unknown cursor → authoritative resync, no partial-truth replay
-  return ring.slice(index + 1).filter(matches);
+  if (index < 0) return { status: 'gap', events: [] }; // unknown cursor → authoritative resync
+  return { status: 'complete', events: ring.slice(index + 1).filter(matches) };
 }
 
 /** GET /global/event (directory=null) or GET /event?directory=… (scoped). */
 export function openEventStream(request: Request, directory: string | null): Response {
   const lastEventId = request.headers.get('last-event-id');
   return sseResponse((send) => {
-    for (const env of replayAfter(lastEventId, directory)) {
+    const replay = replayAfter(lastEventId, directory);
+    send({ data: JSON.stringify({
+      directory: 'global',
+      payload: { id: `receipt-${seq}`, type: 'server.connected', properties: { replayStatus: replay.status } },
+    }) });
+    for (const env of replay.events) {
       send({ id: env.payload.id, data: JSON.stringify(env) });
     }
     const listener: Listener = (env) => {

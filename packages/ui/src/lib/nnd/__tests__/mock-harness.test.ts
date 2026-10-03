@@ -111,7 +111,10 @@ describe('mock harness contract', () => {
       .filter((block) => block.includes('data:'))
       .map((block) => JSON.parse(block.replace(/^id:.*\n/, '').replace(/^data: /, '')));
     expect(frames.length).toBeGreaterThan(0);
-    const first = frames[0];
+    expect(frames[0].payload.type).toBe('server.connected');
+    expect(frames[0].payload.properties.replayStatus).toBe('complete');
+    const first = frames.find((frame) => frame.payload.type !== 'server.connected');
+    expect(first).toBeDefined();
     expect(first.payload.id).toBe('2');
     expect(typeof first.directory).toBe('string');
     expect(typeof first.payload.type).toBe('string');

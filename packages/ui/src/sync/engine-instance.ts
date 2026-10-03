@@ -72,6 +72,7 @@ class EngineCtx {
   disposed = false;
   finalized = false;
   bootedAt = 0;
+  connectionEpoch = 0;
   catalogReadSequence = new Map<string, number>();
   catalogPublishedSequence = new Map<string, number>();
 }
@@ -249,15 +250,18 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
     enqueueMaterialization: (request, directory) => ctx.materializer.enqueue(request as MaterializationRequest, directory),
   });
   ctx.pipelineRef?.cleanup();
+  const connectionEpoch = ++ctx.connectionEpoch;
+  const runtimeKey = getRuntimeKey();
   ctx.pipelineRef = createEventPipeline({
     transport: ctx.transport,
     onEvents: (eventDirectory, events) => partsHandleFlush(ctx, eventDirectory, events),
-    onConnected: ({ replayReset, skipResync }) => {
+    onConnected: async ({ replayReset, skipResync, signal }) => {
+      if (!skipResync) await ctx.recovery.resyncAfterStreamGap(replayReset ? 'replay-reset' : 'stream-reconnect');
+      if (signal.aborted || ctx.disposed || ctx.connectionEpoch !== connectionEpoch || getRuntimeKey() !== runtimeKey) return;
       useConfigStore.setState({ isConnected: true, haveEverConnected: true, connectionPhase: 'connected', lastDisconnectReason: null });
-      if (skipResync) return;
-      void ctx.recovery.resyncAfterStreamGap(replayReset ? 'replay-reset' : 'stream-reconnect');
     },
     onDisconnected: (reason) => {
+      if (ctx.disposed || ctx.connectionEpoch !== connectionEpoch || getRuntimeKey() !== runtimeKey) return;
       useConfigStore.setState({ isConnected: false, connectionPhase: 'reconnecting', lastDisconnectReason: reason as never });
       // evidence preserved: the real reason reaches the store (POWER10 #5)
     },
@@ -279,6 +283,7 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
 }
 
 function partsDispose(ctx: EngineCtx): void {
+  ctx.connectionEpoch += 1;
   ctx.finalized = true;
   ctx.disposed = true;
   endEvictionSweep(evictionTimerStop);
@@ -298,6 +303,7 @@ function partsDispose(ctx: EngineCtx): void {
 }
 
 function partsResetAll(ctx: EngineCtx): void {
+  ctx.connectionEpoch += 1;
   ctx.loader.configure(getRuntimeKey());
   ctx.manager.reset(); // reversible reset: the runtime switch re-arms this manager
   useGlobalSessionStatusStore.getState().reset();
@@ -487,7 +493,6 @@ function installChildPlumbing(
 function pickString(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
 }
-
 
 function endEvictionSweep(holder: { timer: ReturnType<typeof setInterval> | null }): void {
   if (holder.timer !== null) clearInterval(holder.timer);

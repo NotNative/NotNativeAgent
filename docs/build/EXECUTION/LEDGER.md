@@ -638,3 +638,22 @@ tests, UI typecheck and diff checks passed. Initial bootstrap still uses its
 500-entry cap, and the native API does not provide a snapshot revision across
 the separate catalog reads. Durable event history, explicit gap signaling,
 redaction/tombstones and installed browser acceptance remain open F2 work.
+
+## NNA 20261002-31 and NND 20261002-17 — explicit replay gaps
+
+NNA's bounded in-memory event ring now labels its cursor-free connection opener
+`fresh`, `complete`, or `gap`. A retained cursor certifies a complete suffix
+only under the current principal and full workspace grant; an evicted,
+unknown, foreign-scope or pre-restart cursor reports `gap` without a partial
+replay. Independent native review found no concrete defect in the additive
+contract.
+
+NND waits for that opener before establishing SSE, clears an invalid cursor
+and queued events on a gap, and awaits authoritative recovery before delivering
+later frames. Malformed frames and connection receipts do not advance the
+cursor. The GUI retains its inclusive catalog refresh even for a `complete`
+replay. Independent review repaired an undersized frame bound, a skipped
+catalog refresh, and late WebSocket/runtime-abort recovery races. Focused
+producer/consumer tests and GUI typecheck passed. The in-memory ring still
+cannot recover every missed transient activity item; durable history and
+installed browser/desktop gap acceptance remain open F2 work.

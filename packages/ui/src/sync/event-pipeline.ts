@@ -14,7 +14,7 @@ import { DEFAULT_HEARTBEAT_TIMEOUT_MS, DEFAULT_WS_READY_TIMEOUT_MS, WS_FALLBACK_
 export interface PipelineOptions {
   transport: 'auto' | 'ws' | 'sse';
   onEvents: (directory: string, events: readonly HarnessEvent[]) => void;
-  onConnected: (info: { replayReset: boolean; skipResync: boolean }) => void;
+  onConnected: (info: { replayReset: boolean; skipResync: boolean; signal: AbortSignal }) => void | Promise<void>;
   onDisconnected: (reason: string) => void;
   onTransportSwitch: (reason: string) => void;
   isRecentBoot: () => boolean;
@@ -109,22 +109,28 @@ function pipeResolveTransport(state: PipelineState): 'ws' | 'sse' {
 }
 
 export function shouldSkipConnectedResync(firstConnect: boolean, disconnectedBeforeFirstConnect: boolean,
-  replayReset: boolean, transport: 'sse' | 'ws', recentBoot: boolean): boolean {
+  replayReset: boolean, transport: 'sse' | 'ws', recentBoot: boolean,
+  replayStatus?: EstablishedInfo['replayStatus']): boolean {
   if (replayReset) return false;
+  // A complete event suffix proves continuity for emitted events, but cannot
+  // prove the global catalog has no offline idle create/delete or correction.
+  // Keep the authoritative reconnect reconciliation from the v16 baseline.
+  void replayStatus;
   if (firstConnect && !disconnectedBeforeFirstConnect) return true;
   // An SSE server may have lost or evicted the cursor without signalling it.
   // A recent boot is not enough to trust a reconnect's replay suffix.
   return transport === 'ws' && recentBoot;
 }
 
-function pipeOnEstablished(state: PipelineState, info: EstablishedInfo, transport: 'sse' | 'ws'): void {
+async function pipeOnEstablished(state: PipelineState, info: EstablishedInfo, transport: 'sse' | 'ws', signal: AbortSignal): Promise<void> {
   state.failures = 0;
   state.context.noteActivity();
   const skipResync = shouldSkipConnectedResync(state.firstConnect, state.disconnectedBeforeFirstConnect,
-    info.replayReset, transport, state.options.isRecentBoot());
+    info.replayReset, transport, state.options.isRecentBoot(), info.replayStatus);
+  await state.options.onConnected({ replayReset: info.replayReset, skipResync, signal });
+  if (state.stopped || signal.aborted) return;
   state.firstConnect = false;
   state.everConnected = true;
-  state.options.onConnected({ replayReset: info.replayReset, skipResync });
 }
 
 /** true = transport switched to SSE (not a disconnection; retry delay 0). */
@@ -135,7 +141,7 @@ async function pipeTryWsRound(state: PipelineState, abort: AbortController): Pro
   const query = state.lastEventId ? `?lastEventId=${cursor}` : '';
   const url = await appendAuthTokenToUrl(`${ws}/api/global/event/ws${query}`); // mint BEFORE connect
   try {
-    await attemptWs(state.context, url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS, (info) => pipeOnEstablished(state, info, 'ws'));
+    await attemptWs(state.context, url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS, (info) => pipeOnEstablished(state, info, 'ws', abort.signal));
     return false;
   } catch (error) {
     clearCachedUrlAuthToken(); // token may have been replayed against a rejecting server
@@ -149,7 +155,7 @@ async function pipeTryWsRound(state: PipelineState, abort: AbortController): Pro
 }
 
 async function pipeTrySseRound(state: PipelineState, abort: AbortController, transport: string): Promise<void> {
-  const result = await attemptSse(state.context, pipeGlobalUrl(state), abort.signal, (info) => pipeOnEstablished(state, info, 'sse'));
+  const result = await attemptSse(state.context, pipeGlobalUrl(state), abort.signal, (info) => pipeOnEstablished(state, info, 'sse', abort.signal));
   if (result.status !== undefined && !abort.signal.aborted) {
     throw Object.assign(new Error(`${transport}_http_${result.status}`), {
       status: result.status,
