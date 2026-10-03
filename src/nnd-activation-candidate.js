@@ -33,7 +33,7 @@ function requireReady(ready, transaction) {
     prepared_sha256: hash(transaction.bytes), state: 'slot_ready' });
   if (!ready?.equals(expected)) throw invalid();
 }
-async function verifiedCandidate(identity, store, stageOperationId, registryLease, signal) {
+async function verifiedCandidate(identity, store, stageOperationId, registryLease, signal, expectedRevision) {
   const transaction = await loadInstallTransaction(identity, store, stageOperationId);
   const ready = await readInstallBytes(join(transaction.directory, 'ready.json'), 1024, true);
   requireReady(ready, transaction);
@@ -54,27 +54,28 @@ async function verifiedCandidate(identity, store, stageOperationId, registryLeas
   const entrypoint = await realpath(join(info.root, manifest.service_activation.entrypoint));
   const expectedEntry = verified.manifest.files.find(file => file.path === manifest.service_activation.entrypoint);
   if (!expectedEntry || !samePath(entrypoint, join(info.root, expectedEntry.path))) throw invalid();
-  const snapshot = await readLockedManifestSnapshot(registryLease);
+  const snapshot = expectedRevision === undefined ? await readLockedManifestSnapshot(registryLease) : null;
   const desired = serializeManifestBytes({ root: info.root, version: info.version, protocol: info.protocol });
   const evidence = Object.freeze({ protocol: '2.0', stage_operation_id: stageOperationId,
     installation_id: identity.installation_id, data_id: identity.data_id, version: info.version,
     payload_sha256: verified.sha256, stage_prepared_sha256: hash(transaction.bytes),
     stage_ready_sha256: hash(ready),
     provenance_sha256: hash(proof.bytes), slot_ino: owner.ino, slot_dev: owner.dev,
-    registry_before_revision: snapshot.revision, desired_registration_sha256: hash(desired) });
+    registry_before_revision: expectedRevision ?? snapshot.revision, desired_registration_sha256: hash(desired) });
   return { evidence, package: Object.freeze({ ...info, entrypoint }), slot: transaction.slot };
 }
 
 // Security: only a genuine owner of the data root and its registration mutex can evaluate a slot.
 // The candidate is descriptive; it does not publish registration, discovery or a browser ticket.
-async function candidateOwned(identity, serviceLease, registryLease, stageOperationId, expectedMarker) {
+async function candidateOwned(identity, serviceLease, registryLease, stageOperationId, expectedMarker, expectedRevision) {
   if (!operationValid(stageOperationId)) throw invalid();
+  if (expectedRevision !== undefined && !/^(absent|[a-f0-9]{64})$/u.test(expectedRevision)) throw invalid();
   assertOwner(identity, serviceLease, registryLease);
   return withNndServiceLease(serviceLease, identity.data_id, signal => runManifestLeaseWork(registryLease, async () => {
     const store = await openInstallStore(identity, signal);
     const marker = await readInstallBytes(store.pending, 1024, true);
     if (expectedMarker ? !marker?.equals(expectedMarker) : marker !== null) throw invalid();
-    const candidate = await verifiedCandidate(identity, store, stageOperationId, registryLease, signal);
+    const candidate = await verifiedCandidate(identity, store, stageOperationId, registryLease, signal, expectedRevision);
     return Object.freeze({ ...candidate, evidence_sha256: hash(json(candidate.evidence)) });
   }), { timeoutMs: 300000 });
 }
@@ -83,6 +84,11 @@ export async function readNndActivationCandidate(identity, serviceLease, registr
 }
 export async function readNndPreparedActivationCandidate(identity, serviceLease, registryLease, stageOperationId, marker) {
   return candidateOwned(identity, serviceLease, registryLease, stageOperationId, marker);
+}
+// For post-selection verification only: the original revision is supplied from
+// private preparation evidence while the currently selected manifest is checked by its caller.
+export async function readNndSelectedActivationCandidate(identity, serviceLease, registryLease, stageOperationId, marker, beforeRevision) {
+  return candidateOwned(identity, serviceLease, registryLease, stageOperationId, marker, beforeRevision);
 }
 
 // Security: a prepared journal receipt and an owned pending barrier are both required before a

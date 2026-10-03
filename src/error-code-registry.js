@@ -88,7 +88,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_install_path_too_long',
     'nnd_activation_candidate_invalid', 'nnd_activation_journal_invalid',
     'nnd_activation_preparation_invalid', 'nnd_activation_registration_invalid',
-    'nnd_activation_reconciliation_invalid',
+    'nnd_activation_reconciliation_invalid', 'nnd_activation_rollback_invalid',
     'nnd_payload_invalid',
     'nnd_install_runtime_unavailable', 'nnd_install_runtime_invalid', 'nnd_service_platform_unsupported',
     'nnd_private_platform_unsupported', 'nnd_private_path_invalid',

@@ -75,7 +75,7 @@ export function consumeNndStoppedTrialProof(proof, identity, serviceLease, regis
   }
   state.used = true;
   return Object.freeze({ operation_id: state.operationId, stage_operation_id: state.stageOperationId,
-    generation: state.generation, child_identity: state.childIdentity });
+    generation: state.generation, child_identity: state.childIdentity, signal: state.signal });
 }
 
 async function afterConfirmedStop(identity, serviceLease, registryLease, options, running, childPid, result, failure, signal) {
