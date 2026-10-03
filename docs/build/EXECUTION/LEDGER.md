@@ -845,3 +845,14 @@ independent adversarial review found and fixed a descriptor-change race that
 could otherwise return a plan for the wrong data root. This prerequisite does
 not attest activation completion or live GUI health, and no installed launcher
 uses it yet.
+
+## NND 20261003-19 — native provider scheduling limits
+
+Managed Settings exposes NNA-advertised provider concurrency and queue limits
+through bounded typed controls. Saves continue through native preview,
+revision-checked publication, and operation receipts; they are explicitly
+unapplied to running sessions. Search has a stable destination even when the
+native catalog is unavailable. Independent adversarial review found no
+concrete defect in the bounds or authority flow.
+The full UI suite passed (1,745 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.
