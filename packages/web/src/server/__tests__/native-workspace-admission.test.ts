@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { registerHarnessAdapter } from '../harness/adapter.ts';
-import { admitNativeWorkspace, registerNativeWorkspaceAdmissionRoute } from '../routes/native-workspace-admission.ts';
+import { admitNativeWorkspace, handleNativeSessionCreation, registerNativeWorkspaceAdmissionRoute } from '../routes/native-workspace-admission.ts';
 import { callHarness } from '../queue/queue-adapter-calls.ts';
 
 let scratch = '', rootA = '', rootB = '', alias = '';
@@ -77,4 +77,27 @@ it('preserves race-created sessions but refuses their changed directory', async 
   }));
   expect(response.status).toBe(409);
   expect(await response.text()).toContain('ses_race');
+});
+
+it('accepts equivalent native slash spelling without admitting a different root', async () => {
+  const nativeSpelling = rootA.replaceAll('/', '\\');
+  const forward = async () => Response.json({ id: 'ses_native', directory: nativeSpelling });
+  const create = (directory: string) => handleNativeSessionCreation(new Request('http://local/api/session', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-nnd-directory': directory },
+    body: JSON.stringify({ directory }),
+  }), forward, async () => ({ directory: nativeSpelling, worktree: nativeSpelling }));
+  expect((await create(nativeSpelling)).status).toBe(200);
+  expect((await create(rootB)).status).toBe(409);
+});
+
+it.skipIf(process.platform !== 'win32')('accepts Windows case aliases in requests and native create responses', async () => {
+  const alternateCase = rootA.replace(/A$/u, 'a');
+  expect(alternateCase).not.toBe(rootA);
+  const forward = async () => Response.json({ id: 'ses_case', directory: alternateCase });
+  const create = (directory: string) => handleNativeSessionCreation(new Request('http://local/api/session', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-nnd-directory': directory },
+    body: JSON.stringify({ directory }),
+  }), forward, async () => ({ directory: rootA, worktree: alternateCase }));
+  expect((await create(alternateCase)).status).toBe(200);
+  expect((await create(rootB)).status).toBe(409);
 });

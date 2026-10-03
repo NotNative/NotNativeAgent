@@ -214,9 +214,10 @@ async function configureHarness(browserCallback: { url: string; token: string } 
   }
   const launch = await resolveNnaCommand({ command: ENV.nnaCommand });
   const local = await startLocalNnaHarnessWithRetry({
-    command: launch.command, commandArguments: launch.arguments, dataRoot: launch.dataRoot, workspaceId: ENV.nnaWorkspaceId,
+    command: launch.command, commandArguments: launch.arguments, dataRoot: launch.dataRoot,
     browserCallback, agentToolCallback,
   });
+  await local.ensurePrimaryWorkspaceId();
   registerHarnessAdapter(guardLocalNnaHarness(createNnaHarnessAdapter({
     endpoint: local.endpoint, token: local.token, principal: local.principal,
   }), local));

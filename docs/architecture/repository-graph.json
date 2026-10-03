@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:22464212d3ed5f01be160f07f215b2679911e0a5afac5dfe28aa0665f4d61748",
+  "source_digest": "sha256:4dc5d7ce5844281e3be1cd091d3d179efc67f5d81772c373e5c5c3799de3ffae",
   "counts": {
-    "modules": 759,
+    "modules": 761,
     "component_edges": 16
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 228
+      "module_count": 229
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 56
+      "module_count": 57
     },
     {
       "id": "foundation",
@@ -5224,7 +5224,8 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/harness/adapter.ts"
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/nna-workspace-identity.ts"
       ]
     },
     {
@@ -5236,6 +5237,12 @@
         "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/harness/nna-workspace-identity.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/harness/nna.ts",
@@ -7260,7 +7267,8 @@
         "scripts/smoke-notification-routes.mjs",
         "scripts/smoke-provider-route.mjs",
         "scripts/smoke-review-mode.mjs",
-        "scripts/smoke-walkthrough.mjs"
+        "scripts/smoke-walkthrough.mjs",
+        "scripts/smoke-workspace-identity.mjs"
       ]
     },
     {
@@ -7500,6 +7508,12 @@
     },
     {
       "path": "scripts/smoke-walkthrough.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/smoke-workspace-identity.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": []

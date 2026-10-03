@@ -679,3 +679,36 @@ bundle passed the complete private-fixture scenario twice against NNA v31
 source; no operator installation was changed. Durable transient history,
 redaction/tombstones, prebuilt installer and installed binary acceptance
 remain open.
+
+## NNA 20261003-1 through 20261003-5 — activation and primary-root prerequisites
+
+NNA can restore exact prior registration bytes after a confirmed unpublished
+trial stop while retaining the admission barrier. A read-only crash observer
+classifies restored, unpublished, and unknown rollback evidence under genuine
+held leases; unknown evidence never authorizes admission. A dormant native
+workspace-grant catalog records verified primary/secondary roots and file
+identity, but explicitly keeps secondary selection disabled. Native sessions
+now bind to the configured primary root, reject workspace transitions and
+replayed changes, and recheck the root before prompt admission. The managed
+`/path` response supplies NNA's authoritative `workspace_id` for NND. A
+private, unwired continuation can publish a selected discovery generation
+under exact child, marker, journal, registration, and lease evidence; it does
+not switch principal authority, transfer the live owner, or retire the barrier.
+Each prerequisite passed its NNA serial suite and independent adversarial
+review. Public activation, tool-time root checks, secondary execution scope,
+and fresh installed acceptance remain open.
+
+## NND 20261003-1 — native primary workspace identity at managed attach
+
+The managed NND harness reads NNA's authenticated primary workspace identity
+from the native grant catalog, or from NNA's `/path.workspace_id` only when the
+managed listener does not expose that catalog. Session creation fails closed
+while the identity is unavailable; NND no longer grants itself the synthetic
+`local` workspace. It checks the native project ID returned by creation and
+preserves a race-created session for recovery. Native admission compares
+Windows path aliases without discarding NNA's own path spelling. Independent
+review repaired mixed-case aliases and valid long catalog responses. Focused
+tests, typecheck, and a disposable NND↔NNA source smoke prove the authoritative
+ID and rejection of a second-directory create without creating a session.
+This remains primary-only admission; secondary project/worktree selection and
+installed supervisor activation are still open F1/L work.

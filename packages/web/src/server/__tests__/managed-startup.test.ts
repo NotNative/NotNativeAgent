@@ -8,7 +8,7 @@ afterEach(() => resetUiAuthForTests());
 const state = vi.hoisted(() => ({ dispose: vi.fn(), serve: vi.fn(), register: vi.fn(), attach: vi.fn() }));
 
 vi.mock('../env.ts', () => ({ readEnvUiPassword: () => '', ENV: {
-  harness: 'nna', nnaMode: 'managed', nnaCommand: '', nnaWorkspaceId: 'local', host: '127.0.0.1', port: 4001, dataDir: 'D:\\NND-test',
+  harness: 'nna', nnaMode: 'managed', nnaCommand: '', host: '127.0.0.1', port: 4001, dataDir: 'D:\\NND-test',
 } }));
 vi.mock('@hono/node-server', () => ({ serve: state.serve }));
 vi.mock('../app.ts', () => ({ createApp: () => ({ fetch: vi.fn() }) }));
@@ -18,7 +18,7 @@ vi.mock('../harness/adapter.ts', () => ({ registerHarnessAdapter: state.register
 vi.mock('../harness/nna.ts', () => ({ createNnaHarnessAdapter: () => ({ handle: vi.fn() }) }));
 vi.mock('../harness/nna-local.ts', () => ({
   resolveNnaCommand: async () => ({ command: 'nna', arguments: [] }),
-  startLocalNnaHarnessWithRetry: async () => ({ endpoint: 'http://127.0.0.1:4999', token: 't'.repeat(32), principal: () => 'principal', isRunning: () => true, dispose: state.dispose }),
+  startLocalNnaHarnessWithRetry: async () => ({ endpoint: 'http://127.0.0.1:4999', token: 't'.repeat(32), principal: () => 'principal', isRunning: () => true, dispose: state.dispose, ensurePrimaryWorkspaceId: async () => null }),
   guardLocalNnaHarness: (adapter: unknown) => adapter,
 }));
 

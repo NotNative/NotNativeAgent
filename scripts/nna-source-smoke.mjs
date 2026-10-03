@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs';
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
@@ -15,6 +15,7 @@ import { nativeQuestionProviderReply, probeNativeQuestions } from './smoke-nativ
 import { notificationProviderReply, probeNotificationModel } from './smoke-notification-model.mjs';
 import { json, withTimeout, eventReader } from './smoke-http.mjs';
 import { probeNnaProjection, probeRestoredProjection } from './smoke-nna-projection.mjs';
+import { probeWorkspaceIdentity } from './smoke-workspace-identity.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
@@ -146,7 +147,7 @@ function smokeMcpServers() {
     endpoint, credential_env: 'SMOKE_SECRET_ENV' }];
 }
 
-async function probe(app, workspace, provider) {
+async function probe(app, workspace, provider, workspaceId) {
   const call = (path, init = {}) => app.fetch(new Request(`http://nnd.local${path}`, {
     ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
   }));
@@ -185,20 +186,20 @@ async function probe(app, workspace, provider) {
   const nextEvent = eventReader(reader);
   try {
     assert.equal((await nextEvent()).payload.type, 'server.connected');
-    return await probeSession(call, workspace, nextEvent, provider);
+    return await probeSession(call, workspace, nextEvent, provider, workspaceId);
   } finally {
     eventAbort.abort();
     await reader.cancel().catch(() => {});
   }
 }
 
-async function probeSession(call, workspace, nextEvent, provider) {
+async function probeSession(call, workspace, nextEvent, provider, workspaceId) {
   const blocked = await call('/api/session', { method: 'POST', headers: { origin: 'null', 'content-type': 'application/json' }, body: '{}' }); // valid JSON isolates the Origin gate
-  assert.equal(blocked.status, 403);
+  assert.equal(blocked.status, 403); await probeWorkspaceIdentity(call, workspace);
   const created = await json(call, '/api/session', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Source bridge smoke' }),
   }, 201);
-  assert.equal(created.directory, workspace);
+  assert.equal(created.directory, workspace); assert.equal(created.projectID, workspaceId, 'NNA session must use its own primary workspace ID');
   assert.deepEqual(created.metadata.nnd.configuredModel, { providerID: 'primary', modelID: 'test' });
   assert.equal(created.metadata.nnd.governance?.reviewPosture, 'auto-review', 'NND session must retain NNA auto-review');
   const id = created.id;
@@ -409,7 +410,8 @@ async function waitForExecution(harness) {
 async function main(nnaSource) {
   const cli = join(nnaSource, 'src', 'cli.js');
   await access(cli);
-  const root = await mkdtemp(join(tmpdir(), 'nnd-nna-source-smoke-'));
+  // NNA rejects shared Temp ancestors with other-user Modify rights.
+  const root = await mkdtemp(join(homedir(), 'nnd-nna-source-smoke-'));
   let harness;
   let spawned;
   let provider;
@@ -429,7 +431,7 @@ async function main(nnaSource) {
       import('../packages/web/src/server/app.ts'),
     ]);
     harness = await startLocalNnaHarness({
-      command: process.execPath, commandArguments: [cli], dataRoot: root, workspaceId: 'local',
+      command: process.execPath, commandArguments: [cli], dataRoot: root,
       spawnChild: (command, args, options) => { spawned = spawn(command, args, options); return spawned; },
     }).catch((error) => { throw new Error(`initial NNA start: ${error.message}`); });
     // A successful proxy request alone would not detect an accidentally
@@ -439,12 +441,12 @@ async function main(nnaSource) {
       signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
     });
     assert.equal(unauthenticated.status, 401, 'NNA must reject requests without integration credentials');
-    await waitForExecution(harness);
+    await waitForExecution(harness); assert.ok(await harness.ensurePrimaryWorkspaceId(), 'NNA did not establish an authoritative primary workspace identity');
     registerHarnessAdapter(createNnaHarnessAdapter({
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));
     const app = createApp();
-    const sessions = await probe(app, root, provider);
+    const sessions = await probe(app, root, provider, harness.workspaceId());
     await probeNotificationRoutes(sessions.parentId);
     await probeNativeQuestions(app);
     await probeNotificationModel(sessions.parentId, provider.requests);
@@ -454,10 +456,10 @@ async function main(nnaSource) {
     harness.dispose();
     await withTimeout(stopped, 5_000, 'NNA did not stop for the restart smoke');
     harness = await startLocalNnaHarness({
-      command: process.execPath, commandArguments: [cli], dataRoot: root, workspaceId: 'local',
+      command: process.execPath, commandArguments: [cli], dataRoot: root,
       spawnChild: (command, args, options) => { spawned = spawn(command, args, options); return spawned; },
     }).catch((error) => { throw new Error(`NNA restart: ${error.message}`); });
-    await waitForExecution(harness);
+    await waitForExecution(harness); assert.ok(await harness.ensurePrimaryWorkspaceId(), 'NNA did not restore an authoritative primary workspace identity');
     registerHarnessAdapter(createNnaHarnessAdapter({
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));
@@ -486,8 +488,7 @@ async function main(nnaSource) {
       provider.server.closeAllConnections();
       await closed;
     }
-    const prefix = join(tmpdir(), 'nnd-nna-source-smoke-');
-    if (!root.startsWith(prefix)) throw new Error('refusing to remove unexpected smoke directory');
+    if (!root.startsWith(join(homedir(), 'nnd-nna-source-smoke-'))) throw new Error('refusing to remove unexpected smoke directory');
     try {
       await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     } catch (error) {

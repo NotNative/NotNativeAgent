@@ -6,6 +6,7 @@ import { access, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { harnessError, type HarnessAdapter } from './adapter.ts';
+import { readNnaPrimaryWorkspaceId } from './nna-workspace-identity.ts';
 
 const READY_LIMIT = 16 * 1024;
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
@@ -18,7 +19,9 @@ export interface LocalNnaLaunchOptions {
   command: string;
   commandArguments?: string[];
   dataRoot?: string;
-  workspaceId: string;
+  /** Legacy caller hint; never used as session authority. */
+  workspaceId?: string;
+  fetch?: typeof fetch;
   browserCallback?: { url: string; token: string };
   agentToolCallback?: { url: string; token: string };
   startupTimeoutMs?: number;
@@ -76,6 +79,11 @@ export interface LocalNnaHarness {
   dispose(): void;
 }
 
+export interface ManagedLocalNnaHarness extends LocalNnaHarness {
+  workspaceId(): string | null;
+  ensurePrimaryWorkspaceId(): Promise<string | null>;
+}
+
 class EarlyNnaExitError extends Error {
   constructor(exitCode: number | null, diagnosticCode: string | null) {
     super(`NNA local harness exited before readiness${diagnosticCode ? ` (${diagnosticCode})`
@@ -85,7 +93,7 @@ class EarlyNnaExitError extends Error {
 
 /** A child that dies before its first readiness frame gets one fresh launch.
  * Persistent configuration and registration failures still surface promptly. */
-export async function startLocalNnaHarnessWithRetry(options: LocalNnaLaunchOptions): Promise<LocalNnaHarness> {
+export async function startLocalNnaHarnessWithRetry(options: LocalNnaLaunchOptions): Promise<ManagedLocalNnaHarness> {
   try {
     return await startLocalNnaHarness(options);
   } catch (error) {
@@ -96,9 +104,8 @@ export async function startLocalNnaHarnessWithRetry(options: LocalNnaLaunchOptio
 }
 
 /** Starts NNA and accepts only its one-line, loopback readiness protocol. */
-export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<LocalNnaHarness> {
+export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<ManagedLocalNnaHarness> {
   if (!options.command.trim()) return Promise.reject(new Error('NNA command is required'));
-  if (!/^[A-Za-z0-9_.-]{1,128}$/u.test(options.workspaceId)) return Promise.reject(new Error('NNA workspace id is invalid'));
   if (options.browserCallback && !validBrowserCallback(options.browserCallback)) return Promise.reject(new Error('NNA browser callback is invalid'));
   if (options.agentToolCallback && !validAgentToolCallback(options.agentToolCallback)) {
     return Promise.reject(new Error('NNA agent tool callback is invalid'));
@@ -121,7 +128,7 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
 
 function awaitNnaReady(options: LocalNnaLaunchOptions, child: ChildProcessWithoutNullStreams,
   diagnostic: ReturnType<typeof createNnaDiagnosticCapture>, lifetime: { running: boolean },
-  stop: () => void): Promise<LocalNnaHarness> {
+  stop: () => void): Promise<ManagedLocalNnaHarness> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => fail('NNA local harness did not become ready'), options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS);
     let buffered = '';
@@ -146,8 +153,7 @@ function awaitNnaReady(options: LocalNnaLaunchOptions, child: ChildProcessWithou
       // NNA's stdout is protocol-only, but continue draining it after the
       // readiness frame so an accidental diagnostic cannot stall its child.
       child.stdout.resume();
-      resolve({ endpoint: ready.endpoint, token: ready.token, isRunning: () => lifetime.running, dispose: stop,
-        principal: () => mintLocalPrincipal(options.workspaceId) });
+      resolve(createResolvedHarness(ready.endpoint, ready.token, options.fetch, lifetime, stop));
     };
     const clean = (): void => {
       clearTimeout(timeout);
@@ -165,6 +171,24 @@ function awaitNnaReady(options: LocalNnaLaunchOptions, child: ChildProcessWithou
     child.stdout.on('data', onData);
     child.stderr.on('data', diagnostic.write);
   });
+}
+
+function createResolvedHarness(endpoint: string, token: string, requestFetch: typeof fetch | undefined,
+  lifetime: { running: boolean }, stop: () => void): ManagedLocalNnaHarness {
+  let primaryId: string | null = null;
+  let pending: Promise<string | null> | null = null;
+  const ensurePrimaryWorkspaceId = (): Promise<string | null> => {
+    if (pending) return pending;
+    pending = readNnaPrimaryWorkspaceId({ endpoint, token,
+      principal: mintLocalPrincipal(null), fetch: requestFetch }).then(id => {
+      primaryId = lifetime.running ? id : null;
+      return primaryId;
+    }).finally(() => { pending = null; });
+    return pending;
+  };
+  return { endpoint, token, isRunning: () => lifetime.running, dispose: stop,
+    principal: () => mintLocalPrincipal(primaryId), workspaceId: () => primaryId,
+    ensurePrimaryWorkspaceId };
 }
 
 function spawnNnaChild(options: LocalNnaLaunchOptions): ChildProcessWithoutNullStreams {
@@ -224,8 +248,24 @@ function validAgentToolCallback(callback: { url: string; token: string }): boole
 }
 
 /** Wrapper gives an explicit harness-down result rather than an empty projection. */
-export function guardLocalNnaHarness(adapter: HarnessAdapter, harness: Pick<LocalNnaHarness, 'isRunning'>): HarnessAdapter {
-  return { handle: (request) => harness.isRunning() ? adapter.handle(request) : Promise.resolve(harnessError('NNA local harness stopped', 502)) };
+export function guardLocalNnaHarness(adapter: HarnessAdapter,
+  harness: Pick<LocalNnaHarness, 'isRunning'> & Partial<Pick<ManagedLocalNnaHarness, 'workspaceId' | 'ensurePrimaryWorkspaceId'>>): HarnessAdapter {
+  return { handle: async (request) => {
+    if (!harness.isRunning()) return harnessError('NNA local harness stopped', 502);
+    const pathname = new URL(request.url).pathname;
+    const creates = request.method === 'POST' && (pathname === '/api/session' || /^\/api\/session\/[^/]+\/fork$/u.test(pathname));
+    if (!/^\/api\/session(?:\/|$)/u.test(pathname) || !harness.ensurePrimaryWorkspaceId) return adapter.handle(request);
+    const id = creates || !harness.workspaceId?.() ? await harness.ensurePrimaryWorkspaceId() : harness.workspaceId();
+    if (!id) return harnessError('NNA primary workspace identity is unavailable. Complete NNA setup and refresh the connection.', 503);
+    const response = await adapter.handle(request);
+    if (!creates || !response.ok) return response;
+    const record = await response.clone().json().catch(() => null) as Record<string, unknown> | null;
+    if (!record || record.projectID !== id) {
+      const session = typeof record?.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(record.id) ? record.id : 'unknown';
+      return harnessError(`NNA created session ${session} with a changed workspace identity. It remains recoverable in NNA; refresh before sending.`, 409);
+    }
+    return response;
+  } };
 }
 
 function isLoopbackOrigin(value: string): boolean {
@@ -239,11 +279,11 @@ function isLoopbackOrigin(value: string): boolean {
     && endpoint.hostname === '127.0.0.1' && endpoint.port !== '' && Number(endpoint.port) > 0;
 }
 
-function mintLocalPrincipal(workspaceId: string): string {
+function mintLocalPrincipal(workspaceId: string | null): string {
   const now = new Date().toISOString();
   return Buffer.from(JSON.stringify({
     subject_id: 'nnd-local-operator', platform_role: 'operator',
-    permissions: ['nnd.read', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
-    workspace_ids: [workspaceId], group_ids: [], trace_id: randomUUID(), request_id: randomUUID(), issued_at: now,
+    permissions: ['nnd.read', 'nnd.workspace.read', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
+    workspace_ids: workspaceId ? [workspaceId] : [], group_ids: [], trace_id: randomUUID(), request_id: randomUUID(), issued_at: now,
   }), 'utf8').toString('base64url');
 }

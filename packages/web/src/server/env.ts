@@ -38,7 +38,6 @@ export const ENV = {
   /** Command resolved by the local launcher.  Its readiness data is never logged. */
   /** Optional explicit executable. Absent means resolve the installed NNA product. */
   nnaCommand: process.env.NNA_COMMAND ?? '',
-  nnaWorkspaceId: process.env.NNA_WORKSPACE_ID ?? 'local',
 } as const;
 
 /** Call-time env read for the doc 08 password source (module-level ENV is a

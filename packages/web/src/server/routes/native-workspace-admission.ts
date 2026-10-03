@@ -21,6 +21,12 @@ export function workspacePath(value: unknown): string | null {
   return null;
 }
 
+function sameWorkspacePath(left: unknown, right: unknown): boolean {
+  const a = workspacePath(left), b = workspacePath(right);
+  if (!a || !b) return false;
+  return /^[A-Z]:\//u.test(a) && /^[A-Z]:\//u.test(b) ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
 async function requirePlainDirectory(directory: string): Promise<void> {
   const windows = /^[A-Z]:\//u.test(directory);
   const path = windows ? win32 : posix;
@@ -35,7 +41,7 @@ async function requirePlainDirectory(directory: string): Promise<void> {
     }
   }
   const resolved = await realpath(native).catch(() => null);
-  if (!resolved || workspacePath(resolved) !== directory) {
+  if (!resolved || !sameWorkspacePath(resolved, directory)) {
     throw new WorkspaceAdmissionError('Workspace filesystem identity is unavailable; use its canonical path.', 503);
   }
 }
@@ -45,10 +51,10 @@ export async function admitNativeWorkspace(candidate: unknown, readPath: () => P
   const raw = await readPath();
   const data = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
   const native = workspacePath(data.directory);
-  if (!chosen || !native || native !== workspacePath(data.worktree)) {
+  if (!chosen || !native || !sameWorkspacePath(native, data.worktree)) {
     throw new WorkspaceAdmissionError('NNA workspace identity is unavailable. Refresh the native connection before creating a session.', 503);
   }
-  if (chosen !== native) throw new WorkspaceAdmissionError(`NNA is attached to ${native}. Select that workspace or reconfigure NNA before creating a session.`);
+  if (!sameWorkspacePath(chosen, native)) throw new WorkspaceAdmissionError(`NNA is attached to ${native}. Select that workspace or reconfigure NNA before creating a session.`);
   await requirePlainDirectory(native);
   return native;
 }
@@ -85,7 +91,7 @@ export async function handleNativeSessionCreation(request: Request,
     }
     const query = new URL(request.url).searchParams.get('location[directory]');
     for (const candidate of [header, query, body.directory]) {
-      if (candidate !== null && candidate !== undefined && candidate !== native) {
+      if (candidate !== null && candidate !== undefined && !sameWorkspacePath(candidate, native)) {
         return harnessError(`NNA is attached to ${native}. Select that workspace or reconfigure NNA before creating a session.`, 409);
       }
     }
@@ -96,7 +102,7 @@ export async function handleNativeSessionCreation(request: Request,
       return harnessError('NNA created a session with an unreadable workspace. Refresh before sending.', 502);
     }
     const actual = record.directory;
-    if (actual !== native) {
+    if (!sameWorkspacePath(actual, native)) {
       const id = typeof record.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(record.id) ? record.id : 'unknown';
       return harnessError(`NNA created session ${id} in a changed or unknown workspace. The session remains recoverable in NNA; refresh before sending.`, 409);
     }

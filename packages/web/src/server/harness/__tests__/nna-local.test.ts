@@ -48,15 +48,23 @@ describe('managed local NNA launcher', () => {
   it('accepts one valid loopback readiness record and mints fresh server principals', async () => {
     const process = child();
     const spawnChild = vi.fn((_command: string, _args: string[]) => process);
-    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild });
+    const id = `ws_${'a'.repeat(24)}`;
+    const fetch = vi.fn(async (url: string | URL | Request) => String(url).endsWith('/v1/nnd/workspaces')
+      ? new Response(JSON.stringify({ error: { code: 'not_found' } }), { status: 404 })
+      : new Response(JSON.stringify({ directory: 'D:\\Repos\\A', worktree: 'D:\\Repos\\A', workspace_id: id }))) as unknown as typeof globalThis.fetch;
+    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild, fetch });
     expect(spawnChild.mock.calls[0]?.[1]).toEqual(['nnd', 'serve']);
     process.stdout.write(ready());
     const harness = await promise;
     expect(harness.endpoint).toBe('http://127.0.0.1:4812');
     expect(harness.token).toBe(token);
+    expect(JSON.parse(Buffer.from(harness.principal(), 'base64url').toString('utf8')).workspace_ids).toEqual([]);
+    await expect(harness.ensurePrimaryWorkspaceId()).resolves.toBe(id);
     const first = JSON.parse(Buffer.from(harness.principal(), 'base64url').toString('utf8'));
     const second = JSON.parse(Buffer.from(harness.principal(), 'base64url').toString('utf8'));
-    expect(first.workspace_ids).toEqual(['local']);
+    expect(first.workspace_ids).toEqual([id]);
+    expect(first.permissions).toContain('nnd.workspace.read');
+    expect(first.permissions).not.toContain('nnd.workspace.manage');
     expect(first.permissions).toContain('nnd.steer');
     expect(first.permissions).toContain('provider.read');
     expect(first.permissions).toContain('provider.discover');
@@ -208,5 +216,20 @@ describe('managed local NNA launcher', () => {
     const response = await result.handle(new Request('http://nnd.local/api/session'));
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: { message: 'NNA local harness stopped' } });
+  });
+
+  it('refuses managed creation without native identity and preserves a mismatched race-created session', async () => {
+    const id = `ws_${'a'.repeat(24)}`;
+    const forward = vi.fn(async () => new Response(JSON.stringify({ id: 'created-1', projectID: 'wrong' }), { status: 200 }));
+    const request = new Request('http://nnd.local/api/session', { method: 'POST' });
+    const missing = guardLocalNnaHarness({ handle: forward }, { isRunning: () => true, ensurePrimaryWorkspaceId: async () => null });
+    expect((await missing.handle(request)).status).toBe(503);
+    expect((await missing.handle(new Request('http://nnd.local/api/session?roots=true'))).status).toBe(503);
+    expect(forward).not.toHaveBeenCalled();
+    const changed = guardLocalNnaHarness({ handle: forward }, { isRunning: () => true, ensurePrimaryWorkspaceId: async () => id });
+    const result = await changed.handle(request);
+    expect(result.status).toBe(409);
+    expect(await result.text()).toContain('created-1');
+    expect(forward).toHaveBeenCalledOnce();
   });
 });
