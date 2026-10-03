@@ -33,6 +33,7 @@ const SESSION_DEADLINES: Record<string, { label: 'settings.nativeSessionDeadline
   persistence_flush_timeout_ms: { label: 'settings.nativeSessionDeadlines.persistence', min: 100, max: 120000 },
   shutdown_timeout_ms: { label: 'settings.nativeSessionDeadlines.shutdown', min: 100, max: 120000 },
 };
+const REVIEWER_RETENTION = { path: 'reviewer_ledger.retention_entries', min: 1, max: 100000 } as const;
 const boundedPositiveInteger = (draft: string, field: { min: number; max: number }) => /^[1-9]\d*$/u.test(draft)
   && Number(draft) >= field.min && Number(draft) <= field.max;
 const CONTEXT_BUDGETS: Record<string, { label: 'settings.nativeContext.bytes' | 'settings.nativeContext.compression'
@@ -123,6 +124,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const contextFields = model.fields.filter(field => CONTEXT_BUDGETS[field.path]?.type === field.type);
   const contextSelected = selected && CONTEXT_BUDGETS[selected.path]?.type === selected.type
     ? CONTEXT_BUDGETS[selected.path] : undefined;
+  const reviewerRetentionField = model.fields.find(field => field.path === REVIEWER_RETENTION.path && field.type === 'integer');
+  const reviewerRetentionSelected = selected?.path === REVIEWER_RETENTION.path && selected.type === 'integer';
   const dreamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(DREAM_LIMITS, field.path)
     || field.path === 'dream.enabled' && field.type === 'boolean');
   const dreamSelected = selected?.type === 'integer' ? DREAM_LIMITS[selected.path] : undefined;
@@ -195,6 +198,15 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(CONTEXT_BUDGETS[field.path]!.label)}
       </button>)}</div>
+    </div> : null}
+    {reviewerRetentionField ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.reviewer-retention">
+      <h4 className="font-semibold">{t('settings.nativeReviewerRetention.title')}</h4>
+      <p>{t('settings.nativeReviewerRetention.description')}</p>
+      <button type="button" aria-pressed={model.fieldPath === REVIEWER_RETENTION.path}
+        disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, REVIEWER_RETENTION.path)}
+        className="rounded border border-border px-2 py-1">{t('settings.nativeReviewerRetention.entries')}</button>
     </div> : null}
     {dreamFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
       data-settings-item="native-configuration.dream">
@@ -315,6 +327,14 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
+      {model.mode === 'set' && reviewerRetentionSelected ? <label className="block">
+        {t('settings.nativeReviewerRetention.entries')}
+        <input type="number" min={REVIEWER_RETENTION.min} max={REVIEWER_RETENTION.max} step="1"
+          value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
       {model.mode === 'set' && dreamSelected ? <label className="block">
         {t(dreamSelected.label)}
         <input type="number" min={dreamSelected.min} max={dreamSelected.max} step="1"
@@ -377,7 +397,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
-        && !recoverySelected && !sessionDeadlineSelected && !contextSelected
+        && !recoverySelected && !sessionDeadlineSelected && !contextSelected && !reviewerRetentionSelected
         && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
         && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
@@ -389,6 +409,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           || Number(model.draft) < recoverySelected.min || Number(model.draft) > recoverySelected.max))
         || Boolean(sessionDeadlineSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, sessionDeadlineSelected))
         || Boolean(contextSelected && model.mode === 'set' && !contextDraftValid(model.draft, contextSelected))
+        || Boolean(reviewerRetentionSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, REVIEWER_RETENTION))
         || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))
         || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))}>
         {t('settings.nativeConfiguration.preview')}</button>

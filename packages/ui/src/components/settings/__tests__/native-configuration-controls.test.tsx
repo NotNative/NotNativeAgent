@@ -280,6 +280,55 @@ it('does not offer a save when NNA rejects a coupled context threshold during pr
   expect(saveNativeConfiguration).not.toHaveBeenCalled();
 });
 
+it('bounds advertised reviewer-ledger retention and saves through native preview and CAS', async () => {
+  const retentionPath = 'reviewer_ledger.retention_entries';
+  const retentionView: NativeConfigurationView = { ...view, fields: [
+    { path: retentionPath, catalog_path: retentionPath, explicit: { present: false },
+      effective: { present: true, value: 10000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'telemetry.retention', catalog_path: 'telemetry.retention', explicit: { present: false },
+      effective: { present: true, value: null, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const retention = { path: retentionPath, type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [retention,
+    { path: 'telemetry.retention', type: 'string', editability: field.editability }] });
+  const retentionRequest = { ...request, operations: [{ op: 'set' as const, field: retentionPath, value: 5000 }] };
+  vi.mocked(nativeChange).mockReturnValue(retentionRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: retentionView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(retentionView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.reviewer-retention"]')).not.toBeNull();
+  await act(async () => button('Retained review operations').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('1'); expect(input.max).toBe('100000'); expect(input.value).toBe('10000');
+  for (const invalid of ['0', '05000', '100001']) {
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, invalid);
+      input.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect((button('Preview change') as HTMLButtonElement).disabled).toBe(true);
+  }
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '5000');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(retentionView, retention, 'set', '5000');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(retentionRequest, expect.any(AbortSignal));
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(retentionRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
+});
+
+it('does not offer reviewer-retention editing when NNA omits it from the catalog', async () => {
+  const retentionPath = 'reviewer_ledger.retention_entries';
+  const retentionView: NativeConfigurationView = { ...view, fields: [
+    { path: retentionPath, catalog_path: retentionPath, explicit: { present: false },
+      effective: { present: true, value: 10000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [field] });
+  mount(retentionView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.reviewer-retention"]')).toBeNull();
+});
+
 it('previews and saves a catalog-advertised dream idle limit with native CAS', async () => {
   const dreamView: NativeConfigurationView = { ...view, fields: [
     { path: 'dream.idle_ms', catalog_path: 'dream.idle_ms', explicit: { present: false },

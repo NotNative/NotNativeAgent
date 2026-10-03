@@ -239,8 +239,18 @@ scope. The root context byte ceiling and four compression/compaction thresholds
 have catalog-gated typed controls; preview displays the complete ordered
 threshold set and NNA rejects an invalid ordering. Provider and route limits
 can further constrain the actual context window, and Save does not apply these
-values to running work. Other execution, telemetry, and retention scalars remain
-generic JSON controls without complete
+values to running work. Reviewer-ledger retention has a bounded catalog-gated
+control for
+`reviewer_ledger.retention_entries` (1–100,000). Its preview and save use the
+native revision-checked path; a saved receipt does not change running work or
+execution authority. Older NNA releases can evict unfinished reviews when the
+limit is exceeded. Repaired NNA releases preserve unresolved reviews through
+compaction, including those with an uncertain external effect. The NND
+configuration view does not expose a trustworthy NNA product version, so this
+control carries a compatibility warning instead of claiming that every
+connected NNA preserves them. Telemetry stays in the generic
+editor because NNA does not yet ship a telemetry exporter. Other execution
+and context scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate
 native contracts and acceptance evidence. The gateway external store now has

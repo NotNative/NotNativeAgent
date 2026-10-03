@@ -77,6 +77,10 @@ export function NativeConfigurationPage(): ReactNode {
       <h3 className="font-semibold">{t('settings.nativeContext.title')}</h3>
       <p className="text-muted-foreground">{t('settings.nativeContext.description')}</p>
     </div>
+    <div data-settings-item="native-configuration.reviewer-retention" className="text-xs">
+      <h3 className="font-semibold">{t('settings.nativeReviewerRetention.title')}</h3>
+      <p className="text-muted-foreground">{t('settings.nativeReviewerRetention.description')}</p>
+    </div>
     <div data-settings-item="native-configuration.dream" className="text-xs">
       <h3 className="font-semibold">{t('settings.nativeDream.title')}</h3>
       <p className="text-muted-foreground">{t('settings.nativeDream.description')}</p>
