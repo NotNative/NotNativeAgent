@@ -15,6 +15,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
 import { readActivityPageWithBoundary } from './nnd-activity-boundary.js';
+import { NndActivityTombstones } from './nnd-activity-tombstones.js';
+import { enqueueNndCatalogChange } from './nnd-catalog-transaction.js';
 import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
 import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalContextEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
@@ -25,7 +27,7 @@ import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
-import { requirePrincipal, samePrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate, catalogRecord } from './nnd-session-helpers.js';
+import { requirePrincipal, samePrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 import { preflightNndWorkspaceCatalog, resolveContextBinding, initializeBoundEngine,
   assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
 const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -33,6 +35,7 @@ const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 export class NndEngineHost {
   #contexts = new Map();
   #creating = new Set();
+  #deleting = new Set();
   #childStreams = new Map();
   #childActivity = new Map();
   constructor(options = {}) {
@@ -49,6 +52,7 @@ export class NndEngineHost {
     this.childSessions = options.childSessions ?? new NndSessionRegistry(options.childSessionLimit ?? 256,
       (type, child, payload) => this.#observeChildEvent(type, child, payload));
     this.catalogPath = options.catalogPath ?? null;
+    this.tombstones = new NndActivityTombstones(this.catalogPath, options.persistTombstones);
     this.persistCatalog = options.persistCatalog ?? persistAtomicJson;
     this.persistActivity = options.persistActivity ?? persistAtomicJson;
     this.childSnapshotStore = new NndChildSnapshotStore(this.catalogPath, options.persistChildSnapshot);
@@ -85,7 +89,7 @@ export class NndEngineHost {
   async #createContext(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
-    if (this.#contexts.has(sessionId) || this.#creating.has(sessionId)) {
+    if (this.#contexts.has(sessionId) || this.#creating.has(sessionId) || this.#deleting.has(sessionId)) {
       throw new ContractError('nnd_session_exists', 'NND session context already exists');
     }
     if (this.#contexts.size + this.#creating.size >= this.limit) {
@@ -94,6 +98,8 @@ export class NndEngineHost {
     this.#creating.add(sessionId);
     let engine;
     try {
+      if (!restoring) await this.tombstones.beforeCreate(sessionId, principal, this.#contexts);
+      if (!restoring) await removeActivity(this.catalogPath, sessionId); // Remove a crash-left prior incarnation.
       const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
         workspaceBinding: binding, workspaceBindingResolver: this.primaryWorkspaceBinding,
@@ -382,22 +388,27 @@ export class NndEngineHost {
     const context = this.#owned(sessionId, principal);
     return readActivityPageWithBoundary(this.catalogPath, context, options, () => this.#owned(sessionId, principal), this.eventBus);
   }
+  async activityTombstonesPage(principal, options = {}) { return this.tombstones.page(principal, this.#contexts, options); }
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
-    context.closing = true;
-    // Security: closing a parent revokes its child steering grants before shutdown can fail.
-    this.childSessions.unregisterParent?.(sessionId);
-    await this.childSnapshotStore.drain();
-    await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
-    await this.#commitCatalogChange(
-      (contexts) => contexts.delete(sessionId),
-      () => this.#contexts.delete(sessionId),
-    );
-    await this.childSnapshotStore.completeParentClose(context);
-    await drainActivityWrites(context);
-    await removeActivity(this.catalogPath, sessionId).catch((error) => reportActivityFailure(context, error));
-    this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
-    return { closed: true };
+    if (this.#deleting.has(sessionId)) throw new ContractError('nnd_session_unavailable', 'NND session deletion is already pending');
+    context.closing = true; this.#deleting.add(sessionId);
+    try {
+      let tombstone;
+      try { tombstone = await this.tombstones.prepare(context, this.#contexts); }
+      catch (error) { context.closing = false; throw error; } // No engine or catalog mutation began.
+      // Security: closing a parent revokes its child steering grants before shutdown can fail.
+      this.childSessions.unregisterParent?.(sessionId);
+      await this.childSnapshotStore.drain();
+      await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
+      await this.#commitCatalogChange((contexts) => contexts.delete(sessionId), () => this.#contexts.delete(sessionId));
+      await this.tombstones.committed(context, tombstone);
+      await this.childSnapshotStore.completeParentClose(context);
+      await drainActivityWrites(context);
+      await removeActivity(this.catalogPath, sessionId).catch((error) => reportActivityFailure(context, error));
+      this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
+      return { closed: true };
+    } finally { this.#deleting.delete(sessionId); }
   }
   async shutdown() {
     const contexts = [...this.#contexts.values()];
@@ -412,20 +423,9 @@ export class NndEngineHost {
   }
   async #commitCatalogChange(change, commit) {
     if (!this.catalogPath) { change(new Map(this.#contexts)); commit(); return; }
-    // Keep the durable write and its in-memory commit in one serialized unit.
-    // A failed create must not be included in another creator's snapshot.
-    const transaction = this.catalogWrites.catch(() => undefined).then(async () => {
-      const candidate = new Map(this.#contexts);
-      change(candidate);
-      const records = [...candidate.values()].map(catalogRecord);
-      if (Buffer.byteLength(`${JSON.stringify(records, null, 2)}\n`, 'utf8') > CATALOG_LIMIT_BYTES) {
-        throw new ContractError('nnd_catalog_capacity', 'NND session catalog capacity is full');
-      }
-      await this.persistCatalog(this.catalogPath, records);
-      commit();
-    });
-    this.catalogWrites = transaction;
-    await transaction;
+    this.catalogWrites = enqueueNndCatalogChange(this.catalogWrites, this.#contexts, change, commit,
+      this.catalogPath, this.persistCatalog, CATALOG_LIMIT_BYTES);
+    await this.catalogWrites;
   }
   #owned(sessionId, principal, allowClosing = false) {
     requireExternalId(sessionId, 'session_id');
