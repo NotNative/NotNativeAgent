@@ -785,3 +785,16 @@ path; the full UI suite (1,734 tests), web suite (1,447 tests), typecheck, and
 quality gates passed after repairing a missing search anchor for unavailable
 catalog data. Provider/model route bindings and external-store settings
 still need dedicated native mutation contracts and GUI coverage.
+
+## NND 20261003-14 — verified prebuilt payload staging entry
+
+The installer can accept a carried prebuilt NND payload with an independently
+obtained exact manifest SHA-256. It validates the payload and selected NNA
+identity before any optional dependency setup or live-target mutation, then
+asks the selected NNA runtime to stage an inert native slot. It verifies the
+returned operation, payload digest, version, and `slot_ready` phase, and
+preserves uncertain evidence for explicit recovery. Independent review fixed
+preflight ordering and selected-identity verification defects. This is a
+staging prerequisite, not an installed or activated GUI: transactional public
+activation, service launch, rollback, and operator-installed acceptance remain
+open.
