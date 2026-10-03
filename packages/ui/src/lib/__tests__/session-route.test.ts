@@ -7,7 +7,8 @@ import { useSessionViewStore } from '../../sync/view-store.ts';
 import { useGlobalSessionsStore } from '../../sync/global-stores.ts';
 import { openInitialSession } from '../../sync/engine-instance.ts';
 const runtime = vi.hoisted(() => ({ key: 'local' }));
-vi.mock('../runtime-switch.ts', () => ({ getRuntimeKey: () => runtime.key }));
+vi.mock('../runtime-switch.ts', () => ({ getRuntimeKey: () => runtime.key,
+  isTransientRuntimeKey: () => false, onRuntimeEndpointChanged: () => () => undefined }));
 vi.mock('../nnd/client.ts', () => ({ harnessClient: { getSession: vi.fn() },
   normalizeDirectory: (value: string) => value.trim().replaceAll('\\', '/').replace(/\/+$/u, '') }));
 vi.mock('../../sync/persist-cache.ts', () => ({ persistLastActiveSession: vi.fn() }));

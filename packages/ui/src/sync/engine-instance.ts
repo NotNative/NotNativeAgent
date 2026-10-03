@@ -10,7 +10,6 @@ import { normalizeDirectory } from '../lib/nnd/client.ts';
 import type { HarnessEvent } from '../lib/nnd/events.ts';
 import type { Session } from '../lib/nnd/types.ts';
 import type { DirectoryStore, MaterializationRequest } from './types.ts';
-
 import { BOOT_DEBOUNCE_MS, CONNECTION_GRACE_MS } from './types.ts';
 import { ChildStoreManager, type Bootstrapper } from './child-store.ts';
 import { SessionMessageLoader } from './session-message-loader.ts';
@@ -21,6 +20,7 @@ import { bootstrapDirectory } from './bootstrap-directory.ts';
 import { runGlobalBootstrap } from './bootstrap.ts';
 import { mergeBootstrapLists } from './session-actions.ts';
 import { adoptPersistedActivity, resetActivityTiming, useStreamingStore } from './activity-streaming.ts';
+import { markActivityGap } from './activity-gap.ts';
 import { createMaterializationScheduler } from './engine-materialization.ts';
 import { createRecovery } from './engine-recovery.ts';
 import { startWatchdog } from './engine-watchdog.ts';
@@ -36,10 +36,8 @@ import { defaultHarnessDirectory, recoverInterruptedTurnAfterMessageLoad, reconc
 import { awaitAuthoritativeList } from './boot-open-readiness.ts';
 import { routeSessionId, sessionRouteEnabled, sessionNavigationRevision } from '../lib/session-route.ts';
 import { createSessionActions } from './engine-actions.ts';
-
 const evictionTimerStop: { timer: ReturnType<typeof setInterval> | null } = { timer: null };
 const EVICTION_SWEEP_INTERVAL_MS = 30_000;
-
 interface EngineParts {
   manager: ChildStoreManager;
   loader: SessionMessageLoader;
@@ -255,7 +253,11 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
   ctx.pipelineRef = createEventPipeline({
     transport: ctx.transport,
     onEvents: (eventDirectory, events) => partsHandleFlush(ctx, eventDirectory, events),
-    onConnected: async ({ replayReset, skipResync, signal }) => {
+    onConnected: async ({ replayReset, skipResync, signal, explicitGap }) => {
+      if (signal.aborted || ctx.disposed || ctx.connectionEpoch !== connectionEpoch || getRuntimeKey() !== runtimeKey) return;
+      const nnd = useGlobalSyncStore.getState().config?.['nnd'];
+      if (explicitGap && nnd && typeof nnd === 'object' && !Array.isArray(nnd)
+        && (nnd as Record<string, unknown>)['engine'] === 'nna') markActivityGap(runtimeKey);
       if (!skipResync) await ctx.recovery.resyncAfterStreamGap(replayReset ? 'replay-reset' : 'stream-reconnect');
       if (signal.aborted || ctx.disposed || ctx.connectionEpoch !== connectionEpoch || getRuntimeKey() !== runtimeKey) return;
       useConfigStore.setState({ isConnected: true, haveEverConnected: true, connectionPhase: 'connected', lastDisconnectReason: null });
@@ -489,11 +491,9 @@ function installChildPlumbing(
       || Object.values(state.question).some((bucket) => bucket.length > 0);
   };
 }
-
 function pickString(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
 }
-
 function endEvictionSweep(holder: { timer: ReturnType<typeof setInterval> | null }): void {
   if (holder.timer !== null) clearInterval(holder.timer);
   holder.timer = null;

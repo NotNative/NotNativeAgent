@@ -24,6 +24,8 @@ export interface AttemptContext {
 export interface EstablishedInfo {
   replayReset: boolean;
   replayStatus?: 'fresh' | 'complete' | 'gap';
+  /** True only when the opener itself explicitly reports a replay gap. */
+  explicitGap?: boolean;
 }
 
 export interface AttemptResult {
@@ -73,8 +75,7 @@ async function readSseStream(ctx: AttemptContext, response: Response, signal: Ab
   hadCursor: boolean, onEstablished: (info: EstablishedInfo) => void | Promise<void>): Promise<void> {
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
-  let bufferText = '', yieldedAt = Date.now();
-  let established = false;
+  let bufferText = '', yieldedAt = Date.now(), established = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const openerDeadline = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => reject(new Error('sse_opener_timeout')), DEFAULT_SSE_OPENER_TIMEOUT_MS);
@@ -104,7 +105,8 @@ async function readSseStream(ctx: AttemptContext, response: Response, signal: Ab
             const replayStatus = openerStatus(parsed.event, hadCursor);
             if (replayStatus === 'gap') { ctx.queues.clear(); ctx.setLastEventId(null); }
             clearTimeout(timeout); // deadline bounds finding an opener, not its recovery
-            await onEstablished({ replayReset: replayStatus === 'gap', replayStatus });
+            await onEstablished({ replayReset: replayStatus === 'gap', replayStatus,
+              explicitGap: parsed.event.properties?.['replayStatus'] === 'gap' });
             if (signal.aborted) return;
             established = true;
             deliver(parsed.raw);
@@ -254,12 +256,14 @@ function handleWsMessage(
   ctx.noteActivity();
   const kind = String(frame['type'] ?? '');
   if (kind === 'ready') {
-    if (frame['replayReset'] === true) ctx.setLastEventId(null);
+    const explicitGap = frame['replayStatus'] === 'gap';
+    const replayReset = frame['replayReset'] === true || explicitGap;
+    if (replayReset) ctx.setLastEventId(null);
     if (state.settled) return;
     state.settled = true;
     state.establishing = true;
     clearTimeout(readyTimer);
-    Promise.resolve().then(() => onEstablished({ replayReset: frame['replayReset'] === true })).then(() => {
+    Promise.resolve().then(() => onEstablished({ replayReset, explicitGap })).then(() => {
       if (state.closed) return;
       state.readySeen = true;
       state.establishing = false;

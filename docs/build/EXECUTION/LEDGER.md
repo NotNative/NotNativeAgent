@@ -657,3 +657,25 @@ catalog refresh, and late WebSocket/runtime-abort recovery races. Focused
 producer/consumer tests and GUI typecheck passed. The in-memory ring still
 cannot recover every missed transient activity item; durable history and
 installed browser/desktop gap acceptance remain open F2 work.
+
+## NND 20261002-18 — visible gap evidence and Chromium recovery acceptance
+
+When NNA explicitly reports an SSE replay gap, the Activity rail records a
+per-runtime warning that transient observations may be missing even after
+authoritative state recovers. It survives a reload for that endpoint and does
+not invent events or alter drafts, queues, or native permissions. Independent
+review prevented legacy/malformed recovery from being mislabeled a native
+gap and kept the warning visible if local storage rejects a write. A future
+native installation/data identity is needed to distinguish replacement of
+NNA at the same endpoint from historical gap evidence.
+
+An opt-in disposable Electron/Chromium scenario now blocks the UI's native
+event streams, creates an idle session while disconnected, forces an expired
+SSE cursor, and proves the native gap opener, renderer Activity warning,
+cursor reset, and recovered sidebar session. Independent review added the
+renderer warning and next-request cursor checks because sidebar recovery
+alone could pass through an unrelated catalog refresh. The rebuilt source
+bundle passed the complete private-fixture scenario twice against NNA v31
+source; no operator installation was changed. Durable transient history,
+redaction/tombstones, prebuilt installer and installed binary acceptance
+remain open.

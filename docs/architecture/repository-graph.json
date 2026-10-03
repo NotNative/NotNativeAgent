@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:8a41f4c24a0fb5617f77ac2864ab749af04dce2352a0f89e8331dc2a06081eed",
+  "source_digest": "sha256:22464212d3ed5f01be160f07f215b2679911e0a5afac5dfe28aa0665f4d61748",
   "counts": {
-    "modules": 757,
+    "modules": 759,
     "component_edges": 16
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 41
+      "module_count": 42
     },
     {
       "id": "harness-facade",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 55
+      "module_count": 56
     },
     {
       "id": "foundation",
@@ -120,7 +120,7 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 79,
+      "import_count": 80,
       "module_count": 38
     },
     {
@@ -138,8 +138,8 @@
     {
       "from": "sync-engine",
       "to": "runtime-io",
-      "import_count": 12,
-      "module_count": 10
+      "import_count": 13,
+      "module_count": 11
     },
     {
       "from": "runtime-io",
@@ -615,6 +615,7 @@
       "imports": [
         "packages/ui/src/chat/operator-activity-filter.ts",
         "packages/ui/src/lib/i18n/intl.ts",
+        "packages/ui/src/sync/activity-gap.ts",
         "packages/ui/src/sync/activity-log.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/types.ts"
@@ -4272,6 +4273,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/sync/activity-gap.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/sync/activity-log.ts",
       "component": "sync-engine",
       "entrypoint": false,
@@ -4403,6 +4412,7 @@
         "packages/ui/src/lib/session-route.ts",
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/stores/useSkillsCatalogStore.ts",
+        "packages/ui/src/sync/activity-gap.ts",
         "packages/ui/src/sync/activity-streaming.ts",
         "packages/ui/src/sync/boot-open-readiness.ts",
         "packages/ui/src/sync/bootstrap-directory.ts",
@@ -7141,6 +7151,12 @@
     },
     {
       "path": "scripts/electron-native-configuration-browser.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/electron-native-replay-gap-browser.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": []

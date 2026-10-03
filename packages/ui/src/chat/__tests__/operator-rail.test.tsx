@@ -16,6 +16,7 @@ import * as serverFiles from '../../lib/files/server-api.ts';
 import * as serverGit from '../../lib/git/server-api.ts';
 import type { RuntimeAPIs } from '../../lib/api/types.ts';
 import { useGitStore } from '../../lib/git/store.ts';
+import { markActivityGap } from '../../sync/activity-gap.ts';
 
 vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
 
@@ -410,6 +411,30 @@ describe('OperatorRail', () => {
     await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(history).toHaveBeenCalledWith('s1', { directory: 'D:/work' });
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Saved turn completed');
+  });
+
+  it('keeps a truthful Activity gap notice after a saved snapshot and scopes it to the runtime', async () => {
+    let activeRuntime = 'local';
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => activeRuntime);
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    vi.spyOn(harnessClient, 'listActivity').mockResolvedValue({ data: [] } as never);
+    const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
+    await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-history-gap"]')).toBeNull();
+    act(() => markActivityGap('local', 1_700_000_000_000));
+    expect(document.querySelector('[data-testid="activity-history-gap"]')?.textContent).toContain('may be missing');
+    activeRuntime = 'url:https://other.example';
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/other" /></I18nProvider>));
+    await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-activity"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="activity-history-gap"]')).toBeNull();
+    activeRuntime = 'local';
+    await act(async () => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
+    await act(async () => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-activity"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="activity-history-gap"]')).not.toBeNull();
   });
 
   it('distinguishes unselected, loading, and genuinely empty Activity history', async () => {

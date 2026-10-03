@@ -68,7 +68,7 @@ describe('SSE replay cursor', () => {
     vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(opener('complete') + event('next')));
     const established = vi.fn(() => recovery);
     const attempt = attemptSse(state.ctx, '/api/global/event', new AbortController().signal, established);
-    await vi.waitFor(() => expect(established).toHaveBeenCalledWith({ replayReset: false, replayStatus: 'complete' }));
+    await vi.waitFor(() => expect(established).toHaveBeenCalledWith({ replayReset: false, replayStatus: 'complete', explicitGap: false }));
     expect(state.cursor()).toBe('old');
     expect(state.received).toEqual([]);
     release();
@@ -95,7 +95,7 @@ describe('SSE replay cursor', () => {
     vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(opener('gap') + event('next')));
     const established = vi.fn(() => recovery);
     const attempt = attemptSse(state.ctx, '/api/global/event', new AbortController().signal, established);
-    await vi.waitFor(() => expect(established).toHaveBeenCalledWith({ replayReset: true, replayStatus: 'gap' }));
+    await vi.waitFor(() => expect(established).toHaveBeenCalledWith({ replayReset: true, replayStatus: 'gap', explicitGap: true }));
     expect(state.cursor()).toBeNull();
     expect(state.received).toEqual([]);
     release();
@@ -108,11 +108,11 @@ describe('SSE replay cursor', () => {
     vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(opener()));
     const established = vi.fn();
     await attemptSse(state.ctx, '/api/global/event', new AbortController().signal, established);
-    expect(established).toHaveBeenCalledWith({ replayReset: true, replayStatus: 'gap' });
+    expect(established).toHaveBeenCalledWith({ replayReset: true, replayStatus: 'gap', explicitGap: false });
     expect(state.cursor()).toBeNull();
     vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(opener('invented')));
     await attemptSse(state.ctx, '/api/global/event', new AbortController().signal, established);
-    expect(established).toHaveBeenLastCalledWith({ replayReset: true, replayStatus: 'gap' });
+    expect(established).toHaveBeenLastCalledWith({ replayReset: true, replayStatus: 'gap', explicitGap: false });
     vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(event('unexpected')));
     await expect(attemptSse(state.ctx, '/api/global/event', new AbortController().signal, established)).rejects.toThrow('sse_missing_opener');
     expect(state.cursor()).toBeNull();

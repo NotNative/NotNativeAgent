@@ -12,7 +12,8 @@ import { registerRuntimeAPIs } from '../../lib/api/registry.ts';
 import type { RuntimeAPIs } from '../../lib/api/types.ts';
 import * as serverGit from '../../lib/git/server-api.ts';
 import { useGitStore } from '../../lib/git/store.ts';
-vi.mock('../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => 'local', isTransientRuntimeKey: () => false }));
+vi.mock('../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => 'local', isTransientRuntimeKey: () => false,
+  onRuntimeEndpointChanged: () => () => undefined }));
 vi.mock('../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn(async (input: string) => {
   const body = String(input).includes('/api/git/status')
     ? { isGitRepository: true, branch: 'main', workspacePrefix: '', files: [{ path: 'work.ts', index: ' ', working_dir: 'M' }] }

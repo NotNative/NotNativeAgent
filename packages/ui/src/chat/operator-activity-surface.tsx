@@ -7,6 +7,7 @@ import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-s
 import { useCurrentIntlLocale } from '../lib/i18n/intl.ts';
 import type { ToolEvidence } from '../sync/activity-log.ts';
 import { ACTIVITY_FILTERS, filterActivityRecords, type ActivityFilter } from './operator-activity-filter.ts';
+import { activityGapAt, subscribeActivityGap } from '../sync/activity-gap.ts';
 
 export function ActivitySurface({ store, directory, sessionID, expanded, onReviewPath, onOpenSubagent }: {
   store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; expanded: boolean;
@@ -15,6 +16,7 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
   const intlLocale = useCurrentIntlLocale();
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const nnaSource = isNnaActivitySource(store);
+  const gapAt = useSyncExternalStore(subscribeActivityGap, activityGapAt, () => null);
   const historyKey = `${directory}\u0000${sessionID ?? ''}`;
   const [history, setHistory] = useState<{ key: string; status: 'loading' | 'ready' | 'unavailable' } | null>(null);
   const [refreshRevision, setRefreshRevision] = useState(0);
@@ -55,6 +57,9 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
     <header className="shrink-0 border-b border-white/10 p-3 pb-2">
       <div className={expanded ? 'mx-auto w-full max-w-5xl' : 'w-full'} data-testid="activity-reading-column">
         <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
+        {nnaSource && gapAt !== null ? <p role="status" data-testid="activity-history-gap" className="mb-2 text-[10px] text-amber-300">
+          An event stream gap occurred. Transient activity during that gap may be missing, even after recovery.
+        </p> : null}
         {nnaSource && historyStatus === 'loading' && records.length > 0 ? <p role="status" className="mb-2 text-[10px] text-neutral-400">Loading saved activity; showing live evidence so far.</p> : null}
         {nnaSource && historyStatus === 'unavailable' ? <div role="status" className="mb-2 flex items-center gap-2 text-[10px] text-amber-300">
           <span>Saved activity unavailable; live evidence may be incomplete.</span>

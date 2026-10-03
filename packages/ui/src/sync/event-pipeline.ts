@@ -14,7 +14,8 @@ import { DEFAULT_HEARTBEAT_TIMEOUT_MS, DEFAULT_WS_READY_TIMEOUT_MS, WS_FALLBACK_
 export interface PipelineOptions {
   transport: 'auto' | 'ws' | 'sse';
   onEvents: (directory: string, events: readonly HarnessEvent[]) => void;
-  onConnected: (info: { replayReset: boolean; skipResync: boolean; signal: AbortSignal }) => void | Promise<void>;
+  onConnected: (info: { replayReset: boolean; skipResync: boolean; signal: AbortSignal;
+    replayStatus?: EstablishedInfo['replayStatus']; explicitGap?: boolean }) => void | Promise<void>;
   onDisconnected: (reason: string) => void;
   onTransportSwitch: (reason: string) => void;
   isRecentBoot: () => boolean;
@@ -127,7 +128,8 @@ async function pipeOnEstablished(state: PipelineState, info: EstablishedInfo, tr
   state.context.noteActivity();
   const skipResync = shouldSkipConnectedResync(state.firstConnect, state.disconnectedBeforeFirstConnect,
     info.replayReset, transport, state.options.isRecentBoot(), info.replayStatus);
-  await state.options.onConnected({ replayReset: info.replayReset, skipResync, signal });
+  await state.options.onConnected({ replayReset: info.replayReset, skipResync, signal,
+    replayStatus: info.replayStatus, explicitGap: info.explicitGap });
   if (state.stopped || signal.aborted) return;
   state.firstConnect = false;
   state.everConnected = true;
