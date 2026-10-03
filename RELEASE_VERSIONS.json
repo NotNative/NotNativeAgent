@@ -944,6 +944,10 @@
     {
       "version": "20261003-3",
       "content_sha256": "27b67e4b256b87c7c0a6f7a24f7d1e56d7a430fb2cd56b2c68f1e71349d01fbd"
+    },
+    {
+      "version": "20261003-4",
+      "content_sha256": "d29745f42092b2dc4525ccac6322c1537c3708cd73d3c7407b704438c70cb237"
     }
   ]
 }
