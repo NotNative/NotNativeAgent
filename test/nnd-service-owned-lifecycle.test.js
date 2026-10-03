@@ -72,7 +72,8 @@ test('unpublished owned trial cannot publish discovery or grant tickets and reta
  f.childReady.resolve();const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
  assert.equal(f.nativeOptions.unpublishedTrial,true);
  assert.equal(f.controller,undefined);assert.equal(f.trace.some(event=>event.startsWith('discovery:')),false);
- assert.deepEqual(Object.keys(owner).sort(),['status','stop','stopped','verify']);assert.equal(JSON.stringify(owner.status()).includes('private-engine-token'),false);
+ assert.deepEqual(Object.keys(owner).sort(),['recordCompletion','status','stop','stopped','verify']);assert.equal(JSON.stringify(owner.status()).includes('private-engine-token'),false);
+ await assert.rejects(owner.recordCompletion(f.registry,{operationId:'operation'}),{code:'nnd_activation_transition_proof_invalid'});
  const gate=deferred();f.native.close=async()=>{f.trace.push('native:draining');await gate.promise;f.trace.push('native:drained');};
  let stopped=false;const closing=owner.stop().then(()=>{stopped=true;});await waitFor(()=>f.trace.includes('native:draining'));
  assert.equal(stopped,false);gate.resolve();await closing;assert.equal(f.trace.includes('lease:close'),false);
