@@ -12,7 +12,8 @@ export function NativeRouteEditForm({ model, view }: { model: ControlsModel; vie
   const fields = model.fields.filter(field => ROUTE_SCALAR.test(field.path) && field.type !== 'array');
   const selected = fields.find(field => field.path === model.fieldPath);
   const row = view.fields.find(field => field.path === selected?.path);
-  const projected = model.preview?.result.view.fields.find(field => field.path === selected?.path)?.effective;
+  const scalarPreview = model.preview?.request.operations[0]?.op !== 'bind_route' ? model.preview : null;
+  const projected = scalarPreview?.result.view.fields.find(field => field.path === selected?.path)?.effective;
   if (fields.length === 0) return <p role="status">{t('settings.nativeRoutes.unavailable')}</p>;
   return <div className="space-y-2" data-settings-item="native-routes.tuning">
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
@@ -40,7 +41,7 @@ export function NativeRouteEditForm({ model, view }: { model: ControlsModel; vie
       </label> : null}
       <button type="button" disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => previewNativeField(model, view)}>{t('settings.nativeConfiguration.preview')}</button>
-      {model.preview ? <div role="status">
+      {scalarPreview ? <div role="status">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>
         <p>{projected?.present ? JSON.stringify(projected) : t('settings.nativeConfiguration.absent')}</p>
         <button type="button" disabled={model.busy} onClick={() => publishNativeField(model, view)}>

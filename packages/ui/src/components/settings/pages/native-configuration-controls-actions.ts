@@ -3,8 +3,9 @@ import { getRuntimeKey } from '../../../lib/runtime-switch.ts';
 import type { NativeConfigurationView } from '../../../lib/nnd/configuration.ts';
 import { clearNativeConfigurationOperation, reserveNativeConfigurationOperation,
   type PendingNativeConfigurationOperation } from '../../../lib/nnd/configuration-pending.ts';
-import { lookupNativeConfigurationOperation, nativeChange, nativeRepairDocument, newNativeOperationId,
+import { lookupNativeConfigurationOperation, nativeChange, nativeRouteBindingChange, nativeRepairDocument, newNativeOperationId,
   previewNativeConfiguration, repairNativeConfiguration, saveNativeConfiguration, NativeConfigurationFailure } from '../../../lib/nnd/configuration-mutation.ts';
+import type { NativeRouteRole } from '../../../lib/nnd/configuration-mutation.ts';
 import { errorCode, invalidateNativePreview, runNativeConfigurationWork, type ControlsModel } from './native-configuration-controls-model.ts';
 
 export function chooseNativeField(model: ControlsModel, view: NativeConfigurationView, path: string): void {
@@ -21,6 +22,16 @@ export function previewNativeField(model: ControlsModel, view: NativeConfigurati
   if (!model.selected) return;
   void runNativeConfigurationWork(model, async signal => {
     const request = nativeChange(view, model.selected!, model.mode, model.draft);
+    const result = await previewNativeConfiguration(request, signal);
+    if (model.currentWork.current?.signal === signal && model.isCurrent(model.currentWork.current)) model.setPreview({ request, result });
+  });
+}
+
+export function previewNativeRouteBinding(model: ControlsModel, view: NativeConfigurationView,
+  role: NativeRouteRole, providerId: string, modelId: string): void {
+  if (!model.catalog || model.pendingOperationRef.current) return;
+  void runNativeConfigurationWork(model, async signal => {
+    const request = nativeRouteBindingChange(view, model.catalog!, role, providerId, modelId);
     const result = await previewNativeConfiguration(request, signal);
     if (model.currentWork.current?.signal === signal && model.isCurrent(model.currentWork.current)) model.setPreview({ request, result });
   });

@@ -27,8 +27,10 @@ export interface NativeEditableField {
   enum?: string[];
   editability: { available: true; scope: 'user'; required_permission: 'nnd.configuration.manage' };
 }
-export interface NativeConfigurationCatalog { fields: NativeEditableField[] }
-export interface NativeOperation { op: 'set' | 'reset'; field: string; value?: unknown }
+export type NativeRouteRole = 'reviewer' | 'vision';
+export interface NativeConfigurationCatalog { fields: NativeEditableField[]; routeBindings?: NativeRouteRole[] }
+export type NativeOperation = { op: 'set' | 'reset'; field: string; value?: unknown }
+  | { op: 'bind_route'; role: NativeRouteRole; provider_id: string; model: string };
 export interface NativeChangeRequest {
   installation_id: string; data_id: string; scope: 'user'; expected_revision: string;
   expected_resolution_revision: string; operations: NativeOperation[];
@@ -76,9 +78,22 @@ export async function requestNativeConfigurationCatalog(signal: AbortSignal): Pr
   if (!record(response) || response.schema_version !== '1.0' || response.authority !== 'descriptive_only'
     || !Array.isArray(response.fields) || response.fields.length > 512) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
   const fields: NativeEditableField[] = [];
+  const bindingPaths = new Set<string>();
   for (const raw of response.fields) {
     if (!record(raw) || !record(raw.editability) || raw.editability.available !== true) continue;
+    const role = /^routes\.(reviewer|vision)\.(provider_id|model)$/u.exec(String(raw.path))?.[1];
+    if (role && raw.editability.operation === 'bind_route') {
+      const paired = [`routes.${role}.provider_id`, `routes.${role}.model`];
+      if (typeof raw.path !== 'string' || raw.type !== 'unknown' || raw.classification !== 'operator_setting'
+        || raw.editability.scope !== 'user' || raw.editability.required_permission !== 'nnd.configuration.manage'
+        || !Array.isArray(raw.editability.paired_fields)
+        || JSON.stringify(raw.editability.paired_fields) !== JSON.stringify(paired)
+        || bindingPaths.has(raw.path)) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+      bindingPaths.add(raw.path); continue;
+    }
     if (typeof raw.path !== 'string' || raw.path.length > 512 || !ID.test(raw.path.replaceAll('.', '_'))
+      || /^routes\.(?:reviewer|vision)\.(?:provider_id|model)$/u.test(raw.path)
+      || raw.editability.operation !== undefined
       || !['integer', 'number', 'string', 'boolean', 'enum', 'array'].includes(String(raw.type))
       || raw.classification !== 'operator_setting' || raw.editability.generic_editable !== true
       || raw.editability.scope !== 'user' || raw.editability.required_permission !== 'nnd.configuration.manage'
@@ -87,7 +102,22 @@ export async function requestNativeConfigurationCatalog(signal: AbortSignal): Pr
     fields.push(raw as unknown as NativeEditableField);
   }
   if (new Set(fields.map(field => field.path)).size !== fields.length) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
-  return { fields };
+  const routeBindings = (['reviewer', 'vision'] as NativeRouteRole[]).filter(role =>
+    bindingPaths.has(`routes.${role}.provider_id`) && bindingPaths.has(`routes.${role}.model`));
+  return { fields, routeBindings };
+}
+export function nativeRouteBindingChange(view: NativeConfigurationView, catalog: NativeConfigurationCatalog,
+  role: NativeRouteRole, providerId: string, model: string): NativeChangeRequest {
+  if (view.scope !== 'user' || view.source_state !== 'present' || !REVISION.test(view.source_revision ?? '')
+    || !/^[a-f0-9]{64}$/u.test(view.resolution_revision ?? '') || !ID.test(view.installation_id)
+    || !ID.test(view.data_id) || !catalog.routeBindings?.includes(role)
+    || !/^[A-Za-z0-9_-]{1,64}$/u.test(providerId) || ['__proto__', 'constructor', 'prototype'].includes(providerId)
+    || !model.trim() || model.length > 256 || /[\u0000-\u001f\u007f]/u.test(model)) {
+    throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+  }
+  return { installation_id: view.installation_id, data_id: view.data_id, scope: 'user',
+    expected_revision: view.source_revision!, expected_resolution_revision: view.resolution_revision!,
+    operations: [{ op: 'bind_route', role, provider_id: providerId, model }] };
 }
 export function nativeChange(view: NativeConfigurationView, field: NativeEditableField,
   mode: 'set' | 'reset', draft: string): NativeChangeRequest {

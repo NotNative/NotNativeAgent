@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a0a2114e46946c0b1ec1fbbfe7d21f6834a66d891d234777122fcd7aa7120150",
+  "source_digest": "sha256:327560c29189fd5ad84f9c3860c15a15e6322719790ded3b92273a5bf4deb355",
   "counts": {
-    "modules": 776,
+    "modules": 777,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 186
+      "module_count": 187
     },
     {
       "id": "web-server",
@@ -120,8 +120,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 84,
-      "module_count": 64
+      "import_count": 86,
+      "module_count": 65
     },
     {
       "from": "sync-engine",
@@ -1813,6 +1813,7 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/components/settings/pages/native-route-binding-form.tsx",
         "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
         "packages/ui/src/components/settings/pages/native-tui-edit-form.tsx",
         "packages/ui/src/lib/nnd/configuration.ts",
@@ -1855,6 +1856,18 @@
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/runtime-url.ts",
         "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-route-binding-form.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
+        "packages/ui/src/lib/nnd/configuration.ts"
       ]
     },
     {

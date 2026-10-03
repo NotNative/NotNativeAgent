@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, expect, it, vi } from 'vitest';
 import { runtimeFetch } from '../../runtime-fetch.ts';
-import { nativeChange, nativeRepairDocument, newNativeOperationId, previewNativeConfiguration, requestNativeConfigurationCatalog,
+import { nativeChange, nativeRouteBindingChange, nativeRepairDocument, newNativeOperationId, previewNativeConfiguration, requestNativeConfigurationCatalog,
   saveNativeConfiguration, lookupNativeConfigurationOperation } from '../configuration-mutation.ts';
 import type { NativeConfigurationView } from '../configuration.ts';
 vi.mock('../../runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
@@ -29,6 +29,26 @@ it('takes only native-advertised finite user fields and never grants authority f
   const result = await requestNativeConfigurationCatalog(signal);
   expect(result.fields.map(item => item.path)).toEqual(['streaming']);
   expect(runtimeFetch).toHaveBeenCalledWith('/api/v1/nnd/configuration/catalog', expect.objectContaining({ method: 'GET' }));
+});
+it('admits only complete catalog-advertised reviewer/vision binding pairs and sends one native operation', async () => {
+  const pair = (role: 'reviewer' | 'vision', name: 'provider_id' | 'model') => ({
+    path: `routes.${role}.${name}`, type: 'unknown', classification: 'operator_setting',
+    editability: { available: true, generic_editable: true, scope: 'user', required_permission: 'nnd.configuration.manage',
+      operation: 'bind_route', paired_fields: [`routes.${role}.provider_id`, `routes.${role}.model`] },
+  });
+  vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ ...catalog,
+    fields: [...catalog.fields, pair('reviewer', 'provider_id'), pair('reviewer', 'model')] })));
+  const parsed = await requestNativeConfigurationCatalog(signal);
+  expect(parsed.routeBindings).toEqual(['reviewer']);
+  expect(parsed.fields.map(item => item.path)).toEqual(['streaming']);
+  const request = nativeRouteBindingChange(view, parsed, 'reviewer', 'local', 'review-model');
+  expect(request.operations).toEqual([{ op: 'bind_route', role: 'reviewer', provider_id: 'local', model: 'review-model' }]);
+  expect(request.expected_revision).toBe(digest);
+  expect(() => nativeRouteBindingChange(view, parsed, 'vision', 'local', 'model')).toThrow('nnd_configuration_request_invalid');
+  expect(() => nativeRouteBindingChange(view, parsed, 'reviewer', '__proto__', 'model')).toThrow('nnd_configuration_request_invalid');
+  vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ ...catalog,
+    fields: [...catalog.fields, pair('reviewer', 'provider_id')] })));
+  expect((await requestNativeConfigurationCatalog(signal)).routeBindings).toEqual([]);
 });
 it('uses the exact read revision and resolution for preview and the same request for CAS save', async () => {
   const request = nativeChange(view, field, 'set', 'false');

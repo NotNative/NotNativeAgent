@@ -810,3 +810,15 @@ remain governed through NNA's coupled TUI flow until a safe paired native
 mutation contract is available.
 The full UI suite passed (1,737 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-16 — native reviewer and vision route binding
+
+Managed Settings now offers NNA-advertised reviewer and vision provider/model
+bindings as a single typed native operation. Provider choices come from the
+selected user's authenticated provider projection; preview, revision-checked
+save, and operation receipts retain NNA authority over project shadows and
+permissions. Independent adversarial review found no concrete defect in the
+paired mutation or GUI flow. Primary and subagent routes retain their separate
+native contracts.
+The full UI suite passed (1,740 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.

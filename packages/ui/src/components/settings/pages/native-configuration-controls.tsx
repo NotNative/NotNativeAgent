@@ -6,6 +6,7 @@ import { chooseNativeField, inspectNativeOperation, previewNativeField, publishN
 import { invalidateNativePreview, useNativeConfigurationControlsModel, type ControlsModel } from './native-configuration-controls-model.ts';
 import { NativeTuiEditForm } from './native-tui-edit-form.tsx';
 import { NativeRouteEditForm } from './native-route-edit-form.tsx';
+import { NativeRouteBindingForm } from './native-route-binding-form.tsx';
 import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
 
 const MEMORY_LIMITS: Record<string, { label: 'settings.nativeMemory.timeout' | 'settings.nativeMemory.maxItems'
@@ -32,7 +33,9 @@ export function NativeConfigurationControls({ view, onReload, family }: { view: 
     {model.catalogError ? <p role="status">{t('settings.nativeConfiguration.catalogUnavailable')}</p> : null}
     <fieldset disabled={authority !== 'ready'}>{view.source_state === 'present' && model.catalog ? family === 'tui'
       ? <NativeTuiEditForm model={model} view={view} /> : family === 'routes'
-        ? <NativeRouteEditForm model={model} view={view} /> : <NativeEditForm model={model} view={view} /> : null}
+        ? <><NativeRouteEditForm model={model} view={view} />
+          {model.catalog.routeBindings?.length ? <NativeRouteBindingForm model={model} view={view} /> : null}</>
+        : <NativeEditForm model={model} view={view} /> : null}
     {view.source_state !== 'present' && model.catalog ? family === 'tui'
       ? <p role="status">{t('settings.nativeTui.sourceMissing')}</p> : family === 'routes'
         ? <p role="status">{t('settings.nativeRoutes.sourceMissing')}</p> : <NativeRepairForm model={model} view={view} /> : null}</fieldset>
