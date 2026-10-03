@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:88637ba60de2c5a0aff28535dc115c8f3902fdb349293bbf181cca2fce02f314",
+  "source_digest": "sha256:56ed407cd0a9134972b6c45a93cacd1cb62d3e07dd259e203497135369695906",
   "counts": {
     "modules": 502,
     "component_edges": 82
@@ -340,6 +340,12 @@
       "module_count": 5
     },
     {
+      "from": "gateway",
+      "to": "persistence",
+      "import_count": 5,
+      "module_count": 3
+    },
+    {
       "from": "governance-engine",
       "to": "persistence",
       "import_count": 5,
@@ -356,12 +362,6 @@
       "to": "guidance",
       "import_count": 4,
       "module_count": 4
-    },
-    {
-      "from": "gateway",
-      "to": "persistence",
-      "import_count": 4,
-      "module_count": 2
     },
     {
       "from": "integrations",
@@ -1691,7 +1691,8 @@
       "component": "gateway",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/persistence/manifest-transaction.js"
       ]
     },
     {

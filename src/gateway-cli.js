@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { loadEffectiveStartupConfiguration, runtimeHookRoots, runtimeSkillRoots } from './startup-configuration.js';
 import {
-  gatewayPublicStatus, gatewayToken, loadGatewayConfig, normalizeUserId, saveGatewayConfig,
+  gatewayPublicStatus, gatewayToken, loadGatewayConfig, normalizeUserId, updateGatewayConfig,
 } from './gateway/config.js';
 import { TelegramApi } from './gateway/telegram-api.js';
 import { TelegramGateway } from './gateway/telegram.js';
@@ -18,15 +18,27 @@ const MAX_TOKEN_BYTES = 1_024;
 
 export async function runGatewayCommand(args, paths, options = {}) {
   const action = args[0] ?? 'status';
+  if (action === 'token') return update(paths, config => ({ ...config, token: required(args[1], 'telegram token') }));
+  if (action === 'token-stdin') {
+    const token = await readToken(options.input);
+    return update(paths, config => ({ ...config, token }));
+  }
+  if (action === 'token-env') {
+    const name = required(args[1], 'token environment name');
+    return update(paths, config => ({ ...config, token_env: name, token: null }));
+  }
+  if (action === 'authorize' || action === 'revoke') {
+    const id = normalizeUserId(args[1]);
+    return update(paths, config => ({ ...config, authorized_user_ids: action === 'authorize'
+      ? [...config.authorized_user_ids, id] : config.authorized_user_ids.filter(value => value !== id) }));
+  }
+  if (action === 'workspace') {
+    const root = resolve(required(args.slice(1).join(' '), 'workspace path'));
+    return update(paths, config => ({ ...config, workspace_root: root }));
+  }
+  if (action === 'enable' || action === 'disable') return update(paths, config => ({ ...config, enabled: action === 'enable' }));
   const config = await loadGatewayConfig(paths.gatewayConfig);
   if (action === 'status') return { ...gatewayPublicStatus(config), runtime: await runtimeStatus(paths, options) };
-  if (action === 'token') return update(config, paths, { token: required(args[1], 'telegram token'), enabled: config.enabled });
-  if (action === 'token-stdin') return update(config, paths, { token: await readToken(options.input), enabled: config.enabled });
-  if (action === 'token-env') return update(config, paths, { token_env: required(args[1], 'token environment name'), token: null });
-  if (action === 'authorize') return update(config, paths, { authorized_user_ids: [...config.authorized_user_ids, normalizeUserId(args[1])] });
-  if (action === 'revoke') return update(config, paths, { authorized_user_ids: config.authorized_user_ids.filter((id) => id !== normalizeUserId(args[1])) });
-  if (action === 'workspace') return update(config, paths, { workspace_root: resolve(required(args.slice(1).join(' '), 'workspace path')) });
-  if (action === 'enable' || action === 'disable') return update(config, paths, { enabled: action === 'enable' });
   if (action === 'test') return testGateway(config, options);
   if (action === 'run') return runForeground(config, paths, options);
   if (action === 'start') return startDetached(config, paths, options);
@@ -34,8 +46,8 @@ export async function runGatewayCommand(args, paths, options = {}) {
   throw Object.assign(new Error('invalid gateway command'), { code: 'invalid_gateway_command' });
 }
 
-async function update(config, paths, changes) {
-  const saved = await saveGatewayConfig(paths.gatewayConfig, { ...config, ...changes, updated_at: new Date().toISOString() });
+async function update(paths, mutate) {
+  const saved = await updateGatewayConfig(paths.gatewayConfig, config => ({ ...mutate(config), updated_at: new Date().toISOString() }));
   return { config: gatewayPublicStatus(saved) };
 }
 

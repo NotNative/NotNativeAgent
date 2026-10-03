@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -33,8 +33,9 @@ test('gateway shutdown diagnostics expose only a stable code', () => {
   assert.doesNotMatch(diagnostic, /private|token/u);
 });
 
-test('gateway config is absent-safe, bounded, durable, and redacted', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-'));
+test('gateway config is absent-safe, bounded, durable, and redacted', async t => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-gateway-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'config', 'gateway.json');
   assert.equal((await loadGatewayConfig(path)).enabled, false);
   const config = await saveGatewayConfig(path, {
@@ -122,8 +123,9 @@ test('TUI gateway commands exclude secret and foreground actions and enforce ari
   assert.deepEqual(calls[0], ['authorize', '42']);
 });
 
-test('gateway start failure is reported without publishing a false pid', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-start-failure-'));
+test('gateway start failure is reported without publishing a false pid', async t => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-gateway-start-failure-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
   const paths = {
     root, gateway: join(root, 'gateway'), logs: join(root, 'logs'),
     gatewayConfig: join(root, 'gateway', 'config.json'),

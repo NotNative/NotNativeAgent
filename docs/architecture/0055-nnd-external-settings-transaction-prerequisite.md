@@ -26,8 +26,15 @@ external gateway store has no project layer, so its resolution
 revision equals the source revision and `project_shadowed` is false; a future
 public route must not claim manifest project inheritance for this store.
 
-The transaction remains private until first-party writers use the same
-coordination boundary or a stronger shared transaction API. A subsequent native
+The gateway Console/CLI mutation path and `saveGatewayConfig` now use the same
+manifest mutex as this private intent. CLI changes derive from the latest
+document while holding the lock, so concurrent authorizations accumulate and a
+racing native timeout save either commits before the CLI update or fails its
+stale revision. First-party writes preserve unknown raw fields and never put
+the token in transaction receipt payloads. Uncertain publication remains an
+error; the caller must inspect current state rather than assuming a save.
+
+The transaction remains private. A subsequent native
 HTTP route must derive the gateway path and selected identity from trusted
 installation state rather than client input. It also needs a bounded public
 projector and error taxonomy, then NND browser

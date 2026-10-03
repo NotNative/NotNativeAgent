@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { ContractError } from '../ids.js';
+import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from '../persistence/manifest-transaction.js';
 
 export const MAX_GATEWAY_CONFIG_BYTES = 65_536;
 const DEFAULT_POLLING_TIMEOUT_SECONDS = 25;
@@ -31,16 +32,36 @@ export async function loadGatewayConfig(path) {
 
 export async function saveGatewayConfig(path, value) {
   const config = normalizeGatewayConfig(value);
+  return updateGatewayConfig(path, () => config);
+}
+
+/** Serialize first-party writes with native NND CAS and derive CLI changes from the locked latest source. */
+export async function updateGatewayConfig(path, mutate) {
+  if (typeof mutate !== 'function') throw new ContractError('gateway_config_invalid', 'gateway configuration update is invalid');
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  const temporary = `${path}.tmp-${process.pid}-${randomUUID()}`;
-  try {
-    await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-    await rename(temporary, path);
-  } catch (error) {
-    await unlink(temporary).catch(() => undefined);
-    throw error;
-  }
-  return config;
+  return withManifestLock(path, {}, async lease => {
+    const snapshot = await readLockedManifestSnapshot(lease);
+    if (snapshot.rawBytes?.length > MAX_GATEWAY_CONFIG_BYTES) throw new ContractError('gateway_config_too_large', 'gateway configuration exceeds its size bound');
+    if (snapshot.state !== 'missing' && (!snapshot.rawManifest || typeof snapshot.rawManifest !== 'object'
+      || Array.isArray(snapshot.rawManifest))) throw new ContractError('gateway_config_invalid', 'gateway configuration is not valid UTF-8 JSON');
+    const raw = snapshot.rawManifest ?? {};
+    const current = normalizeGatewayConfig(raw);
+    const candidate = mutate(current);
+    if (candidate && typeof candidate.then === 'function') {
+      throw new ContractError('gateway_config_invalid', 'gateway configuration update must be synchronous');
+    }
+    const config = normalizeGatewayConfig(candidate);
+    const document = { ...raw, ...config };
+    if (Buffer.byteLength(`${JSON.stringify(document, null, 2)}\n`) > MAX_GATEWAY_CONFIG_BYTES) {
+      throw new ContractError('gateway_config_too_large', 'gateway configuration exceeds its size bound');
+    }
+    const documentHash = createHash('sha256').update(JSON.stringify(document)).digest('hex');
+    const result = await transactLockedManifest(lease, { path, expectedRevision: snapshot.revision,
+      operationId: `gateway_${randomUUID()}`, payload: { kind: 'gateway-first-party', document_hash: documentHash },
+      transform: () => document, validate: normalizeGatewayConfig });
+    if (result.persistence !== 'saved') throw new ContractError('gateway_config_publication_unknown', 'Gateway configuration outcome is uncertain');
+    return config;
+  });
 }
 
 export function normalizeGatewayConfig(value) {
