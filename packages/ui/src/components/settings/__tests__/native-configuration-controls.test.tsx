@@ -132,6 +132,47 @@ it('offers bounded provider scheduling controls only for fields advertised by NN
   expect(container.textContent).toContain('not applied');
 });
 
+it('edits advertised recovery budgets through native preview, CAS save, and receipt evidence', async () => {
+  const recoveryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'recovery.max_model_steps', catalog_path: 'recovery.max_model_steps', explicit: { present: false },
+      effective: { present: true, value: 1024, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.local_retry_limit', catalog_path: 'recovery.local_retry_limit', explicit: { present: false },
+      effective: { present: true, value: 3, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  const retry = { path: 'recovery.local_retry_limit', type: 'integer' as const, editability: field.editability };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [retry,
+    { path: 'recovery.unknown', type: 'integer', editability: field.editability }] });
+  const recoveryRequest = { ...request, operations: [{ op: 'set' as const, field: retry.path, value: 4 }] };
+  vi.mocked(nativeChange).mockReturnValue(recoveryRequest);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: request.expected_revision,
+    resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: recoveryView });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: request.expected_revision, application: 'not_applied', replayed: false });
+  mount(recoveryView); await act(async () => {});
+  expect(container.querySelector('[data-settings-item="native-configuration.recovery-budgets"]')).not.toBeNull();
+  expect(container.textContent).not.toContain('Maximum model steps');
+  expect(container.textContent).not.toContain('recovery.unknown');
+  await act(async () => button('Local retry limit').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.min).toBe('2'); expect(input.max).toBe('5'); expect(input.value).toBe('3');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '6');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect((button('Preview change') as HTMLButtonElement).disabled).toBe(true);
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '03');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect((button('Preview change') as HTMLButtonElement).disabled).toBe(true);
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '4');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(container.textContent).not.toContain('Save to NNA');
+  await act(async () => button('Preview change').click());
+  expect(nativeChange).toHaveBeenCalledWith(recoveryView, retry, 'set', '4');
+  expect(previewNativeConfiguration).toHaveBeenCalledWith(recoveryRequest, expect.any(AbortSignal));
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledWith(recoveryRequest, 'operation_1', expect.any(AbortSignal));
+  expect(container.textContent).toContain('saved'); expect(container.textContent).toContain('not applied');
+});
+
 it('previews and saves a catalog-advertised dream idle limit with native CAS', async () => {
   const dreamView: NativeConfigurationView = { ...view, fields: [
     { path: 'dream.idle_ms', catalog_path: 'dream.idle_ms', explicit: { present: false },

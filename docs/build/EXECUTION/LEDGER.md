@@ -939,3 +939,15 @@ NND selection cannot be overridden with a different explicit NNA root. An
 independent adversarial review found and fixed an empty recovery ID that could
 otherwise fall through to normal installation. Public service activation and
 operator-installed acceptance remain open.
+
+## NND 20261003-27 — native recovery budgets
+
+Managed Settings now offers bounded controls for NNA's model-step and local
+retry limits when the native catalog advertises those user-manifest fields.
+The controls use native preview, revision-checked save, and operation receipts;
+NNA still validates the recovery ladder and decides when saved values become
+effective. An independent adversarial review fixed a leading-zero draft that
+could offer an invalid Preview and corrected the application guidance.
+Installed GUI acceptance remains open.
+The full UI suite passed (1,765 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.

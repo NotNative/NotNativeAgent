@@ -227,8 +227,12 @@ the same revision-checked save. First-token and idle timeout controls offer
 zero (disabled), reset (inherit), and unambiguous fixed values. They decline
 the exact legacy sentinels (30s/45s) and the 600s/300s default pair values
 because NNA can reinterpret them as inherited; preview shows both effective
-stream timeouts before the same revision-checked save. Other execution, context, recovery,
-telemetry, and retention scalars remain generic JSON controls without complete
+stream timeouts before the same revision-checked save. Recovery model-step and
+local-retry budgets have bounded controls when NNA advertises
+`recovery.max_model_steps` and `recovery.local_retry_limit`. NNA preview validates
+the retry limit against its configured recovery ladder before save. The ladder
+and recovery wall-clock limit remain generic JSON controls, as do other
+execution, context, telemetry, and retention scalars, without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate
 native contracts and acceptance evidence. The gateway external store now has

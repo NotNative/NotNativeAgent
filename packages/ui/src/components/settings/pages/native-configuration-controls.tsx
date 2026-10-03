@@ -22,6 +22,11 @@ const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeScheduling.co
   provider_concurrency: { label: 'settings.nativeScheduling.concurrency', min: 1, max: 16 },
   provider_queue_limit: { label: 'settings.nativeScheduling.queueLimit', min: 1, max: 4096 },
 };
+const RECOVERY_BUDGETS: Record<string, { label: 'settings.nativeRecovery.maxSteps' | 'settings.nativeRecovery.retryLimit';
+  min: number; max: number }> = {
+  'recovery.max_model_steps': { label: 'settings.nativeRecovery.maxSteps', min: 16, max: 100000 },
+  'recovery.local_retry_limit': { label: 'settings.nativeRecovery.retryLimit', min: 2, max: 5 },
+};
 const DREAM_LIMITS: Record<string, { label: 'settings.nativeDream.idle' | 'settings.nativeDream.interStage'
   | 'settings.nativeDream.inferenceIdle' | 'settings.nativeDream.hygieneIdle' | 'settings.nativeDream.retention'; min: number; max: number }> = {
   'dream.idle_ms': { label: 'settings.nativeDream.idle', min: 5000, max: 3600000 },
@@ -89,6 +94,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const memoryBooleanSelected = selected?.type === 'boolean' ? MEMORY_BOOLEAN[selected.path] : undefined;
   const schedulingFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(PROVIDER_SCHEDULING, field.path));
   const schedulingSelected = selected?.type === 'integer' ? PROVIDER_SCHEDULING[selected.path] : undefined;
+  const recoveryFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(RECOVERY_BUDGETS, field.path));
+  const recoverySelected = selected?.type === 'integer' ? RECOVERY_BUDGETS[selected.path] : undefined;
   const dreamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(DREAM_LIMITS, field.path)
     || field.path === 'dream.enabled' && field.type === 'boolean');
   const dreamSelected = selected?.type === 'integer' ? DREAM_LIMITS[selected.path] : undefined;
@@ -130,6 +137,16 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(PROVIDER_SCHEDULING[field.path]!.label)}
+      </button>)}</div>
+    </div> : null}
+    {recoveryFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+      data-settings-item="native-configuration.recovery-budgets">
+      <h4 className="font-semibold">{t('settings.nativeRecovery.title')}</h4>
+      <p>{t('settings.nativeRecovery.description')}</p>
+      <div className="flex flex-wrap gap-2">{recoveryFields.map(field => <button type="button" key={field.path}
+        aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
+        {t(RECOVERY_BUDGETS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
     {dreamFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -223,6 +240,14 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
+      {model.mode === 'set' && recoverySelected ? <label className="block">
+        {t(recoverySelected.label)}
+        <input type="number" min={recoverySelected.min} max={recoverySelected.max} step="1"
+          value={/^\d+$/u.test(model.draft) ? model.draft : ''}
+          disabled={model.busy || Boolean(model.pendingOperation)}
+          onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
+          className="ml-2 rounded border border-border bg-background p-1" />
+      </label> : null}
       {model.mode === 'set' && dreamSelected ? <label className="block">
         {t(dreamSelected.label)}
         <input type="number" min={dreamSelected.min} max={dreamSelected.max} step="1"
@@ -285,6 +310,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
+        && !recoverySelected
         && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
         && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
@@ -292,6 +318,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           className="block w-full rounded border border-border bg-background p-2 font-mono" />
       </label>}
       <button type="button" onClick={() => previewNativeField(model, view)} disabled={model.busy || Boolean(model.pendingOperation)
+        || Boolean(recoverySelected && model.mode === 'set' && (!/^[1-9]\d*$/u.test(model.draft)
+          || Number(model.draft) < recoverySelected.min || Number(model.draft) > recoverySelected.max))
         || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))
         || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))}>
         {t('settings.nativeConfiguration.preview')}</button>

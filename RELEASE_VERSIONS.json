@@ -1024,6 +1024,10 @@
     {
       "version": "20261003-26",
       "content_sha256": "50974f1193be86b6dfcc8c59c8b4b3b4c2e925f46c1492cdcee91494497bbdfc"
+    },
+    {
+      "version": "20261003-27",
+      "content_sha256": "d17f76f0ac37e3944701e1b6f3526cf62bebcad143809dff57b1b584b572bafc"
     }
   ]
 }

@@ -65,6 +65,10 @@ export function NativeConfigurationPage(): ReactNode {
       <h3 className="font-semibold">{t('settings.nativeScheduling.title')}</h3>
       <p className="text-muted-foreground">{t('settings.nativeScheduling.description')}</p>
     </div>
+    <div data-settings-item="native-configuration.recovery-budgets" className="text-xs">
+      <h3 className="font-semibold">{t('settings.nativeRecovery.title')}</h3>
+      <p className="text-muted-foreground">{t('settings.nativeRecovery.description')}</p>
+    </div>
     <div data-settings-item="native-configuration.dream" className="text-xs">
       <h3 className="font-semibold">{t('settings.nativeDream.title')}</h3>
       <p className="text-muted-foreground">{t('settings.nativeDream.description')}</p>
