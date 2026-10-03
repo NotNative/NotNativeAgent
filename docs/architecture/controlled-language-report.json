@@ -9,7 +9,7 @@
     "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
     "maximumSentenceWords": 22,
-    "rationaleMarkers": 307
+    "rationaleMarkers": 309
   },
   "long_prose_candidates": [],
   "unqualified_boundary_candidates": [
@@ -26,6 +26,6 @@
     "Why": 143,
     "Invariant": 68,
     "Compatibility": 26,
-    "Security": 70
+    "Security": 72
   }
 }
