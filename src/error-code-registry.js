@@ -101,7 +101,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_setup_required', 'nnd_setup_configuration_invalid', 'nnd_setup_timeout_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
-    'nnd_message_cursor_invalid',
+    'nnd_message_cursor_invalid', 'nnd_activity_cursor_invalid', 'nnd_activity_page_invalid',
     'nnd_goal_invalid', 'nnd_goal_conflict', 'nnd_goal_audit_invalid', 'nnd_goal_audit_conflict',
     'nnd_walkthrough_invalid', 'nnd_walkthrough_context_large',
     'nnd_notification_invalid',

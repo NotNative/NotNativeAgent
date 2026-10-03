@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile, stat, unlink } from 'node:fs/promises';
+import { open, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { redactText } from './redaction.js';
 
-const ACTIVITY_LIMIT = 500;
+export const ACTIVITY_LIMIT = 500;
 // Targets for these tools are file paths, not command lines, search expressions,
 // delegated task text, URLs, or other arbitrary argument-derived content.
 const PATH_TARGET_TOOLS = new Set([
@@ -23,15 +23,33 @@ export function activityPath(catalogPath, sessionId) {
 }
 
 export async function loadActivity(catalogPath, sessionId, createdAt) {
-  if (!catalogPath) return [];
+  return (await readActivitySnapshot(catalogPath, sessionId, createdAt)).records;
+}
+
+/** The disk snapshot is the only source for durable history; pending live rows are separate. */
+export async function readActivitySnapshot(catalogPath, sessionId, createdAt) {
+  if (!catalogPath) return { present: false, records: [] };
   const path = activityPath(catalogPath, sessionId);
   let content;
   try {
-    const metadata = await stat(path);
-    if (!metadata.isFile() || metadata.size > FILE_LIMIT_BYTES) throw new Error('activity size bound');
-    content = await readFile(path, 'utf8');
+    const handle = await open(path, 'r');
+    try {
+      const metadata = await handle.stat();
+      if (!metadata.isFile() || metadata.size > FILE_LIMIT_BYTES) throw new Error('activity size bound');
+      // Invariant: one handle and a capped read prevent a replacement or append race from
+      // turning a bounded display snapshot into an unbounded allocation.
+      const bytes = Buffer.alloc(metadata.size + 1);
+      let size = 0;
+      while (size < bytes.length) {
+        const { bytesRead } = await handle.read(bytes, size, bytes.length - size, size);
+        if (bytesRead === 0) break;
+        size += bytesRead;
+      }
+      if (size === bytes.length) throw new Error('activity changed during read');
+      content = bytes.subarray(0, size).toString('utf8');
+    } finally { await handle.close(); }
   } catch (error) {
-    if (error.code === 'ENOENT') return [];
+    if (error.code === 'ENOENT') return { present: false, records: [] };
     throw new ContractError('nnd_activity_unavailable', 'NND activity snapshot is unavailable', { cause: error });
   }
   let snapshot;
@@ -43,13 +61,14 @@ export async function loadActivity(catalogPath, sessionId, createdAt) {
   }
   // A deleted session can be recreated with its old ID. Its prior activity is not part of the new session.
   // Security: the file is not an authority to add new API fields.
-  return snapshot.createdAt === createdAt ? snapshot.records.map((record) => ({
+  if (snapshot.createdAt !== createdAt) return { present: false, records: [] };
+  return { present: true, records: snapshot.records.map((record) => ({
     id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
     status: record.status, summary: record.summary,
     ...(record.evidenceMessageID ? { evidenceMessageID: record.evidenceMessageID } : {}),
     ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}),
     ...(record.childSessionID ? { childSessionID: record.childSessionID } : {}),
-  })) : [];
+  })) };
 }
 
 export function appendActivity(records, candidate) {
