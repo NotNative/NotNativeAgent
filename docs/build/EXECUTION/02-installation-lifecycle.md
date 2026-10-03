@@ -1,6 +1,7 @@
 # Installation and lifecycle execution plan
 
-Status: implementation plan; installed Windows acceptance remains open.
+Status: implementation plan; disposable installed-source acceptance has passed,
+while immutable prebuilt and operator-installed Windows acceptance remain open.
 Scope: Windows, one machine, the signed-in operator's NNA and optional NND module.
 NNA stays a standalone product. Installing or removing NND must not make the TUI
 dependent on Electron, a browser, or the NND service. TUI tabs and NND sessions
@@ -34,6 +35,16 @@ freezes them in the NNA contract and both repositories test the same contract.
 Source smoke remains useful regression evidence. It must not be renamed or
 reported as installed-product acceptance. Existing NSIS generation is disabled;
 do not re-enable distribution until this plan's installer gates pass.
+
+NND `20261003-32` also has a separate, repeatable
+[disposable installed-source acceptance](nnd-installed-source-acceptance.md).
+It invokes the real Windows source installer against a private installed NNA
+fixture, then exercises the installed service through an isolated Chromium
+Native code form and a separately launched Electron shell. It checks that the
+service survives shell exit. This validates a fresh source installation and
+client attachment under that fixture's identity; it does not consume an
+immutable prebuilt NND artifact, activate an existing installation, exercise
+upgrade/rollback, or establish operator-machine distribution readiness.
 
 ## Target process and ownership contract
 
@@ -334,6 +345,10 @@ Version both changed products using their existing date-increment conventions.
 
 Run isolated installed tests against pinned NNA and NND artifacts, with independent
 data roots and a deterministic provider/reviewer fixture. No operator data mutation.
+The disposable installed-source acceptance is a prerequisite regression for
+this gate, not its completion: the production matrix must consume the released
+prebuilt NND payload and test activation, upgrade, rollback, and removal under
+the selected installed NNA.
 Exercise actual browser HTTP/auth and Electron navigation, not only `createApp()`.
 Verify provider configuration reuse, governed prompt/tool/delegation, mode changes,
 projection reconnect/restart, cancellation, terminal, settings persistence, and

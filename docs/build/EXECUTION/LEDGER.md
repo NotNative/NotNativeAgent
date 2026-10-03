@@ -991,3 +991,35 @@ detached native service. Interrupted installs remain explicitly incomplete;
 existing installations and immutable prebuilt upgrades need separate recovery
 and activation. The focused verifier suite passed (7 tests); operator-installed
 browser/desktop acceptance remains open.
+
+## NND 20261003-31 — reviewer-ledger retention control
+
+Managed Settings offers a bounded `reviewer_ledger.retention_entries` control
+only when the selected NNA advertises that user-manifest field in its native
+catalog. Preview and save use the native revision check and operation receipt.
+The GUI warns that older NNA builds can evict unfinished reviews at a low
+retention limit because the configuration response does not expose a reliable
+NNA product version. Repaired NNA builds preserve unresolved reviews,
+including uncertain external effects. This is a field-specific control, not a
+completed settings census or installed save/apply acceptance. The release's
+full UI and web suites, workspace typechecks, quality, and release checks passed.
+
+## NND 20261003-32 — disposable installed-source acceptance
+
+The Windows acceptance harness invokes the real source `install.ps1` against
+a fresh NND target and a private, source-composed installed NNA v37 fixture.
+It uses a marked private shortcut root and isolated package-manager and Electron
+profiles; it does not alter the operator's selected NNA. After installation,
+an isolated Electron Chromium partition loads the installed service and submits
+the Native code form, a second partition remains unauthenticated, and a
+separate desktop launch attaches to the same service. The service survives
+desktop exit. The harness stops it and removes the exact fixture only after
+native discovery and the service lease clear. Native error parsing tolerates
+Node diagnostic warnings, and attachment allows bounded cold-start latency.
+Adversarial review corrected a concrete acceptance deadline mismatch. The
+fresh integrated fixture passed; focused native-client and fresh-service tests
+passed (17/17), as did UI (1,770), web (1,447), workspace typechecks, quality,
+and release checks. This is [source-install evidence](nnd-installed-source-acceptance.md),
+not immutable prebuilt activation, existing-install upgrade/rollback, real
+provider traffic, or operator-installed browser/desktop acceptance. L5/L6 and
+C/F parity remain open.
