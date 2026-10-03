@@ -7,6 +7,7 @@ import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { NativeConfigurationControls } from './native-configuration-controls.tsx';
+import { NativeGatewayTimeout } from './native-gateway-timeout.tsx';
 
 function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): string {
   if (!value.present) return t('settings.nativeConfiguration.absent');
@@ -44,7 +45,7 @@ export function NativeConfigurationPage(): ReactNode {
     return () => { unsubscribe(); pending.current?.abort(); pending.current = null; };
   }, [load]);
   const rows = view?.fields.filter(field => field.path.toLowerCase().includes(filter.trim().toLowerCase())) ?? [];
-  return <SettingsSection item="native-configuration.inventory">
+  return <><SettingsSection item="native-configuration.inventory">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>{t('settings.nativeConfiguration.title')}</SettingsGroupTitle>
       <button type="button" onClick={() => { void load(); }} disabled={loading || auth !== 'ok'}>
@@ -110,5 +111,5 @@ export function NativeConfigurationPage(): ReactNode {
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection>;
+  </SettingsSection><NativeGatewayTimeout /></>;
 }

@@ -915,3 +915,16 @@ retain native revision checks and receipts. Independent adversarial review
 found no concrete defect. Installed GUI acceptance remains open.
 The full UI suite passed (1,756 tests), as did the web suite (1,447 tests),
 typechecks, and quality gates.
+
+## NND 20261003-25 — native gateway polling timeout
+
+Managed Settings now exposes NNA's bounded Telegram gateway polling timeout
+through a separate native gateway configuration endpoint. The GUI reads the
+selected installation's exact source revision, previews a 5–50 second value,
+and saves with a durable operation receipt. It never handles the gateway token,
+authorized users, or gateway enablement. Saved changes are marked not applied
+until the gateway restarts. An independent adversarial review fixed recovery
+dead ends for unpublished saves and operation receipts evicted from NNA's
+bounded replay window. Installed GUI acceptance remains open.
+The full UI suite passed (1,764 tests), as did the web suite (1,447 tests),
+typechecks, and quality gates.

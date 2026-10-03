@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:af73b8e2bbe81700147f96dae8381a408427684e74c37a1894b872f884e28500",
+  "source_digest": "sha256:0d2636253dc8a533e19bd08e4ce678aeddaf776bc12ec0a672c2e2ecdd2e7a6d",
   "counts": {
-    "modules": 779,
+    "modules": 782,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 12
+      "module_count": 14
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 187
+      "module_count": 188
     },
     {
       "id": "web-server",
@@ -108,20 +108,20 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 303,
-      "module_count": 125
+      "import_count": 306,
+      "module_count": 126
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 89,
-      "module_count": 45
+      "import_count": 90,
+      "module_count": 46
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 86,
-      "module_count": 65
+      "import_count": 89,
+      "module_count": 66
     },
     {
       "from": "sync-engine",
@@ -144,8 +144,8 @@
     {
       "from": "harness-facade",
       "to": "runtime-io",
-      "import_count": 10,
-      "module_count": 8
+      "import_count": 12,
+      "module_count": 10
     },
     {
       "from": "runtime-io",
@@ -178,6 +178,12 @@
       "module_count": 3
     },
     {
+      "from": "harness-facade",
+      "to": "sync-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
       "from": "runtime-io",
       "to": "ui-shell",
       "import_count": 3,
@@ -188,12 +194,6 @@
       "to": "sync-engine",
       "import_count": 3,
       "module_count": 3
-    },
-    {
-      "from": "harness-facade",
-      "to": "sync-engine",
-      "import_count": 2,
-      "module_count": 2
     },
     {
       "from": "gates",
@@ -1827,11 +1827,27 @@
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls.tsx",
+        "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/nnd/configuration.ts",
         "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
+        "packages/ui/src/lib/nnd/native-gateway-pending.ts",
+        "packages/ui/src/lib/nnd/native-gateway.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -3309,6 +3325,23 @@
       "imports": [
         "packages/ui/src/lib/runtime-auth.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/native-gateway-pending.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/native-gateway.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {

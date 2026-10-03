@@ -231,7 +231,13 @@ stream timeouts before the same revision-checked save. Other execution, context,
 telemetry, and retention scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. Provider identities,
 credentials, authority grants, and external-store settings require separate
-native contracts and acceptance evidence; none are counted complete here.
+native contracts and acceptance evidence. The gateway external store now has
+a dedicated polling-timeout control when NNA advertises its separate native
+`/v1/nnd/configuration/gateway` contract. It reads only the timeout and selected
+identity, requires a native preview and revision-checked save, and recovers
+uncertain saves by operation lookup. A saved timeout needs a gateway restart.
+Gateway tokens, authorized users, enablement, and other external stores remain
+outside this control; installed browser and desktop acceptance is still due.
 
 ### C5 — MCP, skills, hooks, trust, and project configuration
 

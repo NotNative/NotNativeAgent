@@ -80,5 +80,5 @@ it('labels unsupported endpoint separately from a native missing source', async 
   vi.mocked(requestNativeConfiguration).mockResolvedValueOnce({ ...view, source_state: 'missing', fields: [] });
   await act(async () => container.querySelector('button')?.click());
   expect(container.textContent).toContain('missing');
-  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(container.querySelector('[data-settings-item="native-configuration.inventory"] [role="alert"]')).toBeNull();
 });
