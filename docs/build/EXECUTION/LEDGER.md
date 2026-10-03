@@ -549,3 +549,36 @@ probe of this machine's currently installed NNA found its required
 `installed/VERSION` missing, so that installation cannot serve as positive
 acceptance evidence. It was not modified. Production prebuilt consumption,
 verified NNA dependency acquisition, native promotion and rollback remain open.
+
+## NNA 20261002-18 and 20261002-28 — registration evidence
+
+Native `20261002-18` added an internal held-live registration compare-and-swap.
+It verifies the prepared trial and child PID/start identity, records exact
+selected bytes and a `registration_cas` journal phase, then stops the trial
+while retaining the protocol-three admission barrier. Independent review
+repaired a continuation race that could otherwise hide a failed or still-running
+CAS. The full serial Windows suite passed 1,973 tests with eight skips.
+
+Native `20261002-28` adds held-owner observation of that registration outcome.
+It compares exact prior, desired and current bytes with the durable manifest
+receipt, marker, journal and child identity, returning only `not_selected`,
+`selected_unresolved` or `unknown`. Any visible discovery pointer or uncertain
+writer identity is `unknown`. This does not restore bytes, clear the barrier or
+make NND available. Exact-byte rollback, crash-safe writer containment and live
+publication/handoff remain open.
+
+## NND 20261002-14 — reviewer and vision scalar tuning
+
+The native settings window has a reviewer/vision route tuning page for scalar
+fields that NNA's catalog actually marks editable. It uses the existing native
+preview, source/revision compare-and-swap save and operation receipt flow.
+Provider/model binding appears as read-only because NNA has no matching
+reviewer/vision route write contract; saved tuning is shown as not yet applied
+to the running service. An independent audit found no production defect and
+added a late-response runtime-switch regression.
+
+A disposable source-payload Electron/Chromium run saved
+`routes.reviewer.temperature=0.35`, matched native receipt and selected-source
+readback, and rejected stale CAS. This is a real browser path, not a prebuilt
+slot or production installer acceptance. Full C4 route and provider management
+remains open.

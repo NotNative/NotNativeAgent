@@ -28,6 +28,7 @@ export type SettingsPageSlug =
   | 'providers'
   | 'native-configuration'
   | 'native-tui'
+  | 'native-routes'
   | 'agents'
   | 'behavior'
   | 'commands'
@@ -52,6 +53,7 @@ export const BUILT_PAGE_SLUGS: readonly SettingsPageSlug[] = [
   'providers',
   'native-configuration',
   'native-tui',
+  'native-routes',
   'agents',
   'mcp',
   'skills.catalog',
@@ -78,6 +80,7 @@ export const SETTINGS_PAGE_ORDER: { slug: SettingsPageSlug; group: 'general' | '
   { slug: 'providers', group: 'opencode', titleKey: 'settings.page.providers.title' },
   { slug: 'native-configuration', group: 'opencode', titleKey: 'settings.page.nativeConfiguration.title' },
   { slug: 'native-tui', group: 'opencode', titleKey: 'settings.page.nativeTui.title' },
+  { slug: 'native-routes', group: 'opencode', titleKey: 'settings.page.nativeRoutes.title' },
   { slug: 'agents', group: 'opencode', titleKey: 'settings.page.agents.title' },
   { slug: 'behavior', group: 'opencode', titleKey: 'settings.page.behavior.title' },
   { slug: 'commands', group: 'opencode', titleKey: 'settings.page.commands.title' },
@@ -93,6 +96,7 @@ export const SETTINGS_PAGE_ORDER: { slug: SettingsPageSlug; group: 'general' | '
 export const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
   { id: 'native-configuration.inventory', page: 'native-configuration', titleKey: 'settings.page.nativeConfiguration.title', keywords: 'nna native configuration settings source explicit effective redacted revision' },
   { id: 'native-tui.preferences', page: 'native-tui', titleKey: 'settings.page.nativeTui.title', keywords: 'nna tui terminal color reduced motion key bindings shortcuts' },
+  { id: 'native-routes.tuning', page: 'native-routes', titleKey: 'settings.page.nativeRoutes.title', keywords: 'nna reviewer vision route model provider temperature budget deadline' },
   { id: 'appearance.theme-mode', page: 'appearance', titleKey: 'settings.search.themeMode', keywords: 'theme, color, dark mode, light mode, system' },
   { id: 'appearance.light-theme', page: 'appearance', titleKey: 'settings.search.lightTheme', keywords: 'light theme, theme id' },
   { id: 'appearance.dark-theme', page: 'appearance', titleKey: 'settings.search.darkTheme', keywords: 'dark theme, theme id' },

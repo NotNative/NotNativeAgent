@@ -21,6 +21,7 @@ import { GeneralPage } from './pages/general.tsx';
 import { ProvidersPage } from './pages/providers.tsx';
 import { NativeConfigurationPage } from './pages/native-configuration.tsx';
 import { NativeTuiPreferencesPage } from './pages/native-tui-preferences.tsx';
+import { NativeRoutesPage } from './pages/native-routes.tsx';
 import { McpPage } from './pages/mcp.tsx';
 import { SkillsPage } from './pages/skills.tsx';
 import { SkillsCatalogPage } from './pages/skills-catalog.tsx';
@@ -41,6 +42,7 @@ const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, (navigate: (page: Settin
   providers: navigate => <ProvidersPage onOpenConfiguration={() => navigate('native-configuration')} />,
   'native-configuration': () => <NativeConfigurationPage />,
   'native-tui': () => <NativeTuiPreferencesPage />,
+  'native-routes': () => <NativeRoutesPage />,
   agents: () => <AgentsPage />,
   mcp: () => <McpPage />,
   'skills.installed': () => <SkillsPage />,
@@ -65,6 +67,7 @@ const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
   providers: 'settings.page.providers.title',
   'native-configuration': 'settings.page.nativeConfiguration.title',
   'native-tui': 'settings.page.nativeTui.title',
+  'native-routes': 'settings.page.nativeRoutes.title',
   agents: 'settings.page.agents.title',
   behavior: 'settings.page.behavior.title',
   commands: 'settings.page.commands.title',

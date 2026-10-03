@@ -137,6 +137,8 @@ test('prebuilt smoke parser preserves source mode and requires an explicit absol
   assert.deepEqual(parseElectronSmokeArguments([root]), { nna: root, payloadRoot: null });
   assert.deepEqual(parseElectronSmokeArguments([root, '--native-configuration', '--native-configuration-write', '--native-tui-write']),
     { nna: root, payloadRoot: null, nativeConfiguration: true, nativeWrite: true, tuiWrite: true });
+  assert.deepEqual(parseElectronSmokeArguments([root, '--native-configuration', '--native-configuration-write', '--native-routes-write']),
+    { nna: root, payloadRoot: null, nativeConfiguration: true, nativeWrite: true, routeWrite: true });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload]), { nna: root, payloadRoot: payload });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot']),
     { nna: root, payloadRoot: payload, nativeSlot: true });
@@ -146,6 +148,8 @@ test('prebuilt smoke parser preserves source mode and requires an explicit absol
     { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true, nativeWrite: true });
   assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot', '--native-configuration', '--native-configuration-write', '--native-tui-write']),
     { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true, nativeWrite: true, tuiWrite: true });
+  assert.deepEqual(parseElectronSmokeArguments([root, '--payload', payload, '--native-slot', '--native-configuration', '--native-configuration-write', '--native-routes-write']),
+    { nna: root, payloadRoot: payload, nativeSlot: true, nativeConfiguration: true, nativeWrite: true, routeWrite: true });
   for (const args of [[], ['relative'], [root, '--payload'], [root, '--payload', 'relative'], [root, '--other', payload],
     [root, '--payload', payload, 'extra'], [root, '--native-slot'], [root, '--native-slot', payload],
     [root, '--native-slot', '--payload', payload], [root, '--payload', payload, '--native-slot', '--native-slot'],

@@ -125,7 +125,48 @@ async function saveTuiBinding() {
   }
   return { source_revision: after.source_revision, operation_id: id };
 }
-async function run(workspace, installationId, dataId, tuiWrite) {
+async function saveReviewerTemperature() {
+  const nav = await waitFor('[data-testid="settings-window"] nav');
+  button(nav, 'NNA reviewer and vision routes').click();
+  const section = await waitFor('section[aria-label="NNA reviewer and vision routes"]', node =>
+    [...node.querySelectorAll('option')].some(item => item.value === 'routes.reviewer.temperature'));
+  const options = [...section.querySelectorAll('option')].map(item => item.value);
+  if (options.includes('routes.reviewer.provider_id') || options.includes('routes.vision.model')) {
+    throw new Error('Provider/model assignment was exposed as a generic route edit');
+  }
+  const before = await readConfiguration();
+  setValue(section.querySelector('select'), 'routes.reviewer.temperature');
+  const editor = await waitFor('section[aria-label="NNA reviewer and vision routes"] textarea');
+  setValue(editor, '0.35');
+  button(section, 'Preview change').click();
+  await waitFor('section[aria-label="NNA reviewer and vision routes"]', node =>
+    [...node.querySelectorAll('button')].some(item => item.textContent?.trim() === 'Save to NNA' && !item.disabled));
+  button(section, 'Save to NNA').click();
+  await waitFor('section[aria-label="NNA reviewer and vision routes"]', node =>
+    node.textContent.includes('NNA operation receipt') && node.textContent.includes('saved')
+      && node.textContent.includes('not applied'));
+  const id = /[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}/.exec(section.textContent)?.[0];
+  if (!id) throw new Error('Reviewer save receipt identity missing');
+  const operation = await fetch(`/api/v1/nnd/configuration/operations/${id}`), receipt = await operation.json();
+  const after = await readConfiguration();
+  const field = after.fields.find(item => item.path === 'routes.reviewer.temperature');
+  if (operation.status !== 200 || receipt.persistence !== 'saved' || receipt.operation_id !== id
+    || receipt.before_revision !== before.source_revision || receipt.persisted_revision !== after.source_revision
+    || receipt.application !== 'not_applied' || field?.explicit?.value !== 0.35) {
+    throw new Error('Reviewer tuning did not persist with matching native receipt');
+  }
+  const stale = await fetch('/api/v1/nnd/configuration/preview', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ installation_id: before.installation_id,
+      data_id: before.data_id, scope: 'user', expected_revision: before.source_revision,
+      expected_resolution_revision: before.resolution_revision,
+      operations: [{ op: 'set', field: 'routes.reviewer.temperature', value: 0.45 }] }) });
+  const rejection = await stale.json();
+  if (stale.status !== 409 || rejection.error?.code !== 'manifest_revision_conflict') {
+    throw new Error('Stale reviewer route CAS was not rejected');
+  }
+  return { source_revision: after.source_revision, operation_id: id };
+}
+async function run(workspace, installationId, dataId, tuiWrite, routeWrite) {
   const initial = await readConfiguration();
   if (initial.source_state !== 'missing' || initial.installation_id !== installationId || initial.data_id !== dataId) {
     throw new Error('Initial disposable native source mismatch');
@@ -134,12 +175,15 @@ async function run(workspace, installationId, dataId, tuiWrite) {
   const before = await repairMissingSource(section, workspace, initial);
   const receipt = await saveEditorField(before);
   const mutation = await confirmMutation(before, receipt);
-  return tuiWrite ? { ...mutation, tui: await saveTuiBinding() } : mutation;
+  return { ...mutation, ...(tuiWrite ? { tui: await saveTuiBinding() } : {}),
+    ...(routeWrite ? { route: await saveReviewerTemperature() } : {}) };
 }
-export function nativeConfigurationWriteExpression(workspace, installationId, dataId, tuiWrite = false) {
+export function nativeConfigurationWriteExpression(workspace, installationId, dataId, tuiWrite = false, routeWrite = false) {
   return `(()=>{const waitFor=${waitFor.toString()},button=${button.toString()},setValue=${setValue.toString()},`
     + `readConfiguration=${readConfiguration.toString()},openNativeSettings=${openNativeSettings.toString()},`
     + `repairMissingSource=${repairMissingSource.toString()},saveEditorField=${saveEditorField.toString()},`
-    + `confirmMutation=${confirmMutation.toString()},saveTuiBinding=${saveTuiBinding.toString()},run=${run.toString()};`
-    + `return run(${JSON.stringify(workspace)},${JSON.stringify(installationId)},${JSON.stringify(dataId)},${JSON.stringify(tuiWrite)});})()`;
+    + `confirmMutation=${confirmMutation.toString()},saveTuiBinding=${saveTuiBinding.toString()},`
+    + `saveReviewerTemperature=${saveReviewerTemperature.toString()},run=${run.toString()};`
+    + `return run(${JSON.stringify(workspace)},${JSON.stringify(installationId)},${JSON.stringify(dataId)},`
+    + `${JSON.stringify(tuiWrite)},${JSON.stringify(routeWrite)});})()`;
 }
