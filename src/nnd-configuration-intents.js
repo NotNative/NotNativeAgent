@@ -7,6 +7,7 @@ const TYPES = new Set(['integer', 'number', 'string', 'boolean', 'enum', 'array'
 export const NND_ROUTE_BINDING_ROLES = Object.freeze(['reviewer', 'vision']);
 export const NND_ROUTE_BINDING_FIELDS = Object.freeze(NND_ROUTE_BINDING_ROLES.flatMap((role) =>
   [`routes.${role}.provider_id`, `routes.${role}.model`]));
+const MEMORY_PAIR = Object.freeze(['memory.enabled', 'memory.required']);
 const FIELDS = new Map(CONFIGURATION_CATALOG.fields.filter((field) => field.editability.generic_editable
   && TYPES.has(field.type) && field.path !== 'workspace_root' && field.sensitivity !== 'credential_reference'
   && !/^(?:provider\.|providers\[|mcp_servers\[)/u.test(field.path) && !/[\[\]{}]/u.test(field.path))
@@ -33,7 +34,8 @@ export function normalizeNndConfigurationOperations(input) {
     if (!record(operation) || !['set', 'reset'].includes(operation.op)
       || Object.keys(operation).some((key) => !['op', 'field', 'value'].includes(key))) throw invalid();
     const descriptor = FIELDS.get(operation.field);
-    if (!descriptor || seen.has(operation.field)) throw invalid();
+    if (!descriptor || seen.has(operation.field)
+      || (MEMORY_PAIR.includes(operation.field) && MEMORY_PAIR.some((field) => seen.has(field)))) throw invalid();
     seen.add(operation.field);
     if (operation.op === 'reset') {
       if (Object.hasOwn(operation, 'value')) throw invalid();
@@ -45,15 +47,27 @@ export function normalizeNndConfigurationOperations(input) {
 }
 
 export function applyNndConfigurationOperations(manifest, operations) {
-  return applyIntentChanges(manifest, operations.flatMap(({ op, field, value, role, provider_id, model }) =>
-    op === 'bind_route' ? [{ path: `routes.${role}.provider_id`, value: provider_id },
-      { path: `routes.${role}.model`, value: model }]
-      : [{ path: field, value: op === 'reset' ? undefined : value }]));
+  return applyIntentChanges(manifest, operations.flatMap((operation) => {
+    if (operation.op === 'bind_route') return [
+      { path: `routes.${operation.role}.provider_id`, value: operation.provider_id },
+      { path: `routes.${operation.role}.model`, value: operation.model },
+    ];
+    const { op, field, value } = operation;
+    const changes = [{ path: field, value: op === 'reset' ? undefined : value }];
+    if (op === 'set' && field === 'memory.enabled' && value === false) {
+      changes.push({ path: 'memory.required', value: false });
+    } else if (op === 'set' && field === 'memory.required' && value === true) {
+      changes.push({ path: 'memory.enabled', value: true });
+    }
+    return changes;
+  }));
 }
 
 export function nndConfigurationOperationPaths(operation) {
-  return operation.op === 'bind_route' ? [`routes.${operation.role}.provider_id`, `routes.${operation.role}.model`]
-    : [operation.field];
+  if (operation.op === 'bind_route') return [`routes.${operation.role}.provider_id`, `routes.${operation.role}.model`];
+  if (operation.op === 'set' && operation.field === 'memory.enabled' && operation.value === false) return MEMORY_PAIR;
+  if (operation.op === 'set' && operation.field === 'memory.required' && operation.value === true) return MEMORY_PAIR;
+  return [operation.field];
 }
 
 function typedValue(field, value) {

@@ -36,6 +36,7 @@ test('typed intents reject grants, workspace, credentials, collections, duplicat
   for (const operations of [[{ op: 'reset', field: 'memory.enabled', value: false }],
     [{ op: 'set', field: 'memory.enabled', value: 'false' }], [{ op: 'set', field: 'provider_timeout_ms', value: '3000' }],
     [{ op: 'reset', field: 'memory.enabled' }, { op: 'reset', field: 'memory.enabled' }],
+    [{ op: 'set', field: 'memory.enabled', value: false }, { op: 'set', field: 'memory.required', value: true }],
     Array.from({ length: 33 }, () => ({ op: 'reset', field: 'memory.enabled' }))]) {
     assert.throws(() => normalizeNndConfigurationOperations(operations), { code: 'nnd_configuration_request_invalid' });
   }
@@ -83,6 +84,33 @@ test('route binding rejects unowned providers, project shadow, malformed pair an
   const shadowed = await f.request([valid], 'shadowed_bind');
   await assert.rejects(f.service.save(principal, shadowed), { code: 'configuration_source_shadowed' });
   assert.deepEqual(await readFile(f.path), original);
+});
+
+test('native memory edits preserve TUI coupling and reject project shadow of the companion field', async t => {
+  const f = await fixture(t);
+  await writeFile(f.path, JSON.stringify({ ...f.manifest, memory: { enabled: true, required: true, max_items: 7 } }));
+  const off = await f.request([{ op: 'set', field: 'memory.enabled', value: false }], 'memory_off');
+  const { operation_id: unused, ...offPreview } = off;
+  const preview = await f.service.preview(principal, offPreview);
+  assert.deepEqual(preview.snapshot.config.memory.enabled, false);
+  assert.deepEqual(preview.snapshot.config.memory.required, false);
+  await f.service.save(principal, off);
+  assert.deepEqual(JSON.parse(await readFile(f.path, 'utf8')).memory,
+    { enabled: false, required: false, max_items: 7 });
+  const required = await f.request([{ op: 'set', field: 'memory.required', value: true }], 'memory_required');
+  await f.service.save(principal, required);
+  assert.deepEqual(JSON.parse(await readFile(f.path, 'utf8')).memory,
+    { enabled: true, required: true, max_items: 7 });
+  await writeFile(f.paths.trustedWorkspaces, JSON.stringify({ version: 1,
+    workspaces: [{ root: await realpath(f.root), trustedAt: '2026-10-03T00:00:00.000Z' }] }));
+  await writeFile(join(f.root, '.nna', 'settings.json'), JSON.stringify({ memory: { required: true } }));
+  const shadowed = await f.request([{ op: 'set', field: 'memory.enabled', value: false }], 'memory_shadow');
+  await assert.rejects(f.service.save(principal, shadowed), { code: 'configuration_source_shadowed' });
+  await writeFile(join(f.root, '.nna', 'settings.json'), JSON.stringify({ memory: { enabled: false } }));
+  const reverseShadow = await f.request([{ op: 'set', field: 'memory.required', value: true }], 'memory_reverse_shadow');
+  await assert.rejects(f.service.save(principal, reverseShadow), { code: 'configuration_source_shadowed' });
+  assert.deepEqual(JSON.parse(await readFile(f.path, 'utf8')).memory,
+    { enabled: true, required: true, max_items: 7 });
 });
 
 test('read projection omits unknown values and preview writes nothing', async (t) => {
