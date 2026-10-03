@@ -90,6 +90,9 @@ test('ticket observer validates a later promoted attach receipt without claiming
     evidence_sha256: promotedAttachEvidenceSha(f.identity, f.options,
       f.journal[6].receipt_sha256, f.revision, hash(f.childBytes)) });
   assert.equal((await f.observe()).state, 'private_ticket_recorded_unresolved');
+  f.journal.push({ phase: 'completed', receipt_sha256: hash('completion receipt'),
+    evidence_sha256: hash('completion decision') });
+  assert.equal((await f.observe()).state, 'private_ticket_recorded_unresolved');
   f.journal[7].evidence_sha256 = hash('foreign promoted evidence');
   await assert.rejects(f.observe(), { code: 'nnd_activation_health_invalid' });
 });

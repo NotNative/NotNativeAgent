@@ -20,6 +20,7 @@ import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-regis
 import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
 import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted-attach-receipt.js';
+import { recordNndCompletionUnderOwnership } from './nnd-activation-completion-receipt.js';
 import { userDataPaths } from './product.js';
 
 const RETAINED_BY_LEASE = new WeakMap();
@@ -96,7 +97,15 @@ function createSupervisorSession(identity, lease, releaseLease) {
     });
     closing.catch(() => {}); return closing;
   };
-  return { state, stop, handle: Object.freeze({ status: () => status(state), stop, stopped }) };
+  return { state, stop, handle: Object.freeze({ status: () => status(state), stop, stopped,
+    recordCompletion: (registryLease, options) => recordRetainedCompletion(state, registryLease, options) }) };
+}
+async function recordRetainedCompletion(state, registryLease, options) {
+  if (!state.unpublishedTrial || !state.retainedLeaseArmed) {
+    throw new ContractError('nnd_activation_transition_proof_invalid',
+      'NND retained owner is unavailable for completion');
+  }
+  return recordNndCompletionUnderOwnership(state.identity, state, state.lease, registryLease, options);
 }
 // Security: the only exported trial entry consumes a one-use, receipt-bound native capability.
 export async function startNndOwnedTrial(identity, paths, lease, registryLease, capability, options = {}) {
@@ -202,6 +211,7 @@ export async function armNndRetainedLeaseAfterTrial(serviceLease, expectedOwner 
   assertHeldNndServiceLease(serviceLease, state.identity.data_id);
   RETAINED_BY_LEASE.delete(serviceLease);
   state.releaseLease = () => serviceLease.close();
+  state.retainedLeaseArmed = true;
 }
 async function selectTrialRegistration(session, registryLease, options) {
   const { state } = session;
@@ -398,6 +408,7 @@ async function failSupervisorStart(session, error) {
 }
 async function closeSupervisor(state) {
   state.stopping = true;
+  state.retainedLeaseArmed = false;
   // Controller creation can outlive the call that initiated stop. Wait for
   // its registered task so shutdown cannot leave a late listener behind.
   if (state.unpublishedTrial && state.discoveryTask) await Promise.allSettled([state.discoveryTask]);

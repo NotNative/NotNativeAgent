@@ -16,9 +16,8 @@ trial; an uncertain stop retains the singleton for diagnosis. Lease release is
 armed only after the trial's outer lease operation settles, so stopping during
 handoff cannot wait on its own lease operation.
 
-The held process can still die before any durable completion decision. Its
-pending barrier then prevents ordinary restart from treating the historical
-attach receipt as live authority. A following transaction must durably decide
-`completed`, retire the marker and terminal evidence with bounded recovery,
-open controller and native admission, and verify public attach before an
-installer may report success.
+The held process can still die before or after a durable completion decision.
+Its pending barrier prevents ordinary restart from treating either historical
+receipt as live authority. A following transaction must retire the marker and
+terminal evidence with bounded recovery, open controller and native admission,
+and verify public attach before an installer may report success.

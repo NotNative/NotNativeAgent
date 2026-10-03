@@ -20,11 +20,12 @@ import { validIdentity } from './reliability/process-identity.js';
 const invalid = () => new ContractError('nnd_activation_health_invalid',
   'Private NND ticket receipt is unresolved; preserve the pending barrier and both owners.');
 const unknown = operationId => Object.freeze({ state: 'unknown', operation_id: operationId });
-const ticketPhase = journal => [7, 8].includes(journal.length) && journal[5].phase === 'discovery_published'
+const ticketPhase = journal => [7, 8, 9].includes(journal.length) && journal[5].phase === 'discovery_published'
   && journal[6].phase === 'private_ticket_verified'
-  && (journal.length === 7 || journal[7].phase === 'promoted_attach_verified');
+  && (journal.length === 7 || journal[7].phase === 'promoted_attach_verified')
+  && (journal.length < 9 || journal[8].phase === 'completed');
 function assertPromotedEvidence(journal, identity, options, revision, childSha) {
-  if (journal.length === 8 && journal[7].evidence_sha256 !== promotedAttachEvidenceSha(identity,
+  if (journal.length >= 8 && journal[7].evidence_sha256 !== promotedAttachEvidenceSha(identity,
     options, journal[6].receipt_sha256, revision, childSha)) throw invalid();
 }
 const recordedReceipt = (options, journal, registrationRevision) => Object.freeze({ state: 'private_ticket_recorded_unresolved',

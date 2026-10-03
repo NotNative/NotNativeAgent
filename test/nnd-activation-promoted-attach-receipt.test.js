@@ -63,6 +63,9 @@ test('private promoted attach appends once and crash observer reports historical
   const written = await f.record();
   assert.equal(written.state, 'promoted_attach_recorded_unresolved');
   assert.equal((await f.observe()).receipt_sha256, written.receipt_sha256);
+  f.journal.push({ phase: 'completed', receipt_sha256: hash('completion receipt'),
+    evidence_sha256: hash('completion decision') });
+  assert.equal((await f.observe()).receipt_sha256, written.receipt_sha256);
   assert.deepEqual(f.counters(), { probeCalls: 1, appendCalls: 1 });
   await assert.rejects(f.record(), { code: 'nnd_activation_transition_proof_invalid' });
   assert.deepEqual(f.counters(), { probeCalls: 1, appendCalls: 1 });

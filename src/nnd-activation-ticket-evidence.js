@@ -16,3 +16,11 @@ export function promotedAttachEvidenceSha(identity, options, ticketReceiptSha, r
     generation: options.generation, ticket_receipt_sha256: ticketReceiptSha,
     registration_revision: registrationRevision, child_sha256: childSha }));
 }
+
+/** A historical completion decision; the pending barrier still governs admission. */
+export function completionEvidenceSha(identity, options, promotedReceiptSha, registrationRevision, childSha) {
+  return hash(json({ operation_id: options.operationId, stage_operation_id: options.stageOperationId,
+    installation_id: identity.installation_id, data_id: identity.data_id,
+    generation: options.generation, promoted_receipt_sha256: promotedReceiptSha,
+    registration_revision: registrationRevision, child_sha256: childSha }));
+}

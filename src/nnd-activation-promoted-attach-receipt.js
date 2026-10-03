@@ -28,8 +28,9 @@ function assertOwner(identity, serviceLease, registryLease, options) {
 async function observed(identity, serviceLease, registryLease, options) {
   const path = place(identity, options.operationId);
   const journal = await readNndActivationJournal({ ...identity, operation_id: options.operationId }, path.directory);
-  if (![7, 8].includes(journal.length) || journal[6].phase !== 'private_ticket_verified'
-    || journal.length === 8 && journal[7].phase !== 'promoted_attach_verified') throw invalid();
+  if (![7, 8, 9].includes(journal.length) || journal[6].phase !== 'private_ticket_verified'
+    || journal.length >= 8 && journal[7].phase !== 'promoted_attach_verified'
+    || journal.length === 9 && journal[8].phase !== 'completed') throw invalid();
   const ticket = await readNndPrivateTicketReceiptUnderOwnership(identity, serviceLease, registryLease, options);
   if (ticket.state !== 'private_ticket_recorded_unresolved'
     || ticket.receipt_sha256 !== journal[6].receipt_sha256) throw invalid();
@@ -37,7 +38,7 @@ async function observed(identity, serviceLease, registryLease, options) {
   if (!child) throw invalid();
   const evidenceSha = promotedAttachEvidenceSha(identity, options,
     ticket.receipt_sha256, ticket.registration_revision, hash(child));
-  if (journal.length === 8 && journal[7].evidence_sha256 !== evidenceSha) throw invalid();
+  if (journal.length >= 8 && journal[7].evidence_sha256 !== evidenceSha) throw invalid();
   return { path, journal, ticket, evidenceSha };
 }
 
@@ -47,7 +48,7 @@ export async function readNndPromotedAttachReceiptUnderOwnership(identity, servi
   return withNndServiceLease(serviceLease, identity.data_id, signal => runManifestLeaseWork(registryLease, async () => {
     signal.throwIfAborted();
     const found = await observed(identity, serviceLease, registryLease, options);
-    return found.journal.length === 8
+    return found.journal.length >= 8
       ? Object.freeze({ state: 'promoted_attach_recorded_unresolved', operation_id: options.operationId,
         generation: options.generation, receipt_sha256: found.journal[7].receipt_sha256,
         ticket_receipt_sha256: found.ticket.receipt_sha256 })
