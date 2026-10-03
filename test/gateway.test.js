@@ -256,10 +256,12 @@ test('Telegram durably retains queue-full updates and eventually submits each up
     async sendMessage() {},
   };
   const submitted = [];
+  const logged = [];
   const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer') };
   const gateway = new TelegramGateway({
     api, paths, engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 32 } },
     config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    logger: { initialize: async () => {}, record: (event) => { logged.push(event); }, flush: async () => {} },
     engineFactory: () => ({
       config: { executionManifest: null }, initialize: async () => undefined,
       submit: async (command) => { submitted.push(command.request_id); await gate; return { outcome: 'completed', text: 'ok' }; },
@@ -267,13 +269,27 @@ test('Telegram durably retains queue-full updates and eventually submits each up
     }),
   });
   const running = gateway.run();
-  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 17);
-  release();
-  await waitUntil(() => submitted.length === 17);
-  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 0);
-  await gateway.shutdown(); await running;
-  assert.equal(new Set(submitted).size, 17);
-  assert.deepEqual(submitted.sort(), updates.map((item) => `gateway_update_${item.update_id}`).sort());
+  void running.catch(() => undefined);
+  try {
+    // The second poll starts only after the first batch is durably saved. Read
+    // the destination once here; repeated Windows opens can obstruct the
+    // gateway's atomic rename while its acknowledgements are being written.
+    await waitUntil(() => polls >= 2);
+    assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length, 17);
+    assert.ok(logged.some((event) => event.type === 'gateway_queue_full' && event.code === 'gateway_chat_queue_full'),
+      'The seventeenth update must actually exceed the pending-chat queue');
+    release();
+    await waitUntil(() => submitted.length === 17);
+    await gateway.shutdown(); await running;
+    assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length, 0);
+    assert.equal(new Set(submitted).size, 17);
+    assert.deepEqual(submitted.sort(), updates.map((item) => `gateway_update_${item.update_id}`).sort());
+  } finally {
+    release();
+    // Early assertion failures must not leave the held submission or poll alive.
+    await gateway.shutdown().catch(() => undefined);
+    await running.catch(() => undefined);
+  }
 });
 
 test('authorized Telegram messages enter a durable chat session while unknown users are silent', async () => {

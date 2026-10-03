@@ -117,9 +117,16 @@ workspace.
 The authenticated event stream emits SSE `id` fields and retains an in-memory
 suffix bounded by 2,048 published events and 16 MiB of serialized frames. A reconnecting client may send
 `Last-Event-ID`; NNA replays events after a known cursor in order, applying
-the same principal and complete-workspace-grant filter as live delivery. A
-missing or expired cursor does not trigger a partial replay; NND reconciles
-from session/status/transcript snapshots on every SSE reconnect. The replay window is not durable
+the same principal and complete-workspace-grant filter as live delivery. The
+first `server.connected` payload has `properties.replayStatus`: `fresh` when no
+cursor was supplied, `complete` when the cursor remains in the ring and is
+visible to the current principal and full workspace grant, or `gap` when the
+cursor cannot certify a complete suffix. The opener has no SSE `id` field and
+never replaces the client's last resumable cursor. A missing, expired, or
+foreign-scope cursor produces `gap` and no partial replay. NND must reconcile
+from authoritative session, status, and transcript reads after `gap`; it also
+reconciles on every SSE reconnect until its replay consumer uses this signal.
+The replay window is not durable
 across an NNA process restart. While subscribers are connected, NNA sends an
 SSE comment heartbeat every 10 seconds; comments carry no event ID and never
 enter the replay suffix. This keeps NND's 30-second idle-stream watchdog from

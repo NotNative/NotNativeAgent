@@ -30,6 +30,8 @@ test('bus frames server events under the global payload envelope and fans out', 
   assert.deepEqual(Object.keys(opener), ['payload']);
   assert.deepEqual(Object.keys(opener.payload).sort(), ['id', 'properties', 'type']);
   assert.equal(opener.payload.type, 'server.connected');
+  assert.deepEqual(opener.payload.properties, { replayStatus: 'fresh' });
+  assert.equal(frameId(first, 0), null, 'the opener never replaces a resumable cursor');
   assert.equal(ping.payload.type, 'ping');
   assert.deepEqual(ping.payload.properties, { hello: true });
   assert.equal(first.length, second.length);
@@ -56,6 +58,7 @@ test('idle subscribers receive cursor-free heartbeats and unsubscribe stops the 
   const resumed = [];
   bus.subscribe(fakeRes(resumed), { lastEventId: 'missing' });
   assert.equal(resumed.length, 1, 'heartbeats must not enter the replay ring');
+  assert.equal(payload(resumed, 0).payload.properties.replayStatus, 'gap');
   bus.close();
 });
 
@@ -119,6 +122,10 @@ test('bus requires the complete workspace grant for a multi-workspace NND event'
     subjectId: 'user_a', sessionID: 'ses_1', type: 'message.updated', properties: { secret: 'private' }, mirror: true });
   assert.equal(full.length, 3);
   assert.equal(partial.length, 1);
+  const downgraded = [];
+  bus.subscribe(fakeRes(downgraded), { lastEventId: frameId(full, 1), subjectId: 'user_a', workspaceIds: ['workspace_a'] });
+  assert.equal(downgraded.length, 1);
+  assert.equal(payload(downgraded, 0).payload.properties.replayStatus, 'gap');
   bus.close();
 });
 
@@ -133,6 +140,7 @@ test('bus replays an ordered bounded suffix after the SSE cursor without re-emit
   const resumed = [];
   bus.subscribe(fakeRes(resumed), { lastEventId: cursor });
   assert.equal(payload(resumed, 0).payload.type, 'server.connected');
+  assert.equal(payload(resumed, 0).payload.properties.replayStatus, 'complete');
   assert.equal(frameId(resumed, 0), null, 'connection opener does not advance the transport cursor');
   assert.deepEqual(resumed.slice(1).map((_, index) => payload(resumed, index + 1).payload.type), ['sync', 'session.updated']);
   assert.deepEqual(resumed.slice(1).map((_, index) => frameId(resumed, index + 1)), [frameId(first, 2), frameId(first, 3)]);
@@ -154,10 +162,16 @@ test('replay enforces principal and complete workspace grants and rejects unknow
     sessionID: 's', type: 'session.updated', properties: { n: 2 } });
   const partial = [];
   bus.subscribe(fakeRes(partial), { lastEventId: cursor, subjectId: 'one', workspaceIds: ['a'] });
+  assert.equal(payload(partial, 0).payload.properties.replayStatus, 'complete');
   assert.deepEqual(partial.slice(1).map((_, index) => payload(partial, index + 1).payload.properties), [{ n: 2 }]);
   const unknown = [];
   bus.subscribe(fakeRes(unknown), { lastEventId: 'missing', subjectId: 'one', workspaceIds: ['a', 'b'] });
   assert.equal(unknown.length, 1);
+  assert.equal(payload(unknown, 0).payload.properties.replayStatus, 'gap');
+  const foreign = [];
+  bus.subscribe(fakeRes(foreign), { lastEventId: cursor, subjectId: 'two', workspaceIds: ['a'] });
+  assert.equal(foreign.length, 1, 'foreign cursor cannot certify or reveal another principal replay');
+  assert.equal(payload(foreign, 0).payload.properties.replayStatus, 'gap');
   bus.close();
 });
 
@@ -176,6 +190,7 @@ test('replay retention has a byte bound and never bridges an omitted oversized e
   const resumed = [];
   bus.subscribe(fakeRes(resumed), { lastEventId: cursor });
   assert.equal(resumed.length, 1, 'an old cursor cannot skip across an omitted frame');
+  assert.equal(payload(resumed, 0).payload.properties.replayStatus, 'gap');
   bus.close();
 
   const bounded = createWireEventBus();
@@ -190,5 +205,18 @@ test('replay retention has a byte bound and never bridges an omitted oversized e
   const afterEviction = [];
   bounded.subscribe(fakeRes(afterEviction), { lastEventId: oldCursor });
   assert.equal(afterEviction.length, 1, 'aggregate byte pressure evicts the old cursor');
+  assert.equal(payload(afterEviction, 0).payload.properties.replayStatus, 'gap');
   bounded.close();
+});
+
+test('a new event bus reports a gap for a cursor from the previous process', () => {
+  const oldBus = createWireEventBus(); const before = [];
+  oldBus.subscribe(fakeRes(before)); oldBus.publishGlobal('session.updated', {});
+  const cursor = frameId(before, 1); oldBus.close();
+  const restoredBus = createWireEventBus(); const after = [];
+  restoredBus.subscribe(fakeRes(after), { lastEventId: cursor });
+  assert.equal(after.length, 1);
+  assert.equal(payload(after, 0).payload.properties.replayStatus, 'gap');
+  assert.equal(frameId(after, 0), null);
+  restoredBus.close();
 });

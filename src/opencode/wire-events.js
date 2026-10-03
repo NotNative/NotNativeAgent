@@ -23,21 +23,16 @@ export function createWireEventBus({ heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
         workspaceIds: Array.isArray(scope.workspaceIds) ? new Set(scope.workspaceIds) : null,
       };
       add(subscriber);
+      const { replayStatus, replayIndex } = replayAdmission(replay.entries, scope.lastEventId, subscriber);
       // Why: the opener is a per-connection receipt, not a fan-out broadcast;
       // every existing subscriber must NOT see the new connection's opener.
-      sseFrame(res, { data: JSON.stringify(globalEnvelope(eventId(), 'server.connected', {})) });
-      const cursor = scope.lastEventId;
-      if (typeof cursor === 'string' && cursor.length > 0) {
-        const index = replay.entries.findIndex((entry) => entry.envelope.payload.id === cursor);
-        // A missing cursor is not proof that a suffix is complete. The client
-        // recovers from authoritative snapshots instead of partial replay.
-        if (index >= 0) {
-          for (const entry of replay.entries.slice(index + 1)) {
-            if (!visibleTo(subscriber, entry.envelope, entry.scope)) continue;
-            if (!sendEnvelope(subscriber, entry.envelope)) {
-              remove(subscriber);
-              break;
-            }
+      sseFrame(res, { data: JSON.stringify(globalEnvelope(eventId(), 'server.connected', { replayStatus })) });
+      if (replayStatus === 'complete') {
+        for (const entry of replay.entries.slice(replayIndex + 1)) {
+          if (!visibleTo(subscriber, entry.envelope, entry.scope)) continue;
+          if (!sendEnvelope(subscriber, entry.envelope)) {
+            remove(subscriber);
+            break;
           }
         }
       }
@@ -113,6 +108,18 @@ function syncMirror(eventIdValue, type, seq, sessionID, data) {
 }
 
 function eventId() { return newId('evt'); }
+
+function replayAdmission(entries, cursor, subscriber) {
+  if (cursor === undefined || cursor === null || cursor === '') return { replayStatus: 'fresh', replayIndex: -1 };
+  // Security: a cursor outside the caller's current scope cannot certify a
+  // complete replay, even if its event remains in the shared retention ring.
+  if (typeof cursor !== 'string' || cursor.length > 256) return { replayStatus: 'gap', replayIndex: -1 };
+  const replayIndex = entries.findIndex((entry) => entry.envelope.payload.id === cursor);
+  if (replayIndex < 0 || !visibleTo(subscriber, entries[replayIndex].envelope, entries[replayIndex].scope)) {
+    return { replayStatus: 'gap', replayIndex: -1 };
+  }
+  return { replayStatus: 'complete', replayIndex };
+}
 
 function publish(subscribers, replay, envelope, scope, remove) {
   retainReplay(replay, envelope, scope);
