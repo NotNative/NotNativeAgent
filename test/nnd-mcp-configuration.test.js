@@ -62,13 +62,15 @@ test('typed create defaults disabled and delete removes only selected ID', async
   assert.deepEqual(entries, [server]);
 });
 
-test('rejects raw credentials, OAuth, header values, unsafe endpoints and transport-confused fields', async t => {
+test('rejects credential fields, OAuth, header values, unsafe endpoints and transport-confused fields', async t => {
   const f = await fixture(t), before = await readFile(f.path);
   const bad = [
     { op: 'patch', id: 'existing', fields: { credential: { token: 'SECRET' } } },
     { op: 'patch', id: 'existing', fields: { trusted: true } },
     { op: 'patch', id: 'existing', fields: { header_env: { Authorization: 'TOKEN' } } },
     { op: 'create', id: 'bad1', fields: { transport: 'streamable_http', endpoint: 'https://user:password@example.com' } },
+    { op: 'create', id: 'bad4', fields: { transport: 'streamable_http', endpoint: 'https://example.com/v1?token=SECRET' } },
+    { op: 'create', id: 'bad5', fields: { transport: 'streamable_http', endpoint: 'https://example.com/v1#SECRET' } },
     { op: 'create', id: 'bad2', fields: { transport: 'stdio', command: 'run', endpoint: 'https://example.com' } },
     { op: 'create', id: 'bad3', fields: { transport: 'stdio', command: 'run', oauth: { token: 'SECRET' } } },
   ];

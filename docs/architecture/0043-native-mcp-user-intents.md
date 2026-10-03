@@ -6,10 +6,12 @@ application proof remain separate work.
 NNA owns MCP definitions. The generic scalar configuration endpoint does not
 edit `mcp_servers`, and an OpenCode MCP file is never an NNA configuration
 source. This contract accepts one bounded, typed user-manifest change by server
-ID: create a disabled stdio or credential-free HTTP server, patch enablement or
+ID: create a disabled stdio or HTTP server without credential fields, URL userinfo,
+query, or fragment; patch enablement or
 finite deadlines, or delete one existing server. Create defaults `trusted` to
-false. It does not accept raw tokens, OAuth settings, header values, credential
-bindings, trust elevation, or whole-array replacement.
+false. It does not accept dedicated raw-token fields, OAuth settings, header values, credential
+bindings, trust elevation, or whole-array replacement. Command, arguments, and
+URL paths are still operator-supplied text and must not contain embedded secrets.
 
 `GET /v1/nnd/configuration/mcp` returns only ID, transport, enablement, trust,
 and numeric deadlines, with installation/data identity, source and resolution
