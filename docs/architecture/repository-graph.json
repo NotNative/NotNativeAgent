@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:0e39870b3153ca78624cf7f8294c95a11f63b7cc3b3d3930aeb0e441bf931681",
+  "source_digest": "sha256:25babb47606795a06b8120eabbe196e13a7fb115bbe5604c9d4243298f5342dd",
   "counts": {
-    "modules": 496,
+    "modules": 497,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 193
+      "module_count": 194
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 513,
-      "module_count": 168
+      "import_count": 517,
+      "module_count": 169
     },
     {
       "from": "experience-engine",
@@ -150,8 +150,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 49,
-      "module_count": 32
+      "import_count": 50,
+      "module_count": 33
     },
     {
       "from": "agentic-engine",
@@ -2098,6 +2098,18 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/nnd-service-lock.js",
+        "src/persistence/manifest-lock.js"
+      ]
+    },
+    {
+      "path": "src/nnd-activation-private-ticket.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-post-publication-health.js",
+        "src/nnd-service-attach.js",
         "src/nnd-service-lock.js",
         "src/persistence/manifest-lock.js"
       ]
