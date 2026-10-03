@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f0c5c5ca6b9264f63849c1bd3f98b073e41da3273420f2c9d33b0d5d511a465c",
+  "source_digest": "sha256:0e39870b3153ca78624cf7f8294c95a11f63b7cc3b3d3930aeb0e441bf931681",
   "counts": {
-    "modules": 495,
+    "modules": 496,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 192
+      "module_count": 193
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 509,
-      "module_count": 167
+      "import_count": 513,
+      "module_count": 168
     },
     {
       "from": "experience-engine",
@@ -2696,6 +2696,16 @@
       ]
     },
     {
+      "path": "src/nnd-native-principal-selection.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-activation-principal-proof.js",
+        "src/nnd-trial-admission.js"
+      ]
+    },
+    {
       "path": "src/nnd-notification-routes.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2950,6 +2960,7 @@
         "src/integration-cli.js",
         "src/integration-server.js",
         "src/nnd-configuration-service.js",
+        "src/nnd-native-principal-selection.js",
         "src/nnd-setup-config.js",
         "src/nnd-trial-admission.js",
         "src/nnd-workspace-grants.js",
