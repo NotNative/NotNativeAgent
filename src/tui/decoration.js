@@ -39,6 +39,7 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   if (/^[╭╰]/u.test(line)) return paint(TUI_THEME.brandBorder, line);
   if (line.startsWith('│') && line.endsWith('│')) return decorateBanner(line, index);
   if (overlayKind === 'permission') return decoratePermissionLine(line);
+  if (overlayKind === 'question') return paint(TUI_THEME.primary, line);
   if (overlayKind) return decorateOverlay(line, width, overlayKind, lineKind);
   // Semantic record identity keeps wrapped rows in the same visual treatment
   // without adding renderer-only markers to copied transcript text.

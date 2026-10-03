@@ -10,6 +10,12 @@ const OUTCOME = Object.freeze({ started: 'started', succeeded: 'succeeded', fail
 export async function clipboardPasteAction(workspace) {
   const read = workspace.options.clipboardRead;
   if (typeof read !== 'function') throw new ContractError('clipboard_unavailable', 'clipboard paste is unavailable');
+  // Why: a question accepts text only; clipboard images belong to the conversation draft.
+  if (workspace.projection?.active?.()?.pendingQuestion) {
+    const text = await read();
+    if (!text) throw new ContractError('clipboard_empty', 'The clipboard does not contain text.');
+    return normalizeClipboardAction({ action: ACTION.paste, text });
+  }
   if (!workspace.projection?.overlay && typeof workspace.options.clipboardContentRead === 'function') {
     return normalizeClipboardAction(await queueClipboardContent(workspace));
   }
@@ -43,15 +49,19 @@ export async function pasteClipboard(workspace, handleOverlayAction, handleEdito
     const action = await clipboardPasteAction(workspace);
     const projection = workspace?.projection;
     if (!projection) throw new ContractError('clipboard_target_unavailable', 'clipboard paste has no active projection');
-    const target = projection.overlay?.kind ?? 'conversation';
+    const question = projection.active?.()?.pendingQuestion;
+    const target = question ? 'question' : projection.overlay?.kind ?? 'conversation';
     let dropped = [];
-    if (action.action === ACTION.paste && !projection.overlay) {
+    if (action.action === ACTION.paste && !projection.overlay && !question) {
       dropped = await queuePastedImagePaths(workspace, action.text);
     }
     if (action.action === ACTION.attachment) {
       projection.showNotice(ACTION.attachment, `Queued ${action.attachment.path} for the next message.`);
     } else if (dropped.length > 0) {
       projection.showNotice(ACTION.attachment, `Queued ${dropped.length} dropped image${dropped.length === 1 ? '' : 's'} for the next message.`);
+    } else if (question) {
+      if (question.customMode) await handleEditorAction(action, question.customEditor);
+      else projection.showNotice('question', 'Select an answer before pasting text.');
     } else if (projection.overlay) {
       await handleOverlayAction(action, workspace);
     } else {

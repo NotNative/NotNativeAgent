@@ -25,6 +25,7 @@ import { handlePermissionCommand, permissionChoice } from './tui/permission-comm
 import { handleCopyCommand } from './tui/copy-command.js';
 import { createTuiWorkspace } from './tui/runtime-workspace.js';
 import { handleEditorAction } from './tui/editor-actions.js';
+import { handlePendingQuestion } from './tui/question-input.js';
 import { handleGatewayCommand, handleGatewaySelection } from './tui/gateway-command.js';
 import { handleWebFetchCommand } from './tui/webfetch-command.js'; import { beginWebFetchManagementSelection, handleWebFetchSetupAction } from './tui/webfetch-setup.js'; import { beginWebSearchManagementSelection, handleWebSearchSetupAction } from './tui/websearch-setup.js';
 import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui/provider-setup.js'; import { beginProviderRouteSettingsSelection, handleProviderRouteSettingsAction } from './tui/provider-route-settings.js';
@@ -152,6 +153,7 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     if (!['back', 'cancel'].includes(action.action)) destructiveKeys.reset();
     if (!['mouse', 'cancel'].includes(action.action)) clearTerminalSelection(workspace); workspace.projection.clearNotice();
     if (action.action === 'reset_keys') await resetKeys(workspace, decoder);
+    else if (session.pendingQuestion) await handlePendingQuestion(action, session, workspace);
     else if (session.pendingPermission && action.action === 'insert' && selectedPermission(action, session)) await workspace.decideActive(selectedPermission(action, session));
     else if (session.pendingPermission && ['history_up', 'history_down'].includes(action.action)) {
       session.permissionOffset = Math.max(0, session.permissionOffset + (action.action === 'history_up' ? -1 : 1));
@@ -190,9 +192,7 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     else if (action.action === 'next_tab') workspace.projection.cycleActive(1);
     else if (action.action === 'previous_tab') workspace.projection.cycleActive(-1);
     else if (action.action === 'cycle_review') workspace.cycleReviewPosture();
-    else if (/^tab_[1-8]$/u.test(action.action)) {
-      workspace.projection.activateIndex(Number(action.action.slice(-1)) - 1);
-    }
+    else if (/^tab_[1-8]$/u.test(action.action)) workspace.projection.activateIndex(Number(action.action.slice(-1)) - 1);
     else if (action.action === 'help') workspace.projection.help = !workspace.projection.help;
     else if (action.action === 'cancel') {
       if (!await copyTerminalSelection(workspace)) await handleDestructiveCancel(workspace, stop, destructiveKeys);
@@ -310,13 +310,17 @@ async function updateWorkspaceTrust(selection, workspace) {
   workspace.projection.closeOverlay();
 }
 export function shouldExitOnCancel(session) {
-  return !session.pendingPermission && !session.activeTurnId;
+  return !session.pendingPermission && !session.pendingQuestion && !session.activeTurnId;
 }
 export async function submitEditor(workspace, stop) {
   const session = workspace.projection.active();
   if (!session) throw new ContractError('tui_session_missing', 'no active conversation is available');
   const content = session.editor.text;
   if (!content.trim()) return;
+  if (session.pendingQuestion) {
+    workspace.projection.showNotice('question', 'Answer or decline the pending question first.');
+    return;
+  }
   if (session.pendingPermission) {
     workspace.projection.showNotice('approval', 'Use the displayed approval keys before submitting input.');
     return;

@@ -3,6 +3,7 @@ import { ContractError } from '../ids.js';
 import { isIntermediateToolStatus } from './tool-lifecycle.js';
 import { accumulateTokenAccounting } from './token-accounting.js';
 import { validateKeyBindings } from './key-bindings.js';
+import { applyContextStatus } from './context-projection.js';
 
 const TUI_RECORD_LIMIT = 9_999;
 const MAX_TUI_SESSIONS = 8;
@@ -199,7 +200,8 @@ export class TuiProjection {
     this.sessions.set(id, {
       id, name, metadata, role,
       state: 'idle', records: [], editor: new EditorBuffer(), unread: false,
-      pendingPermission: null, permissionOffset: 0, activeTurnId: null, confirmClose: false, confirmClear: false,
+      pendingPermission: null, permissionOffset: 0, pendingQuestion: null, questionQueue: [],
+      activeTurnId: null, confirmClose: false, confirmClear: false,
       viewportEnd: null, viewportLineCount: 0, expandedTurns: new Set(), detailedTurns: new Set(), usage: null,
       tokenAccounting: null,
       contextBytes: 0, contextLimitBytes: null, contextTokens: null, rawContextTokens: null, contextLimitTokens: null,
@@ -372,6 +374,15 @@ function applyEvent(session, event) {
   }
   else if (event.type === 'permission_prompt') {
     session.state = 'awaiting_approval'; session.pendingPermission = event; session.permissionOffset = 0;
+  } else if (event.type === 'question_prompt') {
+    session.state = 'needs_input';
+    const question = {
+      token: event.question_token, questions: event.questions, index: 0, selected: 0,
+      choices: new Set(), answers: [], customEditor: new EditorBuffer(1_024), customMode: false,
+      scrollOffset: null,
+    };
+    if (session.pendingQuestion) session.questionQueue.push(question);
+    else session.pendingQuestion = question;
   } else if (event.type === 'tool_status' && event.status === 'review_pending') session.state = 'awaiting_approval';
   else if (event.type === 'tool_status' && event.status === 'approved') session.state = 'preparing';
   else if (event.type === 'tool_status' && event.status === 'running') session.state = 'running_tool';
@@ -381,25 +392,8 @@ function applyEvent(session, event) {
   else if (event.type === 'mcp_status') {
     if (event.status === 'ready' && session.commandCapabilities) session.commandCapabilities.mcpReady = true;
   } else if (event.type === 'work_status') session.work = event.work;
-  else if (event.type === 'context_status') {
-    session.contextBytes = event.bytes;
-    session.contextLimitBytes = event.limit_bytes;
-    session.contextTokens = event.estimated_tokens;
-    session.rawContextTokens = event.raw_estimated_tokens;
-    session.contextLimitTokens = event.limit_tokens;
-    session.contextThresholdTokens = event.compaction_threshold_tokens;
-    session.contextCompressionThresholdTokens = event.compression_threshold_tokens;
-    session.contextCompressionLevel2ThresholdTokens = event.compression_level_2_threshold_tokens;
-    session.contextCompressionLevel3ThresholdTokens = event.compression_level_3_threshold_tokens;
-    session.contextCompressionThreshold = event.compression_threshold;
-    session.contextCompressionLevel2Threshold = event.compression_level_2_threshold;
-    session.contextCompressionLevel3Threshold = event.compression_level_3_threshold;
-    session.contextCompactionThreshold = event.compaction_threshold;
-    session.contextOutputReserveTokens = event.output_reserve_tokens;
-    session.contextParallelCapacity = event.parallel_capacity;
-    session.contextMeasurement = event.measurement;
-    session.contextSource = event.source;
-  } else if (event.type === 'context_usage') {
+  else if (event.type === 'context_status') applyContextStatus(session, event);
+  else if (event.type === 'context_usage') {
     session.contextBytes = event.current_bytes;
     if (Number.isFinite(event.limit_bytes)) session.contextLimitBytes = event.limit_bytes;
     session.rawContextTokens = event.current_estimated_tokens;
@@ -421,6 +415,8 @@ function applyEvent(session, event) {
 function finishTurn(session, event) {
   session.activeTurnId = null;
   session.pendingPermission = null;
+  session.pendingQuestion = null;
+  session.questionQueue = [];
   session.state = event.outcome === 'needs_input' ? 'needs_input'
     : event.outcome === 'failed' || event.outcome === 'limit_reached' ? 'failed' : 'idle';
   session.usage = accumulateUsage(session.usage, event.usage);

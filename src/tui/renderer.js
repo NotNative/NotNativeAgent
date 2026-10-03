@@ -11,11 +11,13 @@ import { decorateSelection, plainTerminalLine } from './selection.js';
 import { contextCompactionText } from './context-renderer.js';
 import { applyConversationSpacing } from './conversation-spacing.js';
 import { permissionControlLine, permissionLines } from './permission-renderer.js';
+import { questionControlLine, questionLines } from './question-view.js';
 import { decorateContent, decorateFooter, decorateHeader } from './decoration.js';
 import { workSummaryRows } from './work-summary.js';
 import { detailedTokenText, receiptTokenText } from '../experience/token-accounting.js';
 import { latestToolStatusIndexes, toolStatusIdentity } from '../experience/tool-lifecycle.js';
 import { overlayControlLabel } from './surface-engine.js';
+import { questionViewportStart, tabState, visibleContentStart } from './viewport-state.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
@@ -32,8 +34,10 @@ export class TuiRenderer {
     const lineKinds = new Map();
     const available = contentLines(projection, session, width, targets, lineKinds, height);
     restoreHistoryAnchor(session, available.length);
-    if (!session.pendingPermission && !projection.help && !projection.overlay) session.viewportLineCount = available.length;
-    const permissionStart = Math.min(session.permissionOffset, Math.max(0, available.length - room));
+    if (!session.pendingPermission && !session.pendingQuestion && !projection.help && !projection.overlay) session.viewportLineCount = available.length;
+    const permissionStart = session.pendingQuestion
+      ? questionViewportStart(session, available, room)
+      : Math.min(session.permissionOffset, Math.max(0, available.length - room));
     const viewportEnd = session.viewportEnd === null
       ? available.length : Math.min(session.viewportEnd, available.length);
     if (session.viewportEnd !== null && viewportEnd >= available.length) session.viewportEnd = null;
@@ -41,7 +45,7 @@ export class TuiRenderer {
       ? visibleOverlayStart(projection.overlay, targets, room, available.length)
       : 0;
     const contentStart = visibleContentStart({
-      pendingPermission: session.pendingPermission, permissionStart, overlay: projection.overlay,
+      pendingPermission: session.pendingPermission || session.pendingQuestion, permissionStart, overlay: projection.overlay,
       overlayStart, help: projection.help, viewportEnd, room,
     });
     const content = available.slice(contentStart, contentStart + room);
@@ -61,7 +65,7 @@ export class TuiRenderer {
     const frame = [
       ...header.map((line, index) => decorateHeader(line, index, color)),
       ...content.map((line, index) => decorateContent(
-        line, width, color, index, session.pendingPermission ? 'permission' : projection.overlay?.kind,
+        line, width, color, index, session.pendingPermission ? 'permission' : session.pendingQuestion ? 'question' : projection.overlay?.kind,
         lineKinds.get(contentStart + index),
       )),
       ...footer.map((line, index) => decorateFooter(
@@ -95,6 +99,7 @@ function headerLines(projection, session, width) {
 
 function contentLines(projection, session, width, targets = new Map(), lineKinds = new Map(), height = 24) {
   if (session.pendingPermission) return permissionLines(session.pendingPermission, width, projection.bindings);
+  if (session.pendingQuestion) return questionLines(session.pendingQuestion, width, targets);
   if (projection.overlay) return overlayLines(projection.overlay, width, targets, lineKinds);
   if (projection.help) return helpLines(width, projection.bindings, session);
   const lines = [...sessionBanner(session, width, height), ''];
@@ -206,6 +211,14 @@ function footerLines(projection, session, width, capabilities = {}, suggestionCa
   };
   if (session.pendingPermission) {
     add(crop(permissionControlLine(session.pendingPermission, projection.bindings), width), 'controls');
+    add(footerStatusLine(projection, session, width), 'status');
+    return lines;
+  }
+  if (session.pendingQuestion) {
+    if (projection.notice && projection.notice.kind !== 'confirmation') {
+      add(crop(projection.notice.text, width), projection.notice.kind === 'error' ? 'error' : 'notice');
+    }
+    add(crop(questionControlLine(session.pendingQuestion, projection.bindings), width), 'controls');
     add(footerStatusLine(projection, session, width), 'status');
     return lines;
   }
@@ -387,20 +400,6 @@ function tabLabel(session, activeId) {
   const state = tabState(session);
   const authority = session.role === 'primary' ? ' *' : '';
   return `[${selected} ${sanitizeTerminal(session.name ?? 'Conversation').slice(0, 18)}${state}${authority}]`;
-}
-
-function visibleContentStart(options) {
-  if (options.pendingPermission) return options.permissionStart;
-  if (options.overlay) return options.overlayStart;
-  if (options.help) return 0;
-  return Math.max(0, options.viewportEnd - options.room);
-}
-
-function tabState(session) {
-  if (session.state === 'failed') return '!';
-  if (session.state === 'needs_input' || session.state === 'awaiting_approval') return '?';
-  if (session.activeTurnId) return '~';
-  return '';
 }
 
 function isActivity(record) {

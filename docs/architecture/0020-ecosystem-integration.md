@@ -200,7 +200,7 @@ procedure are recorded in [OpenCode protocol compatibility](../OPENCODE_PROTOCOL
 The adapter projects native v2 events and forms over the existing session engines;
 it does not grant OpenCode permission requests authority over NNA governance.
 
-The native NND and OpenCode-wire surfaces expose one
+The Console, native NND, and OpenCode-wire surfaces expose one
 operator-question contract, owned by the engine and voice-rendered per surface:
 
 1. An unanswered question pauses indefinitely. It never times out into denial;
@@ -226,6 +226,12 @@ operator-question contract, owned by the engine and voice-rendered per surface:
 5. Review posture never gates questions. Asking is operator speech, not an
    effect; an answer supplies exactly the choice it states and grants no
    execution authority. Authority remains reviewer-governed as in ADR 0002.
+
+The Console renders a pending question in its conversation tab, marks an inactive
+tab for attention, and sends the complete answer matrix or an explicit decline
+through interactive canonical ingress. The question view owns its answer editor;
+it does not replace or submit the conversation draft. Turn cancellation clears
+the view and releases the broker wait.
 
 The wire session pins `auto-review` and mounts no permission card transport.
 Semantic escalations on this surface settle immediately as

@@ -43,6 +43,7 @@ import { SecretBroker } from './secret-broker.js';
 import { ConsoleAuthority } from './experience/console-authority.js';
 import { deleteUnreferencedSecret, listSecretsWithReferences } from './secret-management.js';
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './experience/session-broker.js';
+import { settleConsoleQuestion } from './experience/question-control.js';
 export class ExperienceEngine {
   #tasks = new Set();
   constructor(options) {
@@ -183,6 +184,7 @@ export class ExperienceEngine {
       permission_token: pending.permission_token, tool_request_id: pending.tool_request_id, choice,
     }, INTERACTIVE_OPERATOR);
   }
+  answerActiveQuestion(answers) { return settleConsoleQuestion(this, 'answer', answers, INTERACTIVE_OPERATOR); } declineActiveQuestion() { return settleConsoleQuestion(this, 'decline', null, INTERACTIVE_OPERATOR); }
   cancelActive() {
     const session = this._active();
     if (this.projection.active().pendingPermission) return this.decideActive('cancel');

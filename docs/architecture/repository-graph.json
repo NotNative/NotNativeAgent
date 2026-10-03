@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f619598983c70af168eb0f730dd28f408be5f9c69134a0406f6d2d049d688efe",
+  "source_digest": "sha256:296057149049b7a1c1460c05a8abf05107686cf786e28d4d0f656b6fd1b7add4",
   "counts": {
-    "modules": 513,
+    "modules": 518,
     "component_edges": 82
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 93
+      "module_count": 98
     },
     {
       "id": "reliability-engine",
@@ -120,14 +120,14 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 170,
-      "module_count": 57
+      "import_count": 183,
+      "module_count": 59
     },
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 86,
-      "module_count": 59
+      "import_count": 87,
+      "module_count": 60
     },
     {
       "from": "foundation",
@@ -1305,6 +1305,7 @@
         "src/experience/provider-discovery.js",
         "src/experience/provider-routing.js",
         "src/experience/provider-test.js",
+        "src/experience/question-control.js",
         "src/experience/restore.js",
         "src/experience/resume.js",
         "src/experience/session-broker.js",
@@ -1382,6 +1383,12 @@
       "imports": [
         "src/persistence/session-lock.js"
       ]
+    },
+    {
+      "path": "src/experience/context-projection.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/experience/context.js",
@@ -1482,6 +1489,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/context-projection.js",
         "src/experience/key-bindings.js",
         "src/experience/token-accounting.js",
         "src/experience/tool-lifecycle.js",
@@ -1527,6 +1535,14 @@
       "entrypoint": false,
       "imports": [
         "src/provider/capabilities.js"
+      ]
+    },
+    {
+      "path": "src/experience/question-control.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {
@@ -5119,6 +5135,7 @@
         "src/tui/permission-command.js",
         "src/tui/provider-command.js",
         "src/tui/provider-setup.js",
+        "src/tui/question-input.js",
         "src/tui/render-loop.js",
         "src/tui/renderer.js",
         "src/tui/runtime-inspection.js",
@@ -5429,6 +5446,28 @@
       ]
     },
     {
+      "path": "src/tui/question-input.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/clipboard-actions.js",
+        "src/tui/editor-actions.js",
+        "src/tui/mouse.js",
+        "src/tui/question-view.js",
+        "src/tui/renderer.js",
+        "src/tui/telemetry.js"
+      ]
+    },
+    {
+      "path": "src/tui/question-view.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/editor-actions.js",
+        "src/tui/terminal-markdown.js"
+      ]
+    },
+    {
       "path": "src/tui/render-loop.js",
       "component": "experience-engine",
       "entrypoint": false,
@@ -5450,11 +5489,13 @@
         "src/tui/decoration.js",
         "src/tui/live-activity.js",
         "src/tui/permission-renderer.js",
+        "src/tui/question-view.js",
         "src/tui/selection.js",
         "src/tui/status-line.js",
         "src/tui/surface-engine.js",
         "src/tui/terminal-adapter.js",
         "src/tui/terminal-markdown.js",
+        "src/tui/viewport-state.js",
         "src/tui/work-summary.js"
       ]
     },
@@ -5620,6 +5661,12 @@
       "imports": [
         "src/ids.js"
       ]
+    },
+    {
+      "path": "src/tui/viewport-state.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/tui/webfetch-command.js",
