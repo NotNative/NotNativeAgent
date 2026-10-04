@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:35b788f72aa9559cf06e68d9f8c5e5c6c3c51db2ce852fc107691388002b75eb",
+  "source_digest": "sha256:c150f2d8f1da0e466e9b49edc76d5dfdfd262df5156dd6f62635c6795c939ea1",
   "counts": {
-    "modules": 790,
+    "modules": 791,
     "component_edges": 17
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 70
+      "module_count": 71
     },
     {
       "id": "foundation",
@@ -7486,6 +7486,12 @@
     },
     {
       "path": "scripts/installer-prebuilt-stage.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/installer-prebuilt-uninstall.test.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": []

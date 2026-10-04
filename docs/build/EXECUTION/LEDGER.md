@@ -80,6 +80,28 @@ UI was 1,770/1,770 plus web 1,447/1,447 with typecheck, quality, graph/language,
 gates green. Adversarial review closed the candidate-key identity race; remaining audit P2s are
 accepted for follow-up.
 
+## NND 20261004-5 — prebuilt uninstall slot binding
+
+Uninstall now separates the public stable launcher anchor from the registered immutable slot.
+It validates the selected NNA identity, anchor binding, bounded native slot path, and running
+Electron executable before taking the native guard. It then confirms and deactivates the exact
+registered slot, removes the anchor and shortcuts, and preserves the immutable slot, provenance,
+and user data unless `-PurgeData` is requested. Foreign identities, malformed bindings, wrong
+slot paths, and reparse-point ancestry fail closed without deletion.
+
+Focused uninstall/recovery suites passed 21/21; full UI and web suites plus typecheck, quality,
+graph, controlled-language, and release gates were exercised. Upgrade/rollback, migration, real
+installed GUI acceptance, and durable package generation binding remain explicitly open.
+
+## NND 20261004-7 — prebuilt uninstall release seal
+
+The independent post-repair audit confirmed the uninstall runtime behavior and found the working
+tree's provisional release hashes stale and the evidence helper omitted. The slice advanced one
+bounded release version and regenerated the complete hash manifest from the final tree. Full UI
+and web suites, typechecks, quality/graph/language gates, and the rerun release gate passed. The
+audit's bounded NNA-status duration, trailing-ancestry normalization, and executable-path aliases
+remain accepted follow-up observations.
+
 ## Recovery of the interrupted handoff
 
 The handoff contained only this ledger, the contract draft and three untracked NNA

@@ -52,6 +52,8 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-preflight.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-dependency.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-prebuilt-stage.ps1')
+. (Join-Path $PSScriptRoot 'scripts\installer-prebuilt-uninstall.ps1')
+. (Join-Path $PSScriptRoot 'scripts\installer-prebuilt-uninstall-evidence.ps1')
 if ($StagePrebuiltPayload -and (!$PrebuiltPayloadRoot -or !$PrebuiltManifestSha256 -or $ActivatePrebuiltSlot -or
     $PrebuiltStageOperation -or $Uninstall -or $PurgeData -or $SkipBuild)) {
     throw '-StagePrebuiltPayload requires -PrebuiltPayloadRoot and -PrebuiltManifestSha256 and cannot be combined with uninstall, source-build, or activation options.'
@@ -380,12 +382,34 @@ if ($Uninstall) {
     }
     $uninstallNna = Get-InstalledNna
     if (!$uninstallNna) { throw 'Cannot verify native service ownership. Restore the selected NNA runtime before uninstalling NND.' }
+    $runningExe = $ElectronExe
+    $uninstallCapabilities = $null
+    if (Test-Path -LiteralPath (Join-Path $targetPath 'nnd-anchor.json') -PathType Leaf) {
+        $uninstallCapabilities = Assert-NndNnaCapabilities $uninstallNna
+        Assert-NndSelectedPin $uninstallNna $uninstallCapabilities
+        $uninstallPackageRoot = Resolve-NndPrebuiltAnchorForUninstall $targetPath $uninstallNna $uninstallCapabilities
+        $runningExe = Join-Path $uninstallPackageRoot 'packages\electron\node_modules\electron\dist\electron.exe'
+    } else {
+        $uninstallPackageRoot = $targetPath
+    }
+    if (Test-InstallRunning $runningExe) {
+        Write-Host "  NOT deleted: the app is running from $runningExe (its electron.exe is locked while alive)." -ForegroundColor Yellow
+        Write-Host "  quit it from the tray menu, then re-run -Uninstall." -ForegroundColor Yellow
+        exit 2
+    }
     $uninstallGuard = Start-NndInstallationGuard $uninstallNna
     $uninstallComplete = $false
     try {
     # Do not delete an installed package while NNA still points at it. A
     # failed deactivation leaves the install intact for an explicit retry.
-    Invoke-NndRegistration 'deactivate' $targetPath $uninstallNna
+    $uninstallStatus = Get-NndRegistrationStatus $uninstallNna
+    if ($uninstallCapabilities) {
+        Assert-NndUninstallRegistrationStatus $uninstallStatus $uninstallPackageRoot $uninstallCapabilities.version
+        Assert-NndUninstallGuardIdentity $uninstallGuard $uninstallCapabilities
+    }
+    if (Test-InstallRunning $runningExe) { throw 'NND started from the selected install during uninstall; removal was stopped.' }
+    Invoke-NndRegistration 'deactivate' $uninstallPackageRoot $uninstallNna
+    if (Test-InstallRunning $runningExe) { throw 'NND started during deactivation; the anchor and registration evidence were preserved.' }
     foreach ($name in @("NotNativeDesktop")) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
         foreach ($link in $links) { if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link -Force; Write-Host "  removed shortcut $link" } }

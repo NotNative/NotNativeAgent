@@ -152,6 +152,14 @@ blindly. The activation mode accepts only its payload, stage operation, NNA
 root, and NND target arguments. This slice still neither copies the active
 target, writes a stable selection anchor, nor creates shortcuts.
 
+`install.ps1 -Uninstall` now distinguishes the public launcher anchor from the
+immutable native package. A prebuilt target must bind the selected NNA identities
+and exact `versions/version-payload_sha256` slot. Uninstall confirms that slot
+registration through the selected NNA, deactivates the slot, and removes only the
+fresh anchor and shortcuts. The immutable NNA slot, provenance and user data are
+preserved unless `-PurgeData` is explicitly requested. An Electron child running
+from that exact native slot refuses removal.
+
 `install.ps1 -RecoverPrebuiltStageOperation OPERATION_UUID` delegates that
 reconciliation to the already selected installed NNA. It checks the existing
 selection pin and native capability identity before invoking `stage-recover`,

@@ -1080,6 +1080,18 @@
     {
       "version": "20261004-4",
       "content_sha256": "f134fd469ed74f6f93117c3fa5ad6163fc25fd87c39b385ce84c55d358448531"
+    },
+    {
+      "version": "20261004-5",
+      "content_sha256": "0333e04c111f705108de5bf8748476da6d0ef4801d2d4846c47d50b0dabcb2dc"
+    },
+    {
+      "version": "20261004-6",
+      "content_sha256": "d3371be0053a1b3f43aad005d7b15f98b7fe0d5c550b3a7832b4f8f1a6d4258f"
+    },
+    {
+      "version": "20261004-7",
+      "content_sha256": "a2ab0e6ede03c2a1ea22613ce3611a94f352d1a675f8d52685650fe6bd3528ab"
     }
   ]
 }
