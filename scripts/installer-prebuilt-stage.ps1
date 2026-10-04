@@ -146,6 +146,72 @@ function Invoke-NndPrebuiltActivationPreflight($SelectedNna, $CheckedPayload, $S
     }
 }
 
+function Invoke-NndPrebuiltActivation($SelectedNna, $CheckedPayload, $Capabilities, [string]$StageOperation, [string]$CandidateSha256) {
+    if ($CandidateSha256 -cnotmatch '^[a-f0-9]{64}$') {
+        throw 'Native activation requires the exact preflight candidate SHA-256.'
+    }
+    $activationOperation = [Guid]::NewGuid().ToString()
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $SelectedNna.Node
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument (Join-Path $PSScriptRoot 'installer-prebuilt-activation.mjs')) + ' ' +
+        (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot) + ' ' + (ConvertTo-NndNativeArgument $StageOperation)
+    $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $false
+    $startInfo.EnvironmentVariables['NNA_HOME'] = $SelectedNna.DataRoot
+    $startInfo.EnvironmentVariables['NND_PREFLIGHT_CANDIDATE_SHA256'] = $CandidateSha256
+    foreach ($key in @('NODE_OPTIONS', 'NODE_PATH', 'ELECTRON_RUN_AS_NODE')) { $startInfo.EnvironmentVariables.Remove($key) }
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    $started = $false
+    try {
+        if (!$process.Start()) { throw 'Native activation orchestration did not start.' }
+        $started = $true
+        $buffer = New-Object char[] 1024
+        $output = New-Object System.Text.StringBuilder
+        $deadline = [DateTime]::UtcNow.AddMinutes(4)
+        while ($true) {
+            $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+            if ($remaining -le 0) { throw 'Native activation orchestration exceeded its deadline; the retained owner remains uncertain.' }
+            $read = $process.StandardOutput.ReadAsync($buffer, 0, $buffer.Length)
+            if (!$read.Wait($remaining)) { throw 'Native activation orchestration exceeded its deadline; the retained owner remains uncertain.' }
+            if ($read.Result -eq 0) { break }
+            [void]$output.Append($buffer, 0, $read.Result)
+            if ($output.Length -gt 8192) { throw 'Native activation orchestration response exceeded its bound; the retained owner remains uncertain.' }
+        }
+        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+        if ($remaining -le 0 -or !$process.WaitForExit($remaining) -or $process.ExitCode -ne 0) {
+            throw "Native activation orchestration did not confirm public attachment; the retained owner remains uncertain (stage operation $StageOperation)."
+        }
+        $result = $output.ToString() | ConvertFrom-Json
+        $keys = @($result.PSObject.Properties.Name)
+        $expected = @('state', 'operation_id', 'stage_operation_id', 'generation', 'endpoint', 'root',
+            'version', 'installation_id', 'data_id', 'pid')
+        if ($keys.Count -ne $expected.Count -or @($expected | Where-Object { $_ -notin $keys }).Count -ne 0 -or
+            $result.state -cne 'public_controller_attached' -or
+            $result.stage_operation_id -cne $StageOperation -or
+            $result.operation_id -isnot [string] -or $result.operation_id -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$' -or
+            $result.generation -isnot [string] -or $result.generation.Length -gt 128 -or
+            $result.endpoint -isnot [string] -or
+            $result.endpoint -cnotmatch '^http://(?:127\.0\.0\.1|\[::1\]):[1-9]\d{0,4}(?:/)?$' -or
+            $result.root -isnot [string] -or ![IO.Path]::IsPathRooted($result.root) -or
+            $result.version -cne $CheckedPayload.Version -or
+            $result.installation_id -cne $Capabilities.installation_id -or
+            $result.data_id -cne $Capabilities.data_id -or
+            ($result.pid -isnot [int] -and $result.pid -isnot [long])) {
+            throw "Native activation orchestration response did not confirm the selected package (stage operation $StageOperation)."
+        }
+        return $result
+    } catch {
+        throw "NND prebuilt activation remains unresolved for stage operation $StageOperation. The retained owner may be live; do not retry blindly. $($_.Exception.Message)"
+    } finally {
+        if ($started -and !$process.HasExited) { $process.Kill(); [void]$process.WaitForExit(5000) }
+        $process.Dispose()
+    }
+}
+
 # Reconcile an interrupted native staging operation without touching the active
 # NND package. Recovery must target the same selected installed NNA identity.
 function Invoke-NndPrebuiltStageRecover($SelectedNna, [string]$Operation) {

@@ -36,7 +36,9 @@ param(
     [string]$ShortcutRoot,
     [string]$PrebuiltPayloadRoot,
     [string]$PrebuiltManifestSha256,
+    [string]$PrebuiltStageOperation,
     [switch]$StagePrebuiltPayload,
+    [switch]$ActivatePrebuiltSlot,
     [string]$RecoverPrebuiltStageOperation,
     [switch]$InstallNnaIfMissing,
     [switch]$SkipNnaPathUpdate,
@@ -50,16 +52,36 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-preflight.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-nna-dependency.ps1')
 . (Join-Path $PSScriptRoot 'scripts\installer-prebuilt-stage.ps1')
-if ($StagePrebuiltPayload -and (!$PrebuiltPayloadRoot -or !$PrebuiltManifestSha256 -or $Uninstall -or $PurgeData -or $SkipBuild)) {
-    throw '-StagePrebuiltPayload requires -PrebuiltPayloadRoot and -PrebuiltManifestSha256 and cannot be combined with uninstall or source-build options.'
+if ($StagePrebuiltPayload -and (!$PrebuiltPayloadRoot -or !$PrebuiltManifestSha256 -or $ActivatePrebuiltSlot -or
+    $PrebuiltStageOperation -or $Uninstall -or $PurgeData -or $SkipBuild)) {
+    throw '-StagePrebuiltPayload requires -PrebuiltPayloadRoot and -PrebuiltManifestSha256 and cannot be combined with uninstall, source-build, or activation options.'
 }
-if (!$StagePrebuiltPayload -and ($PrebuiltPayloadRoot -or $PrebuiltManifestSha256)) {
+if (!$StagePrebuiltPayload -and !$ActivatePrebuiltSlot -and ($PrebuiltPayloadRoot -or $PrebuiltManifestSha256)) {
     throw 'Prebuilt payload options require -StagePrebuiltPayload.'
+}
+if ($ActivatePrebuiltSlot -and (!$PrebuiltPayloadRoot -or !$PrebuiltManifestSha256 -or !$PSBoundParameters.ContainsKey('PrebuiltStageOperation') -or
+    $Uninstall -or $PurgeData -or $SkipBuild)) {
+    throw '-ActivatePrebuiltSlot requires -PrebuiltPayloadRoot, -PrebuiltManifestSha256, and -PrebuiltStageOperation; it cannot be combined with uninstall or source-build options.'
+}
+if (!$ActivatePrebuiltSlot -and $PSBoundParameters.ContainsKey('PrebuiltStageOperation')) {
+    throw '-PrebuiltStageOperation requires -ActivatePrebuiltSlot.'
+}
+if ($ActivatePrebuiltSlot) {
+    $activationParameterKeys = @('InstallDir', 'NnaInstallRoot', 'PrebuiltPayloadRoot', 'PrebuiltManifestSha256',
+        'PrebuiltStageOperation', 'ActivatePrebuiltSlot')
+    $unexpected = @($PSBoundParameters.Keys | Where-Object { $_ -notin $activationParameterKeys })
+    if ($unexpected.Count -ne 0) {
+        throw "-ActivatePrebuiltSlot accepts only the prebuilt payload, selected NNA root, and NND target arguments; unexpected: $($unexpected -join ', ')."
+    }
+}
+if ($ActivatePrebuiltSlot -and $PrebuiltStageOperation -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$') {
+    throw '-PrebuiltStageOperation requires a canonical v4 operation UUID.'
 }
 $recoverPrebuiltStageRequested = $PSBoundParameters.ContainsKey('RecoverPrebuiltStageOperation')
 if ($recoverPrebuiltStageRequested) {
     if ($RecoverPrebuiltStageOperation -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$' -or
         $StagePrebuiltPayload -or $Uninstall -or $PurgeData -or $SkipBuild -or $InstallNnaIfMissing -or
+        $ActivatePrebuiltSlot -or $PSBoundParameters.ContainsKey('PrebuiltStageOperation') -or
         $NnaDependencyRoot -or $NnaDependencyManifestSha256 -or $NnaSourceRoot) {
         throw '-RecoverPrebuiltStageOperation requires a canonical v4 operation UUID and an existing selected NNA; it cannot be combined with other installer modes or dependency setup.'
     }
@@ -437,6 +459,28 @@ if ($StagePrebuiltPayload) {
     Write-Host "  version      : $($slot.version)"
     Write-Host "  slot         : $($slot.slot)"
     Write-Host '  The active NND package and shortcuts were not changed.'
+    exit 0
+}
+if ($ActivatePrebuiltSlot) {
+    # This branch activates an already staged immutable slot. It preserves the
+    # target anchor with no copy, shortcut, or source-build mutation.
+    $checkedPayload = Assert-NndPrebuiltPayload $PrebuiltPayloadRoot $PrebuiltManifestSha256 $targetPath
+    $nna = Get-InstalledNna
+    if (!$nna) { throw 'Selected NNA is not installed; restore it before activating the NND slot.' }
+    $capabilities = Assert-NndNnaCapabilities $nna
+    Assert-NndSelectedPin $nna $capabilities
+    $preflightOperation = [Guid]::NewGuid().ToString()
+    $preflight = Invoke-NndPrebuiltActivationPreflight $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflightOperation
+    $activated = Invoke-NndPrebuiltActivation $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflight.candidate_sha256
+    Write-Heading 'Prebuilt NND activated; public controller attached'
+    Write-Host "  selected NNA : $($capabilities.installation_id) / $($capabilities.data_id)"
+    Write-Host "  stage        : $PrebuiltStageOperation"
+    Write-Host "  operation    : $($activated.operation_id)"
+    Write-Host "  version      : $($activated.version)"
+    Write-Host "  slot         : $($activated.root)"
+    Write-Host "  generation   : $($activated.generation)"
+    Write-Host "  endpoint     : $($activated.endpoint)"
+    Write-Host '  The launcher and operator shortcuts were not changed in this isolated activation slice.'
     exit 0
 }
 if (Test-InstallRunning $ElectronExe) {

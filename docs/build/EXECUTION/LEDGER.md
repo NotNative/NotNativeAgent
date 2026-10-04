@@ -1024,6 +1024,23 @@ not immutable prebuilt activation, existing-install upgrade/rollback, real
 provider traffic, or operator-installed browser/desktop acceptance. L5/L6 and
 C/F parity remain open.
 
+## NND 20261003-37 — detached prebuilt activation proof
+
+The staged NND slot now has an isolated activation entry. It repeats native
+activation preflight, starts the selected NNA's retained `activate-slot` owner
+detached, reads the bounded public-controller frame, verifies package ownership,
+and samples the existing read-only public attach proof. Success binds the
+stage/activation operations, NNA identity, preflight candidate evidence, active
+registration hash, version, generation, and loopback endpoint while leaving the
+retained owner live. The attach sample is evidential and does not prove durable
+service ownership. Ready-frame and proof mismatch tests keep the owner ambiguous
+and never report activation. The activation helper and installer contract
+targeted 3/3 tests; NNA focused service, supervisor, discovery, admission, and
+activation-CLI suites passed 38/39 with one platform skip. This still does not
+bind generation cryptographically to payload, copy the active target, select
+the launcher, or claim upgrade rollback. Full routine gates passed; an
+independent adversarial audit gates the final commit.
+
 ## NND 20261003-36 — prebuilt activation preflight
 
 The prebuilt staging branch now generates a distinct activation operation after

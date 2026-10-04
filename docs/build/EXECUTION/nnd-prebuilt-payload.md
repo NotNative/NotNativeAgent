@@ -136,6 +136,22 @@ response prints the operation UUID for explicit `stage-recover`; it does not
 delete evidence or guess rollback. A `slot_ready` result is inert pending
 transactional activation. The source-build path remains separate.
 
+`install.ps1 -ActivatePrebuiltSlot -PrebuiltStageOperation STAGE_UUID
+-PrebuiltPayloadRoot ABSOLUTE_DIRECTORY -PrebuiltManifestSha256 TRUSTED_SHA256`
+is an isolated activation entry. It verifies the same trusted payload and
+selected NNA identity, runs an exact activation preflight, then starts NNA's
+retained `activate-slot` owner detached. The helper reads the bounded
+`public_controller_attached` frame, confirms NNA package ownership, and samples
+the existing public attach proof without starting NND. The helper binds the
+preflight candidate evidence and active registration hash to the reported root
+and version. Success reports the activation operation, slot root, package
+version, controller generation, and loopback endpoint. That attach proof is a
+sample, not durable evidence of continued ownership. Failure or a changing
+proof reports the stage UUID and an uncertain retained owner; do not retry
+blindly. The activation mode accepts only its payload, stage operation, NNA
+root, and NND target arguments. This slice still neither copies the active
+target, writes a stable selection anchor, nor creates shortcuts.
+
 `install.ps1 -RecoverPrebuiltStageOperation OPERATION_UUID` delegates that
 reconciliation to the already selected installed NNA. It checks the existing
 selection pin and native capability identity before invoking `stage-recover`,
