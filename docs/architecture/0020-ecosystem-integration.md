@@ -69,8 +69,8 @@ storage scope is a local fixed drive; UNC/mapped-network and removable roots
 are unsupported. A remote server's Administrators SID is not local-machine
 trust, and a local singleton cannot protect a shared remote catalog.
 
-The helper uses bounded native Windows PowerShell with paths on stdin, never
-credentials in argv or environment. It does not yet write discovery credentials
+The helper uses native Windows PowerShell with paths on stdin and a bounded
+cold-start deadline, never credentials in argv or environment. It does not yet write discovery credentials
 or implement lifecycle control. Existing broad ACLs are not silently repaired.
 Native disposable-directory tests cover creation, concurrent initialization,
 unsafe permissions and unchanged evidence. Network-drive rejection is reviewed

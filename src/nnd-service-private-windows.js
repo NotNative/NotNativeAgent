@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 const MAX_OUTPUT = 16 * 1024;
-const TIMEOUT_MS = 5000;
+// Bound cold Windows OS helper startup; this failure does not assert private storage corruption.
+const TIMEOUT_MS = 30000;
 export const PRIVATE_ACL_PROGRAM = String.raw`
 $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
