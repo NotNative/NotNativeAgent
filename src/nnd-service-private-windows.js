@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { ContractError } from './ids.js';
 const MAX_OUTPUT = 16 * 1024;
 // Bound cold Windows OS helper startup; this failure does not assert private storage corruption.
-const TIMEOUT_MS = 30000;
+export const NND_PRIVATE_HELPER_TIMEOUT_MS = 30000;
+const TIMEOUT_MS = NND_PRIVATE_HELPER_TIMEOUT_MS;
 export const PRIVATE_ACL_PROGRAM = String.raw`
 $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)

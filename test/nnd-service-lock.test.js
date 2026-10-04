@@ -7,8 +7,9 @@ import { join } from 'node:path';
 import { connect } from 'node:net';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { acquireNndServiceLock, withNndServiceLease } from '../src/nnd-service-lock.js';
+import { acquireNndServiceLock, NND_LEASE_OPERATION_TIMEOUT_MS, withNndServiceLease } from '../src/nnd-service-lock.js';
 import { ContractError } from '../src/ids.js';
+import { NND_PRIVATE_HELPER_TIMEOUT_MS } from '../src/nnd-service-private-windows.js';
 
 const windows = { skip: process.platform !== 'win32', timeout: 15_000 };
 const execute = promisify(execFile);
@@ -108,4 +109,10 @@ test('bounded operation cancellation retains ownership until the actual writer s
   finish(); await closing;
   const next = await acquireNndServiceLock({ dataRoot }); await next.close();
   await assert.rejects(withNndServiceLease(lease, lease.dataId, () => {}, { timeoutMs: 300001 }), { code: 'nnd_lock_operation_limit' });
+});
+
+test('default singleton operations allow bounded private helper chains', async () => {
+  assert.equal(NND_LEASE_OPERATION_TIMEOUT_MS, 120000);
+  assert.ok(NND_LEASE_OPERATION_TIMEOUT_MS >= NND_PRIVATE_HELPER_TIMEOUT_MS * 3);
+  assert.ok(NND_LEASE_OPERATION_TIMEOUT_MS < 300000);
 });

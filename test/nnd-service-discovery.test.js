@@ -194,7 +194,8 @@ test('timed-out operations keep singleton ownership until the underlying writer 
   await Promise.all(pending);
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let finishWriter;
-  const hung = withNndServiceLease(f.lease, f.identity.data_id, () => new Promise((resolve) => { finishWriter = resolve; }));
+  const hung = withNndServiceLease(f.lease, f.identity.data_id,
+    () => new Promise((resolve) => { finishWriter = resolve; }), { timeoutMs: 15000 });
   await Promise.resolve();
   const denied = assert.rejects(hung, { code: 'nnd_lock_lost' });
   const closing = assert.rejects(f.lease.close(), { code: 'nnd_lock_lost' });
