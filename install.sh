@@ -307,7 +307,7 @@ cp -R "$source_root/src/." "$stage/src/"
 cp -R "$source_root/docs" "$stage/docs"
 rm -rf -- "$stage/docs/planning"
 cp -R "$source_root/resources" "$stage/resources"
-for file in package.json LICENSE NOTICE SECURITY.md SUPPORT.md THIRD_PARTY_NOTICES.md SBOM.spdx.json; do
+for file in package.json VERSION LICENSE NOTICE SECURITY.md SUPPORT.md THIRD_PARTY_NOTICES.md SBOM.spdx.json; do
   [ -f "$source_root/$file" ] || { printf '%s\n' "Release file is missing: $file" >&2; exit 1; }
   cp "$source_root/$file" "$stage/$file"
 done

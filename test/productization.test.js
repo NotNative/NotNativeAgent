@@ -232,6 +232,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /prepared with inherited parent ACLs/u);
   assert.match(windowsInstall, /ForceBundledNode/u);
   assert.match(windowsInstall, /Join-Path \$InstallRoot 'installed'/u);
+  assert.match(windowsInstall, /'package\.json', 'VERSION', 'LICENSE'/u);
   assert.match(windowsInstall, /Join-Path \$BinRoot 'nna\.ps1'/u);
   assert.match(windowsInstall, /Join-Path \$InstallRoot 'uninstall\.ps1'/u);
   assert.match(windowsInstall, /\$PriorNnaHome/u);
@@ -301,6 +302,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /sha256sum/u);
   assert.match(linuxInstall, /apt-get|dnf|yum|zypper/u);
   assert.match(linuxInstall, /target="\$install_root\/installed"/u);
+  assert.match(linuxInstall, /for file in package\.json VERSION LICENSE/u);
   assert.match(linuxInstall, /\$install_root\/uninstall\.sh/u);
   assert.match(linuxInstall, /--skip-websearch-setup/u);
   assert.match(linuxInstall, /WebSearch is already configured/u);

@@ -493,7 +493,7 @@ try {
     $PlanningDocs = Join-Path $Stage 'docs\planning'
     if (Test-Path -LiteralPath $PlanningDocs) { Remove-Item -LiteralPath $PlanningDocs -Recurse -Force }
     Copy-Item -Path (Join-Path $SourceRoot 'resources') -Destination (Join-Path $Stage 'resources') -Recurse -Force
-    foreach ($File in @('package.json', 'LICENSE', 'NOTICE', 'SECURITY.md', 'SUPPORT.md', 'THIRD_PARTY_NOTICES.md', 'SBOM.spdx.json')) {
+    foreach ($File in @('package.json', 'VERSION', 'LICENSE', 'NOTICE', 'SECURITY.md', 'SUPPORT.md', 'THIRD_PARTY_NOTICES.md', 'SBOM.spdx.json')) {
         Copy-ProductFile $File $Stage
     }
     Assert-ChildPath $Target $InstallRoot
