@@ -25,9 +25,11 @@ async function harness(overrides = {}) {
     assertNoNndInstallTransaction: async () => { trace.push('transaction'); },
     assertNoNndMigration: async () => { trace.push('migration'); },
     scanNndLegacyOwners: async () => { trace.push('census'); },
+    activateNndSlotUnderOwnership: overrides.activateNndSlotUnderOwnership
+      ?? (async () => { throw new Error('unused activation'); }),
     ...overrides,
   };
-  const api = Function(...Object.keys(dependencies), `${executable}\nreturn { preflightNndActivation, recoverNndActivationPreparationCommand };`)
+  const api = Function(...Object.keys(dependencies), `${executable}\nreturn { preflightNndActivation, recoverNndActivationPreparationCommand, activateNndSlotCommand };`)
     (...Object.values(dependencies));
   return { ...api, trace };
 }
@@ -74,4 +76,15 @@ test('preparation recovery requires an exact UUID and never calls public activat
     { code: 'nnd_activation_candidate_invalid' });
   assert.deepEqual(await f.recoverNndActivationPreparationCommand(identity, { operationId }), { state: 'prepared' });
   assert.deepEqual(f.trace, ['recover']);
+});
+
+test('a public activation output write failure stops the retained owner and rethrows', async () => {
+  const stopTrace = [];
+  const owner = { stop: async () => { stopTrace.push('stop'); }, stopped: Promise.resolve({}) };
+  const f = await harness({ activateNndSlotUnderOwnership:
+    async () => ({ state: 'public_controller_attached', owner }) });
+  await assert.rejects(f.activateNndSlotCommand(identity, { stageOperationId, operationId,
+    output: { write: () => { throw new Error('cannot write activation frame'); } } }),
+  /cannot write activation frame/u);
+  assert.deepEqual(stopTrace, ['stop']);
 });

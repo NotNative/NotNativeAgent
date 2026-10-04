@@ -86,7 +86,7 @@ try {
   else if (options.mode === 'nnd') {
     const paths = options.prompt?.[0] === 'service' ? null : await runtimePaths();
     const result = await runNndIntegrationCommand(options.prompt, paths, { output: process.stdout, diagnostics: process.stderr });
-    if (options.prompt?.[0] === 'package' || options.prompt?.[0] === 'service' && !['run', 'install-guard'].includes(options.prompt?.[1])) {
+    if (options.prompt?.[0] === 'package' || options.prompt?.[0] === 'service' && !['run', 'install-guard', 'activate-slot'].includes(options.prompt?.[1])) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     }
   }
@@ -185,6 +185,7 @@ function help() {
     '  nna nnd service stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID',
     '  nna nnd service stage-recover INSTALL_ROOT [OPERATION_UUID]',
     '  nna nnd service activation-preflight INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
+    '  nna nnd service activate-slot INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
     '  nna nnd service activation-preparation-recover INSTALL_ROOT ACTIVATION_UUID',
     '  nna nnd package activate ROOT|deactivate ROOT|status',
     '                                           Register or inspect an installed NND GUI package',

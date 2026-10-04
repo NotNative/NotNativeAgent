@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
@@ -10,6 +11,10 @@ import { emitEngineStatus } from '../src/engine/output.js';
 import { toolStatus } from '../src/engine/records.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
+
+// Invariant: an injected catalog/activity writer must never fall back to a
+// repository-relative path, or its tombstone sidecar leaks into the checkout.
+const tempCatalogPath = () => join(tmpdir(), `nna-nnd-host-${randomUUID()}`, 'catalog.json');
 
 test('NND session description exposes only classified governance state', async () => {
   const engine = fakeEngine();
@@ -205,7 +210,7 @@ test('a failed context estimate save is visible but does not fail the governed t
   const engine = fakeEngine();
   engine.transcript = [];
   engine.submit = async () => new Promise((resolve) => { release = resolve; });
-  const host = new NndEngineHost({ catalogPath: 'test-catalog',
+  const host = new NndEngineHost({ catalogPath: tempCatalogPath(),
     persistCatalog: async () => { if (++writes === 2) throw new Error('disk full'); },
     persistActivity: async () => {},
     createEngine: async (options) => { output = options.output; return engine; } });
@@ -356,7 +361,7 @@ test('NND activity write failure cannot fail a governed turn and a later event r
   const engine = fakeEngine();
   engine.transcript = [];
   engine.submit = async () => new Promise((resolve) => { release = resolve; });
-  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => engine,
+  const host = new NndEngineHost({ catalogPath: tempCatalogPath(), createEngine: async () => engine,
     persistCatalog: async () => {}, persistActivity: async () => {
       writes += 1;
       if (writes === 1) throw new Error('disk full');
@@ -449,7 +454,7 @@ test('NND rename persists only after a successful catalog write', async () => {
   assert.equal(reopened.get('session_a', owner).title, 'Renamed');
   assert.equal(reopened.get('session_a', owner).time.updated, first.get('session_a', owner).time.updated);
 
-  const failed = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+  const failed = new NndEngineHost({ catalogPath: tempCatalogPath(), createEngine: async () => fakeEngine(),
     persistCatalog: async (_path, records) => {
       if (records[0]?.title === 'Uncommitted') throw new Error('write failed');
     },
@@ -518,7 +523,7 @@ test('NND catalog excludes a failed concurrent create from the next durable writ
   const firstPending = new Promise((resolve, reject) => { rejectFirst = reject; });
   const durable = [];
   let writes = 0;
-  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+  const host = new NndEngineHost({ catalogPath: tempCatalogPath(), createEngine: async () => fakeEngine(),
     persistCatalog: async (_path, records) => {
       writes += 1;
       if (writes === 1) { firstWrite(); await firstPending; }
@@ -538,7 +543,7 @@ test('NND catalog excludes a failed concurrent create from the next durable writ
 test('NND catalog retains a closing session while another session is created', async () => {
   const durable = [];
   let failClose = false;
-  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+  const host = new NndEngineHost({ catalogPath: tempCatalogPath(), createEngine: async () => fakeEngine(),
     persistCatalog: async (_path, records) => {
       if (failClose && records.every((record) => record.sessionId !== 'session_a')) throw new Error('catalog write failed');
       durable.push(records.map((record) => record.sessionId));
@@ -553,7 +558,7 @@ test('NND catalog retains a closing session while another session is created', a
 
 test('NND catalog refuses a write that cannot be reopened within its size bound', async () => {
   let writes = 0;
-  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+  const host = new NndEngineHost({ catalogPath: tempCatalogPath(), createEngine: async () => fakeEngine(),
     persistCatalog: async () => { writes += 1; },
   });
   const largePrincipal = { subjectId: 'user_a', workspaceIds: Array.from({ length: 400 }, (_, index) => `${index}_${'x'.repeat(250)}`) };

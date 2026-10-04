@@ -14,7 +14,7 @@ import { nndServiceCapabilities } from './nnd-service-attach.js';
 import { runNndInstallGuard } from './nnd-install-guard.js';
 import { runNndMigration } from './nnd-migration.js';
 import { stageNndInstallSlot, recoverNndInstallSlot } from './nnd-install-slots.js';
-import { preflightNndActivation, recoverNndActivationPreparationCommand } from './nnd-activation-cli.js';
+import { preflightNndActivation, recoverNndActivationPreparationCommand, activateNndSlotCommand } from './nnd-activation-cli.js';
 
 export async function runNndServiceCommand(args, options = {}) {
   const [action, root] = args;
@@ -22,13 +22,16 @@ export async function runNndServiceCommand(args, options = {}) {
   const valid = action === 'stage-payload' ? args.length === 4
     : action === 'stage-recover' ? args.length >= 2 && args.length <= 3 : args.length === 2 && actions.includes(action);
   const activationValid = action === 'activation-preflight' ? args.length === 4
-    : action === 'activation-preparation-recover' ? args.length === 3 : false;
+    : action === 'activate-slot' ? args.length === 4
+      : action === 'activation-preparation-recover' ? args.length === 3 : false;
   if (!valid && !activationValid) {
-    throw new ContractError('nnd_command_invalid', 'Use nnd service ACTION INSTALL_ROOT, stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID, stage-recover INSTALL_ROOT [OPERATION_UUID], activation-preflight INSTALL_ROOT STAGE_UUID ACTIVATION_UUID, or activation-preparation-recover INSTALL_ROOT ACTIVATION_UUID');
+    throw new ContractError('nnd_command_invalid', 'Use nnd service ACTION INSTALL_ROOT, stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID, stage-recover INSTALL_ROOT [OPERATION_UUID], activation-preflight INSTALL_ROOT STAGE_UUID ACTIVATION_UUID, activate-slot INSTALL_ROOT STAGE_UUID ACTIVATION_UUID, or activation-preparation-recover INSTALL_ROOT ACTIVATION_UUID');
   }
   const identity = await readNndServiceIdentity(root);
   if (action === 'activation-preflight') return preflightNndActivation(identity,
     { stageOperationId: args[2], operationId: args[3], signal: options.signal });
+  if (action === 'activate-slot') return activateNndSlotCommand(identity,
+    { stageOperationId: args[2], operationId: args[3], signal: options.signal, output: options.output });
   if (action === 'activation-preparation-recover') return recoverNndActivationPreparationCommand(identity,
     { operationId: args[2] });
   if (action === 'stage-payload') return stageNndInstallSlot(identity, { source: args[2], operationId: args[3], signal: options.signal });

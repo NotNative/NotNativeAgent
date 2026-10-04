@@ -5,6 +5,7 @@ import { acquireNndServiceLock } from './nnd-service-lock.js';
 import { withManifestLock } from './persistence/manifest-transaction.js';
 import { readNndActivationCandidate } from './nnd-activation-candidate.js';
 import { recoverNndActivationPreparation } from './nnd-activation-preparation.js';
+import { activateNndSlotUnderOwnership } from './nnd-activation-orchestration.js';
 import { assertNoNndInstallTransaction, operationValid } from './nnd-install-storage.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { assertNoNndMigration } from './nnd-migration-storage.js';
@@ -43,4 +44,50 @@ export async function preflightNndActivation(identity, { stageOperationId, opera
 export async function recoverNndActivationPreparationCommand(identity, { operationId } = {}) {
   if (!operationValid(operationId)) throw invalid();
   return recoverNndActivationPreparation(identity, { operationId });
+}
+
+/**
+ * Activate one prepared slot end to end and then serve its published controller
+ * in the foreground.
+ *
+ * Compatibility: this command must not be reachable except through the exact
+ * prepared stage UUID and activation UUID pair; the orchestrator re-validates
+ * them and the trial re-derives the prepared receipt from the journal.
+ *
+ * Lifetime: ADR 0068 requires the activation process to outlive the invoking
+ * client. This command writes the public readiness frame and then stays attached,
+ * holding the singleton service lease through the retained owner, until the
+ * process is signalled or the owner's own stop settles. It never returns while
+ * the sole live generation is unheld.
+ */
+export async function activateNndSlotCommand(identity, { stageOperationId, operationId, signal, output } = {}) {
+  if (!operationValid(stageOperationId) || !operationValid(operationId)
+    || stageOperationId === operationId) throw invalid();
+  const result = await activateNndSlotUnderOwnership(identity, { stageOperationId, operationId, signal });
+  const { owner, ...published } = result;
+  const stop = () => { void owner.stop().catch(() => {}); };
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  signal?.addEventListener('abort', stop, { once: true });
+  if (signal?.aborted) stop();
+  try {
+    (output ?? process.stdout).write(`${JSON.stringify(published)}\n`);
+  } catch (error) {
+    // Output: a local write failure must not be able to strand the sole live
+    // retained generation. The registered signal handlers remain installed
+    // during the bounded stop, then uninstall them on the way out.
+    try { await owner.stop(); }
+    catch (stopError) {
+      throw new AggregateError([error, stopError],
+        'NND activation output write and retained-owner shutdown failed');
+    }
+    throw error;
+  }
+  try {
+    const outcome = await owner.stopped;
+    if (outcome?.error) throw outcome.error;
+    return { stopped: true };
+  } finally {
+    process.off('SIGINT', stop); process.off('SIGTERM', stop);
+    signal?.removeEventListener('abort', stop);
+  }
 }

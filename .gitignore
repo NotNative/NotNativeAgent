@@ -12,3 +12,4 @@
 # Local NNA-managed project memory. Repository instructions belong in AGENTS.md.
 /NNA.md
 .tmp/
+scripts/semantic-similarity-scan.js
