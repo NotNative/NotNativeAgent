@@ -20,6 +20,8 @@ import { createNndTrialAdmissionGate } from './nnd-trial-admission.js';
 import { transferRetainedNativeAdmission } from './nnd-activation-native-admission-transfer.js';
 import { publishRetainedNndController } from './nnd-activation-public-controller.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
+import { publishNndSelectedDiscoveryUnderOwnership } from './nnd-activation-publication.js';
+import { recordNndPrivateTicketUnderOwnership } from './nnd-activation-ticket-receipt.js';
 import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
 import { recordNndPromotedAttachUnderOwnership } from './nnd-activation-promoted-attach-receipt.js';
@@ -161,22 +163,10 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
     const admissionGate = registryLease && binding
       ? createNndTrialAdmissionGate(identity, session.state, lease, registryLease, binding) : null;
     session.state.trialAdmissionGate = admissionGate;
-    session.state.native = await startNndNativeService(paths, identity,
-      { ...options, unpublishedTrial: true, trialAdmissionGate: admissionGate });
+    session.state.native = await startNndNativeService(paths, identity, { ...options, unpublishedTrial: true, trialAdmissionGate: admissionGate });
     await startSupervisorChild(session, paths);
     monitorSupervisor(session);
-    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions),
-      ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease),
-        selectRegistration: options => selectTrialRegistration(session, registryLease, options),
-        verifyHeldTicket: options => verifyNndHeldTicketUnderOwnership(identity, session.state, lease, registryLease, options),
-        promotePrivatePrincipal: options => session.state.native.promoteTrialPrincipal(session.state,
-          lease, registryLease, options),
-        probePromotedPrivateAttach: options => probeNndPromotedPrivateAttachUnderOwnership(identity, session.state,
-          lease, registryLease, options),
-        recordPromotedPrivateAttach: options => recordTrialPromotedAttach(session, registryLease, options),
-        retainQuarantinedOwner: () => retainQuarantinedTrial(session),
-        trialChildPid: () => session.state.child?.child?.pid ?? null,
-        registrationSelected: () => session.state.registrationSelected === true } : {}) });
+    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions), ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease), selectRegistration: options => selectTrialRegistration(session, registryLease, options), publishSelected: options => publishNndSelectedDiscoveryUnderOwnership(identity, session.state, lease, registryLease, options), recordPrivateTicket: options => recordNndPrivateTicketUnderOwnership(identity, session.state, lease, registryLease, options), verifyHeldTicket: options => verifyNndHeldTicketUnderOwnership(identity, session.state, lease, registryLease, options), promotePrivatePrincipal: options => session.state.native.promoteTrialPrincipal(session.state, lease, registryLease, options), probePromotedPrivateAttach: options => probeNndPromotedPrivateAttachUnderOwnership(identity, session.state, lease, registryLease, options), recordPromotedPrivateAttach: options => recordTrialPromotedAttach(session, registryLease, options), retainQuarantinedOwner: () => retainQuarantinedTrial(session), trialChildPid: () => session.state.child?.child?.pid ?? null, registrationSelected: () => session.state.registrationSelected === true } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }
 }
 async function recordTrialPromotedAttach(session, registryLease, options) {

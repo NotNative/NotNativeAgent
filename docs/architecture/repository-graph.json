@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:79512c0c702d5c7e7573a1cdcf0f07127fb52e533c5ec3f92a1eddd73cffc8a5",
+  "source_digest": "sha256:f7ed7f9feab657f47f071e90724223f1c2441c4eaae55ec4c55f74655d1491c6",
   "counts": {
     "modules": 519,
     "component_edges": 82
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 622,
+      "import_count": 624,
       "module_count": 186
     },
     {
@@ -3272,10 +3272,12 @@
         "src/nnd-activation-promoted-attach-receipt.js",
         "src/nnd-activation-promoted-private-attach.js",
         "src/nnd-activation-public-controller.js",
+        "src/nnd-activation-publication.js",
         "src/nnd-activation-registration.js",
         "src/nnd-activation-retirement-cleanup.js",
         "src/nnd-activation-retirement-decision.js",
         "src/nnd-activation-retirement-plan.js",
+        "src/nnd-activation-ticket-receipt.js",
         "src/nnd-install-marker.js",
         "src/nnd-package.js",
         "src/nnd-service-admission.js",

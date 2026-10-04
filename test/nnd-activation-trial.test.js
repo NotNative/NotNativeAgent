@@ -87,7 +87,7 @@ async function harness(overrides = {}) {
 test('owned trial holds lease and registry through preparation, unpublished health, and confirmed stop', async () => {
   const f = await harness();
   const result = await f.run();
-  assert.deepEqual(f.leaseBudgets, [120000]);
+  assert.deepEqual(f.leaseBudgets, [300000]);
   assert.deepEqual(f.trace.filter(item => !item.endsWith(':assert')),
     ['prepare','capability','trial_starting','start','trial_running','verify','trial_healthy','verify','stop']);
   assert.equal(result.state, 'trial_healthy'); assert.equal(result.generation, f.proof.generation);

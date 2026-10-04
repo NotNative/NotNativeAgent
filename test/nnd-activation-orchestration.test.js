@@ -79,9 +79,12 @@ function driveCallbacks() {
   const finalSeen = [];
   return {
     selection, finalSeen,
-    makeContinuationContext: () => ({ selectRegistration: args => { selection.push(args); return { state: 'registration_selected_unresolved' }; } }),
+    makeContinuationContext: () => ({ prepareDiscovery: async () => { selection.push('discovery'); },
+      selectRegistration: args => { selection.push(args); return { state: 'registration_selected_unresolved' }; } }),
     makeFinalContext: () => ({
       withFinalOwnership: async operation => operation({
+        publishSelected: async () => { finalSeen.push('publish'); return { state: 'discovery_published_unresolved' }; },
+        recordPrivateTicket: async () => { finalSeen.push('receipt'); return { state: 'private_ticket_recorded_unresolved' }; },
         verifyHeldTicket: async () => { finalSeen.push('ticket'); return { state: 'held_private_ticket_verified_unresolved' }; },
         promotePrivatePrincipal: async () => { finalSeen.push('promote'); return { state: 'native_principal_promoted_unresolved' }; },
         probePromotedPrivateAttach: async () => { finalSeen.push('probe'); return { state: 'promoted_private_attach_verified_unresolved' }; },
@@ -150,9 +153,9 @@ test('trial continuation selects registration and final window promotes then ret
   const d = driveCallbacks();
   assert.deepEqual(await trialOptions.continuation(d.makeContinuationContext()),
     { state: 'registration_selected_unresolved' });
-  assert.deepEqual(d.selection, [{ operationId, stageOperationId }]);
+  assert.deepEqual(d.selection, ['discovery', { operationId, stageOperationId }]);
   const owner = await trialOptions.afterFinalVerification(d.makeFinalContext());
-  assert.deepEqual(d.finalSeen, ['ticket', 'promote', 'probe', 'record', 'retain']);
+  assert.deepEqual(d.finalSeen, ['publish', 'receipt', 'ticket', 'promote', 'probe', 'record', 'retain']);
   assert.equal(typeof owner.transferNativeAdmission, 'function');
 });
 

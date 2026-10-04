@@ -212,35 +212,44 @@ function finalWindowState() {
   return { active: true, ticketResult: null, promoted: false, promotionResult: null,
     attachUsed: false, attachResult: null, retained: false };
 }
+function createFinalTicketStep(trial, running, options, proof, signal, window, ticketTasks) {
+  let ticketUsed = false;
+  return () => {
+    if (!window.active || ticketUsed || typeof trial.verifyHeldTicket !== 'function') {
+      throw new ContractError('nnd_activation_transition_proof_invalid', 'NND private ticket verifier is unavailable');
+    }
+    ticketUsed = true;
+    const ticketTask = Promise.resolve().then(async () => {
+      const verified = await trial.verifyHeldTicket({ operationId: options.operationId,
+        stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
+      if (verified?.state !== 'held_private_ticket_verified_unresolved'
+        || verified.operation_id !== options.operationId || verified.generation !== running.instance_id
+        || verified.native_state !== proof.native_state) {
+        throw new ContractError('nnd_activation_transition_proof_invalid', 'NND held-live ticket state changed');
+      }
+      window.ticketResult = verified;
+      return verified;
+    });
+    ticketTasks.push(ticketTask); ticketTask.catch(() => {});
+    return ticketTask;
+  };
+}
 async function runFinalOwnedTask(identity, trial, running, serviceLease, registryLease, options, proof, signal, operation) {
   signal.throwIfAborted();
   assertHeldNndServiceLease(serviceLease, identity.data_id);
   assertManifestLease(registryLease);
-  let ticketUsed = false;
   const window = finalWindowState();
   const ticketTasks = [];
   const context = Object.freeze({ proof, serviceLease, registryLease, signal,
-    verifyHeldTicket: () => {
-      if (!window.active || ticketUsed || typeof trial.verifyHeldTicket !== 'function') {
-        throw new ContractError('nnd_activation_transition_proof_invalid',
-          'NND private ticket verifier is unavailable');
-      }
-      ticketUsed = true;
-      const ticketTask = Promise.resolve().then(async () => {
-        const verified = await trial.verifyHeldTicket({ operationId: options.operationId,
-          stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
-        if (verified?.state !== 'held_private_ticket_verified_unresolved'
-          || verified.operation_id !== options.operationId || verified.generation !== running.instance_id
-          || verified.native_state !== proof.native_state) {
-          throw new ContractError('nnd_activation_transition_proof_invalid',
-            'NND held-live ticket state changed');
-        }
-        window.ticketResult = verified;
-        return verified;
-      });
-      ticketTasks.push(ticketTask); ticketTask.catch(() => {});
-      return ticketTask;
+    publishSelected: options => {
+      if (!window.active || typeof trial.publishSelected !== 'function') throw new ContractError('nnd_activation_transition_proof_invalid','NND selected publication step is unavailable');
+      return trial.publishSelected({ operationId: options.operationId, stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
     },
+    recordPrivateTicket: options => {
+      if (!window.active || typeof trial.recordPrivateTicket !== 'function') throw new ContractError('nnd_activation_transition_proof_invalid','NND private ticket receipt step is unavailable');
+      return trial.recordPrivateTicket({ operationId: options.operationId, stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
+    },
+    verifyHeldTicket: createFinalTicketStep(trial, running, options, proof, signal, window, ticketTasks),
     promotePrivatePrincipal: () => promoteVerifiedTicket(trial, running, options, window),
     probePromotedPrivateAttach: () => probePromotedAttach(trial, running, options, window, signal, ticketTasks),
     recordPromotedPrivateAttach: () => recordPromotedAttach(trial, running, options, window, signal, ticketTasks),
@@ -431,7 +440,7 @@ export async function runNndUnpublishedTrialUnderOwnership(identity, paths, serv
         pending.then(() => { pendingSettled = true; }, () => { pendingSettled = true; });
         return pending;
       },
-      {});
+      { timeoutMs: 300000 });
     return completed;
   } finally {
     if (pending && !pendingSettled) {

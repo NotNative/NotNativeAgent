@@ -35,6 +35,10 @@ function trialPaths(identity) {
 // step cannot observe a missing predecessor proof.
 async function runFinalOwnership(context) {
   return context.withFinalOwnership(async finalWindow => {
+    const published = await finalWindow.publishSelected();
+    if (published?.state !== 'discovery_published_unresolved') throw transition();
+    const ticketRecorded = await finalWindow.recordPrivateTicket();
+    if (ticketRecorded?.state !== 'private_ticket_recorded_unresolved') throw transition();
     await finalWindow.verifyHeldTicket();
     const promoted = await finalWindow.promotePrivatePrincipal();
     if (promoted?.state !== 'native_principal_promoted_unresolved') throw transition();
@@ -127,7 +131,7 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
           signal?.throwIfAborted();
           const trial = await runNndUnpublishedTrialUnderOwnership(identity, paths, serviceLease,
             registryLease, { stageOperationId, operationId, signal,
-              continuation: context => context.selectRegistration({ operationId, stageOperationId }),
+              continuation: context => selectRegistrationAfterDiscovery(context, operationId, stageOperationId),
               afterFinalVerification: runFinalOwnership });
           // The trial arms and returns the quarantined owner only after its own
           // lease scope settles, so the terminal sequence re-enters that same
@@ -161,6 +165,11 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
     // and closes it when its own stop settles. Only a pre-handoff failure may
     // release the lease this function opened; calling close twice would drop a
     // live generation's ownership.
-    if (!handedOff) await serviceLease.close();
+  if (!handedOff) await serviceLease.close();
   }
+}
+
+async function selectRegistrationAfterDiscovery(context, operationId, stageOperationId) {
+  await context.prepareDiscovery();
+  return context.selectRegistration({ operationId, stageOperationId });
 }

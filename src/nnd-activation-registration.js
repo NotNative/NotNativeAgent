@@ -57,10 +57,23 @@ async function liveChildIdentity(state, signal) {
     || state.child.child.exitCode !== null) throw invalid();
   let observed;
   try { observed = await captureDiscoveryProcessIdentity(signal, pid); }
-  catch { throw invalid(); }
+  catch (error) {
+    if (error?.code === 'nnd_private_storage_unavailable') throw error;
+    throw invalid();
+  }
   if (!validIdentity(observed) || observed.platform !== 'win32' || !observed.start_id
     || state.child.failed || state.stopping || state.child.child.exitCode !== null) throw invalid();
   return observed;
+}
+async function captureLiveProcessIdentity(state, signal) {
+  // Why: two 30-second cold Windows helper windows fit inside one acquired
+  // registration lease; a cold timeout may be transient, but unusual identity
+  // failures must remain unresolved.
+  try { return await liveChildIdentity(state, signal); }
+  catch (error) {
+    if (error?.code !== 'nnd_private_storage_unavailable') throw error;
+  }
+  return liveChildIdentity(state, signal);
 }
 async function persistChild(identity, location, operationId, state, processIdentity) {
   const bytes = json({ protocol: '1.0', operation_id: operationId,
@@ -79,7 +92,8 @@ async function selectUnderOwnership(identity, state, serviceLease, registryLease
   signal.throwIfAborted();
   const prepared = await preparedEvidence(identity, serviceLease, registryLease, operationId, stageOperationId);
   if (state.record.instance_id !== options.generation || state.package.version !== prepared.candidate.package.version) throw invalid();
-  const processIdentity = await liveChildIdentity(state, signal);
+  if (state.record.instance_id !== options.generation || state.package.version !== prepared.candidate.package.version) throw invalid();
+  const processIdentity = await captureLiveProcessIdentity(state, signal);
   const childSha = await persistChild(identity, prepared.location, operationId, state, processIdentity);
   signal.throwIfAborted();
   if ((await liveChildIdentity(state, signal)).start_id !== processIdentity.start_id) throw invalid();

@@ -52,8 +52,14 @@ async function fixture(t, options = {}) {
     writeInstallNew: async (path,bytes) => { if (files.has(path)) throw new Error('exists');
       await realWriteInstallNew(path,bytes); files.set(path,bytes); writes++; },
     readLockedManifestSnapshot: async () => ({ rawBytes: registryBytes, revision: registryBytes ? sha(registryBytes) : 'absent' }),
-    captureDiscoveryProcessIdentity: async () => { captures++; return options.changedChild && captures > 1
-      ? { ...processIdentity, start_id: '987654321' } : processIdentity; },
+    captureDiscoveryProcessIdentity: async () => {
+      captures++;
+      if (options.transientCapture && captures === 1) {
+        throw new ContractError('nnd_private_storage_unavailable');
+      }
+      return options.changedChild && captures > 1
+        ? { ...processIdentity, start_id: '987654321' } : processIdentity;
+    },
     validIdentity: value => value?.version === 1 && value.pid === 4321,
     transactLockedManifest: async (_lease,input) => { casCalls++;
       assert.equal(input.expectedRevision, candidate.evidence.registry_before_revision);
@@ -106,6 +112,15 @@ test('changed prior bytes or changed child process start identity prevents CAS',
   const malformed = await fixture(t,{badVersion:true});
   await assert.rejects(malformed.run(),{code:'nnd_activation_registration_invalid'});
   assert.equal(malformed.casCalls,0);assert.equal(malformed.writes,0);
+});
+test('one transient helper timeout retries under atomic registration ownership', async t => {
+  const f = await fixture(t, { transientCapture: true });
+  const result = await f.run();
+  assert.equal(result.state, 'registration_selected_unresolved');
+  assert.equal(f.casCalls, 1);
+  const childPath = join(f.identity.data_root, 'runtime', 'nnd', 'install-slots',
+    'activations', `${result.operation_id}.child.json`);
+  assert.equal(JSON.parse(await readFile(childPath, 'utf8')).process_identity.start_id, '123456789');
 });
 test('failure after CAS keeps barrier and exact prior bytes for native recovery', async t => {
   const f = await fixture(t,{crashAfterCas:true});
