@@ -54,3 +54,24 @@ export function readNativeServiceSelection({ args, selectionFile, allowLegacy = 
   if (!selected) throw new Error('native-selection-required');
   return { mode: 'native', installRoot: canonicalDirectory(selected), ...pin };
 }
+
+export function launchSelectionFile(args, defaultFile) {
+  const indices = args.flatMap((value, index) => value === '--nnd-selection-file' ? [index] : []);
+  if (!indices.length) return defaultFile;
+  if (indices.length !== 1 || !args.includes('--nna-install-root')) throw new Error('native-selection-conflict');
+  const file = args[indices[0] + 1];
+  if (typeof file !== 'string' || file.length > 4096 || !path.isAbsolute(file)
+    || /[\u0000-\u001f\u007f]/u.test(file)) throw new Error('native-selection-invalid');
+  return file;
+}
+
+export function launchControllerGeneration(args, defaultGeneration = null) {
+  const indices = args.flatMap((value, index) =>
+    value === '--nnd-controller-generation' ? [index] : []);
+  if (!indices.length) return defaultGeneration;
+  if (indices.length !== 1) throw new Error('native-controller-generation-invalid');
+  const generation = args[indices[0] + 1];
+  if (typeof generation !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(generation))
+    throw new Error('native-controller-generation-invalid');
+  return generation;
+}

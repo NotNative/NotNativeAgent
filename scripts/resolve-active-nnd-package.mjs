@@ -2,12 +2,14 @@
 /** Read-only prerequisite for a future stable launcher. This is not activation proof. */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { join, basename, dirname, isAbsolute, resolve } from 'node:path';
+import { join, basename, dirname, isAbsolute, relative, resolve } from 'node:path';
+import { realpath, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { readNativeServiceSelection } from '../packages/electron/native-service-selection.mjs';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
 import { verifyPrebuiltPayload } from './prebuilt-payload-validation.mjs';
 import { noLinks } from './payload-files.mjs';
+import { validateInstalledNndService } from './installed-service-package.mjs';
 
 const execute = promisify(execFile);
 const key = value => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -44,7 +46,15 @@ function assertSlotPath(root, versions, status, verified) {
     }
   }
 }
-export async function resolveActiveNndPackage(selectionFile) {
+async function shellFile(root, path) {
+  const expected = join(root, path);
+  const actual = await realpath(expected);
+  const part = relative(root, actual);
+  if (part === '..' || part.startsWith('..\\') || part.startsWith('../') || isAbsolute(part)
+    || !(await stat(actual)).isFile()) throw new Error('native-package-shell-incomplete');
+  return actual;
+}
+export async function resolveActiveNndPackage(selectionFile, sourceRoot = null) {
   if (typeof selectionFile !== 'string' || !isAbsolute(selectionFile)) throw new Error('native-selection-required');
   const selection = readNativeServiceSelection({ args: [], selectionFile });
   const runtime = readSelectedNativeRuntime(selection.installRoot);
@@ -52,11 +62,23 @@ export async function resolveActiveNndPackage(selectionFile) {
     throw new Error('native-selection-identity-changed');
   }
   const before = await nativeStatus(runtime);
-  const versions = await noLinks(join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots', 'versions'));
-  const root = await noLinks(before.root);
-  if (key(dirname(root)) !== key(versions) || key(before.root) !== key(root)) throw new Error('native-package-slot-mismatch');
-  const verified = await verifyPrebuiltPayload(root);
-  assertSlotPath(root, versions, before, verified);
+  let root, executable, payloadSha256 = null;
+  const source = sourceRoot === null ? null : await realpath(sourceRoot);
+  if (source && key(before.root) === key(source)) {
+    const verified = await validateInstalledNndService(source);
+    if (before.version !== verified.version) throw new Error('native-package-source-mismatch');
+    root = verified.root;
+    executable = await shellFile(root, 'packages/electron/node_modules/electron/dist/electron.exe');
+    await shellFile(root, 'packages/electron/main.mjs');
+  } else {
+    const versions = await noLinks(join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots', 'versions'));
+    root = await noLinks(before.root);
+    if (key(dirname(root)) !== key(versions) || key(before.root) !== key(root)) throw new Error('native-package-slot-mismatch');
+    const verified = await verifyPrebuiltPayload(root);
+    assertSlotPath(root, versions, before, verified);
+    payloadSha256 = verified.sha256;
+    executable = join(root, 'packages', 'electron', 'node_modules', 'electron', 'dist', 'electron.exe');
+  }
   const after = await nativeStatus(runtime);
   if (key(after.root) !== key(root) || after.version !== before.version) throw new Error('native-package-changed');
   const currentSelection = readNativeServiceSelection({ args: [], selectionFile });
@@ -65,9 +87,9 @@ export async function resolveActiveNndPackage(selectionFile) {
     || currentSelection.installation_id !== selection.installation_id || currentSelection.data_id !== selection.data_id
     || ['root', 'dataRoot', 'node', 'cli', 'version', 'installation_id', 'data_id'].some(field =>
       key(currentRuntime[field]) !== key(runtime[field]))) throw new Error('native-selection-identity-changed');
-  return Object.freeze({ root, executable: join(root, 'packages', 'electron', 'node_modules', 'electron', 'dist', 'electron.exe'),
+  return Object.freeze({ root, executable,
     nnaInstallRoot: runtime.root, installationId: runtime.installation_id, dataId: runtime.data_id,
-    version: before.version, payloadSha256: verified.sha256 });
+    version: before.version, payloadSha256 });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length !== 3) throw new Error('usage: resolve-active-nnd-package.mjs ABSOLUTE_SELECTION_FILE');

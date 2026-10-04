@@ -8,6 +8,9 @@ import { tmpdir } from 'node:os';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
 import { writeNnaSelection } from './write-nna-selection.mjs';
 import { resolveActiveNndPackage } from './resolve-active-nnd-package.mjs';
+import { writeInstalledServiceManifest } from './installed-service-package.mjs';
+import { launchSelectedDesktop } from './launch-selected-desktop.mjs';
+import { EventEmitter } from 'node:events';
 
 const windows = { skip: process.platform !== 'win32' };
 const version = '20261003-17';
@@ -58,6 +61,61 @@ test('selected native registration resolves only a sealed immutable slot', windo
   assert.equal(result.root, s.root); assert.equal(result.payloadSha256, s.hash);
   assert.equal(result.nnaInstallRoot, f.install);
   assert.equal(result.executable, join(s.root, 'packages/electron/node_modules/electron/dist/electron.exe'));
+});
+
+test('stable resolver accepts only the pinned fresh-source installation', windows, async t => {
+  const f = await fixture(t);
+  for (const folder of ['scripts', 'packages/electron/dist-server', 'packages/electron/node_modules/electron/dist', 'packages/web/dist']) {
+    await mkdir(join(f.selected, folder), { recursive: true });
+  }
+  await writeFile(join(f.selected, 'package.json'), JSON.stringify({ name: 'notnative-desktop',
+    version: version.replace('-', '.0.'), nnd_version: version }));
+  await writeFile(join(f.selected, 'VERSION'), version);
+  for (const file of ['scripts/serve-installed.mjs', 'packages/electron/dist-server/server.mjs',
+    'packages/electron/main.mjs', 'packages/electron/node_modules/electron/dist/electron.exe',
+    'packages/web/dist/index.html']) await writeFile(join(f.selected, file), 'source fixture');
+  await writeInstalledServiceManifest(f.selected);
+  await writeFile(join(f.data, 'status.json'), JSON.stringify({ registered: true, valid: true,
+    root: f.selected, version }));
+  const plan = await resolveActiveNndPackage(f.selection, f.selected);
+  assert.equal(plan.root, f.selected);
+  assert.equal(plan.payloadSha256, null);
+  const runtime = readSelectedNativeRuntime(f.install);
+  let invocationCount = 0;
+  const spawnShell = (executable, args, options) => {
+    invocationCount += 1;
+    return { unref: () => { throw new Error('unexpected spawn wait'); } };
+  };
+  await assert.rejects(launchSelectedDesktop(f.selected, spawnShell, async selection => {
+    assert.equal(selection.installRoot, f.install);
+    assert.equal(selection.installation_id, runtime.installation_id);
+    assert.equal(selection.data_id, runtime.data_id);
+    throw new Error('nnd_service_not_running');
+  }), /nnd_service_not_running/u);
+  assert.equal(invocationCount, 0);
+  let invoked;
+  let startupAttempts = 0;
+  const launched = await launchSelectedDesktop(f.selected, (executable, args, options) => {
+    invoked = { executable, args, options };
+    const child = new EventEmitter(); child.unref = () => {};
+    queueMicrotask(() => child.emit('spawn'));
+    return child;
+  }, async selection => {
+    assert.equal(selection.installRoot, f.install);
+    assert.equal(selection.installation_id, runtime.installation_id);
+    assert.equal(selection.data_id, runtime.data_id);
+    return { generation: `fixture-generation-${++startupAttempts}` };
+  });
+  assert.equal(launched.root, f.selected);
+  assert.equal(launched.version, version);
+  assert.equal(launched.generation, 'fixture-generation-1');
+  assert.equal(startupAttempts, 1);
+  assert.equal(invoked.executable, plan.executable);
+  assert.deepEqual(invoked.args, [join(f.selected, 'packages/electron/main.mjs'),
+    '--nna-install-root', f.install, '--nnd-selection-file', f.selection,
+    '--nnd-controller-generation', 'fixture-generation-1']);
+  await writeFile(join(f.selected, 'packages/electron/dist-server/server.mjs'), 'tampered');
+  await assert.rejects(resolveActiveNndPackage(f.selection, f.selected), /incompatible/u);
 });
 test('pin change, inactive registration and source registration fail closed', windows, async t => {
   const f = await fixture(t), s = await slot(f), status = join(f.data, 'status.json');

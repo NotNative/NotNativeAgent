@@ -42,16 +42,34 @@ function environment() {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) =>
     !/^(NODE_OPTIONS$|NODE_PATH$|ELECTRON_RUN_AS_NODE$|NNA_HOME$|NNA_INTEGRATION_TOKEN$|NNA_PRINCIPAL$|NNA_HARNESS_URL$|NNA_NND_|NND_|NOTNATIVE_)/iu.test(name)));
 }
-async function command(runtime, action, timeout = 30000) {
+async function command(runtime, action, timeout = 30000, family = 'service') {
   try {
-    const { stdout } = await execute(runtime.node, [runtime.cli, 'nnd', 'service', action, runtime.root], {
-      cwd: runtime.root, windowsHide: true, shell: false, timeout, maxBuffer: 65536, env: environment(),
+    const args = family === 'package' ? [runtime.cli, 'nnd', 'package', action]
+      : [runtime.cli, 'nnd', 'service', action, runtime.root];
+    const { stdout } = await execute(runtime.node, args, {
+      cwd: runtime.root, windowsHide: true, shell: false, timeout, maxBuffer: 65536,
+      env: family === 'package' ? { ...environment(), NNA_HOME: runtime.dataRoot } : environment(),
     });
     return JSON.parse(stdout);
   } catch (error) {
     const code = /(?:^|\r?\n)nna: ([a-z][a-z0-9_]{1,100})(?:\r?\n|$)/u.exec(String(error?.stderr ?? ''))?.[1];
     throw new Error(code ?? 'native-command-failed');
   }
+}
+export async function assertSelectedNndPackage(selection, expectedRoot, expectedVersion = null) {
+  const runtime = readSelectedNativeRuntime(selection.installRoot);
+  if (runtime.installation_id !== selection.installation_id || runtime.data_id !== selection.data_id) {
+    throw new Error('native-selection-identity-changed');
+  }
+  const status = await command(runtime, 'status', 10000, 'package');
+  if (status?.registered !== true || status.valid !== true
+    || Object.keys(status).sort().join(',') !== 'registered,root,valid,version'
+    || typeof status.root !== 'string' || typeof status.version !== 'string'
+    || key(canonicalDirectory(status.root)) !== key(canonicalDirectory(expectedRoot))
+    || (expectedVersion !== null && status.version !== expectedVersion)) {
+    throw new Error('native-package-selection-changed');
+  }
+  return status;
 }
 async function verifySelectedNode(runtime) {
   try {
@@ -83,13 +101,7 @@ export async function attachNativeService(selection) {
   if (typeof selection === 'object' && (selection.installation_id !== runtime.installation_id
     || selection.data_id !== runtime.data_id)) throw new Error('native-selection-identity-changed');
   await verifySelectedNode(runtime);
-  const capabilities = await command(runtime, 'capabilities');
-  if (!identityMatches(capabilities, runtime) || capabilities.native_version !== runtime.version
-    || !Array.isArray(capabilities.capabilities) || !Array.isArray(capabilities.commands)
-    || !['service_supervision', 'setup_control_plane', 'atomic_ui_attach', 'installer_guard'].every(item => capabilities.capabilities.includes(item))
-    || !['start', 'status', 'stop', 'attach', 'install-guard'].every(item => capabilities.commands.includes(item))) {
-    throw new Error('native-service-upgrade-required');
-  }
+  await verifyNndCapabilities(runtime);
   let attached;
   try { attached = await awaitNativeAttach(runtime); }
   catch (error) {
@@ -98,6 +110,32 @@ export async function attachNativeService(selection) {
     attached = await awaitNativeAttach(runtime);
   }
   return validateNativeAttach(attached, runtime);
+}
+
+/**
+ * Launcher-only read-only proof that NNA has published a live public controller.
+ * This samples attach health and generation; it does not atomically bind that
+ * generation to a package payload or authorize uninterrupted upgrade handoff.
+ */
+export async function probeNativeAttach(selection) {
+  const selectedRoot = typeof selection === 'string' ? selection : selection?.installRoot;
+  const runtime = readSelectedNativeRuntime(selectedRoot);
+  if (typeof selection === 'object' && (selection.installation_id !== runtime.installation_id
+    || selection.data_id !== runtime.data_id)) throw new Error('native-selection-identity-changed');
+  await verifySelectedNode(runtime);
+  await verifyNndCapabilities(runtime);
+  const attached = await awaitNativeAttach(runtime);
+  return validateNativeAttach(attached, runtime);
+}
+
+async function verifyNndCapabilities(runtime) {
+  const capabilities = await command(runtime, 'capabilities');
+  if (!identityMatches(capabilities, runtime) || capabilities.native_version !== runtime.version
+    || !Array.isArray(capabilities.capabilities) || !Array.isArray(capabilities.commands)
+    || !['service_supervision', 'setup_control_plane', 'atomic_ui_attach', 'installer_guard'].every(item => capabilities.capabilities.includes(item))
+    || !['start', 'status', 'stop', 'attach', 'install-guard'].every(item => capabilities.commands.includes(item))) {
+    throw new Error('native-service-upgrade-required');
+  }
 }
 async function awaitNativeAttach(runtime) {
   const deadline = Date.now() + 45000;

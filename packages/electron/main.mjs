@@ -8,8 +8,8 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { readNativeServiceSelection } from './native-service-selection.mjs';
-import { attachNativeService, redeemNativeAttachment } from './native-service-client.mjs';
+import { launchControllerGeneration, launchSelectionFile, readNativeServiceSelection } from './native-service-selection.mjs';
+import { assertSelectedNndPackage, attachNativeService, redeemNativeAttachment } from './native-service-client.mjs';
 import { app, BrowserWindow, Menu, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -73,6 +73,9 @@ let serverHandle = null;
 let nativeAttachment = null;
 let nativeSession = null;
 let nativeSelection = null;
+let nativeSelectionFile = null;
+let nativePackageVersion = null;
+let nativeControllerGeneration = null;
 let chosenPort = 0;
 let desktopRuntimeConfig = null;
 let desktopBootOutcome = { target: 'local', status: 'unreachable' };
@@ -1164,9 +1167,14 @@ async function retryServerFromFailurePage() {
 // ── §1.3 boot flow ──────────────────────────────────────────────────────────
 
 async function bootNativeService() {
+  nativeSelectionFile = launchSelectionFile(process.argv, PACKAGED
+    ? path.join(path.dirname(app.getPath('exe')), 'nna-service-selection.json')
+    : path.resolve(selfDir(), '..', '..', 'nna-service-selection.json'));
+  nativeControllerGeneration = launchControllerGeneration(process.argv);
   nativeSelection = readNativeServiceSelection({ args: process.argv,
-    selectionFile: PACKAGED ? path.join(path.dirname(app.getPath('exe')), 'nna-service-selection.json')
-      : path.resolve(selfDir(), '..', '..', 'nna-service-selection.json') });
+    selectionFile: nativeSelectionFile });
+  nativePackageVersion = (await assertSelectedNndPackage(nativeSelection,
+    path.resolve(selfDir(), '..', '..'))).version;
   await acquireNativeAttachment();
   desktopRuntimeConfig = localRuntimeConfig();
   desktopBootOutcome = { target: 'local', status: 'ok' };
@@ -1187,7 +1195,15 @@ async function bootNativeService() {
 }
 
 async function acquireNativeAttachment() {
+  const currentSelection = readNativeServiceSelection({ args: process.argv, selectionFile: nativeSelectionFile });
+  if (currentSelection.installRoot !== nativeSelection.installRoot
+    || currentSelection.installation_id !== nativeSelection.installation_id
+    || currentSelection.data_id !== nativeSelection.data_id) throw new Error('native-selection-identity-changed');
+  // A retry must not attach an already-running shell to an upgraded package.
+  await assertSelectedNndPackage(nativeSelection, path.resolve(selfDir(), '..', '..'), nativePackageVersion);
   const attachment = await attachNativeService(nativeSelection);
+  if (nativeControllerGeneration && attachment.generation !== nativeControllerGeneration)
+    throw new Error('native-controller-generation-changed');
   const nextSession = session.fromPartition(`nnd-native-${attachment.installation_id}-${attachment.data_id}-${attachment.generation}`);
   await nextSession.setProxy({ mode: 'direct' });
   const next = await redeemNativeAttachment(attachment, nextSession);

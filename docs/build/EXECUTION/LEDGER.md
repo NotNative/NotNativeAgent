@@ -1023,3 +1023,20 @@ and release checks. This is [source-install evidence](nnd-installed-source-accep
 not immutable prebuilt activation, existing-install upgrade/rollback, real
 provider traffic, or operator-installed browser/desktop acceptance. L5/L6 and
 C/F parity remain open.
+
+## NND 20261003-35 — stable selected-package launcher gate
+
+Desktop and Start Menu shortcuts use the stable installation anchor and the
+selected NNA runtime on every launch. The launcher rereads the pinned selection,
+verifies the package registration and immutable payload or current source
+manifest, proves a live public attach without starting NND, and passes the
+sampled controller generation to Electron. The shell compares that generation
+against its fresh attach. The probe explicitly does not bind generation to a
+payload or claim uninterrupted upgrade handoff. In the targeted installed-source
+run, the first NDD `service start` hit the NNA private-helper five-second
+deadline; the selected NNA `20261004-2` repair raises the bounded helper startup
+deadline to thirty seconds. Adversarial re-audit passed both slices after the
+contract names were corrected. Focused NND tests passed 18/18, full UI 1,770
+and web 1,447, typechecks, quality, graph/language, and release gates. The NNA
+focused service suites passed 33/33 with one platform skip, while the NNA full
+suite had four isolated reruns all pass under parallel test contention.

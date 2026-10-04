@@ -66,11 +66,13 @@ operation receipt, rather than interpreted as an unpublished write.
 
 ## Installer and launchers
 
-After native activation/recovery passes audit and full tests, add the stable native
-desktop launch command. It reads registration under its mutex, validates the
-selected package/slot and launches that Electron entry with the exact NNA selection.
-Shortcuts and login startup must target this command; the current installer pins
-an Electron path and would continue selecting an old slot after upgrades.
+The source installer now gives shortcuts a stable desktop launcher. It resolves
+the selected package at launch and can validate an immutable slot, but prebuilt
+activation and a native atomic launch/attach generation contract remain open.
+See [stable desktop launcher](nnd-stable-desktop-launcher.md). After native
+activation/recovery passes audit and full tests, the production prebuilt installer
+must preserve that stable entry across slot upgrades and create its shortcut only
+after authenticated installed health. Login startup must use the same entry.
 
 Then change the production installer to discover/select NNA, verify capabilities,
 offer an explicit verified NNA dependency installation when none is available,

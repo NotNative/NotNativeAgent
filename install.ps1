@@ -70,7 +70,7 @@ if ([bool]$NnaDependencyRoot -ne [bool]$NnaDependencyManifestSha256) {
 }
 $Source = $PSScriptRoot
 $ElectronExe = Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"
-$MainScript = "packages\electron\main.mjs"
+$StableLauncher = Join-Path $InstallDir 'scripts\launch-selected-desktop.ps1'
 $DesktopDir = [Environment]::GetFolderPath("Desktop")
 $StartMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 $hasShortcutRoot = $PSBoundParameters.ContainsKey('ShortcutRoot')
@@ -605,8 +605,8 @@ foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
     }
     $shell = New-Object -ComObject WScript.Shell
     $link = $shell.CreateShortcut((Join-Path $anchor "NotNativeDesktop.lnk"))
-    $link.TargetPath = $ElectronExe
-    $link.Arguments = "`"$InstallDir\$MainScript`""
+    $link.TargetPath = Join-Path $PSHOME 'powershell.exe'
+    $link.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -File `"$StableLauncher`""
     $link.WorkingDirectory = $InstallDir
     $link.IconLocation = "$ElectronExe,0"
     $link.Description = "NotNativeDesktop - local service + tray"

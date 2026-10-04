@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readNativeServiceSelection } from './native-service-selection.mjs';
+import { launchControllerGeneration, launchSelectionFile, readNativeServiceSelection } from './native-service-selection.mjs';
 import { writeNnaSelection } from '../../scripts/write-nna-selection.mjs';
-import { readSelectedNativeRuntime, attachNativeService, validateNativeAttach, redeemNativeAttachment } from './native-service-client.mjs';
+import { assertSelectedNndPackage, readSelectedNativeRuntime, attachNativeService,
+  probeNativeAttach, validateNativeAttach, redeemNativeAttachment } from './native-service-client.mjs';
 
 async function fixture(t) {
   const base = await realpath(await mkdtemp(join(tmpdir(),'nnd-shell-native-')));
@@ -25,6 +27,10 @@ async function fixture(t) {
     if(process.env.NODE_OPTIONS||process.env.NNA_HOME) throw new Error('unsafe environment');
     const action=process.argv[4];
     if(action==='attach'&&fs.existsSync(d.data_root+'/slow-attach'))await new Promise(done=>setTimeout(done,6000));
+    if(action==='attach'&&fs.existsSync(d.data_root+'/probe-inactive')){
+      console.error('nna: nnd_service_not_running');process.exit(2);
+    }
+    if(action==='start')fs.writeFileSync(d.data_root+'/start-invoked','yes');
     if(action==='attach'&&fs.existsSync(d.data_root+'/fail-attach')){
       console.error('(node) SQLite warning');console.error('nna: nnd_owner_unverified');process.exit(2);
     }
@@ -33,6 +39,46 @@ async function fixture(t) {
   return {root,data,base,descriptor};
 }
 const windows = {skip:process.platform!=='win32'};
+test('immutable shell accepts one external pinned selection path', windows, async t => {
+  const f = await fixture(t);
+  const file = join(f.base, 'nna-service-selection.json');
+  assert.equal(launchSelectionFile(['--nna-install-root', f.root, '--nnd-selection-file', file], 'default'), file);
+  assert.throws(() => launchSelectionFile(['--nnd-selection-file', file], 'default'), /conflict/u);
+  assert.throws(() => launchSelectionFile(['--nna-install-root', f.root, '--nnd-selection-file', file,
+    '--nnd-selection-file', file], 'default'), /conflict/u);
+  assert.equal(launchControllerGeneration(['other'], 'default'), 'default');
+  assert.equal(launchControllerGeneration(['--nnd-controller-generation', 'fixture-generation']), 'fixture-generation');
+  assert.throws(() => launchControllerGeneration(['--nnd-controller-generation', 'fixture-generation',
+    '--nnd-controller-generation', 'fixture-generation']), /invalid/u);
+  assert.throws(() => launchControllerGeneration(['--nnd-controller-generation', 'bad generation']), /invalid/u);
+});
+
+test('desktop package recheck rejects a changed registration before attach', windows, async t => {
+  const f = await fixture(t);
+  const runtime = readSelectedNativeRuntime(f.root);
+  const selection = { mode: 'native', installRoot: f.root, installation_id: runtime.installation_id,
+    data_id: runtime.data_id };
+  const target = join(f.base, 'active-package'); await mkdir(target);
+  const cli = join(f.root, 'installed', 'src', 'cli.js');
+  await writeFile(cli, `import fs from 'node:fs';
+    if (process.argv.slice(2).join(' ') !== 'nnd package status' || process.env.NNA_HOME !== ${JSON.stringify(f.data)}) process.exit(9);
+    console.log(JSON.stringify({ registered: true, valid: true, root: ${JSON.stringify(target)}, version: '20261003-17' }));`);
+  assert.equal((await assertSelectedNndPackage(selection, target)).version, '20261003-17');
+  assert.equal((await assertSelectedNndPackage(selection, target, '20261003-17')).version, '20261003-17');
+  await assert.rejects(assertSelectedNndPackage(selection, target, '20261003-18'), /selection-changed/u);
+  await assert.rejects(assertSelectedNndPackage(selection, f.base), /selection-changed/u);
+});
+test('public attach probe refuses to start an inactive controller', windows, async t => {
+  const f = await fixture(t);
+  const runtime = readSelectedNativeRuntime(f.root);
+  const selection = { installRoot: f.root, installation_id: runtime.installation_id,
+    data_id: runtime.data_id };
+  await writeFile(join(f.data, 'probe-inactive'), 'yes');
+  await assert.rejects(probeNativeAttach(selection), /nnd_service_not_running/u);
+  assert.ok(!existsSync(join(f.data, 'start-invoked')));
+  await rm(join(f.data, 'probe-inactive'));
+  assert.equal((await attachNativeService(selection)).generation, 'fixture');
+});
 test('selection requires explicit installation and rejects implicit legacy fallback',windows,async t=>{
   const f=await fixture(t); const file=join(f.base,'selection.json');
   assert.throws(()=>readNativeServiceSelection({args:[],selectionFile:file}),/required/);
