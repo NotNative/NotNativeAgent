@@ -428,9 +428,12 @@ if ($StagePrebuiltPayload) {
     $capabilities = Assert-NndNnaCapabilities $nna
     Assert-NndSelectedPin $nna $capabilities
     $slot = Invoke-NndPrebuiltStage $nna $checkedPayload
+    $activationOperation = [Guid]::NewGuid().ToString()
+    Invoke-NndPrebuiltActivationPreflight $nna $checkedPayload $capabilities $slot.operation_id $activationOperation
     Write-Heading 'Prebuilt NND payload staged; activation remains pending'
     Write-Host "  selected NNA : $($capabilities.installation_id) / $($capabilities.data_id)"
     Write-Host "  operation    : $($slot.operation_id)"
+    Write-Host "  preflight    : $activationOperation"
     Write-Host "  version      : $($slot.version)"
     Write-Host "  slot         : $($slot.slot)"
     Write-Host '  The active NND package and shortcuts were not changed.'

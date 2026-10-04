@@ -88,6 +88,64 @@ function Invoke-NndPrebuiltStage($SelectedNna, $CheckedPayload) {
     }
 }
 
+function Invoke-NndPrebuiltActivationPreflight($SelectedNna, $CheckedPayload, $SelectedCapability, $StageOperation, [string]$ActivationOperation) {
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $SelectedNna.Node
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service activation-preflight ' +
+        (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot) + ' ' +
+        (ConvertTo-NndNativeArgument $StageOperation) + ' ' + (ConvertTo-NndNativeArgument $ActivationOperation)
+    $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $false
+    $startInfo.EnvironmentVariables['NNA_HOME'] = $SelectedNna.DataRoot
+    foreach ($key in @('NODE_OPTIONS', 'NODE_PATH', 'ELECTRON_RUN_AS_NODE')) { $startInfo.EnvironmentVariables.Remove($key) }
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    $started = $false
+    try {
+        if (!$process.Start()) { throw 'Native activation preflight did not start.' }
+        $started = $true
+        $buffer = New-Object char[] 1024
+        $output = New-Object System.Text.StringBuilder
+        $deadline = [DateTime]::UtcNow.AddMinutes(5)
+        while ($true) {
+            $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+            if ($remaining -le 0) { throw 'Native activation preflight exceeded its deadline.' }
+            $read = $process.StandardOutput.ReadAsync($buffer, 0, $buffer.Length)
+            if (!$read.Wait($remaining)) { throw 'Native activation preflight exceeded its deadline.' }
+            if ($read.Result -eq 0) { break }
+            [void]$output.Append($buffer, 0, $read.Result)
+            if ($output.Length -gt 8192) { throw 'Native activation preflight response exceeded its bound.' }
+        }
+        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+        if ($remaining -le 0 -or !$process.WaitForExit($remaining) -or $process.ExitCode -ne 0) {
+            throw 'Native activation preflight did not confirm completion.'
+        }
+        $result = $output.ToString() | ConvertFrom-Json
+        $keys = @($result.PSObject.Properties.Name)
+        $expected = @('state', 'operation_id', 'stage_operation_id', 'installation_id', 'data_id',
+            'version', 'payload_sha256', 'candidate_sha256')
+        if ($keys.Count -ne $expected.Count -or @($expected | Where-Object { $_ -notin $keys }).Count -ne 0 -or
+            $result.state -cne 'slot_ready' -or $result.operation_id -cne $ActivationOperation -or
+            $result.stage_operation_id -cne $StageOperation -or
+            $result.installation_id -cne $SelectedCapability.installation_id -or
+            $result.data_id -cne $SelectedCapability.data_id -or
+            $result.version -cne $CheckedPayload.Version -or
+            $result.payload_sha256 -cne $CheckedPayload.Sha256 -or
+            $result.candidate_sha256 -isnot [string] -or $result.candidate_sha256 -cnotmatch '^[a-f0-9]{64}$') {
+            throw 'Native activation preflight response did not confirm the staged candidate.'
+        }
+        return $result
+    } catch {
+        throw "Native activation preflight remains unresolved for stage operation $StageOperation and activation operation $ActivationOperation. Inspect the selected NNA before retrying. $($_.Exception.Message)"
+    } finally {
+        if ($started -and !$process.HasExited) { $process.Kill(); [void]$process.WaitForExit(5000) }
+        $process.Dispose()
+    }
+}
+
 # Reconcile an interrupted native staging operation without touching the active
 # NND package. Recovery must target the same selected installed NNA identity.
 function Invoke-NndPrebuiltStageRecover($SelectedNna, [string]$Operation) {

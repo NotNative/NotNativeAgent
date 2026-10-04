@@ -1024,6 +1024,25 @@ not immutable prebuilt activation, existing-install upgrade/rollback, real
 provider traffic, or operator-installed browser/desktop acceptance. L5/L6 and
 C/F parity remain open.
 
+## NND 20261003-36 — prebuilt activation preflight
+
+The prebuilt staging branch now generates a distinct activation operation after
+native staging and invokes the selected installed NNA's exact
+`activation-preflight` contract. It binds the returned candidate to the same
+stage and activation UUIDs, NNA installation/data identity, payload digest, and
+payload version. A failed or malformed preflight preserves the stage operation
+and remains explicit recovery evidence; it does not start, activate, or attach
+NND. The prebuilt stage suite passed 7/7. NNA focused service, supervisor,
+discovery, admission, and activation-CLI suites passed 38/39 with one
+platform-supported skip. Independent adversarial audit confirmed the read-only
+preflight and its preservation behavior, then found only test-coverage, opaque
+candidate-history, and process-cleanup polish items; the audit-specific bounds
+were expanded and all bounds now reject while preserving the stage marker. Full
+UI was 1,770/1,770 and web 1,447/1,447, with workspace typechecks, quality,
+graph/language, and release gates green. Actual prebuilt activation, detached
+health proof, registration swap, launcher integration, upgrade/rollback, and
+operator-installed acceptance remain outstanding.
+
 ## NND 20261003-35 — stable selected-package launcher gate
 
 Desktop and Start Menu shortcuts use the stable installation anchor and the

@@ -11,7 +11,7 @@ const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32/Windo
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const version = '20261003-22';
 const fakeCli = `const { createHash } = require('node:crypto');
-const { realpathSync, readFileSync, writeFileSync } = require('node:fs');
+const { mkdirSync, realpathSync, readFileSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
 const hash = value => createHash('sha256').update(realpathSync(value).toLowerCase()).digest('hex');
 const root = process.argv[5], action = process.argv[4];
@@ -29,6 +29,8 @@ if (action === 'capabilities') {
     if (sha256(content) !== item.sha256 || content.length !== item.bytes) process.exit(5);
   }
   writeFileSync(process.env.NND_TEST_STAGE_MARKER, operation);
+  mkdirSync(join(root, 'private-slot'), { recursive: true });
+  writeFileSync(join(root, 'private-slot', 'NND_PAYLOAD.json'), bytes);
   const result = { state: 'slot_ready', operation_id: operation, version: manifest.version,
     payload_sha256: sha256(bytes), slot: join(root, 'private-slot'), replay_window: 'last_16_terminal_operations' };
   if (process.env.NND_TEST_STAGE_MODE === 'wrong-response') result.payload_sha256 = '0'.repeat(64);
@@ -41,6 +43,23 @@ if (action === 'capabilities') {
     { state, operation_id: operation, version: '20261003-12', payload_sha256: 'a'.repeat(64),
       slot: join(root, 'private-slot'), replay_window: 'last_16_terminal_operations' };
   if (process.env.NND_TEST_RECOVER_MODE === 'wrong-response') result.operation_id = '00000000-0000-4000-8000-000000000000';
+  process.stdout.write(JSON.stringify(result));
+} else if (action === 'activation-preflight') {
+  const stageOperation = process.argv[6], operation = process.argv[7];
+  const bytes = readFileSync(join(root, 'private-slot', 'NND_PAYLOAD.json'));
+  const result = { state: 'slot_ready', operation_id: operation, stage_operation_id: stageOperation,
+    installation_id: 'nna_' + hash(root), data_id: 'data_' + hash(process.env.NNA_HOME),
+    version: '20261003-12', payload_sha256: sha256(bytes), candidate_sha256: 'b'.repeat(64) };
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-wrong') result.stage_operation_id = '00000000-0000-4000-8000-000000000000';
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-activation') result.operation_id = '00000000-0000-4000-8000-000000000000';
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-installation') result.installation_id = 'nna_' + '0'.repeat(64);
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-data') result.data_id = 'data_' + '0'.repeat(64);
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-payload') result.payload_sha256 = '0'.repeat(64);
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-version') result.version = '00000000-1';
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-candidate') result.candidate_sha256 = 'not-hex';
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-oversize') process.stdout.write('x'.repeat(8300));
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-json') process.stdout.write('{invalid');
+  if (process.env.NND_TEST_STAGE_MODE === 'preflight-exit') process.exit(7);
   process.stdout.write(JSON.stringify(result));
 } else process.exit(6);
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }`;
@@ -132,6 +151,7 @@ test('prebuilt staging uses selected NNA without PATH and preserves the live NND
     const success = stage(f);
     assert.equal(success.status, 0, success.stderr);
     assert.match(success.stdout, /activation remains pending/u);
+    assert.match(success.stdout, /preflight/u);
     assert.match(success.stdout, /active NND package and shortcuts were not changed/u);
     assert.match(await readFile(f.marker, 'utf8'), /^[a-f0-9-]{36}$/u);
     assert.deepEqual(await readdir(f.target), ['keep.txt']);
@@ -149,6 +169,21 @@ test('wrong trusted digest rejects before native stage and malformed native outc
     assert.match(unresolved.stderr, /-RecoverPrebuiltStageOperation/u);
     assert.match(await readFile(f.marker, 'utf8'), /^[a-f0-9-]{36}$/u);
     assert.deepEqual(await readdir(f.target), ['keep.txt']);
+    const preflightWrong = stage(f, f.digest, 'preflight-wrong');
+    assert.notEqual(preflightWrong.status, 0);
+    assert.match(preflightWrong.stderr, /preflight remains unresolved/u);
+    const preflightExit = stage(f, f.digest, 'preflight-exit');
+    assert.notEqual(preflightExit.status, 0);
+    assert.match(preflightExit.stderr, /preflight remains unresolved/u);
+  for (const mode of ['preflight-activation', 'preflight-installation', 'preflight-data',
+    'preflight-payload', 'preflight-version', 'preflight-candidate', 'preflight-oversize',
+    'preflight-json']) {
+    const rejected = stage(f, f.digest, mode);
+    assert.notEqual(rejected.status, 0, mode);
+    assert.match(rejected.stderr, /preflight remains unresolved/u);
+    assert.match(await readFile(f.marker, 'utf8'), /^[a-f0-9-]{36}$/u);
+    assert.deepEqual(await readdir(f.target), ['keep.txt']);
+  }
   });
 
 test('wrong trusted digest rejects before attempting a missing NNA dependency install',

@@ -124,6 +124,10 @@ after checking the payload root, target separation, manifest bound, version
 shape, and externally pinned exact manifest digest. It then validates selected
 NNA capabilities and invokes NNA's bounded `stage-payload` command using the
 selected NNA Node runtime. No `node` or `pnpm` command on `PATH` is required.
+It then creates a distinct activation operation ID and proves the immutable slot
+through NNA's bounded `activation-preflight` command. The installer displays and
+keeps those UUIDs distinct. Preflight failure remains explicit staging recovery
+evidence and cannot become installed or attached.
 For an existing NND install, pinned selection identities must still match the
 selected NNA capabilities before staging; a changed data root is refused.
 It does not copy into the active NND install, update registration or shortcuts,
