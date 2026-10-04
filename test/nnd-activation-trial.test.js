@@ -12,7 +12,7 @@ const identity = { installation_id: `nna_${'a'.repeat(64)}`, data_id: `data_${'b
   data_root: 'C:\\NNA-data' };
 const stageOperationId = randomUUID(), operationId = randomUUID();
 async function harness(overrides = {}) {
-  const trace = [], lease = Object.freeze({}), registryLease = Object.freeze({});
+  const trace = [], leaseBudgets = [], lease = Object.freeze({}), registryLease = Object.freeze({});
   const controller = new AbortController();
   const proof = { installation_id: identity.installation_id, data_id: identity.data_id,
     generation: 'generation-1', version: '20261002-8', native_state: 'setup_required', gui_http_status: 200 };
@@ -54,8 +54,11 @@ async function harness(overrides = {}) {
     process_identity: { version: 1, pid: 4321, platform: 'win32', start_id: '123456789' } };
   const dependencies = { join, resolve, ContractError,
     assertHeldNndServiceLease: actual => { assert.equal(actual, lease); trace.push('lease:assert'); },
-    withNndServiceLease: (_lease,_dataId,operation) => overrides.leaseOperation
-      ? overrides.leaseOperation(operation, controller) : operation(controller.signal),
+    withNndServiceLease: (_lease,_dataId,operation,_options={}) => {
+      leaseBudgets.push(_options.timeoutMs ?? 120000);
+      return overrides.leaseOperation
+        ? overrides.leaseOperation(operation, controller) : operation(controller.signal);
+    },
     assertManifestLease: actual => { assert.equal(actual, registryLease); trace.push('registry:assert');
       return { path: join(identity.data_root, 'config', 'nnd-package.json') }; },
     runManifestLeaseWork: (_lease,operation) => operation(),
@@ -79,11 +82,12 @@ async function harness(overrides = {}) {
   consume: (token, overrides = {}) => consume(token, identity,
     overrides.lease ?? lease, overrides.registryLease ?? registryLease,
     { operationId, stageOperationId, generation: overrides.generation ?? proof.generation }),
-  trace, proof, lease, registryLease, controller };
+  trace, leaseBudgets, proof, lease, registryLease, controller };
 }
 test('owned trial holds lease and registry through preparation, unpublished health, and confirmed stop', async () => {
   const f = await harness();
   const result = await f.run();
+  assert.deepEqual(f.leaseBudgets, [120000]);
   assert.deepEqual(f.trace.filter(item => !item.endsWith(':assert')),
     ['prepare','capability','trial_starting','start','trial_running','verify','trial_healthy','verify','stop']);
   assert.equal(result.state, 'trial_healthy'); assert.equal(result.generation, f.proof.generation);

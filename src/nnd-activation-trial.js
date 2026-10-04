@@ -431,7 +431,7 @@ export async function runNndUnpublishedTrialUnderOwnership(identity, paths, serv
         pending.then(() => { pendingSettled = true; }, () => { pendingSettled = true; });
         return pending;
       },
-      { timeoutMs: 60000 });
+      {});
     return completed;
   } finally {
     if (pending && !pendingSettled) {
