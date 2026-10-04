@@ -93,6 +93,22 @@ Focused uninstall/recovery suites passed 21/21; full UI and web suites plus type
 graph, controlled-language, and release gates were exercised. Upgrade/rollback, migration, real
 installed GUI acceptance, and durable package generation binding remain explicitly open.
 
+## NNA 20261004-3 — bounded NND startup prerequisite
+
+The selected NNA prerequisite commit `990e494d` aligns NND singleton lease operations with the
+30-second private Windows helper deadline. The default operation budget is now 120 seconds to
+admit the known three-helper discovery chain, while the helper remains at 30 seconds and the
+explicit operation maximum stays at 300 seconds. An independent adversarial audit first refuted
+the 60-second repair because three helpers could exceed it; the canonical NNA version advanced to
+`20261004-3` after the 120-second repair and focused cancellation/default tests passed.
+
+After the prerequisite, the real disposable NND source-installed acceptance passed installation,
+authenticated local browser bootstrap, independent-browser isolation, separate desktop attach,
+shared-service lifetime, and clean stop. NNA quality, the full source suite with the three
+contention-prone originals rerun separately, graph/language gates, and focused lock/discovery cases
+passed. NNA platform certification remains a separate release requirement. NND prebuilt acceptance,
+upgrade/rollback, login startup, and real setup/provider journeys remain open.
+
 ## NND 20261004-7 — prebuilt uninstall release seal
 
 The independent post-repair audit confirmed the uninstall runtime behavior and found the working
