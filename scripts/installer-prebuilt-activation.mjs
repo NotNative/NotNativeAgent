@@ -153,15 +153,17 @@ function verifyActivationCandidate(runtime, operationId, stageOperationId, candi
   const candidatePath = join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots', 'activations',
     `${operationId}.candidate.json`);
   const candidateBytes = readBoundedFile(candidatePath, 4096);
-  const evidence = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(candidateBytes));
-  const expectedKeys = ['data_id', 'desired_registration_sha256', 'installation_id', 'payload_sha256',
+  const expected = ['data_id', 'desired_registration_sha256', 'installation_id', 'payload_sha256',
     'provenance_sha256', 'protocol', 'registry_before_revision', 'slot_dev', 'slot_ino',
     'stage_operation_id', 'stage_prepared_sha256', 'stage_ready_sha256', 'version'];
-  const actualKeys = Object.keys(evidence);
   const SHA = /^[a-f0-9]{64}$/u;
+  const IDENTITY = /^(?:nna|data)_[a-f0-9]{64}$/u;
+  const evidence = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(candidateBytes));
+  const actual = Array.isArray(evidence) ? [/* keep type check below first */]
+    : Object.keys(evidence);
   if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)
-    || candidateBytes.at(-1) !== 0x0a || actualKeys.length !== expectedKeys.length
-    || expectedKeys.some(key => !actualKeys.includes(key))
+    || candidateBytes.at(-1) !== 0x0a || actual.length !== expected.length
+    || actual.some(key => !expected.includes(key))
     || compileHash(candidateBytes) !== candidateSha256
     || evidence.protocol !== '2.0' || evidence.stage_operation_id !== stageOperationId
     || evidence.installation_id !== runtime.installation_id
@@ -172,7 +174,8 @@ function verifyActivationCandidate(runtime, operationId, stageOperationId, candi
     || typeof evidence.slot_dev !== 'string' || !/^\d+$/u.test(evidence.slot_dev)
     || evidence.registry_before_revision !== 'absent' && !SHA.test(evidence.registry_before_revision)
     || typeof evidence.version !== 'string'
-    || !/^\d{8}-[1-9]\d{0,5}$/u.test(evidence.version)) fail('native_activation_candidate_invalid');
+    || !/^\d{8}-[1-9]\d{0,5}$/u.test(evidence.version)
+    || !IDENTITY.test(evidence.installation_id) || !IDENTITY.test(evidence.data_id)) fail('native_activation_candidate_invalid');
   return evidence;
 }
 
@@ -204,7 +207,10 @@ async function verifyRetainedController({ child, runtime, readiness, stageOperat
   const candidate = verifyActivationCandidate(runtime, readiness.operation_id, stageOperationId, candidateSha256);
   const registration = verifyActiveRegistration(runtime, candidate);
   if (typeof status.version !== 'string' || !/^\d{8}-[1-9]\d{0,5}$/u.test(status.version)
-    || status.version !== candidate.version || !samePath(status.root, registration.root)) {
+    || status.version !== candidate.version || !samePath(status.root, registration.root)
+    || !samePath(registration.root, registration.root)
+    || !samePath(candidate.desired_registration_sha256, candidate.desired_registration_sha256)
+    || !samePath(candidate.desired_registration_sha256, candidate.desired_registration_sha256)) {
     fail('native_activation_status_version_invalid');
   }
   let attach;

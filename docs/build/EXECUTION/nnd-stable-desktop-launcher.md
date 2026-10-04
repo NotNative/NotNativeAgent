@@ -1,7 +1,7 @@
 # Stable desktop launch entry
 
-Status: source-installer shortcut integration and read-only immutable-slot launch
-prerequisite. This does not activate a staged slot.
+Status: production prebuilt activation now installs a fresh selection/launcher anchor. Upgrades retain the read-only immutable-slot launch prerequisite.
+
 
 The Windows source installer now points Desktop and Start Menu shortcuts at
 `scripts/launch-selected-desktop.ps1` in its stable installation root. That script
@@ -31,7 +31,9 @@ launcher's health proof, spawn, and Electron's attach remain bounded but real;
 an immutable package payload binding and uninterrupted handoff stays future work.
 The production prebuilt installer must place and preserve this stable anchor,
 then create its shortcut only after activation and installed health verification.
-The current prebuilt staging branch does neither.
+Fresh prebuilt activation now commits the stable contour only after native
+activation and public attach proof succeed. It does not yet upgrade an existing
+anchor, nor claim uninterrupted package handoff.
 
 Focused verification: `node --test scripts/resolve-active-nnd-package.test.mjs
 packages/electron/native-service-client.test.mjs

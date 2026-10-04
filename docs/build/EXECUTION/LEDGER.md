@@ -66,6 +66,20 @@ The [activation contract](nnd-local-activation-contract.md) replaces the interru
 agent's draft. Paired validators and review passed in NND 20261001-43 / NNA 20261001-7.
 No existing supervisor, startup registration or installed acceptance is claimed.
 
+## NND 20261004-4 — fresh prebuilt anchor integration
+
+A successful fresh activation now proves native identity, active registration, and public attach,
+then stages a complete launcher/selection anchor and binds the package root, version, selected NNA
+identity, stage operation, activation operation, payload hash, and preflight candidate hash into
+`nnd-anchor.json`. The installer then creates Desktop and Start Menu shortcuts. If shortcuts fail,
+only the just-created fresh target is rolled back while the already-activated native owner remains
+explicitly present. Existing targets continue to require explicit upgrade/rollback work; this slice
+does not claim uninterrupted package handoff or durable generation-to-payload binding.
+Focused activation/prebuilt suites passed 10/10, fresh anchor targeted tests passed 3/3, and
+UI was 1,770/1,770 plus web 1,447/1,447 with typecheck, quality, graph/language, and release
+gates green. Adversarial review closed the candidate-key identity race; remaining audit P2s are
+accepted for follow-up.
+
 ## Recovery of the interrupted handoff
 
 The handoff contained only this ledger, the contract draft and three untracked NNA

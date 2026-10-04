@@ -461,9 +461,20 @@ if ($StagePrebuiltPayload) {
     Write-Host '  The active NND package and shortcuts were not changed.'
     exit 0
 }
+function New-NndPrebuiltShortcut($AnchorPath, [string]$IconPath) {
+    $shell = New-Object -ComObject WScript.Shell
+    $link = $shell.CreateShortcut((Join-Path $AnchorPath "NotNativeDesktop.lnk"))
+    $link.TargetPath = Join-Path $PSHOME 'powershell.exe'
+    $link.Arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -File "' + $StableLauncher + '"'
+    $link.WorkingDirectory = $AnchorPath
+    $link.IconLocation = $IconPath + ',0'
+    $link.Description = 'NotNativeDesktop - local service + tray'
+    $link.Save()
+}
 if ($ActivatePrebuiltSlot) {
-    # This branch activates an already staged immutable slot. It preserves the
-    # target anchor with no copy, shortcut, or source-build mutation.
+    # A stable selection/launcher anchor is committed after proven activation,
+    # then operator shortcuts. A failed shortcut phase can roll back only the
+    # just-created fresh target; it never mutates a prior installation.
     $checkedPayload = Assert-NndPrebuiltPayload $PrebuiltPayloadRoot $PrebuiltManifestSha256 $targetPath
     $nna = Get-InstalledNna
     if (!$nna) { throw 'Selected NNA is not installed; restore it before activating the NND slot.' }
@@ -472,6 +483,24 @@ if ($ActivatePrebuiltSlot) {
     $preflightOperation = [Guid]::NewGuid().ToString()
     $preflight = Invoke-NndPrebuiltActivationPreflight $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflightOperation
     $activated = Invoke-NndPrebuiltActivation $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflight.candidate_sha256
+    $anchorCreated = $false
+    try {
+        & $nna.Node (Join-Path $Source 'scripts\installer-prebuilt-anchor.mjs') $targetPath $Source $nna.InstallRoot $activated.root $capabilities.installation_id $capabilities.data_id $activated.version $PrebuiltStageOperation $activated.operation_id $checkedPayload.Sha256 $preflight.candidate_sha256
+        if ($LASTEXITCODE -ne 0) { throw "Stable NND launcher anchor could not be created (exit $LASTEXITCODE)." }
+        $anchorCreated = $true
+        foreach ($shortcutRoot in @($DesktopDir, $StartMenuDir)) {
+            if ($hasShortcutRoot -and !(Test-Path -LiteralPath $shortcutRoot -PathType Container)) {
+                New-Item -ItemType Directory -Path $shortcutRoot | Out-Null
+            }
+            New-NndPrebuiltShortcut $shortcutRoot (Join-Path $activated.root 'packages\electron\node_modules\electron\dist\electron.exe')
+            Write-Good "shortcut: $shortcutRoot\NotNativeDesktop.lnk"
+        }
+    } catch {
+        if ($anchorCreated -and (Test-Path -LiteralPath $targetPath)) {
+            Remove-Item -LiteralPath $targetPath -Recurse -Force
+        }
+        throw
+    }
     Write-Heading 'Prebuilt NND activated; public controller attached'
     Write-Host "  selected NNA : $($capabilities.installation_id) / $($capabilities.data_id)"
     Write-Host "  stage        : $PrebuiltStageOperation"
@@ -480,7 +509,7 @@ if ($ActivatePrebuiltSlot) {
     Write-Host "  slot         : $($activated.root)"
     Write-Host "  generation   : $($activated.generation)"
     Write-Host "  endpoint     : $($activated.endpoint)"
-    Write-Host '  The launcher and operator shortcuts were not changed in this isolated activation slice.'
+    Write-Host '  The launcher and operator shortcuts now point at this fresh stable anchor.'
     exit 0
 }
 if (Test-InstallRunning $ElectronExe) {

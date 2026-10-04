@@ -31,7 +31,7 @@ const candidateEvidence = (identityRoot, stageOperationId) => {
   const registration = JSON.stringify({ root: activeRoot, version: activeVersion, protocol: '1.0' }, null, 2) + newline;
   return { protocol: '2.0', stage_operation_id: stageOperationId,
     installation_id: 'nna_' + digest(identityRoot), data_id: 'data_' + digest(join(dirname(identityRoot), 'data')),
-    version: activeVersion, payload_sha256: 'a'.repeat(64), stage_prepared_sha256: 'b'.repeat(64),
+    version: activeVersion, payload_sha256: process.env.NNACTIV_TEST_PAYLOAD_DIGEST ?? 'a'.repeat(64), stage_prepared_sha256: 'b'.repeat(64),
     stage_ready_sha256: 'c'.repeat(64), provenance_sha256: 'd'.repeat(64), slot_ino: '10', slot_dev: '20',
     registry_before_revision: 'absent', desired_registration_sha256: createHash('sha256').update(registration).digest('hex') };
 };
@@ -110,7 +110,7 @@ async function fixture(t) {
   const registration = JSON.stringify({ root: activeRoot, version: '20261003-12', protocol: '1.0' }, null, 2) + String.fromCharCode(10);
   const candidate = { protocol: '2.0', stage_operation_id: stageOperation,
     installation_id: 'nna_' + listItem(canonicalNative), data_id: 'data_' + listItem(canonicalData),
-    version: '20261003-12', payload_sha256: 'a'.repeat(64), stage_prepared_sha256: 'b'.repeat(64),
+    version: '20261003-12', payload_sha256: process.env.NNACTIV_TEST_PAYLOAD_DIGEST ?? 'a'.repeat(64), stage_prepared_sha256: 'b'.repeat(64),
     stage_ready_sha256: 'c'.repeat(64), provenance_sha256: 'd'.repeat(64), slot_ino: '10', slot_dev: '20',
     registry_before_revision: 'absent', desired_registration_sha256: byteHash(registration) };
   return { base, native, data, cli, marker: join(base, 'activation-marker'),
@@ -170,11 +170,10 @@ test('prebuilt readiness and proof mismatches remain uncertain without false act
 test('installer activation mode delegates the selected slot without copying the target',
   { skip: process.platform !== 'win32' }, async t => {
     const f = await fixture(t);
-    await writeFile(join(f.base, 'NND target', 'keep.txt'), 'unchanged', { recursive: true }).catch(async error => {
-      if (error.code !== 'ENOENT') throw error;
-      await mkdir(join(f.base, 'NND target'), { recursive: true });
-      await writeFile(join(f.base, 'NND target', 'keep.txt'), 'unchanged');
-    });
+    const firstTarget = join(f.base, 'NND target');
+    const secondTarget = join(f.base, 'NND target.1');
+    await mkdir(firstTarget, { recursive: true });
+    await writeFile(join(firstTarget, 'keep.txt'), 'unchanged');
     const payload = join(f.base, 'payload'); await mkdir(payload, { recursive: true });
     await writeFile(join(payload, 'packages', 'web', 'dist', 'index.html'), '<html>fixture</html>', { recursive: true }).catch(async error => {
       if (error.code !== 'ENOENT') throw error;
@@ -188,7 +187,7 @@ test('installer activation mode delegates the selected slot without copying the 
     const rejected = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
       '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
-      '-InstallNnaIfMissing', '-NnaSourceRoot', f.native, '-InstallDir', join(f.base, 'NND target')], {
+      '-InstallNnaIfMissing', '-NnaSourceRoot', f.native, '-InstallDir', firstTarget], {
       encoding: 'utf8', windowsHide: true, timeout: 20000,
       env: { ...process.env, Path: '', NNACTIV_TEST_PAYLOAD_DIGEST: digest },
     });
@@ -197,14 +196,17 @@ test('installer activation mode delegates the selected slot without copying the 
     const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
       '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
-      '-NnaInstallRoot', f.native, '-InstallDir', join(f.base, 'NND target')], {
+      '-NnaInstallRoot', f.native, '-InstallDir', secondTarget], {
       encoding: 'utf8', windowsHide: true, timeout: 20000,
       env: { ...process.env, Path: '', NNACTIV_TEST_PAYLOAD_DIGEST: digest },
     });
     assert.equal(result.status, 0, [result.stdout, result.stderr].join('\n'));
     assert.match(result.stdout, /public controller attached/u);
     assert(result.stdout.includes('  endpoint     : http://127.0.0.1:3000'));
-    assert.equal(await readFile(join(f.base, 'NND target', 'keep.txt'), 'utf8'), 'unchanged');
+    const selection = JSON.parse(await readFile(join(secondTarget, 'nna-service-selection.json'), 'utf8'));
+    const binding = JSON.parse(await readFile(join(secondTarget, 'nnd-anchor.json'), 'utf8'));
+    assert.equal(selection.installation_id, JSON.parse((await readFile(join(secondTarget, 'nna-service-selection.json'), 'utf8'))).installation_id);
+    assert.equal(binding.version, '20261003-12');
     const marker = JSON.parse(await readFile(f.marker, 'utf8'));
     process.kill(marker.pid, 'SIGTERM');
     await new Promise(accept => setTimeout(accept, 50));
