@@ -13,3 +13,6 @@ packages/electron/build-stamp.json
 packages/electron/install-mode.txt
 *.tsbuildinfo
 /.agents-workspace/
+.tmp/
+.tmp-nnd-*.txt
+.tmp-nnd-*.patch
