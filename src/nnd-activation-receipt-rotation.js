@@ -83,8 +83,13 @@ async function repairArchives(place, signal) {
   }
 }
 async function liveRegistrationMatches(registryLease, pair) {
+  // A guarded uninstall preserves the consumed pair but removes the
+  // registration. With no live registration the identity-bound pair grants
+  // admission to nothing, so it may vacate; a disagreeing live registration
+  // still keeps the admission bar exactly as before.
   const manifest = await readLockedManifestSnapshot(registryLease);
-  if (!manifest || !manifest.rawBytes || manifest.revision !== pair.registration_revision
+  if (!manifest) return;
+  if (!manifest.rawBytes || manifest.revision !== pair.registration_revision
     || hash(manifest.rawBytes) !== pair.registration_revision) throw invalid();
 }
 async function moveWholePair(place, pair, signal) {

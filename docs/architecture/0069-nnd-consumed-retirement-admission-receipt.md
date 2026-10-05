@@ -32,7 +32,9 @@ consumption alone.
 A later activation may only clear the fixed evidence paths through the
 rotation in `nnd-activation-receipt-rotation.js`, which also runs under both
 genuine owners, requires the pair to still name the live registration
-revision, moves both members whole into
+revision — or, after a guarded uninstall removed that registration, to be
+canonical and bound to the same installation and data identity while no live
+registration grants it authority — moves both members whole into
 `install-slots/consumed/<operation_id>/`, and verifies the archived bytes
 match before reporting success. A half-moved archive is restored to the fixed
 paths first. Nothing is deleted at any point; the archive stays durable

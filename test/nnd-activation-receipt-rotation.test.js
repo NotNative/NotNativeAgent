@@ -157,4 +157,16 @@ test('an occupied archive directory keeps the bar with the pair untouched', asyn
   assert.equal(hash(await readFile(join(f.slots, COMMIT_FILE))), hash(f.pair.commitBytes));
 });
 
+test('after uninstall removed the registration, the identity-bound pair still rotates', async t => {
+  const f = await fixture(t);
+  await writePair(f.slots, f.pair);
+  // Guarded uninstall deletes nnd-package.json; the consumed pair stays.
+  const api = await apiFor(null, lease);
+  const result = await api.archiveConsumedRetirementReceiptUnderOwnership(f.identity, lease,
+    { path: join(f.identity.data_root, 'config', 'nnd-package.json') });
+  assert.equal(result.state, 'consumed_receipt_archived');
+  assert.equal((await lstat(join(f.slots, COMMIT_FILE)).catch(() => null)), null);
+  assert.equal((await lstat(join(f.slots, CLEARED_FILE)).catch(() => null)), null);
+});
+
 
