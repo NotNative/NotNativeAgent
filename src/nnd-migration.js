@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { join } from 'node:path';
 import { acquireNndServiceLock, withNndServiceLease } from './nnd-service-lock.js';
-import { scanNndLegacyOwners } from './nnd-legacy-census.js';
+import { drainNndLegacyTakeover } from './nnd-legacy-takeover.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
 import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
 import { readMigrationParents, prepareNndMigration } from './nnd-migration-validation.js';
@@ -16,7 +16,7 @@ export async function runNndMigration(identity, paths, action, options = {}) {
     return await withNndServiceLease(lease, identity.data_id, async (signal) => {
       await assertNoNndInstallTransaction(identity);
       await assertNoNndInstallMarker(identity);
-      const census = await scanNndLegacyOwners(identity, signal);
+      const census = await drainNndLegacyTakeover(identity, signal);
       if (action === 'migration-recover') return recover(identity, paths, signal);
       await assertNoNndMigration(identity);
       const parents = await readMigrationParents(paths);

@@ -41,7 +41,7 @@ public static class NndArgv {
 const PROGRAM = String.raw`$ErrorActionPreference='Stop'
 $request=[Console]::In.ReadToEnd()|ConvertFrom-Json
 ` + NND_CENSUS_NATIVE_TYPES + String.raw`
-$count=0; $legacy=0; $unknown=0
+$count=0; $legacy=0; $unknown=0; $legacyPids=@(); $unknownPids=@()
 $selectedName=[IO.Path]::GetFileName([string]$request.node)
 foreach($p in Get-CimInstance -ClassName Win32_Process) {
  $count++; if($count -gt 4096) { throw 'process bound' }
@@ -59,31 +59,54 @@ foreach($p in Get-CimInstance -ClassName Win32_Process) {
  try { if($null -ne $p.CreationDate) { $created=$p.CreationDate.ToUniversalTime().ToFileTimeUtc() } } catch { $created=0 }
  $state=[NndArgv]::Probe([int]$p.ProcessId,[long]$created)
  if($state -eq 'exited') { continue }
- if($state -ne 'same') { $unknown++; continue }
- if([string]::IsNullOrWhiteSpace($p.CommandLine) -or $p.CommandLine.Length -gt 32768) { $unknown++; continue }
- try { $a=[NndArgv]::Parse($p.CommandLine) } catch { $unknown++; continue }
+ if($state -ne 'same') { $unknown++; $unknownPids += [int64]$p.ProcessId; continue }
+ if([string]::IsNullOrWhiteSpace($p.CommandLine) -or $p.CommandLine.Length -gt 32768) { $unknown++; $unknownPids += [int64]$p.ProcessId; continue }
+ try { $a=[NndArgv]::Parse($p.CommandLine) } catch { $unknown++; $unknownPids += [int64]$p.ProcessId; continue }
  $script=-1
  for($i=1;$i -lt $a.Length;$i++) { if($a[$i] -match '(?:^|[\\/])cli\.js$') { $script=$i; break } }
  if($script -lt 0) {
-  if($a -contains 'nnd') { $unknown++ }; continue
+  if($a -contains 'nnd') { $unknown++; $unknownPids += [int64]$p.ProcessId }; continue
  }
  $tail=@($a | Select-Object -Skip ($script+1))
  if($tail.Count -eq 0 -or $tail[0] -in @('tui','text','headless','host','integration','opencode')) { continue }
- if($tail[0] -ne 'nnd') { if($tail -contains 'nnd') { $unknown++ }; continue }
+ if($tail[0] -ne 'nnd') { if($tail -contains 'nnd') { $unknown++; $unknownPids += [int64]$p.ProcessId }; continue }
  $operands=@($tail | Select-Object -Skip 1 | Where-Object { $_ -notin @('--no-color','--reduced-motion') })
- if($operands.Count -gt 0 -and $operands[0] -eq 'serve') { $legacy++ }
- elseif($operands.Count -eq 0 -or $operands[0] -notin @('service','package')) { $unknown++ }
+ if($operands.Count -gt 0 -and $operands[0] -eq 'serve') { $legacy++; $legacyPids += [int64]$p.ProcessId }
+ elseif($operands.Count -eq 0 -or $operands[0] -notin @('service','package')) { $unknown++; $unknownPids += [int64]$p.ProcessId }
 }
-[Console]::Out.WriteLine((@{version='1.0';scanned=$count;legacy=$legacy;unknown=$unknown}|ConvertTo-Json -Compress))
+$legacyString=($legacyPids|ForEach-Object{[int64]$_}) -join ','
+$unknownString=($unknownPids|ForEach-Object{[int64]$_}) -join ','
+[Console]::Out.WriteLine((@{version='1.0';scanned=$count;legacy=$legacy;unknown=$unknown;legacyPids=$legacyString;unknownPids=$unknownString}|ConvertTo-Json -Compress))
 `;
 
-export async function scanNndLegacyOwners(identity, signal) {
+function parsePids(value) {
+  if (typeof value !== 'string') return [];
+  if (!value.length) return [];
+  const pids = value.split(',').map((part) => Number(part));
+  if (!pids.every((pid) => Number.isSafeInteger(pid) && pid > 0 && pid < 4294967295)) return [-1];
+  return pids;
+}
+// Raw census: verified counters plus named ownership evidence. Never throws
+// for live owners; only for an unverifiable scan, which is not quiescence.
+export async function probeNndLegacyOwners(identity, signal) {
   let result;
   try { result = await runPrivateWindowsProgram(PROGRAM, { node: identity.node }, signal); }
   catch (cause) { throw new ContractError('nnd_owner_unverified', 'Legacy NND process census could not establish quiescence', { cause }); }
+  const legacyPids = parsePids(result?.legacyPids), unknownPids = parsePids(result?.unknownPids);
   if (!result || result.version !== '1.0' || !Number.isSafeInteger(result.scanned) || result.scanned < 1
-    || result.scanned > 4096 || result.legacy !== 0 || result.unknown !== 0) {
+    || result.scanned > 4096 || !Number.isSafeInteger(result.legacy) || !Number.isSafeInteger(result.unknown)
+    || result.legacy < 0 || result.unknown < 0
+    || result.legacy !== legacyPids.length || result.unknown !== unknownPids.length
+    || legacyPids.includes(-1) || unknownPids.includes(-1)) {
+    throw new ContractError('nnd_owner_unverified', 'Legacy NND process census could not establish quiescence');
+  }
+  return Object.freeze({ scanned: result.scanned, legacy: result.legacy, unknown: result.unknown,
+    legacy_pids: Object.freeze(legacyPids), unknown_pids: Object.freeze(unknownPids) });
+}
+export async function scanNndLegacyOwners(identity, signal) {
+  const probe = await probeNndLegacyOwners(identity, signal);
+  if (probe.legacy !== 0 || probe.unknown !== 0) {
     throw new ContractError('nnd_owner_unverified', 'A legacy or unverifiable NND process must be closed before adoption. No process was terminated.');
   }
-  return Object.freeze({ version: '1.0', scanned: result.scanned, legacy: 0, unknown: 0, checked_at: new Date().toISOString() });
+  return Object.freeze({ version: '1.0', scanned: probe.scanned, legacy: 0, unknown: 0, checked_at: new Date().toISOString() });
 }

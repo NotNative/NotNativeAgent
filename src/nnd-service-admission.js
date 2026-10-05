@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { withNndServiceLease } from './nnd-service-lock.js';
 import { ensurePrivateNndRuntimeDirectory } from './nnd-service-private-storage.js';
-import { scanNndLegacyOwners } from './nnd-legacy-census.js';
+import { drainNndLegacyTakeover } from './nnd-legacy-takeover.js';
 import { exactRecord } from './nnd-service-contract.js';
 import { assertNoNndMigration } from './nnd-migration-storage.js';
 import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
@@ -50,7 +50,7 @@ export async function admitFreshNndServiceData(paths, identity, lease) {
   return withNndServiceLease(lease, identity.data_id, async (signal) => {
     await assertNoNndInstallTransaction(identity);
     await assertNoNndMigration(identity);
-    const census = await scanNndLegacyOwners(identity, signal);
+    const census = await drainNndLegacyTakeover(identity, signal);
     const directory = await ensurePrivateNndRuntimeDirectory(identity.data_root, { signal });
     const path = join(directory.path, 'admission.json');
     const existing = await readReceipt(path);

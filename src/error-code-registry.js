@@ -103,7 +103,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_install_runtime_unavailable', 'nnd_install_runtime_invalid', 'nnd_service_platform_unsupported',
     'nnd_private_platform_unsupported', 'nnd_private_path_invalid',
     'nnd_discovery_invalid',
-    'nnd_owner_unverified', 'nnd_service_protocol_invalid', 'nnd_registry_version_mismatch',
+    'nnd_owner_unverified', 'nnd_legacy_takeover_required', 'nnd_service_protocol_invalid', 'nnd_registry_version_mismatch',
     'nnd_package_not_active', 'nnd_service_not_running',
     'nnd_setup_required', 'nnd_setup_configuration_invalid', 'nnd_setup_timeout_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
