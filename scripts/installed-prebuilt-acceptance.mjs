@@ -49,9 +49,9 @@ async function stageAndActivate(fixture, root, exported, tag = '') {
 
 // Build a second export by cloning the first with a bumped version, so the
 // upgrade path exercises a genuinely different payload and slot identity.
-async function upgradeCopy(root, exported) {
-  const nextVersion = `${exported.version.slice(0, 8)}-${1 + Number(exported.version.slice(9))}`;
-  const next = { root: join(root, 'NND payload upgrade'), version: nextVersion };
+async function upgradeCopy(root, exported, tag = 'upgrade', bump = 1) {
+  const nextVersion = `${exported.version.slice(0, 8)}-${bump + Number(exported.version.slice(9))}`;
+  const next = { root: join(root, `NND payload ${tag}`), version: nextVersion };
   await cp(exported.root, next.root, { recursive: true, errorOnEbusy: false });
   await rm(join(next.root, 'NND_PAYLOAD.json'));
   await writeFile(join(next.root, 'VERSION'), `${nextVersion}\n`);
@@ -148,6 +148,93 @@ async function exerciseRollback(fixture, root, anchor, exported, operatorWorkFil
   await readFile(operatorWorkFile, 'utf8').then(value => assert.equal(value, operatorWork));
 }
 
+// Cancellation: kill native staging mid-copy (crash observer), recover the
+// operation by id, then show the ordinary path still works: the recovered or
+// fresh stage activates, and uninstall removes the fresh anchor. Recovery
+// must end on exactly one side of the transaction, never half of both.
+async function exerciseCancellation(fixture, root, anchor, exported) {
+  fixture.nnd = anchor;
+  const { spawn } = await import('node:child_process');
+  // A never-seen payload guarantees the killed staging does real copying.
+  const payload = await upgradeCopy(root, exported, 'cancel', 2);
+  const installer = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+    join(source, 'install.ps1')];
+  const manifest = await readFile(join(payload.root, 'NND_PAYLOAD.json'));
+  const manifestSha256 = createHash('sha256').update(manifest).digest('hex').toLowerCase();
+  const common = ['-PrebuiltPayloadRoot', `${payload.root}`, '-PrebuiltManifestSha256', manifestSha256,
+    '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna, '-ShortcutRoot', fixture.shortcuts];
+  const transactionsRoot = join(fixture.data, 'runtime', 'nnd', 'install-slots', 'transactions');
+  const before = new Set(await readdir(transactionsRoot).catch(() => []));
+  const child = spawn('powershell.exe', [...installer, '-StagePrebuiltPayload', ...common],
+    { cwd: root, env: fixture.env, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] });
+  let operation = null;
+  for (let elapsed = 0; !operation && elapsed < 120000; elapsed += 50) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const now = await readdir(transactionsRoot).catch(() => []);
+    operation = now.find(entry => !before.has(entry)) ?? null;
+    if (!child.connected && child.exitCode !== null && !operation) break;
+  }
+  assert.equal(Boolean(operation), true, 'killed staging left no discoverable transaction');
+  // Crash the whole installer tree, native staging child included.
+  await run('taskkill.exe', ['/T', '/F', '/PID', `${child.pid}`],
+    { cwd: root, env: fixture.env, timeout: 30000 })
+    .catch(() => child.kill());
+  if (child.exitCode === null) await new Promise(resolve => child.once('exit', () => resolve()));
+  const recovery = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+    join(source, 'install.ps1'), '-RecoverPrebuiltStageOperation', operation,
+    '-NnaInstallRoot', fixture.nna, '-InstallDir', fixture.nnd];
+  const recovered = await run('powershell.exe', recovery, {
+    cwd: root, env: fixture.env, timeout: 300000,
+    outputFiles: { stdout: join(root, 'recover-stdout.log'), stderr: join(root, 'recover-stderr.log') },
+  });
+  assert.match(recovered, /Prebuilt NND staging recovery/u);
+  assert.match(recovered, /state        : (slot_ready|unpublished)/u,
+    'recovery must resolve to exactly one transaction side');
+  const state = recovered.match(/state        : (\S+)/u)[1];
+  assert.equal((await selectedPackage(fixture)).registered, false,
+    'a cancelled or recovered-but-never-published stage must not register anything');
+  if (state === 'slot_ready') {
+    const activation = await run('powershell.exe', [...installer, '-ActivatePrebuiltSlot',
+      '-PrebuiltStageOperation', operation, ...common], {
+      cwd: root, env: fixture.env, timeout: 900000,
+      outputFiles: { stdout: join(root, 'recovered-activation-stdout.log'),
+        stderr: join(root, 'recovered-activation-stderr.log') },
+    });
+    assert.match(activation, /Prebuilt NND activated; public controller attached/u);
+    fixture.nnd = await realpath(activation.match(/^\s*slot         : (.+)$/m)[1]);
+  } else {
+    const { packageRoot } = await stageAndActivate(fixture, root, payload, 'after-cancel-');
+    fixture.nnd = packageRoot;
+  }
+  await cli(fixture, 'stop');
+  await waitStopped(fixture);
+}
+
+// Reinstall: after uninstall removed the anchor, the same payload re-stages
+// and activates against the retained data root with the surviving identity.
+async function exerciseReinstall(fixture, root, anchor, exported, operatorWorkFile, operatorWork) {
+  fixture.nnd = anchor;
+  const again = await stageAndActivate(fixture, root, exported, 'reinstall-');
+  fixture.nnd = again.packageRoot;
+  await assertSelected(fixture, again.packageRoot, exported.version);
+  await readFile(operatorWorkFile, 'utf8').then(value => assert.equal(value, operatorWork));
+  await cli(fixture, 'stop');
+  await waitStopped(fixture);
+  fixture.nnd = anchor;
+  await uninstall(fixture, root, anchor);
+}
+
+// Uninstall preserves the native data root; place the operator file there
+// so the post-uninstall survival check is a real assertion.
+async function operatorEvidence(fixture) {
+  const disposableData = join(fixture.data, 'user-data');
+  await mkdir(disposableData, { recursive: true });
+  const file = join(disposableData, 'operator-work.txt');
+  const content = 'preserved by default uninstall\n';
+  await writeFile(file, content);
+  return { file, content };
+}
+
 async function main(nnaSource) {
   assert.equal(process.platform, 'win32', 'Windows prebuilt acceptance only');
   assert.ok(typeof nnaSource === 'string' && /^[A-Za-z]:[\\/]/u.test(nnaSource), 'Provide an absolute NNA source root');
@@ -158,17 +245,12 @@ async function main(nnaSource) {
   await privateDirectory(root, fixtureBase);
   const fixture = await prepare(nnaSource, root);
   let serviceStopped = false;
+  let journeyFailed = true;
   try {
     const exported = await exportPrebuiltPayload(join(root, 'NND payload'));
     const anchor = fixture.nnd;
     const { packageRoot } = await stageAndActivate(fixture, root, exported);
-    // Uninstall preserves the native data root; place the operator file there
-    // so the post-uninstall survival check is a real assertion.
-    const disposableData = join(fixture.data, 'user-data');
-    await mkdir(disposableData, { recursive: true });
-    const operatorWorkFile = join(disposableData, 'operator-work.txt');
-    const operatorWork = 'preserved by default uninstall\n';
-    await writeFile(operatorWorkFile, operatorWork);
+    const { file: operatorWorkFile, content: operatorWork } = await operatorEvidence(fixture);
     fixture.nnd = packageRoot;
     const status = await assertSelected(fixture, packageRoot, exported.version);
     await exerciseShells(fixture, root, status);
@@ -186,7 +268,13 @@ async function main(nnaSource) {
     await waitStopped(fixture);
     serviceStopped = true;
     await uninstall(fixture, root, anchor);
-    process.stdout.write(`Real exported prebuilt payload, upgrade, rollback, activation, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion} -> ${exported.version}).\n`);
+    // Cancellation + reinstall: crash staging mid-copy, recover it, activate,
+    // uninstall, then reinstall the same payload against the retained data.
+    await exerciseCancellation(fixture, root, anchor, exported);
+    await uninstall(fixture, root, anchor);
+    await exerciseReinstall(fixture, root, anchor, exported, operatorWorkFile, operatorWork);
+    journeyFailed = false;
+    process.stdout.write(`Real exported prebuilt payload, upgrade, rollback, cancellation, reinstall, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion} -> ${exported.version}).\n`);
   } catch (error) {
     // An active install-guard or shell child can lock the fixture; preserve
     // evidence rather than replacing the real failure with EBUSY.
@@ -197,7 +285,8 @@ async function main(nnaSource) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
       catch { process.stderr.write(`Native state uncertain; preserved fixture at ${root}\n`); }
     }
-    if (serviceStopped && acceptanceEvidence().uncertain === false) {
+    if (journeyFailed) process.stderr.write(`Acceptance evidence preserved at ${root}\n`);
+    else if (serviceStopped && acceptanceEvidence().uncertain === false) {
       await rm(await checkedFixturePath(root, fixtureBase), { recursive: true, force: true, maxRetries: 5 })
         .catch(() => process.stderr.write(`Fixture locked by a surviving child; evidence kept at ${root}\n`));
     } else process.stderr.write(`Acceptance evidence preserved at ${root}\n`);
