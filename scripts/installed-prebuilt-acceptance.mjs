@@ -129,6 +129,25 @@ async function exerciseUpgrade(fixture, root, anchor, exported, operatorWorkFile
   return upgraded.version;
 }
 
+// Rollback journey: the retained prior payload re-stages and re-activates,
+// returning the anchor, registration, and live service to the earlier slot.
+async function exerciseRollback(fixture, root, anchor, exported, operatorWorkFile, operatorWork) {
+  fixture.nnd = anchor;
+  const back = await stageAndActivate(fixture, root, exported, 'rollback-');
+  const slotsRoot = join(fixture.data, 'runtime', 'nnd', 'install-slots');
+  const consumed = await readdir(join(slotsRoot, 'consumed'));
+  assert.equal(consumed.length, 2, 'the upgrade receipt must rotate before rollback commits');
+  assert.match(await readFile(join(slotsRoot, 'activation-retirement-commit.json'), 'utf8'),
+    /terminal_committed_barred/u, 'rollback writes its own terminal evidence');
+  const binding = JSON.parse(await readFile(join(anchor, 'nnd-anchor.json'), 'utf8'));
+  assert.equal(binding.version, exported.version, 'launcher anchor must return to the prior slot');
+  assert.equal(binding.nnd_package_root.toLowerCase(), back.packageRoot.toLowerCase());
+  fixture.nnd = back.packageRoot;
+  const status = await assertSelected(fixture, back.packageRoot, exported.version);
+  await exerciseShells(fixture, root, status);
+  await readFile(operatorWorkFile, 'utf8').then(value => assert.equal(value, operatorWork));
+}
+
 async function main(nnaSource) {
   assert.equal(process.platform, 'win32', 'Windows prebuilt acceptance only');
   assert.ok(typeof nnaSource === 'string' && /^[A-Za-z]:[\\/]/u.test(nnaSource), 'Provide an absolute NNA source root');
@@ -161,9 +180,13 @@ async function main(nnaSource) {
     const upgradedVersion = await exerciseUpgrade(fixture, root, anchor, exported, operatorWorkFile, operatorWork);
     await cli(fixture, 'stop');
     await waitStopped(fixture);
+    // Rollback: the retained prior payload re-activates onto the same anchor.
+    await exerciseRollback(fixture, root, anchor, exported, operatorWorkFile, operatorWork);
+    await cli(fixture, 'stop');
+    await waitStopped(fixture);
     serviceStopped = true;
     await uninstall(fixture, root, anchor);
-    process.stdout.write(`Real exported prebuilt payload, upgrade, activation, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion}).\n`);
+    process.stdout.write(`Real exported prebuilt payload, upgrade, rollback, activation, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion} -> ${exported.version}).\n`);
   } catch (error) {
     // An active install-guard or shell child can lock the fixture; preserve
     // evidence rather than replacing the real failure with EBUSY.
