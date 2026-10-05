@@ -107,3 +107,15 @@ test('junction aliases share identity; relocated installs retain data identity a
   await symlink(escaped, join(next, 'installed'), process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(readNndServiceIdentity(next), { code: 'nnd_install_payload_invalid' });
 });
+test('incarnation identifier is surfaced when recorded and never fabricated (ADR 0070)', async (t) => {
+  const f = await fixture(t);
+  const baseline = await readNndServiceIdentity(f.root);
+  assert.equal(baseline.incarnation_id, null);
+  const id = '0f8f9f6e-1a2b-4c3d-9e5f-6a7b8c9d0e1f';
+  await f.save({ ...f.descriptor, incarnation_id: id });
+  assert.equal((await readNndServiceIdentity(f.root)).incarnation_id, id);
+  for (const bad of ['', 'X' + id.slice(1), id.toUpperCase(), 42]) {
+    await f.save({ ...f.descriptor, incarnation_id: bad });
+    await assert.rejects(readNndServiceIdentity(f.root), { code: 'nnd_install_descriptor_invalid' });
+  }
+});

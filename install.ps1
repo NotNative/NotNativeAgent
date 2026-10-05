@@ -573,7 +573,16 @@ try {
 exit `$NnaExitCode
 "@
 [IO.File]::WriteAllText((Join-Path $BinRoot 'nna.ps1'), $PowerShellLauncher, [Text.UTF8Encoding]::new($false))
-$InstallMarker = @{ product = $Product; version = $Version; install_root = $InstallRoot; data_root = $DataRoot; node = $NodePath; node_major = $NodeMajor } | ConvertTo-Json
+# ADR 0070: the incarnation survives in-place descriptor rewrites and dies with the installation directory.
+$IncarnationPath = Join-Path $InstallRoot 'install.json'
+$IncarnationId = [Guid]::NewGuid().ToString()
+if (Test-Path -LiteralPath $IncarnationPath -PathType Leaf) {
+    try {
+        $PriorIncarnation = [string]((Get-Content -LiteralPath $IncarnationPath -Raw | ConvertFrom-Json).incarnation_id)
+        if ($PriorIncarnation -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') { $IncarnationId = $PriorIncarnation }
+    } catch { }
+}
+$InstallMarker = @{ product = $Product; version = $Version; install_root = $InstallRoot; data_root = $DataRoot; node = $NodePath; node_major = $NodeMajor; incarnation_id = $IncarnationId } | ConvertTo-Json
 [IO.File]::WriteAllText((Join-Path $InstallRoot 'install.json'), $InstallMarker, [Text.UTF8Encoding]::new($false))
 Write-InstallerOk 'PowerShell and Command Prompt launchers written'
 Write-InstallerLine "      $BinRoot" DarkGray

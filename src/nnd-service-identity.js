@@ -67,7 +67,9 @@ async function jsonFile(path, code) {
 function validateDescriptor(value) {
   if (value.product !== 'NotNativeAgent' || !isNndVersion(value.version)
     || !absolutePath(value.install_root) || !absolutePath(value.data_root) || !absolutePath(value.node)
-    || !Number.isSafeInteger(value.node_major) || value.node_major < 24 || value.node_major > 100) {
+    || !Number.isSafeInteger(value.node_major) || value.node_major < 24 || value.node_major > 100
+    || (value.incarnation_id !== undefined
+      && !(typeof value.incarnation_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value.incarnation_id)))) {
     fail('nnd_install_descriptor_invalid', 'NNA installation descriptor fields are invalid');
   }
 }
@@ -123,7 +125,9 @@ export async function readNndServiceIdentity(selectedInstallRoot, options = {}) 
   }
   const runtime = await probeNode(node, descriptor.node_major);
   const digest = (path) => createHash('sha256').update(pathKey(path), 'utf8').digest('hex');
+  // ADR 0070: descriptors predating the decision report null; absence is never fabricated.
   return Object.freeze({ installation_id: `nna_${digest(root)}`, data_id: `data_${digest(data)}`,
+    incarnation_id: typeof descriptor.incarnation_id === 'string' ? descriptor.incarnation_id : null,
     install_root: root, data_root: data, node, cli_path: cli, version: descriptor.version,
     node_major: descriptor.node_major, platform: runtime.platform, architecture: runtime.architecture,
     runtime_version: runtime.version });
