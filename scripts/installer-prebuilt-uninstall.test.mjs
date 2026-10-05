@@ -58,7 +58,8 @@ test('uninstall binds the public target to the exact selected NNA artifact', { s
     $dir = '${f.anchor.replaceAll("'", "''")}'
     $nna = @{ InstallRoot = '${selected.installRoot.replaceAll("'", "''")}'; DataRoot = '${f.data.replaceAll("'", "''")}' }
     $result = Resolve-NndPrebuiltAnchorForUninstall $dir $nna $capabilities
-    if($result -ne '${f.slot.replaceAll("'", "''")}'){throw 'Wrong slot'}
+    if($result.root -ne '${f.slot.replaceAll("'", "''")}'){throw 'Wrong slot'}
+    if($result.version -ne '20261004-4'){throw 'Wrong version'}
     'resolved'
   `;
   const result = run(f.root, 'scripts/installer-prebuilt-uninstall.ps1', body);

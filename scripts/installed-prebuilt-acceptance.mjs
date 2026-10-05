@@ -2,7 +2,7 @@
 /** Real exported NND payload consumed by disposable installed NNA. */
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
-import { lstat, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +10,7 @@ import {
   checkedFixturePath, cli, prepare, privateDirectory, run, selectedPackage,
   shell, waitStopped, acceptanceEvidence,
 } from './installed-source-acceptance.mjs';
-import { exportPrebuiltPayload } from './export-prebuilt-payload.mjs';
+import { exportPrebuiltPayload, writePayloadManifest } from './export-prebuilt-payload.mjs';
 
 const source = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The immutable slot name includes the payload digest, so use a trusted home
@@ -18,7 +18,7 @@ const source = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureBase = process.env.NND_ACCEPTANCE_FIXTURE_ROOT ?? join(homedir(), '.n');
 
 // Stage, then activate one prepared immutable slot; return its live roots.
-async function stageAndActivate(fixture, root, exported) {
+async function stageAndActivate(fixture, root, exported, tag = '') {
   const manifest = await readFile(join(exported.root, 'NND_PAYLOAD.json'));
   const manifestSha256 = createHash('sha256').update(manifest).digest('hex').toLowerCase();
   const installer = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
@@ -27,7 +27,7 @@ async function stageAndActivate(fixture, root, exported) {
     '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna, '-ShortcutRoot', fixture.shortcuts];
   const staged = await run('powershell.exe', [...installer, '-StagePrebuiltPayload', ...common], {
     cwd: root, env: fixture.env, timeout: 900000,
-    outputFiles: { stdout: join(root, 'staging-stdout.log'), stderr: join(root, 'staging-stderr.log') },
+    outputFiles: { stdout: join(root, `${tag}staging-stdout.log`), stderr: join(root, `${tag}staging-stderr.log`) },
   });
   const stageMatch = staged.match(/^\s*operation    : ([a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/m);
   assert.match(staged, /Prebuilt NND payload staged; activation remains pending/u);
@@ -35,7 +35,7 @@ async function stageAndActivate(fixture, root, exported) {
   const activation = await run('powershell.exe', [...installer, '-ActivatePrebuiltSlot',
     '-PrebuiltStageOperation', stageMatch[1], ...common], {
     cwd: root, env: fixture.env, timeout: 900000,
-    outputFiles: { stdout: join(root, 'activation-stdout.log'), stderr: join(root, 'activation-stderr.log') },
+    outputFiles: { stdout: join(root, `${tag}activation-stdout.log`), stderr: join(root, `${tag}activation-stderr.log`) },
   });
   const slotMatch = activation.match(/^\s*slot         : (.+)$/m);
   assert.match(activation, /Prebuilt NND activated; public controller attached/u);
@@ -45,6 +45,26 @@ async function stageAndActivate(fixture, root, exported) {
   assert.equal((await readFile(join(packageRoot, 'VERSION'), 'utf8')).trim(), exported.version);
   assert.deepEqual(await readFile(join(packageRoot, 'NND_PAYLOAD.json')), manifest);
   return { installer, common, packageRoot };
+}
+
+// Build a second export by cloning the first with a bumped version, so the
+// upgrade path exercises a genuinely different payload and slot identity.
+async function upgradeCopy(root, exported) {
+  const nextVersion = `${exported.version.slice(0, 8)}-${1 + Number(exported.version.slice(9))}`;
+  const next = { root: join(root, 'NND payload upgrade'), version: nextVersion };
+  await cp(exported.root, next.root, { recursive: true, errorOnEbusy: false });
+  await rm(join(next.root, 'NND_PAYLOAD.json'));
+  await writeFile(join(next.root, 'VERSION'), `${nextVersion}\n`);
+  const info = JSON.parse(await readFile(join(next.root, 'package.json'), 'utf8'));
+  info.version = nextVersion.replace('-', '.0.');
+  info.nnd_version = nextVersion;
+  await writeFile(join(next.root, 'package.json'), `${JSON.stringify(info)}\n`);
+  const manifestPath = join(next.root, 'nna-integration', 'nnd-local', 'integration.json');
+  const integration = JSON.parse(await readFile(manifestPath, 'utf8'));
+  integration.version = nextVersion;
+  await writeFile(manifestPath, `${JSON.stringify(integration)}\n`);
+  await writePayloadManifest(next.root, nextVersion);
+  return next;
 }
 
 // Attach both Chromium shells to the live service; the desktop shell must
@@ -72,19 +92,41 @@ async function assertSelected(fixture, packageRoot, version) {
   return status;
 }
 
-async function uninstall(fixture, root) {
+async function uninstall(fixture, root, anchor) {
   const uninstalled = await run('powershell.exe', [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', join(source, 'install.ps1'),
-    '-Uninstall', '-NnaInstallRoot', fixture.nna, '-InstallDir', fixture.nnd, '-ShortcutRoot', fixture.shortcuts], {
+    '-Uninstall', '-NnaInstallRoot', fixture.nna, '-InstallDir', anchor, '-ShortcutRoot', fixture.shortcuts], {
     cwd: root, env: fixture.env, timeout: 120000,
     outputFiles: { stdout: join(root, 'uninstall-stdout.log'), stderr: join(root, 'uninstall-stderr.log') },
   });
   assert.match(uninstalled, /Uninstall complete/u);
-  assert.equal('ENOENT', (await lstat(fixture.nnd).then(() => 'present', error => error.code)),
+  assert.equal('ENOENT', (await lstat(anchor).then(() => 'present', error => error.code)),
     'Default uninstall must remove only the launcher anchor');
   assert.equal((await selectedPackage(fixture)).registered, false, 'Default uninstall must deactivate NND');
   assert.doesNotThrow(async () => await lstat(join(fixture.data, 'runtime', 'nnd', 'install-slots')),
     'Default uninstall must preserve immutable slots and provenance');
+}
+
+// Upgrade journey: clone the export at a new version, re-stage/re-activate
+// after a clean stop, and prove rotation, anchor rebind, and re-attach.
+async function exerciseUpgrade(fixture, root, anchor, exported, operatorWorkFile, operatorWork) {
+  const upgraded = await upgradeCopy(root, exported);
+  // The installer always addresses the stable launcher anchor, not a slot.
+  fixture.nnd = anchor;
+  const up = await stageAndActivate(fixture, root, upgraded, 'upgrade-');
+  const slotsRoot = join(fixture.data, 'runtime', 'nnd', 'install-slots');
+  const consumed = await readdir(join(slotsRoot, 'consumed'));
+  assert.equal(consumed.length, 1, 'exactly one consumed receipt pair must be archived');
+  assert.match(await readFile(join(slotsRoot, 'activation-retirement-commit.json'), 'utf8'),
+    /terminal_committed_barred/u, 'the upgrade must write its own terminal evidence');
+  const binding = JSON.parse(await readFile(join(anchor, 'nnd-anchor.json'), 'utf8'));
+  assert.equal(binding.version, upgraded.version, 'launcher anchor must rebind to the new slot');
+  assert.equal(binding.nnd_package_root.toLowerCase(), up.packageRoot.toLowerCase());
+  fixture.nnd = up.packageRoot;
+  const upgradeStatus = await assertSelected(fixture, up.packageRoot, upgraded.version);
+  await exerciseShells(fixture, root, upgradeStatus);
+  await readFile(operatorWorkFile, 'utf8').then(value => assert.equal(value, operatorWork));
+  return upgraded.version;
 }
 
 async function main(nnaSource) {
@@ -99,7 +141,8 @@ async function main(nnaSource) {
   let serviceStopped = false;
   try {
     const exported = await exportPrebuiltPayload(join(root, 'NND payload'));
-    const { installer, common, packageRoot } = await stageAndActivate(fixture, root, exported);
+    const anchor = fixture.nnd;
+    const { packageRoot } = await stageAndActivate(fixture, root, exported);
     // Uninstall preserves the native data root; place the operator file there
     // so the post-uninstall survival check is a real assertion.
     const disposableData = join(fixture.data, 'user-data');
@@ -113,16 +156,27 @@ async function main(nnaSource) {
     await readFile(operatorWorkFile, 'utf8').then(value => assert.equal(value, operatorWork));
     await cli(fixture, 'stop');
     await waitStopped(fixture);
+    // Upgrade: a second payload version stops cleanly, re-stages, and
+    // re-activates; the prior consumed receipt pair rotates into the archive.
+    const upgradedVersion = await exerciseUpgrade(fixture, root, anchor, exported, operatorWorkFile, operatorWork);
+    await cli(fixture, 'stop');
+    await waitStopped(fixture);
     serviceStopped = true;
-    await uninstall(fixture, root);
-    process.stdout.write(`Real exported prebuilt payload, activation, Chromium shells and uninstall passed (${exported.version}).\n`);
+    await uninstall(fixture, root, anchor);
+    process.stdout.write(`Real exported prebuilt payload, upgrade, activation, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion}).\n`);
+  } catch (error) {
+    // An active install-guard or shell child can lock the fixture; preserve
+    // evidence rather than replacing the real failure with EBUSY.
+    process.stderr.write(`Acceptance journey failed: ${error instanceof Error ? error.message : error}\n`);
+    throw error;
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
       catch { process.stderr.write(`Native state uncertain; preserved fixture at ${root}\n`); }
     }
     if (serviceStopped && acceptanceEvidence().uncertain === false) {
-      await rm(await checkedFixturePath(root, fixtureBase), { recursive: true, force: true, maxRetries: 5 });
+      await rm(await checkedFixturePath(root, fixtureBase), { recursive: true, force: true, maxRetries: 5 })
+        .catch(() => process.stderr.write(`Fixture locked by a surviving child; evidence kept at ${root}\n`));
     } else process.stderr.write(`Acceptance evidence preserved at ${root}\n`);
   }
 }

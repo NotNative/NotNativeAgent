@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Installs a fresh NND selection/launcher anchor after immutable activation succeeds. */
-import { copyFile, lstat, mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeNnaSelection } from './write-nna-selection.mjs';
@@ -41,6 +41,20 @@ async function ensureAbsent(path, code) {
   fail(code);
 }
 
+// A prior anchor may only be replaced when it is a marked NND anchor bound to
+// this exact installation identity; anything else stays untouched.
+async function verifyRebindableAnchor(anchor, installationId, dataId) {
+  const bindingBytes = await readFile(join(anchor, 'nnd-anchor.json')).catch(() => null);
+  if (!bindingBytes || bindingBytes.length > 16384) fail('prebuilt_anchor_present');
+  let binding;
+  try { binding = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bindingBytes)); }
+  catch { fail('prebuilt_anchor_present'); }
+  if (!binding || typeof binding !== 'object' || Array.isArray(binding)
+    || binding.schema_version !== '1.0'
+    || binding.installation_id !== installationId || binding.data_id !== dataId) fail('prebuilt_anchor_present');
+  return binding;
+}
+
 async function remove(path) {
   await rm(path, { recursive: true, force: true });
 }
@@ -64,7 +78,10 @@ export async function installPrebuiltAnchor({
     || sameRoot(anchor, packageRoot) || packageRoot.startsWith(anchor + '\\') || anchor.startsWith(packageRoot + '\\')) {
     fail('prebuilt_anchor_path_overlap');
   }
-  await ensureAbsent(anchor, 'prebuilt_anchor_present');
+  // Fresh install demands an absent target; an upgrade may only replace a
+  // marked anchor bound to this same installation identity.
+  const anchorExists = (await lstat(anchor).catch(() => null)) !== null;
+  if (anchorExists) await verifyRebindableAnchor(anchor, installationId, dataId);
   const parent = anchor.slice(0, Math.max(0, anchor.lastIndexOf('\\')));
   const temporary = join(parent, `.${anchor.split('\\').at(-1)}.${crypto.randomUUID()}.staging`);
   await mkdir(parent, { recursive: true });
@@ -82,8 +99,18 @@ export async function installPrebuiltAnchor({
       activation_operation_id: activationOperationId, candidate_sha256: candidateSha256,
       installation_id: installationId, data_id: dataId,
     }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-    await ensureAbsent(anchor, 'prebuilt_anchor_present');
-    await rename(temporary, anchor);
+    let displaced = null;
+    if (anchorExists) {
+      displaced = join(parent, `.${anchor.split('\\').at(-1)}.${crypto.randomUUID()}.previous`);
+      await rename(anchor, displaced);
+    }
+    try {
+      await rename(temporary, anchor);
+    } catch (error) {
+      if (displaced) await rename(displaced, anchor).catch(() => undefined);
+      throw error;
+    }
+    if (displaced) await remove(displaced);
     const installed = await readdir(anchor, { recursive: true });
     if (installed.filter(entry => /\.staging$/u.test(entry)).length) fail('prebuilt_anchor_staging_invalid');
     return { anchor, nnd_package_root: packageRoot, version };

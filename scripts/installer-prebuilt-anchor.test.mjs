@@ -66,3 +66,23 @@ test('failed staging cleanup leaves no partial anchor', async t => {
   const entries = await readdir(f.base);
   assert.equal(entries.filter(entry => entry.includes('.staging')).length, 0);
 });
+
+test('upgrade rebinds only a marked anchor of the same installation identity', async t => {
+  const f = await fixture(t);
+  await installPrebuiltAnchor(f.input);
+  // A foreign-identity anchor keeps the bar and stays byte-untouched.
+  const bindingPath = join(f.anchor, 'nnd-anchor.json');
+  const binding = JSON.parse(await readFile(bindingPath, 'utf8'));
+  const foreign = { ...binding, installation_id: 'nna_' + '0'.repeat(64) };
+  await writeFile(join(f.base, 'keep.exe'), 'user');
+  await assert.rejects(() => installPrebuiltAnchor({ ...f.input,
+    installationId: foreign.installation_id }), /prebuilt_anchor_present/u);
+  assert.equal(JSON.parse(await readFile(bindingPath, 'utf8')).installation_id, f.input.installationId);
+  // The same installation may replace its own anchor with the new package.
+  await installPrebuiltAnchor({ ...f.input, version: '20261004-2', payloadSha256: 'c'.repeat(64) });
+  const rebound = JSON.parse(await readFile(bindingPath, 'utf8'));
+  assert.equal(rebound.version, '20261004-2');
+  assert.ok((await stat(join(f.anchor, 'packages', 'electron', 'native-service-client.mjs'))).isFile());
+  const leftovers = (await readdir(f.base)).filter(entry => entry.includes('.previous') || entry.includes('.staging'));
+  assert.deepEqual(leftovers, []);
+});

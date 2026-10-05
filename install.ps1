@@ -387,7 +387,9 @@ if ($Uninstall) {
     if (Test-Path -LiteralPath (Join-Path $targetPath 'nnd-anchor.json') -PathType Leaf) {
         $uninstallCapabilities = Assert-NndNnaCapabilities $uninstallNna
         Assert-NndSelectedPin $uninstallNna $uninstallCapabilities
-        $uninstallPackageRoot = Resolve-NndPrebuiltAnchorForUninstall $targetPath $uninstallNna $uninstallCapabilities
+        $uninstallAnchor = Resolve-NndPrebuiltAnchorForUninstall $targetPath $uninstallNna $uninstallCapabilities
+        $uninstallPackageRoot = $uninstallAnchor.root
+        $uninstallPackageVersion = $uninstallAnchor.version
         $runningExe = Join-Path $uninstallPackageRoot 'packages\electron\node_modules\electron\dist\electron.exe'
     } else {
         $uninstallPackageRoot = $targetPath
@@ -404,7 +406,7 @@ if ($Uninstall) {
     # failed deactivation leaves the install intact for an explicit retry.
     $uninstallStatus = Get-NndRegistrationStatus $uninstallNna
     if ($uninstallCapabilities) {
-        Assert-NndUninstallRegistrationStatus $uninstallStatus $uninstallPackageRoot $uninstallCapabilities.version
+        Assert-NndUninstallRegistrationStatus $uninstallStatus $uninstallPackageRoot $uninstallPackageVersion
         Assert-NndUninstallGuardIdentity $uninstallGuard $uninstallCapabilities
     }
     if (Test-InstallRunning $runningExe) { throw 'NND started from the selected install during uninstall; removal was stopped.' }
@@ -507,6 +509,9 @@ if ($ActivatePrebuiltSlot) {
     $preflightOperation = [Guid]::NewGuid().ToString()
     $preflight = Invoke-NndPrebuiltActivationPreflight $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflightOperation
     $activated = Invoke-NndPrebuiltActivation $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflight.candidate_sha256
+    # Only a freshly created anchor may be removed on failure; a rebound
+    # upgrade anchor keeps the launcher path alive for the new slot.
+    $anchorFresh = -not (Test-Path -LiteralPath $targetPath)
     $anchorCreated = $false
     try {
         & $nna.Node (Join-Path $Source 'scripts\installer-prebuilt-anchor.mjs') $targetPath $Source $nna.InstallRoot $activated.root $capabilities.installation_id $capabilities.data_id $activated.version $PrebuiltStageOperation $activated.operation_id $checkedPayload.Sha256 $preflight.candidate_sha256
@@ -520,7 +525,7 @@ if ($ActivatePrebuiltSlot) {
             Write-Good "shortcut: $shortcutRoot\NotNativeDesktop.lnk"
         }
     } catch {
-        if ($anchorCreated -and (Test-Path -LiteralPath $targetPath)) {
+        if ($anchorCreated -and $anchorFresh -and (Test-Path -LiteralPath $targetPath)) {
             Remove-Item -LiteralPath $targetPath -Recurse -Force
         }
         throw

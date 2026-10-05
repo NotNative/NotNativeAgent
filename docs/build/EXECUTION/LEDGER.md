@@ -40,7 +40,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
 | L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→guarded uninstall green on disposable fixture (20261004-15); upgrade/rollback/migration pending |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→guarded uninstall green on disposable fixture (20261005-2); rollback/cancellation/migration pending |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
@@ -108,6 +108,25 @@ shared-service lifetime, and clean stop. NNA quality, the full source suite with
 contention-prone originals rerun separately, graph/language gates, and focused lock/discovery cases
 passed. NNA platform certification remains a separate release requirement. NND prebuilt acceptance,
 upgrade/rollback, login startup, and real setup/provider journeys remain open.
+
+## NND 20261005-2 — prebuilt upgrade acceptance green
+
+The disposable fixture journey extended past fresh install into a real upgrade:
+a second exported payload at the next version was staged and activated after a
+clean stop, and guarded uninstall then removed the rebound anchor.
+`Real exported prebuilt payload, upgrade, activation, Chromium shells and
+uninstall passed (20261004-15 -> 20261004-16)`. Evidence asserted in-harness:
+exactly one consumed receipt pair archived under `install-slots/consumed/`
+(NNA ADR 0069 rotation, `e4f2874a`), the upgrade writes its own terminal
+commit, the stable launcher anchor rebinds only for a marked anchor bound to
+the same installation identity, registration switches to the new immutable
+slot, both Chromium shells re-attach, and operator data survives. The
+anchor-passing harness exposed a latent uninstall bug: the registration-status
+check compared against a non-existent capabilities field; the uninstall
+resolver now returns the binding's `{root, version}` and the comparison uses
+that (unit suite green). Failed journeys keep evidence instead of masking the
+real error with a locked-fixture EBUSY. Rollback, cancellation, and
+migration/reinstall evidence remain open for L5.
 
 ## NND 20261004-15 — prebuilt installed acceptance green
 

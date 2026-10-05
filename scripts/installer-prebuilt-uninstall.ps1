@@ -57,5 +57,5 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
         }
         $checkPath = [IO.Directory]::GetParent($checkPath).FullName
     }
-    return $packageRoot
+    return @{ root = $packageRoot; version = $binding.version }
 }
