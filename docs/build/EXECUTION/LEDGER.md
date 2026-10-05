@@ -40,7 +40,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
 | L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall green on disposable fixture (20261005-4); migration evidence pending |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); legacy Electron-owned backend takeover (first-upgrade process-ownership drain) is the remaining scope item |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
@@ -108,6 +108,37 @@ shared-service lifetime, and clean stop. NNA quality, the full source suite with
 contention-prone originals rerun separately, graph/language gates, and focused lock/discovery cases
 passed. NNA platform certification remains a separate release requirement. NND prebuilt acceptance,
 upgrade/rollback, login startup, and real setup/provider journeys remain open.
+
+## NND 20261005-5 — prebuilt migration acceptance green; L5 lifecycle closed
+
+The journey now begins with a legacy-data reconciliation: the fixture
+seeds an Electron-era session catalog (`nnd-contexts.json` with
+`workspaceIds: ['local']`, one child snapshot, one bound journal) plus a
+provider manifest, exactly like an existing operator's data root. The
+installed CLI's `nnd service migrate` runs before any service takeover and
+must rewrite the catalog to native workspace identity. Evidence asserted
+in-harness: `{migrated:true, sessions:1, files:2}`; parent and child gain a
+`ws_<24 hex>` id with every other byte preserved; the journal is
+byte-identical before and after; the original catalog bytes are archived
+whole under `runtime/nnd/migrations/<transaction_id>/0.before` before the
+rewrite. The seeded dead provider endpoint is then removed (trial health
+against a nonexistent model server is an unrelated scenario; NNA's unit
+suite already proves admission basis `legacy_catalog_migration` and clean
+migration recovery). The migrated catalog then survives the entire rest of
+the journey: `Real exported prebuilt payload, migration, upgrade, rollback,
+cancellation, reinstall, Chromium shells and uninstall passed (20261005-5
+-> 20261005-6 -> 20261005-5)` on a clean box, with the same data root
+carried through fresh activation, upgrade, rollback, cancellation recovery,
+reinstall, and uninstall. Root-cause tooling note: the detached activation
+owner reports only `nna: internal_failure`; a temporary `NNDEBUG=1` stack
+patch (reverted) plus in-process replay pinned an earlier failure to the
+trial-health check, not to migration. Every L5 mechanism the guides name
+except the legacy Electron-owned backend process-ownership drain now has
+disposable-fixture evidence. That takeover slice stays open: it needs a
+built legacy installation, exact child-ownership discovery, graceful drain
+verification, queue/schedule reconciliation, and the durable NNA
+installation-incarnation identifier (guide 02, lines 283-291) before it can
+be accepted honestly.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 

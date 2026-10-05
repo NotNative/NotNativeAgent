@@ -5,7 +5,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { cp, lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   checkedFixturePath, cli, prepare, privateDirectory, run, selectedPackage,
   shell, waitStopped, acceptanceEvidence,
@@ -224,6 +224,61 @@ async function exerciseReinstall(fixture, root, anchor, exported, operatorWorkFi
   await uninstall(fixture, root, anchor);
 }
 
+// Migration: a legacy Electron-era catalog (workspaceIds ['local']) carried
+// in the data root is rewritten to native workspace identity by the
+// installed CLI, journal bytes untouched, originals archived whole.
+async function exerciseMigration(fixture, root) {
+  const module = name => import(pathToFileURL(join(fixture.nna, 'installed/src', name)).href);
+  const workspace = join(root, 'legacy-workspace');
+  await mkdir(workspace, { recursive: true });
+  const sessions = join(fixture.data, 'sessions');
+  await mkdir(sessions, { recursive: true });
+  const document = { workspace_root: workspace,
+    provider: { id: 'primary', endpoint: 'http://127.0.0.1:1/v1', model: 'test', trust_zone: 'loopback' } };
+  await writeFile(join(fixture.data, 'config', 'manifest.json'), JSON.stringify(document));
+  const { resolveManifest } = await module('config.js');
+  const { NND_CONFIGURATION_OPTIONS } = await module('nnd-setup-config.js');
+  const { JournalStore } = await module('store.js');
+  const config = resolveManifest(document, NND_CONFIGURATION_OPTIONS);
+  const id = 'legacy.session';
+  const journal = new JournalStore(sessions, id);
+  await journal.open();
+  await journal.append('session_created', { sessionId: id, workspaceRoot: workspace,
+    executionManifest: config.executionManifest, mission: config.mission });
+  await journal.close();
+  const journalBytes = await readFile(journal.path);
+  const parent = { sessionId: id, subjectId: 'nnd-local-operator', workspaceIds: ['local'],
+    title: 'Preserved', directory: workspace, createdAt: 1, updatedAt: 2,
+    reviewMode: 'auto-review', reviewRevision: 7 };
+  const catalogPath = join(sessions, 'nnd-contexts.json');
+  await writeFile(catalogPath, JSON.stringify([parent]));
+  const child = { version: 1, sessionId: 'child_one', parentId: id, subjectId: parent.subjectId,
+    workspaceIds: ['local'], parentCreatedAt: 1, createdAt: 2, updatedAt: 3,
+    directory: workspace, title: 'Child', configuredModel: null, transcript: [], activity: [] };
+  await mkdir(`${catalogPath}.children`);
+  const childPath = join(`${catalogPath}.children`, `${Buffer.from(child.sessionId).toString('hex')}.json`);
+  await writeFile(childPath, JSON.stringify(child));
+  const result = JSON.parse(await run(process.execPath,
+    [fixture.cli, 'nnd', 'service', 'migrate', fixture.nna],
+    { cwd: root, env: fixture.env, timeout: 120000,
+      outputFiles: { stdout: join(root, 'migration-stdout.log'), stderr: join(root, 'migration-stderr.log') } }));
+  assert.equal(result.migrated, true);
+  assert.equal(result.sessions, 1);
+  const [rewritten] = JSON.parse(await readFile(catalogPath));
+  assert.match(rewritten.workspaceIds[0], /^ws_[a-f0-9]{24}$/u, 'catalog must gain a native workspace id');
+  assert.deepEqual({ ...rewritten, workspaceIds: ['local'] }, parent, 'only workspaceIds may change');
+  const rewrittenChild = JSON.parse(await readFile(childPath));
+  assert.match(rewrittenChild.workspaceIds[0], /^ws_[a-f0-9]{24}$/u);
+  assert.deepEqual(await readFile(journal.path), journalBytes, 'journals are never rewritten');
+  const backup = join(fixture.data, 'runtime', 'nnd', 'migrations', result.transaction_id, '0.before');
+  assert.deepEqual(await readFile(backup), Buffer.from(JSON.stringify([parent])), 'original catalog is archived before rewrite');
+  // The legacy provider config pointed at a dead endpoint; the activation
+  // trial would keep failing health for that unrelated reason. The migrated
+  // catalog itself stays in the data root and is carried across every later
+  // leg of the journey.
+  await rm(join(fixture.data, 'config', 'manifest.json'), { force: true });
+}
+
 // Uninstall preserves the native data root; place the operator file there
 // so the post-uninstall survival check is a real assertion.
 async function operatorEvidence(fixture) {
@@ -247,6 +302,7 @@ async function main(nnaSource) {
   let serviceStopped = false;
   let journeyFailed = true;
   try {
+    await exerciseMigration(fixture, root);
     const exported = await exportPrebuiltPayload(join(root, 'NND payload'));
     const anchor = fixture.nnd;
     const { packageRoot } = await stageAndActivate(fixture, root, exported);
@@ -274,7 +330,7 @@ async function main(nnaSource) {
     await uninstall(fixture, root, anchor);
     await exerciseReinstall(fixture, root, anchor, exported, operatorWorkFile, operatorWork);
     journeyFailed = false;
-    process.stdout.write(`Real exported prebuilt payload, upgrade, rollback, cancellation, reinstall, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion} -> ${exported.version}).\n`);
+    process.stdout.write(`Real exported prebuilt payload, migration, upgrade, rollback, cancellation, reinstall, Chromium shells and uninstall passed (${exported.version} -> ${upgradedVersion} -> ${exported.version}).\n`);
   } catch (error) {
     // An active install-guard or shell child can lock the fixture; preserve
     // evidence rather than replacing the real failure with EBUSY.
