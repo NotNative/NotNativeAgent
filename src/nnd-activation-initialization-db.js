@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { DatabaseSync } from 'node:sqlite';
-import { lstat, opendir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { lstat, opendir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { noLinks } from './nnd-payload-contract-files.js';
@@ -48,13 +49,64 @@ export async function hasActivationInitialization(dataRoot) {
   if (!db) return false;
   try { return row(db) !== null; } finally { db.close(); }
 }
-export async function hasActivationEvidence(dataRoot) {
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
+const SHA = /^[a-f0-9]{64}$/u;
+async function readPairBytes(path) {
+  const bytes = await readFile(path);
+  if (bytes.length > 4096) throw invalid();
+  let value;
+  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+  catch { throw invalid(); }
+  return { bytes, value };
+}
+/** ADR 0065/0066 receipt test: canonical, mutually bound, and bound to this identity. */
+async function consumedRetirementPair(root, identity) {
+  if (!identity) return false;
+  try {
+    const commit = await readPairBytes(join(root, 'activation-retirement-commit.json'));
+    const witness = await readPairBytes(join(root, 'activation-retirement-cleared.json'));
+    const terminalKeys = ['protocol', 'state', 'operation_id', 'stage_operation_id', 'installation_id',
+      'data_id', 'generation', 'plan_sha256', 'decision_sha256', 'completion_sha256',
+      'marker_sha256', 'registration_revision', 'discovery_sha256', 'child_process_identity'];
+    const t = commit.value, w = witness.value;
+    const keySet = (o, extra = 0) => o && typeof o === 'object' && !Array.isArray(o)
+      && Object.keys(o).length === terminalKeys.length + extra;
+    // Every field mirrors except `state`, which intentionally differs and is
+    // validated per-file above (ADR 0064/0065 canonical shapes).
+    const mirror = terminalKeys.filter(key => key !== 'state').every(key =>
+      t?.[key] !== undefined && Object.hasOwn(w, key)
+      && Buffer.from(JSON.stringify(w[key])).equals(Buffer.from(JSON.stringify(t[key]))));
+    const canonical = (bytes, value) => Buffer.from(JSON.stringify(value) + '\n').equals(bytes);
+    if (!keySet(t) || !keySet(w, 1) || !canonical(commit.bytes, t) || !canonical(witness.bytes, w)) return false;
+    if (t.protocol !== '1.0' || t.state !== 'terminal_committed_barred'
+      || w.state !== 'barriers_cleared_admission_barred'
+      || !UUID.test(t.operation_id) || !UUID.test(t.stage_operation_id) || t.operation_id === t.stage_operation_id
+      || !UUID.test(t.generation) || !SHA.test(t.plan_sha256) || !SHA.test(t.decision_sha256)
+      || !SHA.test(t.completion_sha256) || !SHA.test(t.marker_sha256) || !SHA.test(t.registration_revision)
+      || !SHA.test(t.discovery_sha256)) return false;
+    if (identity.installation_id && (t.installation_id !== identity.installation_id
+      || w.installation_id !== identity.installation_id)) return false;
+    if (identity.data_id && (t.data_id !== identity.data_id || w.data_id !== identity.data_id)) return false;
+    return mirror && createHash('sha256').update(commit.bytes).digest('hex') === w.terminal_sha256
+      && w.protocol === '1.0';
+  } catch { return false; }
+}
+export async function hasActivationEvidence(dataRoot, identity = null) {
   const root = join(dataRoot, 'runtime', 'nnd', 'install-slots');
   // External retirement evidence keeps ordinary admission barred even after
   // the journal, earlier proofs, and marker have been retired.
-  if (await regular(join(root, 'activation-retirement-cleared.json'), true)
-    || await regular(join(root, 'activation-retirement-commit.json'), true)
-    || await regular(join(root, 'activation-retirement-decision.json'), true)
+  const cleared = await regular(join(root, 'activation-retirement-cleared.json'), true);
+  const committed = await regular(join(root, 'activation-retirement-commit.json'), true);
+  if (cleared && committed && await consumedRetirementPair(root, identity)) {
+    // ADR 0065/0066: the terminal commit and cleared witness are durable by
+    // design, but ADR 0065 reserves this exact transition — once the live
+    // admission gate and public controller have reconciled, ordinary startup
+    // may treat the canonical pair as an admission receipt. The pair must be
+    // byte-canonical, mirror each other field for field, and the witness must
+    // hash-bind the commit bytes. Either file alone, or any alteration,
+    // keeps the bar exactly as ADR 0065 demands.
+  } else if (cleared || committed) return true;
+  if (await regular(join(root, 'activation-retirement-decision.json'), true)
     || await regular(join(root, 'activation-retirement.json'), true)) return true;
   const directory = join(root, 'activations');
   try { await lstat(directory); } catch (error) { if (error.code === 'ENOENT') return false; throw invalid(); }

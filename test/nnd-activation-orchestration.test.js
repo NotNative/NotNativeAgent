@@ -84,6 +84,7 @@ function driveCallbacks() {
     makeFinalContext: () => ({
       withFinalOwnership: async operation => operation({
         publishSelected: async () => { finalSeen.push('publish'); return { state: 'discovery_published_unresolved' }; },
+        selectNativePrincipal: async () => { finalSeen.push('select'); return { state: 'native_principal_selected_unresolved' }; },
         recordPrivateTicket: async () => { finalSeen.push('receipt'); return { state: 'private_ticket_recorded_unresolved' }; },
         verifyHeldTicket: async () => { finalSeen.push('ticket'); return { state: 'held_private_ticket_verified_unresolved' }; },
         promotePrivatePrincipal: async () => { finalSeen.push('promote'); return { state: 'native_principal_promoted_unresolved' }; },
@@ -155,7 +156,7 @@ test('trial continuation selects registration and final window promotes then ret
     { state: 'registration_selected_unresolved' });
   assert.deepEqual(d.selection, ['discovery', { operationId, stageOperationId }]);
   const owner = await trialOptions.afterFinalVerification(d.makeFinalContext());
-  assert.deepEqual(d.finalSeen, ['publish', 'receipt', 'ticket', 'promote', 'probe', 'record', 'retain']);
+  assert.deepEqual(d.finalSeen, ['publish', 'select', 'receipt', 'ticket', 'promote', 'record', 'retain']);
   assert.equal(typeof owner.transferNativeAdmission, 'function');
 });
 

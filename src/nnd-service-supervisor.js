@@ -21,6 +21,7 @@ import { transferRetainedNativeAdmission } from './nnd-activation-native-admissi
 import { publishRetainedNndController } from './nnd-activation-public-controller.js';
 import { selectNndTrialRegistrationUnderOwnership } from './nnd-activation-registration.js';
 import { publishNndSelectedDiscoveryUnderOwnership } from './nnd-activation-publication.js';
+import { selectNndNativePrincipalUnderOwnership } from './nnd-activation-native-selection.js';
 import { recordNndPrivateTicketUnderOwnership } from './nnd-activation-ticket-receipt.js';
 import { verifyNndHeldTicketUnderOwnership } from './nnd-activation-held-ticket.js';
 import { probeNndPromotedPrivateAttachUnderOwnership } from './nnd-activation-promoted-private-attach.js';
@@ -166,7 +167,13 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
     session.state.native = await startNndNativeService(paths, identity, { ...options, unpublishedTrial: true, trialAdmissionGate: admissionGate });
     await startSupervisorChild(session, paths);
     monitorSupervisor(session);
-    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions), ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease), selectRegistration: options => selectTrialRegistration(session, registryLease, options), publishSelected: options => publishNndSelectedDiscoveryUnderOwnership(identity, session.state, lease, registryLease, options), recordPrivateTicket: options => recordNndPrivateTicketUnderOwnership(identity, session.state, lease, registryLease, options), verifyHeldTicket: options => verifyNndHeldTicketUnderOwnership(identity, session.state, lease, registryLease, options), promotePrivatePrincipal: options => session.state.native.promoteTrialPrincipal(session.state, lease, registryLease, options), probePromotedPrivateAttach: options => probeNndPromotedPrivateAttachUnderOwnership(identity, session.state, lease, registryLease, options), recordPromotedPrivateAttach: options => recordTrialPromotedAttach(session, registryLease, options), retainQuarantinedOwner: () => retainQuarantinedTrial(session), trialChildPid: () => session.state.child?.child?.pid ?? null, registrationSelected: () => session.state.registrationSelected === true } : {}) });
+    const finalOptions = options => {
+      const bound = { operationId: session.state.activationOperationId,
+        stageOperationId: session.state.stageOperationId, generation: session.state.record.instance_id };
+      if (options && Object.entries(bound).some(([key, value]) => options[key] != null && options[key] !== value)) throw new ContractError('nnd_activation_transition_proof_invalid', 'NND activation identity changed');
+      return { ...bound, ...options };
+    };
+    return Object.freeze({ ...session.handle, verify: (probeOptions) => verifyUnpublishedTrial(session.state, probeOptions), ...(registryLease ? { prepareDiscovery: () => prepareTrialDiscovery(session, registryLease), selectRegistration: options => selectTrialRegistration(session, registryLease, options), publishSelected: options => publishNndSelectedDiscoveryUnderOwnership(identity, session.state, lease, registryLease, finalOptions(options)), selectNativePrincipal: options => selectNndNativePrincipalUnderOwnership(identity, session.state, lease, registryLease, finalOptions(options)), recordPrivateTicket: options => recordNndPrivateTicketUnderOwnership(identity, session.state, lease, registryLease, finalOptions(options)), verifyHeldTicket: options => verifyNndHeldTicketUnderOwnership(identity, session.state, lease, registryLease, finalOptions(options)), promotePrivatePrincipal: options => session.state.native.promoteTrialPrincipal(session.state, lease, registryLease, finalOptions(options)), probePromotedPrivateAttach: options => probeNndPromotedPrivateAttachUnderOwnership(identity, session.state, lease, registryLease, finalOptions(options)), recordPromotedPrivateAttach: options => recordTrialPromotedAttach(session, registryLease, options), retainQuarantinedOwner: () => retainQuarantinedTrial(session), trialChildPid: () => session.state.child?.child?.pid ?? null, registrationSelected: () => session.state.registrationSelected === true } : {}) });
   } catch (error) { return failSupervisorStart(session, error); }
 }
 async function recordTrialPromotedAttach(session, registryLease, options) {
@@ -438,7 +445,8 @@ async function closeSupervisor(state) {
   // Invariant: uncertain writers retain both the process and singleton lease for operator diagnosis.
   if (errors.length) throw new AggregateError(errors, 'NND shutdown incomplete; singleton remains held');
   if (state.trialDiscoveryAttempted) await retireStoppedTrialDiscovery(state);
-  if (state.published) await removeNndDiscoveryPointer(state.identity, state.lease, state.record.instance_id);
+  // Trial retirement already removed the pointer; a second remove would conflict.
+  if (state.published && !state.trialDiscoveryRetired) await removeNndDiscoveryPointer(state.identity, state.lease, state.record.instance_id);
   if (!state.unpublishedTrial) await state.controller?.close();
   state.shutdownComplete = true;
   await state.releaseLease?.();
@@ -473,6 +481,7 @@ async function retireStoppedTrialDiscovery(state) {
   // Discard is idempotent when pointer removal already deleted the private
   // generation. A failed discard still retains the singleton for diagnosis.
   await discardNndTrialDiscoveryGeneration(state.identity, state.lease, generation);
+  state.trialDiscoveryRetired = true;
 }
 function status(state) {
   const runtime = state.native?.runtime.snapshot();

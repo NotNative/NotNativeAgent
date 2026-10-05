@@ -37,13 +37,15 @@ async function runFinalOwnership(context) {
   return context.withFinalOwnership(async finalWindow => {
     const published = await finalWindow.publishSelected();
     if (published?.state !== 'discovery_published_unresolved') throw transition();
+    const selected = await finalWindow.selectNativePrincipal();
+    if (selected?.state !== 'native_principal_selected_unresolved') throw transition();
     const ticketRecorded = await finalWindow.recordPrivateTicket();
     if (ticketRecorded?.state !== 'private_ticket_recorded_unresolved') throw transition();
     await finalWindow.verifyHeldTicket();
     const promoted = await finalWindow.promotePrivatePrincipal();
     if (promoted?.state !== 'native_principal_promoted_unresolved') throw transition();
-    const probed = await finalWindow.probePromotedPrivateAttach();
-    if (probed?.state !== 'promoted_private_attach_verified_unresolved') throw transition();
+    // Invariant: the record step performs the single one-use fresh attach;
+    // a separate probe would consume the redemption the receipt requires.
     const recorded = await finalWindow.recordPromotedPrivateAttach();
     if (recorded?.state !== 'promoted_attach_recorded_unresolved') throw transition();
     const owner = finalWindow.retainQuarantinedOwner();
@@ -53,14 +55,14 @@ async function runFinalOwnership(context) {
 }
 
 async function finishActivationPostHandoff(owner, registryLease,
-  { operationId, stageOperationId, generation, signal }) {
+  { operationId, stageOperationId, generation, signal, candidateSha256 }) {
   if (!operationValid(generation)) throw invalid();
   const options = { operationId, stageOperationId, generation, signal };
   const published = await driveTerminalSequence(owner, registryLease, options);
   if (published?.state !== 'public_controller_attached') throw transition();
   return Object.freeze({ state: 'public_controller_attached', operation_id: operationId,
     stage_operation_id: stageOperationId, generation: published.generation,
-    endpoint: published.endpoint, owner });
+    endpoint: published.endpoint, candidate_sha256: candidateSha256, owner });
 }
 
 // Drive the retained owner's terminal sequence in its strict dependency order.
@@ -126,8 +128,9 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
         async registryLease => {
           // Preflight the immutable slot identity under both owners before the
           // trial may construct any writer. Candidate verification grants no
-          // activation or public authority on its own.
-          await readNndActivationCandidate(identity, serviceLease, registryLease, stageOperationId);
+          // activation or public authority on its own. Retirement cleanup
+          // removes the candidate file, so the frame carries its digest.
+          const candidate = await readNndActivationCandidate(identity, serviceLease, registryLease, stageOperationId);
           signal?.throwIfAborted();
           const trial = await runNndUnpublishedTrialUnderOwnership(identity, paths, serviceLease,
             registryLease, { stageOperationId, operationId, signal,
@@ -144,10 +147,9 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
           // must release the lease.
           handedOff = true;
           retainedOwnerAfterHandoff = owner;
-        // The trial's generation is a selected discovery instance UUID, not a numeric value.
           const generation = trial?.generation;
           return await finishActivationPostHandoff(owner, registryLease,
-            { operationId, stageOperationId, generation, signal });
+            { operationId, stageOperationId, generation, signal, candidateSha256: candidate.evidence_sha256 });
         });
     } catch (error) {
       // Owner: any post-handoff error, including later registry-cleanup

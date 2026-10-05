@@ -186,12 +186,14 @@ function probePromotedAttach(trial, running, options, window, signal, tasks) {
 }
 
 function recordPromotedAttach(trial, running, options, window, signal, tasks) {
-  if (!window.active || !window.promotionResult || window.attachUsed
+  // Invariant: the probe latch and the record latch are separate one-use gates;
+  // the ordered final sequence probes the attach, then records it.
+  if (!window.active || !window.promotionResult || window.attachRecorded
     || typeof trial.recordPromotedPrivateAttach !== 'function') {
     throw new ContractError('nnd_activation_transition_proof_invalid',
       'NND promoted attach recording is unavailable');
   }
-  window.attachUsed = true;
+  window.attachRecorded = true;
   const task = Promise.resolve().then(async () => {
     const recorded = await trial.recordPromotedPrivateAttach({ operationId: options.operationId,
       stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
@@ -210,7 +212,7 @@ function recordPromotedAttach(trial, running, options, window, signal, tasks) {
 
 function finalWindowState() {
   return { active: true, ticketResult: null, promoted: false, promotionResult: null,
-    attachUsed: false, attachResult: null, retained: false };
+    attachUsed: false, attachRecorded: false, attachResult: null, retained: false };
 }
 function createFinalTicketStep(trial, running, options, proof, signal, window, ticketTasks) {
   let ticketUsed = false;
@@ -241,13 +243,17 @@ async function runFinalOwnedTask(identity, trial, running, serviceLease, registr
   const window = finalWindowState();
   const ticketTasks = [];
   const context = Object.freeze({ proof, serviceLease, registryLease, signal,
-    publishSelected: options => {
+    publishSelected: () => {
       if (!window.active || typeof trial.publishSelected !== 'function') throw new ContractError('nnd_activation_transition_proof_invalid','NND selected publication step is unavailable');
       return trial.publishSelected({ operationId: options.operationId, stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
     },
-    recordPrivateTicket: options => {
+    recordPrivateTicket: () => {
       if (!window.active || typeof trial.recordPrivateTicket !== 'function') throw new ContractError('nnd_activation_transition_proof_invalid','NND private ticket receipt step is unavailable');
       return trial.recordPrivateTicket({ operationId: options.operationId, stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
+    },
+    selectNativePrincipal: () => {
+      if (!window.active || typeof trial.selectNativePrincipal !== 'function') throw new ContractError('nnd_activation_transition_proof_invalid','NND native principal selection step is unavailable');
+      return trial.selectNativePrincipal({ operationId: options.operationId, stageOperationId: options.stageOperationId, generation: running.instance_id, signal });
     },
     verifyHeldTicket: createFinalTicketStep(trial, running, options, proof, signal, window, ticketTasks),
     promotePrivatePrincipal: () => promoteVerifiedTicket(trial, running, options, window),

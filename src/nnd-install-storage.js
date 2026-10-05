@@ -55,7 +55,7 @@ export async function assertNoNndInstallTransaction(identity) {
  const path=join(identity.data_root,'runtime','nnd','installation-pending.json');
  try { await lstat(path); } catch(error) { if(error.code==='ENOENT'&&!await hasInstallInitialization(identity.data_root)
   &&!await hasActivationInitialization(identity.data_root)
-  &&!await hasActivationEvidence(identity.data_root)) return; if(error.code!=='ENOENT')throw installError(); }
+  &&!await hasActivationEvidence(identity.data_root, identity)) return; if(error.code!=='ENOENT')throw installError(); }
  throw new ContractError('nnd_install_transaction_pending','NND installation or activation has pending evidence; native recovery is required.');
 }
 export async function openInstallStore(identity,signal,{readOnly=false}={}) {

@@ -43,7 +43,10 @@ export async function probeNndPromotedPrivateAttachUnderOwnership(identity, stat
   if (!identity || !state || !options || Object.keys(options).some(key =>
     !['operationId', 'stageOperationId', 'generation', 'signal'].includes(key))) throw invalid();
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(15000),
+    // Why: this block verifies full health twice, and each verification pays the
+    // cold Windows helper census (observed ~6 s each on this host). A 15-second
+    // budget fit only one, aborting the second after the ticket was redeemed.
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(60000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       const receipt = await readNndPrivateTicketReceiptUnderOwnership(identity, serviceLease, registryLease, options);
