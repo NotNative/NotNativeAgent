@@ -42,14 +42,18 @@ export function readNativeServiceSelection({ args, selectionFile, allowLegacy = 
     let value;
     try { value = readBoundedJson(selectionFile); }
     catch { throw new Error('native-selection-required'); }
-    if (!value || Object.keys(value).sort().join(',') !== 'data_id,installation_id,nna_install_root,schema_version'
+    if (!value || (Object.keys(value).sort().join(',') !== 'data_id,installation_id,nna_install_root,schema_version'
+        && Object.keys(value).sort().join(',') !== 'data_id,incarnation_id,installation_id,nna_install_root,schema_version')
       || value.schema_version !== '1.0'
       || !/^nna_[a-f0-9]{64}$/u.test(value.installation_id ?? '')
-      || !/^data_[a-f0-9]{64}$/u.test(value.data_id ?? '')) throw new Error('native-selection-invalid');
+      || !/^data_[a-f0-9]{64}$/u.test(value.data_id ?? '')
+      || ('incarnation_id' in value && (typeof value.incarnation_id !== 'string'
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value.incarnation_id)))) throw new Error('native-selection-invalid');
     const pinnedRoot = canonicalDirectory(value.nna_install_root);
     if (selected && pathKey(canonicalDirectory(selected)) !== pathKey(pinnedRoot)) throw new Error('native-selection-conflict');
     selected = pinnedRoot;
-    pin = { installation_id: value.installation_id, data_id: value.data_id };
+    pin = { installation_id: value.installation_id, data_id: value.data_id,
+      ...(typeof value.incarnation_id === 'string' ? { incarnation_id: value.incarnation_id } : {}) };
   }
   if (!selected) throw new Error('native-selection-required');
   return { mode: 'native', installRoot: canonicalDirectory(selected), ...pin };

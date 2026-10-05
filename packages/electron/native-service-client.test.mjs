@@ -151,3 +151,28 @@ test('redemption bounds untrusted response',async()=>{
   await assert.rejects(redeemNativeAttachment({origin:'http://127.0.0.1:4555',ticket:'ticket'},
     {fetch:async()=>new Response('x'.repeat(16385))}),/authentication/);
 });
+
+test('pinned incarnation replaces cleanly, mismatched or stale pin fails closed (ADR 0070)', windows, async t => {
+  const f = await fixture(t);
+  const file = join(f.base, 'nna-service-selection.json');
+  const incarnation = '0f8f9f6e-1a2b-4c3d-9e5f-6a7b8c9d0e1f';
+  const withIncarnation = { ...f.descriptor, incarnation_id: incarnation };
+  await writeFile(join(f.root, 'install.json'), JSON.stringify(withIncarnation));
+  const runtime = readSelectedNativeRuntime(f.root);
+  assert.equal(runtime.incarnation_id, incarnation);
+  await writeNnaSelection(f.base, f.root, runtime.installation_id, runtime.data_id);
+  const pinned = JSON.parse(await readFile(file, 'utf8'));
+  assert.equal(pinned.incarnation_id, incarnation);
+  const selection = readNativeServiceSelection({ args: [], selectionFile: file });
+  assert.equal(selection.incarnation_id, incarnation);
+  await probeNativeAttach(selection);
+  // Reinstalling at the same roots keeps path identity but replaces the incarnation.
+  await writeFile(join(f.root, 'install.json'), JSON.stringify({ ...withIncarnation,
+    incarnation_id: '1a8f9f6e-1a2b-4c3d-9e5f-6a7b8c9d0e1f' }));
+  await assert.rejects(probeNativeAttach(selection), /identity-changed/u);
+  await assert.rejects(assertSelectedNndPackage(selection, f.root), /identity-changed/u);
+  // A pre-ADR pin without an identifier proves nothing and keeps prior semantics.
+  const legacy = { mode: 'native', installRoot: f.root, installation_id: runtime.installation_id,
+    data_id: runtime.data_id };
+  assert.match((await probeNativeAttach(legacy)).endpoint, /^http:\/\/(127\.0\.0\.1|\[::1\]):/u);
+});

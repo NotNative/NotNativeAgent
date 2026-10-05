@@ -1198,7 +1198,8 @@ async function acquireNativeAttachment() {
   const currentSelection = readNativeServiceSelection({ args: process.argv, selectionFile: nativeSelectionFile });
   if (currentSelection.installRoot !== nativeSelection.installRoot
     || currentSelection.installation_id !== nativeSelection.installation_id
-    || currentSelection.data_id !== nativeSelection.data_id) throw new Error('native-selection-identity-changed');
+    || currentSelection.data_id !== nativeSelection.data_id
+    || currentSelection.incarnation_id !== nativeSelection.incarnation_id) throw new Error('native-selection-identity-changed');
   // A retry must not attach an already-running shell to an upgraded package.
   await assertSelectedNndPackage(nativeSelection, path.resolve(selfDir(), '..', '..'), nativePackageVersion);
   const attachment = await attachNativeService(nativeSelection);

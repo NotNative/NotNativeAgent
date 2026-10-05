@@ -175,10 +175,14 @@ function Get-InstalledNna {
         $legacyKeys = @('schema_version', 'nna_install_root')
         $pinnedKeys = @('schema_version', 'nna_install_root', 'installation_id', 'data_id')
         $isLegacy = $selectionKeys.Count -eq $legacyKeys.Count -and @($legacyKeys | Where-Object { $_ -notin $selectionKeys }).Count -eq 0
-        $isPinned = $selectionKeys.Count -eq $pinnedKeys.Count -and @($pinnedKeys | Where-Object { $_ -notin $selectionKeys }).Count -eq 0
+        $pinnedWithIncarnation = $selectionKeys -contains 'incarnation_id'
+        $requiredKeys = if ($pinnedWithIncarnation) { $pinnedKeys + 'incarnation_id' } else { $pinnedKeys }
+        $isPinned = $selectionKeys.Count -eq $requiredKeys.Count -and @($requiredKeys | Where-Object { $_ -notin $selectionKeys }).Count -eq 0
         if ((!$isLegacy -and !$isPinned) -or $selection.schema_version -ne '1.0' -or
             $selection.nna_install_root -isnot [string] -or $selection.nna_install_root.Length -gt 4096 -or
             ![IO.Path]::IsPathRooted($selection.nna_install_root) -or
+            ($pinnedWithIncarnation -and ($selection.incarnation_id -isnot [string] -or
+                $selection.incarnation_id -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')) -or
             ($isPinned -and ($selection.installation_id -isnot [string] -or
                 $selection.installation_id -cnotmatch '^nna_[a-f0-9]{64}$' -or
                 $selection.data_id -isnot [string] -or
@@ -188,7 +192,10 @@ function Get-InstalledNna {
             throw 'Explicit NNA root conflicts with the installed NND selection; restore the selected NNA installation.'
         }
         $nnaRoot = $selection.nna_install_root
-        if ($isPinned) { $selectionPin = @{ InstallationId = $selection.installation_id; DataId = $selection.data_id } }
+        if ($isPinned) {
+            $selectionPin = @{ InstallationId = $selection.installation_id; DataId = $selection.data_id }
+            if ($pinnedWithIncarnation) { $selectionPin.IncarnationId = $selection.incarnation_id }
+        }
     }
     if (!$NnaInstallRoot -and !$hasSelection -and !$Uninstall -and !(Test-Path -LiteralPath (Join-Path $nnaRoot 'install.json') -PathType Leaf)) {
         $launcher = Get-Command 'nna.cmd' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -212,13 +219,17 @@ function Get-InstalledNna {
     if (!(Test-Path -LiteralPath $descriptor.node -PathType Leaf) -or !(Test-Path -LiteralPath $cli -PathType Leaf)) {
         throw 'Installed NNA runtime is incomplete; NND registration was not attempted.'
     }
-    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root; Version = $descriptor.version; SelectionPin = $selectionPin }
+    return @{ Node = $descriptor.node; Cli = $cli; DataRoot = $descriptor.data_root; InstallRoot = $descriptor.install_root; Version = $descriptor.version; SelectionPin = $selectionPin; IncarnationId = $descriptor.incarnation_id }
 }
 
 function Assert-NndSelectedPin($SelectedNna, $Capabilities) {
     $pin = $SelectedNna.SelectionPin
     if ($pin -and ($pin.InstallationId -cne $Capabilities.installation_id -or $pin.DataId -cne $Capabilities.data_id)) {
         throw 'Installed NNA selection identity changed; restore the selected NNA installation before changing NND.'
+    }
+    # ADR 0070: a pinned incarnation that the live descriptor no longer reports means the NNA installation was replaced.
+    if ($pin -and $pin.IncarnationId -and $SelectedNna.IncarnationId -and $pin.IncarnationId -cne [string]$SelectedNna.IncarnationId) {
+        throw 'Installed NNA incarnation changed; restore the selected NNA installation before changing NND.'
     }
 }
 

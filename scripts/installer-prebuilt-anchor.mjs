@@ -4,6 +4,7 @@ import { copyFile, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile 
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeNnaSelection } from './write-nna-selection.mjs';
+import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
 
 const VALUES = /^[a-fA-F0-9]{64}$/u;
 const OPERATIONS = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
@@ -43,7 +44,7 @@ async function ensureAbsent(path, code) {
 
 // A prior anchor may only be replaced when it is a marked NND anchor bound to
 // this exact installation identity; anything else stays untouched.
-async function verifyRebindableAnchor(anchor, installationId, dataId) {
+async function verifyRebindableAnchor(anchor, installationId, dataId, nnaIncarnation) {
   const bindingBytes = await readFile(join(anchor, 'nnd-anchor.json')).catch(() => null);
   if (!bindingBytes || bindingBytes.length > 16384) fail('prebuilt_anchor_present');
   let binding;
@@ -52,6 +53,9 @@ async function verifyRebindableAnchor(anchor, installationId, dataId) {
   if (!binding || typeof binding !== 'object' || Array.isArray(binding)
     || binding.schema_version !== '1.0'
     || binding.installation_id !== installationId || binding.data_id !== dataId) fail('prebuilt_anchor_present');
+  // ADR 0070: a bound anchor whose NNA incarnation was replaced grants nothing.
+  if (typeof binding.incarnation_id === 'string' && nnaIncarnation !== null
+    && binding.incarnation_id !== nnaIncarnation) fail('prebuilt_anchor_present');
   return binding;
 }
 
@@ -73,15 +77,14 @@ export async function installPrebuiltAnchor({
     || !OPERATIONS.test(stageOperationId ?? '') || !VERSIONS.test(version ?? '')) {
     fail('prebuilt_anchor_identity_invalid');
   }
+  const nnaIncarnation = readSelectedNativeRuntime(nnaRoot).incarnation_id;
   const sameRoot = (left, right) => left.toLowerCase() === right.toLowerCase();
-  if (sameRoot(anchor, nnaRoot) || nnaRoot.startsWith(anchor + '\\') || anchor.startsWith(nnaRoot + '\\')
-    || sameRoot(anchor, packageRoot) || packageRoot.startsWith(anchor + '\\') || anchor.startsWith(packageRoot + '\\')) {
-    fail('prebuilt_anchor_path_overlap');
-  }
+  const overlaps = (left, right) => sameRoot(left, right) || right.startsWith(left + '\\') || left.startsWith(right + '\\');
+  if (overlaps(anchor, nnaRoot) || overlaps(anchor, packageRoot)) fail('prebuilt_anchor_path_overlap');
   // Fresh install demands an absent target; an upgrade may only replace a
   // marked anchor bound to this same installation identity.
   const anchorExists = (await lstat(anchor).catch(() => null)) !== null;
-  if (anchorExists) await verifyRebindableAnchor(anchor, installationId, dataId);
+  if (anchorExists) await verifyRebindableAnchor(anchor, installationId, dataId, nnaIncarnation);
   const parent = anchor.slice(0, Math.max(0, anchor.lastIndexOf('\\')));
   const temporary = join(parent, `.${anchor.split('\\').at(-1)}.${crypto.randomUUID()}.staging`);
   await mkdir(parent, { recursive: true });
@@ -98,6 +101,7 @@ export async function installPrebuiltAnchor({
       version, payload_sha256: payloadSha256, stage_operation_id: stageOperationId,
       activation_operation_id: activationOperationId, candidate_sha256: candidateSha256,
       installation_id: installationId, data_id: dataId,
+      ...(nnaIncarnation === null ? {} : { incarnation_id: nnaIncarnation }),
     }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
     let displaced = null;
     if (anchorExists) {

@@ -36,7 +36,7 @@ export function readSelectedNativeRuntime(selected) {
   if (metadata.name !== 'not-native-agent' || metadata.nna_version !== descriptor.version || version !== descriptor.version) throw new Error('native-install-invalid');
   const node = regularFile(descriptor.node);
   if (path.basename(node).toLowerCase() !== 'node.exe') throw new Error('native-install-invalid');
-  return Object.freeze({ root, dataRoot: data, node, cli, nodeMajor: descriptor.node_major, version: descriptor.version, installation_id: `nna_${digest(root)}`, data_id: `data_${digest(data)}` });
+  return Object.freeze({ root, dataRoot: data, node, cli, nodeMajor: descriptor.node_major, version: descriptor.version, installation_id: `nna_${digest(root)}`, data_id: `data_${digest(data)}`, incarnation_id: typeof descriptor.incarnation_id === 'string' ? descriptor.incarnation_id : null });
 }
 function environment() {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) =>
@@ -58,9 +58,7 @@ async function command(runtime, action, timeout = 30000, family = 'service') {
 }
 export async function assertSelectedNndPackage(selection, expectedRoot, expectedVersion = null) {
   const runtime = readSelectedNativeRuntime(selection.installRoot);
-  if (runtime.installation_id !== selection.installation_id || runtime.data_id !== selection.data_id) {
-    throw new Error('native-selection-identity-changed');
-  }
+  assertPinnedInstallation(selection, runtime);
   const status = await command(runtime, 'status', 10000, 'package');
   if (status?.registered !== true || status.valid !== true
     || Object.keys(status).sort().join(',') !== 'registered,root,valid,version'
@@ -84,6 +82,15 @@ async function verifySelectedNode(runtime) {
 function identityMatches(value, runtime) {
   return value?.protocol === '1.0' && value.installation_id === runtime.installation_id && value.data_id === runtime.data_id;
 }
+// ADR 0070: a pinned installation that no longer reports its own incarnation was replaced after pinning.
+function assertPinnedInstallation(selection, runtime) {
+  if (typeof selection === 'object' && (selection.installation_id !== runtime.installation_id
+    || selection.data_id !== runtime.data_id)) throw new Error('native-selection-identity-changed');
+  if (typeof selection === 'object' && typeof selection.incarnation_id === 'string'
+    && runtime.incarnation_id !== null && selection.incarnation_id !== runtime.incarnation_id) {
+    throw new Error('native-selection-identity-changed');
+  }
+}
 export function validateNativeAttach(value, runtime) {
   if (!identityMatches(value, runtime) || Object.keys(value).sort().join(',') !==
     'data_id,endpoint,expires_at,generation,installation_id,protocol,ticket'
@@ -98,8 +105,7 @@ export function validateNativeAttach(value, runtime) {
 export async function attachNativeService(selection) {
   const selectedRoot = typeof selection === 'string' ? selection : selection?.installRoot;
   const runtime = readSelectedNativeRuntime(selectedRoot);
-  if (typeof selection === 'object' && (selection.installation_id !== runtime.installation_id
-    || selection.data_id !== runtime.data_id)) throw new Error('native-selection-identity-changed');
+  assertPinnedInstallation(selection, runtime);
   await verifySelectedNode(runtime);
   await verifyNndCapabilities(runtime);
   let attached;
@@ -120,8 +126,7 @@ export async function attachNativeService(selection) {
 export async function probeNativeAttach(selection) {
   const selectedRoot = typeof selection === 'string' ? selection : selection?.installRoot;
   const runtime = readSelectedNativeRuntime(selectedRoot);
-  if (typeof selection === 'object' && (selection.installation_id !== runtime.installation_id
-    || selection.data_id !== runtime.data_id)) throw new Error('native-selection-identity-changed');
+  assertPinnedInstallation(selection, runtime);
   await verifySelectedNode(runtime);
   await verifyNndCapabilities(runtime);
   const attached = await awaitNativeAttach(runtime);

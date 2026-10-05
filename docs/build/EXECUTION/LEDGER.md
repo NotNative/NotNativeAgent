@@ -40,7 +40,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
 | L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); legacy Electron-owned backend takeover (first-upgrade process-ownership drain) is the remaining scope item |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy Electron-owned backend takeover (first-upgrade process-ownership drain) is the remaining scope item |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
@@ -136,9 +136,44 @@ trial-health check, not to migration. Every L5 mechanism the guides name
 except the legacy Electron-owned backend process-ownership drain now has
 disposable-fixture evidence. That takeover slice stays open: it needs a
 built legacy installation, exact child-ownership discovery, graceful drain
-verification, queue/schedule reconciliation, and the durable NNA
-installation-incarnation identifier (guide 02, lines 283-291) before it can
-be accepted honestly.
+verification, and queue/schedule reconciliation before it can be accepted
+honestly. Its durable NNA installation-incarnation identifier prerequisite
+(guide 02, line 275) closed in `20261005-6`; the drain protocol itself
+remains a design slice (guide 02, lines 283-291).
+
+## NND 20261005-6 — NNA installation-incarnation identifier closes the guide-02 pin prerequisite
+
+ADR 0070 (sealed upstream as NNA `20261005-12`, commit `3f9f759c`) records
+a random `incarnation_id` in the NNA install descriptor; in-place descriptor
+rewrites preserve it, so only uninstall followed by reinstall replaces it,
+and absence reports `null` rather than a fabricated value. NND now persists
+the identifier wherever it already pins identity — the selection file
+(`writeNnaSelection` self-derives it from the verified runtime), the
+activation anchor binding — and rechecks it at every attach path:
+`probeNativeAttach`, `attachNativeService`, `assertSelectedNndPackage`, the
+stable launcher resolver (both reads, including its TOCTOU recheck), the
+Electron main-process selection recheck, and the installer's
+`Assert-NndSelectedPin`. A replaced NNA installation is now refused with
+`native-selection-identity-changed` (installer: named refusal) instead of
+being trusted by path identity alone; pre-ADR four-key pins and null
+incarnations keep prior semantics and prove nothing about replacement. The
+anchor rebind path additionally refuses to rebind a marked anchor whose
+NNA incarnation was replaced. Regression evidence: NND
+`native-service-client.test.mjs` proves pin mint, mismatch refusal, and
+legacy-pin pass-through (13/13); the eleven installer/launcher suites pass
+42/42 with one pre-existing environmental skip; uninstall binding validation
+accepts both key shapes. NNA regression: descriptor acceptance, null
+surface, and malformed-identifier refusal (identity suite 7/7); full NNA
+suite 2,289 pass with the four known parallel-contention flakes, all green
+in isolation. One gap is recorded rather than papered over: the disposable
+journey re-certification did not complete on this box — every headless and
+PTY relaunch died within minutes printing only `stdin is not a tty` from an
+unidentifiable source, and a control run at clean `440770b` (before any of
+these edits) reproduced the identical failure, so the wall is environmental,
+not this change. L5 journey evidence for the incarnation recheck therefore
+rests on the deterministic unit/fixture suites (client 13/13, installer
+suites 42/42, uninstall binding both key shapes); the full journey must be
+rerun on a healthy box before `20261005-6` is called journey-certified.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 

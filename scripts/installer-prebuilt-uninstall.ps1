@@ -13,7 +13,11 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
     $expectedKeys = @('schema_version', 'nna_install_root', 'nnd_package_root', 'version',
         'payload_sha256', 'candidate_sha256', 'stage_operation_id', 'activation_operation_id',
         'installation_id', 'data_id')
-    if ($keys.Count -ne $expectedKeys.Count -or @($expectedKeys | Where-Object { $_ -notin $keys }).Count -ne 0 -or
+    $hasIncarnation = $keys -contains 'incarnation_id'
+    $requiredKeys = if ($hasIncarnation) { $expectedKeys + 'incarnation_id' } else { $expectedKeys }
+    if ($keys.Count -ne $requiredKeys.Count -or @($requiredKeys | Where-Object { $_ -notin $keys }).Count -ne 0 -or
+        ($hasIncarnation -and ($binding.incarnation_id -isnot [string] -or
+            $binding.incarnation_id -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')) -or
         $binding.schema_version -ne '1.0' -or
         $binding.nna_install_root -isnot [string] -or $binding.nna_install_root.Length -gt 4096 -or
         $binding.nnd_package_root -isnot [string] -or $binding.nnd_package_root.Length -gt 1024 -or

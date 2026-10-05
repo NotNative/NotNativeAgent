@@ -58,7 +58,9 @@ export async function resolveActiveNndPackage(selectionFile, sourceRoot = null) 
   if (typeof selectionFile !== 'string' || !isAbsolute(selectionFile)) throw new Error('native-selection-required');
   const selection = readNativeServiceSelection({ args: [], selectionFile });
   const runtime = readSelectedNativeRuntime(selection.installRoot);
-  if (selection.installation_id !== runtime.installation_id || selection.data_id !== runtime.data_id) {
+  if (selection.installation_id !== runtime.installation_id || selection.data_id !== runtime.data_id
+    || (typeof selection.incarnation_id === 'string' && runtime.incarnation_id !== null
+      && selection.incarnation_id !== runtime.incarnation_id)) {
     throw new Error('native-selection-identity-changed');
   }
   const before = await nativeStatus(runtime);
@@ -85,11 +87,12 @@ export async function resolveActiveNndPackage(selectionFile, sourceRoot = null) 
   const currentRuntime = readSelectedNativeRuntime(currentSelection.installRoot);
   if (key(currentSelection.installRoot) !== key(selection.installRoot)
     || currentSelection.installation_id !== selection.installation_id || currentSelection.data_id !== selection.data_id
+    || currentSelection.incarnation_id !== selection.incarnation_id
     || ['root', 'dataRoot', 'node', 'cli', 'version', 'installation_id', 'data_id'].some(field =>
       key(currentRuntime[field]) !== key(runtime[field]))) throw new Error('native-selection-identity-changed');
   return Object.freeze({ root, executable,
     nnaInstallRoot: runtime.root, installationId: runtime.installation_id, dataId: runtime.data_id,
-    version: before.version, payloadSha256 });
+    incarnationId: runtime.incarnation_id, version: before.version, payloadSha256 });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length !== 3) throw new Error('usage: resolve-active-nnd-package.mjs ABSOLUTE_SELECTION_FILE');

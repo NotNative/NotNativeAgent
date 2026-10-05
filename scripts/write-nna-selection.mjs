@@ -16,7 +16,8 @@ export async function writeNnaSelection(nndRoot, nnaRoot, installationId, dataId
   const temporary = join(root, `nna-selection.${randomUUID()}.tmp`);
   try {
     await writeFile(temporary, `${JSON.stringify({ schema_version: '1.0', nna_install_root: selected,
-      installation_id: installationId, data_id: dataId })}\n`, { flag: 'wx', mode: 0o600 });
+      installation_id: installationId, data_id: dataId,
+      ...(runtime.incarnation_id === null ? {} : { incarnation_id: runtime.incarnation_id }) })}\n`, { flag: 'wx', mode: 0o600 });
     await rename(temporary, join(root, 'nna-service-selection.json'));
   } finally { await unlink(temporary).catch((error) => { if (error.code !== 'ENOENT') throw error; }); }
 }

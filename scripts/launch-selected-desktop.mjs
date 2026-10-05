@@ -10,7 +10,7 @@ export async function launchSelectedDesktop(anchor, start = spawn, probe = probe
   const selectionFile = join(anchor, 'nna-service-selection.json');
   const plan = await resolveActiveNndPackage(selectionFile, anchor);
   const attach = await probe({ installRoot: plan.nnaInstallRoot,
-    installation_id: plan.installationId, data_id: plan.dataId });
+    installation_id: plan.installationId, data_id: plan.dataId, incarnation_id: plan.incarnationId });
   const args = [join(plan.root, 'packages', 'electron', 'main.mjs'),
     '--nna-install-root', plan.nnaInstallRoot, '--nnd-selection-file', selectionFile,
     '--nnd-controller-generation', attach.generation];
