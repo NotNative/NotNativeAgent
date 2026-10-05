@@ -187,11 +187,12 @@ function Invoke-NndPrebuiltActivation($SelectedNna, $CheckedPayload, $Capabiliti
         }
         $result = $output.ToString() | ConvertFrom-Json
         $keys = @($result.PSObject.Properties.Name)
-        $expected = @('state', 'operation_id', 'stage_operation_id', 'generation', 'endpoint', 'root',
-            'version', 'installation_id', 'data_id', 'pid')
+        $expected = @('state', 'operation_id', 'stage_operation_id', 'generation', 'endpoint',
+            'candidate_sha256', 'root', 'version', 'installation_id', 'data_id', 'pid')
         if ($keys.Count -ne $expected.Count -or @($expected | Where-Object { $_ -notin $keys }).Count -ne 0 -or
             $result.state -cne 'public_controller_attached' -or
             $result.stage_operation_id -cne $StageOperation -or
+            $result.candidate_sha256 -cne $CandidateSha256 -or
             $result.operation_id -isnot [string] -or $result.operation_id -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$' -or
             $result.generation -isnot [string] -or $result.generation.Length -gt 128 -or
             $result.endpoint -isnot [string] -or

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
@@ -74,11 +75,26 @@ if (family === 'package' && action === 'status') {
   mkdirSync(join(dirname(root), 'data', 'config'), { recursive: true });
   const registration = JSON.stringify({ root: activeRoot, version: activeVersion, protocol: '1.0' }, null, 2) + newline;
   writeFileSync(join(dirname(root), 'data', 'config', 'nnd-package.json'), registration);
+  const slotsRoot = join(dirname(root), 'data', 'runtime', 'nnd', 'install-slots');
+  mkdirSync(slotsRoot, { recursive: true });
+  const sha64 = value => createHash('sha256').update(value).digest('hex');
+  const commit = { protocol: '1.0', state: 'terminal_committed_barred', operation_id: operation,
+    stage_operation_id: process.argv[6], installation_id: 'nna_' + digest(root),
+    data_id: 'data_' + digest(join(dirname(root), 'data')), generation, plan_sha256: '1'.repeat(64),
+    decision_sha256: '2'.repeat(64), completion_sha256: '3'.repeat(64), marker_sha256: '4'.repeat(64),
+    registration_revision: sha64(Buffer.from(registration)), discovery_sha256: '5'.repeat(64),
+    child_process_identity: { start_id: '1', pid: process.pid, version: 1, platform: 'win32' } };
+  const commitBytes = JSON.stringify(commit) + newline;
+  writeFileSync(join(slotsRoot, 'activation-retirement-commit.json'), commitBytes);
+  writeFileSync(join(slotsRoot, 'activation-retirement-cleared.json'), JSON.stringify({
+    ...commit, state: 'barriers_cleared_admission_barred', terminal_sha256: sha64(Buffer.from(commitBytes)) }) + newline);
   const readinessEndpoint = mode === 'endpoint-ipv6' ? 'http://[::1]:3000' : endpoint;
   const frame = { state: 'public_controller_attached', operation_id: operation,
-    stage_operation_id: process.argv[6], generation, endpoint: readinessEndpoint };
+    stage_operation_id: process.argv[6], generation, endpoint: readinessEndpoint,
+    candidate_sha256: candidateDigest(evidence) };
   if (mode === 'ready-wrong-stage') frame.stage_operation_id = stage + 'x';
   if (mode === 'ready-wrong-generation') frame.generation = 'other generation';
+  if (mode === 'ready-wrong-candidate') frame.candidate_sha256 = 'f'.repeat(64);
   try {
     if (mode === 'ready-invalid-json') process.stdout.write('{bad');
   else process.stdout.write(JSON.stringify(frame) + '\\n');
@@ -155,7 +171,7 @@ test('retained prebuilt activation leaves the NNA owner live and proves public a
 test('prebuilt readiness and proof mismatches remain uncertain without false activation',
   { skip: process.platform !== 'win32' }, async t => {
     const f = await fixture(t);
-    for (const mode of ['ready-wrong-stage', 'ready-wrong-generation', 'ready-invalid-json',
+    for (const mode of ['ready-wrong-stage', 'ready-wrong-generation', 'ready-wrong-candidate', 'ready-invalid-json',
       'exit', 'attach-mismatch', 'status-invalid']) {
       const result = activate(f, mode);
       assert.notEqual(result.status, 0, mode);
@@ -182,13 +198,16 @@ test('installer activation mode delegates the selected slot without copying the 
     });
     const manifest = JSON.stringify({ schema_version: '1.0', version: '20261003-12',
       platform: 'win32', architecture: 'x64', files: [] });
+    const shortcutRoot = join(f.base, 'disposable shortcuts');
+    await mkdir(shortcutRoot);
+    await writeFile(join(shortcutRoot, '.nnd-disposable-shortcuts'), 'nnd-disposable-shortcuts-v1');
     await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
     const digest = createHash('sha256').update(manifest).digest('hex');
     const rejected = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
       '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
       '-InstallNnaIfMissing', '-NnaSourceRoot', f.native, '-InstallDir', firstTarget], {
-      encoding: 'utf8', windowsHide: true, timeout: 20000,
+      encoding: 'utf8', windowsHide: true, timeout: 90000,
       env: { ...process.env, Path: '', NNACTIV_TEST_PAYLOAD_DIGEST: digest },
     });
     assert.notEqual(rejected.status, 0);
@@ -196,7 +215,7 @@ test('installer activation mode delegates the selected slot without copying the 
     const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
       '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
-      '-NnaInstallRoot', f.native, '-InstallDir', secondTarget], {
+      '-NnaInstallRoot', f.native, '-InstallDir', secondTarget, '-ShortcutRoot', shortcutRoot], {
       encoding: 'utf8', windowsHide: true, timeout: 20000,
       env: { ...process.env, Path: '', NNACTIV_TEST_PAYLOAD_DIGEST: digest },
     });
@@ -207,6 +226,8 @@ test('installer activation mode delegates the selected slot without copying the 
     const binding = JSON.parse(await readFile(join(secondTarget, 'nnd-anchor.json'), 'utf8'));
     assert.equal(selection.installation_id, JSON.parse((await readFile(join(secondTarget, 'nna-service-selection.json'), 'utf8'))).installation_id);
     assert.equal(binding.version, '20261003-12');
+    assert(existsSync(join(shortcutRoot, 'desktop', 'NotNativeDesktop.lnk')));
+    assert(existsSync(join(shortcutRoot, 'StartMenu', 'NotNativeDesktop.lnk')));
     const marker = JSON.parse(await readFile(f.marker, 'utf8'));
     process.kill(marker.pid, 'SIGTERM');
     await new Promise(accept => setTimeout(accept, 50));

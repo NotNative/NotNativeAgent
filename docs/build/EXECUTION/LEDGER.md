@@ -40,7 +40,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
 | L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | mutation exclusion implemented; migration/recovery/rollback pending |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→guarded uninstall green on disposable fixture (20261004-15); upgrade/rollback/migration pending |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
@@ -108,6 +108,24 @@ shared-service lifetime, and clean stop. NNA quality, the full source suite with
 contention-prone originals rerun separately, graph/language gates, and focused lock/discovery cases
 passed. NNA platform certification remains a separate release requirement. NND prebuilt acceptance,
 upgrade/rollback, login startup, and real setup/provider journeys remain open.
+
+## NND 20261004-15 — prebuilt installed acceptance green
+
+The disposable fixture ran the real exported prebuilt payload (20261004-8) through stage,
+native activation, both Chromium shells, stop and guard-protected uninstall end to end:
+`Real exported prebuilt payload, activation, Chromium shells and uninstall passed`.
+Evidence: `scripts/installed-prebuilt-acceptance.mjs` (fresh harness; preserves fixtures on
+uncertainty), ready frame carries `candidate_sha256` bound to the preflight candidate, and
+post-activation validation now reads the surviving retirement commit + cleared witness and the
+active registration instead of the cleaned candidate file. NNA side (20261004-7): native
+principal selection latch, one-use promoted attach bound to the record step, discovery pointer
+retired once, and ADR 0069 consumed-receipt admission (canonical commit+cleared pair bound to
+this identity no longer bars guards; halves, alterations and foreign identities stay barred).
+Focused activation/supervisor/evidence suites and NNA quality gates passed; census-style tests
+flake only under full-suite parallel load with orphan fixture processes present (verified
+identically flaky at clean HEAD, green in isolation). Known pre-existing open items unchanged:
+UI suite jsdom `localStorage` failures and 7 web-suite failures reproduce at clean HEAD and are
+unrelated to this slice.
 
 ## NND 20261004-7 — prebuilt uninstall release seal
 

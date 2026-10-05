@@ -70,7 +70,7 @@ if (!$ActivatePrebuiltSlot -and $PSBoundParameters.ContainsKey('PrebuiltStageOpe
 }
 if ($ActivatePrebuiltSlot) {
     $activationParameterKeys = @('InstallDir', 'NnaInstallRoot', 'PrebuiltPayloadRoot', 'PrebuiltManifestSha256',
-        'PrebuiltStageOperation', 'ActivatePrebuiltSlot')
+        'ShortcutRoot', 'PrebuiltStageOperation', 'ActivatePrebuiltSlot')
     $unexpected = @($PSBoundParameters.Keys | Where-Object { $_ -notin $activationParameterKeys })
     if ($unexpected.Count -ne 0) {
         throw "-ActivatePrebuiltSlot accepts only the prebuilt payload, selected NNA root, and NND target arguments; unexpected: $($unexpected -join ', ')."

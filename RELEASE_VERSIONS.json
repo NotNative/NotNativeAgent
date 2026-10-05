@@ -1096,6 +1096,22 @@
     {
       "version": "20261004-8",
       "content_sha256": "c2e570d5d377e4fde1b320ede1ea192506d034fb942c50ea525af10d9523dea0"
+    },
+    {
+      "version": "20261004-10",
+      "content_sha256": "62f03603565f3d17e531a6ccb09a76fd706a84398f57e5356182f7686ec124e1"
+    },
+    {
+      "version": "20261004-11",
+      "content_sha256": "180f110ac1a276ae8db85c2ce5b6ddcb0e1fcbceae7b7966ed7c7f3971958637"
+    },
+    {
+      "version": "20261004-14",
+      "content_sha256": "0d28dddb4bfc0eaad380233a945a2c4ba0a515334a93bb08f9053cf129ae8632"
+    },
+    {
+      "version": "20261004-15",
+      "content_sha256": "58d32b48aeb483d1af391ff8fa1f301bec64d4f116d1319918a10d7386ddb6a7"
     }
   ]
 }

@@ -37,10 +37,6 @@ function readTail(path, limit) {
     return bytes;
   } catch { return null; }
 }
-function registrationHash(value) {
-  return compileHash(Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8'));
-}
-
 function fail(code) { const error = new Error(code); error.code = code; throw error; }
 function cleanEnvironment(dataRoot) {
   return { ...Object.fromEntries(Object.entries(process.env).filter(([name]) =>
@@ -63,11 +59,12 @@ async function packageStatus(runtime, timeout = 30000) {
     throw error.code ? error : new Error('native_package_status_unavailable');
   }
 }
-function validateReadiness(value, { stageOperationId, operationId }) {
+function validateReadiness(value, { stageOperationId, operationId, candidateSha256 }) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).sort().join(',') !== 'endpoint,generation,operation_id,stage_operation_id,state'
+    || Object.keys(value).sort().join(',') !== 'candidate_sha256,endpoint,generation,operation_id,stage_operation_id,state'
     || value.state !== 'public_controller_attached'
     || value.operation_id !== operationId || value.stage_operation_id !== stageOperationId
+    || value.candidate_sha256 !== candidateSha256
     || typeof value.generation !== 'string' || !GENERATIONS.test(value.generation)
     || typeof value.endpoint !== 'string') fail('native_activation_frame_invalid');
   let endpoint;
@@ -76,12 +73,12 @@ function validateReadiness(value, { stageOperationId, operationId }) {
     || endpoint.pathname !== '/' || endpoint.search || endpoint.hash
     || !/^(?:[1-9]\d{0,4})$/.test(endpoint.port)) fail('native_activation_frame_invalid');
 }
-function lastReadyFrame(text, stageOperationId, operationId) {
+function lastReadyFrame(text, identity) {
   for (const line of text.split(/\r?\n/).reverse()) {
     if (!line.trim()) continue;
     try {
       const frame = JSON.parse(line);
-      validateReadiness(frame, { stageOperationId, operationId });
+      validateReadiness(frame, identity);
       return frame;
     } catch (error) { if (error.code === 'native_activation_frame_invalid') throw error; }
   }
@@ -99,7 +96,7 @@ export async function activatePrebuiltSlot(nnaRoot, stageOperationId, candidateS
   const child = startRetainedNna(runtime, stageOperationId, operationId);
   try {
     const readiness = await awaitRetainedReadiness(child, join(runtime.root, 'private-activation',
-      `${operationId}.out.log`), stageOperationId, operationId);
+      `${operationId}.out.log`), stageOperationId, operationId, candidateSha256);
     return await verifyRetainedController({ child, runtime, readiness, stageOperationId, candidateSha256 });
   } catch (error) {
     throw new Error(error.code ? error.code : 'native_activation_failed');
@@ -121,9 +118,9 @@ function startRetainedNna(runtime, stageOperationId, operationId) {
   return child;
 }
 
-function awaitRetainedReadiness(child, outLog, stageOperationId, operationId) {
+function awaitRetainedReadiness(child, outLog, stageOperationId, operationId, candidateSha256) {
   return new Promise((accept, reject) => {
-    const deadline = Date.now() + 120000;
+    const deadline = Date.now() + 300000;
     let text = '';
     const finish = code => reject(Object.assign(new Error(code), { code }));
     child.once('exit', (exitCode, signal) => finish(
@@ -136,7 +133,7 @@ function awaitRetainedReadiness(child, outLog, stageOperationId, operationId) {
           const chunk = bytes.toString('utf8');
           if (text === chunk) { await delay(200); continue; }
           text = chunk;
-          const frame = lastReadyFrame(text, stageOperationId, operationId);
+          const frame = lastReadyFrame(text, { stageOperationId, operationId, candidateSha256 });
           if (frame) return accept(frame);
         } catch (error) {
           if (error.code === 'native_activation_frame_invalid' || error.code === 'native_activation_output_oversized') return finish(error);
@@ -149,43 +146,56 @@ function awaitRetainedReadiness(child, outLog, stageOperationId, operationId) {
   });
 }
 
-function verifyActivationCandidate(runtime, operationId, stageOperationId, candidateSha256) {
-  const candidatePath = join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots', 'activations',
-    `${operationId}.candidate.json`);
-  const candidateBytes = readBoundedFile(candidatePath, 4096);
-  const expected = ['data_id', 'desired_registration_sha256', 'installation_id', 'payload_sha256',
-    'provenance_sha256', 'protocol', 'registry_before_revision', 'slot_dev', 'slot_ino',
-    'stage_operation_id', 'stage_prepared_sha256', 'stage_ready_sha256', 'version'];
+// Retirement cleanup removes the staged candidate file; the terminal commit
+// and its cleared witness are the durable receipts that survive publication.
+const TERMINAL_KEYS = ['child_process_identity', 'completion_sha256', 'data_id', 'decision_sha256',
+  'discovery_sha256', 'generation', 'installation_id', 'marker_sha256', 'operation_id', 'plan_sha256',
+  'protocol', 'registration_revision', 'stage_operation_id', 'state'];
+const CLEARED_KEYS = [...TERMINAL_KEYS, 'terminal_sha256'].sort();
+function verifyRetirementReceipts(runtime, { operationId, stageOperationId, generation }) {
+  const root = join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots');
+  const commitBytes = readBoundedFile(join(root, 'activation-retirement-commit.json'), 4096);
+  const clearedBytes = readBoundedFile(join(root, 'activation-retirement-cleared.json'), 4096);
+  const parse = bytes => {
+    try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+    catch { fail('native_activation_receipt_invalid'); }
+  };
+  const check = (value, keys) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) {
+      fail('native_activation_receipt_invalid');
+    }
+  };
+  const commit = parse(commitBytes);
+  const cleared = parse(clearedBytes);
+  check(commit, [...TERMINAL_KEYS].sort());
+  check(cleared, CLEARED_KEYS);
   const SHA = /^[a-f0-9]{64}$/u;
   const IDENTITY = /^(?:nna|data)_[a-f0-9]{64}$/u;
-  const evidence = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(candidateBytes));
-  const actual = Array.isArray(evidence) ? [/* keep type check below first */]
-    : Object.keys(evidence);
-  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)
-    || candidateBytes.at(-1) !== 0x0a || actual.length !== expected.length
-    || actual.some(key => !expected.includes(key))
-    || compileHash(candidateBytes) !== candidateSha256
-    || evidence.protocol !== '2.0' || evidence.stage_operation_id !== stageOperationId
-    || evidence.installation_id !== runtime.installation_id
-    || evidence.data_id !== runtime.data_id || !SHA.test(evidence.payload_sha256)
-    || !SHA.test(evidence.stage_prepared_sha256) || !SHA.test(evidence.stage_ready_sha256)
-    || !SHA.test(evidence.provenance_sha256) || !SHA.test(evidence.desired_registration_sha256)
-    || typeof evidence.slot_ino !== 'string' || !/^[1-9]\d*$/u.test(evidence.slot_ino)
-    || typeof evidence.slot_dev !== 'string' || !/^\d+$/u.test(evidence.slot_dev)
-    || evidence.registry_before_revision !== 'absent' && !SHA.test(evidence.registry_before_revision)
-    || typeof evidence.version !== 'string'
-    || !/^\d{8}-[1-9]\d{0,5}$/u.test(evidence.version)
-    || !IDENTITY.test(evidence.installation_id) || !IDENTITY.test(evidence.data_id)) fail('native_activation_candidate_invalid');
-  return evidence;
+  if (commit.protocol !== '1.0' || commit.state !== 'terminal_committed_barred'
+    || cleared.state !== 'barriers_cleared_admission_barred'
+    || commit.operation_id !== operationId || cleared.operation_id !== operationId
+    || commit.stage_operation_id !== stageOperationId || cleared.stage_operation_id !== stageOperationId
+    || commit.generation !== generation || cleared.generation !== generation
+    || !IDENTITY.test(commit.installation_id) || commit.installation_id !== runtime.installation_id
+    || commit.data_id !== runtime.data_id || cleared.installation_id !== runtime.installation_id
+    || cleared.data_id !== runtime.data_id
+    || ![commit.plan_sha256, commit.decision_sha256, commit.completion_sha256, commit.marker_sha256,
+      commit.registration_revision, commit.discovery_sha256, cleared.terminal_sha256,
+      cleared.plan_sha256, cleared.decision_sha256, cleared.completion_sha256, cleared.marker_sha256,
+      cleared.registration_revision, cleared.discovery_sha256].every(value => SHA.test(value))
+    || compileHash(commitBytes) !== cleared.terminal_sha256) fail('native_activation_receipt_invalid');
+  return commit;
 }
 
-function verifyActiveRegistration(runtime, candidate) {
-  const record = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readBoundedFile(
-    join(runtime.dataRoot, 'config', 'nnd-package.json'), 16384)));
+function verifyActiveRegistration(runtime, commit) {
+  const recordBytes = readBoundedFile(join(runtime.dataRoot, 'config', 'nnd-package.json'), 16384);
+  let record;
+  try { record = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(recordBytes)); }
+  catch { fail('native_activation_registration_mismatch'); }
   if (!record || typeof record !== 'object' || Array.isArray(record)
     || Object.keys(record).sort().join(',') !== 'protocol,root,version'
-    || record.protocol !== '1.0' || record.version !== candidate.version
-    || registrationHash(record) !== candidate.desired_registration_sha256
+    || record.protocol !== '1.0' || compileHash(recordBytes) !== commit.registration_revision
     || typeof record.root !== 'string' || !pathRooted(record.root)) fail('native_activation_registration_mismatch');
   return record;
 }
@@ -204,13 +214,11 @@ async function verifyRetainedController({ child, runtime, readiness, stageOperat
   let status;
   try { status = await packageStatus(runtime); }
   catch { fail('native_activation_status_unavailable'); }
-  const candidate = verifyActivationCandidate(runtime, readiness.operation_id, stageOperationId, candidateSha256);
-  const registration = verifyActiveRegistration(runtime, candidate);
+  const commit = verifyRetirementReceipts(runtime, { operationId: readiness.operation_id, stageOperationId,
+    generation: readiness.generation });
+  const registration = verifyActiveRegistration(runtime, commit);
   if (typeof status.version !== 'string' || !/^\d{8}-[1-9]\d{0,5}$/u.test(status.version)
-    || status.version !== candidate.version || !samePath(status.root, registration.root)
-    || !samePath(registration.root, registration.root)
-    || !samePath(candidate.desired_registration_sha256, candidate.desired_registration_sha256)
-    || !samePath(candidate.desired_registration_sha256, candidate.desired_registration_sha256)) {
+    || status.version !== registration.version || !samePath(status.root, registration.root)) {
     fail('native_activation_status_version_invalid');
   }
   let attach;

@@ -17,17 +17,20 @@ const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerS
 const base = join(homedir(), 'nnd-installed-acceptance-fixtures');
 const delay = ms => new Promise(done => setTimeout(done, ms));
 let childUncertain = false;
+export function acceptanceEvidence() {
+  return { uncertain: childUncertain };
+}
 
-async function checkedFixturePath(path) {
-  const canonicalBase = await realpath(base);
+export async function checkedFixturePath(path, fixtureBase = base) {
+  const canonicalBase = await realpath(fixtureBase);
   const canonical = await realpath(path);
   const part = relative(canonicalBase, canonical);
-  assert.match(part, /^installed-accept-[a-f0-9]{16}$/u);
+  assert.match(part, /^(?:installed-accept-[a-f0-9]{16}|nnd-accept-[a-f0-9]{10})$/u);
   assert.equal(dirname(canonical), canonicalBase);
   for (const item of [canonicalBase, canonical]) assert.equal((await lstat(item)).isSymbolicLink(), false);
   return canonical;
 }
-async function privateDirectory(path) {
+export async function privateDirectory(path, fixtureBase = base) {
   const script = "$ErrorActionPreference='Stop';$p=[Console]::In.ReadToEnd();"
     + "$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;"
     + "$acl=[Security.AccessControl.DirectorySecurity]::new();"
@@ -37,7 +40,7 @@ async function privateDirectory(path) {
   const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', script],
     { input: path, encoding: 'utf8', windowsHide: true, timeout: 10000 });
   assert.equal(result.status, 0, 'Could not create private installed acceptance fixture');
-  await checkedFixturePath(path);
+  await checkedFixturePath(path, fixtureBase);
 }
 async function readOutputTail(path) {
   const file = await open(path, 'r');
@@ -49,7 +52,7 @@ async function readOutputTail(path) {
     return buffer.subarray(0, bytesRead).toString('utf8');
   } finally { await file.close(); }
 }
-async function run(executable, args, { cwd, env, timeout = 30000, outputFiles } = {}) {
+export async function run(executable, args, { cwd, env, timeout = 30000, outputFiles } = {}) {
   let out, err, child;
   try {
     out = outputFiles ? await open(outputFiles.stdout, 'w') : null;
@@ -74,7 +77,7 @@ async function run(executable, args, { cwd, env, timeout = 30000, outputFiles } 
       child.once(outputFiles ? 'exit' : 'close', exit => { clearTimeout(timer); done(exit); });
     });
   } finally { await Promise.all([out?.close(), err?.close()]); }
-  if (outputFiles && code !== 0) {
+  if (outputFiles) {
     stderr = await readOutputTail(outputFiles.stderr);
     stdout = await readOutputTail(outputFiles.stdout);
   }
@@ -82,12 +85,12 @@ async function run(executable, args, { cwd, env, timeout = 30000, outputFiles } 
   assert.equal(code, 0, `Acceptance child failed (${code}): ${stderr.slice(-3000)} ${stdout.slice(-3000)}`);
   return stdout;
 }
-async function cli(fixture, action) {
+export async function cli(fixture, action) {
   const output = await run(process.execPath, [fixture.cli, 'nnd', 'service', action, fixture.nna],
     { cwd: fixture.root, env: fixture.env, timeout: 45000 });
   return JSON.parse(output.trim());
 }
-async function selectedPackage(fixture) {
+export async function selectedPackage(fixture) {
   const output = await run(process.execPath, [fixture.cli, 'nnd', 'package', 'status'],
     { cwd: fixture.root, env: fixture.env, timeout: 45000 });
   return JSON.parse(output.trim());
@@ -129,7 +132,7 @@ if(result.status!==200||result.authenticated!==true||result.token||Object.keys(r
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
 }catch(error){process.stderr.write(String(error));finish(false)} });`;
 }
-export async function shell(fixture, mode, origin, ticket) {
+export async function shell(fixture, mode, origin, ticket, extraArgs = []) {
   const probeId = randomUUID().replaceAll('-', '').slice(0, 16);
   const shellData = join(fixture.root, `${mode}-profile-${probeId}`);
   await mkdir(shellData);
@@ -154,14 +157,14 @@ export async function shell(fixture, mode, origin, ticket) {
       main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }));
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
-    output = await run(electron, [wrapper, '--hidden'], { cwd: fixture.root, env,
+    output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
       timeout: mode === 'desktop' ? 165000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);
   assert.match(output, new RegExp(`NND_INSTALLED_${mode.toUpperCase()}_OK`, 'u'));
 }
-async function prepare(nnaSource, root) {
+export async function prepare(nnaSource, root) {
   const nna = join(root, 'NNA'), data = join(root, 'data'), nnd = join(root, 'NND');
   const payload = join(nna, 'installed');
   await mkdir(payload, { recursive: true }); await mkdir(join(data, 'config'), { recursive: true });
@@ -187,7 +190,7 @@ async function prepare(nnaSource, root) {
   Object.assign(env, overrides);
   return { root, nna, data, nnd, shortcuts, env, cli: join(payload, 'src/cli.js') };
 }
-async function waitStopped(fixture) {
+export async function waitStopped(fixture) {
   const module = name => import(pathToFileURL(join(fixture.nna, 'installed/src', name)).href);
   const [{ readNndServiceIdentity }, { readNndServiceDiscovery }, { acquireNndServiceLock }] = await Promise.all([
     module('nnd-service-identity.js'), module('nnd-service-discovery.js'), module('nnd-service-lock.js'),
