@@ -40,7 +40,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
 | L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | in-progress | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy Electron-owned backend takeover (first-upgrade process-ownership drain) is the remaining scope item |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; journey re-certification of the incarnation recheck remains owed on a healthy console (environmental `stdin is not a tty`, reproduced at clean HEAD) |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
@@ -174,6 +174,43 @@ not this change. L5 journey evidence for the incarnation recheck therefore
 rests on the deterministic unit/fixture suites (client 13/13, installer
 suites 42/42, uninstall binding both key shapes); the full journey must be
 rerun on a healthy box before `20261005-6` is called journey-certified.
+
+## NNA 20261005-13 — legacy backend takeover drain closes the last L5 mechanism
+
+Guide 02 lines 283-291 name the final takeover pieces; ADR 0071
+(`0071-legacy-backend-takeover-drain.md`) now binds them. The census
+(`nnd-legacy-census.js`) reports named pid evidence for every legacy and
+unverifiable owner in its verified native frame (comma-string pids, exact
+count agreement asserted). The new drain (`nnd-legacy-takeover.js`,
+`drainNndLegacyTakeover`) replaces the bare scan at both takeover gates —
+migration (`nnd-migration.js`) and fresh-data admission
+(`nnd-service-admission.js`) — inside the held data-root lease: it
+re-probes until a fresh census is clean, waits a bounded sixty-second
+window of voluntary release through the legacy process's own lifecycle
+(no remote stop verb exists for a legacy console owner, and termination is
+not shutdown, so the protocol never kills anything), and on expiry refuses
+with `nnd_legacy_takeover_required` naming every observed pid plus the
+exact recovery instruction to exit the legacy desktop or `nna nnd serve`
+cleanly and rerun. A lease abort propagates its own reason instead of
+masquerading as an unverified census. Quiescence is only ever believed as
+a fresh zero census; no PID or port absence is evidence. The persisted
+receipt frame stays the exact five keys, so admission and migration
+staging are unchanged. Consumer records are never double-consumed:
+takeover refuses while any owner is live, the dispatcher never opens the
+legacy server's own queue/schedule directory, journal provenance re-
+verifies before resume, and malformed legacy records fail the migration
+closed. Evidence: new `test/nnd-legacy-takeover-drain.test.js` 3/3 against
+real spawned `nnd serve` owners (refusal names the live pid and leaves it
+running; voluntary release returns the exact receipt frame; lease abort
+stops the wait promptly); census regression trio green; migration plus
+admission 16/16 with every non-census refusal rejecting before the drain
+loop (no test paid the window); failure-envelope 7/7 after registering
+`nnd_legacy_takeover_required`; an end-to-end scratch probe drained 371
+system processes around a released owner in 10.5 s. Graph 522 modules,
+quality gates `QG_EXIT=0`, sealed at `a3bfcb85`. With this, every L5
+mechanism the guides name has implementation and deterministic evidence;
+the outstanding item is unchanged: the `20261005-6` journey
+re-certification owed by the environmental console wall, not by the drain.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 
