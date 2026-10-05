@@ -60,8 +60,8 @@ async function readPairBytes(path) {
   return { bytes, value };
 }
 /** ADR 0065/0066 receipt test: canonical, mutually bound, and bound to this identity. */
-async function consumedRetirementPair(root, identity) {
-  if (!identity) return false;
+export async function consumedRetirementPair(root, identity) {
+  if (!identity) return null;
   try {
     const commit = await readPairBytes(join(root, 'activation-retirement-commit.json'));
     const witness = await readPairBytes(join(root, 'activation-retirement-cleared.json'));
@@ -85,11 +85,13 @@ async function consumedRetirementPair(root, identity) {
       || !SHA.test(t.completion_sha256) || !SHA.test(t.marker_sha256) || !SHA.test(t.registration_revision)
       || !SHA.test(t.discovery_sha256)) return false;
     if (identity.installation_id && (t.installation_id !== identity.installation_id
-      || w.installation_id !== identity.installation_id)) return false;
-    if (identity.data_id && (t.data_id !== identity.data_id || w.data_id !== identity.data_id)) return false;
-    return mirror && createHash('sha256').update(commit.bytes).digest('hex') === w.terminal_sha256
-      && w.protocol === '1.0';
-  } catch { return false; }
+      || w.installation_id !== identity.installation_id)) return null;
+    if (identity.data_id && (t.data_id !== identity.data_id || w.data_id !== identity.data_id)) return null;
+    if (!(mirror && createHash('sha256').update(commit.bytes).digest('hex') === w.terminal_sha256
+      && w.protocol === '1.0')) return null;
+    return Object.freeze({ commit_sha256: createHash('sha256').update(commit.bytes).digest('hex'),
+      operation_id: t.operation_id, registration_revision: t.registration_revision });
+  } catch { return null; }
 }
 export async function hasActivationEvidence(dataRoot, identity = null) {
   const root = join(dataRoot, 'runtime', 'nnd', 'install-slots');

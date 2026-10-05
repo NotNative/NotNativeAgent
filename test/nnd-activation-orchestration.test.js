@@ -55,6 +55,7 @@ async function harness(overrides = {}) {
     acquireNndServiceLock: async () => { trace.push('lease'); return lease; },
     withManifestLock: async (_path, _options, operation) => { trace.push('registry'); return operation(registryLease); },
     readNndActivationCandidate: async () => { trace.push('candidate'); return { evidence: { version: 'x', payload_sha256: 'a'.repeat(64) }, evidence_sha256: 'b'.repeat(64) }; },
+    archiveConsumedRetirementReceiptUnderOwnership: async () => { trace.push('rotate'); return overrides.rotated ?? { rotated: false, state: 'absent' }; },
     runNndUnpublishedTrialUnderOwnership: async (trialIdentity, paths, serviceLease, registry, options) => {
       trace.push(['trial', options, paths, serviceLease, registry]);
       return trialResult;
@@ -109,7 +110,7 @@ test('activation drives the trial then the full terminal sequence in strict orde
   const f = await harness();
   const result = await f.activateNndSlotUnderOwnership(identity, { stageOperationId, operationId });
   const steps = f.trace.map(item => (Array.isArray(item) ? item[0] : item));
-  assert.deepEqual(steps, ['lease', 'marker', 'transaction', 'migration', 'census', 'registry', 'candidate',
+  assert.deepEqual(steps, ['lease', 'marker', 'transaction', 'migration', 'census', 'registry', 'rotate', 'candidate',
     'trial', 'recordCompletion', 'planRetirement', 'recordRetirementDecision', 'cleanupRetirement',
     'commitRetirement', 'clearRetirementBarriers', 'transferNativeAdmission', 'publishController']);
   // Each terminal step receives the genuine registry lease and the full binding.
@@ -165,7 +166,7 @@ test('a wrong terminal state aborts the sequence and stops the retained owner wi
   await assert.rejects(f.activateNndSlotUnderOwnership(identity, { stageOperationId, operationId }),
     { code: 'nnd_activation_transition_proof_invalid' });
   const steps = f.trace.map(item => (Array.isArray(item) ? item[0] : item));
-  assert.deepEqual(steps, ['lease', 'marker', 'transaction', 'migration', 'census', 'registry', 'candidate',
+  assert.deepEqual(steps, ['lease', 'marker', 'transaction', 'migration', 'census', 'registry', 'rotate', 'candidate',
     'trial', 'recordCompletion', 'planRetirement', 'recordRetirementDecision', 'cleanupRetirement', 'commitRetirement', 'stop']);
   assert.equal(f.closedLeases(), 0);
 });
@@ -182,7 +183,7 @@ test('a trial that never retains an owner is refused without a terminal sequence
   await assert.rejects(f.activateNndSlotUnderOwnership(identity, { stageOperationId, operationId }),
     { code: 'nnd_activation_transition_proof_invalid' });
   const steps = f.trace.map(item => (Array.isArray(item) ? item[0] : item));
-  assert.deepEqual(steps, ['lease', 'marker', 'transaction', 'migration', 'census', 'registry', 'candidate', 'trial', 'close']);
+  assert.deepEqual(steps, ['lease', 'marker', 'transaction', 'migration', 'census', 'registry', 'rotate', 'candidate', 'trial', 'close']);
 });
 
 test('outer registry cleanup failure after a successful trial still stops the retained owner', async () => {

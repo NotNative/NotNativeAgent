@@ -28,3 +28,13 @@ pair; it remains durable external evidence and a later crash observer must
 still reconcile it before granting authority. No controller grant, native
 admission open, credential rotation, or new process selection follows from
 consumption alone.
+
+A later activation may only clear the fixed evidence paths through the
+rotation in `nnd-activation-receipt-rotation.js`, which also runs under both
+genuine owners, requires the pair to still name the live registration
+revision, moves both members whole into
+`install-slots/consumed/<operation_id>/`, and verifies the archived bytes
+match before reporting success. A half-moved archive is restored to the fixed
+paths first. Nothing is deleted at any point; the archive stays durable
+evidence. Rotation grants no authority either — it only lets the next
+terminal commit write where ADR 0064/0065 fixed its paths.

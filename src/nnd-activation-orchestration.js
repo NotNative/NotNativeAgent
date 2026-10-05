@@ -11,6 +11,7 @@ import { ContractError } from './ids.js';
 import { acquireNndServiceLock } from './nnd-service-lock.js';
 import { withManifestLock } from './persistence/manifest-transaction.js';
 import { readNndActivationCandidate } from './nnd-activation-candidate.js';
+import { archiveConsumedRetirementReceiptUnderOwnership } from './nnd-activation-receipt-rotation.js';
 import { runNndUnpublishedTrialUnderOwnership } from './nnd-activation-trial.js';
 import { assertNoNndInstallTransaction, operationValid } from './nnd-install-storage.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
@@ -126,10 +127,11 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
     try {
       return await withManifestLock(join(identity.data_root, 'config', 'nnd-package.json'), { signal },
         async registryLease => {
+          // ADR 0069 rotation runs before any evidence this write could collide with.
+          await archiveConsumedReceiptForActivation(identity, serviceLease, registryLease, signal);
           // Preflight the immutable slot identity under both owners before the
-          // trial may construct any writer. Candidate verification grants no
-          // activation or public authority on its own. Retirement cleanup
-          // removes the candidate file, so the frame carries its digest.
+          // trial may construct any writer; the ready frame carries the
+          // candidate digest because retirement cleanup deletes the file.
           const candidate = await readNndActivationCandidate(identity, serviceLease, registryLease, stageOperationId);
           signal?.throwIfAborted();
           const trial = await runNndUnpublishedTrialUnderOwnership(identity, paths, serviceLease,
@@ -142,9 +144,7 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
           const owner = trial?.owner;
           if (trial?.state !== 'quarantined_owner_held_unresolved' || !owner
             || typeof owner.transferNativeAdmission !== 'function') throw transition();
-          // The trial has already transferred the singleton lease to this owner.
-          // Any failure from here is post-handoff: the owner, not this function,
-          // must release the lease.
+          // Post-handoff: the owner, not this function, must release the lease.
           handedOff = true;
           retainedOwnerAfterHandoff = owner;
           const generation = trial?.generation;
@@ -174,4 +174,13 @@ export async function activateNndSlotUnderOwnership(identity, { stageOperationId
 async function selectRegistrationAfterDiscovery(context, operationId, stageOperationId) {
   await context.prepareDiscovery();
   return context.selectRegistration({ operationId, stageOperationId });
+}
+
+// ADR 0069: a consumed retirement receipt may only vacate the fixed evidence
+// paths under both genuine owners, immediately before this activation's own
+// candidate verification could lead to a terminal commit.
+async function archiveConsumedReceiptForActivation(identity, serviceLease, registryLease, signal) {
+  const rotated = await archiveConsumedRetirementReceiptUnderOwnership(identity, serviceLease, registryLease);
+  if (!rotated || (rotated.state !== 'absent' && rotated.state !== 'consumed_receipt_archived')) throw transition();
+  signal?.throwIfAborted?.();
 }
