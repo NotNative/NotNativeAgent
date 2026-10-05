@@ -88,7 +88,7 @@ async function liveRegistrationMatches(registryLease, pair) {
   // admission to nothing, so it may vacate; a disagreeing live registration
   // still keeps the admission bar exactly as before.
   const manifest = await readLockedManifestSnapshot(registryLease);
-  if (!manifest) return;
+  if (!manifest || manifest.state === 'missing') return;
   if (!manifest.rawBytes || manifest.revision !== pair.registration_revision
     || hash(manifest.rawBytes) !== pair.registration_revision) throw invalid();
 }

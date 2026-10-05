@@ -161,7 +161,9 @@ test('after uninstall removed the registration, the identity-bound pair still ro
   const f = await fixture(t);
   await writePair(f.slots, f.pair);
   // Guarded uninstall deletes nnd-package.json; the consumed pair stays.
-  const api = await apiFor(null, lease);
+  // readTargetSnapshot reports a missing manifest as a missing snapshot.
+  const api = await apiFor({ path: 'nnd-package.json', state: 'missing', rawManifest: null,
+    rawBytes: null, revision: 'absent' }, lease);
   const result = await api.archiveConsumedRetirementReceiptUnderOwnership(f.identity, lease,
     { path: join(f.identity.data_root, 'config', 'nnd-package.json') });
   assert.equal(result.state, 'consumed_receipt_archived');
