@@ -78,7 +78,7 @@ async function dispatch(request, response, context) {
   }
   if (await dispatchNndSetupRequest(request, response, { ...context, principal, url })) return;
   // Invariant: configuration repair remains reachable while native execution requires setup.
-  if ((context.nndConfigurationService || context.nndGatewayTimeoutService)
+  if ((context.nndConfigurationService || context.nndGatewayTimeoutService || context.nndWebFetchSettingsService)
     && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService
     && await dispatchNndWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;

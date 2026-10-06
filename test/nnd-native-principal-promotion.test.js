@@ -10,6 +10,7 @@ test('same native listener resolves operator principal only after private promot
     SecretBroker: class {}, ProviderProfileStore: class {}, LOCAL_SECRET_REALM: 'local',
     readNndSetupConfiguration: () => ({}), createNndConfigurationService: () => ({}),
     createNndGatewaySettingsTransaction: () => ({}),
+    createNndWebFetchSettingsTransaction: () => ({}),
     createNndWorkspaceGrantService: () => ({}), createNndLocalIntegrationActivation: () => ({}),
     createIntegrationLifecycle: async () => ({ runtime: { start() {}, snapshot: () => ({}) },
       getHost: () => ({ workspaceRoot: 'C:\\workspace' }), close: async () => {} }),

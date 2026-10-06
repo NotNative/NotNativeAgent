@@ -174,6 +174,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'gateway_config_invalid', 'gateway_config_too_large', 'gateway_polling_timeout_invalid',
     'nnd_gateway_timeout_request_invalid', 'nnd_gateway_timeout_source_invalid',
     'nnd_gateway_timeout_source_missing',
+    'nnd_web_fetch_request_invalid', 'nnd_web_fetch_source_invalid',
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
     'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',
     'goal_not_terminal', 'goal_reason_required', 'goal_tasks_actionable',

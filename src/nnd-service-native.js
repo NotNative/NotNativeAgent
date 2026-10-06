@@ -9,6 +9,7 @@ import { ProviderProfileStore } from './provider/profile-store.js';
 import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
 import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-transaction.js';
+import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transaction.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
 import { assertNndTrialOwnership, assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
@@ -50,6 +51,8 @@ export async function startNndNativeService(paths, identity, options = {}) {
   });
   const nndGatewayTimeoutService = createNndGatewaySettingsTransaction({ path: paths.gatewayConfig,
     installationId: identity.installation_id, dataId: identity.data_id });
+  const nndWebFetchSettingsService = createNndWebFetchSettingsTransaction({ path: paths.webFetchConfig,
+    installationId: identity.installation_id, dataId: identity.data_id });
   const nndWorkspaceGrantService = createNndWorkspaceGrantService({
     paths, installationId: identity.installation_id, dataId: identity.data_id,
   });
@@ -58,7 +61,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
   try {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
-      nndConfigurationService, nndGatewayTimeoutService, nndWorkspaceGrantService,
+      nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService, nndWorkspaceGrantService,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
       resolvePrincipal: () => options.unpublishedTrial && !trialSelection.promoted()

@@ -6,12 +6,12 @@ import { ContractError } from './ids.js';
 
 export const DEFAULT_WEB_FETCH_CONFIG = Object.freeze({ version: 1, trusted_origins: Object.freeze([]) });
 const WEB_FETCH_CONFIG_VERSION = 1;
-const MAX_CONFIG_BYTES = 65_536;
+export const MAX_WEB_FETCH_CONFIG_BYTES = 65_536;
 
 export async function loadWebFetchConfig(path) {
   try {
     const bytes = await readFile(path);
-    if (bytes.length > MAX_CONFIG_BYTES) throw new ContractError('web_fetch_config_too_large', 'WebFetch configuration exceeds its size bound');
+    if (bytes.length > MAX_WEB_FETCH_CONFIG_BYTES) throw new ContractError('web_fetch_config_too_large', 'WebFetch configuration exceeds its size bound');
     return normalizeWebFetchConfig(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
   } catch (error) {
     if (error.code === 'ENOENT') return DEFAULT_WEB_FETCH_CONFIG;
@@ -52,6 +52,11 @@ export function normalizeTrustedOrigin(value) {
   try { url = new URL(value); } catch { throw invalid(); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
     || !['', '/'].includes(url.pathname) || url.search || url.hash) throw invalid();
+  // Why: the projected family view must stay inside its 24,576-byte response bound.
+  // Origins are host-shaped, so every legal URL origin fits far below 300 characters
+  // (longest legal DNS host is 253 bytes plus scheme and port), and an explicit cap
+  // keeps 64 entries x ~303 JSON bytes provably under the bound.
+  if (url.origin.length > 300) throw invalid();
   return url.origin;
 }
 

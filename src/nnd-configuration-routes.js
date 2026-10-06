@@ -7,6 +7,7 @@ import { readJsonBody, send } from './secret-broker-server.js';
 import { ContractError } from './ids.js';
 import { dispatchNndMcpConfigurationRequest } from './nnd-mcp-configuration-routes.js';
 import { dispatchNndGatewayTimeoutRequest } from './nnd-gateway-timeout-routes.js';
+import { dispatchNndWebFetchRequest } from './nnd-web-fetch-routes.js';
 
 const BASE = '/v1/nnd/configuration';
 const REQUEST_BYTES = 65536;
@@ -33,6 +34,7 @@ async function dispatchConfigurationRequest(request, response, context) {
   const url = context.url;
   if (url.pathname !== BASE && !url.pathname.startsWith(BASE + '/')) return false;
   if (await dispatchNndGatewayTimeoutRequest(request, response, context)) return true;
+  if (await dispatchNndWebFetchRequest(request, response, context)) return true;
   if (await dispatchNndMcpConfigurationRequest(request, response, context)) return true;
   const route = routeFor(url.pathname);
   if (!route) return send(response, 404, { error: 'not_found' });

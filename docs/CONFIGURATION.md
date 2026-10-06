@@ -497,6 +497,18 @@ apply at the next gateway restart, and receipts record the before/persisted revi
 with a bounded replay window. The first-party flat request of the earlier polling-timeout
 contract remains a compatibility alias of one polling operation.
 
+The native NND integration also exposes the WebFetch trust family through the
+authenticated configuration routes at `/v1/nnd/configuration/web-fetch` (read,
+catalog, preview, save, and operation replay). Trust is an authority grant, not a
+presentation preference: the family covers the exact credential-free HTTP(S) origins
+whose private destinations the operator chose to trust. Values canonicalize the same
+way the store normalizes them, reads project the origin list verbatim, and a saved
+change applies at the next WebFetch classification because the destination policy
+reloads the file on every fetch. An absent file reads and previews as the sticky
+defaults, and the first trust save creates it exactly like the `webfetch trust` CLI
+action. Receipts record the before/persisted revisions with a bounded replay window;
+there is no legacy first-party request shape for this family.
+
 When multiple sources are assembled programmatically, lowest-to-highest precedence uses
 recursive object merge and array/scalar replacement. The winning source is recorded per
 canonical effective leaf. Values supplied by the user manifest, trusted project,
