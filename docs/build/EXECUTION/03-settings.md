@@ -360,6 +360,31 @@ non-author audits returned PASS with no defects. The family rows'
 application class stays unverified until an installed journey exercises a
 real search; the remaining C6 external-store families stay open.
 
+Progress: at NNA `20261006-4` the update_state entries became a read-only
+native surface at `/v1/nnd/configuration/update-state` (read plus catalog,
+read permission only). The surface loads through the store's own validator,
+so any content it refuses — an absent, corrupt, or foreign-shaped file —
+reads as the sticky state `absent`, honestly meaning "no recorded check is
+known to be valid"; a validator-accepted record projects as stored with
+store-grammar parity (v-prefixed or long-sequence versions, offset
+timestamps, length-bounded brief strings), the eight census fields only
+(the unclassified `installed_at` store field stays unprojected until the
+census classifies it), unknown fields dropped and any further drift failing
+closed; the catalog marks every field read-only with
+`reason: generated_state` because only the update worker and its install
+path write the store. NND ships a typed client and a read-only updates
+section (status, checked-at, latest version and digest, last error, or the
+honest no-record-yet default), mirrors the native store grammar exactly,
+and the census update_state rows carry the
+native read endpoints, the paired read permission, and the section path.
+The web-search family's four compatibility-alias rows reconcile to the
+family's existing native chain: NNA accepts legacy version-1 document keys
+on load and normalizes them into the served version-2 shape, so the aliases
+point at the native surface with a note that the modern shape only is
+served. The rows' application class stays unverified until an installed
+service is observed recording a real check; the remaining C6 external-store
+families stay open.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as

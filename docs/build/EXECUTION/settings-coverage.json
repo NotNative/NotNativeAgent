@@ -11436,11 +11436,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11478,11 +11478,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11520,11 +11520,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11562,11 +11562,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11604,11 +11604,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11646,11 +11646,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11688,11 +11688,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -11730,11 +11730,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -12024,11 +12024,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
+      "native_permission": "nnd.configuration.read + nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -12043,7 +12043,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
     },
     {
       "id": "web_search_alias:endpoint",
@@ -12066,11 +12066,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
+      "native_permission": "nnd.configuration.read + nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -12085,7 +12085,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
     },
     {
       "id": "web_search_alias:managed",
@@ -12108,11 +12108,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
+      "native_permission": "nnd.configuration.read + nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -12127,7 +12127,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
     },
     {
       "id": "web_search_alias:profiles[*].displayName",
@@ -12150,11 +12150,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
+      "native_permission": "nnd.configuration.read + nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -12169,7 +12169,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
     },
     {
       "id": "web_search_action:status",

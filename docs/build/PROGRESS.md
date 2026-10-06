@@ -3,6 +3,31 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Update state reads natively; web-search aliases reconcile · NNA 20261006-4 + NND 20261006-4
+
+The release-channel check state became an honest read-only native surface.
+NNA `20261006-4` serves `/v1/nnd/configuration/update-state`: the eight
+census fields of the update worker's recorded check, loading through the
+store's own validator so any content it refuses — absent, corrupt, or
+foreign-shaped — reads as the sticky state `absent`, honestly meaning "no
+recorded check is known to be valid"; a validator-accepted record projects
+as stored with store-grammar parity (v-prefixed or long-sequence versions,
+offset timestamps, length-bounded brief strings, the eight census fields
+only, no unclassified `installed_at`), unknown fields dropped and further
+drift refused. The catalog marks every field read-only with
+`reason: generated_state` — only the update worker and its install path
+write the store, and the GUI never repeats the private repository request.
+NND `20261006-4` consumes it with a typed client and a read-only updates
+section (status, checked-at, latest version and digest, last error, or the
+honest no-record-yet default with a refresh), mirroring the native store
+grammar exactly. The census update_state rows (8) carry the native
+read endpoints, the paired read permission, and the section path. The same
+census commitment reconciles the web-search family's four compatibility-alias rows to the
+family's existing native chain with a note that NNA normalizes legacy
+version-1 document keys on load. Focused suites 3/3 native and 4/4 client;
+the rows' installed journey stays unverified until an installed service is
+observed recording a real check.
+
 ## 2026-10-06 · Environment rows read natively, redacted · NNA 20261006-3 + NND 20261006-3
 
 The environment rows became an honest read-only native surface. NNA
