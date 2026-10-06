@@ -416,6 +416,39 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-12 and NND 20261006-12 — update and package operator actions
+
+The five remaining C1 operator rows (`update_action:check`,
+`update_action:install`, `nnd_package_action:activate`,
+`nnd_package_action:deactivate`, `nnd_package_action:status`) closed with
+native surfaces reusing the shipped operators verbatim and an NND console for
+each. The runtime checks the repository through the update CLI authority
+(`checkForUpdate` with force — the `-4` update-state observation stays the
+cached read) and refuses the install line honestly
+(`nnd_update_install_unsupported`): the installer inherits the owning console
+and replaces the running implementation, which an HTTP handler cannot host, so
+the CLI (`nna update`) stays its authority and the routes pin the refusal. The
+package surface reuses `runNndPackageCommand` verbatim: status reads the
+registry (`GET /v1/nnd/configuration/nnd-package`,
+`nnd.configuration.read`), activate validates a package root through the
+manifest transaction and registers root/version/protocol
+(`nnd.package.manage`), deactivate unregisters only the matching root with
+wrong-root lockstep refused at 400. Receipts pin the CLI's own verdict
+grammars and fail closed on drift (`nnd_update_projection_invalid` /
+`nnd_package_projection_invalid`, 500). The slice also fixed a real wiring
+defect found during the census survey: `nnd-service-native.js` created seven
+settings services but passed only nine context services to the listener —
+the compatibility lifecycle, MCP-credentials, secrets, and hooks surfaces
+were unreachable natively (their HTTP tests had injected services directly);
+the options now spread the whole classified service set so a surface cannot
+be silently dropped again, and the exported factory key list is locked by
+test. New rights `nnd.update.manage` and `nnd.package.manage`; trial
+principals keep none. NNA `0ac274e2`, NND console pages (`NNA update
+actions`, `NND package actions`) with receipts rendering the CLI verdicts
+and the installer refusal verbatim. Focus tests 4/4 NNA + 4/4 NND; masks: full
+NNA 2,364 tests (2,354 pass — only the load-flaky census pair, verified green
+solo), full UI+web seen in the NND slice record.
+
 ## NNA 20261006-10 (runtime unchanged) and NND 20261006-11 — the secret_action console
 
 This slice added no native surface: the seven census `secret_action` rows

@@ -13792,8 +13792,8 @@
       "key": "check",
       "source": {
         "product": "NNA",
-        "path": "src/update-cli.js",
-        "validator": "runUpdateCommand"
+        "path": "src/update-service.js",
+        "validator": "checkForUpdate"
       },
       "store": {
         "owner": "NNA",
@@ -13803,29 +13803,30 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "update_check_recorded",
+        "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/update/actions/check",
+      "native_permission": "nnd.update.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/update-actions.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runUpdateCommand"
+          "checkForUpdate",
+          "updateAvailability"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
     },
     {
       "id": "update_action:install",
@@ -13834,8 +13835,8 @@
       "key": "install",
       "source": {
         "product": "NNA",
-        "path": "src/update-cli.js",
-        "validator": "runUpdateCommand"
+        "path": "src/update-service.js",
+        "validator": "installAvailableUpdate"
       },
       "store": {
         "owner": "NNA",
@@ -13845,29 +13846,30 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/update/actions/install (refused natively)",
+      "native_permission": "nnd.update.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/update-actions.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runUpdateCommand"
+          "installAvailableUpdate",
+          "updateAvailability"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
     },
     {
       "id": "trust_action:trust",
@@ -13971,29 +13973,30 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "registered_root",
+        "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/nnd-package/actions/activate",
+      "native_permission": "nnd.package.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/package-actions.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runNndPackageCommand"
+          "runNndPackageCommand",
+          "validateNndPackage"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
     },
     {
       "id": "nnd_package_action:deactivate",
@@ -14013,29 +14016,30 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "unregistered_root",
+        "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/nnd-package/actions/deactivate",
+      "native_permission": "nnd.package.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/package-actions.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runNndPackageCommand"
+          "runNndPackageCommand",
+          "validateNndPackage"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
     },
     {
       "id": "nnd_package_action:status",
@@ -14055,29 +14059,30 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/nnd-package",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/package-actions.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runNndPackageCommand"
+          "runNndPackageCommand",
+          "validateNndPackage"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
     },
     {
       "id": "session_review:mode",

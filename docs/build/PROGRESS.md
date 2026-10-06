@@ -3,6 +3,25 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Update and package operator actions · NNA 20261006-12 + NND 20261006-12
+
+The last two C1 families closed: the NNA native surfaces reuse the shipped
+operators verbatim — forced update check (the CLI's `checkForUpdate`, receipt
+recorded as the CLI would) with the installer honestly refused
+(`nnd_update_install_unsupported`, CLI stays its authority) on
+`/v1/nnd/configuration/update/actions`, and the package registry on
+`/v1/nnd/configuration/nnd-package` (status read; activate validates a root
+through the manifest transaction; deactivate matches the root or refuses).
+The desktop console gains `NNA update actions` (forced check receipt plus the
+refusal learned verbatim) and `NND package actions` (registry read, activate,
+deactivate). The slice also repaired the native wiring defect uncovered during
+the census survey — the listener context had dropped the lifecycle,
+MCP-credentials, secrets, and hooks services since `-9`; the services now
+spread as one set and the factory's key list is pinned by test, with new
+`nnd.update.manage` and `nnd.package.manage` rights. C1 is done: the
+remaining census families move to C4 (provider advanced fields), C5 (MCP
+mutation), C7 (installed gates), and the F/L lanes.
+
 ## 2026-10-06 · Secret-action console · NND 20261006-11 (NNA runtime unchanged)
 
 The seven census `secret_action` rows closed with product consumption of the

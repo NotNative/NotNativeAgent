@@ -558,7 +558,22 @@ parser refuses drifted grammars (sorted-unique field names, scope kinds,
 stamps, and audit events' fixed 14 keys). Census rows updated in place with
 `secret` sensitivity, verified GUI paths, and per-row evidence. The
 `update_action` (2 install-action rows) and `nnd_package_action` (3) families
-remain open.
+closed in the next slice together with the runtime wiring repair they
+surfaced: `/v1/nnd/configuration/update/actions` runs the CLI's forced
+`checkForUpdate` probe and refuses the installer honestly
+(`nnd_update_install_unsupported` — the CLI keeps its authority), the package
+surface reuses `runNndPackageCommand` verbatim (status read with
+`nnd.configuration.read`; activate/deactivate under `nnd.package.manage` with
+wrong-root deactivation refused at 400), both receipts pin the CLI's variant
+grammars and fail closed on projection drift, and the desktop console serves
+them as "NNA update actions" and "NND package actions". The same slice found
+and fixed a real native wiring defect: the listener context had dropped the
+compatibility lifecycle, MCP-credential, secrets, and hooks services since
+`-9` (production-only; the route tests had injected services directly), so
+the option set now spreads the whole classified service list and the
+factory's exported key set is locked by test. Remaining families belong to C4
+(provider advanced fields), C5 (MCP mutation), C7 (installed gates), and the
+F/L lanes.
 
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
