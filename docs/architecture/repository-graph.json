@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:c3fe33ac7bb61ff63e1aa3ffd47e28df643a2073ece00a0454d700d555b2a3a1",
+  "source_digest": "sha256:8c8b937c30904d862e2ce5cf94bf008c75c965144ea937027c0c2572f96c8429",
   "counts": {
-    "modules": 526,
+    "modules": 528,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 218
+      "module_count": 220
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 649,
-      "module_count": 193
+      "import_count": 654,
+      "module_count": 195
     },
     {
       "from": "experience-engine",
@@ -172,16 +172,16 @@
       "module_count": 12
     },
     {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 40,
+      "module_count": 23
+    },
+    {
       "from": "integrations",
       "to": "foundation",
       "import_count": 38,
       "module_count": 10
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 37,
-      "module_count": 21
     },
     {
       "from": "providers",
@@ -2580,6 +2580,7 @@
         "src/integration-principal.js",
         "src/nnd-configuration-intents.js",
         "src/nnd-configuration-view.js",
+        "src/nnd-environment-route.js",
         "src/nnd-gateway-timeout-routes.js",
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-web-fetch-routes.js",
@@ -2664,6 +2665,26 @@
         "src/nnd-workspace-binding.js",
         "src/opencode/wire-events.js",
         "src/persistence/atomic-json.js"
+      ]
+    },
+    {
+      "path": "src/nnd-environment-route.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/nnd-environment-snapshot.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-environment-snapshot.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js"
       ]
     },
     {
@@ -3260,6 +3281,7 @@
         "src/integration-cli.js",
         "src/integration-server.js",
         "src/nnd-configuration-service.js",
+        "src/nnd-environment-snapshot.js",
         "src/nnd-gateway-timeout-transaction.js",
         "src/nnd-native-principal-selection.js",
         "src/nnd-setup-config.js",
