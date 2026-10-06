@@ -9,7 +9,7 @@ test('same native listener resolves operator principal only after private promot
   const dependencies = { createHash, randomBytes, randomUUID,
     SecretBroker: class {}, ProviderProfileStore: class {}, LOCAL_SECRET_REALM: 'local',
     readNndSetupConfiguration: () => ({}), createNndConfigurationService: () => ({}),
-    createNndGatewayTimeoutTransaction: () => ({}),
+    createNndGatewaySettingsTransaction: () => ({}),
     createNndWorkspaceGrantService: () => ({}), createNndLocalIntegrationActivation: () => ({}),
     createIntegrationLifecycle: async () => ({ runtime: { start() {}, snapshot: () => ({}) },
       getHost: () => ({ workspaceRoot: 'C:\\workspace' }), close: async () => {} }),

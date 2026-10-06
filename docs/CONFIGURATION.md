@@ -486,6 +486,17 @@ than tab-local. Specialist roles with no assigned provider profile inherit Prima
 gateway turns. Full setup and lifecycle behavior are documented in
 [TELEGRAM_GATEWAY.md](TELEGRAM_GATEWAY.md).
 
+The native NND integration exposes the whole gateway settings family through the
+authenticated configuration routes at `/v1/nnd/configuration/gateway` (read, catalog,
+preview, save, and operation replay). One CAS-protected transaction covers enablement,
+the token environment name, the workspace root, polling bounds, the Telegram token, and
+the authorized user-id allowlist. Normal reads project the token as presence only and
+never disclose its value; the token changes through dedicated replace/clear operations,
+and the allowlist changes through dedicated authorize/revoke operations. Saved values
+apply at the next gateway restart, and receipts record the before/persisted revisions
+with a bounded replay window. The first-party flat request of the earlier polling-timeout
+contract remains a compatibility alias of one polling operation.
+
 When multiple sources are assembled programmatically, lowest-to-highest precedence uses
 recursive object merge and array/scalar replacement. The winning source is recorded per
 canonical effective leaf. Values supplied by the user manifest, trusted project,

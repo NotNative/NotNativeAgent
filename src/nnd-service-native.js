@@ -8,7 +8,7 @@ import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
-import { createNndGatewayTimeoutTransaction } from './nnd-gateway-timeout-transaction.js';
+import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-transaction.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
 import { assertNndTrialOwnership, assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
@@ -48,7 +48,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
   const nndConfigurationService = createNndConfigurationService({
     paths, installationId: identity.installation_id, dataId: identity.data_id,
   });
-  const nndGatewayTimeoutService = createNndGatewayTimeoutTransaction({ path: paths.gatewayConfig,
+  const nndGatewayTimeoutService = createNndGatewaySettingsTransaction({ path: paths.gatewayConfig,
     installationId: identity.installation_id, dataId: identity.data_id });
   const nndWorkspaceGrantService = createNndWorkspaceGrantService({
     paths, installationId: identity.installation_id, dataId: identity.data_id,
