@@ -416,6 +416,19 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-10 (runtime unchanged) and NND 20261006-15 — session-review rows pinned
+
+The two `session_review` rows closed as census pins of an already-served and
+already-consumed surface: the NNA review-mode commit (`PUT
+/v1/nnd/sessions/:id/review-mode`, `nnd.session.update`, apply class
+`idle_session` with auto-review preserved as mandatory review) persists mode
+and revision in `sessions/nnd-contexts.json`, and the desktop chat work
+status panel consumes the read and the compare-and-set commit
+(`setSessionReviewMode` PUT carrying `expected_revision`), with lib and page
+drills asserting both. The rows now carry the verified chat consumer
+(`packages/ui/src/chat/review-mode-control.tsx`), `security` sensitivity,
+per-row source symbols, and the idle-session/CAS policing note.
+
 ## NNA 20261006-10 (runtime unchanged) and NND 20261006-14 — generated-state meta rows pinned
 
 The four remaining un-GUI'd rows of the three served settings families

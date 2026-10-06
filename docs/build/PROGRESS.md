@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Session-review rows pinned · NND 20261006-15 (NNA unchanged)
+
+The `session_review` pair closed as census pins of the already-served
+review-mode surface: the NNA commit keeps idle-session + mandatory-review
+policing with request-only compare-and-set, and the desktop chat panel
+(`ReviewModeControl`) consumes the read and the commit with lib and page
+drills verified since their own slices. No native change; no product change;
+the rows gain the verified consumer, `security` sensitivity, and per-row
+source symbols. Remaining no-GUI census work: `web_search_action` and
+`gateway_action` (13 rows each — token/authorize/deploy/install/run lines
+needing per-verb inspection), `browser_action` (verify/status over
+`playwrightStatus`), the `invocation` flag family (25), `skills_action`
+(runSkillsCommand has no native consumer yet), `legacy_provider_credentials`
+(bootstrap seed alias), and the `manifest_*` projection families (~225,
+read-projection shape).
+
 ## 2026-10-06 · Generated-state meta rows pinned · NND 20261006-14 (NNA unchanged)
 
 The four remaining un-GUI'd rows of the served families (each family's

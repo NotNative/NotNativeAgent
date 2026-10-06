@@ -583,7 +583,11 @@ flags, the three served-family read columns (`web_search`, `web_fetch`,
 and the wide `manifest_*` projection families open. The four generated-state
 meta rows of the served families (web_search/web_fetch/gateway `version`,
 web_fetch `updated_at`) then pinned as census-only rows riding their family
-pages' read views (no operator control, read right only).
+pages' read views (no operator control, read right only), and the
+`session_review` pair pinned the same way: the NNA review-mode commit
+(idle-session policing + request-only compare-and-set) is consumed by the
+chat panel's `ReviewModeControl`, verified with lib and page drills since
+their own slices.
 
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read

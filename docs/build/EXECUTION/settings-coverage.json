@@ -14127,22 +14127,25 @@
       "native_permission": "nnd.session.update",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/chat/review-mode-control.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "commitReviewMode"
+          "commitReviewMode",
+          "setSessionReviewMode"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (review-mode lib and chat panel drills)"
+        ],
         "installed_journey": null
       },
-      "notes": "default resolves auto-review; auto-review and unattended retain mandatory review. Revision is concurrency evidence."
+      "notes": "the review-mode family is fully served natively and consumed on the desktop: the commit runs against the owned root session when it is idle (apply class idle_session with the mandatory-review rules resolved from auto-review), the mode and revision persist in sessions/nnd-contexts.json, and the request carries the compare-and-set expected_revision matched against native reviewRevision (request-only, never persisted); the chat work status panel consumes the read and the commit through the runtime client (getSessionReviewMode / setSessionReviewMode PUT with the revision body) and its lib and page drills assert both, so the rows carry the verified chat consumer plus the per-row source symbols"
     },
     {
       "id": "session_review:expected_revision",
@@ -14169,22 +14172,25 @@
       "native_permission": "nnd.session.update",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/chat/review-mode-control.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "commitReviewMode"
+          "commitReviewMode",
+          "setSessionReviewMode"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (review-mode lib and chat panel drills)"
+        ],
         "installed_journey": null
       },
-      "notes": "Request-only compare-and-set revision matched against native reviewRevision; it is not a stored setting. Native mode/revision are persisted in sessions/nnd-contexts.json after an idle-session commit."
+      "notes": "the review-mode family is fully served natively and consumed on the desktop: the commit runs against the owned root session when it is idle (apply class idle_session with the mandatory-review rules resolved from auto-review), the mode and revision persist in sessions/nnd-contexts.json, and the request carries the compare-and-set expected_revision matched against native reviewRevision (request-only, never persisted); the chat work status panel consumes the read and the commit through the runtime client (getSessionReviewMode / setSessionReviewMode PUT with the revision body) and its lib and page drills assert both, so the rows carry the verified chat consumer plus the per-row source symbols"
     },
     {
       "id": "secrets:label",

@@ -1200,6 +1200,10 @@
     {
       "version": "20261006-14",
       "content_sha256": "43d64b80028579434f599db86735d9f60b06044e3ed4c5b71bc394acb72ae198"
+    },
+    {
+      "version": "20261006-15",
+      "content_sha256": "250818f1a013e4da4e7a6ebfedce31d4ea058a007ce1b539e65ccb057823c0e2"
     }
   ]
 }
