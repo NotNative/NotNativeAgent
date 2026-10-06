@@ -3,6 +3,33 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Compatibility service wiring identity read and changed natively · NNA 20261006-6 + NND 20261006-6
+
+The seven compatibility_service rows became a natively-served settings family.
+NNA `20261006-6` serves `/v1/nnd/configuration/compatibility-service` over the
+OpenCode wiring identity in `config/opencode.json` with the one-CAS
+read/preview/save/operations shape the gateway, WebFetch, and WebSearch families
+established: a candidate is a full document view (enabled, hostname, port,
+username) merged server-side over the stored secret through keep/replace/clear,
+and every merged document is validated by the same `normalizeOpenCodeConfig` the
+CLI and the wiring service use — an exposed bind without credentials refuses with
+`opencode_bind_exposed_requires_password` and host, port, username, and password
+grammar surface the domain's own codes. Secret values never project: a read shows
+a credential presence source only (the stored secret or the
+`OPENCODE_SERVER_PASSWORD` environment override), a replace value is validated
+without echoing, and receipts class application as `next_service_start` because
+the wiring service reads the configuration at its next start. NND `20261006-6`
+consumes it with a typed client (the seven census catalog paths; receipts pinned
+to the requested operation; replace values bound locally with the domain codes)
+and a compatibility section staging the full document view with a one-of-three
+password choice whose status reports where the secret comes from; the preview and
+the receipt both say the change applies at the next service start, and honest
+refusals surface as sentences. Focused suites: native 16/16 across the
+compatibility route tests and the configuration/promotion/failure-envelope focus
+set, client 9/9; NND UI 1,827/1,827, web 1,447/1,447, typecheck 0; the
+compatibility_service lifecycle actions (six operator_action rows) stay for their
+own slice.
+
 ## 2026-10-06 · Workspace trust granted natively with canonical receipts · NNA 20261006-5 + NND 20261006-5
 
 The trusted-workspaces rows became the settings family's first authority-grant

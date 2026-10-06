@@ -13,6 +13,7 @@ import { WebSearchSettings } from './web-search-settings.tsx';
 import { NativeEnvironment } from './native-environment.tsx';
 import { NativeUpdateState } from './native-update-state.tsx';
 import { TrustWorkspaces } from './trust-workspaces.tsx';
+import { CompatibilityServiceSettings } from './compatibility-service.tsx';
 
 function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): string {
   if (!value.present) return t('settings.nativeConfiguration.absent');
@@ -132,5 +133,5 @@ export function NativeConfigurationPage(): ReactNode {
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /></>;
+  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /></>;
 }

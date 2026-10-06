@@ -10638,12 +10638,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -10657,7 +10657,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native surface: view shows the fixed wire identity; the password is presence-only (source restricted local config or environment), application next_service_start"
     },
     {
       "id": "compatibility_service:enabled",
@@ -10680,12 +10680,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service; POST /v1/nnd/configuration/compatibility-service/preview; POST /v1/nnd/configuration/compatibility-service/save; GET /v1/nnd/configuration/compatibility-service/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -10699,7 +10699,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native surface: candidate is a full document view merged over the stored secret (keep/replace/clear password), validated by the domain normalizer, application next_service_start"
     },
     {
       "id": "compatibility_service:hostname",
@@ -10722,12 +10722,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service; POST /v1/nnd/configuration/compatibility-service/preview; POST /v1/nnd/configuration/compatibility-service/save; GET /v1/nnd/configuration/compatibility-service/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -10741,7 +10741,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native surface: candidate is a full document view merged over the stored secret (keep/replace/clear password), validated by the domain normalizer, application next_service_start"
     },
     {
       "id": "compatibility_service:port",
@@ -10764,12 +10764,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service; POST /v1/nnd/configuration/compatibility-service/preview; POST /v1/nnd/configuration/compatibility-service/save; GET /v1/nnd/configuration/compatibility-service/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -10783,7 +10783,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native surface: candidate is a full document view merged over the stored secret (keep/replace/clear password), validated by the domain normalizer, application next_service_start"
     },
     {
       "id": "compatibility_service:username",
@@ -10806,12 +10806,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service; POST /v1/nnd/configuration/compatibility-service/preview; POST /v1/nnd/configuration/compatibility-service/save; GET /v1/nnd/configuration/compatibility-service/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -10825,7 +10825,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native surface: candidate is a full document view merged over the stored secret (keep/replace/clear password), validated by the domain normalizer, application next_service_start"
     },
     {
       "id": "compatibility_service:password",
@@ -10848,12 +10848,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service; POST /v1/nnd/configuration/compatibility-service/preview; POST /v1/nnd/configuration/compatibility-service/save; GET /v1/nnd/configuration/compatibility-service/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "secret",
       "work_package": "C1",
@@ -10867,7 +10867,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Dedicated replace/clear; normal reads redact secret values."
+      "notes": "Dedicated replace/clear; normal reads redact secret values. native surface: candidate is a full document view merged over the stored secret (keep/replace/clear password), validated by the domain normalizer, application next_service_start"
     },
     {
       "id": "compatibility_service:updated_at",
@@ -10890,12 +10890,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -10909,7 +10909,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native surface: view shows the fixed wire identity; the password is presence-only (source restricted local config or environment), application next_service_start"
     },
     {
       "id": "trust:version",

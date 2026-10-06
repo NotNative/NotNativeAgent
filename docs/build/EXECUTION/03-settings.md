@@ -407,6 +407,30 @@ installed journey stays unverified until an installed NNA process is observed
 admitting a real granted workspace; the remaining C6 external-store families
 stay open.
 
+Progress: at NNA `20261006-6` the seven compatibility_service rows gained a
+native settings surface at `/v1/nnd/configuration/compatibility-service` over
+`config/opencode.json` — the OpenCode wiring identity (login auto-start plus the
+fixed hostname, port, and Basic auth username) — using the same one-CAS
+read/preview/save/operations shape the gateway, WebFetch, and WebSearch families
+established. A candidate is a full document view (enabled, hostname, port,
+username) merged server-side over the stored secret through keep/replace/clear,
+and every merged document is validated by the same `normalizeOpenCodeConfig` the
+CLI and the wiring service use, so an exposed bind without credentials refuses
+with `opencode_bind_exposed_requires_password` and the host, port, username, and
+password grammar surface the domain's own codes. Secret values never project: a
+read shows a credential presence source only (the stored secret or the
+`OPENCODE_SERVER_PASSWORD` environment override), a replace value is validated
+without echoing, and receipts class application as `next_service_start` because
+the wiring service reads the configuration at its next start. NND `20261006-6`
+consumes it with a typed client (the seven census catalog paths, receipts pinned
+to the requested operation, replace values bound locally with the domain codes)
+and a compatibility section staging the full document view with a one-of-three
+password choice; both the preview and the receipt state the change applies at the
+next service start, and honest refusals surface as sentences. Corrupt or
+foreign-version stores fail closed (`nnd_compatibility_source_invalid` on reads;
+saves refuse to normalize a broken store), and the compatibility_service
+lifecycle actions (six operator_action rows) stay for their own slice.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
