@@ -315,9 +315,29 @@ operations, and the census gateway rows now carry the native endpoints, the
 paired permissions, and the settings-page path; the C1 gate re-verified the
 census against the paired NNA catalog. The gateway rows' application class
 stays unverified until an installed journey exercises the change; the
-remaining C6 external-store families (web search, web fetch and browser,
-compatibility service, environment, hooks, native updates, optional
-integrations) and the distinct TUI preferences page remain open.
+remaining C6 external-store families (web search, browser, compatibility
+service, environment, hooks, native updates, optional integrations) and the
+distinct TUI preferences page remain open.
+
+Progress: at NNA `20261005-15` the WebFetch trust family followed the gateway
+template. The authority-grant list of exact credential-free HTTP(S) origins
+(`config/web-fetch.json`, at most 64 entries, each at most 300 characters) is
+native-first under one CAS transaction at `/v1/nnd/configuration/web-fetch`
+with the 20261005-14 bounded-replay mechanics and an honest `next_fetch`
+application class: the destination policy reloads the store on every
+classification, so a saved grant is honored by the next web fetch without a
+restart. Origins canonicalize exactly as the store normalizes them; an absent
+store reads and previews as sticky defaults, the first trust save creates it
+exactly like the `webfetch trust` CLI, and a corrupt store fails closed. NND
+ships the typed client and a trust page (add/revoke drafts previewed as the
+sorted candidate list before one revision-checked save), and the census
+web-fetch rows carry the native endpoints, the paired permissions, and the
+settings-page path; an independent audit passed with no defects and its two
+risks — an unbounded origin length versus the family response bound, and a
+catalog editability asymmetry with the gateway mirror — were fixed before
+this consumer landed. The trust rows' application class stays unverified
+until an installed journey exercises a real grant; the remaining C6
+external-store families stay open.
 
 ### C7 — Coverage and installed acceptance gate
 

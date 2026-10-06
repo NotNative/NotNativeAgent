@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:34e040b879b3b39a825bc5ca172ccc91f1f5068cb2dee595c3497c5d52a243d5",
+  "source_digest": "sha256:ad3729f1ab7f2ae6ec650a74221a0872bc2a6c0532540b1934dc6125b6c4489d",
   "counts": {
-    "modules": 794,
+    "modules": 797,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 14
+      "module_count": 16
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 188
+      "module_count": 189
     },
     {
       "id": "web-server",
@@ -109,20 +109,20 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 306,
-      "module_count": 126
-    },
-    {
-      "from": "ui-shell",
-      "to": "sync-engine",
-      "import_count": 90,
-      "module_count": 46
+      "import_count": 309,
+      "module_count": 127
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 89,
-      "module_count": 66
+      "import_count": 92,
+      "module_count": 67
+    },
+    {
+      "from": "ui-shell",
+      "to": "sync-engine",
+      "import_count": 91,
+      "module_count": 47
     },
     {
       "from": "sync-engine",
@@ -145,8 +145,8 @@
     {
       "from": "harness-facade",
       "to": "runtime-io",
-      "import_count": 12,
-      "module_count": 10
+      "import_count": 14,
+      "module_count": 12
     },
     {
       "from": "runtime-io",
@@ -173,15 +173,15 @@
       "module_count": 5
     },
     {
+      "from": "harness-facade",
+      "to": "sync-engine",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
       "from": "sync-engine",
       "to": "ui-shell",
       "import_count": 4,
-      "module_count": 3
-    },
-    {
-      "from": "harness-facade",
-      "to": "sync-engine",
-      "import_count": 3,
       "module_count": 3
     },
     {
@@ -1829,6 +1829,7 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls.tsx",
         "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/nnd/configuration.ts",
         "packages/ui/src/lib/runtime-auth-expiry.ts",
@@ -2108,6 +2109,21 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
+        "packages/ui/src/lib/nnd/web-fetch-pending.ts",
+        "packages/ui/src/lib/nnd/web-fetch.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -3389,6 +3405,23 @@
       "component": "harness-facade",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/web-fetch-pending.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/web-fetch.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/authority-sync.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/outside-file-grants.ts",

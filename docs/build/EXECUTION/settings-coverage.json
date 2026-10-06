@@ -10176,8 +10176,8 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
         "path": null,
@@ -10218,11 +10218,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-fetch; POST /v1/nnd/configuration/web-fetch/preview; POST /v1/nnd/configuration/web-fetch/save; GET /v1/nnd/configuration/web-fetch/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10260,8 +10260,8 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
         "path": null,

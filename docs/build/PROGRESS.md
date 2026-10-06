@@ -3,7 +3,38 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
-## 2026-10-06 · Gateway settings family native-first with a typed GUI client · NNA 20261005-14 + NND 20261005-10
+## 2026-10-06 · WebFetch trust family native-first with a typed client and page · NNA 20261005-15 + NND 20261006-1
+
+The WebFetch trust family became native-first. NNA `20261005-15` serves
+`/v1/nnd/configuration/web-fetch` with read, catalog, preview, save, and the
+bounded operation-replay receipt mechanics of the 20261005-14 gateway
+contract. Trust is an authority grant over exact credential-free HTTP(S)
+origins (at most 64, each at most 300 characters, canonicalized like every
+store write); the destination policy reloads the store for every
+classification, so the honest application class is `next_fetch` — a saved
+grant is honored by the next web fetch with no restart. An absent store reads
+and previews as sticky defaults and the first trust save creates it exactly
+like the `webfetch trust` CLI; a corrupt store fails closed; revoking an
+unlisted origin stays a valid no-op save by CLI parity. Two non-author
+adversarial reviews returned PASS with no defects; their two risks were
+fixed pre-consumer (a 300-character origin cap plus a 24,576-byte family
+response bound so every legal state is provably projectable, and gateway-parity
+editability on the trust catalog row). Focused suites 13/13 after the fixes;
+the full NNA suite passed 2,320 of 2,321 tests, the five load-sensitive
+platform-timing flakes each proven green in isolation on the final tree.
+
+NND `20261006-1` consumes it: the typed client mirrors the read surface
+including the absent-source sticky-default state and the absent CAS base,
+canonicalizes drafts client-side with the same cap, holds the family
+transport bounds, and composes bounded trust/revoke batches; the settings
+page drafts the sorted candidate list, previews it against NNA before one
+revision-checked save that can bootstrap from an absent store, and keeps the
+retained uncertain-receipt flow with a receipt copy that says the next web
+fetch will honor the change. The census web-fetch rows carry the native
+endpoints, the paired permissions, and the settings-page path, and the C1
+gate re-verified the census against the paired NNA tree. Focused web-fetch
+tests 14/14; the trust rows' installed journey (application class) stays
+unverified until a real grant is exercised on an installed instance.
 
 The classified gateway settings family (enabled flag, Telegram token with
 dedicated replace/clear operations, token environment name, workspace root,

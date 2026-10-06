@@ -43,11 +43,11 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; incarnation-recheck journey re-certification green on the build console (2026-10-05, `20261005-7` → `20261005-8` → `20261005-7`), re-exercised through the fresh, upgrade, rollback, and reinstall attach legs; the earlier `stdin is not a tty` wall was environmental to the prior console session and did not reproduce |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | manifest census rows and dashed CLI option literals enforced by `scripts/settings-coverage-gate.mjs` in release gates (needs `NNA_SOURCE_ROOT`; skip is a reported unverified gate, not a pass); census regenerated at NNA `20261005-13` (371 rows) with synced classifications, sensitivity, four route containers and ten option rows; positional subcommands, environment reads and non-manifest stores remain open census |
-| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; gateway settings family one-CAS read/preview/save/receipt at NNA `20261005-14` with adversarial re-audit; remaining settings families open |
-| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; typed gateway settings family client with operation grammar and settings-page controls (`native-gateway.ts`, `native-gateway-timeout.tsx`) at `20261005-10`; installed mutation acceptance and other settings families open |
+| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; gateway settings family one-CAS read/preview/save/receipt at NNA `20261005-14` with adversarial re-audit; WebFetch trust family one-CAS authority grant at NNA `20261005-15` audited PASS; remaining settings families open |
+| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; typed gateway settings family client with operation grammar and settings-page controls (`native-gateway.ts`, `native-gateway-timeout.tsx`) at `20261005-10`; typed WebFetch trust client and page (`web-fetch.ts`, `web-fetch-trust.tsx`) at `20261006-1`; installed mutation acceptance and other settings families open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
-| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; gateway settings family GUI operations shipped at `20261005-10` behind native `20261005-14`; installed journey and other external stores (websearch, webfetch/browser, compatibility, environment, hooks, updates) remain open |
+| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; gateway settings family GUI operations shipped at `20261005-10` behind native `20261005-14`; WebFetch trust page shipped at `20261006-1` behind native `20261005-15`; installed journeys (application classes) and other external stores (websearch, browser, compatibility, environment, hooks, updates) remain open |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | open | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | — |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
@@ -346,6 +346,46 @@ census against the paired NNA catalog. Focused gateway tests 13/13, full UI
 seal below. The gateway rows' installed
 journey (application class) stays open for C6/C7; the other external-store
 families remain open.
+
+## NNA 20261005-15 and NND 20261006-1 — WebFetch trust family goes native-first
+
+NNA first (`20261005-15`): the WebFetch trust family — the authority grant of
+exact credential-free HTTP(S) origins in `config/web-fetch.json` (at most 64
+entries, canonicalized like every store write, each at most 300 characters) —
+moves through one CAS-protected transaction at
+`/v1/nnd/configuration/web-fetch` mirroring the 20261005-14 gateway
+mechanics (preview, per-save receipts, replay pre-read before the
+stale-revision conflict, bounded `last_128_operations` window). The
+application class is honest `next_fetch`: the destination policy reloads the
+store on every classification, so a saved grant is honored by the next web
+fetch without a restart. An absent store reads and previews as sticky
+defaults and the first trust save creates it exactly like the `webfetch
+trust` CLI; a corrupt store fails closed; `revoke` of a listed origin keeps
+the remainder sorted and `revoke` of an unlisted origin stays a valid no-op
+save, both by CLI parity. Adversarial audit: two non-author reviews returned
+PASS with no defects; their two risks were fixed before this consumer — an
+unbounded origin length that could push the projected list past the family
+response bound (now an explicit 300-character origin cap in the store with
+the family response bound raised to 24,576 bytes so legal state is provably
+inside it), and a catalog editability asymmetry with the gateway mirror (the
+trust grant row now carries the same editability shape). Focused suites 13/13
+after the fixes; the full NNA suite passed 2,320 of 2,321 tests with five
+load-sensitive platform-timing flakes, each proven green in isolation on the
+final tree.
+
+NND consumes in this version: the typed client mirrors the family read
+surface including the absent-source sticky-default state and its absent CAS
+base, canonicalizes origins client-side with the same 300-character cap, and
+holds the family transport bounds; the settings page offers per-origin
+add/revoke drafts with one preview of the sorted candidate before one
+revision-checked save that can bootstrap from the absent store, and the
+retained uncertain-receipt flow. The census web-fetch rows carry the native
+endpoints, the paired permissions, and the settings-page path; the C1 gate
+re-verified the census against the paired NNA catalog. Focused web-fetch
+tests 14/14, full UI 227/227 files (1,789 tests) and web 132/132 files
+(1,447 tests), typecheck clean. The trust rows' installed journey
+(application class) stays unverified until a real grant is exercised on an
+installed instance; the remaining C6 external-store families stay open.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 
