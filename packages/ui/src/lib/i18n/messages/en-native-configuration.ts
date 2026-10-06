@@ -65,6 +65,7 @@ export const enNativeConfiguration = {
   'settings.nativeStreamTimeouts.sentinels': 'This editor cannot pin {legacy} ms or {pairedDefault} ms: NNA may reinterpret them as inherited legacy defaults. Reset to inherit, or choose another fixed value.',
   'settings.nativeGateway.title': 'NNA gateway settings',
   'settings.nativeWebFetch.title': 'NNA web fetch trust',
+  'settings.nativeWebSearch.title': 'NNA web search settings',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
   'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',

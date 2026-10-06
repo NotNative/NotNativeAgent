@@ -3,6 +3,40 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · WebSearch settings family native-first with a typed client and page · NNA 20261005-16 + NND 20261006-2
+
+The WebSearch settings family became native-first. NNA `20261005-16` serves
+`/v1/nnd/configuration/web-search` with read, catalog, preview, save, and the
+bounded operation-replay receipt mechanics of the gateway family line. The
+family is the enabled flag plus at most eight canonical SearXNG profiles;
+each native operation maps to one domain helper, so an enable without a
+profile keeps the domain's endpoint-required refusal, an add derives its slug
+id and enables by domain parity, promote fronts the target, and removing the
+last profile honestly disables. Domain refusals keep their governed codes at
+the native boundary; both transport bounds double to 131,072 bytes so any
+legal state round-trips. The honest application class is `next_search` — the
+web search tool reloads this file on every search invocation, so a saved
+change is honored by the next search. An absent file reads as sticky
+defaults and the composition bootstraps it like the CLI. The AC-IMPLP gate
+caught a function-size violation from the third service wiring (fixed by
+extracting the settings-family factory); two non-author audits then returned
+PASS with no defects. Focused suites 13/13; the full NNA suite passed 2,320
+of 2,334 tests (8 skipped) with six load-sensitive flakes proven green in
+isolation.
+
+NND `20261006-2` consumes it: the typed client mirrors the projector exactly
+(order-preserving profiles, byte-identical endpoint canonicalization and
+slug-id derivation, re-enable on add, honest disable on last removal, and
+the domain's refusal codes before any transport); the settings page stages
+profile drafts, previews the exact list NNA will save, and keeps the
+retained uncertain-receipt flow that says the next web search honors the
+change. The census web-search settings rows (8) carry the native endpoints,
+the paired permissions, and the settings-page path, and the C1 gate
+re-verified the census against the paired NNA tree. Focused client tests
+16/16; the family rows' installed journey (application class) stays
+unverified until a real search exercises a saved change on an installed
+instance.
+
 ## 2026-10-06 · WebFetch trust family native-first with a typed client and page · NNA 20261005-15 + NND 20261006-1
 
 The WebFetch trust family became native-first. NNA `20261005-15` serves

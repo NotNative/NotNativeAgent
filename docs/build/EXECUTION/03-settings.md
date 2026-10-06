@@ -339,6 +339,27 @@ this consumer landed. The trust rows' application class stays unverified
 until an installed journey exercises a real grant; the remaining C6
 external-store families stay open.
 
+Progress: at NNA `20261005-16` the WebSearch settings family followed both
+templates. The enabled flag plus at most eight canonical SearXNG profiles
+(`config/web-search.json`) is native-first under one CAS transaction at
+`/v1/nnd/configuration/web-search` with the family-line receipt mechanics.
+Each operation maps to one domain helper: an enable without a profile keeps
+the domain's endpoint-required refusal, an add derives its slug id and
+enables by domain parity, promote fronts the target, and removing the last
+profile honestly disables. Domain refusals keep their governed codes at the
+native boundary, and both transport bounds double to 131,072 bytes so any
+legal state round-trips. The honest application class is `next_search`: the
+web search tool reloads the file on every search invocation, so a saved
+change is honored by the next web search without a restart. An absent file
+reads and previews as sticky defaults and the composition bootstraps it
+like the CLI. NND ships the typed client and a settings page (staged profile
+drafts previewed as the exact list NNA will save before one revision-checked
+save), and the census web-search settings rows carry the native endpoints,
+the paired permissions, and the settings-page path; two independent
+non-author audits returned PASS with no defects. The family rows'
+application class stays unverified until an installed journey exercises a
+real search; the remaining C6 external-store families stay open.
+
 ### C7 — Coverage and installed acceptance gate
 
 Dependency: C4–C6. Run the key-to-control-to-native-effect coverage report

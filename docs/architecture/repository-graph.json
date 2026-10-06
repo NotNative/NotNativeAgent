@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:ad3729f1ab7f2ae6ec650a74221a0872bc2a6c0532540b1934dc6125b6c4489d",
+  "source_digest": "sha256:37d496f2dac911b4f4e7ad27437069e6599e2efb2246c2c7c8d2ba98f188aa9d",
   "counts": {
-    "modules": 797,
+    "modules": 800,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 16
+      "module_count": 18
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 189
+      "module_count": 190
     },
     {
       "id": "web-server",
@@ -109,20 +109,20 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 309,
-      "module_count": 127
+      "import_count": 312,
+      "module_count": 128
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 92,
-      "module_count": 67
+      "import_count": 95,
+      "module_count": 68
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 91,
-      "module_count": 47
+      "import_count": 92,
+      "module_count": 48
     },
     {
       "from": "sync-engine",
@@ -137,16 +137,16 @@
       "module_count": 7
     },
     {
+      "from": "harness-facade",
+      "to": "runtime-io",
+      "import_count": 16,
+      "module_count": 14
+    },
+    {
       "from": "sync-engine",
       "to": "runtime-io",
       "import_count": 15,
       "module_count": 13
-    },
-    {
-      "from": "harness-facade",
-      "to": "runtime-io",
-      "import_count": 14,
-      "module_count": 12
     },
     {
       "from": "runtime-io",
@@ -175,8 +175,8 @@
     {
       "from": "harness-facade",
       "to": "sync-engine",
-      "import_count": 4,
-      "module_count": 4
+      "import_count": 5,
+      "module_count": 5
     },
     {
       "from": "sync-engine",
@@ -1830,6 +1830,7 @@
         "packages/ui/src/components/settings/pages/native-configuration-controls.tsx",
         "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+        "packages/ui/src/components/settings/pages/web-search-settings.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/nnd/configuration.ts",
         "packages/ui/src/lib/runtime-auth-expiry.ts",
@@ -2120,6 +2121,21 @@
         "packages/ui/src/lib/nnd/configuration-mutation.ts",
         "packages/ui/src/lib/nnd/web-fetch-pending.ts",
         "packages/ui/src/lib/nnd/web-fetch.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
+        "packages/ui/src/lib/nnd/web-search-pending.ts",
+        "packages/ui/src/lib/nnd/web-search.ts",
         "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/runtime-url.ts",
@@ -3416,6 +3432,23 @@
     },
     {
       "path": "packages/ui/src/lib/nnd/web-fetch.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/web-search-pending.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/web-search.ts",
       "component": "harness-facade",
       "entrypoint": false,
       "imports": [

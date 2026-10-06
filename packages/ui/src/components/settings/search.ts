@@ -104,6 +104,7 @@ export const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
   { id: 'native-configuration.stream-timeouts', page: 'native-configuration', titleKey: 'settings.nativeStreamTimeouts.title', keywords: 'nna first token idle streaming timeouts disable milliseconds' },
   { id: 'native-gateway.timeout', page: 'native-configuration', titleKey: 'settings.nativeGateway.title', keywords: 'nna telegram gateway settings enabled token token env workspace root polling timeout seconds authorized users allowlist restart' },
   { id: 'native-web-fetch.trust', page: 'native-configuration', titleKey: 'settings.nativeWebFetch.title', keywords: 'nna webfetch web fetch trust trusted origins authority grant http https revoke destination private network next fetch' },
+  { id: 'native-web-search.settings', page: 'native-configuration', titleKey: 'settings.nativeWebSearch.title', keywords: 'nna websearch web search settings searxng searx profile profiles endpoint enabled disable primary promote remove next search' },
   { id: 'native-tui.preferences', page: 'native-tui', titleKey: 'settings.page.nativeTui.title', keywords: 'nna tui terminal color reduced motion key bindings shortcuts' },
   { id: 'native-routes.tuning', page: 'native-routes', titleKey: 'settings.page.nativeRoutes.title', keywords: 'nna reviewer vision route model provider temperature budget deadline' },
   { id: 'appearance.theme-mode', page: 'appearance', titleKey: 'settings.search.themeMode', keywords: 'theme, color, dark mode, light mode, system' },
