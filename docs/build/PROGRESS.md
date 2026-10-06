@@ -3,6 +3,51 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Gateway settings family native-first with a typed GUI client · NNA 20261005-14 + NND 20261005-10
+
+The classified gateway settings family (enabled flag, Telegram token with
+dedicated replace/clear operations, token environment name, workspace root,
+polling bounds, authorized user allowlist) moved behind one CAS-protected
+native transaction: NNA `20261005-14` serves
+`/v1/nnd/configuration/gateway` with read, catalog, preview, save, and
+bounded operation replay, stamps `updated_at` on save for CLI parity,
+redacts the token to presence-only on every read, keeps the allowlist
+authority-gated behind authorize/revoke operations, and preserves the
+20261003-25 flat polling request as a documented compatibility alias. Two
+rounds of non-author adversarial audit hardened it: the first failed the
+slice on a real defect (prototype-chain field lookups letting hostile field
+names escape the grammar) and asked for honest save-time source codes, a
+replay pre-read before the stale-revision 409, grant audit payloads, and
+generated-state catalog classifications; the delta re-audit passed every
+fix. NNA gateway suites passed 23/23; the full NNA suite passed 2,308 tests
+with four platform-timing flakes that each pass isolated.
+
+NND `20261005-10` consumes it: the typed client models the family with a
+client-side operation grammar (bounded to 16 ops), a local mirror that
+preview must equal before any save, the eight-field catalog as the only
+accepted surface, and token/identity/revision projection; the gateway
+settings page now composes enablement, token replace/clear (the value is
+never displayed), token environment name, workspace root, polling bounds,
+and per-user authorize/revoke into one preview-then-save batch with the
+retained uncertain-receipt flow. The census gateway rows carry the native
+endpoints, paired permissions, and the settings-page path; the C1 gate
+re-verified the census against the paired NNA catalog. An independent
+non-author audit failed the first consumer draft on two real cross-contract
+defects (the local mirror missing NNA's lexicographic allowlist
+normalization, and a Telegram-id shape accepting what the native validator
+rejects), a version-pin risk, and a workspace read-bound nit — while passing
+redaction, the state machine, its tests, and the census rows. All four were
+fixed exactly as prescribed and pinned by new tests; the delta re-audit
+verified each fix and re-ran the focused suite 13/13 itself, with the
+typecheck and tree-drift gates it could not reach closed by the session's
+own evidence (typecheck exit 0 post-fix; exactly the fifteen declared slice
+files changed). Fail-closed non-null persisted-revision pairing kept by
+choice. Recorded verification: focused gateway tests 13/13, typecheck
+clean, and full UI and web suites green (225 files / 1,775 tests and 132
+files). The gateway
+rows' installed journey (application class) and the remaining C6
+external-store families stay open.
+
 ## 2026-10-05 · C1 settings-coverage gate enforced · NND 20261005-9
 
 C1 now enforces the settings census instead of only recording it. The new

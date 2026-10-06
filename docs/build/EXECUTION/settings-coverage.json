@@ -10302,8 +10302,8 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
         "path": null,
@@ -10344,11 +10344,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10386,11 +10386,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "status": "unverified"
       },
       "sensitivity": "secret",
@@ -10428,11 +10428,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10470,11 +10470,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10512,11 +10512,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10554,11 +10554,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10596,8 +10596,8 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
         "path": null,

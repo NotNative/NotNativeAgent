@@ -43,11 +43,11 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; incarnation-recheck journey re-certification green on the build console (2026-10-05, `20261005-7` → `20261005-8` → `20261005-7`), re-exercised through the fresh, upgrade, rollback, and reinstall attach legs; the earlier `stdin is not a tty` wall was environmental to the prior console session and did not reproduce |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | manifest census rows and dashed CLI option literals enforced by `scripts/settings-coverage-gate.mjs` in release gates (needs `NNA_SOURCE_ROOT`; skip is a reported unverified gate, not a pass); census regenerated at NNA `20261005-13` (371 rows) with synced classifications, sensitivity, four route containers and ten option rows; positional subcommands, environment reads and non-manifest stores remain open census |
-| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
-| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; installed mutation acceptance and other settings families open |
+| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; gateway settings family one-CAS read/preview/save/receipt at NNA `20261005-14` with adversarial re-audit; remaining settings families open |
+| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; typed gateway settings family client with operation grammar and settings-page controls (`native-gateway.ts`, `native-gateway-timeout.tsx`) at `20261005-10`; installed mutation acceptance and other settings families open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
-| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; external stores remain open |
+| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; gateway settings family GUI operations shipped at `20261005-10` behind native `20261005-14`; installed journey and other external stores (websearch, webfetch/browser, compatibility, environment, hooks, updates) remain open |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | open | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | — |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
@@ -303,6 +303,49 @@ dead duplicate guard, surface the gate's stdout on failure, resolve a relative
 `NNA_SOURCE_ROOT` against the repository root, and bound the catalog dump with
 a 60 second timeout. Focused and full release gates passed sealed and plain
 with the coverage gate green at 223 of 223 rows and zero violations.
+
+## NND 20261005-10 — gateway settings family goes native-first with a typed GUI client
+
+NNA first (`20261005-14`): the whole classified gateway settings family
+(enabled flag, Telegram token with dedicated replace/clear operations, token
+environment name, workspace root, polling bounds, authorized user allowlist)
+now moves through one CAS-protected transaction at
+`/v1/nnd/configuration/gateway` with preview, per-save receipts, bounded
+operation replay, and token-presence-only reads; the 20261003-25 flat
+polling request stays a documented compatibility alias. Two rounds of
+non-author adversarial audit: the first failed the slice on a real defect —
+prototype-chain field lookups letting hostile names escape the grammar —
+plus three honest-contract improvements (`Object.hasOwn` guards, honest
+source codes on save, replay pre-read before the stale-revision 409, grant
+audit payloads, generated-state catalog classifications); the delta re-audit
+passed all six fixes. Gateway suites 23/23 and full NNA 2,308 tests with four
+isolated-rerun platform-timing flakes.
+
+NND consumed in this version: the typed client now models the family with a
+client-side operation grammar and mirror projector, accepts only the
+eight-field catalog (the legacy single-field catalog is rejected), and holds
+the 8192-byte family bounds; the settings page offers the enabled flag,
+token replace/clear (the value is never displayed), token environment name,
+workspace root, polling bounds, and per-user authorize/revoke with one
+preview before one revision-checked save and the retained uncertain-receipt
+flow. An independent non-author audit failed the first consumer draft on two
+real cross-contract defects — the local mirror missing NNA's lexicographic
+allowlist normalization and the Telegram-id shape accepting what the native
+validator rejects — plus a version-pin risk and a workspace read-bound nit,
+while passing redaction, the state machine, its tests, and the census rows.
+All four were fixed exactly as prescribed; each fix gained a pinning test,
+and the delta re-audit verified every fix and re-ran the focused suite
+13/13 itself (its two budget-open gates — typecheck and tree drift — were
+closed in the same session: typecheck exit 0 post-fix, and
+`git status` showed exactly the fifteen declared slice files). The fail-closed
+non-null persisted-revision pairing was kept by choice. The census gateway
+rows carry the native endpoints, paired
+permissions, and the settings-page path, and the C1 gate re-verified the
+census against the paired NNA catalog. Focused gateway tests 13/13, full UI
+225/225 files (1,775 tests) and web 132/132 files, typechecks and version
+seal below. The gateway rows' installed
+journey (application class) stays open for C6/C7; the other external-store
+families remain open.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 

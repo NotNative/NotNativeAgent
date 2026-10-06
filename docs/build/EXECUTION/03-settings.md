@@ -304,6 +304,21 @@ Exit: every C1 external-store row has a working GUI operation or justified
 noneditable classification; optional missing installations offer native setup
 guidance/actions, not a misleading empty “configured” page.
 
+Progress: at NNA `20261005-14` the gateway settings file left the CLI-only
+world: the whole classified gateway settings family (enabled flag, Telegram
+token with replace/clear-only changes, token environment name, workspace
+root, polling bounds, authorized user allowlist) is native-first under one
+CAS transaction at `/v1/nnd/configuration/gateway` with preview, save
+receipts, bounded operation replay, and token-presence-only reads. NND ships
+the typed client and a settings page covering the family's bounded
+operations, and the census gateway rows now carry the native endpoints, the
+paired permissions, and the settings-page path; the C1 gate re-verified the
+census against the paired NNA catalog. The gateway rows' application class
+stays unverified until an installed journey exercises the change; the
+remaining C6 external-store families (web search, web fetch and browser,
+compatibility service, environment, hooks, native updates, optional
+integrations) and the distinct TUI preferences page remain open.
+
 ### C7 — Coverage and installed acceptance gate
 
 Dependency: C4–C6. Run the key-to-control-to-native-effect coverage report

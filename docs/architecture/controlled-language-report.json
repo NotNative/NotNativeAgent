@@ -5,7 +5,7 @@
   "stats": {
     "terms": 36,
     "deprecatedIdentifiers": 0,
-    "rationaleMarkers": 33,
+    "rationaleMarkers": 39,
     "modelFacingTools": 0,
     "proseFields": 0,
     "proseSentences": 0,
@@ -16,9 +16,9 @@
   "long_prose_candidates": [],
   "unqualified_boundary_candidates": [],
   "rationale_marker_counts": {
-    "Why": 0,
-    "Invariant": 13,
-    "Compatibility": 8,
+    "Why": 1,
+    "Invariant": 14,
+    "Compatibility": 12,
     "Security": 12
   }
 }

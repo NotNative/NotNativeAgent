@@ -19,17 +19,33 @@ const fetchMock = runtimeFetch as unknown as Mock;
 const revision = 'a'.repeat(64), savedRevision = 'b'.repeat(64);
 const view = { schema_version: '1.0', installation_id: 'install_gateway', data_id: 'data_gateway', scope: 'user',
   source_state: 'present', source_revision: revision, resolution_revision: revision, project_shadowed: false,
-  polling_timeout_seconds: 25, application: 'not_applied' };
-const catalog = { schema_version: '1.0', source: 'gateway', scope: 'user', fields: [{ path: 'polling_timeout_seconds',
-  classification: 'operator_setting', type: 'integer', minimum: 5, maximum: 50, application: 'restart_gateway',
-  editability: { available: true, scope: 'user', required_permission: 'nnd.configuration.manage' } }] };
+  version: 1, enabled: true, token_present: false, token_env: 'NNA_TELEGRAM_BOT_TOKEN', authorized_user_ids: ['123'],
+  workspace_root: null, polling_timeout_seconds: 25, updated_at: null, application: 'not_applied' };
+const field = (path: string, extra: Record<string, unknown> = {}) => ({ path, application: 'restart_gateway',
+  ...extra, editability: extra.editability ?? { available: true, scope: 'user',
+    required_permission: 'nnd.configuration.manage' } });
+const catalog = { schema_version: '1.0', source: 'gateway', scope: 'user', fields: [
+  field('version', { classification: 'generated_state', editability: { available: false, scope: 'user', reason: 'generated_state' } }),
+  field('updated_at', { classification: 'generated_state', editability: { available: false, scope: 'user', reason: 'generated_state' } }),
+  field('enabled', { classification: 'operator_setting' }),
+  field('token', { classification: 'operator_setting', sensitivity: 'secret' }),
+  field('token_env', { classification: 'operator_setting' }),
+  field('authorized_user_ids', { classification: 'authority_grant' }),
+  field('workspace_root', { classification: 'operator_setting' }),
+  field('polling_timeout_seconds', { classification: 'operator_setting' })] };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+const token = 'replacement-telegram-token-goes-here';
 let container: HTMLDivElement; let root: Root;
 async function settle() { await act(async () => { for (let i = 0; i < 8; i += 1) await Promise.resolve(); }); }
 async function mount() { container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<NativeGatewayTimeout />)); await settle(); }
 async function click(label: string) { const button = [...container.querySelectorAll('button')].find(item => item.textContent === label);
   if (!button) throw new Error('missing ' + label); await act(async () => button.click()); await settle(); }
+async function type(selector: string, value: string) {
+  const input = container.querySelector<HTMLInputElement>(selector)!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+}
 const saved = (operationId: string) => ({ installation_id: view.installation_id, data_id: view.data_id,
   scope: 'user', operation_id: operationId, persistence: 'saved', before_revision: revision,
   persisted_revision: savedRevision, application: 'not_applied', next_action: 'restart_gateway', replayed: false,
@@ -48,19 +64,50 @@ it('previews and saves only a bounded polling timeout with exact NNA revision, t
     throw new Error('unexpected ' + path);
   });
   await mount();
-  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
-  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '30');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type('input[type="number"]', '30');
   await click('Preview native change');
-  expect(container.textContent).toContain('25 → 30 seconds');
+  expect(container.textContent).toContain('polling: 30 seconds');
+  expect(container.textContent).toContain('No change has been saved or applied.');
   await click('Save with native revision check');
   expect(container.textContent).toContain('restart the gateway');
   const saveCall = fetchMock.mock.calls.find(([path]) => String(path).endsWith('/save'))!;
   expect(JSON.parse(String(saveCall[1].body))).toEqual({ installation_id: view.installation_id,
     data_id: view.data_id, scope: 'user', expected_revision: revision,
-    expected_resolution_revision: revision, polling_timeout_seconds: 30,
+    expected_resolution_revision: revision, operations: [{ op: 'set', field: 'polling_timeout_seconds', value: 30 }],
     operation_id: expect.any(String) });
   expect(String(saveCall[1].body)).not.toContain('token');
+});
+
+it('composes token replacement, user grants, and enablement into one bounded batch', async () => {
+  fetchMock.mockImplementation((path: string, init: RequestInit) => {
+    if (path.endsWith('/gateway')) return Promise.resolve(json(view));
+    if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
+    if (path.endsWith('/preview')) return Promise.resolve(json({ valid: true, expected_revision: revision,
+      resolution_revision: revision, application: 'not_applied', view: { ...view, token_present: true,
+        authorized_user_ids: ['123', '55'], polling_timeout_seconds: 30 } }));
+    if (path.endsWith('/save')) return Promise.resolve(json(saved(JSON.parse(String(init.body)).operation_id)));
+    throw new Error('unexpected ' + path);
+  });
+  await mount();
+  await type('input[type="number"]', '30');
+  await type('input[type="password"]', token);
+  await type('[data-testid="gateway-user-add"]', '55'); // user add field, unique hook
+  await click('Add');
+  await click('Preview native change');
+  expect(container.textContent).toContain('token present: true');
+  expect(container.textContent).not.toContain(token);
+  await click('Save with native revision check');
+  expect(container.textContent).toContain('restart the gateway');
+  expect(container.textContent).not.toContain(token);
+  const saveCall = fetchMock.mock.calls.find(([path]) => String(path).endsWith('/save'))!;
+  const body = JSON.parse(String(saveCall[1].body));
+  expect(body.operations).toContainEqual({ op: 'set_token', token });
+  expect(body.operations).toContainEqual({ op: 'authorize', user_id: '55' });
+  expect(body.operations).toContainEqual({ op: 'set', field: 'polling_timeout_seconds', value: 30 });
+  const previewCall = fetchMock.mock.calls.find(([path]) => String(path).endsWith('/preview'))!;
+  const previewBody = JSON.parse(String(previewCall[1].body));
+  expect(previewBody.operations.filter((item: { op: string }) => item.op === 'set_token'))
+    .toEqual([{ op: 'set_token', token }]);
 });
 
 it('retains an uncertain save for native receipt lookup after reload', async () => {
@@ -76,9 +123,7 @@ it('retains an uncertain save for native receipt lookup after reload', async () 
     throw new Error('unexpected ' + path);
   });
   await mount();
-  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
-  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '30');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type('input[type="number"]', '30');
   await click('Preview native change'); await click('Save with native revision check');
   expect(container.textContent).toContain('uncertain outcome');
   await act(async () => root.unmount()); container.remove();
@@ -102,9 +147,7 @@ it('releases a terminal unpublished operation so a fresh CAS edit can start', as
     throw new Error('unexpected ' + path);
   });
   await mount();
-  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
-  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '30');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type('input[type="number"]', '30');
   await click('Preview native change'); await click('Save with native revision check');
   expect(container.textContent).toContain('uncertain outcome');
   await click('Inspect operation');
@@ -126,9 +169,7 @@ it('releases a directly returned unpublished receipt without claiming applicatio
     throw new Error('unexpected ' + path);
   });
   await mount();
-  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
-  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '30');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type('input[type="number"]', '30');
   await click('Preview native change'); await click('Save with native revision check');
   expect(container.textContent).toContain('write was not published');
   expect(container.textContent).not.toContain('restart the gateway');
@@ -148,9 +189,7 @@ it('offers explicit recovery from an expired receipt and requires refresh before
     throw new Error('unexpected ' + path);
   });
   await mount();
-  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
-  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '30');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type('input[type="number"]', '30');
   await click('Preview native change'); await click('Save with native revision check');
   await click('Inspect operation');
   expect(container.textContent).toContain('Clear expired local handle');
@@ -159,4 +198,23 @@ it('offers explicit recovery from an expired receipt and requires refresh before
   expect(container.querySelector<HTMLInputElement>('input[type="number"]')).toBeNull();
   await click('Refresh');
   expect(container.querySelector<HTMLInputElement>('input[type="number"]')).not.toBeNull();
+});
+
+it('refuses to preview when the composed batch carries an invalid user grant', async () => {
+  fetchMock.mockImplementation((path: string) => {
+    if (path.endsWith('/gateway')) return Promise.resolve(json(view));
+    if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
+    if (path.endsWith('/preview')) throw new Error('preview must not be called for hostile drafts');
+    throw new Error('unexpected ' + path);
+  });
+  await mount();
+  await type('[data-testid="gateway-user-add"]', 'abc');
+  const add = [...container.querySelectorAll('button')].find(item => item.textContent === 'Add');
+  expect(add?.disabled).toBe(true);
+  await type('[data-testid="gateway-user-add"]', '7');
+  await click('Add');
+  await type('[data-testid="gateway-workspace-root"]', 'workspace/relative');
+  await click('Preview native change');
+  expect(container.textContent).toContain('outside the bounded settings grammar');
+  expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/preview'))).toBe(false);
 });
