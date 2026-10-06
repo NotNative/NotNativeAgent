@@ -16,7 +16,9 @@ test('same native listener resolves operator principal only after private promot
     , createNndCompatibilityLifecycleService: () => ({})
     , createNndMcpCredentialsService: () => ({})
     , createNndSecretsSettingsService: () => ({})
-    , createNndHooksSettingsService: () => ({}) ,
+    , createNndHooksSettingsService: () => ({})
+    , createNndUpdateActionsService: () => ({})
+    , createNndPackageActionsService: () => ({}) ,
     createNndWorkspaceGrantService: () => ({}), createNndEnvironmentSnapshot: () => ({}),
     createNndUpdateStateStore: () => ({}), createNativeNndTrustServices: () => ({}),
     createNndLocalIntegrationActivation: () => ({}),

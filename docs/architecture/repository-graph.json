@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:39947b675a67657820e38de37be1c48c957197b7735120ba56b0bb0ff98fd602",
+  "source_digest": "sha256:b2cfafd36ceaa749579e205b5f6c4c013d122fbe7d34cd9ec542d26c73fd3255",
   "counts": {
-    "modules": 537,
+    "modules": 539,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 229
+      "module_count": 231
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 680,
-      "module_count": 204
+      "import_count": 689,
+      "module_count": 206
     },
     {
       "from": "experience-engine",
@@ -142,6 +142,12 @@
       "module_count": 40
     },
     {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 60,
+      "module_count": 34
+    },
+    {
       "from": "tools",
       "to": "tools",
       "import_count": 58,
@@ -152,12 +158,6 @@
       "to": "reliability-engine",
       "import_count": 57,
       "module_count": 21
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 56,
-      "module_count": 32
     },
     {
       "from": "agentic-engine",
@@ -2621,8 +2621,10 @@
         "src/nnd-hooks-routes.js",
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-mcp-credentials-routes.js",
+        "src/nnd-package-routes.js",
         "src/nnd-secrets-routes.js",
         "src/nnd-trust-routes.js",
+        "src/nnd-update-actions-routes.js",
         "src/nnd-update-state-route.js",
         "src/nnd-web-fetch-routes.js",
         "src/nnd-web-search-routes.js",
@@ -3136,6 +3138,17 @@
       ]
     },
     {
+      "path": "src/nnd-package-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/nnd-package.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
       "path": "src/nnd-package.js",
       "component": "foundation",
       "entrypoint": false,
@@ -3371,10 +3384,12 @@
         "src/nnd-hooks-routes.js",
         "src/nnd-mcp-credentials-transaction.js",
         "src/nnd-native-principal-selection.js",
+        "src/nnd-package-routes.js",
         "src/nnd-secrets-routes.js",
         "src/nnd-setup-config.js",
         "src/nnd-trial-admission.js",
         "src/nnd-trust-routes.js",
+        "src/nnd-update-actions-routes.js",
         "src/nnd-update-state-route.js",
         "src/nnd-web-fetch-transaction.js",
         "src/nnd-web-search-transaction.js",
@@ -3547,6 +3562,18 @@
       "entrypoint": false,
       "imports": [
         "src/experience/tool-lifecycle.js"
+      ]
+    },
+    {
+      "path": "src/nnd-update-actions-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/product.js",
+        "src/secret-broker-server.js",
+        "src/update-service.js"
       ]
     },
     {

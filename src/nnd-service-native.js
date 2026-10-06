@@ -16,6 +16,8 @@ import { createNndCompatibilityLifecycleService } from './nnd-compatibility-life
 import { createNndMcpCredentialsService } from './nnd-mcp-credentials-transaction.js';
 import { createNndSecretsSettingsService } from './nnd-secrets-routes.js';
 import { createNndHooksSettingsService } from './nnd-hooks-routes.js';
+import { createNndUpdateActionsService } from './nnd-update-actions-routes.js';
+import { createNndPackageActionsService } from './nnd-package-routes.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -27,7 +29,8 @@ const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
   'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate',
   'nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair',
-  'nnd.service.manage', 'nnd.workspace.read', 'nnd.workspace.manage',
+  'nnd.service.manage', 'nnd.update.manage', 'nnd.package.manage',
+  'nnd.workspace.read', 'nnd.workspace.manage',
   // Security: management remains scope-filtered and never grants secret.use or raw values.
   'secret.read', 'secret.manage', 'secret.audit',
   'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate']);
@@ -45,8 +48,11 @@ export function nativeNndTrialPrincipal(workspaceRoot) {
   return Object.freeze({ ...nativeNndPrincipal(workspaceRoot), permissions: TRIAL_PERMISSIONS });
 }
 
-/** One factory per census-classified native settings family, bound to the pair identity. */
-function createNativeNndSettingsServices(paths, identity, environment) {
+/** One factory per census-classified native settings family, bound to the pair identity.
+ * The exported key set is the routing surface: any change to the returned keys
+ * changes which routes the native listener can serve (the options spread flows
+ * them into the HTTP context verbatim), so the key list is locked by test. */
+export function createNativeNndSettingsServices(paths, identity, environment) {
   return {
     nndConfigurationService: createNndConfigurationService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
@@ -68,6 +74,10 @@ function createNativeNndSettingsServices(paths, identity, environment) {
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndHooksSettingsService: createNndHooksSettingsService({ hooksPath: paths.hooks,
       installationId: identity.installation_id, dataId: identity.data_id }),
+    nndUpdateActionsService: createNndUpdateActionsService({ statePath: paths.updateState,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndPackageActionsService: createNndPackageActionsService({ rootPath: paths.root,
+      configPath: paths.config, installationId: identity.installation_id, dataId: identity.data_id }),
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndEnvironmentSnapshotService: createNndEnvironmentSnapshot({ environment,
@@ -87,10 +97,11 @@ export async function startNndNativeService(paths, identity, options = {}) {
   const broker = new SecretBroker({ realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault,
     keyPath: paths.secretKey, auditPath: paths.secretAudit });
   const environment = options.environment ?? process.env;
-  const { nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
-    nndWebSearchSettingsService, nndCompatibilitySettingsService, nndWorkspaceGrantService,
-    nndEnvironmentSnapshotService, nndUpdateStateStore, nndTrustService } =
-    createNativeNndSettingsServices(paths, identity, environment);
+  // One spread, never a hand-listed options object: dropping a settings
+  // service here silently disables its routes (a prior wiring dropped the
+  // lifecycle, MCP-credential, secrets, and hooks services), so the whole
+  // classified surface set flows to the listener together.
+  const settings = createNativeNndSettingsServices(paths, identity, environment);
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
     readEffectiveConfiguration: () => readNndSetupConfiguration(paths) });
   const lifecycle = await createIntegrationLifecycle(paths, options, 'nnd', broker, {});
@@ -98,9 +109,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
   try {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
-      nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
-      nndWebSearchSettingsService, nndCompatibilitySettingsService, nndWorkspaceGrantService,
-      nndEnvironmentSnapshotService, nndUpdateStateStore, nndTrustService,
+      ...settings,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
       resolvePrincipal: () => options.unpublishedTrial && !trialSelection.promoted()

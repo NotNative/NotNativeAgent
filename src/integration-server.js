@@ -82,6 +82,7 @@ async function dispatch(request, response, context) {
     || context.nndWebSearchSettingsService || context.nndCompatibilitySettingsService
     || context.nndCompatibilityLifecycleService || context.nndMcpCredentialsService
     || context.nndSecretsSettingsService || context.nndHooksSettingsService
+    || context.nndUpdateActionsService || context.nndPackageActionsService
     || context.nndEnvironmentSnapshotService || context.nndUpdateStateStore || context.nndTrustService)
     && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService

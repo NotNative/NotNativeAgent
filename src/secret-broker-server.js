@@ -127,11 +127,10 @@ function requireScope(principal, scope) {
 function failure(code, message) { return { error: { code, message } }; }
 function failureStatus(code) {
   if (code === 'nnd_trial_mutation_denied') return 403;
-  if (code === 'nnd_trial_admission_invalid') return 503;
+  if (code === 'nnd_trial_admission_invalid' || code === 'nnd_configuration_unavailable') return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy') return 409;
-  if (code === 'nnd_configuration_unavailable') return 503;
   // The manifest may already have been published. The caller must inspect its
   // original operation ID before deciding whether any retry is safe.
   if (['manifest_publication_unknown', 'manifest_publication_failed', 'manifest_cleanup_failed'].includes(code)) return 503;
@@ -139,46 +138,36 @@ function failureStatus(code) {
     'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
-  if (code.includes('not_found') || code === 'provider_missing' || code === 'nnd_session_unavailable' || code === 'question_unknown') return 404;
+  if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown'].includes(code)) return 404;
   if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy'].includes(code)) return 409;
-  if (code === 'nnd_goal_audit_unavailable') return 503;
-  if (code === 'nnd_pending_unavailable') return 503;
-  if (code === 'nnd_activity_tombstones_unavailable') return 503;
-  if (code === 'nnd_activity_tombstones_invalid') return 500;
-  if (code === 'nnd_walkthrough_unavailable') return 503;
-  if (code === 'nnd_goal_audit_timeout') return 504;
-  if (code === 'nnd_walkthrough_timeout') return 504;
+  if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable', 'nnd_activity_tombstones_unavailable',
+    'nnd_walkthrough_unavailable'].includes(code)) return 503;
+  if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout'].includes(code)) return 504;
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
-  if (code === 'nnd_walkthrough_context_large') return 413;
-  if (code === 'nnd_environment_value_too_large') return 413;
+  if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large'].includes(code)) return 413;
+  if (code === 'nnd_activity_tombstones_invalid') return 500;
   // Trust rows must never degrade to an empty list; repairs are retried after the
   // honest failure surfaces.
-  if (code === 'workspace_trust_invalid') return 503;
   if (code === 'workspace_trust_target_missing') return 404;
   if (code === 'workspace_trust_busy') return 409;
-  // Projection drift is a broken server build, not a client error.
-  if (code === 'nnd_compatibility_projection_invalid') return 500;
-  if (code === 'nnd_secrets_projection_invalid') return 500;
-  if (code === 'nnd_hooks_projection_invalid') return 500;
-  if (code === 'nnd_service_projection_invalid') return 500;
+  // Broken server builds (projection drift) are 500s, not client errors.
+  if (['nnd_compatibility_projection_invalid', 'nnd_secrets_projection_invalid',
+    'nnd_hooks_projection_invalid', 'nnd_update_projection_invalid',
+    'nnd_package_projection_invalid', 'nnd_service_projection_invalid'].includes(code)) return 500;
   // Compatibility-service lifecycle: grammar stays at the default 400, but the
   // operational failures are honest 503s — the runtime could not be started or
   // its identity could not be verified, and the surface refuses harmlessly.
-  if (code === 'opencode_start_failed' || code === 'opencode_identity_unavailable'
-    || code === 'opencode_identity_unverifiable' || code === 'opencode_startup_folder_unavailable'
-    || code === 'opencode_startup_folder_empty' || code === 'opencode_login_wiring_probe_failed'
-    || code === 'opencode_user_environment_failed' || code === 'opencode_user_environment_probe_failed') return 503;
-  // The secrets settings surface fails closed on vault damage exactly like the other
-  // native stores: corruption, master-key loss, and integrity failures are honest 503s.
-  if (code === 'secret_vault_corrupt' || code === 'secret_key_invalid'
-    || code === 'secret_vault_integrity_failed') return 503;
-  // MCP credential store: corruption fails closed like other native stores; the
-  // session lock contention and capacity limits are honest conflicts.
-  if (code === 'mcp_credentials_invalid') return 503;
-  if (code === 'mcp_credentials_busy') return 409;
-  if (code === 'mcp_credentials_full') return 409;
-  if (code === 'nnd_notification_busy') return 409;
+  if (['opencode_start_failed', 'opencode_identity_unavailable', 'opencode_identity_unverifiable',
+    'opencode_startup_folder_unavailable', 'opencode_startup_folder_empty',
+    'opencode_login_wiring_probe_failed', 'opencode_user_environment_failed',
+    'opencode_user_environment_probe_failed'].includes(code)) return 503;
+  // Native stores fail closed on damage: vault, key, integrity, MCP, and the
+  // notification store's busy/contention conflicts are honest outcomes.
+  if (['secret_vault_corrupt', 'secret_key_invalid', 'secret_vault_integrity_failed',
+    'mcp_credentials_invalid'].includes(code)) return 503;
+  if (code === 'workspace_trust_invalid') return 503;
+  if (['mcp_credentials_busy', 'mcp_credentials_full', 'nnd_notification_busy'].includes(code)) return 409;
   if (code === 'nnd_notification_unavailable') return 503;
   if (code === 'nnd_notification_timeout') return 504;
   if (code.startsWith('nnd_notification_output_') || code === 'nnd_notification_tool_violation') return 502;
