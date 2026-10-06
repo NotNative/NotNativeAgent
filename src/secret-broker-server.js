@@ -157,6 +157,13 @@ function failureStatus(code) {
   if (code === 'workspace_trust_invalid') return 503;
   if (code === 'workspace_trust_target_missing') return 404;
   if (code === 'workspace_trust_busy') return 409;
+  // Projection drift is a broken server build, not a client error.
+  if (code === 'nnd_compatibility_projection_invalid') return 500;
+  // MCP credential store: corruption fails closed like other native stores; the
+  // session lock contention and capacity limits are honest conflicts.
+  if (code === 'mcp_credentials_invalid') return 503;
+  if (code === 'mcp_credentials_busy') return 409;
+  if (code === 'mcp_credentials_full') return 409;
   if (code === 'nnd_notification_busy') return 409;
   if (code === 'nnd_notification_unavailable') return 503;
   if (code === 'nnd_notification_timeout') return 504;

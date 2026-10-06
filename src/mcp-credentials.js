@@ -101,6 +101,17 @@ async function readStore(path) {
   return document;
 }
 
+/** Read-only observation for native surfaces: references and applied-presence only —
+ * token values never project. Runs the store's own validator so corrupt or
+ * foreign-shaped files fail closed with the store's honest codes. */
+export async function listManagedMcpCredentials(paths, environment = process.env) {
+  const document = await readStore(paths.mcpCredentials);
+  const credentials = Object.entries(document.credentials)
+    .map(([reference]) => ({ reference, applied: environment[reference] !== undefined }))
+    .sort((left, right) => left.reference.localeCompare(right.reference));
+  return Object.freeze({ count: credentials.length, credentials: Object.freeze(credentials) });
+}
+
 async function persistStore(path, credentials) {
   const content = `${JSON.stringify({ format_version: 1, credentials }, null, 2)}\n`;
   if (Buffer.byteLength(content, 'utf8') > MAX_FILE_BYTES) throw new ContractError(ERROR.full, 'MCP credential store reached its byte limit');

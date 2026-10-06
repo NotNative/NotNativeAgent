@@ -45,12 +45,16 @@ function sourceForBoot(snapshot) {
 function source(snapshot) { return sourceForBoot(snapshot) ?? DEFAULT_OPENCODE_CONFIG; }
 
 function normalizeCandidate(view, password) {
+  // At parity with the header and the census: the candidate is a FULL document view —
+  // all four wire keys are required (sparse saves would re-stamp generated state while
+  // rewriting nothing, reindexing every concurrent client). Types stay the domain's
+  // own: the merged document is validated by normalizeOpenCodeConfig.
   if (!password || typeof password !== 'object' || Array.isArray(password)
     || !PASSWORD_ACTIONS.includes(password.action)
-    || (password.value === undefined) === (password.action === 'replace')) throw invalid();
+    || (password.action === 'replace') !== ('value' in password)) throw invalid();
   if (!view || typeof view !== 'object' || Array.isArray(view)
-    || Object.keys(view).some((key) => !CANDIDATE.includes(key))) throw invalid();
-  if ('enabled' in view && view.enabled !== true && view.enabled !== false) throw invalid();
+    || Object.keys(view).some((key) => !CANDIDATE.includes(key))
+    || !CANDIDATE.every((key) => key in view)) throw invalid();
   return { view, password };
 }
 
@@ -134,9 +138,15 @@ export function createNndCompatibilitySettingsTransaction({ path, installationId
       authorize(principal, 'nnd.configuration.manage');
       const request = normalize(input, identity, false);
       const snapshot = await readManifestSnapshot(path);
-      const proposed = documentWithCandidate(snapshot.rawManifest, request);
+      // Revision first, then the candidate: an unreadable or foreign-version store
+      // fails closed with nnd_compatibility_source_invalid (the same precedence save
+      // uses), and a stale revision wins over candidate grammar — the domain cannot
+      // run a candidate against a base it does not serve.
       requireRevision(snapshot, request);
+      const proposed = documentWithCandidate(snapshot.rawManifest, request);
       return { valid: true, ...view({ ...snapshot, rawManifest: proposed }, identity,
+        // normalizeOpenCodeConfig is idempotent; the second run is the preview's
+        // projection basis, naturally consistent with the document just written.
         normalizeOpenCodeConfig(proposed), environment) };
     },
     async save(principal, input) {

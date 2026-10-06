@@ -103,6 +103,10 @@ export function generateOpencodePassword() {
   return value;
 }
 
+/** The wire names opencodePublicStatus can report for password attribution; native
+ * projections must pin these instead of repeating the literals locally. */
+export const OPENCODE_PASSWORD_SOURCES = Object.freeze(['restricted local config', 'environment']);
+
 export function opencodePublicStatus(config, environment = process.env) {
   const password = environment.OPENCODE_SERVER_PASSWORD?.trim();
   return Object.freeze({

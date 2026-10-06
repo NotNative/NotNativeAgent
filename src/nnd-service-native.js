@@ -12,6 +12,7 @@ import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-trans
 import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transaction.js';
 import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
 import { createNndCompatibilitySettingsTransaction } from './nnd-compatibility-transaction.js';
+import { createNndMcpCredentialsService } from './nnd-mcp-credentials-transaction.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -53,6 +54,8 @@ function createNativeNndSettingsServices(paths, identity, environment) {
     nndWebSearchSettingsService: createNndWebSearchSettingsTransaction({ path: paths.webSearchConfig,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndCompatibilitySettingsService: createNndCompatibilitySettingsTransaction({ path: paths.opencodeConfig,
+      installationId: identity.installation_id, dataId: identity.data_id, environment }),
+    nndMcpCredentialsService: createNndMcpCredentialsService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id, environment }),
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),

@@ -78,6 +78,12 @@ test('the domain validates candidates: exposed bind, short password, and secret 
     request(candidate(), { action: 'replace', value: 'short' })), { code: 'opencode_password_invalid' });
   await assert.rejects(() => f.service.preview(principal,
     request(candidate({ port: 65_536 }))), { code: 'opencode_bind_port_invalid' });
+  // The candidate is a FULL document view at parity with the census: missing wire
+  // keys refuse, and keep/clear never carry a value slot.
+  await assert.rejects(() => f.service.preview(principal, request({ enabled: true, hostname: '127.0.0.1' })),
+    { code: 'nnd_compatibility_request_invalid' });
+  await assert.rejects(() => f.service.preview(principal, request(candidate(), { action: 'keep', value: 'stray' })),
+    { code: 'nnd_compatibility_request_invalid' });
   const cleared = await f.service.preview(principal, request(candidate({ hostname: '127.0.0.1' }), { action: 'clear' }));
   assert.deepEqual(cleared.password, { configured: false, source: null });
   await assert.rejects(() => f.service.preview(principal, request({ ...candidate(), extra: 1 }, { action: 'keep' })),
@@ -123,6 +129,13 @@ test('CAS receipts replay, persist revisions, and repair demands stay honest for
   await assert.rejects(() => f.service.save(principal, {
     ...f.request(snapshot.revision, candidate(), { action: 'clear' }, 'corrupt_save') }),
     { code: 'nnd_compatibility_source_invalid' });
+  // Preview follows the save's precedence: a corrupt basis fails closed with the
+  // source refusal (not a raw domain code), and a stale revision wins over candidate
+  // grammar — the domain cannot run a candidate against a base it does not serve.
+  await assert.rejects(() => f.service.preview(principal, {
+    ...f.request(snapshot.revision, candidate(), { action: 'clear' }) }),
+    { code: 'nnd_compatibility_source_invalid' });
+  void snapshot;
 });
 
 function body(request) { return Readable.from([JSON.stringify(request)]); }
@@ -202,3 +215,50 @@ async function f_save(call, view, password, operationId) {
     expected_revision: base.body.source_revision, expected_resolution_revision: base.body.source_revision,
     view, password, operation_id: operationId } });
 }
+
+test('the projector refuses drifted service shapes with its own server-side code', async t => {
+  const driftView = (overrides) => ({ schema_version: '1.0', ...identity, project_shadowed: false,
+    version: 1, enabled: true, hostname: '127.0.0.1', port: 4096, username: 'opencode',
+    password: { configured: false, source: null }, updated_at: null,
+    source_state: 'absent', source_revision: 'absent', resolution_revision: 'absent',
+    application: 'next_service_start', valid: true, ...overrides });
+  let current = driftView({});
+  const live = { get nndCompatibilitySettingsService() {
+    return Object.freeze({ read: async () => current, preview: async () => current,
+      save: async () => current, operation: async () => current });
+  } };
+  const server = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
+    host: '127.0.0.1', port: 0, nndRuntime: { getHost: () => null,
+      snapshot: () => ({ service_state: 'setup_required', execution_state: 'unavailable' }) },
+    resolvePrincipal: () => principal, ...live });
+  t.after(() => server.close());
+  const endpoint = `http://127.0.0.1:${server.address.port}`;
+  const base = '/v1/nnd/configuration/compatibility-service';
+  const call = async (suffix = '', method = 'GET') => {
+    const response = await fetch(endpoint + base + suffix, { method,
+      headers: { authorization: `Bearer ${token}`,
+        ...(method === 'POST' ? { 'content-type': 'application/json' } : {}) },
+      ...(method === 'POST' ? { body: JSON.stringify({ ...identity, operation_id: 'op_drift',
+        expected_revision: 'absent', expected_resolution_revision: 'absent', view: null,
+        password: { action: 'keep' } }) } : {}) });
+    return { status: response.status, body: await response.json().catch(() => null) };
+  };
+  // absent read projects cleanly while the shape matches the projector contract.
+  assert.equal((await call()).status, 200);
+  // A version other than 1, a failed updated_at coercion, a foreign credential source,
+  // and a non-boolean receipt replayed flag are SERVER-side drift with their own code.
+  current = driftView({ version: 2 });
+  let drifted = await call();
+  assert.equal(drifted.status, 500);
+  assert.equal(drifted.body.error.code, 'nnd_compatibility_projection_invalid');
+  current = driftView({ updated_at: 5 });
+  assert.equal((await call()).status, 500);
+  current = driftView({ password: { configured: true, source: 'somewhere else' } });
+  assert.equal((await call()).status, 500);
+  current = { ...identity, operation_id: 'op_drift', persistence: 'saved', before_revision: 'absent',
+    persisted_revision: null, replayed: 'x', replay_window: 'last_128_operations',
+    application: 'next_service_start' };
+  drifted = await call('/save', 'POST');
+  assert.equal(drifted.status, 500);
+  assert.equal(drifted.body.error.code, 'nnd_compatibility_projection_invalid');
+});

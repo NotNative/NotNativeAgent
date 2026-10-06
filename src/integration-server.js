@@ -80,6 +80,7 @@ async function dispatch(request, response, context) {
   // Invariant: configuration repair remains reachable while native execution requires setup.
   if ((context.nndConfigurationService || context.nndGatewayTimeoutService || context.nndWebFetchSettingsService
     || context.nndWebSearchSettingsService || context.nndCompatibilitySettingsService
+    || context.nndMcpCredentialsService
     || context.nndEnvironmentSnapshotService || context.nndUpdateStateStore || context.nndTrustService)
     && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService

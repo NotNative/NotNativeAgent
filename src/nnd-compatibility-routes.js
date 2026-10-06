@@ -11,6 +11,7 @@
 import { ContractError } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { OPENCODE_PASSWORD_SOURCES } from './opencode/config.js';
 
 const BASE = '/v1/nnd/configuration/compatibility-service';
 const OPERATION = /^\/v1\/nnd\/configuration\/compatibility-service\/operations\/([A-Za-z0-9_-]{1,64})$/u;
@@ -20,6 +21,10 @@ const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
 const PERSISTED_REVISION = /^[a-f0-9]{64}$/u;
 const EDITABLE = 'nnd.configuration.manage';
 const invalid = () => new ContractError('nnd_compatibility_request_invalid', 'Native compatibility settings request is invalid.');
+// Anything the projection helpers refuse is SERVER-side shape drift, not a client
+// request error: it gets its own code so a drifted projector can never masquerade as
+// a bad request.
+const projection = () => new ContractError('nnd_compatibility_projection_invalid', 'Compatibility settings refused a drifted projection.');
 function field(path, definition) {
   return Object.freeze({ path, application: 'next_service_start', ...definition });
 }
@@ -69,28 +74,29 @@ export async function dispatchNndCompatibilityRequest(request, response, context
   // The 24,576-byte response bound cannot be reached by legal state: the view carries a
   // bounded hostname (253), username (64), port, a fixed-key credential presence object,
   // and never a secret value. An exceeded bound here still means projector drift.
-  if (Buffer.byteLength(JSON.stringify(projected)) > 24576) throw invalid();
+  if (Buffer.byteLength(JSON.stringify(projected)) > 24576) throw projection();
   return send(response, 200, projected);
 }
 
 function identity(value) {
   if (!value || typeof value !== 'object' || !ID.test(value.installation_id ?? '')
     || !ID.test(value.data_id ?? '') || value.scope !== 'user'
-    || value.application !== 'next_service_start') throw invalid();
+    || value.application !== 'next_service_start') throw projection();
   return { installation_id: value.installation_id, data_id: value.data_id, scope: 'user' };
 }
-function revision(value) { if (typeof value !== 'string' || !REVISION.test(value)) throw invalid(); return value; }
+function revision(value) { if (typeof value !== 'string' || !REVISION.test(value)) throw projection(); return value; }
 function persistedRevision(value) {
   if (value === null) return null;
   if (typeof value === 'string' && PERSISTED_REVISION.test(value)) return value;
-  throw invalid();
+  throw projection();
 }
 function credential(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid();
-  if (value.configured !== true && value.configured !== false) throw invalid();
-  if (value.source !== null && value.source !== 'restricted local config'
-    && value.source !== 'environment') throw invalid();
-  if ((value.configured === true) !== (value.source !== null)) throw invalid();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw projection();
+  if (value.configured !== true && value.configured !== false) throw projection();
+  // The source literals come from the domain (OPENCODE_PASSWORD_SOURCES) so the
+  // projector stays pinned to opencodePublicStatus's wording, not a local copy of it.
+  if (value.source !== null && !OPENCODE_PASSWORD_SOURCES.includes(value.source)) throw projection();
+  if ((value.configured === true) !== (value.source !== null)) throw projection();
   return { configured: value.configured, source: value.source };
 }
 function wireIdentity(value) {
@@ -98,21 +104,21 @@ function wireIdentity(value) {
   if (keys !== 'enabled,hostname,port,username' || value.enabled !== true && value.enabled !== false
     || typeof value.hostname !== 'string' || value.hostname.length < 1
     || typeof value.username !== 'string' || value.username.length < 1
-    || !Number.isSafeInteger(value.port) || value.port < 1 || value.port > 65535) throw invalid();
+    || !Number.isSafeInteger(value.port) || value.port < 1 || value.port > 65535) throw projection();
 }
 function projectView(value, action) {
   const selected = identity(value);
   const sourceRevision = revision(value.source_revision), resolutionRevision = revision(value.resolution_revision);
   if (resolutionRevision !== sourceRevision || value.project_shadowed !== false
-    || !['absent', 'present'].includes(value.source_state)) throw invalid();
+    || !['absent', 'present'].includes(value.source_state) || value.version !== 1
+    || (value.updated_at !== null && typeof value.updated_at !== 'string')) throw projection();
   const view = { schema_version: '1.0', ...selected, source_state: value.source_state,
     source_revision: sourceRevision, resolution_revision: resolutionRevision,
-    project_shadowed: false, version: value.version, ...wireIdentityChecked(value),
-    password: credential(value.password), updated_at: value.updated_at === null ? null
-      : typeof value.updated_at === 'string' ? value.updated_at : null,
+    project_shadowed: false, version: 1, ...wireIdentityChecked(value),
+    password: credential(value.password), updated_at: value.updated_at,
     application: 'next_service_start' };
   if (action === 'read') return view;
-  if (value.valid !== true) throw invalid();
+  if (value.valid !== true) throw projection();
   return { valid: true, expected_revision: sourceRevision, resolution_revision: resolutionRevision,
     application: 'next_service_start', view };
 }
@@ -125,11 +131,12 @@ function projectReceipt(value) {
   const selected = identity(value);
   if (!['saved', 'unpublished', 'unknown'].includes(value.persistence)
     || typeof value.operation_id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(value.operation_id)
-    || value.replay_window !== 'last_128_operations') throw invalid();
+    || value.replay_window !== 'last_128_operations'
+    || (value.replayed !== true && value.replayed !== false)) throw projection();
   return { ...selected, operation_id: value.operation_id, persistence: value.persistence,
     before_revision: revision(value.before_revision),
     persisted_revision: persistedRevision(value.persisted_revision),
     application: 'next_service_start',
     next_action: value.persistence === 'saved' ? 'next_service_start' : 'inspect_native_operation',
-    replayed: value.replayed === true, replay_window: 'last_128_operations' };
+    replayed: value.replayed, replay_window: 'last_128_operations' };
 }
