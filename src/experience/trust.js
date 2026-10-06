@@ -78,6 +78,10 @@ async function loadTrust(path) {
   }
 }
 
+export async function listTrust(path) {
+  return Object.freeze((await loadTrust(path)).slice());
+}
+
 export async function readWorkspaceTrustBytes(path, openFile = open) {
   const handle = await openFile(path, 'r');
   try {

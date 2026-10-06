@@ -152,6 +152,11 @@ function failureStatus(code) {
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
   if (code === 'nnd_walkthrough_context_large') return 413;
   if (code === 'nnd_environment_value_too_large') return 413;
+  // Trust rows must never degrade to an empty list; repairs are retried after the
+  // honest failure surfaces.
+  if (code === 'workspace_trust_invalid') return 503;
+  if (code === 'workspace_trust_target_missing') return 404;
+  if (code === 'workspace_trust_busy') return 409;
   if (code === 'nnd_notification_busy') return 409;
   if (code === 'nnd_notification_unavailable') return 503;
   if (code === 'nnd_notification_timeout') return 504;

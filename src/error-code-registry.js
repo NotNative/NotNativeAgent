@@ -177,7 +177,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_web_fetch_request_invalid', 'nnd_web_fetch_source_invalid',
     'nnd_web_search_request_invalid', 'nnd_web_search_source_invalid',
     'nnd_environment_request_invalid', 'nnd_environment_value_too_large',
-    'nnd_update_state_request_invalid',
+    'nnd_update_state_request_invalid', 'nnd_trust_request_invalid',
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
     'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',
     'goal_not_terminal', 'goal_reason_required', 'goal_tasks_actionable',

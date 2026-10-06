@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:7945ed4a836ca092e77a939d11a688899fddeeda40e7865cf1643c94263138f8",
+  "source_digest": "sha256:6997a60ff77ece800d2082293b765be59f23a27fb818a7e56727925e53b4d34d",
   "counts": {
-    "modules": 529,
+    "modules": 530,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 221
+      "module_count": 222
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 658,
-      "module_count": 196
+      "import_count": 661,
+      "module_count": 197
     },
     {
       "from": "experience-engine",
@@ -168,8 +168,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 42,
-      "module_count": 24
+      "import_count": 44,
+      "module_count": 25
     },
     {
       "from": "agentic-engine",
@@ -192,8 +192,8 @@
     {
       "from": "foundation",
       "to": "experience-engine",
-      "import_count": 15,
-      "module_count": 12
+      "import_count": 16,
+      "module_count": 13
     },
     {
       "from": "foundation",
@@ -2583,6 +2583,7 @@
         "src/nnd-environment-route.js",
         "src/nnd-gateway-timeout-routes.js",
         "src/nnd-mcp-configuration-routes.js",
+        "src/nnd-trust-routes.js",
         "src/nnd-update-state-route.js",
         "src/nnd-web-fetch-routes.js",
         "src/nnd-web-search-routes.js",
@@ -3287,6 +3288,7 @@
         "src/nnd-native-principal-selection.js",
         "src/nnd-setup-config.js",
         "src/nnd-trial-admission.js",
+        "src/nnd-trust-routes.js",
         "src/nnd-update-state-route.js",
         "src/nnd-web-fetch-transaction.js",
         "src/nnd-web-search-transaction.js",
@@ -3440,6 +3442,17 @@
         "src/nnd-install-storage.js",
         "src/nnd-service-lock.js",
         "src/persistence/manifest-lock.js"
+      ]
+    },
+    {
+      "path": "src/nnd-trust-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/trust.js",
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
       ]
     },
     {

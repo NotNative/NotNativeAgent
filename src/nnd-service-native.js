@@ -13,6 +13,7 @@ import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transactio
 import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
+import { createNativeNndTrustServices } from './nnd-trust-routes.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
 import { assertNndTrialOwnership, assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
@@ -56,6 +57,8 @@ function createNativeNndSettingsServices(paths, identity, environment) {
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndUpdateStateStore: createNndUpdateStateStore({ path: paths.updateState,
       installationId: identity.installation_id, dataId: identity.data_id }),
+    nndTrustService: createNativeNndTrustServices({ path: paths.trustedWorkspaces,
+      installationId: identity.installation_id, dataId: identity.data_id }),
   };
 }
 
@@ -69,7 +72,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
   const environment = options.environment ?? process.env;
   const { nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
     nndWebSearchSettingsService, nndWorkspaceGrantService, nndEnvironmentSnapshotService,
-    nndUpdateStateStore } = createNativeNndSettingsServices(paths, identity, environment);
+    nndUpdateStateStore, nndTrustService } = createNativeNndSettingsServices(paths, identity, environment);
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
     readEffectiveConfiguration: () => readNndSetupConfiguration(paths) });
   const lifecycle = await createIntegrationLifecycle(paths, options, 'nnd', broker, {});
@@ -79,7 +82,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
       nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
       nndWebSearchSettingsService, nndWorkspaceGrantService, nndEnvironmentSnapshotService,
-      nndUpdateStateStore,
+      nndUpdateStateStore, nndTrustService,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
       resolvePrincipal: () => options.unpublishedTrial && !trialSelection.promoted()
