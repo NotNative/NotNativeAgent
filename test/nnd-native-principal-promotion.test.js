@@ -11,6 +11,7 @@ test('same native listener resolves operator principal only after private promot
     readNndSetupConfiguration: () => ({}), createNndConfigurationService: () => ({}),
     createNndGatewaySettingsTransaction: () => ({}),
     createNndWebFetchSettingsTransaction: () => ({}),
+    createNndWebSearchSettingsTransaction: () => ({}),
     createNndWorkspaceGrantService: () => ({}), createNndLocalIntegrationActivation: () => ({}),
     createIntegrationLifecycle: async () => ({ runtime: { start() {}, snapshot: () => ({}) },
       getHost: () => ({ workspaceRoot: 'C:\\workspace' }), close: async () => {} }),

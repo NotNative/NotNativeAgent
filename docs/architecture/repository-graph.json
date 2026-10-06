@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6160feb0dbe498c8f893d881f424a227543d00f6bba661b2f3221c823586362e",
+  "source_digest": "sha256:c3fe33ac7bb61ff63e1aa3ffd47e28df643a2073ece00a0454d700d555b2a3a1",
   "counts": {
-    "modules": 524,
+    "modules": 526,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 216
+      "module_count": 218
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 643,
-      "module_count": 191
+      "import_count": 649,
+      "module_count": 193
     },
     {
       "from": "experience-engine",
@@ -132,8 +132,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 68,
-      "module_count": 46
+      "import_count": 69,
+      "module_count": 47
     },
     {
       "from": "tools",
@@ -180,8 +180,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 34,
-      "module_count": 19
+      "import_count": 37,
+      "module_count": 21
     },
     {
       "from": "providers",
@@ -2583,6 +2583,7 @@
         "src/nnd-gateway-timeout-routes.js",
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-web-fetch-routes.js",
+        "src/nnd-web-search-routes.js",
         "src/secret-broker-server.js"
       ]
     },
@@ -3264,6 +3265,7 @@
         "src/nnd-setup-config.js",
         "src/nnd-trial-admission.js",
         "src/nnd-web-fetch-transaction.js",
+        "src/nnd-web-search-transaction.js",
         "src/nnd-workspace-grants.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
@@ -3452,6 +3454,28 @@
         "src/integration-principal.js",
         "src/persistence/manifest-transaction.js",
         "src/web-fetch-config.js"
+      ]
+    },
+    {
+      "path": "src/nnd-web-search-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js",
+        "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/nnd-web-search-transaction.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/persistence/manifest-transaction.js",
+        "src/web-search-config.js"
       ]
     },
     {

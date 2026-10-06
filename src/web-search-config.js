@@ -5,7 +5,7 @@ import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
 
 const SEARXNG_PROVIDER = 'searxng';
-const MAX_CONFIG_BYTES = 65_536;
+export const MAX_WEB_SEARCH_CONFIG_BYTES = 65_536;
 export const MAX_WEB_SEARCH_PROFILES = 8;
 
 export const DEFAULT_WEB_SEARCH_CONFIG = Object.freeze({
@@ -15,7 +15,7 @@ export const DEFAULT_WEB_SEARCH_CONFIG = Object.freeze({
 export async function loadWebSearchConfig(path) {
   try {
     const bytes = await readFile(path);
-    if (bytes.length > MAX_CONFIG_BYTES) {
+    if (bytes.length > MAX_WEB_SEARCH_CONFIG_BYTES) {
       throw new ContractError('web_search_config_too_large', 'WebSearch configuration exceeds its size bound');
     }
     return normalizeWebSearchConfig(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
@@ -159,12 +159,18 @@ function normalizeProfileId(value) {
   }
   return value;
 }
+export function normalizeWebSearchProfileId(value) {
+  return normalizeProfileId(value);
+}
 
 function normalizeDisplayName(value) {
   if (typeof value !== 'string' || value.trim().length < 1 || Array.from(value.trim()).length > 128) {
     throw new ContractError('web_search_profile_name_invalid', 'WebSearch profile name must contain 1–128 characters');
   }
   return value.trim();
+}
+export function normalizeWebSearchDisplayName(value) {
+  return normalizeDisplayName(value);
 }
 
 function availableProfileId(label, existingIds) {

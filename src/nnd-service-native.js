@@ -10,6 +10,7 @@ import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
 import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-transaction.js';
 import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transaction.js';
+import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
 import { assertNndTrialOwnership, assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
@@ -36,6 +37,22 @@ export function nativeNndTrialPrincipal(workspaceRoot) {
   return Object.freeze({ ...nativeNndPrincipal(workspaceRoot), permissions: TRIAL_PERMISSIONS });
 }
 
+/** One factory per census-classified native settings family, bound to the pair identity. */
+function createNativeNndSettingsServices(paths, identity) {
+  return {
+    nndConfigurationService: createNndConfigurationService({ paths,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndGatewayTimeoutService: createNndGatewaySettingsTransaction({ path: paths.gatewayConfig,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndWebFetchSettingsService: createNndWebFetchSettingsTransaction({ path: paths.webFetchConfig,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndWebSearchSettingsService: createNndWebSearchSettingsTransaction({ path: paths.webSearchConfig,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+  };
+}
+
 export async function startNndNativeService(paths, identity, options = {}) {
   if (options.unpublishedTrial) assertNndTrialOwnership(options.trialAdmissionGate, identity);
   const trialSelection = options.unpublishedTrial
@@ -46,22 +63,15 @@ export async function startNndNativeService(paths, identity, options = {}) {
   const environment = options.environment ?? process.env;
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
     readEffectiveConfiguration: () => readNndSetupConfiguration(paths) });
-  const nndConfigurationService = createNndConfigurationService({
-    paths, installationId: identity.installation_id, dataId: identity.data_id,
-  });
-  const nndGatewayTimeoutService = createNndGatewaySettingsTransaction({ path: paths.gatewayConfig,
-    installationId: identity.installation_id, dataId: identity.data_id });
-  const nndWebFetchSettingsService = createNndWebFetchSettingsTransaction({ path: paths.webFetchConfig,
-    installationId: identity.installation_id, dataId: identity.data_id });
-  const nndWorkspaceGrantService = createNndWorkspaceGrantService({
-    paths, installationId: identity.installation_id, dataId: identity.data_id,
-  });
+  const { nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
+    nndWebSearchSettingsService, nndWorkspaceGrantService } = createNativeNndSettingsServices(paths, identity);
   const lifecycle = await createIntegrationLifecycle(paths, options, 'nnd', broker, {});
   let service;
   try {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
-      nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService, nndWorkspaceGrantService,
+      nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
+      nndWebSearchSettingsService, nndWorkspaceGrantService,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
       resolvePrincipal: () => options.unpublishedTrial && !trialSelection.promoted()
