@@ -159,6 +159,11 @@ function failureStatus(code) {
   if (code === 'workspace_trust_busy') return 409;
   // Projection drift is a broken server build, not a client error.
   if (code === 'nnd_compatibility_projection_invalid') return 500;
+  if (code === 'nnd_secrets_projection_invalid') return 500;
+  // The secrets settings surface fails closed on vault damage exactly like the other
+  // native stores: corruption, master-key loss, and integrity failures are honest 503s.
+  if (code === 'secret_vault_corrupt' || code === 'secret_key_invalid'
+    || code === 'secret_vault_integrity_failed') return 503;
   // MCP credential store: corruption fails closed like other native stores; the
   // session lock contention and capacity limits are honest conflicts.
   if (code === 'mcp_credentials_invalid') return 503;

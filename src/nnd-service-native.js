@@ -13,6 +13,7 @@ import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transactio
 import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
 import { createNndCompatibilitySettingsTransaction } from './nnd-compatibility-transaction.js';
 import { createNndMcpCredentialsService } from './nnd-mcp-credentials-transaction.js';
+import { createNndSecretsSettingsService } from './nnd-secrets-routes.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -57,6 +58,10 @@ function createNativeNndSettingsServices(paths, identity, environment) {
       installationId: identity.installation_id, dataId: identity.data_id, environment }),
     nndMcpCredentialsService: createNndMcpCredentialsService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id, environment }),
+    nndSecretsSettingsService: createNndSecretsSettingsService({ broker: new SecretBroker({
+      realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault, keyPath: paths.secretKey,
+      auditPath: paths.secretAudit }), vaultPath: paths.secretVault,
+      installationId: identity.installation_id, dataId: identity.data_id }),
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndEnvironmentSnapshotService: createNndEnvironmentSnapshot({ environment,

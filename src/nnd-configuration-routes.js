@@ -14,6 +14,7 @@ import { dispatchNndUpdateStateRequest } from './nnd-update-state-route.js';
 import { dispatchNndTrustRequest } from './nnd-trust-routes.js';
 import { dispatchNndCompatibilityRequest } from './nnd-compatibility-routes.js';
 import { dispatchNndMcpCredentialsRequest } from './nnd-mcp-credentials-routes.js';
+import { dispatchNndSecretsRequest } from './nnd-secrets-routes.js';
 
 const BASE = '/v1/nnd/configuration';
 const REQUEST_BYTES = 65536;
@@ -47,6 +48,7 @@ async function dispatchConfigurationRequest(request, response, context) {
   if (await dispatchNndTrustRequest(request, response, context)) return true;
   if (await dispatchNndCompatibilityRequest(request, response, context)) return true;
   if (await dispatchNndMcpCredentialsRequest(request, response, context)) return true;
+  if (await dispatchNndSecretsRequest(request, response, context)) return true;
   if (await dispatchNndMcpConfigurationRequest(request, response, context)) return true;
   const route = routeFor(url.pathname);
   if (!route) return send(response, 404, { error: 'not_found' });
