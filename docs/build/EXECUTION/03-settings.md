@@ -455,7 +455,31 @@ consumes both: the projection code joins the compatibility page's sentences, and
 a typed managed-MCP-credentials client plus settings section renders the
 reference roster and stages idempotent save/delete actions whose receipts claim
 nothing about replay. The remaining C6 families (compatibility lifecycle actions,
-hooks, secrets metadata, update actions) stay open.
+hooks, update actions) stay open.
+
+Progress: at NNA `20261006-8` the six `secrets` rows became the settings
+family's first pure read surface at `/v1/nnd/configuration/secrets` (list plus
+catalog, `nnd.configuration.read` only; no operations, query strings refused).
+The list projects the runtime secret broker's redaction-safe `publicSecret`
+envelope exactly — label/kind/scope, public metadata, FIELD NAMES (never
+values), enabled, timestamps/use-count — so secret values and encrypted material
+never leave the encrypted-at-rest vault `secrets/vault.json`. An absent vault
+reads honestly as `source_state: "absent"` with `count: 0`; vault corruption or
+master-key damage fails closed with the vault's own codes
+(`secret_vault_corrupt` / `secret_key_invalid`, 503) and never degrades to an
+empty roster; projection drift on either side refuses with
+`nnd_secrets_projection_invalid` (500, registered client-side), inside the same
+client-checked 2 MiB + 64 KiB response ceiling. `application` is
+`next_secret_use`: values reach a consumer only at the next broker consumption
+point, so the settings read applies nothing. All writes (create/rotate/rename/
+enable/delete/audit) stay on the runtime broker surface and its `secret_action`
+source rows; this family never becomes a vault or master-key file editor. NND
+`20261006-8` consumes a typed read-only client (exact envelope, count parity,
+absent-as-absent) with honest sentences — vault damage says the vault needs
+native repair — and a "NNA secrets metadata" settings section rendering the
+redaction-safe roster with the statement that values never render there and
+writes remain broker actions. Census rows updated in place; the `secret_action`
+mutations, compatibility lifecycle actions, and hooks stay open.
 
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read

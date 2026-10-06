@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a14ceb4b319f6589a1861d23dfedb15a3cddb9b3eab931a618a3686bce2d7503",
+  "source_digest": "sha256:7cbf464c21990c64e3136fb3dc67e5b0abb66811253903bc02c7a5ffca3dc650",
   "counts": {
-    "modules": 812,
+    "modules": 814,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 25
+      "module_count": 26
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 195
+      "module_count": 196
     },
     {
       "id": "web-server",
@@ -109,20 +109,20 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 327,
-      "module_count": 133
+      "import_count": 330,
+      "module_count": 134
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 104,
-      "module_count": 73
+      "import_count": 105,
+      "module_count": 74
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 97,
-      "module_count": 53
+      "import_count": 98,
+      "module_count": 54
     },
     {
       "from": "sync-engine",
@@ -131,16 +131,16 @@
       "module_count": 41
     },
     {
+      "from": "harness-facade",
+      "to": "runtime-io",
+      "import_count": 24,
+      "module_count": 22
+    },
+    {
       "from": "gates",
       "to": "web-server",
       "import_count": 23,
       "module_count": 7
-    },
-    {
-      "from": "harness-facade",
-      "to": "runtime-io",
-      "import_count": 23,
-      "module_count": 21
     },
     {
       "from": "sync-engine",
@@ -1863,6 +1863,7 @@
         "packages/ui/src/components/settings/pages/native-environment.tsx",
         "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
         "packages/ui/src/components/settings/pages/native-update-state.tsx",
+        "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
         "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
         "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
         "packages/ui/src/components/settings/pages/web-search-settings.tsx",
@@ -2092,6 +2093,19 @@
         "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/runtime-tunnel.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/secrets.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/authority-sync.ts"
       ]
     },
     {
@@ -3523,6 +3537,14 @@
       "component": "harness-facade",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/secrets.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/nnd/setup.ts",

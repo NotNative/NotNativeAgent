@@ -416,6 +416,40 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-8 and NND 20261006-8 — native secrets metadata read surface
+
+NNA (`20261006-8`): the six census `secrets` rows (label, kind, scope,
+`metadata.{name}`, `fields.{field}`, enabled) gained their native surface at
+`/v1/nnd/configuration/secrets` — list + catalog only, both on the read right
+`nnd.configuration.read`; there are no operations, and the query string is a
+refusal. The list projects the runtime secret broker's redaction-safe
+`publicSecret` envelope exactly: label/kind/scope, public metadata, FIELD NAMES
+(never values), enabled, and the timestamps/use-count — values and encrypted
+material never leave the vault. An absent vault reads honestly as
+`source_state: "absent"` with `count: 0`; a corrupt vault or master-key damage
+fails closed with the vault's own codes (`secret_vault_corrupt` /
+`secret_key_invalid`, 503) and never degrades to an empty roster; a drifted
+projection on either side refuses with `nnd_secrets_projection_invalid` (500,
+registered client-side), and the response stays inside the same client-checked
+2 MiB + 64 KiB ceiling. `application` is `next_secret_use`: records change live
+in the vault, and their values reach a consumer only at the next broker
+consumption point — the settings read applies nothing. Writes (create/rotate/
+rename/enable/delete/audit) stay on the runtime broker surface and its own
+`secret_action` source rows; this family must never become a vault or master-key
+file editor.
+
+NND consumes in this version: a typed read-only client mirroring the envelope
+(exact keys, count parity, absent-as-absent) and its failure sentences — vault
+damage says the vault needs native repair — plus a "NNA secrets metadata"
+settings section rendering the redaction-safe roster (label, kind, enabled,
+field count, scope, updated timestamp) with an explicit statement that values
+never render there and all writes remain broker actions; a corrupt vault shows
+the repair sentence with the forwarded code. The catalog is pinned (the six
+read-only fields, each `editability: {available: false, reason:
+secret_broker_actions}`); focused NND tests 5/5, full UI 241 files (1,841
+tests), web 132 files (1,447 tests), typecheck clean; census rows updated in
+place.
+
 ## NNA 20261006-7 and NND 20261006-7 — compatibility audit delta plus native managed MCP credentials
 
 NNA (`20261006-7`, with `2f1489ab` as the -6 head): two bodies land together.

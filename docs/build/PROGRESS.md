@@ -3,6 +3,32 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Native secrets metadata read surface · NNA 20261006-8 + NND 20261006-8
+
+The six census `secrets` rows (label, kind, scope, `metadata.{name}`,
+`fields.{field}`, enabled) gained their native surface. NNA `20261006-8` serves
+`/v1/nnd/configuration/secrets` — list plus catalog only, on
+`nnd.configuration.read`, with no operations and a query-string refusal —
+projecting the runtime secret broker's redaction-safe `publicSecret` envelope
+exactly: label/kind/scope, public metadata, FIELD NAMES (never values), enabled,
+and the timestamps/use-count. An absent vault reads honestly as
+`source_state: "absent"` with `count: 0`; vault corruption or master-key damage
+fails closed with the vault's own codes (`secret_vault_corrupt` /
+`secret_key_invalid`, 503) and never degrades to an empty roster; projection
+drift on either side refuses with `nnd_secrets_projection_invalid` (500,
+registered client-side) inside the same client-checked 2 MiB + 64 KiB response
+ceiling. `application` is `next_secret_use` — values reach a consumer only at
+the next broker consumption point, so the settings read applies nothing — and
+every write stays on the runtime broker surface and its own `secret_action`
+source rows; this family never becomes a vault or master-key file editor. NND
+`20261006-8` consumes a typed read-only client (exact envelope, count parity,
+absent-as-absent) with honest sentences — vault damage says the vault needs
+native repair — and a "NNA secrets metadata" settings section rendering the
+redaction-safe roster with the statement that values never render there and
+writes remain broker actions. Focused NND tests 5/5; census rows updated in
+place. Remaining C6 families: compatibility lifecycle actions, hooks,
+`secret_action` mutations, update actions.
+
 ## 2026-10-06 · Compatibility audit delta and native managed MCP credentials · NNA 20261006-7 + NND 20261006-7
 
 The compatibility service family absorbed its independent review findings and the

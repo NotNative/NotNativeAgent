@@ -14153,7 +14153,7 @@
       "source": {
         "product": "NNA",
         "path": "src/secret-contracts.js",
-        "validator": "unverified"
+        "validator": "normalizeSecretLabel"
       },
       "store": {
         "owner": "NNA",
@@ -14166,26 +14166,26 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/secrets; GET /v1/nnd/configuration/secrets/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "unverified"
+          "normalizeSecretLabel"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Field family observed through native broker; exact per-field validators and scope rules pending. No vault/master-key file editor."
+      "notes": "native read-only surface over the encrypted-at-rest vault via SecretBroker: projects the redaction-safe publicSecret envelope only (values and encrypted material never project); absent vault reads as absent, corrupt vault or master-key damage fails closed (secret_vault_corrupt / secret_key_invalid 503); application next_secret_use; writes stay on the runtime broker surface (secret_action rows); no vault or master-key file editor"
     },
     {
       "id": "secrets:kind",
@@ -14195,7 +14195,7 @@
       "source": {
         "product": "NNA",
         "path": "src/secret-contracts.js",
-        "validator": "unverified"
+        "validator": "normalizeSecretKind"
       },
       "store": {
         "owner": "NNA",
@@ -14208,26 +14208,26 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/secrets; GET /v1/nnd/configuration/secrets/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "unverified"
+          "normalizeSecretKind"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Field family observed through native broker; exact per-field validators and scope rules pending. No vault/master-key file editor."
+      "notes": "native read-only surface over the encrypted-at-rest vault via SecretBroker: projects the redaction-safe publicSecret envelope only (values and encrypted material never project); absent vault reads as absent, corrupt vault or master-key damage fails closed (secret_vault_corrupt / secret_key_invalid 503); application next_secret_use; writes stay on the runtime broker surface (secret_action rows); no vault or master-key file editor"
     },
     {
       "id": "secrets:scope",
@@ -14236,8 +14236,8 @@
       "key": "scope",
       "source": {
         "product": "NNA",
-        "path": "src/secret-broker.js",
-        "validator": "unverified"
+        "path": "src/secret-contracts.js",
+        "validator": "normalizeSecretScope"
       },
       "store": {
         "owner": "NNA",
@@ -14250,26 +14250,26 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/secrets; GET /v1/nnd/configuration/secrets/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "unverified"
+          "normalizeSecretScope"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Field family observed through native broker; exact per-field validators and scope rules pending. No vault/master-key file editor."
+      "notes": "native read-only surface over the encrypted-at-rest vault via SecretBroker: projects the redaction-safe publicSecret envelope only (values and encrypted material never project); absent vault reads as absent, corrupt vault or master-key damage fails closed (secret_vault_corrupt / secret_key_invalid 503); application next_secret_use; writes stay on the runtime broker surface (secret_action rows); no vault or master-key file editor"
     },
     {
       "id": "secrets:metadata.{name}",
@@ -14279,7 +14279,7 @@
       "source": {
         "product": "NNA",
         "path": "src/secret-contracts.js",
-        "validator": "unverified"
+        "validator": "normalizeSecretMetadata"
       },
       "store": {
         "owner": "NNA",
@@ -14292,26 +14292,26 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/secrets; GET /v1/nnd/configuration/secrets/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "unverified"
+          "normalizeSecretMetadata"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Field family observed through native broker; exact per-field validators and scope rules pending. No vault/master-key file editor."
+      "notes": "native read-only surface over the encrypted-at-rest vault via SecretBroker: projects the redaction-safe publicSecret envelope only (values and encrypted material never project); absent vault reads as absent, corrupt vault or master-key damage fails closed (secret_vault_corrupt / secret_key_invalid 503); application next_secret_use; writes stay on the runtime broker surface (secret_action rows); no vault or master-key file editor"
     },
     {
       "id": "secrets:fields.{field}",
@@ -14321,7 +14321,7 @@
       "source": {
         "product": "NNA",
         "path": "src/secret-contracts.js",
-        "validator": "unverified"
+        "validator": "validateSecretFields"
       },
       "store": {
         "owner": "NNA",
@@ -14334,12 +14334,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/secrets; GET /v1/nnd/configuration/secrets/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+        "status": "verified"
       },
       "sensitivity": "secret",
       "work_package": "C1",
@@ -14348,12 +14348,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "unverified"
+          "validateSecretFields"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Field family observed through native broker; exact per-field validators and scope rules pending. No vault/master-key file editor."
+      "notes": "native read-only surface over the encrypted-at-rest vault via SecretBroker: projects the redaction-safe publicSecret envelope only (values and encrypted material never project); absent vault reads as absent, corrupt vault or master-key damage fails closed (secret_vault_corrupt / secret_key_invalid 503); application next_secret_use; writes stay on the runtime broker surface (secret_action rows); no vault or master-key file editor"
     },
     {
       "id": "secrets:enabled",
@@ -14363,7 +14363,7 @@
       "source": {
         "product": "NNA",
         "path": "src/secret-broker.js",
-        "validator": "unverified"
+        "validator": "publicSecret"
       },
       "store": {
         "owner": "NNA",
@@ -14376,26 +14376,26 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/secrets; GET /v1/nnd/configuration/secrets/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secrets-metadata.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "unverified"
+          "publicSecret"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Field family observed through native broker; exact per-field validators and scope rules pending. No vault/master-key file editor."
+      "notes": "native read-only surface over the encrypted-at-rest vault via SecretBroker: projects the redaction-safe publicSecret envelope only (values and encrypted material never project); absent vault reads as absent, corrupt vault or master-key damage fails closed (secret_vault_corrupt / secret_key_invalid 503); application next_secret_use; writes stay on the runtime broker surface (secret_action rows); no vault or master-key file editor"
     },
     {
       "id": "secret_action:list",

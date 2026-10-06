@@ -15,6 +15,7 @@ import { NativeUpdateState } from './native-update-state.tsx';
 import { TrustWorkspaces } from './trust-workspaces.tsx';
 import { CompatibilityServiceSettings } from './compatibility-service.tsx';
 import { ManagedMcpCredentialsSettings } from './managed-mcp-credentials.tsx';
+import { SecretsMetadataSettings } from './secrets-metadata.tsx';
 
 function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): string {
   if (!value.present) return t('settings.nativeConfiguration.absent');
@@ -134,5 +135,5 @@ export function NativeConfigurationPage(): ReactNode {
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ManagedMcpCredentialsSettings /></>;
+  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /></>;
 }
