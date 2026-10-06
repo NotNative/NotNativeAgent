@@ -160,6 +160,7 @@ function failureStatus(code) {
   // Projection drift is a broken server build, not a client error.
   if (code === 'nnd_compatibility_projection_invalid') return 500;
   if (code === 'nnd_secrets_projection_invalid') return 500;
+  if (code === 'nnd_hooks_projection_invalid') return 500;
   if (code === 'nnd_service_projection_invalid') return 500;
   // Compatibility-service lifecycle: grammar stays at the default 400, but the
   // operational failures are honest 503s — the runtime could not be started or

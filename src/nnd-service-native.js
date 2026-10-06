@@ -15,6 +15,7 @@ import { createNndCompatibilitySettingsTransaction } from './nnd-compatibility-t
 import { createNndCompatibilityLifecycleService } from './nnd-compatibility-lifecycle-routes.js';
 import { createNndMcpCredentialsService } from './nnd-mcp-credentials-transaction.js';
 import { createNndSecretsSettingsService } from './nnd-secrets-routes.js';
+import { createNndHooksSettingsService } from './nnd-hooks-routes.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -64,6 +65,8 @@ function createNativeNndSettingsServices(paths, identity, environment) {
     nndSecretsSettingsService: createNndSecretsSettingsService({ broker: new SecretBroker({
       realm: LOCAL_SECRET_REALM, vaultPath: paths.secretVault, keyPath: paths.secretKey,
       auditPath: paths.secretAudit }), vaultPath: paths.secretVault,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndHooksSettingsService: createNndHooksSettingsService({ hooksPath: paths.hooks,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),

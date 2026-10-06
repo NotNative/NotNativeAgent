@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f06d14c476b57f48f49f734e9fb61cad08776921fee77151fd4916148fb13da9",
+  "source_digest": "sha256:39947b675a67657820e38de37be1c48c957197b7735120ba56b0bb0ff98fd602",
   "counts": {
-    "modules": 536,
+    "modules": 537,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 228
+      "module_count": 229
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 677,
-      "module_count": 203
+      "import_count": 680,
+      "module_count": 204
     },
     {
       "from": "experience-engine",
@@ -156,8 +156,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 54,
-      "module_count": 31
+      "import_count": 56,
+      "module_count": 32
     },
     {
       "from": "agentic-engine",
@@ -346,6 +346,12 @@
       "module_count": 5
     },
     {
+      "from": "foundation",
+      "to": "guidance",
+      "import_count": 5,
+      "module_count": 5
+    },
+    {
       "from": "gateway",
       "to": "persistence",
       "import_count": 5,
@@ -362,12 +368,6 @@
       "to": "reliability-engine",
       "import_count": 5,
       "module_count": 5
-    },
-    {
-      "from": "foundation",
-      "to": "guidance",
-      "import_count": 4,
-      "module_count": 4
     },
     {
       "from": "integrations",
@@ -2618,6 +2618,7 @@
         "src/nnd-configuration-view.js",
         "src/nnd-environment-route.js",
         "src/nnd-gateway-timeout-routes.js",
+        "src/nnd-hooks-routes.js",
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-mcp-credentials-routes.js",
         "src/nnd-secrets-routes.js",
@@ -2783,6 +2784,17 @@
         "src/nnd-notification-routes.js",
         "src/nnd-question-routes.js",
         "src/opencode/protocol.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-hooks-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/hook-manifest.js",
+        "src/ids.js",
+        "src/integration-principal.js",
         "src/secret-broker-server.js"
       ]
     },
@@ -3356,6 +3368,7 @@
         "src/nnd-configuration-service.js",
         "src/nnd-environment-snapshot.js",
         "src/nnd-gateway-timeout-transaction.js",
+        "src/nnd-hooks-routes.js",
         "src/nnd-mcp-credentials-transaction.js",
         "src/nnd-native-principal-selection.js",
         "src/nnd-secrets-routes.js",
