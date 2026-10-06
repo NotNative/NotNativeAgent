@@ -182,6 +182,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_compatibility_projection_invalid',
     'nnd_mcp_credentials_request_invalid',
     'nnd_secrets_request_invalid', 'nnd_secrets_projection_invalid',
+    'nnd_service_action_invalid', 'nnd_service_projection_invalid', 'nnd_service_run_unsupported',
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
     'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',
     'goal_not_terminal', 'goal_reason_required', 'goal_tasks_actionable',

@@ -13,6 +13,7 @@ import { dispatchNndEnvironmentRequest } from './nnd-environment-route.js';
 import { dispatchNndUpdateStateRequest } from './nnd-update-state-route.js';
 import { dispatchNndTrustRequest } from './nnd-trust-routes.js';
 import { dispatchNndCompatibilityRequest } from './nnd-compatibility-routes.js';
+import { dispatchNndCompatibilityLifecycleRequest } from './nnd-compatibility-lifecycle-routes.js';
 import { dispatchNndMcpCredentialsRequest } from './nnd-mcp-credentials-routes.js';
 import { dispatchNndSecretsRequest } from './nnd-secrets-routes.js';
 
@@ -46,6 +47,7 @@ async function dispatchConfigurationRequest(request, response, context) {
   if (await dispatchNndEnvironmentRequest(request, response, context)) return true;
   if (await dispatchNndUpdateStateRequest(request, response, context)) return true;
   if (await dispatchNndTrustRequest(request, response, context)) return true;
+  if (await dispatchNndCompatibilityLifecycleRequest(request, response, context)) return true;
   if (await dispatchNndCompatibilityRequest(request, response, context)) return true;
   if (await dispatchNndMcpCredentialsRequest(request, response, context)) return true;
   if (await dispatchNndSecretsRequest(request, response, context)) return true;

@@ -12,6 +12,7 @@ import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-trans
 import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transaction.js';
 import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
 import { createNndCompatibilitySettingsTransaction } from './nnd-compatibility-transaction.js';
+import { createNndCompatibilityLifecycleService } from './nnd-compatibility-lifecycle-routes.js';
 import { createNndMcpCredentialsService } from './nnd-mcp-credentials-transaction.js';
 import { createNndSecretsSettingsService } from './nnd-secrets-routes.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
@@ -25,7 +26,7 @@ const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
   'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate',
   'nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair',
-  'nnd.workspace.read', 'nnd.workspace.manage',
+  'nnd.service.manage', 'nnd.workspace.read', 'nnd.workspace.manage',
   // Security: management remains scope-filtered and never grants secret.use or raw values.
   'secret.read', 'secret.manage', 'secret.audit',
   'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate']);
@@ -56,6 +57,8 @@ function createNativeNndSettingsServices(paths, identity, environment) {
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndCompatibilitySettingsService: createNndCompatibilitySettingsTransaction({ path: paths.opencodeConfig,
       installationId: identity.installation_id, dataId: identity.data_id, environment }),
+    nndCompatibilityLifecycleService: createNndCompatibilityLifecycleService({ paths,
+      environment, installationId: identity.installation_id, dataId: identity.data_id }),
     nndMcpCredentialsService: createNndMcpCredentialsService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id, environment }),
     nndSecretsSettingsService: createNndSecretsSettingsService({ broker: new SecretBroker({

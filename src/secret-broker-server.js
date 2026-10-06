@@ -160,6 +160,14 @@ function failureStatus(code) {
   // Projection drift is a broken server build, not a client error.
   if (code === 'nnd_compatibility_projection_invalid') return 500;
   if (code === 'nnd_secrets_projection_invalid') return 500;
+  if (code === 'nnd_service_projection_invalid') return 500;
+  // Compatibility-service lifecycle: grammar stays at the default 400, but the
+  // operational failures are honest 503s — the runtime could not be started or
+  // its identity could not be verified, and the surface refuses harmlessly.
+  if (code === 'opencode_start_failed' || code === 'opencode_identity_unavailable'
+    || code === 'opencode_identity_unverifiable' || code === 'opencode_startup_folder_unavailable'
+    || code === 'opencode_startup_folder_empty' || code === 'opencode_login_wiring_probe_failed'
+    || code === 'opencode_user_environment_failed' || code === 'opencode_user_environment_probe_failed') return 503;
   // The secrets settings surface fails closed on vault damage exactly like the other
   // native stores: corruption, master-key loss, and integrity failures are honest 503s.
   if (code === 'secret_vault_corrupt' || code === 'secret_key_invalid'

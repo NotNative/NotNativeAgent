@@ -13,6 +13,7 @@ test('same native listener resolves operator principal only after private promot
     createNndWebFetchSettingsTransaction: () => ({}),
     createNndWebSearchSettingsTransaction: () => ({}),
     createNndCompatibilitySettingsTransaction: () => ({})
+    , createNndCompatibilityLifecycleService: () => ({})
     , createNndMcpCredentialsService: () => ({})
     , createNndSecretsSettingsService: () => ({}) ,
     createNndWorkspaceGrantService: () => ({}), createNndEnvironmentSnapshot: () => ({}),
