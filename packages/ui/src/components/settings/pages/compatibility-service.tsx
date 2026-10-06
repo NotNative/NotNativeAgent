@@ -206,6 +206,7 @@ function errorText(code: string): string {
   if (code === 'operation_not_found') return 'No retained receipt was found. Clear the expired local handle, refresh native settings, and preview before another save.';
   if (code === 'nnd_compatibility_request_invalid') return 'A composed change is outside the bounded settings grammar. Hostnames stay within 253 characters, ports run 1–65535, usernames 1–64, and the replace value 20–512 characters.';
   if (code === 'nnd_compatibility_source_invalid') return 'Compatibility settings need native repair before they can be changed here.';
+  if (code === 'nnd_compatibility_projection_invalid') return 'NNA served a compatibility shape this build refuses. Update NNA and this NND together before retrying.';
   if (code === 'nnd_compatibility_unsupported') return 'This NNA does not expose native compatibility service settings.';
   if (code === 'opencode_hostname_invalid') return 'Hostnames must be an IP address or DNS name without scheme, port, or brackets in the middle.';
   if (code === 'opencode_bind_port_invalid') return 'The bind port must be an integer from 1 through 65535.';

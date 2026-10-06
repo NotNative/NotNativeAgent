@@ -3,6 +3,37 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Compatibility audit delta and native managed MCP credentials · NNA 20261006-7 + NND 20261006-7
+
+The compatibility service family absorbed its independent review findings and the
+managed MCP credentials row got its native surface. NNA `20261006-7` (on the
+`2f1489ab` -6 head) reorders compatibility preview so the revision check comes
+before the merged candidate (corrupt or foreign-version stores report
+`nnd_compatibility_source_invalid` on every spoke and a stale revision wins over
+candidate grammar, matching save), requires the FULL document candidate with no
+value slot on keep/clear, gives projection drift its own server-side code
+`nnd_compatibility_projection_invalid` (500) so version, `updated_at`, and
+receipt `replayed` flags fail closed, and sources the credential strings from the
+domain's `OPENCODE_PASSWORD_SOURCES` constant. The same version serves
+`/v1/nnd/configuration/mcp-credentials` over the engine host's stored credential
+map: list plus catalog (read) and save plus delete (manage), no operations ledger
+because both builds are implicitly idempotent — save derives the reference from
+the server id and upserts it (256-reference and 1 MiB caps, 16,384-character
+tokens), delete is an honest no-op receipt reporting `absent`, and the list
+carries references and an `applied` presence flag only; token values never
+project and the store applies at the next MCP server spawn. NND `20261006-7`
+consumes both: the projection code joins the compatibility page's sentences, and
+a typed managed-MCP-credentials client plus settings section renders the
+reference roster and stages idempotent save/delete actions whose receipts claim
+nothing about replay. NNA focused suites: compatibility route tests 9/9 (route +
+transaction), mcp route tests 4/4, configuration/promotion/failure-envelope focus
+7/7, and the opencode/secret-broker/catalog/http/article focus batch 50/50; NNA
+full 2,355 = 2,344 pass with the three standing isolates green (FAIL-009
+harness, census alternate-node, census exit tests). NND UI 239 files (1,836
+tests), web 132 files (1,447 tests), typecheck 0. The remaining C6 families
+(compatibility lifecycle actions, hooks, secrets metadata, update actions) stay
+open.
+
 ## 2026-10-06 · Compatibility service wiring identity read and changed natively · NNA 20261006-6 + NND 20261006-6
 
 The seven compatibility_service rows became a natively-served settings family.

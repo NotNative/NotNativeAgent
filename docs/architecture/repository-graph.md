@@ -36,9 +36,9 @@ graph LR
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
 | Client sync and state engine | 46 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
-| Harness SDK facade | 23 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
+| Harness SDK facade | 25 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
 | Runtime adaptation | 229 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
-| UI shell | 194 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
+| UI shell | 195 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 230 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
 | Quality gates | 74 | Client sync and state engine, Runtime adaptation, Web server | — |
@@ -48,12 +48,12 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 324 | 132 |
-| UI shell | Harness SDK facade | 101 | 72 |
-| UI shell | Client sync and state engine | 96 | 52 |
+| UI shell | Runtime adaptation | 327 | 133 |
+| UI shell | Harness SDK facade | 104 | 73 |
+| UI shell | Client sync and state engine | 97 | 53 |
 | Client sync and state engine | Harness SDK facade | 57 | 41 |
 | Quality gates | Web server | 23 | 7 |
-| Harness SDK facade | Runtime adaptation | 21 | 19 |
+| Harness SDK facade | Runtime adaptation | 23 | 21 |
 | Client sync and state engine | Runtime adaptation | 15 | 13 |
 | Runtime adaptation | Harness SDK facade | 10 | 7 |
 | Harness SDK facade | Client sync and state engine | 9 | 9 |
@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:44e6f75484d146c221161832a27b0603749cebd93e643c64418a85f907c401f8`.
+Source fingerprint: `sha256:a14ceb4b319f6589a1861d23dfedb15a3cddb9b3eab931a618a3686bce2d7503`.

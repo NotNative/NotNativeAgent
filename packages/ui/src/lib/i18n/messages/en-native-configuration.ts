@@ -70,6 +70,7 @@ export const enNativeConfiguration = {
   'settings.nativeUpdateState.title': 'NNA update state',
   'settings.trustWorkspaces.title': 'NNA trusted workspaces',
   'settings.compatibilityService.title': 'NNA compatibility service settings',
+  'settings.managedMcpCredentials.title': 'NNA managed MCP credentials',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
   'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',

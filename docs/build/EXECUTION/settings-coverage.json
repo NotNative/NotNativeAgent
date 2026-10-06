@@ -14741,7 +14741,7 @@
       "source": {
         "product": "NNA",
         "path": "src/mcp-credentials.js",
-        "validator": "saveManagedMcpCredential / loadManagedMcpCredentials"
+        "validator": "saveManagedMcpCredential / listManagedMcpCredentials"
       },
       "store": {
         "owner": "NNA",
@@ -14754,12 +14754,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/mcp-credentials; GET /v1/nnd/configuration/mcp-credentials/catalog; POST /v1/nnd/configuration/mcp-credentials/credentials/save; POST /v1/nnd/configuration/mcp-credentials/credentials/delete",
+      "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/managed-mcp-credentials.tsx",
+        "status": "verified"
       },
       "sensitivity": "secret",
       "work_package": "C1",
@@ -14768,12 +14768,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "saveManagedMcpCredential / loadManagedMcpCredentials"
+          "saveManagedMcpCredential / listManagedMcpCredentials"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Native managed secret storage; binding name generated from server identity. GUI must use dedicated native secret operations."
+      "notes": "native surface: list shows references and applied presence only (token values never project), save is an idempotent upsert keyed by the server id, delete reports absent when nothing was stored, application next_server_spawn"
     },
     {
       "id": "environment:NNA_HOME",

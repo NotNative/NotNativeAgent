@@ -416,6 +416,46 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-7 and NND 20261006-7 — compatibility audit delta plus native managed MCP credentials
+
+NNA (`20261006-7`, with `2f1489ab` as the -6 head): two bodies land together.
+First, the compatibility service family absorbed the findings of its independent
+non-author review (verdict NEEDS-FIX): preview now checks the revision BEFORE
+building the merged candidate, so a corrupt or foreign-version store reports
+`nnd_compatibility_source_invalid` on every spoke and error precedence matches
+save (a stale revision wins over candidate grammar); the candidate must be a FULL
+document view (all four wire keys; keep/clear never carry a value slot); the
+projector got a server-side drift code `nnd_compatibility_projection_invalid`
+(500, registered client-side) so version, `updated_at`, and receipt `replayed`
+flags fail closed instead of coercing, and the response bound is defended by the
+same code; and the credential source strings now come from the domain's new
+`OPENCODE_PASSWORD_SOURCES` constant rather than a local literal copy. New route
+tests pin the corrupt-store preview refusal, stale-revision precedence, the
+sparse-candidate and stray-value refusals, and the projector drift refusals over
+HTTP.
+
+Second, the census row `managed_mcp_credentials:credentials.{NNA_MCP_MANAGED_reference}`
+gained its native surface at `/v1/nnd/configuration/mcp-credentials`: list +
+catalog (read right), save + delete (manage right) over the engine host's
+`config/mcp-credentials.json`. There is no ledger here — builds are IMPLICITLY
+idempotent: save derives the reference from the server id (`NNA_MCP_MANAGED_<stem>_<sha256:12>_TOKEN`)
+and upserts it (same server id, same reference, 256-reference and 1 MiB caps,
+16,384-character tokens), delete is an honest no-op receipt reporting `absent`
+when nothing was stored, and the list carries references plus an `applied`
+presence flag ONLY — token values never project, and the store changes take
+effect at the next MCP server spawn (`application next_server_spawn`). A corrupt
+store fails closed (`mcp_credentials_invalid`, 503); the session lock reports
+`mcp_credentials_busy` (409) and capacity `mcp_credentials_full` (409).
+
+NND consumes in this version: the audit-delta projection code joins the
+compatibility page's honest sentences, and a typed managed-MCP-credentials client
+plus a settings section renders the reference roster (references and an applied
+flag, never values), stages an idempotent save from a server id, stages deletes
+per reference, and treats deleted-or-absent receipts as safe repeats; the census
+row updates its validator, native endpoints, and GUI columns; focused compat
+tests 9/9 over HTTP, mcp lib + page tests 9/9, full UI 239 files (1,836 tests),
+web 132 files (1,447 tests), typecheck clean.
+
 ## NNA 20261006-5 and NND 20261006-5 — workspace trust grants read and granted natively
 
 NNA (`20261006-5`): the three trust rows gained the settings family's first

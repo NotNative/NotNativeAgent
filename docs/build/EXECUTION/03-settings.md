@@ -431,6 +431,32 @@ foreign-version stores fail closed (`nnd_compatibility_source_invalid` on reads;
 saves refuse to normalize a broken store), and the compatibility_service
 lifecycle actions (six operator_action rows) stay for their own slice.
 
+Progress: at NNA `20261006-7` the compatibility family absorbed its independent
+review findings — preview checks the revision before building the merged
+candidate (corrupt or foreign-version stores report
+`nnd_compatibility_source_invalid` on every spoke, and a stale revision wins over
+candidate grammar), candidates must be full document views with no value slot on
+keep/clear, projection drift gets its own server-side code
+`nnd_compatibility_projection_invalid` (500) so version, `updated_at`, and
+receipt `replayed` flags fail closed, and the credential source strings come from
+the domain's `OPENCODE_PASSWORD_SOURCES` constant. New route tests pin the
+refusals over HTTP. The same version gave the census row
+`managed_mcp_credentials:credentials.{NNA_MCP_MANAGED_reference}` its native
+surface at `/v1/nnd/configuration/mcp-credentials` over the engine host's stored
+credential map — list plus catalog (read) and save plus delete (manage), with no
+operations ledger because both builds are implicitly idempotent: save derives the
+reference from the server id and upserts it (256-reference and 1 MiB caps,
+16,384-character tokens), delete is an honest no-op receipt reporting `absent`
+when nothing was stored, and the list carries references and an `applied`
+presence flag only — token values never project, and the store applies at the
+next MCP server spawn. Corrupt stores fail closed (`mcp_credentials_invalid`,
+503); session lock and capacity surface as honest conflicts. NND `20261006-7`
+consumes both: the projection code joins the compatibility page's sentences, and
+a typed managed-MCP-credentials client plus settings section renders the
+reference roster and stages idempotent save/delete actions whose receipts claim
+nothing about replay. The remaining C6 families (compatibility lifecycle actions,
+hooks, secrets metadata, update actions) stay open.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
