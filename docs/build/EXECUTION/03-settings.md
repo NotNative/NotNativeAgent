@@ -540,6 +540,26 @@ the honest absence sentence, per-diagnostic lines, and per-bundle subscription
 rows. Census rows updated in place; the `secret_action`, `update_action`,
 `nnd_package_action`, and served-family action columns stay open.
 
+Progress: the seven `secret_action` rows closed with an NND-only consumption
+slice (NNA runtime unchanged at `20261006-10`): the runtime SecretBroker over
+the integration server (`dispatchSecretBrokerRequest`) already served
+`GET`/`POST /v1/secrets`, `PATCH`/`PUT /v1/secrets/:id[/values|/status]`,
+`DELETE /v1/secrets/:id`, and `GET /v1/secrets/audit`, and the NND operator
+principal already carried `secret.read`/`secret.manage`/`secret.audit` while
+deliberately never carrying `secret.use` — consumption stays with trusted
+local callers, so the console has no value-read client at all (the lib export
+surface pins that absence). The "NNA secret actions" settings section performs
+the seven actions with the broker's redacted receipts: the roster renders only
+labels, kinds, scopes, field names, enablement, and use counts; create and
+rotate send typed field values once (password inputs, cleared after send);
+update renames or re-scopes without values; enable/disable and delete are
+per-row; the audit ledger views the newest events with no values, ever. The
+parser refuses drifted grammars (sorted-unique field names, scope kinds,
+stamps, and audit events' fixed 14 keys). Census rows updated in place with
+`secret` sensitivity, verified GUI paths, and per-row evidence. The
+`update_action` (2 install-action rows) and `nnd_package_action` (3) families
+remain open.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as

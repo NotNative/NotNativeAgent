@@ -416,6 +416,34 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-10 (runtime unchanged) and NND 20261006-11 — the secret_action console
+
+This slice added no native surface: the seven census `secret_action` rows
+(list, create, update, rotate, enable/disable, delete, audit) were already
+served by the runtime SecretBroker over the integration server
+(`dispatchSecretBrokerRequest` — `GET`/`POST /v1/secrets`,
+`PATCH`/`PUT /v1/secrets/:id[/values|/status]`, `DELETE /v1/secrets/:id`,
+`GET /v1/secrets/audit`) and the NND operator principal already carries
+`secret.read`/`secret.manage`/`secret.audit` — deliberately NEVER
+`secret.use`, which stays with trusted local callers. The work was closure on
+the NND side: a typed console client (`packages/ui/src/lib/nnd/
+secret-actions.ts`) that pins the broker's redacted `publicSecret` grammar
+(labels, kinds, scopes, field NAMES sorted, enablement, use counts, stamps —
+never a value) and the values-free audit grammar (14 fixed keys, no value
+field, bounded honest sentences for the broker's own refusal codes), and an
+"NNA secret actions" settings section that performs all seven actions with
+receipts: create (label/kind/fields/scope/metadata, values typed once), update
+(label/scope/metadata without values), rotate (values typed once, inputs
+cleared after send), enable/disable, delete, refresh, and the audit ledger
+view (newest last, outcome + consumer + reason, no values, ever). There is
+deliberately no client for the consumption path
+(`POST /v1/secrets/:id/use`), and the lib's export surface pins that absence
+structurally. Focused NND tests 4/4 (parser grammar + audit drift refusals +
+sentences + the export pin; the console drill drives every verb with methods
+and paths asserted, values never re-rendered). Census rows updated in place
+(7 rows: verified GUI, `secret` sensitivity, per-row evidence); full UI 247
+files (1,855 tests), web 132 files (1,447), typecheck clean.
+
 ## NNA 20261006-10 and NND 20261006-10 — native hooks bundle settings
 
 NNA (`20261006-10`): the nine census `hooks` rows (name, version, and the seven

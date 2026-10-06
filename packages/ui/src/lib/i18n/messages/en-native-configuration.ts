@@ -74,6 +74,7 @@ export const enNativeConfiguration = {
   'settings.secretsMetadata.title': 'NNA secrets metadata',
   'settings.serviceLifecycle.title': 'NNA compatibility service actions',
   'settings.hooksBundles.title': 'NNA hook bundles',
+  'settings.secretActions.title': 'NNA secret actions',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
   'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',

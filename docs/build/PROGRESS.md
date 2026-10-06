@@ -3,6 +3,26 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Secret-action console · NND 20261006-11 (NNA runtime unchanged)
+
+The seven census `secret_action` rows closed with product consumption of the
+runtime SecretBroker: the integration server already served
+`dispatchSecretBrokerRequest` and the NND operator principal already carried
+`secret.read`/`secret.manage`/`secret.audit` (never `secret.use`), so the
+slice is an NND-only console client plus an "NNA secret actions" settings
+section performing the seven actions with the broker's redacted receipts:
+list and audit views render only labels, kinds, scopes, field names, counts,
+and outcomes (values never project — the broker's `publicSecret` grammar is
+pinned exhaustively, with sorted-unique field names), create/rotate send typed
+field values once (inputs cleared after send), update renames or re-scopes
+without values, enable/disable and delete are per-row with honest receipts,
+and the audit view shows the ledger's newest events with no values, ever. The
+lib export surface pins the deliberate absence of any value-read client for
+the consumption path (`POST /v1/secrets/:id/use`). Focused NND tests 4/4;
+census rows updated in place. Remaining C6 families: `update_action` (2 rows
+— install actions), `nnd_package_action` (3 rows), and the served-family
+action columns (gateway/web_fetch/web_search/browser).
+
 ## 2026-10-06 · Native hooks bundle settings · NNA 20261006-10 + NND 20261006-10
 
 The nine census `hooks` rows (name, version, and the seven `subscriptions[*]`

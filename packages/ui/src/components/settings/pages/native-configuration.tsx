@@ -17,6 +17,7 @@ import { CompatibilityServiceSettings } from './compatibility-service.tsx';
 import { ManagedMcpCredentialsSettings } from './managed-mcp-credentials.tsx';
 import { SecretsMetadataSettings } from './secrets-metadata.tsx';
 import { HooksBundleSettings } from './hooks-bundles.tsx';
+import { SecretActionsConsole } from './secret-console.tsx';
 import { ServiceLifecycleControls } from './service-lifecycle.tsx';
 
 function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): string {
@@ -137,5 +138,5 @@ export function NativeConfigurationPage(): ReactNode {
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ServiceLifecycleControls /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><HooksBundleSettings /></>;
+  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ServiceLifecycleControls /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><HooksBundleSettings /><SecretActionsConsole /></>;
 }

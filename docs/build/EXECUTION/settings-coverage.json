@@ -14440,22 +14440,26 @@
       "native_permission": "secret.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.list",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "secret_action:create",
@@ -14482,22 +14486,26 @@
       "native_permission": "secret.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.create",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "secret_action:update",
@@ -14524,22 +14532,26 @@
       "native_permission": "secret.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.update",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "secret_action:rotate",
@@ -14566,22 +14578,26 @@
       "native_permission": "secret.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.rotate",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "secret_action:enable_disable",
@@ -14608,22 +14624,26 @@
       "native_permission": "secret.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.setEnabled",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "secret_action:delete",
@@ -14650,22 +14670,26 @@
       "native_permission": "secret.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.delete",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "secret_action:audit",
@@ -14692,22 +14716,26 @@
       "native_permission": "secret.audit",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/secret-console.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "secret",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "dispatchSecretBrokerRequest"
+          "dispatchSecretBrokerRequest",
+          "SecretBroker.audit",
+          "publicSecret"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
     },
     {
       "id": "legacy_provider_credentials:credentials.NNA_PROVIDER_INITIAL_KEY",
