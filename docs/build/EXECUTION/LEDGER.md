@@ -416,6 +416,51 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-9 and NND 20261006-9 — native compatibility-service lifecycle actions
+
+NNA (`20261006-9`): the six census `compatibility_service_action` rows
+(status/start/stop/enable/disable/run) gained their native surface at
+`/v1/nnd/configuration/compatibility-service/actions`, reusing
+`src/nnd-compatibility-lifecycle-routes.js` reuses `src/opencode/service.js`
+VERBATIM — the opencode-start session lock, the detached managed runtime spawn
+into `nna opencode run`, verified pid records, the Startup-folder `.vbs`, and
+the OpenChamber user-environment wiring stay exactly as the CLI shipped them.
+`status` is a GET read action on
+`nnd.configuration.read` projecting the domain's redacted view: credential
+presence and source only (the value never leaves the store), the runtime
+variant grammar exactly as ProcessIdentity produces it, login wiring, the
+presence-only environment observation, and `stale_binding`. start, stop,
+enable, and disable are POST operator actions on the NEW dedicated right
+`nnd.service.manage`, kept separate from the settings write right because they
+reach outside the configuration file (a verified process kill, a Windows
+Startup script, user-scope environment writes). start reads the persisted
+wiring NOW into a fresh runtime (`start_service`); stop is immediate
+(`stop_service`), refuses an unverified runtime with
+`opencode_identity_unverifiable` so a wrong-process kill can never ride
+identity drift, and is an honest no-op when nothing runs; enable/disable flip
+the persisted flag and install or remove the login script with the same
+rollback (`next_service_start` — the wiring surface applies at the next service
+start, the immediate script install is reported in the receipt). `run` is
+refused honestly (`nnd_service_run_unsupported`): it is the foreground managed
+runtime the detached start and the login script drive, and an HTTP handler
+cannot host a surface that never returns; input-less verbs accept only empty or
+empty-object bodies so stray state can never ride an operator action.
+Projection drift fails closed (`nnd_service_projection_invalid`, 500,
+registered client-side); operational failures are honest 503s (start failure,
+identity unavailability/unverifiability, Startup-folder and environment wiring
+or probe failures).
+
+NND consumes in this version: a typed client mirroring the status observation,
+all seven runtime variants, and the per-verb receipts (start/stop/enable/
+disable run with no inputs at all, so every button posts an empty body), plus
+an "NNA compatibility service actions" settings section — the redacted wire
+panel, honest runtime sentences (verified/unverified/stale variants), login and
+environment lines, per-verb receipts with operation id and application class,
+the run-less wording, and native code sentences (Windows-only wiring, refuses
+to stop an unverifiable runtime, start failure → inspect opencode-console.log).
+Focused NND tests 5/5, full UI 243 files (1,846 tests), web 132 files (1,447
+tests), typecheck clean; census rows updated in place.
+
 ## NNA 20261006-8 and NND 20261006-8 — native secrets metadata read surface
 
 NNA (`20261006-8`): the six census `secrets` rows (label, kind, scope,

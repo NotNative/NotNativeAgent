@@ -481,6 +481,39 @@ redaction-safe roster with the statement that values never render there and
 writes remain broker actions. Census rows updated in place; the `secret_action`
 mutations, compatibility lifecycle actions, and hooks stay open.
 
+Progress: at NNA `20261006-9` the six `compatibility_service_action` rows became
+the product's first operator-action surface at
+`/v1/nnd/configuration/compatibility-service/actions`, reusing
+`src/opencode/service.js` verbatim — the opencode-start session lock, the
+detached managed runtime spawn into `nna opencode run`, verified pid records,
+the Startup-folder `.vbs`, and the OpenChamber user-environment wiring stay
+exactly as the CLI shipped them. `status` (GET, `nnd.configuration.read`)
+projects the redacted wire identity (credential presence and source only —
+never a value), the runtime variant grammar exactly as ProcessIdentity produces
+it, login wiring, the presence-only environment observation, and
+`stale_binding`. start/stop/enable/disable (POST, the NEW terminal right
+`nnd.service.manage`, kept separate from the settings write right because they
+reach outside the configuration file) reuse the domain verbatim: start reads
+the persisted wiring NOW into a fresh detached runtime (`start_service`); stop
+refuses an unverified runtime (`opencode_identity_unverifiable`, 503) so a
+wrong-process kill can never ride identity drift and is an honest no-op when
+nothing runs (`stop_service`); enable/disable install or remove the Startup
+script with the same rollback and flip the persisted flag (`next_service_start`
+— the wiring surface applies at the next service start; the immediate script
+install is reported in the receipt). `run` is refused honestly
+(`nnd_service_run_unsupported`): the foreground managed runtime is driven by the
+detached start and the login script, and an HTTP handler cannot host a surface
+that never returns. Input-less verbs accept only empty or empty-object bodies;
+projection drift fails closed (`nnd_service_projection_invalid`, registered
+client-side); operational failures are honest 503s. NND `20261006-9` consumes a
+typed inputless client (all seven runtime variants, per-verb receipts with
+operation ids and application classes) and an "NNA compatibility service
+actions" settings section rendering the redacted wire panel, honest runtime/
+login/environment sentences, per-verb receipts, run-less wording, and native
+code sentences. Census rows updated in place; the `secret_action` mutations,
+`update_action`, `nnd_package_action`, hooks, and the served-family action
+columns (gateway/web_fetch/web_search/browser) stay open.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as

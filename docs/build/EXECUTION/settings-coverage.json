@@ -13396,8 +13396,8 @@
       "key": "status",
       "source": {
         "product": "NNA",
-        "path": "src/cli-options.js",
-        "validator": "parseCli"
+        "path": "src/opencode/service.js",
+        "validator": "opencodeServiceStatus"
       },
       "store": {
         "owner": "NNA",
@@ -13407,15 +13407,15 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/compatibility-service/actions/status",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/service-lifecycle.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -13424,12 +13424,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "parseCli"
+          "opencodeServiceStatus"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
     },
     {
       "id": "compatibility_service_action:start",
@@ -13438,8 +13438,8 @@
       "key": "start",
       "source": {
         "product": "NNA",
-        "path": "src/cli-options.js",
-        "validator": "parseCli"
+        "path": "src/opencode/service.js",
+        "validator": "startOpencodeService"
       },
       "store": {
         "owner": "NNA",
@@ -13449,15 +13449,15 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "start_service",
+        "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/start",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/service-lifecycle.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -13466,12 +13466,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "parseCli"
+          "startOpencodeService"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
     },
     {
       "id": "compatibility_service_action:stop",
@@ -13480,8 +13480,8 @@
       "key": "stop",
       "source": {
         "product": "NNA",
-        "path": "src/cli-options.js",
-        "validator": "parseCli"
+        "path": "src/opencode/service.js",
+        "validator": "stopOpencodeService"
       },
       "store": {
         "owner": "NNA",
@@ -13491,15 +13491,15 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "stop_service",
+        "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/stop",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/service-lifecycle.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -13508,12 +13508,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "parseCli"
+          "stopOpencodeService"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
     },
     {
       "id": "compatibility_service_action:enable",
@@ -13522,8 +13522,8 @@
       "key": "enable",
       "source": {
         "product": "NNA",
-        "path": "src/cli-options.js",
-        "validator": "parseCli"
+        "path": "src/opencode/service.js",
+        "validator": "enableOpencodeService"
       },
       "store": {
         "owner": "NNA",
@@ -13533,15 +13533,15 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_service_start",
+        "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/enable",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/service-lifecycle.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -13550,12 +13550,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "parseCli"
+          "enableOpencodeService"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
     },
     {
       "id": "compatibility_service_action:disable",
@@ -13564,8 +13564,8 @@
       "key": "disable",
       "source": {
         "product": "NNA",
-        "path": "src/cli-options.js",
-        "validator": "parseCli"
+        "path": "src/opencode/service.js",
+        "validator": "disableOpencodeService"
       },
       "store": {
         "owner": "NNA",
@@ -13575,15 +13575,15 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_service_start",
+        "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/disable",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/service-lifecycle.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -13592,12 +13592,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "parseCli"
+          "disableOpencodeService"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
     },
     {
       "id": "compatibility_service_action:run",
@@ -13606,8 +13606,8 @@
       "key": "run",
       "source": {
         "product": "NNA",
-        "path": "src/cli-options.js",
-        "validator": "parseCli"
+        "path": "src/opencode/cli-operation.js",
+        "validator": "runManagedService"
       },
       "store": {
         "owner": "NNA",
@@ -13617,15 +13617,15 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/run (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/service-lifecycle.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -13634,12 +13634,12 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "parseCli"
+          "runManagedService"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
     },
     {
       "id": "browser_action:status",

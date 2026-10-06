@@ -3,6 +3,34 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Native compatibility-service lifecycle actions · NNA 20261006-9 + NND 20261006-9
+
+The six census `compatibility_service_action` rows (status/start/stop/enable/
+disable/run) became the product's first operator-action surface. NNA
+`20261006-9` serves `/v1/nnd/configuration/compatibility-service/actions`,
+reusing `src/opencode/service.js` verbatim: status (GET, read right) projects
+the redacted wire identity, the runtime variant grammar from ProcessIdentity,
+login wiring, the presence-only OpenChamber environment observation, and
+stale_binding; start/stop/enable/disable (POST, the NEW terminal right
+`nnd.service.manage`) read the persisted wiring now into a fresh detached
+runtime, refuse stopping an unverified runtime, stop or honestly no-op, and
+install/remove the Windows Startup script with the domain's rollback;
+enable/disable carry application `next_service_start` (the wiring surface
+applies at the next service start), start `start_service`, stop
+`stop_service`, status `not_applied`; run is refused honestly
+(`nnd_service_run_unsupported` — the foreground managed runtime is driven by
+the detached start and the login script), input-less verbs accept only empty
+bodies, projection drift fails closed (500-side `nnd_service_projection_invalid`,
+registered client-side), and operational failures are honest 503s. NND
+`20261006-9` consumes a typed inputless client (all seven runtime variants,
+per-verb receipts with operation ids and application classes) and an "NNA
+compatibility service actions" settings section with the redacted wire panel,
+honest runtime/login/environment sentences, per-verb receipts, run-less
+wording, and native code sentences. Focused NND tests 5/5; census rows updated
+in place. Remaining C6 families: `secret_action` mutations, `update_action`,
+`nnd_package_action`, hooks, and the served-family action columns
+(gateway/web_fetch/web_search/browser).
+
 ## 2026-10-06 · Native secrets metadata read surface · NNA 20261006-8 + NND 20261006-8
 
 The six census `secrets` rows (label, kind, scope, `metadata.{name}`,
