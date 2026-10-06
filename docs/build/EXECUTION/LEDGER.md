@@ -416,6 +416,40 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-10 and NND 20261006-10 — native hooks bundle settings
+
+NNA (`20261006-10`): the nine census `hooks` rows (name, version, and the seven
+`subscriptions[*]` fields) gained their native surface at
+`/v1/nnd/configuration/hooks`, reusing `src/hook-manifest.js`
+`discoverHookBundles` VERBATIM — the sorted non-dot readdir, the 32-bundle cap
+with the honest omitted diagnostic, per-bundle realpath containment, bounded
+manifests, and the manifest/subscription validation authority
+(`validateBundle`/`validateSubscription`). The projection carries only what the
+census carries: bundle name, version, directory name, and subscriptions with
+event, phase, command, blocking, priority, timeout_ms, max_concurrent (the
+domain's camel `timeoutMs`/`maxConcurrent` renamed to the census snake pair);
+the absolute directory stays out. Discovery's honesty channel survives the
+trip: a malformed bundle is its own skipped diagnostic (never an empty or
+partial list), the limit diagnostic reports the omitted count, and an absent
+hooks directory reads as an honest `absent` source state with count 0. Field
+grammar mirrors the domain exactly, including its tolerance (an empty version
+string projects as-is, bounded only by the domain's 64-slice) and the runner's
+own command grammar (shell metacharacters and newlines banned, 1..1024).
+Runtime EXECUTION stays with hook-runner; authoring a manifest belongs to the
+hook-store mutation story, so the surface applies or activates nothing
+(application `next_hook_use`) and every catalog field refuses editability with
+`hook_store_mutation_separate`. Projection drift fails closed
+(`nnd_hooks_projection_invalid`, 500, registered client-side).
+
+NND consumes in this version: a typed read client pinning the envelope, every
+live bundle field, the diagnostics shapes (skipped and limit_reached), and the
+grammar refusals, plus an "NNA hook bundles" settings section — the honest
+absence sentence, per-diagnostic lines (cap omitted count, skipped bundles with
+their credited codes), per-bundle subscription rows with the projected values,
+and the no-writes/no-execution statement. Focused NND tests 5/5, full UI 245
+files (1,851 tests), web 132 files (1,447 tests), typecheck clean; census rows
+updated in place.
+
 ## NNA 20261006-9 and NND 20261006-9 — native compatibility-service lifecycle actions
 
 NNA (`20261006-9`): the six census `compatibility_service_action` rows

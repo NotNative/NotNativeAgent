@@ -3,6 +3,30 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Native hooks bundle settings · NNA 20261006-10 + NND 20261006-10
+
+The nine census `hooks` rows (name, version, and the seven `subscriptions[*]`
+fields) became the product's second multi-instance read roster. NNA
+`20261006-10` serves `/v1/nnd/configuration/hooks` by reusing
+`src/hook-manifest.js` `discoverHookBundles` verbatim: the roster preserves
+discovery's own honesty channel — malformed bundles are skipped diagnostics,
+the 32-bundle cap reports the omitted count, and an absent hooks directory is
+an honest `absent` with count 0 — and projects only the census fields (name,
+version with the domain's 64-slice tolerance, directory name, and
+subscriptions with event/phase/command/blocking/priority/timeout_ms/
+max_concurrent, the camel domain pair renamed to the census snake pair). The
+surface applies or activates nothing (application `next_hook_use`): runtime
+execution stays with hook-runner, authoring a manifest belongs to the
+hook-store mutation story, and every catalog field refuses editability
+(`hook_store_mutation_separate`); projection drift fails closed
+(`nnd_hooks_projection_invalid`, 500, registered client-side). NND
+`20261006-10` consumes a typed read client pinning the envelope and grammar
+refusals and an "NNA hook bundles" settings section with the honest absence
+sentence, per-diagnostic lines, and per-bundle subscription rows. Focused NND
+tests 5/5; census rows updated in place. Remaining C6 families:
+`secret_action` (7 rows), `update_action` (2), `nnd_package_action` (3), and
+the served-family action columns (gateway/web_fetch/web_search/browser).
+
 ## 2026-10-06 · Native compatibility-service lifecycle actions · NNA 20261006-9 + NND 20261006-9
 
 The six census `compatibility_service_action` rows (status/start/stop/enable/

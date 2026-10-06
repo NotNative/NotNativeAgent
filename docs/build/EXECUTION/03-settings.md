@@ -514,6 +514,32 @@ code sentences. Census rows updated in place; the `secret_action` mutations,
 `update_action`, `nnd_package_action`, hooks, and the served-family action
 columns (gateway/web_fetch/web_search/browser) stay open.
 
+Progress: at NNA `20261006-10` the nine `hooks` rows (name, version, and the
+seven `subscriptions[*]` fields) became the product's second multi-instance
+read roster at `/v1/nnd/configuration/hooks`, reusing `src/hook-manifest.js`
+`discoverHookBundles` verbatim — the sorted non-dot readdir, the 32-bundle cap
+with the honest omitted diagnostic, per-bundle realpath containment, bounded
+manifests, and the `validateBundle`/`validateSubscription` manifest and
+subscription authority. The projection carries only what the census carries
+(name, version, directory name, subscriptions with event/phase/command/
+blocking/priority/timeout_ms/max_concurrent — the camel domain pair renamed to
+the census snake pair; version keeps the domain tolerance, empty strings
+project bounded by the domain 64-slice) and the absolute directory stays out.
+Discovery's honesty channel survives the trip: a malformed bundle is its own
+skipped diagnostic (never an empty or partial list), the limit diagnostic
+reports the omitted count, and an absent hooks directory reads as an honest
+`absent` source state with count 0. The surface applies or activates nothing
+(application `next_hook_use`): runtime EXECUTION stays with hook-runner,
+authoring a manifest belongs to the hook-store mutation story, and every
+catalog field refuses editability (`hook_store_mutation_separate`). Projection
+drift fails closed (`nnd_hooks_projection_invalid`, registered client-side).
+NND `20261006-10` consumes a typed read client (envelope pin, seven-variant
+runtime grammar excluded — this family has none, every live bundle field, and
+the diagnostics shapes) and an "NNA hook bundles" settings section rendering
+the honest absence sentence, per-diagnostic lines, and per-bundle subscription
+rows. Census rows updated in place; the `secret_action`, `update_action`,
+`nnd_package_action`, and served-family action columns stay open.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as

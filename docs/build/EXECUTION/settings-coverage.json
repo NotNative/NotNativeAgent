@@ -11058,12 +11058,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11072,12 +11072,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:version",
@@ -11100,12 +11102,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11114,12 +11116,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Hook bundle author-supplied version identity; not a generated runtime timestamp."
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].event",
@@ -11142,12 +11146,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11156,12 +11160,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].phase",
@@ -11184,12 +11190,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11198,12 +11204,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].command",
@@ -11226,12 +11234,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11240,12 +11248,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].blocking",
@@ -11268,12 +11278,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11282,12 +11292,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].priority",
@@ -11310,12 +11322,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11324,12 +11336,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].timeout_ms",
@@ -11352,12 +11366,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11366,12 +11380,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "hooks:subscriptions[*].max_concurrent",
@@ -11394,12 +11410,12 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/hooks; GET /v1/nnd/configuration/hooks/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
+        "status": "verified"
       },
       "sensitivity": "unverified",
       "work_package": "C1",
@@ -11408,12 +11424,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateBundle / validateSubscription"
+          "discoverHookBundles",
+          "validateBundle",
+          "validateSubscription"
         ],
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native read-only roster at /v1/nnd/configuration/hooks reusing src/hook-manifest.js discoverHookBundles verbatim: sorted non-dot bundle directories, the 32-bundle cap with the honest omitted diagnostic, per-bundle realpath containment (invalid_hook_bundle_path), bounded manifests (hook_manifest_too_large), and validateBundle/validateSubscription authority; projects bundle name, version, directory name, and subscriptions with event/phase/command/blocking/priority/timeout_ms/max_concurrent (the domain camel names renamed to the census snake pair - version keeps the domain tolerance, empty strings project bounded by the domain 64-slice); absent hooks directory reads as an honest absent source state with count 0; a malformed bundle is its own skipped diagnostic, never an empty or partial list; runtime EXECUTION stays with hook-runner and authoring a manifest belongs to the hook-store mutation story, so the surface applies or activates nothing (application next_hook_use) and every catalog field refuses editability (hook_store_mutation_separate); projection drift fails closed (nnd_hooks_projection_invalid, 500, registered client-side)"
     },
     {
       "id": "update_state:format",
