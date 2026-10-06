@@ -416,6 +416,17 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-10 (runtime unchanged) and NND 20261006-14 — generated-state meta rows pinned
+
+The four remaining un-GUI'd rows of the three served settings families
+(`web_search:version`, `web_fetch:version`, `web_fetch:updated_at`,
+`gateway:version`) are generated state delivered inside the read views those
+family pages already consume (produced by the native transactions on every
+save, `editability` unavailable, `application: not_applied`): they now carry
+the read endpoint, read permission, verified family-page GUI,
+`generated_state` sensitivity, and per-row evidence as in-place census pins.
+No native change and no product change.
+
 ## NNA 20261006-10 (runtime unchanged) and NND 20261006-13 — trust and web-fetch action rows pinned
 
 The `trust_action` (trust/revoke) and `web_fetch_action` (status/trust/revoke)

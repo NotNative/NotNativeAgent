@@ -9837,17 +9837,17 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "generated state rides the read view (application not_applied)"
       },
       "native_endpoint": "GET /v1/nnd/configuration/web-search",
       "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
@@ -9856,10 +9856,12 @@
         "source_symbols": [
           "normalizeWebSearchConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (the family page drills assert the read view)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
     },
     {
       "id": "web_search:enabled",
@@ -10173,17 +10175,17 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "generated state rides the read view (application not_applied)"
       },
       "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
       "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
@@ -10192,10 +10194,12 @@
         "source_symbols": [
           "normalizeWebFetchConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (the family page drills assert the read view)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
     },
     {
       "id": "web_fetch:trusted_origins",
@@ -10257,17 +10261,17 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "generated state rides the read view (application not_applied)"
       },
       "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
       "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
@@ -10276,10 +10280,12 @@
         "source_symbols": [
           "normalizeWebFetchConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (the family page drills assert the read view)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
     },
     {
       "id": "gateway:version",
@@ -10299,17 +10305,17 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "generated state rides the read view (application not_applied)"
       },
       "native_endpoint": "GET /v1/nnd/configuration/gateway",
       "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
@@ -10318,10 +10324,12 @@
         "source_symbols": [
           "normalizeGatewayConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (the family page drills assert the read view)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
     },
     {
       "id": "gateway:enabled",

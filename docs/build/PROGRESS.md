@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Generated-state meta rows pinned · NND 20261006-14 (NNA unchanged)
+
+The four remaining un-GUI'd rows of the served families (each family's
+`version`, plus the web-fetch `updated_at` stamp) closed as census pins of
+generated state that rides the read views the family pages already consume —
+produced by the native transactions on every save, no operator control, read
+right only. Census-only slice: no native change, no product change. The
+remaining no-GUI census work is unchanged in shape and inventory: the
+`web_search_action` and `gateway_action` operator families (13 rows each,
+token/authorize/deploy lines needing per-verb inspection), the
+`browser_action` pair over `playwrightStatus`, the `invocation` flag family
+(25), `skills_action`, `legacy_provider_credentials`, `session_review`, and
+the large `manifest_*` projection families whose closure shape is the
+read-projection pattern.
+
 ## 2026-10-06 · Trust and web-fetch action rows pinned · NND 20261006-13 (NNA unchanged)
 
 The `trust_action` and `web_fetch_action` operator rows closed as census pins
