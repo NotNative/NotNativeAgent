@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Trust and web-fetch action rows pinned · NND 20261006-13 (NNA unchanged)
+
+The `trust_action` and `web_fetch_action` operator rows closed as census pins
+of surfaces that have been served and verified since `-5` and `-1`: grant and
+revoke ride the shipped trust functions on
+`/v1/nnd/configuration/trust[grant|revoke]` (`nnd.workspace.manage`) with the
+redacted receipts, and WebFetch origins change through the settings
+transaction's trust/revoke operations on
+`/v1/nnd/configuration/web-fetch[/save]` (`nnd.configuration.manage`) — the
+desktop consoles for both families and their page/lib drills were verified
+when those surfaces shipped. No native change; the five rows carry verified
+GUI paths and per-row source symbols. Remaining families without consumption:
+`web_search_action` (13) and `gateway_action` (13) — token/authorize/deploy
+lines that need per-verb inspection for CLI-authority refusals — the
+`browser_action` pair (needs a verify action or honest refusal), the
+`invocation` flag family (25 rows), and the large `manifest_*` projection
+families whose closure shape is the read-projection pattern.
+
 ## 2026-10-06 · Update and package operator actions · NNA 20261006-12 + NND 20261006-12
 
 The last two C1 families closed: the NNA native surfaces reuse the shipped

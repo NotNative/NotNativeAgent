@@ -573,7 +573,14 @@ compatibility lifecycle, MCP-credential, secrets, and hooks services since
 the option set now spreads the whole classified service list and the
 factory's exported key set is locked by test. Remaining families belong to C4
 (provider advanced fields), C5 (MCP mutation), C7 (installed gates), and the
-F/L lanes.
+F/L lanes. The `trust_action` and `web_fetch_action` pairs then closed as
+census pins of already-verified surfaces (the `-5` grant/revoke surface and
+the `-1` WebFetch settings transaction carry both action families, with their
+desktop consoles and drills verified at ship time), leaving
+`web_search_action`, `gateway_action`, `browser_action`, the `invocation`
+flags, the three served-family read columns (`web_search`, `web_fetch`,
+`gateway`), `skills_action`, `legacy_provider_credentials`, `session_review`,
+and the wide `manifest_*` projection families open.
 
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read

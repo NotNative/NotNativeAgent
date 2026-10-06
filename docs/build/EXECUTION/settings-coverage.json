@@ -12742,8 +12742,8 @@
       "key": "status",
       "source": {
         "product": "NNA",
-        "path": "src/web-fetch-cli.js",
-        "validator": "runWebFetchCommand"
+        "path": "src/web-fetch-config.js",
+        "validator": "loadWebFetchConfig"
       },
       "store": {
         "owner": "NNA",
@@ -12753,29 +12753,31 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (mirrors the native surface the row pins)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runWebFetchCommand"
+          "loadWebFetchConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
     },
     {
       "id": "web_fetch_action:trust",
@@ -12784,8 +12786,8 @@
       "key": "trust",
       "source": {
         "product": "NNA",
-        "path": "src/web-fetch-cli.js",
-        "validator": "runWebFetchCommand"
+        "path": "src/web-fetch-config.js",
+        "validator": "normalizeTrustedOrigin / saveWebFetchConfig"
       },
       "store": {
         "owner": "NNA",
@@ -12795,29 +12797,31 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_fetch",
+        "evidence": "route receipt application (mirrors the native surface the row pins)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-fetch/save (operations [{op:\"trust\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runWebFetchCommand"
+          "normalizeTrustedOrigin"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
     },
     {
       "id": "web_fetch_action:revoke",
@@ -12826,8 +12830,8 @@
       "key": "revoke",
       "source": {
         "product": "NNA",
-        "path": "src/web-fetch-cli.js",
-        "validator": "runWebFetchCommand"
+        "path": "src/web-fetch-config.js",
+        "validator": "saveWebFetchConfig"
       },
       "store": {
         "owner": "NNA",
@@ -12837,29 +12841,31 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_fetch",
+        "evidence": "route receipt application (mirrors the native surface the row pins)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-fetch/save (operations [{op:\"revoke\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runWebFetchCommand"
+          "saveWebFetchConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
     },
     {
       "id": "gateway_action:status",
@@ -13879,7 +13885,7 @@
       "source": {
         "product": "NNA",
         "path": "src/experience/trust.js",
-        "validator": "trustWorkspace / untrustWorkspace"
+        "validator": "trustWorkspace"
       },
       "store": {
         "owner": "NNA",
@@ -13889,29 +13895,31 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "project_configuration",
+        "evidence": "route receipt application (mirrors the native surface the row pins)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/trust/grant",
+      "native_permission": "nnd.workspace.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "trustWorkspace / untrustWorkspace"
+          "trustWorkspace"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
     },
     {
       "id": "trust_action:revoke",
@@ -13921,7 +13929,7 @@
       "source": {
         "product": "NNA",
         "path": "src/experience/trust.js",
-        "validator": "trustWorkspace / untrustWorkspace"
+        "validator": "untrustWorkspace"
       },
       "store": {
         "owner": "NNA",
@@ -13931,29 +13939,31 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "project_configuration",
+        "evidence": "route receipt application (mirrors the native surface the row pins)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/trust/revoke",
+      "native_permission": "nnd.workspace.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "trustWorkspace / untrustWorkspace"
+          "untrustWorkspace"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
     },
     {
       "id": "nnd_package_action:activate",

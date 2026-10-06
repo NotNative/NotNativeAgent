@@ -416,6 +416,22 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-10 (runtime unchanged) and NND 20261006-13 — trust and web-fetch action rows pinned
+
+The `trust_action` (trust/revoke) and `web_fetch_action` (status/trust/revoke)
+operator rows needed no new surface and no product change: the `-5`
+trusted-workspaces surface already performs grant/revoke through the shipped
+trust functions verbatim (`POST /v1/nnd/configuration/trust/grant` and
+`/revoke` under `nnd.workspace.manage`, receipts the redacted
+`{operation, root, trusted}` records, corrupt store fail-closed at 503), and
+the `-1` WebFetch settings transaction already performs origin trust/revoke as
+operations over the shipped web-fetch-config authority (`GET` status +
+`POST .../save` with `{op:"trust"|"revoke"}` under
+`nnd.configuration.manage`), with both desktop consoles and their page/lib
+drills verified in their own slices. The five rows now carry the endpoint,
+permission, verified GUI path, `security` sensitivity, and per-row source
+symbols as an in-place census pin.
+
 ## NNA 20261006-12 and NND 20261006-12 — update and package operator actions
 
 The five remaining C1 operator rows (`update_action:check`,
