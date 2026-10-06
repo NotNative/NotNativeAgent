@@ -385,6 +385,28 @@ served. The rows' application class stays unverified until an installed
 service is observed recording a real check; the remaining C6 external-store
 families stay open.
 
+Progress: at NNA `20261006-5` the three trust rows became the settings family's
+first authority-grant surface at `/v1/nnd/configuration/trust`: the granted
+workspace roots listed exactly as stored with their trust times, a catalog
+carrying the census authority-grant statement, and grant/revoke operations that
+run through the native trust functions so canonicalization via realpath, admission
+semantics, path locking, and atomic writes stay native. A grant requires an
+existing root (a missing target is refused with `workspace_trust_target_missing`);
+revoking a removed root is an honest no-op receipt; receipts record the CANONICAL
+root the grant recorded; lock contention maps to `workspace_trust_busy` (409); an
+unreadable store maps to `workspace_trust_invalid` (503), and the list never
+degrades to an empty list because "nothing trusted" would admit unsafe flows.
+Mutations need the workspace authority right; reads need the settings read
+right. NND
+`20261006-5` consumes it with a typed client (exactly the three census paths in
+the served order, receipts pinned to the requested operation, the catalog's
+authority statement) and a trusted-workspaces section on the native configuration
+page: listed roots with trust times, a staged grant with the canonical-root
+receipt shown, per-row revoke, and honest refusals in sentences; the section's
+installed journey stays unverified until an installed NNA process is observed
+admitting a real granted workspace; the remaining C6 external-store families
+stay open.
+
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as

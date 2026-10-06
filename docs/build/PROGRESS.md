@@ -3,6 +3,27 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Workspace trust granted natively with canonical receipts · NNA 20261006-5 + NND 20261006-5
+
+The trusted-workspaces rows became the settings family's first authority-grant
+surface. NNA `20261006-5` serves `/v1/nnd/configuration/trust`: the granted roots
+listed exactly as stored with their trust times, a catalog carrying the census
+authority-grant statement, and grant/revoke operations that run through the native
+trust functions so canonicalization, admission semantics, locking, and atomic
+writes stay native. A grant requires an existing root; revoking a removed root is
+an honest no-op receipt; receipts record the CANONICAL root the grant recorded;
+lock contention maps to `workspace_trust_busy` (409); and an unreadable store maps
+to `workspace_trust_invalid` (503) — the list never degrades to an empty list,
+because "nothing trusted" would admit unsafe flows. Mutations need the workspace
+authority right; reads need the settings read right. NND `20261006-5` consumes it
+with a typed client (exactly the three census paths, receipts pinned to the
+requested operation) and a trusted-workspaces section: listed roots with trust
+times, a staged grant with the canonical-root receipt, per-row revoke, and honest
+refusals in sentences. Focused suites: native 12/12 (4 trust-route tests, the
+principal-promotion stub test, and the 7 failure-envelope tests that now carry
+`nnd_trust_request_invalid`), client 4/4; the installed journey stays unverified
+until an installed NNA process is observed admitting a real granted workspace.
+
 ## 2026-10-06 · Update state reads natively; web-search aliases reconcile · NNA 20261006-4 + NND 20261006-4
 
 The release-channel check state became an honest read-only native surface.

@@ -68,6 +68,7 @@ export const enNativeConfiguration = {
   'settings.nativeWebSearch.title': 'NNA web search settings',
   'settings.nativeEnvironment.title': 'NNA environment observations',
   'settings.nativeUpdateState.title': 'NNA update state',
+  'settings.trustWorkspaces.title': 'NNA trusted workspaces',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
   'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',

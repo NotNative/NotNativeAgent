@@ -10932,11 +10932,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10974,11 +10974,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
+      "native_permission": "nnd.configuration.read + nnd.workspace.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -10993,7 +10993,7 @@
         "tests_run": [],
         "installed_journey": null
       },
-      "notes": "Canonical workspace trust grant recorded by trustWorkspace/untrustWorkspace; governs admission of project configuration and skills. Preserve native trust/revoke semantics."
+      "notes": "Canonical workspace trust grant recorded by trustWorkspace/untrustWorkspace; governs admission of project configuration and skills. Preserve native trust/revoke semantics. The grant/revoke operations run through the native trust functions (canonical root, admission), so the surface records the canonical root in its receipts; the settings right alone is not enough — the workspace authority right is required too."
     },
     {
       "id": "trust:workspaces[*].trustedAt",
@@ -11016,11 +11016,11 @@
         "class": "unverified",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
