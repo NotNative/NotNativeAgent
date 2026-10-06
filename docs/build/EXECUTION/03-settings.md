@@ -164,6 +164,18 @@ fail coverage until classified. Preserve aliases/migration keys explicitly.
 Exit: no unclassified current setting; all omitted controls are open work or
 justified noneditable invariants. Family counts alone cannot close C1.
 
+Progress: the census lives in this directory, and the C1 gate
+(`scripts/settings-coverage-gate.mjs`) now enforces the manifest census rows
+against the NNA classified configuration catalog and the two option modules'
+dashed CLI option literals in both directions. Release gates run it when
+`NNA_SOURCE_ROOT` names the paired NNA checkout; without it the seal reports
+the coverage check as skipped, which is an unverified gate. Census
+classifications were regenerated at NNA `20261005-13`; hermetic failure-path
+tests live in `scripts/settings-coverage-gate.test.mjs`. Enforcement scope is
+still narrower than the exit: positional subcommands, environment reads, and
+non-manifest stores stay in the census's remaining list until the gate
+reaches them.
+
 ### C2 — Native resolution and concurrency foundation
 
 Dependency: C1 and L2 persistent runtime baseline. In NNA, reconcile

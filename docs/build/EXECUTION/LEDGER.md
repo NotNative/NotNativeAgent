@@ -42,7 +42,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; incarnation-recheck journey re-certification green on the build console (2026-10-05, `20261005-7` → `20261005-8` → `20261005-7`), re-exercised through the fresh, upgrade, rollback, and reinstall attach legs; the earlier `stdin is not a tty` wall was environmental to the prior console session and did not reproduce |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
-| C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
+| C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | manifest census rows and dashed CLI option literals enforced by `scripts/settings-coverage-gate.mjs` in release gates (needs `NNA_SOURCE_ROOT`; skip is a reported unverified gate, not a pass); census regenerated at NNA `20261005-13` (371 rows) with synced classifications, sensitivity, four route containers and ten option rows; positional subcommands, environment reads and non-manifest stores remain open census |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
 | C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; installed mutation acceptance and other settings families open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
@@ -270,6 +270,39 @@ exercised (so the rows do not understate completion) and what remains.
   churn. Remaining: the full
   L4 acceptance matrix — governed turn surviving every client exit and
   PTY/scheduled-work survival — runs with F's turn journeys and V2.
+
+## NND 20261005-9 — C1 settings-coverage gate enforces the classified census
+
+C1 coverage is now enforced, not only censused.
+`scripts/settings-coverage-gate.mjs` loads the NNA classified configuration
+catalog from the paired source checkout (`NNA_SOURCE_ROOT`) and checks
+`docs/build/EXECUTION/settings-coverage.json` in both directions. Every
+catalog field needs a manifest census row; every manifest row needs a live
+catalog field; row kinds must equal catalog classifications; an alias row
+survives only a catalog-declared logical link with a matching kind; and dashed
+CLI option literals in `src/cli.js` plus `src/cli-options.js` must match
+invocation rows. Eight hermetic `node:test` cases cover the pass and every
+rejection path. `scripts/release-gates.js` runs the gate when `NNA_SOURCE_ROOT`
+names the paired checkout; without it the seal reports the skipped coverage
+check as an unverified gate instead of passing it.
+
+The census regenerated against NNA `20261005-13`: 223 catalog fields all
+classified, 34 census kinds synced, 39 sensitivity values promoted only from
+unverified, four new `routes.<role>` container rows, and ten new invocation
+option rows (371 rows total). A mechanical head-versus-work comparison
+confirmed no non-manifest family row changed and none was removed. The real
+gate rejects a drifted, stale, or unclassified census copy live (exit 1 with
+named violations) and fails closed on an unreadable census.
+
+Two independent non-author adversarial reviews audited the slice; the
+interrupted first review still delivered its findings and verdict before its
+stop. Findings fixed and re-verified: await subprocess `close` before parsing
+the catalog dump, bind the alias escape to declared logical links only, widen
+the literal scan to template literals and the full dashed token class, drop a
+dead duplicate guard, surface the gate's stdout on failure, resolve a relative
+`NNA_SOURCE_ROOT` against the repository root, and bound the catalog dump with
+a 60 second timeout. Focused and full release gates passed sealed and plain
+with the coverage gate green at 223 of 223 rows and zero violations.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 

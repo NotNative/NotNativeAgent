@@ -3,6 +3,31 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-05 · C1 settings-coverage gate enforced · NND 20261005-9
+
+C1 now enforces the settings census instead of only recording it. The new
+`scripts/settings-coverage-gate.mjs` loads the NNA classified configuration
+catalog from the paired source checkout and checks
+`docs/build/EXECUTION/settings-coverage.json` in both directions: catalog
+fields need manifest rows, manifest rows need live catalog fields with equal
+kinds, alias rows only survive a catalog-declared logical link, and dashed CLI
+option literals in the two NNA option modules need invocation rows. Eight
+hermetic `node:test` cases cover the pass and every rejection path.
+`scripts/release-gates.js` runs the gate when `NNA_SOURCE_ROOT` names the
+paired checkout; without it the seal reports the skipped coverage check as an
+unverified gate instead of passing it.
+
+The census regenerated against NNA `20261005-13`: 223 catalog fields all
+classified, 34 census kinds synced, 39 sensitivity values promoted only from
+unverified, four new `routes.<role>` container rows, ten new invocation option
+rows, and zero non-manifest rows touched (371 rows total). The real gate
+rejects a drifted or unclassified census copy live and fails closed on an
+unreadable one. Two independent non-author reviews audited the slice; their
+findings (subprocess `close` await, alias-escape binding, literal-scan width,
+failure stdout, root-relative `NNA_SOURCE_ROOT`, bounded dump timeout) are
+fixed and re-verified. Focused and full gates passed sealed and plain with the
+coverage gate green at 223 of 223 rows.
+
 ## 2026-10-05 · L5 journey recertification green; ledger reconciliation · NND 20261005-8 / NNA 20261005-13
 
 The owed L5 journey recertification of the NNA installation-incarnation recheck

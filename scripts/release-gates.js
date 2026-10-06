@@ -23,6 +23,7 @@ async function main() {
   await coherentPackage(version);
   spawnGate('scripts/quality-gates.js', 'quality gates');
   spawnGate('scripts/smoke-test.js', 'smoke test');
+  settingsCoverageGate();
   buildGate();
   const writeRequested = process.argv.includes('--write-hashes');
   if (errors.length === 0 && version) await sealVersionLedger(version, writeRequested);
@@ -81,6 +82,26 @@ function spawnGate(script, label) {
   const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (result.status !== 0) errors.push(`${label} failed: ${failureText(result)}`);
   else if (result.stdout) process.stdout.write(result.stdout);
+}
+
+// C1's census gate is a paired-repository check: it pins the settings census to
+// the classified NNA catalog and rejects unclassified native keys and CLI
+// options. It runs when the sealing environment names the paired NNA checkout
+// through NNA_SOURCE_ROOT; a missing checkout is a loudly reported skip, never
+// a silent pass (guide 05 records the skip as an unverified gate).
+function settingsCoverageGate() {
+  const nnaSource = process.env.NNA_SOURCE_ROOT;
+  if (!nnaSource) {
+    process.stdout.write('settings-coverage gate skipped: NNA_SOURCE_ROOT is not set; this seal leaves settings coverage unverified\n');
+    return;
+  }
+  const result = spawnSync(process.execPath,
+    [join(root, 'scripts', 'settings-coverage-gate.mjs'), resolve(root, nnaSource)],
+    { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  // Always surface the gate's stdout: its JSON report is the actionable
+  // evidence when the gate fails, and failureText alone would lose it.
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.status !== 0) errors.push(`settings coverage gate failed: ${failureText(result)}`);
 }
 
 // The release gates must compile what ships. The 20260921-2 seal rotted here:
