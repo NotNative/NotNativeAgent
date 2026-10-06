@@ -42,12 +42,12 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
 | L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; incarnation-recheck journey re-certification green on the build console (2026-10-05, `20261005-7` → `20261005-8` → `20261005-7`), re-exercised through the fresh, upgrade, rollback, and reinstall attach legs; the earlier `stdin is not a tty` wall was environmental to the prior console session and did not reproduce |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
-| C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | manifest census rows and dashed CLI option literals enforced by `scripts/settings-coverage-gate.mjs` in release gates (needs `NNA_SOURCE_ROOT`; skip is a reported unverified gate, not a pass); census regenerated at NNA `20261005-13` (371 rows) with synced classifications, sensitivity, four route containers and ten option rows; positional subcommands, environment reads and non-manifest stores remain open census |
-| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; gateway settings family one-CAS read/preview/save/receipt at NNA `20261005-14` with adversarial re-audit; WebFetch trust family at NNA `20261005-15` audited PASS; WebSearch settings family at NNA `20261005-16` audited PASS; remaining settings families open |
-| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; typed gateway settings family client with operation grammar and settings-page controls (`native-gateway.ts`, `native-gateway-timeout.tsx`) at `20261005-10`; typed WebFetch trust client and page (`web-fetch.ts`, `web-fetch-trust.tsx`) at `20261006-1`; typed WebSearch settings client and page (`web-search.ts`, `web-search-settings.tsx`) at `20261006-2`; installed mutation acceptance and other settings families open |
+| C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | manifest census rows and dashed CLI option literals enforced by `scripts/settings-coverage-gate.mjs` in release gates (needs `NNA_SOURCE_ROOT`; skip is a reported unverified gate, not a pass); census regenerated at NNA `20261005-13` (371 rows) with synced classifications, sensitivity, four route containers and ten option rows; positional subcommands, environment value provenance (reads are served since `20261006-3`) and non-manifest stores remain open census |
+| C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; gateway settings family one-CAS read/preview/save/receipt at NNA `20261005-14` with adversarial re-audit; WebFetch trust family at NNA `20261005-15` audited PASS; WebSearch settings family at NNA `20261005-16` audited PASS; read-only environment observations at NNA `20261006-3`; remaining settings families open |
+| C3 | NND settings transport/presentation | C2 | in-progress | NND `harness\nna.ts`, `ui\lib\nnd\client.ts`, settings `window.tsx`, `search.ts`, settings pages | finite native user-manifest preview/save and explicit repair UI; typed gateway settings family client with operation grammar and settings-page controls (`native-gateway.ts`, `native-gateway-timeout.tsx`) at `20261005-10`; typed WebFetch trust client and page (`web-fetch.ts`, `web-fetch-trust.tsx`) at `20261006-1`; typed WebSearch settings client and page (`web-search.ts`, `web-search-settings.tsx`) at `20261006-2`; typed environment observation client and read-only section (`environment.ts`, `native-environment.tsx`) at `20261006-3`; installed mutation acceptance and other settings families open |
 | C4 | Providers/routes/engine controls | C3 | open | NND `pages\providers.tsx` etc. | — |
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
-| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; gateway settings family GUI operations shipped at `20261005-10` behind native `20261005-14`; WebFetch trust page shipped at `20261006-1` behind native `20261005-15`; WebSearch settings page shipped at `20261006-2` behind native `20261005-16`; installed journeys (application classes) and other external stores (browser, compatibility, environment, hooks, trust, updates) remain open |
+| C6 | Non-manifest + TUI preferences page | C3, L | in-progress | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below; gateway settings family GUI operations shipped at `20261005-10` behind native `20261005-14`; WebFetch trust page shipped at `20261006-1` behind native `20261005-15`; WebSearch settings page shipped at `20261006-2` behind native `20261005-16`; read-only environment observations section shipped at `20261006-3` behind native `20261006-3`; installed journeys (application classes) and other external stores (compatibility, environment mutation paths, hooks, trust workspaces, updates) remain open |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | open | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | — |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
@@ -386,6 +386,47 @@ tests 14/14, full UI 227/227 files (1,789 tests) and web 132/132 files
 (1,447 tests), typecheck clean. The trust rows' installed journey
 (application class) stays unverified until a real grant is exercised on an
 installed instance; the remaining C6 external-store families stay open.
+
+## NNA 20261006-3 and NND 20261006-3 — environment observations read natively
+
+NNA (`20261006-3`): the environment rows — seven census-named entries from
+the service process, two of them credentials — gain an honest read-only
+native surface at `/v1/nnd/configuration/environment` (read plus catalog
+with the read permission only). The observation projects exactly what the
+served process resolves: public entries carry their value (including legal
+empty values; oversize values are refused, never truncated), credential
+entries project presence without a value, and the digest covers public
+values plus credential presence only — hashing credential values would hand
+readers an offline guess-verification oracle. Values carry source labels by
+design: the scope is the service process, and the catalog reports every
+field read-only (`reason: process_environment`) because environment changes
+happen in the Windows shell and reach the service at its restart. Unknown
+service fields are dropped, not rejected; a drifted projection fails
+closed. The editability reason matches the census verdict. The first audit
+round on this slice rejected its claims — the auditor probed the response
+bound with five maximum-size legal values and found a legal-state refusal,
+plus permission-check ordering that let a lesser token probe service
+availability, a digest frozen at construction, and on the client a broken
+typecheck, a parser that accepted an absent credential row carrying a
+leaked value, and catalog template drift. Every finding was fixed (bound
+rederived at 524,288 from the sixfold worst-case escaping of five 16,384
+byte values with the proof in the code comment; permission first on both
+actions; per-read digest with name-qualified sentinels so an absent entry
+never collides with a legal value; the oversize code maps to an honest 413;
+client parser refuses any absent-with-value row and any credential row
+carrying a value and rebuilds the catalog strictly), and a bounded
+re-audit then verified all ten findings closed with live probes
+(legal maximum state reads 200; absent and sentinel-value digests differ;
+oversize refuses 413; client typecheck exit 0).
+
+NND consumes in this version: the typed client mirrors the projection
+(whitelist of the seven names, credential redaction, empty-value and absent
+row honesty) and the read-only default settings section renders the
+determinations the service actually sees, with the shell/restart explanation
+and a refresh; the census environment rows (7) carry the native read
+endpoints, the paired read permission, and the section component path. The
+rows' installed journey (application class) stays unverified until an
+installed service is observed through its restart.
 
 ## NNA 20261005-16 and NND 20261006-2 — WebSearch settings family goes native-first
 

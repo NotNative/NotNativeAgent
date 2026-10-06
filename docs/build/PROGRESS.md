@@ -3,6 +3,35 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Environment rows read natively, redacted · NNA 20261006-3 + NND 20261006-3
+
+The environment rows became an honest read-only native surface. NNA
+`20261006-3` serves `/v1/nnd/configuration/environment`: the seven
+census-named process-environment entries projected exactly as the served
+process resolves them — public entries with their values (oversize values
+are refused, not truncated), credential entries present without a value,
+empty values legal and rendered, unknown service fields dropped, drifted
+projections refused, and a digest that covers public values plus credential
+presence only so the read surface can never be turned into an offline
+guess-verification oracle. The catalog marks every field read-only with the
+census verdict's reason `process_environment`; the honest way to change a
+determination is the Windows shell plus a service restart. The first
+adversarial audit round rejected the slice — a legal five-value
+maximum-size read could never succeed under the initial bound, permission
+ordering leaked availability probes, the digest went stale at construction,
+and the client typecheck was red with a parser gap that accepted a
+credential value on an absent row — and every finding was fixed, then
+verified closed by a bounded re-audit with live probes (a legal
+maximum-state read returns 200 inside the rederived 524,288 bound, oversize
+refuses with the honest 413, the client typecheck is green, absent and
+sentinel-value digests differ). NND `20261006-3`
+consumes it with a typed client and a read-only settings section
+(determinations the service actually sees, shell-and-restart explanation,
+credential redaction, refresh), and the census environment rows carry the
+native read endpoints, the paired read permission, and the section path.
+Focused suites 5/5 native and 5/5 client; the rows' installed journey stays
+unverified until an installed service is observed through its restart.
+
 ## 2026-10-06 · WebSearch settings family native-first with a typed client and page · NNA 20261005-16 + NND 20261006-2
 
 The WebSearch settings family became native-first. NNA `20261005-16` serves

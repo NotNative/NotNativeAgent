@@ -360,6 +360,25 @@ non-author audits returned PASS with no defects. The family rows'
 application class stays unverified until an installed journey exercises a
 real search; the remaining C6 external-store families stay open.
 
+Progress: at NNA `20261006-3` the environment rows became a read-only native
+surface at `/v1/nnd/configuration/environment` (read plus catalog, read
+permission only). The seven census-named entries are projected exactly as
+the served process resolves them: public entries carry their value
+(including legal empty values; oversize values are refused, never
+truncated), credential entries project presence without a value, and the
+observation digest covers public values plus credential presence only, so
+the surface never becomes an offline guess-verification oracle for
+credentials. The catalog reports every field read-only with the census
+verdict's reason `process_environment`; a live determination can only be
+changed in the Windows shell and reaches the service at its restart. Unknown
+service fields are dropped, and a drifted projection fails closed. NND
+consumes the surface with a typed client and a read-only default settings
+section that renders the observation, the shell-and-restart explanation, and
+a refresh; the census environment rows carry the native read endpoints, the
+paired read permission, and the section component path. The rows'
+application class stays unverified until an installed service is observed
+through its restart; the remaining C6 external-store families stay open.
+
 ### C7 — Coverage and installed acceptance gate
 
 Dependency: C4–C6. Run the key-to-control-to-native-effect coverage report

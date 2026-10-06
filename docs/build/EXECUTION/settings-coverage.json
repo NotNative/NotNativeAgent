@@ -14796,11 +14796,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -14838,11 +14838,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -14880,11 +14880,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -14922,11 +14922,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -14964,11 +14964,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "unverified",
@@ -15006,11 +15006,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "secret",
@@ -15048,11 +15048,11 @@
         "class": "external_source_change",
         "evidence": null
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
+        "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
         "status": "unverified"
       },
       "sensitivity": "secret",
