@@ -11,6 +11,7 @@ import { createNndConfigurationService } from './nnd-configuration-service.js';
 import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-transaction.js';
 import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transaction.js';
 import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
+import { createNndCompatibilitySettingsTransaction } from './nnd-compatibility-transaction.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -51,6 +52,8 @@ function createNativeNndSettingsServices(paths, identity, environment) {
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndWebSearchSettingsService: createNndWebSearchSettingsTransaction({ path: paths.webSearchConfig,
       installationId: identity.installation_id, dataId: identity.data_id }),
+    nndCompatibilitySettingsService: createNndCompatibilitySettingsTransaction({ path: paths.opencodeConfig,
+      installationId: identity.installation_id, dataId: identity.data_id, environment }),
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndEnvironmentSnapshotService: createNndEnvironmentSnapshot({ environment,
@@ -71,8 +74,9 @@ export async function startNndNativeService(paths, identity, options = {}) {
     keyPath: paths.secretKey, auditPath: paths.secretAudit });
   const environment = options.environment ?? process.env;
   const { nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
-    nndWebSearchSettingsService, nndWorkspaceGrantService, nndEnvironmentSnapshotService,
-    nndUpdateStateStore, nndTrustService } = createNativeNndSettingsServices(paths, identity, environment);
+    nndWebSearchSettingsService, nndCompatibilitySettingsService, nndWorkspaceGrantService,
+    nndEnvironmentSnapshotService, nndUpdateStateStore, nndTrustService } =
+    createNativeNndSettingsServices(paths, identity, environment);
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
     readEffectiveConfiguration: () => readNndSetupConfiguration(paths) });
   const lifecycle = await createIntegrationLifecycle(paths, options, 'nnd', broker, {});
@@ -81,8 +85,8 @@ export async function startNndNativeService(paths, identity, options = {}) {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
       nndConfigurationService, nndGatewayTimeoutService, nndWebFetchSettingsService,
-      nndWebSearchSettingsService, nndWorkspaceGrantService, nndEnvironmentSnapshotService,
-      nndUpdateStateStore, nndTrustService,
+      nndWebSearchSettingsService, nndCompatibilitySettingsService, nndWorkspaceGrantService,
+      nndEnvironmentSnapshotService, nndUpdateStateStore, nndTrustService,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),
       resolvePrincipal: () => options.unpublishedTrial && !trialSelection.promoted()
