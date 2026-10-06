@@ -40,7 +40,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | L2 | NNA supervision/health/singleton | L1 | in-progress | NNA lifecycle modules; NND `serve-installed.mjs`, server wiring | — |
 | L3 | Native principal and UI attachment | L1-L2 | in-progress | NNA `src\integration-principal.js`, service native/attach; NND native auth/harness | per-request native authority and atomic UI admission; device scope pending |
 | L4 | Shell/browser migration to service attach | L2-L3 | in-progress | NND `electron\main.mjs`, native selection/client, tray/IPC, `server\index.ts`, `serve-installed.mjs` | actual Chromium attachment and shell-exit persistence verified below |
-| L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; journey re-certification of the incarnation recheck remains owed on a healthy console (environmental `stdin is not a tty`, reproduced at clean HEAD) |
+| L5 | Transactional installer/upgrade/rollback | L1-L4 | verified | NND `install.ps1`, package/stamp scripts, NNA registration, install guard/marker | fresh stage→activate→shells→stop→upgrade→rotate→rebind→rollback→guarded uninstall→mid-copy cancellation→recovery→reinstall→legacy-catalog migration green on disposable fixture (20261005-5); NNA incarnation identifier pinned, bound, and rechecked at every attach (20261005-6); legacy backend takeover drain — census-named owners, bounded voluntary-release wait, never-kill refusal with recovery instructions (NNA 20261005-13, ADR 0071) — green; incarnation-recheck journey re-certification green on the build console (2026-10-05, `20261005-7` → `20261005-8` → `20261005-7`), re-exercised through the fresh, upgrade, rollback, and reinstall attach legs; the earlier `stdin is not a tty` wall was environmental to the prior console session and did not reproduce |
 | L6 | Installed acceptance + release identity | L1-L5, C/F | open | docs/build/PROGRESS, evidence records, V gates | — |
 | C1 | Settings census + contract ledger | L1 | in-progress | NNA settings sources; NND `components/settings/*` mapping | — |
 | C2 | Native resolution/concurrency (NNA) | C1, L2 | in-progress | NNA `integration-cli.js`, `startup-configuration.js`, `configuration-sources.js`, `runtime-config.js`, `provider\profile-store.js` | native `20261002-14` scoped user-manifest HTTP read/preview/save/repair verified; remaining settings families open |
@@ -211,6 +211,65 @@ quality gates `QG_EXIT=0`, sealed at `a3bfcb85`. With this, every L5
 mechanism the guides name has implementation and deterministic evidence;
 the outstanding item is unchanged: the `20261005-6` journey
 re-certification owed by the environmental console wall, not by the drain.
+
+## NND 20261005-7 — incarnation-recheck journey re-certification green
+
+The owed `20261005-6` journey re-certification is now green on the build
+console (2026-10-05). `node scripts/installed-prebuilt-acceptance.mjs`
+against the paired NNA `a3bfcb85` ran the real exported prebuilt payload
+through legacy-catalog migration, stage, native activation, Chromium
+browser and desktop shells, guarded stop, upgrade
+(`20261005-7` → `20261005-8`), anchor rebind, rollback, mid-copy
+cancellation with transaction recovery, reinstall against the retained
+data root, and guarded uninstall: `Real exported prebuilt payload,
+migration, upgrade, rollback, cancellation, reinstall, Chromium shells and
+uninstall passed (20261005-7 -> 20261005-8 -> 20261005-7)`. The shells
+attached at the fresh, upgrade, rollback, and reinstall legs, so the
+attach-path incarnation recheck was observed by a real journey at every
+leg that exercises it. The disposable fixture was removed on success, so
+no operator installation, profile, startup entry, TUI state, or running
+NNA was touched. The earlier `stdin is not a tty` wall was environmental
+to the prior console session: a control run at clean `440770b`
+reproduced it there, and this run completed end to end at unchanged
+`20261005-7` sources, so the drain (`NNA 20261005-13`) and the recheck
+(`20261005-6`) are journey-verified, not only deterministic. The two
+failed-attempt fixtures preserved under the acceptance fixture root
+(`nnd-accept-cb8bff7c1e`, `nnd-accept-801c7f59fe`) remain as historical
+evidence of the pre-fix trial-health issue and the interrupted console.
+
+## L-package status reconciliation (2026-10-05)
+
+The package table rows for L1-L4 stay `in-progress` because some of their
+acceptance lines are only exercised by later journeys, or belong to V2;
+this section records what the real installer journeys have already
+exercised (so the rows do not understate completion) and what remains.
+
+- **L1 (activation contract)** — the contract is frozen and both
+  repositories test the same paired contract; staging, activation,
+  selection, guard, admission, recovery and uninstall cases ran through
+  the real installer in the source and prebuilt journeys. Remaining for
+  L1 itself: nothing above contract shape. Remaining for acceptance
+  overall: an installed independent-TUI case with no NND installed is
+  V2 evidence, not a contract gap.
+- **L2 (supervision/health/singleton)** — data-root lease, singleton
+  lock, protected discovery, and setup-first supervised hosting were
+  composed and exercised end to end in every prebuilt journey leg
+  (fresh, upgrade, rollback, reinstall), including guarded stop and
+  restart-noting. Remaining: login/startup registration policy and
+  reboot/login lifecycle acceptance, which V2 exercises.
+- **L3 (principal and UI attachment)** — per-request native authority,
+  one-use UI admission, cookie admission in Chromium, and the
+  generation-bound attach with the NNA incarnation recheck are now
+  journey-verified at every attach path. Remaining: principal renewal
+  across a long-lived installed service (V2's reconnect windows) and
+  the native device scope, tracked on this row.
+- **L4 (client migration)** — browser and desktop attach to one
+  supervised service and survive shell exit at every journey leg;
+  reconnect catalog reconciliation and replay-gap semantics shipped
+  (`20261002-16`, `NNA 20261002-31`/`NND 20261002-17`) and hold under install
+  churn. Remaining: the full
+  L4 acceptance matrix — governed turn surviving every client exit and
+  PTY/scheduled-work survival — runs with F's turn journeys and V2.
 
 ## NND 20261005-4 — prebuilt cancellation and reinstall acceptance green
 

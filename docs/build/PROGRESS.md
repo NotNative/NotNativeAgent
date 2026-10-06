@@ -3,6 +3,63 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-05 · L5 journey recertification green; ledger reconciliation · NND 20261005-8 / NNA 20261005-13
+
+The owed L5 journey recertification of the NNA installation-incarnation recheck
+is green on the build console. The real exported prebuilt payload ran the
+disposable fixture through legacy-catalog migration, stage, native activation,
+Chromium browser and desktop shells, guarded stop, upgrade
+(`20261005-7` → `20261005-8`), anchor rebind, rollback, mid-copy cancellation
+with transaction recovery, reinstall against the retained data root, and
+guarded uninstall. The shells attached at the fresh, upgrade, rollback and
+reinstall legs, so the attach-path incarnation recheck sealed in
+`20261005-6` was observed by a real journey at every leg that exercises it.
+No product code changed for this run: sources stayed at `20261005-7` and the
+paired NNA `a3bfcb85`. The prior console's `stdin is not a tty` failure was
+environmental to that session, as its own clean-HEAD control run proved, and
+it did not reproduce. The failed-attempt fixtures remain preserved as
+historical evidence; the passing fixture was removed on success.
+
+Documentation-only reconciliation in the same slice: the L1-L4 package rows
+now carry a dated reconciliation record of what the installer journeys already
+exercised against what remains open (contract/TUI independence for V2,
+login-startup and reboot policy, long-lived principal renewal, the full L4
+client-lifecycle matrix), and this log backfills the installer slices below so
+the progress record matches the execution ledger again. Evidence and commit:
+execution ledger `NND 20261005-7` and `L-package status reconciliation`.
+
+## 2026-10-03 to 2026-10-05 (backfilled 2026-10-05) · Installer lifecycle slices missed by this log
+
+Slices `NND 20261002-6` through `NND 20261005-7` and their NNA prerequisites
+were verified, committed and evidenced only in the execution ledger; this log
+was last written at `NND 20261002-5`. In clusters: native trial prerequisites
+and activation (`NNA 20261002-16/-17`, `nnd-local-activation-contract`),
+scoped credential management, desktop client attachment and guarded installs,
+configured-adoption admission and census receipts (`20261002-5..-15`),
+reconnect catalog reconciliation and explicit replay gaps (`NND 20261002-16/-17`,
+`NNA 20261002-31`), then the statcensus settings work — native setup
+presentation, prebuilt payload foundation, bounded native configuration
+reads/edits/mutation probe, TUI preferences, installer preflight, reviewer and
+vision tuning, workspace admission guard, visible gap evidence and Chromium
+recovery (`20261002-6..-18`) beside the NNA activation, registration, exact
+transaction, trial and confirmed-stop prerequisites (`NNA 20261002-15/-16/-17/-18/-28/-29/-30/-31`)
+— then the `20261003-1..-32` family: managed GUI and installer safeguards,
+primary workspace identity, retained deletion receipts, dependency admission,
+attachment, memory limit, route-binding, launch-plan, scheduling, dream,
+timeout, deadline, gateway-polling, stage-recovery, recovery-budget,
+session-deadline and context-budget controls, fresh source verification and the
+disposable installed-source acceptance; the stable launcher gate, activation
+preflight and detached prebuilt activation proof (`20261003-35..-37`) against
+the bounded NNA startup prerequisite (`NNA 20261004-3`), fresh prebuilt anchor
+integration, uninstall slot binding, its release seal and the first real
+prebuilt installed acceptance (`20261004-4/-5/-7/-15`); upgrade, rollback,
+cancellation, reinstall (`20261005-2..-4`) and legacy-catalog migration
+acceptance (`20261005-5`); the NNA installation-incarnation identifier
+(`20261005-6`, ADR 0070) and the legacy takeover drain (`NNA 20261005-13`,
+ADR 0071) that sealed every L5 mechanism.
+The execution ledger keeps each slice's commands, tests, adversarial findings
+and commits; this backfill adds no new evidence claims.
+
 ## 2026-10-02 · Configured installation adoption and release coverage · NND 20261002-5 / NNA 20261002-5
 
 Native admission now preserves configured NNA manifests, independent TUI tabs and
