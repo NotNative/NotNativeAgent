@@ -5837,29 +5837,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration — an accepted compatible native configuration command applies immediately while the engine is idle and otherwise at the next model step; memory is not in the new-session set that src/runtime-config.js:assertRuntimeConfigurationCompatible guards"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-6)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMemory"
+     "validateMemory",
+     "projectNndConfigurationView",
+     "applyConfiguration",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the five memory paths serve the documented defaults with source compiled_default and user values with source user and refuse out-of-range bounds with invalid_limit, and test/nnd-configuration-service.test.js proves the enabled/required coupling through a real preview and save; the NND editor test renders all five rows with the native bounds"
    },
-   "notes": null
+   "notes": "Pinned 20261007-6: opt-out with default true; disabling it also turns off required memory in the same save. The page memory block renders the five rows with these bounds and states that disabling memory also turns off required memory; NNA owns the limits and the class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_memory:memory.required",
@@ -5881,29 +5882,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration — an accepted compatible native configuration command applies immediately while the engine is idle and otherwise at the next model step; memory is not in the new-session set that src/runtime-config.js:assertRuntimeConfigurationCompatible guards"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-6)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMemory"
+     "validateMemory",
+     "projectNndConfigurationView",
+     "applyConfiguration",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the five memory paths serve the documented defaults with source compiled_default and user values with source user and refuse out-of-range bounds with invalid_limit, and test/nnd-configuration-service.test.js proves the enabled/required coupling through a real preview and save; the NND editor test renders all five rows with the native bounds"
    },
-   "notes": null
+   "notes": "Pinned 20261007-6: opt-in with default false; requiring memory also enables it in the same save. The page memory block renders the five rows with these bounds and states that disabling memory also turns off required memory; NNA owns the limits and the class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_memory:memory.timeout_ms",
@@ -5925,29 +5927,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration — an accepted compatible native configuration command applies immediately while the engine is idle and otherwise at the next model step; memory is not in the new-session set that src/runtime-config.js:assertRuntimeConfigurationCompatible guards"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-6)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMemory"
+     "validateMemory",
+     "projectNndConfigurationView",
+     "applyConfiguration",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the five memory paths serve the documented defaults with source compiled_default and user values with source user and refuse out-of-range bounds with invalid_limit, and test/nnd-configuration-service.test.js proves the enabled/required coupling through a real preview and save; the NND editor test renders all five rows with the native bounds"
    },
-   "notes": null
+   "notes": "Pinned 20261007-6: 750 default bounded 50 to 30000. The page memory block renders the five rows with these bounds and states that disabling memory also turns off required memory; NNA owns the limits and the class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_memory:memory.max_items",
@@ -5969,29 +5972,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration — an accepted compatible native configuration command applies immediately while the engine is idle and otherwise at the next model step; memory is not in the new-session set that src/runtime-config.js:assertRuntimeConfigurationCompatible guards"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-6)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMemory"
+     "validateMemory",
+     "projectNndConfigurationView",
+     "applyConfiguration",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the five memory paths serve the documented defaults with source compiled_default and user values with source user and refuse out-of-range bounds with invalid_limit, and test/nnd-configuration-service.test.js proves the enabled/required coupling through a real preview and save; the NND editor test renders all five rows with the native bounds"
    },
-   "notes": null
+   "notes": "Pinned 20261007-6: 8 default bounded 1 to 64. The page memory block renders the five rows with these bounds and states that disabling memory also turns off required memory; NNA owns the limits and the class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_memory:memory.max_bytes",
@@ -6013,29 +6017,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration — an accepted compatible native configuration command applies immediately while the engine is idle and otherwise at the next model step; memory is not in the new-session set that src/runtime-config.js:assertRuntimeConfigurationCompatible guards"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-6)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMemory"
+     "validateMemory",
+     "projectNndConfigurationView",
+     "applyConfiguration",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the five memory paths serve the documented defaults with source compiled_default and user values with source user and refuse out-of-range bounds with invalid_limit, and test/nnd-configuration-service.test.js proves the enabled/required coupling through a real preview and save; the NND editor test renders all five rows with the native bounds"
    },
-   "notes": null
+   "notes": "Pinned 20261007-6: 16384 default bounded 1024 to 262144. The page memory block renders the five rows with these bounds and states that disabling memory also turns off required memory; NNA owns the limits and the class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_dream:dream.enabled",
@@ -6057,8 +6062,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
+    "class": "construction_only",
+    "evidence": "src/experience/dream.js:initializeWorkspaceDream and src/dream-coordinator.js:constructor (the class NNA's own catalog metadata declares for dream.enabled); src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6080,7 +6085,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the six dream paths serve user values with source user, the documented defaults with source compiled_default, out-of-range values failing the resolve with invalid_limit, and the hosted execution manifest always disabling maintenance; the NND editor test renders all six rows with the native bounds"
    },
-   "notes": "Pinned 20261007-5: opt-out with default true, and an authenticated hosted execution manifest always disables idle maintenance (src/dream-config.js:validateDream). The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default."
+   "notes": "Pinned 20261007-5: opt-out with default true, and an authenticated hosted execution manifest always disables idle maintenance (src/dream-config.js:validateDream). The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> construction_only)."
   },
   {
    "id": "manifest_dream:dream.idle_ms",
@@ -6102,8 +6107,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
+    "class": "construction_only",
+    "evidence": "src/experience/dream.js:initializeWorkspaceDream and src/dream-coordinator.js:constructor (the class NNA's own catalog metadata declares for dream.idle_ms); src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6125,7 +6130,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the six dream paths serve user values with source user, the documented defaults with source compiled_default, out-of-range values failing the resolve with invalid_limit, and the hosted execution manifest always disabling maintenance; the NND editor test renders all six rows with the native bounds"
    },
-   "notes": "Pinned 20261007-5: 45000 default bounded 5000 to 3600000 — how quiet the workspace must be before maintenance starts. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default."
+   "notes": "Pinned 20261007-5: 45000 default bounded 5000 to 3600000 — how quiet the workspace must be before maintenance starts. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> construction_only)."
   },
   {
    "id": "manifest_dream:dream.inter_stage_ms",
@@ -6147,8 +6152,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
+    "class": "construction_only",
+    "evidence": "src/experience/dream.js:initializeWorkspaceDream and src/dream-coordinator.js:constructor (the class NNA's own catalog metadata declares for dream.inter_stage_ms); src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6170,7 +6175,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the six dream paths serve user values with source user, the documented defaults with source compiled_default, out-of-range values failing the resolve with invalid_limit, and the hosted execution manifest always disabling maintenance; the NND editor test renders all six rows with the native bounds"
    },
-   "notes": "Pinned 20261007-5: 5000 default bounded 1000 to 300000 — the pause between maintenance stages. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default."
+   "notes": "Pinned 20261007-5: 5000 default bounded 1000 to 300000 — the pause between maintenance stages. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> construction_only)."
   },
   {
    "id": "manifest_dream:dream.inference_idle_ms",
@@ -6192,8 +6197,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
+    "class": "construction_only",
+    "evidence": "src/experience/dream.js:initializeWorkspaceDream and src/dream-coordinator.js:constructor (the class NNA's own catalog metadata declares for dream.inference_idle_ms); src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6215,7 +6220,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the six dream paths serve user values with source user, the documented defaults with source compiled_default, out-of-range values failing the resolve with invalid_limit, and the hosted execution manifest always disabling maintenance; the NND editor test renders all six rows with the native bounds"
    },
-   "notes": "Pinned 20261007-5: 120000 default bounded 10000 to 3600000 — the idle delay before inference work. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default."
+   "notes": "Pinned 20261007-5: 120000 default bounded 10000 to 3600000 — the idle delay before inference work. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> construction_only)."
   },
   {
    "id": "manifest_dream:dream.hygiene_idle_ms",
@@ -6237,8 +6242,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
+    "class": "construction_only",
+    "evidence": "src/experience/dream.js:initializeWorkspaceDream and src/dream-coordinator.js:constructor (the class NNA's own catalog metadata declares for dream.hygiene_idle_ms); src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6260,7 +6265,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the six dream paths serve user values with source user, the documented defaults with source compiled_default, out-of-range values failing the resolve with invalid_limit, and the hosted execution manifest always disabling maintenance; the NND editor test renders all six rows with the native bounds"
    },
-   "notes": "Pinned 20261007-5: 300000 default bounded 30000 to 7200000 — the idle delay before hygiene work. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default."
+   "notes": "Pinned 20261007-5: 300000 default bounded 30000 to 7200000 — the idle delay before hygiene work. The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> construction_only)."
   },
   {
    "id": "manifest_dream:dream.retention_days",
@@ -6282,8 +6287,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
+    "class": "construction_only",
+    "evidence": "src/experience/dream.js:initializeWorkspaceDream and src/dream-coordinator.js:constructor (the class NNA's own catalog metadata declares for dream.retention_days); src/experience/dream.js:initializeWorkspaceDream constructs the DreamCoordinator from the resolved configuration the first time a workspace touches maintenance, and src/dream-coordinator.js:DreamCoordinator reads enabled, idleMs, interStageMs, and retentionDays then starts the arbiter"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6305,7 +6310,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the six dream paths serve user values with source user, the documented defaults with source compiled_default, out-of-range values failing the resolve with invalid_limit, and the hosted execution manifest always disabling maintenance; the NND editor test renders all six rows with the native bounds"
    },
-   "notes": "Pinned 20261007-5: 30 default bounded 1 to 365 — how long dream records are retained (passed to the maintenance state store). The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default."
+   "notes": "Pinned 20261007-5: 30 default bounded 1 to 365 — how long dream records are retained (passed to the maintenance state store). The page editor block renders the six rows with these exact bounds and says saved changes take effect only in a new constructed context; NNA owns the limits and NND never invents a default. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> construction_only)."
   },
   {
    "id": "manifest_tui:tui.reduced_motion",
@@ -6327,8 +6332,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui resolves reduced_motion at TUI start (the default is false); src/tui/render-loop.js skips animation frames when set"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.reduced_motion); src/tui.js:runTui resolves reduced_motion at TUI start (the default is false); src/tui/render-loop.js skips animation frames when set"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6350,7 +6355,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "Pinned 20261007-2: reduced_motion is a display preference: the field stays unclassified (the display-only class does not exist in this census yet); the view serves the resolved value with its provenance. NNA owns the tui block; NND renders it read-only."
+   "notes": "Pinned 20261007-2: reduced_motion is a display preference: the field stays unclassified (the display-only class does not exist in this census yet); the view serves the resolved value with its provenance. NNA owns the tui block; NND renders it read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.color",
@@ -6372,8 +6377,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui resolves color at TUI start (the default is true); src/tui/terminal-adapter.js gates ANSI rendering on the resolved tty unless NO_COLOR is set"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.color); src/tui.js:runTui resolves color at TUI start (the default is true); src/tui/terminal-adapter.js gates ANSI rendering on the resolved tty unless NO_COLOR is set"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6395,7 +6400,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "Pinned 20261007-2: color is a display preference: the field stays unclassified (the display-only class does not exist in this census yet); the view serves the resolved value with its provenance. NNA owns the tui block; NND renders it read-only."
+   "notes": "Pinned 20261007-2: color is a display preference: the field stays unclassified (the display-only class does not exist in this census yet); the view serves the resolved value with its provenance. NNA owns the tui block; NND renders it read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings",
@@ -6417,8 +6422,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6441,7 +6446,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "Pinned 20261007-2: the container projects presence only; the effective value is the merged validated map; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "Pinned 20261007-2: the container projects presence only; the effective value is the merged validated map; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_telemetry:telemetry.enabled",
@@ -6815,8 +6820,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.submit); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6839,7 +6844,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the submit row defaults to 'ctrl+s' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the submit row defaults to 'ctrl+s' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.newline",
@@ -6861,8 +6866,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.newline); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6885,7 +6890,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the newline row defaults to 'ctrl+j' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the newline row defaults to 'ctrl+j' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.cancel",
@@ -6907,8 +6912,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.cancel); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6931,7 +6936,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the cancel row defaults to 'ctrl+c' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the cancel row defaults to 'ctrl+c' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.help",
@@ -6953,8 +6958,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.help); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -6977,7 +6982,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the help row defaults to 'ctrl+g' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the help row defaults to 'ctrl+g' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.allow_once",
@@ -6999,8 +7004,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.allow_once); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7023,7 +7028,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the allow_once row defaults to 'ctrl+y' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the allow_once row defaults to 'ctrl+y' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.deny",
@@ -7045,8 +7050,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.deny); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7069,7 +7074,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the deny row defaults to 'ctrl+n' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the deny row defaults to 'ctrl+n' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.reset_keys",
@@ -7091,8 +7096,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.reset_keys); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7115,7 +7120,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the reset_keys row defaults to 'f12' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the reset_keys row defaults to 'f12' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.undo",
@@ -7137,8 +7142,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.undo); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7161,7 +7166,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the undo row defaults to 'ctrl+z' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the undo row defaults to 'ctrl+z' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.toggle_activity",
@@ -7183,8 +7188,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.toggle_activity); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7207,7 +7212,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the toggle_activity row defaults to 'ctrl+o' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the toggle_activity row defaults to 'ctrl+o' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.new_tab",
@@ -7229,8 +7234,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.new_tab); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7253,7 +7258,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the new_tab row defaults to 'ctrl+t' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the new_tab row defaults to 'ctrl+t' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.close_tab",
@@ -7275,8 +7280,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.close_tab); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7299,7 +7304,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the close_tab row defaults to 'ctrl+w' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the close_tab row defaults to 'ctrl+w' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.previous_tab",
@@ -7321,8 +7326,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.previous_tab); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7345,7 +7350,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the previous_tab row defaults to 'ctrl+pageup' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the previous_tab row defaults to 'ctrl+pageup' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.next_tab",
@@ -7367,8 +7372,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.next_tab); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7391,7 +7396,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the next_tab row defaults to 'ctrl+pagedown' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the next_tab row defaults to 'ctrl+pagedown' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.cycle_review",
@@ -7413,8 +7418,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.cycle_review); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7437,7 +7442,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the cycle_review row defaults to 'shift+tab' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the cycle_review row defaults to 'shift+tab' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.scroll_page_up",
@@ -7459,8 +7464,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.scroll_page_up); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7483,7 +7488,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_page_up row defaults to 'pageup' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_page_up row defaults to 'pageup' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.scroll_page_down",
@@ -7505,8 +7510,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.scroll_page_down); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7529,7 +7534,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_page_down row defaults to 'pagedown' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_page_down row defaults to 'pagedown' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_tui:tui.key_bindings.scroll_bottom",
@@ -7551,8 +7556,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
+    "class": "surface_invocation",
+    "evidence": "src/experience/key-bindings.js:validateKeyBindings and src/tui/terminal-adapter.js:setBindings (the class NNA's own catalog metadata declares for tui.key_bindings.scroll_bottom); src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
    "native_permission": "nnd.configuration.read",
@@ -7575,7 +7580,7 @@
     ],
     "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_bottom row defaults to 'end' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_bottom row defaults to 'end' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only. Application class corrected 20261007-6 to NNA's catalog metadata (new_session -> surface_invocation)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].id",
@@ -7597,8 +7602,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].id); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7619,7 +7624,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].transport",
@@ -7641,8 +7646,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].transport); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7663,7 +7668,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].enabled",
@@ -7685,8 +7690,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].enabled); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7707,7 +7712,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].timeout_ms",
@@ -7729,8 +7734,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].timeout_ms); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7751,7 +7756,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].connect_timeout_ms",
@@ -7773,8 +7778,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].connect_timeout_ms); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7795,7 +7800,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].list_timeout_ms",
@@ -7817,8 +7822,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].list_timeout_ms); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7839,7 +7844,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].call_timeout_ms",
@@ -7861,8 +7866,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].call_timeout_ms); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7883,7 +7888,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].shutdown_timeout_ms",
@@ -7905,8 +7910,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].shutdown_timeout_ms); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -7927,7 +7932,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].tool_effects",
@@ -7949,8 +7954,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].tool_effects); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -7972,7 +7977,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; tool effect rules (allowed/denied/unknown per tool name); presence tool_effect_count, inner the tool:effect rows. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; tool effect rules (allowed/denied/unknown per tool name); presence tool_effect_count, inner the tool:effect rows. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential",
@@ -7994,8 +7999,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].credential); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8017,7 +8022,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialEnv (an environment variable name); presence exposes has_credential, inner exposes the name reference. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialEnv (an environment variable name); presence exposes has_credential, inner exposes the name reference. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential_env",
@@ -8039,8 +8044,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].credential_env); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8062,7 +8067,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialEnv (an environment variable name); presence exposes has_credential, inner exposes the name reference. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialEnv (an environment variable name); presence exposes has_credential, inner exposes the name reference. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential_target",
@@ -8084,8 +8089,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].credential_target); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8107,7 +8112,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialTarget (a companion environment variable name); presence has_credential_target, inner the name reference. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialTarget (a companion environment variable name); presence has_credential_target, inner the name reference. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_env",
@@ -8129,8 +8134,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].header_env); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8152,7 +8157,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; headerEnv (header to environment-name map); presence has_header_env, inner the name rows. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; headerEnv (header to environment-name map); presence has_header_env, inner the name rows. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials",
@@ -8174,8 +8179,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].header_credentials); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8197,7 +8202,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential bindings; presence header_credential_count, inner header:reference rows (secret:<id>#<field>, never a value). Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential bindings; presence header_credential_count, inner header:reference rows (secret:<id>#<field>, never a value). Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].trusted",
@@ -8219,8 +8224,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].trusted); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
    "native_permission": "nnd.configuration.read",
@@ -8241,7 +8246,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].protocol_version",
@@ -8263,8 +8268,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].protocol_version); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8286,7 +8291,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; pinned MCP protocol version (defaults 2026-07-28); presence has_protocol_version, inner the version string. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; pinned MCP protocol version (defaults 2026-07-28); presence has_protocol_version, inner the version string. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].command",
@@ -8308,8 +8313,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].command); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8331,7 +8336,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch command; presence has_command, inner the command string reference only to the manage right. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch command; presence has_command, inner the command string reference only to the manage right. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].args",
@@ -8353,8 +8358,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].args); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8376,7 +8381,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch arguments; presence has_args, inner the args reference only to the manage right. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch arguments; presence has_args, inner the args reference only to the manage right. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].cwd",
@@ -8398,8 +8403,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].cwd); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8421,7 +8426,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch working directory; presence has_cwd, inner the cwd reference only to the manage right. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch working directory; presence has_cwd, inner the cwd reference only to the manage right. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].endpoint",
@@ -8443,8 +8448,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].endpoint); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8466,7 +8471,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; streamable_http endpoint; presence has_endpoint, inner the endpoint reference only to the manage right. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; streamable_http endpoint; presence has_endpoint, inner the endpoint reference only to the manage right. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.source",
@@ -8488,8 +8493,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].credential.source); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8511,7 +8516,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding source; presence has_credential, inner the reference (env name or secret pointer). Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding source; presence has_credential, inner the reference (env name or secret pointer). Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.name",
@@ -8533,8 +8538,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].credential.name); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8556,7 +8561,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding name; presence has_credential, inner the reference (env name or secret pointer). Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding name; presence has_credential, inner the reference (env name or secret pointer). Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.secret_id",
@@ -8578,8 +8583,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].credential.secret_id); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8601,7 +8606,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding secret id; presence has_credential, inner the secret:<id>#<field> pointer. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding secret id; presence has_credential, inner the secret:<id>#<field> pointer. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.field",
@@ -8623,8 +8628,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].credential.field); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8646,7 +8651,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding field; presence has_credential, inner the secret:<id>#<field> pointer. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding field; presence has_credential, inner the secret:<id>#<field> pointer. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.source",
@@ -8668,8 +8673,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].header_credentials.{header}.source); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8691,7 +8696,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding source; presence header_credential_count, inner the reference rows. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding source; presence header_credential_count, inner the reference rows. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.name",
@@ -8713,8 +8718,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].header_credentials.{header}.name); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8736,7 +8741,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; environment-credential header binding name; presence header_credential_count, inner the reference rows. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; environment-credential header binding name; presence header_credential_count, inner the reference rows. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.secret_id",
@@ -8758,8 +8763,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].header_credentials.{header}.secret_id); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8781,7 +8786,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding secret id; presence header_credential_count, inner secret:<id>#<field> pointers. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding secret id; presence header_credential_count, inner secret:<id>#<field> pointers. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.field",
@@ -8803,8 +8808,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration (the class NNA's own catalog metadata declares for mcp_servers[*].header_credentials.{header}.field); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8826,7 +8831,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding field; presence header_credential_count, inner secret:<id>#<field> pointers. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding field; presence header_credential_count, inner secret:<id>#<field> pointers. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> engine_boundary)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].tool_effects.{tool}",
@@ -8848,8 +8853,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].tool_effects.{tool}); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8871,7 +8876,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; one tool effect rule; presence tool_effect_count, inner the tool:effect rows. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; one tool effect rule; presence tool_effect_count, inner the tool:effect rows. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_env.{header}",
@@ -8893,8 +8898,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "census_only",
-    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible (the class NNA's own catalog metadata declares for mcp_servers[*].header_env.{header}); nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
    "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
@@ -8916,7 +8921,7 @@
     ],
     "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": "Pinned 20261006-22: the field rides the advanced projection; headerEnv map row; presence has_header_env, inner the name rows. Values never leave the native service."
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; headerEnv map row; presence has_header_env, inner the name rows. Values never leave the native service. Application class corrected 20261007-6 to NNA's catalog metadata (census_only -> new_session)."
   },
   {
    "id": "manifest_skills:skills[*].id",

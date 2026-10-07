@@ -3,6 +3,27 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Memory limits ride the view; application classes follow NNA metadata · NND 20261007-6
+
+The 5 `manifest_memory` rows closed against the EXISTING configuration view
+and the `NNA memory` editor block: defaults (`enabled` true opt-out,
+`required` false opt-in, 750 ms, 8 items, 16 384 bytes) arrive with
+`source: compiled_default`, user values with `source: user`, and
+out-of-range values refuse the resolve with `invalid_limit`; the
+`enabled`/`required` coupling was already proven through a real preview and
+save and the editor states it on the row. Memory is `engine_boundary` in
+NNA's metadata — an accepted compatible configuration command applies
+immediately while the engine is idle, otherwise at the next model step.
+
+The slice also corrects a recorded overreach: an audit of every pinned row
+against NNA's catalog metadata found 56 rows whose `apply.class` we had
+asserted differently — 30 MCP rows (`census_only` → session), 20 TUI rows
+(`new_session` → `surface_invocation`), and 6 dream rows (`new_session` →
+`construction_only`). They now carry NNA's class and evidence; rows that
+honestly say `unverified` stay untouched until verified. Census rows
+without a verified GUI: 139 → 134. Next: recovery 4, attachments 3,
+telemetry 3, reviewer_ledger 1, then manifest 38, route 48, provider 37.
+
 ## 2026-10-07 · Dream maintenance limits ride the configuration view · NND 20261007-5
 
 The 6 `manifest_dream` rows closed against the EXISTING configuration view

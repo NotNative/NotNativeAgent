@@ -225,7 +225,14 @@ It now offers direct typed controls for `attachments.enabled`,
 `attachments.max_bytes`, and `attachments.retain`; native TUI preferences and
 reviewer/vision scalar routes also have focused controls. Typed controls for
 `memory.timeout_ms`, `memory.max_items`, and `memory.max_bytes` use the same
-native user-manifest preview and save path. The provider scheduling limits
+native user-manifest preview and save path, alongside `memory.enabled` and
+`memory.required`, which NNA saves as a coupled pair (disabling memory also
+clears required; requiring memory also enables it) and the editor says so
+before the preview. The five rows carry NNA's bounds verbatim
+(`timeout_ms` 50–30 000 default 750, `max_items` 1–64 default 8,
+`max_bytes` 1 024–262 144 default 16 384) and are `engine_boundary`
+settings: an accepted compatible configuration command applies immediately
+while the engine is idle and otherwise at the next model step. The provider scheduling limits
 `provider_concurrency` and `provider_queue_limit` also have bounded controls
 when NNA advertises them. Dream maintenance enablement, idle/stage delays,
 and retention also have typed controls gated by the native catalog, bounded

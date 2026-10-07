@@ -416,6 +416,36 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-6 — memory limits ride the view, and application classes follow NNA's own metadata
+
+Two things in one slice. The 5 `manifest_memory` census rows closed against
+the EXISTING configuration view and the `NNA memory` editor block: the proof
+shows the five paths serving the documented defaults (`enabled` true —
+opt-out, `required` false — opt-in, `timeout_ms` 750, `max_items` 8,
+`max_bytes` 16 384) with `source: compiled_default`, user values with
+`source: user`, and out-of-range values refusing the resolve with
+`invalid_limit`; the `enabled`/`required` coupling (disabling memory also
+clears required, requiring memory also enables it) was already proven
+end-to-end through a real preview and save, and the editor says so on the
+row.
+
+Second, a correction recorded in the open. An audit compared every pinned
+row's `apply.class` with the class NNA's own catalog metadata
+(`src/configuration-catalog-metadata.js`) declares for that key, and three
+recent slices disagreed: the 30 `manifest_mcp` rows claimed `census_only`
+where NNA declares the fields session-scoped, the 20 `manifest_tui` rows
+claimed `new_session` where NNA declares `surface_invocation` (with its own
+`no_generic_live_application_claim` caveat), and the 6 `manifest_dream` rows
+claimed `new_session` where NNA declares `construction_only` (a workspace
+builds its coordinator once). All 56 now carry NNA's class with NNA's
+evidence symbols, and rows that honestly say `unverified` stay that way
+until each family is verified. Memory was pinned with the metadata class
+from the start — `engine_boundary`: an accepted compatible configuration
+command applies immediately while the engine is idle and otherwise at the
+next model step, and `assertRuntimeConfigurationCompatible` does not list
+memory among the changes that need a new session. Census rows without a
+verified GUI: 139 → 134.
+
 ## NNA (test-only) and NND 20261007-5 — dream maintenance limits ride the configuration view
 
 The 6 `manifest_dream` census rows closed against the EXISTING

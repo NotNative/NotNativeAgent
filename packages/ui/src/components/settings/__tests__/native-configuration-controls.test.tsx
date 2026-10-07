@@ -360,6 +360,44 @@ it('previews and saves a catalog-advertised dream idle limit with native CAS', a
   expect(container.textContent).toContain('not applied');
 });
 
+it('renders all five memory census rows in the memory block with the native bounds', async () => {
+  const memoryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'memory.enabled', catalog_path: 'memory.enabled', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'memory.required', catalog_path: 'memory.required', explicit: { present: false },
+      effective: { present: true, value: false, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'memory.timeout_ms', catalog_path: 'memory.timeout_ms', explicit: { present: false },
+      effective: { present: true, value: 750, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'memory.max_items', catalog_path: 'memory.max_items', explicit: { present: false },
+      effective: { present: true, value: 8, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'memory.max_bytes', catalog_path: 'memory.max_bytes', explicit: { present: false },
+      effective: { present: true, value: 16384, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'memory.enabled', type: 'boolean', editability: field.editability },
+    { path: 'memory.required', type: 'boolean', editability: field.editability },
+    { path: 'memory.timeout_ms', type: 'integer', editability: field.editability },
+    { path: 'memory.max_items', type: 'integer', editability: field.editability },
+    { path: 'memory.max_bytes', type: 'integer', editability: field.editability },
+  ] });
+  mount(memoryView); await act(async () => {});
+  const block = () => container.querySelector('[data-settings-item="native-configuration.memory-limits"]')?.textContent ?? '';
+  expect(block()).toContain('Enable memory');
+  expect(block()).toContain('Require memory');
+  const limits: Array<[string, number, number, number]> = [
+    ['Memory timeout (ms)', 750, 50, 30000],
+    ['Maximum memory items', 8, 1, 64],
+    ['Maximum memory bytes', 16384, 1024, 262144],
+  ];
+  for (const [label, value, min, max] of limits) {
+    expect(block()).toContain(label);
+    await act(async () => { button(label).click(); });
+    const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    expect(input.value, label).toBe(String(value));
+    expect(input.min, label).toBe(String(min)); expect(input.max, label).toBe(String(max));
+  }
+});
+
 it('renders all six dream census rows in the dream block with the native bounds', async () => {
   const dreamView: NativeConfigurationView = { ...view, fields: [
     { path: 'dream.enabled', catalog_path: 'dream.enabled', explicit: { present: false },
