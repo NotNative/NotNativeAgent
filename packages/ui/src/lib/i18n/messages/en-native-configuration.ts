@@ -86,6 +86,7 @@ export const enNativeConfiguration = {
   'settings.nativeInstallation.dataRoot': 'Data root',
   'settings.nativeInstallation.node': 'Node runtime',
   'settings.nativeBrowser.title': 'NNA managed browser',
+  'settings.nativeProviderObservation.title': 'NNA provider credential bindings',
   'settings.nativeSkills.title': 'NNA native skills catalog',
   'settings.nativeLegacyCredentials.title': 'NNA legacy provider credential alias',
   'settings.nativeGatewayRuntime.title': 'NNA gateway runtime',

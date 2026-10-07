@@ -363,7 +363,25 @@ permission and a walked proof, and kept `current_gui.path: null` — the count o
 rows without a surface stays 37 because nothing was rendered to earn a change.
 Their application class moved from `unverified` to `engine_boundary` on NNA's
 declaration (`family(..., live, ...)` for the provider family), which is a
-transcription of what NNA already says, not a capability this slice built. Manifest container
+transcription of what NNA already says, not a capability this slice built.
+
+That paragraph's first sentence is superseded the next slice, and stays quoted here
+rather than quietly rewritten: "The desktop renders nothing from it yet." As of
+`20261007-32` the desktop renders it, in
+`packages/ui/src/components/settings/pages/provider-observation.tsx`, with
+`packages/ui/src/lib/nnd/provider-observation.ts` mirroring the projector, so the
+thirteen rows gained a GUI path and their status became verified. The claim was true
+when written and is false now; sealed prose is corrected by the entry that follows it,
+not by editing the entry.
+
+What the panel shows per provider is exactly the thirteen fields: the model, the
+endpoint, the trust zone, the binding as a reference (`secret <id> field <field>` or
+`environment variable <NAME>`), the `credential_env` alias or `unset`, and the six
+capability flags spelled out as yes or no. It never shows a value, and a test plants
+`value: 'sk-secret'` in a response to prove the client refuses such a body rather than
+rendering it. Two refusals here are stricter than NNA's own router, stated at the call
+site so the desktop is never mistaken for NNA's contract: a present manifest listing no
+providers, and any binding key beyond the reference grammar. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container

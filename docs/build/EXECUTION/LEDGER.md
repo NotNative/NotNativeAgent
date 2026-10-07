@@ -416,6 +416,44 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-32 — the provider binding panel renders, and the headline finally moves: 37 → 24
+
+Last round gave thirteen `manifest_provider` rows an endpoint and said plainly that
+the headline would not move because nothing rendered it. This round renders it, and
+the count of rows without a desktop surface goes **37 → 24** — the first real drop in
+a long run of rounds, and the kind that is actually worth reporting: the number moved
+because a panel now shows the fields and tests assert it, not because a label changed.
+
+`packages/ui/src/lib/nnd/provider-observation.ts` mirrors NNA's projector before a
+response reaches any component, and `pages/provider-observation.tsx` renders, per
+provider, the model, endpoint and trust zone, the binding as a reference (secret id
+with its field, or the environment variable), the `credential_env` alias, and the
+capability flags as yes-or-no words. It is registered on the native configuration
+page and in the settings search index. No proxy allowlist needed touching: everything
+under `/api` rides the harness catch-all, which is why a round-12-class defect
+("wired in tests, absent in production") cannot hide here.
+
+Two guards are deliberately **stricter than NNA's own projector**, and say so at the
+call site rather than looking like NNA's contract: a present manifest with no
+providers is refused, because a manifest that resolves always yields at least one
+profile, and an empty list would read as "nothing is configured" instead of as a
+transport fault. And a binding carrying any extra key — the shape that could hold a
+value — is refused outright; one test plants `value: 'sk-secret'` in a response and
+asserts the string never reaches the DOM while the panel reports drift.
+
+An honest non-improvement: these rows still carry census sensitivity `secret`, while
+every one of them is only ever a *reference*. NNA calls that quality
+`credential_reference`. This slice leaves the sensitivity as the census set it and
+records the mismatch, rather than relabelling thirteen rows to look cleaner.
+
+Verification for the new surface: one lib test and six page tests, green; typecheck
+clean; the repository graph rebuilt at **841 modules** from 839, the two new modules
+being the difference.
+
+Census rows without a desktop surface: **37 → 24**. Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 47
+(unchanged). Pre-C1 pins never re-examined: 0, with the same eight label-only exits.
+
 ## NNA 20261007-1 and NND 20261007-31 — C4 opens with a provider-observation surface, and two version findings
 
 C4 has been "open" with no evidence since it was written down, because provider

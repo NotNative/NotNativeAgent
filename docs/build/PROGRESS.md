@@ -3,6 +3,31 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Provider binding panel renders; the headline moves for the right reason (37 → 24) · NND 20261007-32
+
+Last round I said the count wouldn't move because nothing rendered the read. It renders
+now: per provider the model, endpoint and trust zone, the credential **binding** as a
+reference (secret id + field, or the environment variable), the `credential_env` alias,
+and the capability flags. Registered on the native configuration page and in settings
+search. **37 → 24 rows without a desktop surface** — moved by rendering plus assertions,
+not by relabelling, which is the only kind of drop worth reporting.
+
+The client mirrors NNA's projector before anything reaches a component. Two guards are
+*stricter than NNA*: present-with-no-providers is refused (a resolving manifest always
+yields a profile; an empty list would read as "nothing configured" rather than a
+transport fault), and any binding key that could hold a value is refused — a test plants
+`value: 'sk-secret'` and asserts it never reaches the DOM.
+
+No proxy allowlist to update: everything under `/api` rides the harness catch-all, so the
+round-12 failure mode (wired in tests, missing in production) can't hide in this path.
+
+Left honest rather than tidied: these rows keep census sensitivity `secret` even though
+each is only ever a *reference* (NNA's word: `credential_reference`). Relabelling thirteen
+rows to look cleaner would be exactly the label-move I keep calling out, so it stays, with
+the mismatch recorded.
+
+1 lib test + 6 page tests green; typecheck clean; graph rebuilt **839 → 841** modules.
+
 ## 2026-10-07 · C4 opens with provider observation; version identity proves broken · NNA 20261007-1 + NND 20261007-31
 
 Provider settings had **no native endpoint at all**, which is why C4 sat "open" with no
