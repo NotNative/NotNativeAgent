@@ -1240,6 +1240,10 @@
     {
       "version": "20261006-24",
       "content_sha256": "02b4eff6d7d7d9061e31a7217f432e7c88817d21c62a8154e731dadebfe0cae8"
+    },
+    {
+      "version": "20261007-1",
+      "content_sha256": "d29a93c06c2d5dd0f1136f9544ad6c309b1c8c5b01f3671f5de6b8a63e7d3377"
     }
   ]
 }

@@ -416,6 +416,35 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-22 and NND 20261006-25 — MCP advanced-fields projection
+
+The 30 `manifest_mcp` census rows closed with a real projection of the fields
+the redacted editor route never serves. Nine rows (id, transport, enabled,
+trusted, and the five deadline fields) were already native through the
+`/v1/nnd/configuration/mcp` read + editor and are pinned to it; the other
+twenty-one (credential/credential_env/credential_target with their binding
+subkeys, header_env with map keys, header_credentials with binding subkeys,
+tool_effects with per-tool rules, protocol_version, command, args, cwd,
+endpoint) ride the new `GET /v1/nnd/configuration/mcp/advanced` with two
+fail-closed grammars: **presence** (read right only — per server the
+booleans `has_credential`/`has_credential_target`/`has_header_env`/
+`has_protocol_version`/`has_command`/`has_args`/`has_cwd`/`has_endpoint`
+plus the null-safe counts `header_credential_count` and
+`tool_effect_count`, never a value) and **inner** (manage right, the
+write-class right the manifest save demands — adds what the operator's own
+manifest wrote back to them as references: the environment NAME or
+`secret:<id>#<field>` credential pointer, the header-reference rows, the
+header-environment name map, the tool-effect rules, the pinned protocol
+version, and the transport surface; the secret VALUE still never crosses).
+Both grammars validate with mechanical sort-joined key sets, a registered
+`nnd_mcp_advanced_projection_invalid` in the 500 group, and the
+dispatch-before-plain-MCP ordering; the projection reads the resolved
+configuration verbatim and re-validates nothing. The desktop `MCP server
+details` panel renders the presence rows under its read button and the
+inner references behind an explicit `Load references` action, with the
+honest sentence that values stay native. Census rows without a verified
+GUI: 218 → 188.
+
 ## NNA 20261006-21 and NND 20261006-24 — CLI invocation flag vocabulary
 
 The 23 `invocation:*` census rows closed with a real read surface over the

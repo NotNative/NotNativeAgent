@@ -211,6 +211,7 @@ const en = {
   'settings.mcp.config.description': 'OpenCode config changes defer until restart. Connection status is the mock/NNA runtime view, not a guarantee.',
   'settings.mcp.nativeManagementUnavailable': 'NNA MCP servers are shown below. Native MCP editing is unavailable until NNA provides a scoped management contract; OpenCode configuration does not change NNA.',
   'settings.mcp.engineUnknown': 'Checking the active engine. MCP editing is unavailable until its configuration authority is known.',
+  'settings.mcpAdvanced.title': 'NNA MCP server details',
   'settings.mcp.config.loading': 'Loading MCP…',
   'settings.mcp.config.empty': 'No workspace MCP records. Choose New to add one.',
   'settings.mcp.config.projectRequired': 'A project workspace is required for project scope.',

@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · MCP advanced-fields projection · NNA 20261006-22 + NND 20261006-25
+
+The 30 `manifest_mcp` rows closed with the advanced-projection slice: nine
+fields were already native through the redacted MCP read route and editor;
+the remaining twenty-one now ride `GET /v1/nnd/configuration/mcp/advanced`
+in two fail-closed grammars — presence (read right: booleans and counts
+only) and inner (manage right: env name and secret-pointer references,
+header maps, tool effects, protocol version, transport surface — never a
+value). The desktop `MCP server details` panel renders presence rows and,
+behind an explicit button, the references, saying plainly that values stay
+native. Census rows without a verified GUI: 218 → 188. Next families: the
+rest of the `manifest_*` grind (route 48, provider 37, manifest 38, tui 20,
+mission 16, …).
+
 ## 2026-10-06 · CLI invocation flag vocabulary · NNA 20261006-21 + NND 20261006-24
 
 The 23 `invocation:*` rows closed with a real read surface: the invocation

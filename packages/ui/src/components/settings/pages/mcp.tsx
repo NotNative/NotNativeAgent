@@ -8,6 +8,7 @@ import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsSection } from '../primitives.tsx';
 import { NnaMcpInventory } from './mcp-inventory.tsx';
 import { NativeMcpEditor } from './native-mcp-editor.tsx';
+import { McpAdvancedPanel } from './mcp-advanced.tsx';
 import { WorkspaceMcpConfig } from './mcp-legacy.tsx';
 
 export function McpPage(): ReactNode {
@@ -33,6 +34,7 @@ export function McpPage(): ReactNode {
   return <SettingsSection item="mcp">
     {mode === 'legacy' ? <WorkspaceMcpConfig /> : mode === 'nna' ? <NativeMcpEditor />
       : <p role="status" className="mb-4 rounded border border-border/40 p-3 text-xs">{t('settings.mcp.engineUnknown')}</p>}
+    <McpAdvancedPanel />
     <NnaMcpInventory />
   </SettingsSection>;
 }

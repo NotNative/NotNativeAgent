@@ -630,6 +630,17 @@ refusal, the parsed option key, the operator effect), proven against
 `parseCli` by a mechanical consistency test and served fail-closed behind
 the read permission; the desktop `Invocation vocabulary` panel renders the
 grammar and states that the flags stay terminal commands.
+The MCP manifest rows then closed with an advanced-fields projection: the
+nine fields the redacted editor route already serves stay pinned there, and
+the twenty-one sensitive/structural fields ride `GET /v1/nnd/configuration/
+mcp/advanced` in two fail-closed grammars — presence under the read right
+(booleans and null-safe counts per server, never a value) and inner behind
+`nnd.configuration.manage` (the manifest's own credential references as
+environment names or `secret:<id>#<field>` pointers, header maps, tool
+effects, protocol version, transport surface; the secret VALUE never
+crosses). The desktop `MCP server details` panel on the MCP page renders
+the presence rows and, behind an explicit `Load references` action, the
+inner references, stating that values stay native.
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value

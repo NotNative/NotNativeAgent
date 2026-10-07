@@ -7553,29 +7553,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].transport",
@@ -7597,29 +7597,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].enabled",
@@ -7641,29 +7641,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].timeout_ms",
@@ -7685,29 +7685,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].connect_timeout_ms",
@@ -7729,29 +7729,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].list_timeout_ms",
@@ -7773,29 +7773,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].call_timeout_ms",
@@ -7817,29 +7817,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].shutdown_timeout_ms",
@@ -7861,29 +7861,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].tool_effects",
@@ -7905,29 +7905,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; tool effect rules (allowed/denied/unknown per tool name); presence tool_effect_count, inner the tool:effect rows. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential",
@@ -7949,29 +7950,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialEnv (an environment variable name); presence exposes has_credential, inner exposes the name reference. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential_env",
@@ -7993,29 +7995,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialEnv (an environment variable name); presence exposes has_credential, inner exposes the name reference. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential_target",
@@ -8037,29 +8040,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credentialTarget (a companion environment variable name); presence has_credential_target, inner the name reference. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_env",
@@ -8081,29 +8085,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; headerEnv (header to environment-name map); presence has_header_env, inner the name rows. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials",
@@ -8125,29 +8130,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential bindings; presence header_credential_count, inner header:reference rows (secret:<id>#<field>, never a value). Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].trusted",
@@ -8169,29 +8175,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp (redacted manifest read; saves ride the same surface with the change receipt)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpConfigurationService",
+     "mcpRead",
+     "nnd-mcp-configuration-routes"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-configuration(|-routes).test.js 8/8 (existing); NND native-mcp suites green"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the existing redacted MCP read route and the NativeMcpEditor. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].protocol_version",
@@ -8213,29 +8219,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; pinned MCP protocol version (defaults 2026-07-28); presence has_protocol_version, inner the version string. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].command",
@@ -8257,29 +8264,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch command; presence has_command, inner the command string reference only to the manage right. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].args",
@@ -8301,29 +8309,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch arguments; presence has_args, inner the args reference only to the manage right. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].cwd",
@@ -8345,29 +8354,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; stdio launch working directory; presence has_cwd, inner the cwd reference only to the manage right. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].endpoint",
@@ -8389,29 +8399,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "C5",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; streamable_http endpoint; presence has_endpoint, inner the endpoint reference only to the manage right. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.source",
@@ -8433,29 +8444,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding source; presence has_credential, inner the reference (env name or secret pointer). Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.name",
@@ -8477,29 +8489,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding name; presence has_credential, inner the reference (env name or secret pointer). Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.secret_id",
@@ -8521,29 +8534,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding secret id; presence has_credential, inner the secret:<id>#<field> pointer. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].credential.field",
@@ -8565,29 +8579,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; credential binding field; presence has_credential, inner the secret:<id>#<field> pointer. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.source",
@@ -8609,29 +8624,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding source; presence header_credential_count, inner the reference rows. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.name",
@@ -8653,29 +8669,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; environment-credential header binding name; presence header_credential_count, inner the reference rows. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.secret_id",
@@ -8697,29 +8714,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding secret id; presence header_credential_count, inner secret:<id>#<field> pointers. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_credentials.{header}.field",
@@ -8741,29 +8759,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "normalizeCredentialBinding"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; header credential binding field; presence header_credential_count, inner secret:<id>#<field> pointers. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].tool_effects.{tool}",
@@ -8785,29 +8804,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMcpServer"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; one tool effect rule; presence tool_effect_count, inner the tool:effect rows. Values never leave the native service."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].header_env.{header}",
@@ -8829,29 +8849,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "census_only",
+    "evidence": "nnd-mcp-advanced-routes 20261006-22: the advanced projection READS the manifest servers (verified grammar, fail-closed projector) and applies nothing; mutations stay on the manifest save receipt flow"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp/advanced (presence counts under nnd.configuration.read; inner adds references — env names, secret:<id>#<field> pointers, header maps, effects, transport surface — behind nnd.configuration.manage)",
+   "native_permission": "nnd.configuration.read (presence) / nnd.configuration.manage (inner references)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/mcp-advanced.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261006-22)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHeaderEnvironment"
+     "createNndMcpAdvancedConfigurationService",
+     "presenceView",
+     "innerView",
+     "projectMcpAdvanced"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-mcp-advanced-routes.test.js 2/2 (grammar+references then permission/http) + full suite 2377 pass with the census/install-slots quartet and forced-termination lab solo-verified; NND lib/page advanced suites 6/6 + window search gate"
    },
-   "notes": null
+   "notes": "Pinned 20261006-22: the field rides the advanced projection; headerEnv map row; presence has_header_env, inner the name rows. Values never leave the native service."
   },
   {
    "id": "manifest_skills:skills[*].id",
