@@ -200,7 +200,7 @@ export function projectSearxngStatus(value) {
 const REQUEST_BYTES = 4_096;
 const RESPONSE_BYTES = 16_384;
 
-/** Per-verb triage map for the 24 gateway_action/web_search_action census rows
+/** Per-verb triage map for the 26 gateway_action/web_search_action census rows
  * (all kind operator_action, store path_class config/gateway.json +
  * config/web-search.json, validator runGatewayCommand/runWebSearchCommand):
  * - gateway token / token-stdin / token-env → POST /v1/nnd/configuration/
@@ -239,7 +239,7 @@ const RESPONSE_BYTES = 16_384;
  *   verb refreshes only when assets drift; the native surface observes the
  *   current deployment and its staleness honestly instead — the refresh,
  *   when needed, is the deploy refusal's CLI authority).
- * Census sensitivity: all 24 rows pin "security" (operator authority over
+ * Census sensitivity: all 26 rows pin "security" (operator authority over
  * the Telegram bot and SearXNG deployment). */
 
 export async function dispatchNndActionTriageRequest(request, response, context) {
