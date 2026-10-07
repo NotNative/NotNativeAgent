@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6f208186884815c81fd718f8aa0d03a5e1b1eff72f270f8487dda79724e02f0f",
+  "source_digest": "sha256:61b49c7e3411157ff5264d6dcebcd941f15137bc081de3851f73f8dd3e3d4654",
   "counts": {
-    "modules": 544,
+    "modules": 545,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 236
+      "module_count": 237
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 708,
-      "module_count": 211
+      "import_count": 712,
+      "module_count": 212
     },
     {
       "from": "experience-engine",
@@ -131,15 +131,15 @@
     },
     {
       "from": "foundation",
-      "to": "persistence",
-      "import_count": 70,
-      "module_count": 48
+      "to": "integrations",
+      "import_count": 71,
+      "module_count": 40
     },
     {
       "from": "foundation",
-      "to": "integrations",
-      "import_count": 69,
-      "module_count": 39
+      "to": "persistence",
+      "import_count": 70,
+      "module_count": 48
     },
     {
       "from": "tools",
@@ -347,6 +347,12 @@
     },
     {
       "from": "foundation",
+      "to": "gateway",
+      "import_count": 5,
+      "module_count": 3
+    },
+    {
+      "from": "foundation",
       "to": "governance-engine",
       "import_count": 5,
       "module_count": 5
@@ -456,12 +462,6 @@
     {
       "from": "experience-engine",
       "to": "tools",
-      "import_count": 2,
-      "module_count": 2
-    },
-    {
-      "from": "foundation",
-      "to": "gateway",
       "import_count": 2,
       "module_count": 2
     },
@@ -2031,6 +2031,20 @@
       ]
     },
     {
+      "path": "src/nnd-action-triage-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/gateway-cli.js",
+        "src/gateway/config.js",
+        "src/gateway/telegram-api.js",
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/searxng-deployment.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
       "path": "src/nnd-activation-candidate.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2624,6 +2638,7 @@
         "src/error-code-registry.js",
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-action-triage-routes.js",
         "src/nnd-browser-routes.js",
         "src/nnd-compatibility-lifecycle-routes.js",
         "src/nnd-compatibility-routes.js",
@@ -3424,6 +3439,7 @@
       "imports": [
         "src/integration-cli.js",
         "src/integration-server.js",
+        "src/nnd-action-triage-routes.js",
         "src/nnd-browser-routes.js",
         "src/nnd-compatibility-lifecycle-routes.js",
         "src/nnd-compatibility-transaction.js",

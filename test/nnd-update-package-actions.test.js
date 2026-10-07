@@ -35,8 +35,9 @@ test('the exported settings-service key set is the exact routing surface', () =>
   assert.deepEqual(Object.keys(services).sort(), [
     'nndBrowserActionsService', 'nndCompatibilityLifecycleService', 'nndCompatibilitySettingsService',
     'nndConfigurationService', 'nndEnvironmentSnapshotService',
-    'nndGatewayTimeoutService', 'nndHooksSettingsService', 'nndInstallationSnapshotService',
-    'nndLegacyProviderCredentialsService', 'nndMcpCredentialsService',
+    'nndGatewayStatusService', 'nndGatewayTestService', 'nndGatewayTimeoutService',
+    'nndHooksSettingsService', 'nndInstallationSnapshotService',
+    'nndLegacyProviderCredentialsService', 'nndSearxngStatusService', 'nndMcpCredentialsService',
     'nndPackageActionsService', 'nndSecretsSettingsService', 'nndSkillsService', 'nndTrustService',
     'nndUpdateActionsService', 'nndUpdateStateStore', 'nndWebFetchSettingsService',
     'nndWebSearchSettingsService', 'nndWorkspaceGrantService']);
