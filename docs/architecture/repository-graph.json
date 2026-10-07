@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8d943492071b110c205041b64f197ab656c8d9f1f6c0b2d2abddd3e8e6e822ed",
+  "source_digest": "sha256:187407e07169f8b5a056fafef666950e482fb3cab6154b34e52c850ea5939cd5",
   "counts": {
-    "modules": 541,
+    "modules": 542,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 233
+      "module_count": 234
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 696,
-      "module_count": 208
+      "import_count": 701,
+      "module_count": 209
     },
     {
       "from": "experience-engine",
@@ -138,8 +138,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 63,
-      "module_count": 36
+      "import_count": 65,
+      "module_count": 37
     },
     {
       "from": "tools",
@@ -2524,6 +2524,17 @@
       ]
     },
     {
+      "path": "src/nnd-browser-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/playwright-runtime.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
       "path": "src/nnd-browser-tool.js",
       "component": "tools",
       "entrypoint": false,
@@ -2613,6 +2624,7 @@
         "src/error-code-registry.js",
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-browser-routes.js",
         "src/nnd-compatibility-lifecycle-routes.js",
         "src/nnd-compatibility-routes.js",
         "src/nnd-configuration-intents.js",
@@ -3399,6 +3411,7 @@
       "imports": [
         "src/integration-cli.js",
         "src/integration-server.js",
+        "src/nnd-browser-routes.js",
         "src/nnd-compatibility-lifecycle-routes.js",
         "src/nnd-compatibility-transaction.js",
         "src/nnd-configuration-service.js",
@@ -3419,6 +3432,7 @@
         "src/nnd-web-search-transaction.js",
         "src/nnd-workspace-grants.js",
         "src/nno-integration-activation.js",
+        "src/product.js",
         "src/provider/profile-store.js",
         "src/secret-broker.js",
         "src/secret-contracts.js"

@@ -31,7 +31,7 @@ test('the exported settings-service key set is the exact routing surface', () =>
   });
   const services = createNativeNndSettingsServices(paths, identity, {});
   assert.deepEqual(Object.keys(services).sort(), [
-    'nndCompatibilityLifecycleService', 'nndCompatibilitySettingsService',
+    'nndBrowserActionsService', 'nndCompatibilityLifecycleService', 'nndCompatibilitySettingsService',
     'nndConfigurationService', 'nndEnvironmentSnapshotService',
     'nndGatewayTimeoutService', 'nndHooksSettingsService', 'nndInstallationSnapshotService',
     'nndMcpCredentialsService',

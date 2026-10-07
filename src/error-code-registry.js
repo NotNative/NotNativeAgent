@@ -187,6 +187,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_package_action_invalid', 'nnd_package_projection_invalid',
     'nnd_package_root_invalid', 'nnd_package_command_invalid', 'nnd_package_root_mismatch',
     'nnd_installation_request_invalid', 'nnd_installation_projection_invalid',
+    'nnd_browser_action_invalid', 'nnd_browser_projection_invalid',
     'nnd_service_action_invalid', 'nnd_service_projection_invalid', 'nnd_service_run_unsupported',
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
     'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',
