@@ -416,6 +416,54 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-36 — which containers may close, taken from NNA's shape table rather than invented
+
+Rows without a desktop surface: **28 → 25**. Unverified application class: **43 → 42**, one
+row transcribed, two deliberately left alone.
+
+Nine `manifest` rows are containers, and last round's rule — a container is on screen only
+when everything it holds is rendered in that unit — looked like it would keep all of them
+open forever, because a container's members are rendered scattered across the settings pages.
+That framing was wrong, and NNA says so in its own vocabulary.
+
+`MANIFEST_SHAPE_DESCRIPTORS` in `src/configuration-keys.js` gives each manifest path a
+`kind`: `providers[*]` and `mcp_servers[*]` are **`collection`** with `identity: 'id'`;
+`attachments`, `memory`, `dream`, `tui`, `telemetry`, `reviewer_ledger`, `recovery` and
+`mission` are **`object`**; `routes.{role}` is a **`finite-map`** over `ROLES`. A collection
+has *membership* — which providers exist, which MCP servers are configured — and membership
+is a fact an operator can be denied even while every member field is visible elsewhere. A
+record has no membership; its fields are the whole of it.
+
+So the rule is now NNA's, not mine: **a collection is on screen when the surface shows which
+entries it holds; a record is on screen only when its members render together.** Three rows
+close on that basis — `providers` (the provider-observation panel lists every resolved
+provider), `routes` (one card per role, so the four cards *are* the collection), and
+`mcp_servers` (the native editor lists each server with transport and flags).
+
+`mcp_servers` is also the only class move: `configuration-catalog-metadata.js` declares it
+`container('array', { application: session, … })` and `session` is class `new_session`
+evidenced by `runtime-config.js:assertRuntimeConfigurationCompatible`. `providers` and
+`routes` keep `apply.class: unverified`, and that is the point of writing it down: `container()`
+adds no application and neither declaration supplies one, so the container has **no declared
+moment of effect**. Marking them like their members do would have filled the axis with
+vocabulary NNA never used, and would have made the 42 look worse than it is in exactly the way
+that flatters it.
+
+**One closure was refused.** `manifest.provider` is `kind: 'object'` with
+`alternative: 'providers[*]'`, and `resolveManifest` folds it into the same list — so the
+panel does show the provider an alias spells. But the panel never says *which spelling the
+file used*, and a compatibility-alias row exists precisely to track the alias. Showing the
+resolved effect is not showing the alias. The row stays open until the surface names the
+spelling, and it stayed open while it was still worth a count.
+
+The rest of what stays open, with the reason: seven `object` records whose fields render
+apart, and `mission`, which is an `authority_grant` NNA accepts only from an authenticated
+headless host (`mission_authority_forbidden` otherwise) — a desktop field for it would be a
+control with no authority behind it.
+
+After this round: no desktop surface 25; unverified surface status 0; unverified class 42;
+verified rows with no recorded examination 0.
+
 ## NND 20261007-35 — four route bindings appear on the page, and the ceremony is missing a step because NNA needed nothing
 
 Rows without a desktop surface: **32 → 28**. Rows declaring an unverified application

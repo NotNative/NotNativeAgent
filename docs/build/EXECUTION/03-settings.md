@@ -438,7 +438,31 @@ That also fixes the copy: a card must name the authority that can change what it
 Reviewer and vision point at the paired binding offered below; Primary and Subagent point
 at the provider route authority (`PATCH /v1/provider-route`, `/v1/provider-route/subagent`).
 Telling the operator that the editor below changes Primary would be false in a place where
-false is expensive. Manifest container
+false is expensive.
+
+`20261007-36` settled the rest of that rule, and settled it from NNA's side rather than ours.
+`MANIFEST_SHAPE_DESCRIPTORS` in `src/configuration-keys.js` already classifies every manifest
+path: `kind: 'collection'` with an `identity` for `providers[*]` and `mcp_servers[*]`,
+`kind: 'object'` for `attachments`, `memory`, `dream`, `tui`, `telemetry`, `reviewer_ledger`,
+`recovery` and `mission`, and `finite-map` over `ROLES` for `routes.{role}`. The distinction
+that matters for a surface follows from the kind, not from a preference:
+
+- **a collection is on screen when the surface shows which entries it holds.** Membership is
+  information no member field carries — an operator can see every field of the servers that
+  exist and still not know that a fourth server was never written down. The provider list,
+  the four role cards, and the native MCP server list all answer that question, so those
+  three containers close.
+- **a record is on screen only when its members render together.** A record has no membership;
+  its fields are all there is, and scattering them across a settings page does not assemble them.
+
+Two refusals belong to the same rule and are recorded because they were tempting.
+`manifest.provider` is an alias whose effect *is* on screen — `resolveManifest` folds the
+singular spelling into the same provider list the panel prints — but nothing says which
+spelling the file used, and the row exists to track the alias, so it stays open. And
+`providers` and `routes` keep `apply.class: unverified` even though their members have
+declared classes, because `container()` supplies no application and neither declaration names
+one: the container has no declared moment of effect, and a census that fills such gaps with
+inherited vocabulary stops being evidence. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container

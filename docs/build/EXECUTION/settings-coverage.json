@@ -304,26 +304,28 @@
     "class": "unverified",
     "evidence": null
    },
-   "native_endpoint": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/provider-observation.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C3 collection membership surfaces (NNA a026763e, NND 20261007-36)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/provider-observation.test.tsx: renders each provider binding as a reference and never a credential value, renders the environment binding beside its compatibility alias, and says the manifest is absent instead of showing an empty provider list"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Closed 20261007-36 because the desktop now shows membership: the provider-observation panel lists every resolved provider by id, with its model, endpoint, trust zone and credential binding, and the tests read those lines off the screen. NNA's own shape table decides which rows can close this way: MANIFEST_SHAPE_DESCRIPTORS calls providers[*] and mcp_servers[*] kind collection with identity id, so seeing which entries exist is seeing the container. The object-shaped rows in this family are not collections and stay open. No application class is claimed for providers or routes: container() adds no application and neither declaration supplies one, so the container has no declared moment of effect and saying otherwise would be inventing vocabulary."
   },
   {
    "id": "manifest:routes",
@@ -348,26 +350,28 @@
     "class": "unverified",
     "evidence": null
    },
-   "native_endpoint": null,
+   "native_endpoint": "GET /v1/nnd/configuration",
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C3 collection membership surfaces (NNA a026763e, NND 20261007-36)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/native-routes.test.tsx: shows all four route bindings with the authority that actually changes each one"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Closed 20261007-36 because the desktop now shows membership: the route page now shows one card per role in contracts.js ROLES, so the collection is exactly the four cards and no role is hidden. NNA's own shape table decides which rows can close this way: MANIFEST_SHAPE_DESCRIPTORS calls providers[*] and mcp_servers[*] kind collection with identity id, so seeing which entries exist is seeing the container. The object-shaped rows in this family are not collections and stay open. No application class is claimed for providers or routes: container() adds no application and neither declaration supplies one, so the container has no declared moment of effect and saying otherwise would be inventing vocabulary."
   },
   {
    "id": "manifest:application_system_prompt",
@@ -1394,29 +1398,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/configuration-catalog-metadata.js declares the collection with application: session (mcp_servers: container('array', { application: session, … })), and session is class new_session evidenced by runtime-config.js:assertRuntimeConfigurationCompatible. Transcribed from NNA's declaration; this slice exercised no MCP change."
    },
-   "native_endpoint": null,
+   "native_endpoint": "GET /v1/nnd/configuration/mcp",
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-mcp-editor.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C3 collection membership surfaces (NNA a026763e, NND 20261007-36)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/native-mcp-editor.test.tsx: shows which servers the user manifest defines and how each one is flagged, asserting the list carries both ids and both flag sets"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Closed 20261007-36 because the desktop now shows membership: the native editor lists each user-manifest server with its transport and its enabled and trusted flags, and a test added this slice asserts the list itself, which only the edit flows had ever touched. NNA's own shape table decides which rows can close this way: MANIFEST_SHAPE_DESCRIPTORS calls providers[*] and mcp_servers[*] kind collection with identity id, so seeing which entries exist is seeing the container. The object-shaped rows in this family are not collections and stay open. No application class is claimed for providers or routes: container() adds no application and neither declaration supplies one, so the container has no declared moment of effect and saying otherwise would be inventing vocabulary."
   },
   {
    "id": "manifest:tui",

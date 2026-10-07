@@ -3,6 +3,40 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Three containers close on NNA's own shape table; one closure refused · NND 20261007-36
+
+**28 → 25 no-surface; 43 → 42 class-unverified (one transcription, two left alone).**
+
+Last round's container rule would have kept every container open forever. The fix wasn't a
+looser rule of mine — it's NNA's own vocabulary. `MANIFEST_SHAPE_DESCRIPTORS`
+(configuration-keys.js) gives each path a `kind`: `providers[*]`/`mcp_servers[*]` are
+**`collection` with `identity: 'id'`**; `attachments`/`memory`/`dream`/`tui`/`telemetry`/
+`reviewer_ledger`/`recovery`/`mission` are **`object`**; `routes.{role}` is a **`finite-map`**.
+
+A collection has **membership** — which providers exist, which MCP servers are configured —
+a fact an operator can be denied even while every member field is visible elsewhere. A record
+has none. So: *a collection is on screen when the surface shows which entries it holds; a
+record only when its members render together.* `providers`, `routes`, `mcp_servers` close.
+
+**A closure was refused.** `manifest.provider` (`alternative: 'providers[*]'`) *is* rendered as
+the resolved provider — but the panel never says **which spelling the file used**, and a
+compatibility-alias row exists to track the alias. Showing the effect ≠ showing the alias. It
+stayed open while it was worth a count.
+
+Two rows deliberately keep `apply.class: unverified`: `container()` supplies no application and
+neither `providers` nor `routes` declares one, so the container has **no declared moment of
+effect**. Filling them with their members' class would invent vocabulary and make the axis look
+better than it is. `mcp_servers` alone is transcribed — it *does* declare
+`application: session` → `new_session`.
+
+Also found by looking: the native MCP editor rendered server membership all along, but **no
+test had ever asserted the list** — only the edit flows that consume it. Now asserted (ids +
+transport + enabled/trusted + the count line).
+
+Stays open with reasons: 7 `object` records (fields render apart), and `mission`, an
+`authority_grant` NNA accepts only from an authenticated headless host (`mission_authority_forbidden`)
+— a desktop control for it would have no authority behind it.
+
 ## 2026-10-07 · Four route bindings show on the page; the ceremony skips a step because NNA needed nothing · NND 20261007-35
 
 **32 → 28 no-surface; 47 → 43 class-unverified — the second of those is transcription, not capability.**

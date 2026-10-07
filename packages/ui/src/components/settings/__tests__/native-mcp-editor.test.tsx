@@ -82,6 +82,30 @@ describe('native MCP editor', () => {
     expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/save'))).toBe(false);
   });
 
+  it('shows which servers the user manifest defines and how each one is flagged', async () => {
+    const existing = { ...view, servers: [
+      { id: 'alpha', transport: 'stdio', enabled: true, trusted: true },
+      { id: 'beta', transport: 'streamable_http', enabled: false, trusted: false }] };
+    fetchMock.mockImplementation((path: string) => {
+      if (path.endsWith('/configuration/mcp')) return Promise.resolve(json(existing));
+      throw new Error(`unexpected ${path}`);
+    });
+    await renderEditor();
+    const lines = () => [...container.querySelectorAll('li')].map(item => item.textContent ?? '');
+    // The collection row in the census is about membership: which servers exist at all.
+    // Nothing here had ever asserted the list itself, only the edit flows that consume it.
+    expect(lines()).toHaveLength(2);
+    const alpha = lines().find(line => line.includes('alpha')) ?? '';
+    const beta = lines().find(line => line.includes('beta')) ?? '';
+    expect(alpha).toContain('stdio');
+    expect(alpha).toContain('enabled');
+    expect(alpha).toContain('trusted');
+    expect(beta).toContain('streamable_http');
+    expect(beta).toContain('disabled');
+    expect(beta).toContain('untrusted');
+    expect(container.textContent).toContain('2 user server(s)');
+  });
+
   it('previews and saves a disabled local server with exact native CAS, then reports not applied', async () => {
     fetchMock.mockImplementation((path: string, init: RequestInit) => {
       if (path.endsWith('/configuration/mcp')) return Promise.resolve(json(view));
