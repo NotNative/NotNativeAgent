@@ -219,6 +219,63 @@ it('offers explicit recovery from an expired receipt and requires refresh before
   expect(container.querySelector<HTMLInputElement>('input[type="number"]')).not.toBeNull();
 });
 
+it('composes the enable flip, the token variable set and reset, and a revocation', async () => {
+  // These three compositions live in the page's composeOperations and were
+  // previously only asserted by reading it. Each is now clicked, so the row in
+  // the settings census can name an assertion instead of a source line.
+  const cases: Array<{ name: string; served: Record<string, unknown>; act: () => Promise<void>;
+    expected: Record<string, unknown>; candidate: Record<string, unknown> }> = [
+    {
+      name: 'flipping the enabled checkbox composes a boolean set',
+      served: {},
+      act: async () => { await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click()); },
+      expected: { op: 'set', field: 'enabled', value: false },
+      candidate: { enabled: false },
+    },
+    {
+      name: 'naming another environment variable composes a set of token_env',
+      served: {},
+      act: async () => { await type('[data-testid="gateway-token-env"]', 'NNA_GATEWAY_TOKEN'); },
+      expected: { op: 'set', field: 'token_env', value: 'NNA_GATEWAY_TOKEN' },
+      candidate: { token_env: 'NNA_GATEWAY_TOKEN' },
+    },
+    {
+      name: 'clearing the variable back to blank composes a reset, not an empty value',
+      served: { token_env: 'NNA_GATEWAY_TOKEN' },
+      act: async () => { await type('[data-testid="gateway-token-env"]', ''); },
+      expected: { op: 'reset', field: 'token_env' },
+      candidate: { token_env: 'NNA_TELEGRAM_BOT_TOKEN' },
+    },
+    {
+      name: 'removing a grant composes a revocation for that id',
+      served: {},
+      act: async () => { await click('Remove'); },
+      expected: { op: 'revoke', user_id: '123' },
+      candidate: { authorized_user_ids: [] },
+    },
+  ];
+  for (const item of cases) {
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((path: string, init: RequestInit) => {
+      if (path.endsWith('/gateway')) return Promise.resolve(json({ ...view, ...item.served }));
+      if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
+      if (path.endsWith('/preview')) return Promise.resolve(json({ valid: true, expected_revision: revision,
+        resolution_revision: revision, application: 'not_applied',
+        view: { ...view, ...item.served, ...item.candidate } }));
+      if (path.endsWith('/save')) return Promise.resolve(json(saved(JSON.parse(String(init.body)).operation_id)));
+      throw new Error('unexpected ' + path);
+    });
+    await mount();
+    await item.act();
+    await click('Preview native change');
+    await click('Save with native revision check');
+    const body = JSON.parse(String(fetchMock.mock.calls.find(([path]) =>
+      String(path).endsWith('/save'))![1].body));
+    expect(body.operations).toEqual([item.expected]);
+    await act(async () => root.unmount()); container.remove();
+  }
+});
+
 it('refuses to preview when the composed batch carries an invalid user grant', async () => {
   fetchMock.mockImplementation((path: string) => {
     if (path.endsWith('/gateway')) return Promise.resolve(json(view));

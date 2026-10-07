@@ -1130,6 +1130,13 @@ owning product's tree, and the seal prints the count as `surface_files_missing`.
 **a census field that points outside itself is only as trustworthy as the check that follows the
 pointer** — the same reason a citation must name a file a reader can open.
 
+A citation that says *"not asserted by this suite"* is a to-do with a location. It is allowed because
+naming a gap is cheaper than papering over it, but it is not a resting place: the next version that
+touches that row should close it or say why it cannot. Three such gaps in the gateway family — the
+enable flip, the token-variable set and reset, and a grant revocation — were named in one version and
+turned into clicked assertions in the next, moving the UI suite from 1917 to 1918 and letting four
+rows cite a saved request body instead of a source line.
+
 ### A row may state that no desktop surface is owed
 
 If a surface is

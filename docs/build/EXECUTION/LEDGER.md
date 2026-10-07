@@ -416,6 +416,42 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-48 — the three gaps named last version are closed by tests, and four rows re-cited to click level
+
+This round is the rare kind: **coverage actually rose**. `native-gateway-timeout.test.tsx` goes from
+seven tests to eight — the new one drives four compositions through the real controls — and the UI
+suite goes **1917 → 1918** across the same 265 files, green. The census axes hold where they were:
+rows 371, owed 18, not owed with evidence 7, unverified surface 0, unverified class 42, citations
+naming no test file 69 of 662 (no file at all 60), installed evidence 0 of 371, surface paths
+346 of 346.
+
+Last version named three things the suite did not do, rather than writing around them. Each is now
+done, and each row's citation was rewritten to say so:
+
+- **the enable flip**. Ticking the enabled checkbox now composes exactly one operation,
+  `{ op: 'set', field: 'enabled', value: false }`, and the saved body is nothing else. The
+  `disable` row gets the same evidence from the other direction, because the served state is
+  enabled and the click produces the `false`.
+- **the token variable**. Naming another variable composes `{ op: 'set', field: 'token_env', value:
+  'NNA_GATEWAY_TOKEN' }`; **clearing the field composes a `reset`, not an empty value** — the
+  distinction the server grammar depends on, and the kind of thing a composition-only reading never
+  has to defend.
+- **the revocation**. `Remove` is no longer a control pinned as merely offered: clicking it
+  composes exactly one `{ op: 'revoke', user_id: '123' }`.
+
+All four assertions are at the boundary that matters — the saved request body — so the row can say
+what the operator's click produced, not what a source line appears capable of.
+
+Nothing here was easy in the way that shows up in a count: the four cases share one `it` because they
+share the page's mount-and-save shape, and the suite had to keep its per-iteration mock reset so the
+save call asserted belongs to the case being clicked. One tooling note worth keeping: the patcher
+that rewrote these citations was rewritten to avoid `throw new Error(...)` after the corruption in
+this session kept mangling that exact token; it now refuses by printing and setting an exit code.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 69 of 662 (no file at all 60);
+installed evidence 0 of 371.
+
 ## NND 20261007-47 — the second half of the shell-command citations, and three test gaps the citations exposed
 
 Citations naming no test file: **82 → 69**; naming no file at all: **73 → 60**. Thirteen rows

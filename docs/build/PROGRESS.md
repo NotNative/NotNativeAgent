@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The `-47` gaps closed by tests: UI suite 1917 → 1918 · NND 20261007-48
+
+**Coverage actually rose this time.** `native-gateway-timeout.test.tsx` 7 → 8 tests (one drives four
+compositions through the real controls); **UI suite 1917 → 1918** across the same 265 files, green.
+Census axes hold (owed 18, dispositions 7, no-test 69/662, no-file 60, installed 0/371, paths 346/346).
+
+Each `-47` gap is now done, and its row re-cited at the boundary that matters — the **saved request
+body**: ticking Enabled composes exactly `{op:'set',field:'enabled',value:false}` and nothing else;
+naming another variable composes `set token_env 'NNA_GATEWAY_TOKEN'`, and **clearing the field
+composes a `reset`, not an empty value** (the distinction the server grammar depends on, and one a
+source-reading never has to defend); clicking `Remove` composes exactly one
+`{op:'revoke',user_id:'123'}`. Naming a gap last version was the point — this version closed it rather
+than citing the boundary a second time.
+
 ## 2026-10-07 · Second half of the shell-command citations gone; 3 test gaps named · NND 20261007-47
 
 **No-test 82 → 69; no-file-at-all 73 → 60.** 13 rows, 13 command lines replaced, **13 kept**. All
