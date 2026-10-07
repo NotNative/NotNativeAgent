@@ -93,6 +93,70 @@ it('renders a role whose binding the view does not carry as no value rather than
   expect(card).toContain('—');
 });
 
+it('renders every served member of each route role beside its binding pair', async () => {
+  // The route container is on screen only when this card renders everything
+  // the role holds (the 20261007-57 record-container rule): NNA serves eleven
+  // members per role (test/nnd-configuration-view.test.js "the route family
+  // serves inherited bindings, canonical zeros, and its own availability
+  // gate"), so the card lists all of them with their declared raw value and
+  // their resolved value with provenance — including the members the paired
+  // editors do not touch (required_capabilities, fallbacks) and the canonical
+  // zeros and inherited provenance NNA's own test pins.
+  const fields = [
+    ...['primary', 'reviewer', 'subagent', 'vision'].flatMap(role => ([
+      row(`routes.${role}.provider_id`, role === 'primary' ? 'local' : 'local'), row(`routes.${role}.model`, role === 'primary' ? 'primary-model' : 'base'),
+      row(`routes.${role}.deadline_ms`, 0),
+      { path: `routes.${role}.context_limit_bytes`, catalog_path: `routes.${role}.context_limit_bytes`,
+        explicit: { present: true as const, value: null }, effective: { present: true as const, value: null, source_unavailable: true },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.required_capabilities`, catalog_path: `routes.${role}.required_capabilities`,
+        explicit: { present: true as const, value: ['tools'] }, effective: { present: true as const, value: ['tools'], source: 'user' },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.temperature`, catalog_path: `routes.${role}.temperature`,
+        explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.max_output_tokens`, catalog_path: `routes.${role}.max_output_tokens`,
+        explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.budget`, catalog_path: `routes.${role}.budget`,
+        explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.fallbacks`, catalog_path: `routes.${role}.fallbacks`,
+        explicit: { present: false as const }, effective: { present: true as const, value: [], source_unavailable: true },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.reasoning_effort`, catalog_path: `routes.${role}.reasoning_effort`,
+        explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
+        application: 'not_applied' as const },
+      { path: `routes.${role}.enable_thinking`, catalog_path: `routes.${role}.enable_thinking`,
+        explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
+        application: 'not_applied' as const },
+    ])),
+    row('providers[local].id', 'local'), row('providers[local].model', 'base'),
+  ] as never;
+  vi.mocked(requestNativeConfiguration).mockResolvedValue({ ...view, fields } as never);
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>));
+  await act(async () => {});
+  const card = (role: string) => container.querySelector(`[data-testid="route-binding-${role}"]`)?.textContent ?? '';
+  for (const role of ['primary', 'reviewer', 'subagent', 'vision']) {
+    // Every member the container holds is rendered in this unit, by name.
+    for (const key of ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
+      'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking']) {
+      expect(card(role), `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
+    }
+    // The shapes NNA's own test pins are shown verbatim: the canonical zero
+    // deadline, the null unset limits, the fallbacks and required
+    // capabilities arrays, and per-member provenance (resolved with its
+    // layer, inherited/derived marked Unavailable, unset defaults compiled).
+    expect(card(role)).toContain('0');
+    expect(card(role)).toContain('null');
+    expect(card(role)).toContain('["tools"]');
+    expect(card(role)).toContain('[]');
+    expect(card(role)).toContain('user');
+    expect(card(role)).toContain('compiled_default');
+    expect(card(role)).toContain('Unavailable');
+  }
+});
+
 it('previews and saves one paired reviewer provider/model binding with native CAS and receipt', async () => {
   const request = { installation_id: view.installation_id, data_id: view.data_id, scope: 'user' as const,
     expected_revision: revision, expected_resolution_revision: resolution,

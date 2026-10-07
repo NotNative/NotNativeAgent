@@ -3,6 +3,16 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The four route-role containers close on a self-complete card · NND 20261007-60
+
+The route cards previously rendered the binding pair only (2 of 11 members); the rest rode the
+editors across pages. The card now renders every served member — all eleven keys, raw and resolved
+with provenance — beside that pair, and one fixture asserts all four roles' full member sets and
+shapes from one served view. All four `manifest_route` container rows close verified; the
+containers keep the unverified class (no declared application on the roles family). Surfaces owed
+**5 → 1** (`manifest:mission` only). Page change + one new test; suites green; typecheck clean;
+gate green.
+
 ## 2026-10-07 · The legacy singular-provider alias closes on both spellings' composed view · NND 20261007-59
 
 `manifest:provider` — the raw unresolved row — closed verified: NNA's alias grammar was already

@@ -104,6 +104,7 @@ export const enNativeConfiguration = {
   'settings.nativeRoutes.bindingRole': 'Route to bind',
   'settings.nativeRoutes.bindingProvider': 'Binding provider',
   'settings.nativeRoutes.bindingModel': 'Binding model',
+  'settings.nativeRoutes.members': 'All served members of this route role',
   'settings.nativeRoutes.chooseProvider': 'Choose provider',
   'settings.nativeRoutes.noUserProviders': 'No provider in the selected user manifest is available for binding.',
   'settings.nativeRoutes.choose': 'Reviewer or vision setting',

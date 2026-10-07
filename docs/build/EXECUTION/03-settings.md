@@ -1162,6 +1162,28 @@ provider editing on this surface, and the row keeps `unverified` application
 class because NNA's container declaration carries none. Surfaces owed are now
 **6 → 5**.
 
+The route-role containers closed the round after (`20261007-60`), on the same
+composed-fixture rule. The route card had shown the binding pair only — two of
+the eleven members each role container holds (`provider_id`, `model`,
+`context_limit_bytes`, `required_capabilities`, `temperature`,
+`max_output_tokens`, `budget`, `fallbacks`, `deadline_ms`,
+`reasoning_effort`, `enable_thinking`), with the rest riding the editors: seven
+scalars for reviewer/vision on the page's tuning chooser, and primary/subagent
+spread across the inventory's scheduling, deadline and grouped controls. That
+failed the record-container bar (a container is on screen when one unit
+renders everything it holds). The fix is a card extension, not a new page:
+each role card now lists all eleven members by name with the raw and resolved
+value and the provenance NNA's own route-family test pins (canonical zeros,
+the inherited/derived provenance the view refuses to attribute to a layer,
+compound arrays). One fixture asserts all four cards render the full member
+set ("renders every served member of each route role beside its binding
+pair"), while the existing tests keep proving the pair editors and the scalar
+chooser beside them; the binding authority text is unchanged (reviewer/vision
+editable here, primary/subagent through the provider route authority). All
+four census rows close verified on that unit; the containers keep the
+`unverified` class because the roles-family declaration carries no
+application. Surfaces owed are now **5 → 1**.
+
 ### What "verified" means in the census, and what it does not
 
 `current_gui.status: verified` means one specific thing: a named test file reads the field off

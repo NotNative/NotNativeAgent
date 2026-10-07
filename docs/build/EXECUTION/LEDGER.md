@@ -416,6 +416,44 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-60 — the four route-role containers close on a self-complete card
+
+Rows without a desktop surface: **5 → 1**. The last four containers of the route family —
+`routes.primary`, `routes.reviewer`, `routes.subagent`, `routes.vision` — closed verified on the
+20261007-57 record rule, with one page change:
+
+- *The gap was real*: the route card rendered the binding pair (2 of the 11 members a role holds)
+  and everything else rode the editors — 7 scalars in the reviewer/vision tuning chooser, and
+  primary/subagent's other members on the inventory page's grouped controls. By -57 (one unit must
+  render everything the container holds), none of the four was on screen.
+- *The move is one unit*: `native-routes.tsx` cards now render every served member by name —
+  `provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens,
+  budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking` — each with its raw value and
+  its resolved value with provenance, exactly the shapes NNA's route-family test pins
+  (`nnd-configuration-view.test.js`: "the route family serves inherited bindings, canonical zeros,
+  and its own availability gate" — provider/model resolved, deadline inherited with provenance the
+  view refuses to attribute to a layer, unset scalars null at compiled_default, `fallbacks` and
+  `required_capabilities` as arrays).
+- *The proof composes*: the new fixture renders all four cards from one served view and asserts
+  every member appears in its own card with those shapes ("renders every served member of each
+  route role beside its binding pair"); the suite's existing tests keep proving the rest of the
+  composition (reviewer/vision paired native binding with CAS and receipts, the 14-option scalar
+  chooser covering all seven tuning keys for both roles, the authority split — primary/subagent
+  bound through the provider route authority, and the pair editors refused for roles whose binding
+  the view does not carry).
+- *Class*: the containers keep `unverified` — the roles family declares
+  `container('object')` per role with no application; the members carry NNA-declared
+  classes of their own, already transcribed per row.
+
+Code and tests: card member table in `native-routes.tsx` (one new i18n key
+`settings.nativeRoutes.members`), one new composed test in `native-routes.test.tsx`
+(9 tests in the file, all green; inventory suite re-run green; typecheck clean). The coverage
+gate passes against the paired NNA checkout.
+
+After this round: rows 371; surfaces owed **1** — `manifest:mission`, the desktop-principal
+refusal NNA's authority grant owns (closing move is per guide, no GUI path owed); not owed with
+evidence 11; verified 39; unverified application class 33; installed evidence 0 of 371.
+
 ## NND 20261007-59 — the legacy singular-provider alias closes on both spellings' composed view
 
 Rows without a desktop surface: **6 → 5**. `manifest:provider` — the raw unresolved row, the

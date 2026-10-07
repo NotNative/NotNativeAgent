@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { requestNativeConfiguration, type NativeConfigurationView, type NativeValue } from '../../../lib/nnd/configuration.ts';
 import { onRuntimeEndpointChanged, getRuntimeKey } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -37,6 +37,20 @@ function routeValue(value: NativeValue | undefined): string {
   return 'value' in value ? String(value.value) : '—';
 }
 
+function memberText(value: NativeValue | undefined, t: ReturnType<typeof useI18n>['t']): string {
+  if (!value?.present) return t('settings.nativeConfiguration.absent');
+  if ('redacted' in value) return t('settings.nativeConfiguration.redacted');
+  if ('value_unavailable' in value) return t('settings.nativeConfiguration.unavailableValue');
+  return JSON.stringify(value.value);
+}
+
+// NNA serves eleven members for every route role (test/nnd-configuration-view.test.js: "the
+// route family serves inherited bindings, canonical zeros, and its own availability gate"),
+// so the role card renders the whole family, not only the binding pair: the closed route
+// container is on screen when this card shows everything its role holds.
+const ROUTE_MEMBERS = ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
+  'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking'] as const;
+
 // NNA's own role list (src/contracts.js:12) and the subset it lets the desktop rebind
 // (NND_ROUTE_BINDING_ROLES, src/nnd-configuration-intents.js:7). Primary and subagent are
 // bound through the provider route authority instead, so their cards must not imply that
@@ -58,6 +72,18 @@ function RoleBinding({ view, role }: { view: NativeConfigurationView; role: Rout
     <p className="text-muted-foreground">{ROUTE_BINDING_ROLES.includes(role)
       ? t('settings.nativeRoutes.bindingReadOnly')
       : t('settings.nativeRoutes.bindingProviderRoute')}</p>
+    <dl aria-label={t('settings.nativeRoutes.members')} className="mt-1 grid grid-cols-[auto_1fr] gap-x-3">
+      {ROUTE_MEMBERS.map(key => {
+        const field = view.fields.find(item => item.path === `routes.${role}.${key}`);
+        return <Fragment key={key}>
+          <dt className="font-mono">{`routes.${role}.${key}`}</dt>
+          <dd>{memberText(field?.explicit, t)}</dd>
+          <dd className="break-all">{memberText(field?.effective, t)}
+            <span className="text-muted-foreground">
+              {field?.effective.source ?? t('settings.nativeConfiguration.originUnknown')}</span></dd>
+        </Fragment>;
+      })}
+    </dl>
   </div>;
 }
 

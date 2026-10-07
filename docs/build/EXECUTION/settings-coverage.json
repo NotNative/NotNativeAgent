@@ -3843,22 +3843,25 @@
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-60)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-configuration-view.test.js \"the route family serves inherited bindings, canonical zeros, and its own availability gate\" pins every member the role container holds for all four roles",
+     "packages/ui/src/components/settings/__tests__/native-routes.test.tsx \"renders every served member of each route role beside its binding pair\" proves the whole composed member set as of 20261007-60: all four cards render the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, by name, with raw and resolved values and provenance (canonical zero deadline, null unset limits, the [\"tools\"] and [] arrays, user/compiled_default/Unavailable origins), and the same suite's existing tests prove the paired binding and scalar editors beside them"
+    ],
     "installed_journey": null
    },
-   "notes": "Structural route object for one role; leaves carry the operator settings. Regenerated from the NNA classified catalog."
+   "notes": "Closed 20261007-60 on the composed-fixture rule, the container transcripted at -57: the role container is on screen when one unit renders everything it holds, and the route card now does — the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, with each member's declared raw value and resolved value with its provenance (the shapes NNA's own route-family test pins: canonical zeros, inherited provenance, compound arrays), beside the binding pair and the editors the page already offers. Before this round the card showed 2 of the members and the rest rode the choosers (7 scalars for reviewer/vision on this page, 9 members for primary/subagent on other pages), which failed the -57 bar; the card extension makes each card self-complete. The container keeps the unverified class: its family is buildRoutes, and the container declaration (container('object') at L75 of the roles family) carries no application of its own — the per-member operators carry their own NNA-declared classes."
   },
   {
    "id": "manifest_route:routes.subagent",
@@ -3887,22 +3890,25 @@
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-60)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-configuration-view.test.js \"the route family serves inherited bindings, canonical zeros, and its own availability gate\" pins every member the role container holds for all four roles",
+     "packages/ui/src/components/settings/__tests__/native-routes.test.tsx \"renders every served member of each route role beside its binding pair\" proves the whole composed member set as of 20261007-60: all four cards render the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, by name, with raw and resolved values and provenance (canonical zero deadline, null unset limits, the [\"tools\"] and [] arrays, user/compiled_default/Unavailable origins), and the same suite's existing tests prove the paired binding and scalar editors beside them"
+    ],
     "installed_journey": null
    },
-   "notes": "Structural route object for one role; leaves carry the operator settings. Regenerated from the NNA classified catalog."
+   "notes": "Closed 20261007-60 on the composed-fixture rule, the container transcripted at -57: the role container is on screen when one unit renders everything it holds, and the route card now does — the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, with each member's declared raw value and resolved value with its provenance (the shapes NNA's own route-family test pins: canonical zeros, inherited provenance, compound arrays), beside the binding pair and the editors the page already offers. Before this round the card showed 2 of the members and the rest rode the choosers (7 scalars for reviewer/vision on this page, 9 members for primary/subagent on other pages), which failed the -57 bar; the card extension makes each card self-complete. The container keeps the unverified class: its family is buildRoutes, and the container declaration (container('object') at L75 of the roles family) carries no application of its own — the per-member operators carry their own NNA-declared classes."
   },
   {
    "id": "manifest_route:routes.reviewer",
@@ -3931,22 +3937,25 @@
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-60)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-configuration-view.test.js \"the route family serves inherited bindings, canonical zeros, and its own availability gate\" pins every member the role container holds for all four roles",
+     "packages/ui/src/components/settings/__tests__/native-routes.test.tsx \"renders every served member of each route role beside its binding pair\" proves the whole composed member set as of 20261007-60: all four cards render the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, by name, with raw and resolved values and provenance (canonical zero deadline, null unset limits, the [\"tools\"] and [] arrays, user/compiled_default/Unavailable origins), and the same suite's existing tests prove the paired binding and scalar editors beside them"
+    ],
     "installed_journey": null
    },
-   "notes": "Structural route object for one role; leaves carry the operator settings. Regenerated from the NNA classified catalog."
+   "notes": "Closed 20261007-60 on the composed-fixture rule, the container transcripted at -57: the role container is on screen when one unit renders everything it holds, and the route card now does — the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, with each member's declared raw value and resolved value with its provenance (the shapes NNA's own route-family test pins: canonical zeros, inherited provenance, compound arrays), beside the binding pair and the editors the page already offers. Before this round the card showed 2 of the members and the rest rode the choosers (7 scalars for reviewer/vision on this page, 9 members for primary/subagent on other pages), which failed the -57 bar; the card extension makes each card self-complete. The container keeps the unverified class: its family is buildRoutes, and the container declaration (container('object') at L75 of the roles family) carries no application of its own — the per-member operators carry their own NNA-declared classes."
   },
   {
    "id": "manifest_route:routes.primary",
@@ -3975,22 +3984,25 @@
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-60)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-configuration-view.test.js \"the route family serves inherited bindings, canonical zeros, and its own availability gate\" pins every member the role container holds for all four roles",
+     "packages/ui/src/components/settings/__tests__/native-routes.test.tsx \"renders every served member of each route role beside its binding pair\" proves the whole composed member set as of 20261007-60: all four cards render the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, by name, with raw and resolved values and provenance (canonical zero deadline, null unset limits, the [\"tools\"] and [] arrays, user/compiled_default/Unavailable origins), and the same suite's existing tests prove the paired binding and scalar editors beside them"
+    ],
     "installed_journey": null
    },
-   "notes": "Structural route object for one role; leaves carry the operator settings. Regenerated from the NNA classified catalog."
+   "notes": "Closed 20261007-60 on the composed-fixture rule, the container transcripted at -57: the role container is on screen when one unit renders everything it holds, and the route card now does — the eleven members: provider_id, model, context_limit_bytes, required_capabilities, temperature, max_output_tokens, budget, fallbacks, deadline_ms, reasoning_effort, enable_thinking, with each member's declared raw value and resolved value with its provenance (the shapes NNA's own route-family test pins: canonical zeros, inherited provenance, compound arrays), beside the binding pair and the editors the page already offers. Before this round the card showed 2 of the members and the rest rode the choosers (7 scalars for reviewer/vision on this page, 9 members for primary/subagent on other pages), which failed the -57 bar; the card extension makes each card self-complete. The container keeps the unverified class: its family is buildRoutes, and the container declaration (container('object') at L75 of the roles family) carries no application of its own — the per-member operators carry their own NNA-declared classes."
   },
   {
    "id": "manifest_route:routes.primary.model",
