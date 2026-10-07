@@ -30,6 +30,52 @@ test('global WebSearch configuration is absent-safe, normalized, and durable', a
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('the version-1 document keys load into the served version-2 shape as an alias', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-alias-'));
+  const path = join(root, 'web-search.json');
+  try {
+    // The census rows web_search_alias:{provider,endpoint,managed,profiles[*].displayName}
+    // state that NNA accepts the legacy v1 keys at load and serves only the canonical v2
+    // spelling. That load path had never been exercised: the provider test after this one
+    // proves the refusal half and the save test proves the durable round, but raw v1 bytes
+    // through loadWebSearchConfig left the alias claim resting on reading legacyProfiles.
+    await writeFile(path, JSON.stringify({
+      enabled: true, provider: 'searxng', endpoint: 'http://192.168.1.8:8080/search/', managed: false,
+    }));
+    assert.deepEqual(await loadWebSearchConfig(path), {
+      version: 2, enabled: true, profiles: [{
+        id: 'primary', display_name: 'Primary SearXNG', provider: 'searxng',
+        endpoint: 'http://192.168.1.8:8080', managed: false,
+      }],
+    });
+    await writeFile(path, JSON.stringify({
+      enabled: true, provider: 'searxng', endpoint: 'http://192.168.1.8:8080/search/', managed: true,
+    }));
+    const local = await loadWebSearchConfig(path);
+    assert.equal(local.profiles[0].display_name, 'Local SearXNG');
+    assert.equal(local.profiles[0].managed, true);
+    // Legacy bytes with no root endpoint carry no profile, and enabling then refuses.
+    await writeFile(path, JSON.stringify({ enabled: true, provider: 'searxng' }));
+    await assert.rejects(loadWebSearchConfig(path), { code: 'web_search_endpoint_required' });
+    // The camelCase display-name alias promotes on load, never over the canonical key.
+    await writeFile(path, JSON.stringify({ version: 2, enabled: true, profiles: [
+      { id: 'docs', displayName: 'Docs Search', endpoint: 'https://a.example' }] }));
+    const docs = await loadWebSearchConfig(path);
+    assert.equal(docs.profiles[0].display_name, 'Docs Search');
+    assert.equal(Object.hasOwn(docs.profiles[0], 'displayName'), false);
+    await writeFile(path, JSON.stringify({ version: 2, enabled: true, profiles: [
+      { id: 'docs', display_name: 'Canonical', displayName: 'Dropped', endpoint: 'https://a.example' }] }));
+    assert.equal((await loadWebSearchConfig(path)).profiles[0].display_name, 'Canonical');
+    // A profiles array wins shape dispatch, so a leftover root endpoint is not an input.
+    await writeFile(path, JSON.stringify({
+      version: 2, enabled: true, endpoint: 'https://ignored.example', profiles: [
+        { id: 'docs', display_name: 'Docs', endpoint: 'https://a.example' }],
+    }));
+    const ignored = await loadWebSearchConfig(path);
+    assert.deepEqual(ignored.profiles.map((item) => item.endpoint), ['https://a.example']);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('only SearXNG is an admissible WebSearch provider, at either document shape', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-provider-'));
   const path = join(root, 'web-search.json');

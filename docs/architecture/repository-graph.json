@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:03d47f7d274ac7d9a8e6b27545d3d56ffe50bd5791201938a2ea7514f8f55872",
+  "source_digest": "sha256:9d271a2ad396cf8522be57c90411d84551c215ceb774fca84b729c86bfb42be5",
   "counts": {
-    "modules": 547,
+    "modules": 549,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 239
+      "module_count": 241
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 721,
-      "module_count": 214
+      "import_count": 727,
+      "module_count": 216
     },
     {
       "from": "experience-engine",
@@ -132,14 +132,14 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 75,
-      "module_count": 42
+      "import_count": 78,
+      "module_count": 44
     },
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 70,
-      "module_count": 48
+      "import_count": 71,
+      "module_count": 49
     },
     {
       "from": "tools",
@@ -2654,6 +2654,7 @@
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-mcp-credentials-routes.js",
         "src/nnd-package-routes.js",
+        "src/nnd-provider-observation-routes.js",
         "src/nnd-secrets-routes.js",
         "src/nnd-skills-routes.js",
         "src/nnd-trust-routes.js",
@@ -3312,6 +3313,28 @@
       "imports": []
     },
     {
+      "path": "src/nnd-provider-observation-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-provider-observation.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/credential-bindings.js",
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
       "path": "src/nnd-question-routes.js",
       "component": "foundation",
       "entrypoint": false,
@@ -3479,6 +3502,7 @@
         "src/nnd-mcp-credentials-transaction.js",
         "src/nnd-native-principal-selection.js",
         "src/nnd-package-routes.js",
+        "src/nnd-provider-observation.js",
         "src/nnd-secrets-routes.js",
         "src/nnd-setup-config.js",
         "src/nnd-skills-routes.js",
