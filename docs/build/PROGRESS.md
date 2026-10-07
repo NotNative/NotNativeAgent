@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The legacy singular-provider alias closes on both spellings' composed view · NND 20261007-59
+
+`manifest:provider` — the raw unresolved row — closed verified: NNA's alias grammar was already
+pinned (fold, intent preservation, view binding with the "unprintable structure → providers[local]"
+mirror), and the round added the one missing composed fixture asserting all nine alias shapes on
+the inventory page, including the canonical-array counter-case (alias rows *Not set*, effective
+mirror still resolved) — which spelling the manifest used is now displayed per row. Surfaces owed
+**6 → 5**. One new page test; suites green; typecheck clean; gate green vs paired NNA.
+
 ## 2026-10-07 · The managed-deploy badge closes the last buildable owed leaf · NND 20261007-58
 
 `web_search:profiles[*].managed` — the generated-state field the census itself had queued as

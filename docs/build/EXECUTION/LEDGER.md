@@ -416,6 +416,45 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-59 — the legacy singular-provider alias closes on both spellings' composed view
+
+Rows without a desktop surface: **6 → 5**. `manifest:provider` — the raw unresolved row, the
+legacy single-provider block — closed verified with no new control:
+
+- The *alias grammar* was already proven NNA-side, and the row's citations name it rather than
+  restate it: `validateProviders` folds the singular value into the profile map
+  (`config.js:170`); the intent engine preserves the singular raw form through provider edits
+  (`configuration-intents.js:63-75`,
+  `configuration-source-publication.test.js`: "provider field intent preserves singular raw form
+  and omits compiled defaults"); and the configuration view binds the alias in place of
+  `providers[0]` (`nnd-configuration-view.js:107`), pinned by
+  `nnd-configuration-view.test.js`: the block "is visible as an unprintable structure and then
+  disappears into providers[local]" (L521-524) and "mirrors the same resolved profile" (L455-463,
+  credentials redacted on both sides, no `provider.*` field editable, L489).
+- The *composed member set* is what this round added: the inventory page's new test ("renders the
+  legacy singular-provider alias as the unprintable block beside its resolved mirror") renders
+  all nine shapes on one page — the bare `provider` row as *Value unavailable* over *Not set*,
+  the mirrored identity members (`id`/`model`/`trust_zone` at source user), the invented
+  `display_name` and the value-unavailable `capabilities` container with *Unavailable* provenance,
+  the redacted credential block beside its redacted `secret_id` member with no secret name in the
+  page text — and then the canonical-array spelling: the alias rows go *Not set* on the explicit
+  side while the same effective mirror resolves. That is the companion claim the alias family
+  taught: the operator sees **which spelling the manifest used** and **what it became**, per row,
+  on the page that already renders every provider row.
+- No control is owed: the contract offers no provider editing on this surface (NNA's own
+  editable-fields exclusion, L489), profile writes belong to the provider and credential lanes,
+  and the alias keeps `unverified` application class because NNA's container declaration
+  (`container('object', { classification: 'compatibility_alias', logicalPath: 'providers[*]' })`)
+  declares no application — the same vocabulary law the shape-table closures follow.
+
+Code and tests: one new composed test in `native-configuration.test.tsx` (13 tests in the file,
+all green; client configuration suite green; typecheck clean). The coverage gate passes against
+the paired NNA checkout.
+
+After this round: rows 371; surfaces owed **5**
+(mission, and the four route-role containers — each with its stated reason); not owed with
+evidence 11; unverified application class 33; installed evidence 0 of 371.
+
 ## NND 20261007-58 — the managed-deploy badge closes the last buildable owed leaf
 
 Rows without a desktop surface: **7 → 6**. One generated-state field the census itself had

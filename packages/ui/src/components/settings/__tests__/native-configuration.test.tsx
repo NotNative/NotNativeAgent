@@ -233,6 +233,88 @@ it('renders provider profile rows with derived values, redaction, and honest abs
   expect(container.textContent).not.toContain('undefined');
 });
 
+it('renders the legacy singular-provider alias as the unprintable block beside its resolved mirror', async () => {
+  // NNA's view binds the legacy provider block in place of providers[0]
+  // (nnd-configuration-view.js: the provider.* paths read the raw document on
+  // the explicit side and the resolved profile on the effective side), and its
+  // own test pins the shapes: the root alias row is an unprintable structure
+  // that resolves into providers[local], the mirrored identity members carry
+  // the resolved values, the derived members state that their provenance is
+  // unavailable, credential references arrive redacted, and the contract
+  // offers no provider editing on this surface.
+  const aliasView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider', catalog_path: 'provider', explicit: { present: true, value_unavailable: true },
+      effective: { present: false }, application: 'not_applied' },
+    { path: 'provider.id', catalog_path: 'provider.id',
+      explicit: { present: true, value: 'local' }, effective: { present: true, value: 'local', source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.model', catalog_path: 'provider.model',
+      explicit: { present: true, value: 'base' }, effective: { present: true, value: 'base', source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.trust_zone', catalog_path: 'provider.trust_zone',
+      explicit: { present: true, value: 'loopback' },
+      effective: { present: true, value: 'loopback', source: 'user' }, application: 'not_applied' },
+    { path: 'provider.display_name', catalog_path: 'provider.display_name',
+      explicit: { present: false }, effective: { present: true, value: 'local', source_unavailable: true },
+      application: 'not_applied' },
+    { path: 'provider.capabilities', catalog_path: 'provider.capabilities',
+      explicit: { present: false }, effective: { present: true, value_unavailable: true, source_unavailable: true },
+      application: 'not_applied' },
+    { path: 'provider.credential', catalog_path: 'provider.credential',
+      explicit: { present: true, redacted: true }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.credential_env', catalog_path: 'provider.credential_env',
+      explicit: { present: true, redacted: true }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.credential.secret_id', catalog_path: 'provider.credential.secret_id',
+      explicit: { present: true, redacted: true }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(aliasView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  // The root alias row: the block is on the manifest (unprintable structure)
+  // and the path itself resolves to nothing canonical — the identity lives on
+  // the mirrored member rows.
+  expect(rowText('provider')).toContain('Value unavailable');
+  expect(rowText('provider')).toContain('Not set');
+  // The mirrored identity members render the resolved profile beside their
+  // own raw declarations, with the raw block as the provenance of the bound
+  // fields.
+  expect(rowText('provider.id')).toContain('local');
+  expect(rowText('provider.model')).toContain('base');
+  expect(rowText('provider.trust_zone')).toContain('loopback');
+  expect(rowText('provider.display_name')).toContain('local');
+  expect(rowText('provider.display_name')).toContain('Unavailable');
+  expect(rowText('provider.capabilities')).toContain('Value unavailable');
+  // Credential references arrive redacted on both sides, and the secret name
+  // never reaches the page text.
+  expect(rowText('provider.credential')).toContain('Redacted');
+  expect(rowText('provider.credential_env')).toContain('Redacted');
+  expect(rowText('provider.credential.secret_id')).toContain('Redacted');
+  expect(container.textContent).not.toContain('SECRET_ENV_NAME');
+  // A manifest written in the canonical array spelling leaves the alias rows
+  // absent on the explicit side — the page then shows that the singular block
+  // was not the spelling the manifest used.
+  const arrayView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider', catalog_path: 'provider', explicit: { present: false }, effective: { present: false },
+      application: 'not_applied' },
+    { path: 'provider.id', catalog_path: 'provider.id', explicit: { present: false },
+      effective: { present: true, value: 'alpha', source: 'unverified' }, application: 'not_applied' },
+    { path: 'provider.model', catalog_path: 'provider.model', explicit: { present: false },
+      effective: { present: true, value: 'base', source: 'unverified' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(arrayView);
+  act(() => root.unmount());
+  container.remove();
+  mount();
+  await act(async () => {});
+  expect(rowText('provider')).toContain('Not set');
+  expect(rowText('provider.id')).toContain('alpha');
+  expect(rowText('provider.model')).toContain('base');
+});
+
 it('renders manifest root rows as invariants, structure, and honest absence', async () => {
   // The root block is mostly not operator-editable: version stamps, blocks
   // that are structure rather than values, and grants the host owns. Each of

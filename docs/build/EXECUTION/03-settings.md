@@ -1136,6 +1136,32 @@ field stays operator-unsettable (`not_applied`, read right only), and the
 census row verified with a test naming the summary marker, the row badge, and
 the unmarked sibling.
 
+The surviving alias row closed the round after
+(`20261007-59`): `manifest:provider`, the legacy singular-provider block. NNA
+had already proved the grammar NNA-side — `validateProviders` folds the
+singular value into the profile map, the intent engine preserves the singular
+raw form through edits
+(`configuration-source-publication.test.js`: "provider field intent preserves
+singular raw form and omits compiled defaults"), and the configuration view
+binds the alias in place of `providers[0]`
+(`nnd-configuration-view.test.js`: the block "is visible as an unprintable
+structure and then disappears into providers[local]" and "mirrors the same
+resolved profile", credentials redacted, no provider field editable). The
+desktop needed no new control — the inventory page already renders
+explicit-versus-effective for every row — but the composed member set had
+never been asserted as a whole, so the round added the fixture
+("renders the legacy singular-provider alias as the unprintable block beside
+its resolved mirror"): the bare `provider` row reads *Value unavailable* over
+*Not set*, the identity members render the resolved values beside their raw
+declarations, the derived members state *Unavailable* provenance, the
+credential references stay redacted on both sides, and a canonical-array
+manifest renders the same rows with the alias side *Not set* while the
+effective mirror still resolves — the operator sees both which spelling the
+manifest used and what it became. No control is owed: the contract offers no
+provider editing on this surface, and the row keeps `unverified` application
+class because NNA's container declaration carries none. Surfaces owed are now
+**6 → 5**.
+
 ### What "verified" means in the census, and what it does not
 
 `current_gui.status: verified` means one specific thing: a named test file reads the field off

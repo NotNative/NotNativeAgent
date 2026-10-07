@@ -264,22 +264,25 @@
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-59)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-configuration-view.test.js pins the alias grammar both ways: \"the legacy single-provider block is an input alias: it is visible as an unprintable structure and then disappears into providers[local]\" (the bare provider row is explicit-present value_unavailable with an absent effective side) and \"the legacy provider block mirrors the same resolved profile\" (provider.id/model/trust_zone render the resolved values with source user, display_name is invented with source_unavailable, credentials arrive redacted on both sides, and NND_CONFIGURATION_EDITABLE_FIELDS offers no provider.* field)",
+     "packages/ui/src/components/settings/__tests__/native-configuration.test.tsx proves the whole composed member set as of 20261007-59 in \"renders the legacy singular-provider alias as the unprintable block beside its resolved mirror\": the root alias row renders Value unavailable on the explicit side and Not set on the effective side beside the same view that renders the mirrored identity members (provider.id local, provider.model base, provider.trust_zone loopback, the invented display_name and the value-unavailable capabilities container with Unavailable provenance), the redacted credential block beside its redacted member secret_id with no secret name in the page text, and a canonical-array manifest renders the same rows with the alias side Not set and the effective mirror resolved — the operator sees both which spelling the manifest used and what it resolved to, on the page that already renders every provider row"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Closed 20261007-59 on the composed-fixture rule, the container transcripted at -57: the legacy provider block is a legal INPUT ALIAS (NNA's shape table declares it with alternative 'providers[*]', validateProviders folds the singular value into the profile map, and the intent engine preserves the singular raw form through edits — configuration-source-publication.test.js proves it survives a provider edit without acquiring compiled defaults), and NNA's configuration view binds the alias so the operator sees it in place: the bare provider row reads as an unprintable structure whose effective side is absent, and the member rows carry the raw block on the explicit side and the resolved profile (mirrored into providers[0]) on the effective side. The which-spelling-was-used companion claim the alias family taught (guide 03) is satisfied by the composed fixture, not by a new control: the desktop inventory already renders explicit-vs-effective per row, and the new test renders the alias both ways — a manifest written in the singular spelling shows the block explicit and its members mirrored; a manifest written in the providers array shows the alias rows absent while the same effective mirror resolves. No control is owed: the contract offers no provider editing on this surface (NNA's own test proves the editable-fields list excludes provider.*), profile writes belong to the provider and credential lanes, and the alias has no declared application class of its own (container('object') in NNA's metadata declares only the compatibility_alias classification), so the class stays unverified like the other application-less containers."
   },
   {
    "id": "manifest:providers",
