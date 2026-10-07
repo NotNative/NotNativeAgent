@@ -1024,3 +1024,35 @@ it('validates the four context threshold drafts against the native decimal bound
     expect((button('Preview change') as HTMLButtonElement).disabled, `${label} rejects ${tooLow}`).toBe(true);
   }
 });
+
+it('offers the remaining advertised route rows in the catalog-gated field chooser', async () => {
+  // The routes page tunes reviewer and vision scalars only; every other
+  // route row NNA advertises is edited here through the generic chooser and
+  // the same preview-and-save ceremony.
+  const tuning = ['budget', 'context_limit_bytes', 'deadline_ms', 'enable_thinking', 'max_output_tokens',
+    'reasoning_effort', 'temperature'];
+  const routePaths = ['primary', 'subagent'].flatMap(role => [...tuning.map(key => `routes.${role}.${key}`),
+    `routes.${role}.required_capabilities`, `routes.${role}.fallbacks`])
+    .concat(['reviewer', 'vision'].flatMap(role => [`routes.${role}.required_capabilities`, `routes.${role}.fallbacks`]));
+  expect(routePaths).toHaveLength(22);
+  const routeView: NativeConfigurationView = {
+    ...view,
+    fields: routePaths.map(path => ({
+      path, catalog_path: path, explicit: { present: false },
+      effective: { present: true, value: null, source: 'compiled_default' }, application: 'not_applied' as const,
+    })),
+  };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({
+    fields: routePaths.map(path => ({ path,
+      type: path.endsWith('temperature') ? 'number' as const : path.endsWith('enable_thinking') ? 'boolean' as const
+        : path.endsWith('required_capabilities') || path.endsWith('fallbacks') ? 'array' as const : 'integer' as const,
+      editability: field.editability })),
+  });
+  mount(routeView); await act(async () => {});
+  const options = [...container.querySelector('select')!.querySelectorAll('option')].map(option => option.value);
+  for (const path of routePaths) expect(options, path).toContain(path);
+  await act(async () => { const select = container.querySelector('select')!; select.value = 'routes.primary.budget';
+    select.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(container.textContent).toContain('routes.primary.budget');
+  expect(container.textContent).toContain('Preview change');
+});

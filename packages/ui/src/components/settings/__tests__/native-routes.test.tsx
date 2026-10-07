@@ -144,3 +144,35 @@ it('discards a late route view from the old runtime after switching NNA', async 
   expect(container.textContent).toContain('nna_other');
   expect(container.textContent).not.toContain(view.installation_id);
 });
+
+it('offers exactly the route rows NNA advertises and none it leaves unbound', async () => {
+  // NNA's catalog decides the offer: seven typed scalars for each of the
+  // reviewer and vision routes are tuned here, the provider/model pair rides
+  // the paired binding form, and the primary and subagent routes are not
+  // offered on this page at all.
+  const tuning = ['budget', 'context_limit_bytes', 'deadline_ms', 'enable_thinking', 'max_output_tokens',
+    'reasoning_effort', 'temperature'];
+  const roles = ['primary', 'reviewer', 'subagent', 'vision'];
+  const paths = roles.flatMap(role => [...tuning.map(key => `routes.${role}.${key}`),
+    `routes.${role}.required_capabilities`, `routes.${role}.fallbacks`, `routes.${role}.provider_id`,
+    `routes.${role}.model`]);
+  vi.mocked(requestNativeConfiguration).mockResolvedValue({ ...view,
+    fields: [...view.fields.filter(field => !field.path.startsWith('routes.')),
+      ...paths.map(path => row(path, 'value'))] });
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({
+    fields: paths.map(path => ({ path, type: path.endsWith('temperature') ? 'number' : 'string',
+      editability: { available: true as const, scope: 'user' as const,
+        required_permission: 'nnd.configuration.manage' as const } })),
+    routeBindings: ['reviewer', 'vision'] });
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>));
+  await act(async () => {});
+  const options = [...container.querySelectorAll('option')].map(option => option.value);
+  for (const role of ['reviewer', 'vision']) {
+    for (const key of tuning) expect(options, `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
+  }
+  expect(options.filter(value => value.startsWith('routes.'))).toHaveLength(14);
+  const roleSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Route to bind"]');
+  expect(roleSelect).not.toBeNull();
+  expect([...roleSelect!.querySelectorAll('option')].map(option => option.value).filter(Boolean))
+    .toEqual(['reviewer', 'vision']);
+});

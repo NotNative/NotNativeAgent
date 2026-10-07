@@ -416,6 +416,31 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-12 — the route family closes against NNA's own offer
+
+The 48-row `manifest_route` family lost 40 rows in one slice, and the eight
+that stayed open are the honest remainder: the four route objects and the
+primary and subagent provider/model pairs, which NNA's configuration
+contract does not make editable at all. The offer is NNA's, not the
+desktop's: 36 typed scalars are generically editable and the reviewer and
+vision provider/model pairs are offered as one `bind_route` operation, and
+that is exactly what the desktop surfaces — the routes page tunes reviewer
+and vision, the paired binding form carries provider with model, and every
+other advertised scalar rides the catalog-gated chooser.
+
+Two behaviours the proof had to pin rather than assume. Non-primary routes
+inherit from the primary route, so their provider, model, and derived
+deadline rows report `source_unavailable` — the view will not name a layer
+it did not observe. And a saved zero is canonical: `deadline_ms: 0` keeps
+`explicit: 0` while the effective value becomes `null`, because zero means
+"no deadline"; the same holds for the two optional limits where zero means
+unset. Bounds fail closed with `invalid_limit`, and rebinding is refused for
+any role but reviewer or vision.
+
+All 40 rows are `engine_boundary`: a republished configuration recomputes
+route resolution, so the next request uses the saved route. Census rows
+without a verified GUI: 107 → 67.
+
 ## NNA (test-only) and NND 20261007-11 — the provider, timeout, and context scalars of the manifest family
 
 The first sub-slice of the 38-row `manifest` family: its 16 scalar rows

@@ -223,7 +223,18 @@ configuration page can read the catalog and edit NNA-authorized generic scalar
 fields through preview, revision-checked save, and operation receipt lookup.
 It now offers direct typed controls for `attachments.enabled`,
 `attachments.max_bytes`, and `attachments.retain`; native TUI preferences and
-reviewer/vision scalar routes also have focused controls. The three
+reviewer/vision scalar routes also have focused controls: the routes page
+offers seven typed scalars for each of those two roles, plus one paired
+provider-and-model binding per role that previews both values before a
+`bind_route` save. The route scalars NNA advertises but that page does not
+tune — the primary and subagent limits, and the reviewer and vision
+capability and fallback lists — ride the catalog-gated chooser on the native
+configuration page. NNA leaves the primary and subagent provider/model pair
+uneditable and treats no route object as a value, so those eight census rows
+stay open by design rather than by omission. Route rows show an inherited
+value with an `Unavailable` origin instead of a guessed layer, and a saved
+zero keeps its explicit `0` while the effective deadline resolves to `null`,
+because zero means no deadline rather than a length of zero. The three
 attachment rows carry NNA's semantics verbatim: enablement is opt-out (only
 an exact `false` disables), retention is opt-in (only an exact `true`
 retains, otherwise the store deletes files after the turn), and the byte

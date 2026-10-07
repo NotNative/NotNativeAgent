@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The route family closes against NNA's own offer · NND 20261007-12
+
+Forty of the 48 `manifest_route` rows closed in one slice; the eight that
+remain are the honest remainder — the four route objects and the primary and
+subagent provider/model pairs, which NNA's contract does not make editable.
+The offer is NNA's: 36 typed scalars plus the reviewer and vision
+provider/model pair as one `bind_route`, which is exactly what the routes
+page and the paired binding form surface. Non-primary routes inherit, so
+their provider, model and derived deadline rows report `source_unavailable`;
+a saved `deadline_ms: 0` keeps `explicit: 0` with an effective `null`
+because zero is canonical and means no deadline. Rebinding any other role is
+refused. All 40 are `engine_boundary` — a republished configuration
+recomputes route resolution for the next request.
+Census rows without a verified GUI: 107 → 67.
+
 ## 2026-10-07 · The manifest scalars — provider, timeout and context limits · NND 20261007-11
 
 The first sub-slice of the 38-row `manifest` family: its 16 scalar rows
