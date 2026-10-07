@@ -3,6 +3,23 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Eight pin citations repaired; a class word found that NNA never wrote · NND 20261007-28
+
+Seven rows gained citations naming the file that proves them — WebFetch's trust/revoke
+asserted as `{op:'trust'}`/`{op:'revoke'}` save entries against NNA pinning `next_fetch`
+and a catalog of exactly `[trust, revoke]`; trust grant/revoke POSTs asserted by name
+with NNA pinning `project_configuration`. Both citation diagnostics now read zero. The
+remaining pair is the finding: `session_review` carried class `idle_session`, and that
+word appears **nowhere** in NNA. `src/nnd-review-mode.js` declares no application class at
+all — the commit is a CAS on `expected_revision` that sets `engine.reviewPosture` on the
+live context, no receipt, no timing word. It was invented at census-creation time and had
+leaked into our own docs as "idle-session policing", which is what made it look sourced.
+Class back to `unverified`: 58 → **60**, worse and correct. The effect is real (NNA's test
+shows it blocks ingress immediately), but a class word must come from NNA or it's our
+opinion about their runtime. Blind spot kept: `probe-class-audit.mjs` reported 0 mismatches
+because this route has no metadata to disagree with — an invented word on a route that
+declares nothing is invisible to a check built for drift.
+
 ## 2026-10-07 · The last uncited "verified" row closes and the metric that found it hits zero · NND 20261007-27
 
 One row closed: the hand-flagged MCP credential reference, the last row claiming a

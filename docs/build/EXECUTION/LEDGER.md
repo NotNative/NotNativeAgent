@@ -416,6 +416,40 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-28 — eight pin citations repaired, and a class word found that NNA never wrote
+
+The eight rows left citing a suite description instead of a file are fixed. Seven now
+name the test that proves their claim: the WebFetch trust and revoke operations ride a
+save body asserted as `{op: 'trust'}` and `{op: 'revoke'}` entries, with NNA's own HTTP
+test pinning `next_fetch` and a catalog whose operations are exactly `[trust, revoke]`;
+the trust grant and revoke are POSTs asserted by name, with NNA's route test pinning
+`project_configuration` on both verbs. Both citation diagnostics now read zero: no
+verified row cites no test, and none cites a suite in place of a filename.
+
+The remaining pair is the finding. `session_review` carried the application class
+`idle_session`, and `idle_session` appears nowhere in NNA. Not a paraphrase of a word
+NNA uses, nor a stale rename: `src/nnd-review-mode.js` declares no application class at
+all. Its commit is a compare-and-set on `expected_revision` that writes `reviewMode`,
+bumps `reviewRevision`, and sets `engine.reviewPosture` on the live context, with no
+receipt and no timing word. The word was invented when the census was written, and it
+had leaked into this project's own documentation as "idle-session policing", which is
+what made it look sourced. The class returns to `unverified`, and the doc passage is
+corrected in place rather than tidied away.
+
+The effect itself is real — NNA's own test shows the posture blocks ingress immediately
+and restores after restart — but a class word must come from NNA or it is this project's
+opinion about another project's runtime. Unverified class therefore went 58 → **60**:
+worse, and correct.
+
+The blind spot is worth keeping. `probe-class-audit.mjs` compares pinned rows against
+NNA's route metadata and reported 0 mismatches throughout, because this route has no
+metadata to disagree with. An invented word on a route that declares nothing is invisible
+to a check built to catch drift.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 58 → 60.
+Verified rows citing no test: 0. Verified rows naming no test file: 8 → 0.
+
 ## NND 20261007-27 — the last uncited "verified" row closes, and the metric that found it hits zero
 
 One row closed. It happens to be the one the sweep flagged by hand and never looked

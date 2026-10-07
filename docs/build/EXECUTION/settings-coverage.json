@@ -905,7 +905,7 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C1 stage 2 (20261007-11)",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "source_symbols": [
@@ -914,10 +914,11 @@
      "publishEngineConfiguration"
     ],
     "tests_run": [
-     "; default 1 bounded 1 to 16, read per subagent fan-out"
+     "NNA test/nnd-configuration-routes.test.js (preview and mutation responses explicitly project safe fields; the real native service read, preview, save and operation use the same safe HTTP contract) and test/nnd-configuration-view.test.js (explicit and effective values with provenance)",
+     "packages/ui packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx (the bounded-scalar test names tool_concurrency, holds it out of the focused blocks, and asserts it is offered in the catalog-gated field chooser where the raw value is edited)"
     ]
    },
-   "notes": "Pinned 20261007-11: default 1 bounded 1 to 16, read per subagent fan-out; no focused block: the row is offered in the catalog-gated field chooser for raw editing. The class follows NNA catalog metadata (unverified)."
+   "notes": "Pinned 20261007-11: default 1 bounded 1 to 16, read per subagent fan-out; no focused block: the row is offered in the catalog-gated field chooser for raw editing. The class follows NNA catalog metadata (unverified). Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the field chooser entry, not a block of its own: the test asserts it appears in the chooser and is absent from the focused blocks. Named instead: packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx."
   },
   {
    "id": "manifest:persistence_flush_timeout_ms",
@@ -13513,7 +13514,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -13521,11 +13522,12 @@
      "loadWebFetchConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+     "NNA test/nnd-web-fetch-http.test.js (the trust family projected with application next_fetch, the catalog operations list exactly [trust, revoke], CAS saves carrying next_fetch as next_action, an absent file bootstrapping through save, and refusals with no source mutation)",
+     "packages/ui packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx (the page reads the document through the typed client and renders trusted origins, version and the last-saved stamp)"
     ],
     "installed_journey": null
    },
-   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
+   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the trusted-origin roster with its count and the last-saved stamp, read from the document the status endpoint returns. Named instead: packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx."
   },
   {
    "id": "web_fetch_action:trust",
@@ -13557,7 +13559,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -13565,11 +13567,12 @@
      "normalizeTrustedOrigin"
     ],
     "tests_run": [
-     "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+     "NNA test/nnd-web-fetch-http.test.js (the trust family projected with application next_fetch, the catalog operations list exactly [trust, revoke], CAS saves carrying next_fetch as next_action, an absent file bootstrapping through save, and refusals with no source mutation)",
+     "packages/ui packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx (previews and saves a trust grant with the exact NNA revision and next-fetch application; the save body asserted as operations [{op:trust, origin}] ; a canonicalizing batch composes two grants plus a revoke; a hostile origin is refused before preview; trust bootstraps from an absent source)"
     ],
     "installed_journey": null
    },
-   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
+   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the origin field and the staged save whose request body is asserted as an op:trust operation. Named instead: packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx."
   },
   {
    "id": "web_fetch_action:revoke",
@@ -13601,7 +13604,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -13609,11 +13612,12 @@
      "saveWebFetchConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+     "NNA test/nnd-web-fetch-http.test.js (the trust family projected with application next_fetch, the catalog operations list exactly [trust, revoke], CAS saves carrying next_fetch as next_action, an absent file bootstrapping through save, and refusals with no source mutation)",
+     "packages/ui packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx (the batch test asserts the composed operations carry {op:revoke, origin} beside the grants; host-case duplicates are handled like the store)"
     ],
     "installed_journey": null
    },
-   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
+   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the revoke control on a listed origin, with the composed batch asserted to carry the op:revoke entry. Named instead: packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx."
   },
   {
    "id": "gateway_action:status",
@@ -14759,7 +14763,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14767,11 +14771,12 @@
      "trustWorkspace"
     ],
     "tests_run": [
-     "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+     "NNA test/nnd-trust-routes.test.js (the trust service grants, lists, and revokes through the native trust functions with project_configuration as the application on both verbs; projection refuses factory drift and identity lies; the HTTP surface offers the catalog, honest refusals, and an operator-only mutation gate; a grant reflects in the list and maps lock contention to 409)",
+     "packages/ui packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx (lists trusted roots, grants through the native surface, renders the canonical receipt, and asserts the POST to /trust/grant)"
     ],
     "installed_journey": null
    },
-   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
+   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the grant control over a workspace root with the receipt the native surface returns. Named instead: packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx."
   },
   {
    "id": "trust_action:revoke",
@@ -14803,7 +14808,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14811,11 +14816,12 @@
      "untrustWorkspace"
     ],
     "tests_run": [
-     "packages/ui vitest suite (trust + web-fetch page and lib drills)"
+     "NNA test/nnd-trust-routes.test.js (the trust service grants, lists, and revokes through the native trust functions with project_configuration as the application on both verbs; projection refuses factory drift and identity lies; the HTTP surface offers the catalog, honest refusals, and an operator-only mutation gate; a grant reflects in the list and maps lock contention to 409)",
+     "packages/ui packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx (the revoke control count asserted at one, the POST to /trust/revoke asserted, and the stamp the grant wrote shown on the row)"
     ],
     "installed_journey": null
    },
-   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right"
+   "notes": "already-served native surface pinned in place: the trusted-workspaces route performs grant/revoke through the shipped trust functions verbatim (admission semantics, canonicalization, locking, atomics stay native; a corrupt store fails closed with workspace_trust_invalid 503 and the receipt is the redacted {operation, root, trusted} record), and the WebFetch settings transaction performs trust/revoke as operations over the shipped web-fetch-config authority (canonical origins, CAS preview/save, the view is the effective origin set); both desktop consoles were verified with page and lib drills in their own slices (grant+revoke asserted in trust-workspaces and trust lib tests, origin trust/revoke asserted in the web-fetch trust page drill); the rows carry the mutating rights on the action lines (nnd.workspace.manage / nnd.configuration.manage) while the status lines keep the read right Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the revoke control on a trusted root, one per trusted entry, with the POST asserted. Named instead: packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx."
   },
   {
    "id": "nnd_package_action:activate",
@@ -14976,8 +14982,8 @@
     "owned_nnd_root_session"
    ],
    "apply": {
-    "class": "idle_session",
-    "evidence": "src/nnd-review-mode.js:commitReviewMode"
+    "class": "unverified",
+    "evidence": "src/nnd-review-mode.js declares no application class at all: the commit is a compare-and-swap on expected_revision that writes reviewMode, bumps reviewRevision, and sets engine.reviewPosture in the live context (L25-35), with no receipt and no application word anywhere in NNA. The class this row carried, idle_session, appears nowhere in the NNA tree: it was invented at census-creation time. NNA's own test shows the posture takes effect immediately (it blocks ingress and restores on restart), but this project does not observe that installed effect, so the class returns to unverified rather than keeping a word NNA never wrote."
    },
    "native_endpoint": "PUT /v1/nnd/sessions/:id/review-mode",
    "native_permission": "nnd.session.update",
@@ -14988,7 +14994,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14997,11 +15003,12 @@
      "setSessionReviewMode"
     ],
     "tests_run": [
-     "packages/ui vitest suite (review-mode lib and chat panel drills)"
+     "NNA test/nnd-review-mode.test.js (durable review-mode CAS blocks ingress, rejects stale writes, and restores on restart; failed persistence preserves prior posture, catalog, revision, and ingress; the routes require read or update grants and preserve host ownership checks)",
+     "packages/ui packages/ui/src/chat/__tests__/review-mode-control.test.tsx (the select offers only NNA-advertised modes; a change commits only the NNA-confirmed CAS response; busy sessions block; malformed snapshots refused)"
     ],
     "installed_journey": null
    },
-   "notes": "the review-mode family is fully served natively and consumed on the desktop: the commit runs against the owned root session when it is idle (apply class idle_session with the mandatory-review rules resolved from auto-review), the mode and revision persist in sessions/nnd-contexts.json, and the request carries the compare-and-set expected_revision matched against native reviewRevision (request-only, never persisted); the chat work status panel consumes the read and the commit through the runtime client (getSessionReviewMode / setSessionReviewMode PUT with the revision body) and its lib and page drills assert both, so the rows carry the verified chat consumer plus the per-row source symbols"
+   "notes": "the review-mode family is fully served natively and consumed on the desktop: the commit runs against the owned root session when it is idle (apply class idle_session with the mandatory-review rules resolved from auto-review), the mode and revision persist in sessions/nnd-contexts.json, and the request carries the compare-and-set expected_revision matched against native reviewRevision (request-only, never persisted); the chat work status panel consumes the read and the commit through the runtime client (getSessionReviewMode / setSessionReviewMode PUT with the revision body) and its lib and page drills assert both, so the rows carry the verified chat consumer plus the per-row source symbols Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the mode select, limited to the modes NNA advertises, committing on confirmation. Named instead: packages/ui/src/chat/__tests__/review-mode-control.test.tsx."
   },
   {
    "id": "session_review:expected_revision",
@@ -15021,8 +15028,8 @@
     "owned_nnd_root_session"
    ],
    "apply": {
-    "class": "idle_session",
-    "evidence": "src/nnd-review-mode.js:commitReviewMode"
+    "class": "unverified",
+    "evidence": "src/nnd-review-mode.js declares no application class at all: the commit is a compare-and-swap on expected_revision that writes reviewMode, bumps reviewRevision, and sets engine.reviewPosture in the live context (L25-35), with no receipt and no application word anywhere in NNA. The class this row carried, idle_session, appears nowhere in the NNA tree: it was invented at census-creation time. NNA's own test shows the posture takes effect immediately (it blocks ingress and restores on restart), but this project does not observe that installed effect, so the class returns to unverified rather than keeping a word NNA never wrote."
    },
    "native_endpoint": "PUT /v1/nnd/sessions/:id/review-mode",
    "native_permission": "nnd.session.update",
@@ -15033,7 +15040,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15042,11 +15049,12 @@
      "setSessionReviewMode"
     ],
     "tests_run": [
-     "packages/ui vitest suite (review-mode lib and chat panel drills)"
+     "NNA test/nnd-review-mode.test.js (durable review-mode CAS blocks ingress, rejects stale writes, and restores on restart; failed persistence preserves prior posture, catalog, revision, and ingress; the routes require read or update grants and preserve host ownership checks)",
+     "packages/ui packages/ui/src/chat/__tests__/review-mode-control.test.tsx (the commit asserted as setSessionReviewMode(session, mode, revision) with the revision passed exactly; recovery exercised for denied, throwing, invalid and same-revision outcomes; a stale read ignored when switching sessions; a fresh revision required after a replay gap)"
     ],
     "installed_journey": null
    },
-   "notes": "the review-mode family is fully served natively and consumed on the desktop: the commit runs against the owned root session when it is idle (apply class idle_session with the mandatory-review rules resolved from auto-review), the mode and revision persist in sessions/nnd-contexts.json, and the request carries the compare-and-set expected_revision matched against native reviewRevision (request-only, never persisted); the chat work status panel consumes the read and the commit through the runtime client (getSessionReviewMode / setSessionReviewMode PUT with the revision body) and its lib and page drills assert both, so the rows carry the verified chat consumer plus the per-row source symbols"
+   "notes": "the review-mode family is fully served natively and consumed on the desktop: the commit runs against the owned root session when it is idle (apply class idle_session with the mandatory-review rules resolved from auto-review), the mode and revision persist in sessions/nnd-contexts.json, and the request carries the compare-and-set expected_revision matched against native reviewRevision (request-only, never persisted); the chat work status panel consumes the read and the commit through the runtime client (getSessionReviewMode / setSessionReviewMode PUT with the revision body) and its lib and page drills assert both, so the rows carry the verified chat consumer plus the per-row source symbols Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: nothing visible, which is correct: the revision is the compare-and-swap value the control sends, asserted as an exact argument rather than as text on screen. Named instead: packages/ui/src/chat/__tests__/review-mode-control.test.tsx."
   },
   {
    "id": "secrets:label",

@@ -615,6 +615,12 @@ file (`web_fetch_action` ×3, `trust_action` ×2, `session_review` ×2,
 elsewhere rather than by work in their own slice. A citation that cannot be walked up
 to is closer to a claim than to a proof, so those rows are the next thing on this list.
 
+*Follow-up, same document, next slice:* those eight rows are the subject of
+`20261007-28`. Seven gained citations naming the file that proves the claim, and the
+`session_review` pair lost a class word that turns out to exist nowhere in NNA — see
+that family's passage. The measurement is now 0 of 321 on both counts: no verified row
+cites no test, and no verified row cites a suite description in place of a file.
+
 Progress: at NNA `20261006-8` the six `secrets` rows became the settings
 family's first pure read surface at `/v1/nnd/configuration/secrets` (list plus
 catalog, `nnd.configuration.read` only; no operations, query strings refused).
@@ -799,10 +805,23 @@ and the wide `manifest_*` projection families open. The four generated-state
 meta rows of the served families (web_search/web_fetch/gateway `version`,
 web_fetch `updated_at`) then pinned as census-only rows riding their family
 pages' read views (no operator control, read right only), and the
-`session_review` pair pinned the same way: the NNA review-mode commit
-(idle-session policing + request-only compare-and-set) is consumed by the
-chat panel's `ReviewModeControl`, verified with lib and page drills since
-their own slices. The installation family then closed with a real surface:
+`session_review` pair pinned the same way, consumed by the chat panel's
+`ReviewModeControl`. **This passage was wrong and is corrected rather than
+rewritten.** It described that commit as "idle-session policing" and cited "lib and
+page drills". No word `idle_session` exists anywhere in NNA: `src/nnd-review-mode.js`
+declares no application class at all — the commit is a compare-and-set on
+`expected_revision` that writes `reviewMode`, bumps `reviewRevision`, and sets
+`engine.reviewPosture` in the live context (L25-35), with no receipt and no application
+word. The class those two rows carried was invented when the census was written, and it
+now returns to `unverified`. NNA's own test shows the posture takes effect immediately
+(it blocks ingress and restores on restart), so the effect is real; what is missing is a
+word from NNA to describe it, and this project does not observe the installed effect.
+The citation named a suite where a file belongs; the file is
+`packages/ui/src/chat/__tests__/review-mode-control.test.tsx`, where the commit is
+asserted as `setSessionReviewMode(session, mode, revision)` with the revision passed
+exactly, recovery is exercised for denied, throwing, invalid and same-revision
+outcomes, a stale read is ignored across session switches, and a fresh revision is
+required after a replay gap. The installation family then closed with a real surface:
 `GET /v1/nnd/configuration/installation` re-verifies the descriptor through
 the admission authority on every read and fails closed on disk drift (the
 authority's `nnd_install_*` verdicts surfaced verbatim at 503), and the
