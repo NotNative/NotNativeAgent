@@ -324,14 +324,20 @@ reads for its next turn or request, and the reviewer timeout, permission
 timeout, and scheduler capacity are pushed directly); the tool-concurrency,
 flush, shutdown, and five context rows stay `unverified` because NNA
 declares no class for them. Provider profile rows are served by the same
-view and shown read-only: NNA excludes every provider path from the generic
-editing set, so the desktop displays the resolved identity, trust zone,
-limits, and capability probes (unknown until NNA observes them) and offers no
-write. A credential reference in any shape arrives `redacted` and is never
-carried as text, and the inventory labels it `Redacted` rather than leaving a
-blank cell that reads like a missing secret. Saving a provider change is not
-offered here; profiles apply because a published configuration rebuilds the
-model router, so the next request uses the saved profile. Manifest container
+view: the desktop displays the resolved identity, trust zone, limits, and
+capability probes (unknown until NNA observes them), and the configuration
+contract itself offers no provider writes. A credential reference in any shape
+arrives `redacted` and is never carried as text, and the inventory labels it
+`Redacted` rather than leaving a blank cell that reads like a missing secret.
+Provider profiles are nonetheless writable natively, just not here:
+`POST /v1/provider-profiles` and `PATCH /v1/provider-profiles/:id` rewrite the
+same manifest through the same locked transforms, gated on
+`provider.profile.write` or `provider.manage`, and they accept `display_name`,
+`endpoint`, `model`, `context_limit_bytes`, `output_limit_tokens`,
+`tool_call_mode`, a credential binding, and `profile_id` on create. No native
+write accepts `trust_zone`, and capability rows are derived state that nothing
+writes. Either way a saved profile applies because a published configuration
+rebuilds the model router, so the next request uses it. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container

@@ -3,6 +3,25 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Update state closes on evidence, and a provider write-path claim is corrected · NND 20261007-15
+
+Seven of eight `update_state` rows closed on the residual axis — rows that
+already named a surface but carried no class, tests, or package. The panel had a
+real gap: it served five of the eight fields and silently dropped `latest_ref`
+and `latest_tag`, which now have their own lines. The store `format` stays open
+on purpose: it is never displayed, only refused on sight of anything unexpected.
+The family is now classified the way NNA classifies it — generated state, effect
+`next_update_check`, editability unavailable — and the page proves it by
+rendering nothing if the catalog drifts into offering editability. The slice also
+corrects the previous slice: NNA *does* write provider profiles, through
+`POST`/`PATCH /v1/provider-profiles`, whose store rewrites the same manifest the
+configuration view reads under the same lock; seven provider fields have a native
+write path today, `trust_zone` has none anywhere, and capability rows are derived
+state. Twenty-four notes and twenty-one permission clauses were fixed, because a
+wrong audit record does not just mislead, it misdirects the next lane. Census:
+33 rows with no desktop surface, 33 with an unverified surface status, 103 with
+an unverified application class.
+
 ## 2026-10-07 · The manifest root closes and containers get a written rule · NND 20261007-14
 
 Ten of the last 22 `manifest` rows closed; every row still open in the

@@ -49,6 +49,15 @@ it('reads the recorded check, honest absence, and refreshes without writing', as
   expect(text).toContain('ready');
   expect(text).toContain('20261007-1');
   expect(container.querySelector('[data-testid="native-update-state-latest"]')?.textContent).toBe('20261007-1');
+  // Every census field the surface serves has its own line: the ref and the
+  // tag are shown, and an unrecorded tag reads 'unknown' rather than blank.
+  expect(container.querySelector('[data-testid="native-update-state-checked"]')?.textContent)
+    .toBe('2026-10-06T01:02:03.004Z');
+  expect(container.querySelector('[data-testid="native-update-state-ref"]')?.textContent).toBe('main');
+  expect(container.querySelector('[data-testid="native-update-state-tag"]')?.textContent).toBe('unknown');
+  expect(container.querySelector('[data-testid="native-update-state-sha"]')?.textContent).toBe(SHA);
+  expect(container.querySelector('[data-testid="native-update-state-status"]')?.textContent).toBe('ready');
+  expect(container.querySelectorAll('[data-testid="native-update-state-table"] li')).toHaveLength(6);
   expect(text).toContain('NNA updater');
   await click('Refresh');
   expect(fetchMock.mock.calls.filter(([path]) => String(path).endsWith('/update-state')).length).toBe(2);
@@ -81,5 +90,42 @@ it('maps errors to honest sentences and pauses for auth and authority', async ()
   expect(container.textContent).toContain('Sign in to read the native update state.');
   useAuthSessionStore.getState().markOk();
   await settle();
+  expect(container.querySelector('[data-testid="native-update-state-table"]')).toBeNull();
+});
+
+it('shows a failed check as recorded state and refuses a catalog that claims editability', async () => {
+  // A failed update check is still state the worker recorded: the panel shows
+  // it as recorded, with the error code, rather than pretending nothing
+  // happened.
+  fetchMock.mockImplementation((path: string) => {
+    if (path.endsWith('/update-state')) return Promise.resolve(json({ ...identity, schema_version: '1.0',
+      state: 'recorded', format: 1, checked_at: '2026-10-06T01:02:03.004Z', status: 'unavailable',
+      latest_version: null, latest_ref: 'main', latest_tag: 'v20261007-1', latest_sha: null,
+      error_code: 'update_check_timeout' }));
+    if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
+    throw new Error('unexpected ' + path);
+  });
+  await mount();
+  expect(container.querySelector('[data-testid="native-update-state-status"]')?.textContent).toBe('unavailable');
+  expect(container.querySelector('[data-testid="native-update-state-error-code"]')?.textContent)
+    .toBe('update_check_timeout');
+  expect(container.querySelector('[data-testid="native-update-state-tag"]')?.textContent).toBe('v20261007-1');
+  expect(container.querySelector('[data-testid="native-update-state-latest"]')?.textContent).toBe('unknown');
+  expect(container.textContent).not.toContain('No update check has been recorded yet.');
+});
+
+it('refuses to render a state whose catalog claims a field is editable', async () => {
+  // The panel is read-only because the native surface says so. A catalog that
+  // suddenly offers editability is drift, and drift fails closed: the honest
+  // sentence appears and no values are rendered.
+  const drift = { ...catalog, fields: catalog.fields.map((field) => field.path === 'status'
+    ? { ...field, editability: { ...field.editability, available: true } } : field) };
+  fetchMock.mockImplementation((path: string) => {
+    if (path.endsWith('/update-state')) return Promise.resolve(json(recorded));
+    if (path.endsWith('/catalog')) return Promise.resolve(json(drift));
+    throw new Error('unexpected ' + path);
+  });
+  await mount();
+  expect(container.textContent).toContain('could not be read in the expected shape');
   expect(container.querySelector('[data-testid="native-update-state-table"]')).toBeNull();
 });

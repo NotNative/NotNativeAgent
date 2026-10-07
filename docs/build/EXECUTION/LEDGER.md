@@ -416,6 +416,42 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-15 — the update-state family closes on evidence, and a provider write-path claim is corrected
+
+This slice belongs to the residual lane: rows that already named a desktop
+surface but carried no application class, no tests, and no work package. It
+closed seven of the eight `update_state` rows, and the panel turned out to have
+a real gap rather than a paperwork gap — it rendered five of the eight fields
+the native surface serves and quietly dropped `latest_ref` and `latest_tag`, so
+those two now have lines of their own. The eighth, the store `format`, stays
+open deliberately: it is never displayed. The client refuses a record whose
+format it does not understand, so a wrong format produces the honest error
+sentence and no values at all, which is validation rather than a surface.
+These rows are now classified as NNA classifies them — generated state, whose
+effect is `next_update_check` and whose editability the catalog states as
+unavailable — and the panel proves it: a catalog that suddenly offered
+editability is drift, and the page renders nothing rather than trusting it.
+
+**The correction, because an audit artifact that is wrong is worse than one
+that is empty.** The previous slice recorded that NNA offers no provider writes
+and that writing therefore belongs to a later work package. That is true of the
+*configuration* contract and false of NNA. `POST /v1/provider-profiles` and
+`PATCH /v1/provider-profiles/:id` exist, and the store behind them rewrites the
+same manifest the configuration view reads, through the same `withProvider` and
+`withUpdatedProvider` transforms, under the manifest lock, gated on
+`provider.profile.write` or `provider.manage`. So seven provider fields have a
+native write path today; `trust_zone` has none anywhere, and capability rows are
+derived state with nothing writing them. Twenty-four rows had their notes
+corrected and twenty-one had a stale permission clause removed. The cost of not
+checking was not a wrong number but a wrong plan: a later lane would have been
+scoped to build a route that already exists.
+
+Two housekeeping facts: 208 census rows had `tests_run` stored as a string while
+the rest of the file uses an array, and they are arrays now. And the residual
+lane is measured on its own axes — after this slice, 33 rows still have a
+desktop surface whose status was never verified, 103 declare an unverified
+application class, and 33 rows have no desktop surface at all.
+
 ## NNA (test-only) and NND 20261007-14 — the manifest root closes, and containers get a written rule
 
 The last value-bearing manifest rows closed 10 of 22, and the family is now

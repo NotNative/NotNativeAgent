@@ -73,6 +73,8 @@ export function NativeUpdateState() {
           <li>Status: <span data-testid="native-update-state-status">{view.status}</span></li>
           <li>Checked at: <span data-testid="native-update-state-checked">{view.checked_at}</span></li>
           <li>Latest version: <span data-testid="native-update-state-latest">{view.latest_version ?? 'unknown'}</span></li>
+          <li>Release ref: <span data-testid="native-update-state-ref">{view.latest_ref ?? 'unknown'}</span></li>
+          <li>Release tag: <span data-testid="native-update-state-tag">{view.latest_tag ?? 'unknown'}</span></li>
           <li>Release digest: <span data-testid="native-update-state-sha">{view.latest_sha ?? 'unknown'}</span></li>
           {view.error_code ? <li>Last error: <span data-testid="native-update-state-error-code">{view.error_code}</span></li> : null}
         </ul>
