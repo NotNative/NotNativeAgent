@@ -323,7 +323,15 @@ catalog metadata (a republished configuration reaches the limits the engine
 reads for its next turn or request, and the reviewer timeout, permission
 timeout, and scheduler capacity are pushed directly); the tool-concurrency,
 flush, shutdown, and five context rows stay `unverified` because NNA
-declares no class for them. Provider identities,
+declares no class for them. Provider profile rows are served by the same
+view and shown read-only: NNA excludes every provider path from the generic
+editing set, so the desktop displays the resolved identity, trust zone,
+limits, and capability probes (unknown until NNA observes them) and offers no
+write. A credential reference in any shape arrives `redacted` and is never
+carried as text, and the inventory labels it `Redacted` rather than leaving a
+blank cell that reads like a missing secret. Saving a provider change is not
+offered here; profiles apply because a published configuration rebuilds the
+model router, so the next request uses the saved profile. Provider identities,
 credentials, authority grants, and external-store settings require separate
 native contracts and acceptance evidence. The gateway external store now has
 a dedicated polling-timeout control when NNA advertises its separate native

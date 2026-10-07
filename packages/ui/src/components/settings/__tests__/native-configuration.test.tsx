@@ -198,3 +198,37 @@ it('renders the reviewer-ledger retention row with its default budget', async ()
   expect(rowText(ledgerPath)).toContain('10000');
   expect(rowText(ledgerPath)).toContain('compiled_default');
 });
+
+it('renders provider profile rows with derived values, redaction, and honest absence', async () => {
+  // NNA serves provider profiles read-only: derived limits name no layer,
+  // the capability container has no printable value, and a credential
+  // reference arrives already redacted. The page states each of those
+  // instead of leaving a blank cell that reads like a missing secret.
+  const providerView: NativeConfigurationView = { ...view, fields: [
+    { path: 'providers[local].trust_zone', catalog_path: 'providers[local].trust_zone', explicit: { present: false },
+      effective: { present: true, value: 'loopback', source: 'user' }, application: 'not_applied' },
+    { path: 'providers[local].tool_call_mode', catalog_path: 'providers[local].tool_call_mode',
+      explicit: { present: false }, effective: { present: true, value: 'single', source_unavailable: true },
+      application: 'not_applied' },
+    { path: 'providers[local].capabilities', catalog_path: 'providers[local].capabilities', explicit: { present: false },
+      effective: { present: true, value_unavailable: true, source_unavailable: true }, application: 'not_applied' },
+    { path: 'providers[local].credential', catalog_path: 'providers[local].credential', explicit: { present: false },
+      effective: { present: false }, application: 'not_applied' },
+    { path: 'providers[local].credential_env', catalog_path: 'providers[local].credential_env',
+      explicit: { present: false }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.capabilities.tools', catalog_path: 'provider.capabilities.tools', explicit: { present: false },
+      effective: { present: true, value: 'unknown', source_unavailable: true }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(providerView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('providers[local].trust_zone')).toContain('loopback');
+  expect(rowText('providers[local].tool_call_mode')).toContain('single');
+  expect(rowText('providers[local].capabilities')).toContain('Value unavailable');
+  expect(rowText('providers[local].credential')).toContain('Not set');
+  expect(rowText('providers[local].credential_env')).toContain('Redacted');
+  expect(rowText('provider.capabilities.tools')).toContain('unknown');
+  expect(container.textContent).not.toContain('undefined');
+});

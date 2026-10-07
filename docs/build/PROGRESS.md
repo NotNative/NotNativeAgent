@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Provider profiles are shown, not edited, and the class audit closes · NND 20261007-13
+
+Twenty-four `manifest_provider` rows closed on a read-projection basis; the
+family cannot close further because NNA's configuration contract offers no
+provider writes at all — the desktop shows the resolved profile and writing
+belongs to the provider and credential lanes. A credential in any shape
+(environment alias, environment binding, Secret Broker reference) arrives
+`redacted` and never as text, and the test hunts the whole serialized
+projection to prove it. Derived rows say so too: the capability container has
+no printable value, probes read `unknown` until observed, and an invented
+display name names no layer. The five provider rows pinned before C1
+under-claimed their application class; `applyConfiguration` rebuilds
+`engine.router` as a fresh `ModelRouter` over the published config, so
+`engine_boundary` is the truth — correcting them takes the standing class
+audit to zero mismatches. Census rows without a verified GUI: 67 → 43.
+
 ## 2026-10-07 · The route family closes against NNA's own offer · NND 20261007-12
 
 Forty of the 48 `manifest_route` rows closed in one slice; the eight that

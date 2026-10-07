@@ -1745,8 +1745,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
    "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
    "native_permission": "provider.manage or provider.profile.write",
@@ -1767,7 +1767,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
   },
   {
    "id": "manifest_provider:providers[*].display_name",
@@ -1789,8 +1789,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
    "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
    "native_permission": "provider.manage or provider.profile.write",
@@ -1811,7 +1811,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
   },
   {
    "id": "manifest_provider:providers[*].endpoint",
@@ -1833,8 +1833,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
    "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
    "native_permission": "provider.manage or provider.profile.write",
@@ -1855,7 +1855,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
   },
   {
    "id": "manifest_provider:providers[*].model",
@@ -1877,8 +1877,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
    "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
    "native_permission": "provider.manage or provider.profile.write",
@@ -1899,7 +1899,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
   },
   {
    "id": "manifest_provider:providers[*].trust_zone",
@@ -1921,29 +1921,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": "Must agree with endpoint-derived trust zone; not a freely selectable trust override."
+   "notes": "Must agree with endpoint-derived trust zone; not a freely selectable trust override. Pinned 20261007-13: resolved from the declared profile and attributed to the layer that declared it. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].credential",
@@ -2009,8 +2009,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
    "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
    "native_permission": "provider.manage or provider.profile.write",
@@ -2031,7 +2031,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
   },
   {
    "id": "manifest_provider:providers[*].context_limit_bytes",
@@ -2053,29 +2053,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
-   "native_permission": "provider.manage or provider.profile.write",
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: unset unless the profile declares it, and derived otherwise, so no layer is named. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].output_limit_tokens",
@@ -2097,29 +2097,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
-   "native_permission": "provider.manage or provider.profile.write",
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: unset unless the profile declares it, and derived otherwise, so no layer is named. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].tool_call_mode",
@@ -2141,29 +2141,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
-   "native_permission": "provider.manage or provider.profile.write",
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: resolved to single by default and derived, so no layer is named. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].capabilities",
@@ -2229,29 +2229,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: derived from the resolved profile capability probe. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].capabilities.tools",
@@ -2273,29 +2273,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a capability probe result, unknown until NNA observes it. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].capabilities.images",
@@ -2317,29 +2317,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a capability probe result, unknown until NNA observes it. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].capabilities.structured_output",
@@ -2361,29 +2361,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a capability probe result, unknown until NNA observes it. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].capabilities.usage",
@@ -2405,29 +2405,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a capability probe result, unknown until NNA observes it. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].capabilities.cancellation",
@@ -2449,29 +2449,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a capability probe result, unknown until NNA observes it. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:providers[*].credential.source",
@@ -2669,29 +2669,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: the legacy single-provider block mirrors the same resolved profile. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.display_name",
@@ -2713,29 +2713,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: invented from the identifier when unset, so the row names no layer. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.endpoint",
@@ -2757,29 +2757,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: the legacy single-provider block mirrors the same resolved profile. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.model",
@@ -2801,29 +2801,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: the legacy single-provider block mirrors the same resolved profile. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.trust_zone",
@@ -2845,29 +2845,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": "Must agree with endpoint-derived trust zone; not a freely selectable trust override."
+   "notes": "Must agree with endpoint-derived trust zone; not a freely selectable trust override. Pinned 20261007-13: the legacy single-provider block mirrors the same resolved profile. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.credential",
@@ -2977,29 +2977,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: the legacy alias of the resolved profile context ceiling. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.output_limit_tokens",
@@ -3021,29 +3021,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: the legacy alias of the resolved profile output ceiling. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.tool_call_mode",
@@ -3065,29 +3065,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: the legacy alias of the resolved tool call mode. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.capabilities",
@@ -3153,29 +3153,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a derived capability probe result mirrored by the legacy alias. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.capabilities.tools",
@@ -3197,29 +3197,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a derived capability probe result mirrored by the legacy alias. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.capabilities.images",
@@ -3241,29 +3241,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a derived capability probe result mirrored by the legacy alias. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.capabilities.structured_output",
@@ -3285,29 +3285,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a derived capability probe result mirrored by the legacy alias. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.capabilities.usage",
@@ -3329,29 +3329,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a derived capability probe result mirrored by the legacy alias. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.capabilities.cancellation",
@@ -3373,29 +3373,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over the new config with the credential resolver, so the next request resolves the saved provider profile"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every provider row, read-only: credential references arrive redacted and derived values name no layer)",
+   "native_permission": "nnd.configuration.read (the configuration contract offers no provider writes; the provider and credential lanes own them)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-13)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateProvider"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "applyConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the provider profile rows with their derived provenance, proves that every credential shape arrives redacted with no value text anywhere in the projection, and proves that the configuration contract offers no provider path for editing; the NND inventory test proves the page renders Redacted, Value unavailable and Not set for those rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-13: a derived capability probe result mirrored by the legacy alias. The row is displayed read-only: NNA does not offer provider fields through the generic editing set, so writes belong to the provider and credential lanes (C4 and C5). The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest_provider:provider.credential.source",

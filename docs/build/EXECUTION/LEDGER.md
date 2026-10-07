@@ -416,6 +416,34 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-13 — provider profiles are shown, not edited, and the class audit closes
+
+The provider family closed 24 of its 37 open rows on a read-projection
+basis, and the reason it cannot close more is now written down rather than
+implied: **NNA's configuration contract offers no provider writes at all.**
+Every provider path is excluded from the generic editing set, so the desktop
+shows the resolved profile and stops there — writing belongs to the provider
+and credential lanes.
+
+What the projection guarantees turned out to be the valuable part. A
+credential in any of its three shapes — the environment alias, an
+environment binding, or a Secret Broker reference — reaches the view
+`redacted` and never as text: the assertion hunts the whole serialized
+projection for the variable name and the secret id. Derived facts say so:
+the capability container has no printable value, capability probes read
+`unknown` until observed, and a display name invented from the identifier
+names no layer.
+
+The five provider rows pinned before C1 claimed `unverified` where NNA's own
+metadata says `engine_boundary`, and the mechanism confirms the metadata:
+`applyConfiguration` replaces `engine.config` and rebuilds `engine.router` as
+a fresh `ModelRouter` over it, including the credential resolver — so a
+published profile is what the next request resolves. Correcting them takes
+the standing class audit to zero mismatches: every pinned row now agrees
+with NNA's catalog metadata. Thirteen rows stay open honestly — eleven
+credential rows awaiting the credential lane, and two containers that are
+not values. Census rows without a verified GUI: 67 → 43.
+
 ## NNA (test-only) and NND 20261007-12 — the route family closes against NNA's own offer
 
 The 48-row `manifest_route` family lost 40 rows in one slice, and the eight
