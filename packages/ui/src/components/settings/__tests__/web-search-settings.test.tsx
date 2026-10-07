@@ -63,6 +63,45 @@ beforeEach(() => { fetchMock.mockReset(); sessionStorage.clear(); runtime.key = 
   useAuthSessionStore.getState().markOk(); });
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); runtime.listeners.clear(); });
 
+it('renders the managed flag NNA derives for its own deployments as a badge, not a control', async () => {
+  // NNA stamps managed:true only on a profile its own machinery created or
+  // adopted (web-search-cli.js deploy writes replacePrimaryWebSearch(current,
+  // deployed.endpoint, true), which derives the "Local SearXNG" name); the
+  // flag rides every read view as generated state.
+  const managedView = { ...view, profiles: [
+    { id: 'docs', display_name: 'Local SearXNG', provider: 'searxng' as const,
+      endpoint: 'http://127.0.0.1:8888/search/', managed: true },
+    profile('work', 'https://work.example')] };
+  fetchMock.mockImplementation((path: string, init: RequestInit) => {
+    if (path.endsWith('/web-search')) return Promise.resolve(json(managedView));
+    if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
+    if (path.endsWith('/preview')) return Promise.resolve(json(previewOf({
+      profiles: [...managedView.profiles, profile('docs-new', 'https://docs.example', 'Docs new')] })));
+    if (path.endsWith('/save')) return Promise.resolve(json(receipt(JSON.parse(String(init.body)).operation_id)));
+    throw new Error('unexpected ' + path);
+  });
+  await mount();
+  // The read summary marks the deployed profile; the unmanaged sibling stays
+  // unmarked, and the endpoint the page shows is the canonical one the client
+  // parsed (the served document's trailing /search/ is stripped on read).
+  const summary = container.querySelector('[data-testid="websearch-profiles-summary"]')?.textContent ?? '';
+  expect(summary).toContain('docs (http://127.0.0.1:8888) · managed');
+  expect(summary).toContain('work (https://work.example)');
+  expect(summary).not.toContain('work (https://work.example) · managed');
+  const badge = container.querySelector('[data-testid="websearch-profile-managed"]')?.textContent ?? '';
+  expect(badge).toBe(' · managed deploy (observed in the Managed SearXNG deployment section)');
+  const rowText = (id: string) => [...container.querySelectorAll('li')]
+    .find(item => item.textContent?.startsWith(`${id}:`))?.textContent ?? '';
+  expect(rowText('docs')).toContain('managed deploy (observed in the Managed SearXNG deployment section)');
+  expect(rowText('work')).not.toContain('managed deploy');
+  // The badge belongs to the field, so it rides the NNA preview of the same
+  // profile set rather than living in the draft-only row markup.
+  await addProfile('Docs new', 'https://docs.example/search/');
+  await click('Preview native change');
+  expect(container.textContent).toContain('docs (http://127.0.0.1:8888) · managed');
+  expect(container.textContent).toContain('No change has been saved or applied.');
+});
+
 it('previews and saves a profile add with exact NNA revision and next-search application', async () => {
   fetchMock.mockImplementation((path: string, init: RequestInit) => {
     if (path.endsWith('/web-search')) return Promise.resolve(json(view));

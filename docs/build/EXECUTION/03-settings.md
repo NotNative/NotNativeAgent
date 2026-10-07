@@ -1121,6 +1121,21 @@ behind it for the desktop principal, so the row keeps no surface instead of
 inheriting a claim no test supported. Unverified application class
 **38 → 33**.
 
+The last one of the six buildable leaves closed the next round
+(`20261007-58`): `web_search:profiles[*].managed`, the one owed
+`generated_state` field whose 20261007-18 note had recorded "displaying it is
+real follow-up work". The badge renders where the profile identity renders —
+the profile row unit in the editable list, the `· managed` marker in the read
+summary line, and the same marker in the NNA preview receipt — and says what
+the value means: NNA stamps `managed` only on a profile its own deploy adopted
+(`web-search-cli.js` deploy writes
+`replacePrimaryWebSearch(current, deployed.endpoint, true)`, which derives the
+"Local SearXNG" name), so the badge points at the sibling *Managed SearXNG
+deployment* observation that renders on the same composed settings page. The
+field stays operator-unsettable (`not_applied`, read right only), and the
+census row verified with a test naming the summary marker, the row badge, and
+the unmarked sibling.
+
 ### What "verified" means in the census, and what it does not
 
 `current_gui.status: verified` means one specific thing: a named test file reads the field off

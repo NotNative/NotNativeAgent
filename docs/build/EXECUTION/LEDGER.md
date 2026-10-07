@@ -416,6 +416,40 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-58 — the managed-deploy badge closes the last buildable owed leaf
+
+Rows without a desktop surface: **7 → 6**. One generated-state field the census itself had
+recorded as follow-up work ("displaying it is real follow-up work", note of `20261007-18`)
+got its deliberate render and closed verified:
+
+- `web_search:profiles[*].managed` — the profile row unit renders a badge
+  (`· managed deploy (observed in the Managed SearXNG deployment section)`) for a profile that
+  carries `managed: true`, the read summary line marks the same profile with `· managed` and
+  leaves the unmanaged sibling unmarked, and the NNA preview carries the marker; the badge
+  tells the truth about the value: NNA stamps `managed` only on a profile its own deploy
+  adopted (`web-search-cli.js` deploy → `replacePrimaryWebSearch(current, deployed.endpoint,
+  true)`, which derives the "Local SearXNG" name), and the *Managed SearXNG deployment*
+  observation — where the deployment itself is observed — renders on the same composed
+  settings page. The field stays operator-unsettable: `not_applied` stands, the row carries
+  the read right only, and no control sets or clears the flag.
+
+Citations: the page suite's new test ("renders the managed flag NNA derives for its own
+deployments as a badge, not a control") asserts the summary marker against the managed/managed-
+free sibling pair, the badge text, the unmarked sibling, and the preview line; the lib suite's
+existing managed-boolean test keeps the generated-state boundary (string, number, null, empty,
+absent refused; a managed profile stays managed through the rebuild). The endpoint the page
+shows is the canonical one the client parsed — the served document carries the trailing
+`/search/`, the page renders the stripped form, and the test says so.
+
+Code and tests: `web-search-settings.tsx` (badge span + summary/preview markers), new test in
+`web-search-settings.test.tsx` (20 tests in the file, all green; lib web-search suite still
+green at 20; typecheck clean). The coverage gate passes against the paired NNA checkout.
+
+After this round: rows 371; surfaces owed 6
+(provider, mission, four route-role containers — each with its stated reason); not owed with
+evidence 11; no-test and no-file citations 0 of 687; unverified application class 33; installed
+evidence 0 of 371.
+
 ## NND 20261007-57 — the seven shape-table record-containers close on fixtures, and five classes are transcribed
 
 Rows without a desktop surface: **14 → 7**. Unverified application class: **38 → 33**. Verified

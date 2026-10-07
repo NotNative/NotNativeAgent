@@ -22,6 +22,12 @@ const safePrecommit = new Set(['nnd_web_search_request_invalid', 'manifest_revis
   'web_search_profiles_too_many', 'web_search_profile_id_exhausted', 'web_search_profile_name_invalid',
   'web_search_profile_id_invalid']);
 const MAX_OPERATIONS = 16;
+// The managed flag marks a profile NNA deployed or adopted itself (the CLI's
+// deploy stamps managed:true and derives the "Local SearXNG" name); the field
+// rides the read view and is never an operator input, so it renders as a
+// pointer to the deployment observation rather than as a control. The Managed
+// SearXNG deployment section renders on the same composed settings page.
+const MANAGED_NOTE = ' · managed deploy (observed in the Managed SearXNG deployment section)';
 type PendingPreview = { request: ReturnType<typeof nativeWebSearchRequest>; view: NativeWebSearchView };
 type WebSearchDraft = { enabled: boolean; add_name: string; add_endpoint: string;
   added: readonly { display_name: string; endpoint: string }[]; removed: readonly string[]; primary: string | null };
@@ -158,8 +164,8 @@ export function WebSearchSettings(): ReactNode {
     {view && draft ? <>
       <p className="text-xs">Selected installation: {view.installation_id} · data: {view.data_id} · source:
         {' '}{view.source_state} · revision: {view.source_revision.slice(0, 12)}</p>
-      <p className="text-xs">WebSearch is {view.enabled ? 'enabled' : 'disabled'} · profiles:
-        {' '}{view.profiles.map(profile => `${profile.id} (${profile.endpoint})`).join(', ') || 'none'}</p>
+      <p className="text-xs" data-testid="websearch-profiles-summary">WebSearch is {view.enabled ? 'enabled' : 'disabled'} · profiles:
+        {' '}{view.profiles.map(profile => `${profile.id} (${profile.endpoint})${profile.managed ? ' · managed' : ''}`).join(', ') || 'none'}</p>
       <fieldset disabled={disabled} className="space-y-2">
         <div className="text-xs">
           <label><input type="checkbox" data-testid="websearch-enabled" checked={draft.enabled}
@@ -167,6 +173,7 @@ export function WebSearchSettings(): ReactNode {
           <ul className="ml-3 list-disc">{draftProfiles.map(profile => <li key={profile.id}>
             {profile.id}: {profile.display_name} → {profile.endpoint}
             {view.profiles[0]?.id === profile.id ? ' (primary)' : ''}
+            {profile.managed ? <span data-testid="websearch-profile-managed">{MANAGED_NOTE}</span> : null}
             <button type="button" className={BUTTON} disabled={disabled || view.profiles[0]?.id === profile.id}
               onClick={() => patchDraft({ primary: profile.id })}>Make primary</button>
             <button type="button" className={BUTTON} disabled={disabled}
@@ -195,7 +202,7 @@ export function WebSearchSettings(): ReactNode {
     </> : null}
     {preview ? <div role="status" className="rounded border border-border p-2 text-xs">
       <p>NNA preview: WebSearch would be {preview.view.enabled ? 'enabled' : 'disabled'} with profiles
-        {' '}{preview.view.profiles.map(profile => `${profile.id} (${profile.endpoint})`).join(', ') || 'none'}.
+        {' '}{preview.view.profiles.map(profile => `${profile.id} (${profile.endpoint})${profile.managed ? ' · managed' : ''}`).join(', ') || 'none'}.
         No change has been saved or applied.</p>
       <button type="button" className={BUTTON} onClick={save} disabled={disabled}>Save with native revision check</button>
     </div> : null}

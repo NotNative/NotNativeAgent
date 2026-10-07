@@ -3,6 +3,16 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The managed-deploy badge closes the last buildable owed leaf · NND 20261007-58
+
+`web_search:profiles[*].managed` — the generated-state field the census itself had queued as
+follow-up work — now renders a badge in the profile row unit (`· managed deploy (observed in the
+Managed SearXNG deployment section)`), a `· managed` marker in the read summary and NNA preview,
+pointing at the sibling deployment observation on the same page. Surfaces owed **7 → 6** (only
+provider, mission and the four route-role containers remain, each with its reason). One new
+page test (asserts marker vs unmarked sibling, badge text, preview line); lib web-search suite
+green; typecheck clean; gate green vs paired NNA.
+
 ## 2026-10-07 · Seven record-containers close on composed fixtures; five classes transcribed · NND 20261007-57
 
 The seven shape-table `object` records `-36` deferred closed on their own asserted member-set
