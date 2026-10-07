@@ -83,7 +83,8 @@ async function dispatch(request, response, context) {
     || context.nndCompatibilityLifecycleService || context.nndMcpCredentialsService
     || context.nndSecretsSettingsService || context.nndHooksSettingsService
     || context.nndUpdateActionsService || context.nndPackageActionsService
-    || context.nndEnvironmentSnapshotService || context.nndUpdateStateStore || context.nndTrustService)
+    || context.nndEnvironmentSnapshotService || context.nndInstallationSnapshotService
+    || context.nndUpdateStateStore || context.nndTrustService)
     && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService
     && await dispatchNndWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;

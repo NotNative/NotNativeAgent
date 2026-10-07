@@ -5,11 +5,13 @@ import { projectNndConfigurationView } from './nnd-configuration-view.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { ContractError } from './ids.js';
+import { isRegisteredFailureCode } from './error-code-registry.js';
 import { dispatchNndMcpConfigurationRequest } from './nnd-mcp-configuration-routes.js';
 import { dispatchNndGatewayTimeoutRequest } from './nnd-gateway-timeout-routes.js';
 import { dispatchNndWebFetchRequest } from './nnd-web-fetch-routes.js';
 import { dispatchNndWebSearchRequest } from './nnd-web-search-routes.js';
 import { dispatchNndEnvironmentRequest } from './nnd-environment-route.js';
+import { dispatchNndInstallationRequest } from './nnd-installation-route.js';
 import { dispatchNndUpdateStateRequest } from './nnd-update-state-route.js';
 import { dispatchNndTrustRequest } from './nnd-trust-routes.js';
 import { dispatchNndCompatibilityRequest } from './nnd-compatibility-routes.js';
@@ -35,7 +37,9 @@ export async function dispatchNndConfigurationRequest(request, response, context
   try { return await dispatchConfigurationRequest(request, response, context); }
   catch (error) {
     // Security: parser and filesystem diagnostics may contain private source keys or native paths.
-    const code = error instanceof ContractError && /^[a-z][a-z0-9_]{0,63}$/u.test(error.code)
+    // Registered failure codes surface verbatim (their text is registry-controlled);
+    // anything unregistered is rebranded so private diagnostics never leak.
+    const code = error instanceof ContractError && isRegisteredFailureCode(error.code)
       ? error.code : 'nnd_configuration_unavailable';
     throw new ContractError(code, 'Native configuration request could not be completed.');
   }
@@ -48,6 +52,7 @@ async function dispatchConfigurationRequest(request, response, context) {
   if (await dispatchNndWebFetchRequest(request, response, context)) return true;
   if (await dispatchNndWebSearchRequest(request, response, context)) return true;
   if (await dispatchNndEnvironmentRequest(request, response, context)) return true;
+  if (await dispatchNndInstallationRequest(request, response, context)) return true;
   if (await dispatchNndUpdateStateRequest(request, response, context)) return true;
   if (await dispatchNndTrustRequest(request, response, context)) return true;
   if (await dispatchNndCompatibilityLifecycleRequest(request, response, context)) return true;

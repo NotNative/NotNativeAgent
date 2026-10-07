@@ -14,7 +14,7 @@ import { createNndLocalIntegrationActivation } from '../src/nno-integration-acti
 // fixtures live in the home directory on Windows exactly like the CLI tests.
 const scratch = () => mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-update-actions-'));
 
-const identity = { installation_id: 'install_updates', data_id: 'data_updates' };
+const identity = { installation_id: 'install_updates', data_id: 'data_updates', install_root: 'C:\\nna' };
 const token = 'update-package-http-token-36-chars-test';
 const updatePrincipal = { subjectId: 'operator@example.com', permissions: ['nnd.update.manage'] };
 
@@ -33,7 +33,8 @@ test('the exported settings-service key set is the exact routing surface', () =>
   assert.deepEqual(Object.keys(services).sort(), [
     'nndCompatibilityLifecycleService', 'nndCompatibilitySettingsService',
     'nndConfigurationService', 'nndEnvironmentSnapshotService',
-    'nndGatewayTimeoutService', 'nndHooksSettingsService', 'nndMcpCredentialsService',
+    'nndGatewayTimeoutService', 'nndHooksSettingsService', 'nndInstallationSnapshotService',
+    'nndMcpCredentialsService',
     'nndPackageActionsService', 'nndSecretsSettingsService', 'nndTrustService',
     'nndUpdateActionsService', 'nndUpdateStateStore', 'nndWebFetchSettingsService',
     'nndWebSearchSettingsService', 'nndWorkspaceGrantService']);

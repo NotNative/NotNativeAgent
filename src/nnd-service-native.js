@@ -19,6 +19,7 @@ import { createNndHooksSettingsService } from './nnd-hooks-routes.js';
 import { createNndUpdateActionsService } from './nnd-update-actions-routes.js';
 import { createNndPackageActionsService } from './nnd-package-routes.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
+import { createNndInstallationSnapshot } from './nnd-installation-snapshot.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
@@ -81,6 +82,8 @@ export function createNativeNndSettingsServices(paths, identity, environment) {
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndEnvironmentSnapshotService: createNndEnvironmentSnapshot({ environment,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndInstallationSnapshotService: createNndInstallationSnapshot({ installRoot: identity.install_root,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndUpdateStateStore: createNndUpdateStateStore({ path: paths.updateState,
       installationId: identity.installation_id, dataId: identity.data_id }),

@@ -128,6 +128,10 @@ function failure(code, message) { return { error: { code, message } }; }
 function failureStatus(code) {
   if (code === 'nnd_trial_mutation_denied') return 403;
   if (code === 'nnd_trial_admission_invalid' || code === 'nnd_configuration_unavailable') return 503;
+  // The installation observation fails closed when the descriptor no longer
+  // verifies: the service cannot host reads over an admission the disk lost.
+  if (code === 'nnd_install_descriptor_unavailable' || code === 'nnd_install_descriptor_invalid'
+    || code === 'nnd_install_runtime_unavailable') return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy') return 409;
@@ -154,7 +158,8 @@ function failureStatus(code) {
   // Broken server builds (projection drift) are 500s, not client errors.
   if (['nnd_compatibility_projection_invalid', 'nnd_secrets_projection_invalid',
     'nnd_hooks_projection_invalid', 'nnd_update_projection_invalid',
-    'nnd_package_projection_invalid', 'nnd_service_projection_invalid'].includes(code)) return 500;
+    'nnd_package_projection_invalid', 'nnd_service_projection_invalid',
+    'nnd_installation_projection_invalid'].includes(code)) return 500;
   // Compatibility-service lifecycle: grammar stays at the default 400, but the
   // operational failures are honest 503s — the runtime could not be started or
   // its identity could not be verified, and the surface refuses harmlessly.
