@@ -416,7 +416,26 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
-## NNA 20261006-22 and NND 20261006-25 — MCP advanced-fields projection
+## NND 20261007-2 — TUI keyboard family rides the configuration view
+
+The 20 `manifest_tui` census rows closed against the EXISTING configuration
+view — this slice adds no new native surface: the generic catalog already
+serves every `tui` path, and the mechanical path proof (NNA
+`test/nnd-configuration-view.test.js`) shows the 20 census paths carry their
+explicit values, the merged validated binding map, and honest provenance.
+The defaults always apply, even when the manifest omits the whole block:
+`reduced_motion` is false, `color` is on (a tty still has to allow it and
+`NO_COLOR` clears it), and all seventeen binding defaults are present before
+validation. The bindings apply at TUI start
+(`src/tui.js:runTui` re-validates the merged map through
+`src/experience/key-bindings.js:validateKeyBindings` and feeds the decoder
+via `src/tui.js:decoder.setBindings` before the first frame); `reduced_motion`
+skips animation frames and `color` gates ANSI rendering. The container row
+projects presence only. The desktop inventory page renders the rows — NNA
+owns the tui block and NND renders it read-only. Census rows without a
+verified GUI: 188 → 168.
+
+## NNA 20261006-22 and NND 20261007-1 — MCP advanced-fields projection
 
 The 30 `manifest_mcp` census rows closed with a real projection of the fields
 the redacted editor route never serves. Nine rows (id, transport, enabled,

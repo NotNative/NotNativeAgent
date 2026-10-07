@@ -3,7 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
-## 2026-10-06 · MCP advanced-fields projection · NNA 20261006-22 + NND 20261006-25
+## 2026-10-07 · TUI keyboard family rides the configuration view · NND 20261007-2
+
+The 20 `manifest_tui` rows closed against the EXISTING configuration view
+with no new native surface: the generic catalog already serves every `tui`
+path, and the mechanical path proof shows explicit values, the merged
+validated binding map, and honest provenance. The defaults always apply
+even when the manifest omits the block: `reduced_motion` false, `color` on,
+all seventeen binding defaults present before validation; the map is
+re-validated and applied at TUI start (runTui → validateKeyBindings →
+decoder.setBindings) before the first frame. The desktop inventory page
+renders the rows read-only. Census rows without a verified GUI: 188 → 168.
+Next families: mission 16, skills 7, dream 6, memory 5, recovery 4,
+attachments 3, telemetry 3, reviewer_ledger 1, then route 48, provider 37,
+manifest 38.
+
+## 2026-10-07 · MCP advanced-fields projection · NNA 20261006-22 + NND 20261007-1
 
 The 30 `manifest_mcp` rows closed with the advanced-projection slice: nine
 fields were already native through the redacted MCP read route and editor;

@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
-import { requestNativeConfiguration, type NativeConfigurationView } from '../../../lib/nnd/configuration.ts';
+import { requestNativeConfiguration, type NativeConfigurationView, type NativeConfigurationField } from '../../../lib/nnd/configuration.ts';
 import { NativeConfigurationPage } from '../pages/native-configuration.tsx';
 
 const runtime = vi.hoisted(() => ({ key: 'local', callback: () => {} }));
@@ -72,6 +72,39 @@ it('aborts an in-flight read on auth expiry and ignores its late response', asyn
   await act(async () => finish(view));
   expect(container.textContent).not.toContain('provider.credential');
   expect(requestNativeConfiguration).toHaveBeenCalledTimes(1);
+});
+it('renders the tui keyboard family with merged defaults, provenance and honest container absence', async () => {
+  const binding = (action: string, key: string, explicit: boolean): NativeConfigurationField => ({
+    path: `tui.key_bindings.${action}`, catalog_path: `tui.key_bindings.${action}`,
+    explicit: explicit ? { present: true, value: key } : { present: false },
+    effective: explicit ? { present: true, value: key, source: 'user' }
+      : { present: true, value: key, source_unavailable: true }, application: 'not_applied' });
+  const tuiView: NativeConfigurationView = { ...view, fields: [
+    { path: 'tui.reduced_motion', catalog_path: 'tui.reduced_motion', explicit: { present: true, value: true },
+      effective: { present: true, value: true, source: 'user' }, application: 'not_applied' },
+    { path: 'tui.color', catalog_path: 'tui.color', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'tui.key_bindings', catalog_path: 'tui.key_bindings', explicit: { present: true, value_unavailable: true },
+      effective: { present: true, value_unavailable: true, source_unavailable: true }, application: 'not_applied' },
+    binding('submit', 'ctrl+e', true), binding('cancel', 'ctrl+x', true),
+    binding('newline', 'ctrl+j', false), binding('help', 'ctrl+g', false),
+    binding('allow_once', 'ctrl+y', false), binding('deny', 'ctrl+n', false),
+    binding('reset_keys', 'f12', false), binding('undo', 'ctrl+z', false),
+    binding('toggle_activity', 'ctrl+o', false), binding('new_tab', 'ctrl+t', false),
+    binding('close_tab', 'ctrl+w', false), binding('previous_tab', 'ctrl+pageup', false),
+    binding('next_tab', 'ctrl+pagedown', false), binding('cycle_review', 'shift+tab', false),
+    binding('scroll_page_up', 'pageup', false), binding('scroll_page_down', 'pagedown', false),
+    binding('scroll_bottom', 'end', false),
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(tuiView);
+  mount(); await act(async () => {});
+  expect(container.textContent).toContain('tui.key_bindings.submit');
+  expect(container.textContent).toContain('ctrl+e');
+  expect(container.textContent).toContain('shift+tab');
+  expect(container.textContent).toContain('Value unavailable');
+  expect(container.textContent).toContain('compiled_default');
+  expect(container.textContent).toContain('user');
+  expect(container.textContent).toContain('Application status: not applied');
 });
 it('labels unsupported endpoint separately from a native missing source', async () => {
   vi.mocked(requestNativeConfiguration).mockRejectedValueOnce(new Error('native-configuration-unsupported'));

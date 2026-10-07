@@ -641,6 +641,18 @@ effects, protocol version, transport surface; the secret VALUE never
 crosses). The desktop `MCP server details` panel on the MCP page renders
 the presence rows and, behind an explicit `Load references` action, the
 inner references, stating that values stay native.
+The tui block rides the same configuration view with no new surface: the
+catalog already serves every `tui` path (the container, `reduced_motion`,
+`color`, and the seventeen `key_bindings` actions), and the view test proves
+the 20 census rows carry explicit values, the merged validated map, and
+provenance. The defaults always apply before the manifest loads —
+`reduced_motion` starts false, `color` starts on (a tty must allow it and
+`NO_COLOR` still clears it), and every default binding is present before
+validation — the map is re-validated (`experience/key-bindings.js`) and
+applied at TUI start (`src/tui.js:runTui` → `decoder.setBindings`) before
+the first frame; `reduced_motion` skips animation frames and `color` gates
+ANSI rendering. The container projects presence only. The desktop inventory
+page renders the rows read-only; NNA owns the block.
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value

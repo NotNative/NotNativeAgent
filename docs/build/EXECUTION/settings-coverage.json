@@ -6321,29 +6321,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui resolves reduced_motion at TUI start (the default is false); src/tui/render-loop.js skips animation frames when set"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateTui"
+     "validateTui",
+     "projectNndConfigurationView",
+     "runTui",
+     "render-loop.js"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-2: reduced_motion is a display preference: the field stays unclassified (the display-only class does not exist in this census yet); the view serves the resolved value with its provenance. NNA owns the tui block; NND renders it read-only."
   },
   {
    "id": "manifest_tui:tui.color",
@@ -6365,29 +6366,30 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui resolves color at TUI start (the default is true); src/tui/terminal-adapter.js gates ANSI rendering on the resolved tty unless NO_COLOR is set"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateTui"
+     "validateTui",
+     "projectNndConfigurationView",
+     "runTui",
+     "terminal-adapter.js"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-2: color is a display preference: the field stays unclassified (the display-only class does not exist in this census yet); the view serves the resolved value with its provenance. NNA owns the tui block; NND renders it read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings",
@@ -6409,29 +6411,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateTui"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": null
+   "notes": "Pinned 20261007-2: the container projects presence only; the effective value is the merged validated map; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_telemetry:telemetry.enabled",
@@ -6805,29 +6809,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the submit row defaults to 'ctrl+s' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.newline",
@@ -6849,29 +6855,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the newline row defaults to 'ctrl+j' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.cancel",
@@ -6893,29 +6901,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the cancel row defaults to 'ctrl+c' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.help",
@@ -6937,29 +6947,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the help row defaults to 'ctrl+g' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.allow_once",
@@ -6981,29 +6993,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the allow_once row defaults to 'ctrl+y' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.deny",
@@ -7025,29 +7039,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the deny row defaults to 'ctrl+n' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.reset_keys",
@@ -7069,29 +7085,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the reset_keys row defaults to 'f12' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.undo",
@@ -7113,29 +7131,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the undo row defaults to 'ctrl+z' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.toggle_activity",
@@ -7157,29 +7177,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the toggle_activity row defaults to 'ctrl+o' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.new_tab",
@@ -7201,29 +7223,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the new_tab row defaults to 'ctrl+t' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.close_tab",
@@ -7245,29 +7269,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the close_tab row defaults to 'ctrl+w' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.previous_tab",
@@ -7289,29 +7315,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the previous_tab row defaults to 'ctrl+pageup' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.next_tab",
@@ -7333,29 +7361,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the next_tab row defaults to 'ctrl+pagedown' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.cycle_review",
@@ -7377,29 +7407,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the cycle_review row defaults to 'shift+tab' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.scroll_page_up",
@@ -7421,29 +7453,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_page_up row defaults to 'pageup' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.scroll_page_down",
@@ -7465,29 +7499,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_page_down row defaults to 'pagedown' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_tui:tui.key_bindings.scroll_bottom",
@@ -7509,29 +7545,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/tui.js:runTui re-validates the merged map (src/experience/key-bindings.js:validateKeyBindings) and applies it to the decoder (src/tui.js:decoder.setBindings) before the first frame"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-2)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateKeyBindings"
+     "validateTui",
+     "validateKeyBindings",
+     "projectNndConfigurationView",
+     "runTui",
+     "setBindings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the 20 census paths (explicit values, merged defaults, provenance, honest container absence) and the NND inventory page test renders the tui rows"
    },
-   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified."
+   "notes": "TUI-only preference, independent of NND keyboard shortcuts; actual apply consumer unverified. Pinned 20261007-2: the scroll_bottom row defaults to 'end' and is always present even when absent from the manifest; the map is re-validated and applied at TUI start. NNA owns the tui block; NND renders the resolved map read-only."
   },
   {
    "id": "manifest_mcp:mcp_servers[*].id",
