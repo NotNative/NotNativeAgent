@@ -190,6 +190,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_browser_action_invalid', 'nnd_browser_projection_invalid',
     'nnd_skills_request_invalid', 'nnd_skills_catalog_unavailable',
     'nnd_skills_projection_invalid', 'nnd_skills_catalog_too_large',
+    'nnd_legacy_provider_credentials_request_invalid',
+    'nnd_legacy_provider_credentials_projection_invalid',
     'nnd_service_action_invalid', 'nnd_service_projection_invalid', 'nnd_service_run_unsupported',
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
     'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',

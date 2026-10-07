@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e47e24f95bf9e80ae1a1aa03fb795328e0b9dba6f2a82a345995035a715960e5",
+  "source_digest": "sha256:6f208186884815c81fd718f8aa0d03a5e1b1eff72f270f8487dda79724e02f0f",
   "counts": {
-    "modules": 543,
+    "modules": 544,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 235
+      "module_count": 236
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 705,
-      "module_count": 210
+      "import_count": 708,
+      "module_count": 211
     },
     {
       "from": "experience-engine",
@@ -138,8 +138,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 67,
-      "module_count": 38
+      "import_count": 69,
+      "module_count": 39
     },
     {
       "from": "tools",
@@ -198,8 +198,8 @@
     {
       "from": "foundation",
       "to": "providers",
-      "import_count": 15,
-      "module_count": 12
+      "import_count": 16,
+      "module_count": 13
     },
     {
       "from": "opencode-surface",
@@ -2633,6 +2633,7 @@
         "src/nnd-gateway-timeout-routes.js",
         "src/nnd-hooks-routes.js",
         "src/nnd-installation-route.js",
+        "src/nnd-legacy-provider-credentials-routes.js",
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-mcp-credentials-routes.js",
         "src/nnd-package-routes.js",
@@ -2977,6 +2978,17 @@
       "imports": [
         "src/ids.js",
         "src/nnd-service-private-windows.js"
+      ]
+    },
+    {
+      "path": "src/nnd-legacy-provider-credentials-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/provider/bootstrap.js",
+        "src/secret-broker-server.js"
       ]
     },
     {
@@ -3420,6 +3432,7 @@
         "src/nnd-gateway-timeout-transaction.js",
         "src/nnd-hooks-routes.js",
         "src/nnd-installation-snapshot.js",
+        "src/nnd-legacy-provider-credentials-routes.js",
         "src/nnd-mcp-credentials-transaction.js",
         "src/nnd-native-principal-selection.js",
         "src/nnd-package-routes.js",

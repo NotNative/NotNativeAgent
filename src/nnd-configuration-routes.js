@@ -14,6 +14,7 @@ import { dispatchNndEnvironmentRequest } from './nnd-environment-route.js';
 import { dispatchNndInstallationRequest } from './nnd-installation-route.js';
 import { dispatchNndBrowserRequest } from './nnd-browser-routes.js';
 import { dispatchNndSkillsRequest } from './nnd-skills-routes.js';
+import { dispatchNndLegacyProviderCredentialsRequest } from './nnd-legacy-provider-credentials-routes.js';
 import { dispatchNndUpdateStateRequest } from './nnd-update-state-route.js';
 import { dispatchNndTrustRequest } from './nnd-trust-routes.js';
 import { dispatchNndCompatibilityRequest } from './nnd-compatibility-routes.js';
@@ -57,6 +58,7 @@ async function dispatchConfigurationRequest(request, response, context) {
   if (await dispatchNndInstallationRequest(request, response, context)) return true;
   if (await dispatchNndBrowserRequest(request, response, context)) return true;
   if (await dispatchNndSkillsRequest(request, response, context)) return true;
+  if (await dispatchNndLegacyProviderCredentialsRequest(request, response, context)) return true;
   if (await dispatchNndUpdateStateRequest(request, response, context)) return true;
   if (await dispatchNndTrustRequest(request, response, context)) return true;
   if (await dispatchNndCompatibilityLifecycleRequest(request, response, context)) return true;
