@@ -148,7 +148,7 @@ test('work plan and status expose one lossless round-trip contract', async () =>
   assert.equal(after.goal.status, before.goal.status);
 });
 
-test('work plan documents NNA-owned task ids and gives distinct identity repairs', async () => {
+test('work plan accepts only the exact next NNA-owned id for a new task', async () => {
   const work = new ConversationWork();
   const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work_plan');
   const taskSchema = plan.inputSchema.properties.tasks.items;
@@ -159,11 +159,22 @@ test('work plan documents NNA-owned task ids and gives distinct identity repairs
   assert.match(taskSchema.properties.title.description, /including for an existing id/u);
   assert.deepEqual(taskSchema.required, ['title']);
 
-  await assert.rejects(
-    work.replacePlan({ objective: 'Reject invented identities', tasks: [{ id: 'T1', title: 'New task' }] }),
-    { code: 'work_plan_invalid', message: 'task id T1 was not returned by the current work plan; omit id to create this task' },
-  );
-  await work.replacePlan({ objective: 'Reject duplicate identities', tasks: [{ title: 'Existing task' }] });
+  const initial = await plan.validate({ objective: 'Accept a predictable initial id', tasks: [{ id: 'T1', title: 'New task' }] });
+  const result = JSON.parse((await plan.executor(initial, new AbortController().signal)).content);
+  assert.equal(result.tasks[0].id, 'T1');
+  assert.equal(work.snapshot().nextTaskNumber, 2);
+
+  const before = work.snapshot();
+  await assert.rejects(work.replacePlan({
+    objective: 'Reject unknown identities', tasks: [{ id: 'T3', title: 'Unknown task' }],
+  }), { code: 'work_plan_invalid', message: 'task id T3 is not in the current work plan; omit id for a new task (NNA will assign T2)' });
+  assert.deepEqual(work.snapshot(), before);
+
+  const added = await work.replacePlan({
+    objective: 'Accept mixed existing and new tasks',
+    tasks: [{ id: 'T1', title: 'Existing task' }, { id: 'T2', title: 'Second task' }],
+  });
+  assert.deepEqual(added.tasks.map((task) => task.id), ['T1', 'T2']);
   await assert.rejects(
     work.replacePlan({
       objective: 'Reject duplicate identities',

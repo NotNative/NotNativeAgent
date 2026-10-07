@@ -343,17 +343,22 @@ function normalizePlan(value, state) {
   const goalBlockedReason = goalStatus === 'blocked'
     ? boundedText(value.goal_blocked_reason, 'goal blocking reason', MAX_DETAIL) : null;
   const known = new Set(state.tasks.map((task) => task.id));
-  const ids = new Set(); let inProgress = 0;
+  const ids = new Set(); let inProgress = 0; let nextTaskNumber = state.nextTaskNumber;
   const tasks = value.tasks.map((item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new ContractError('work_plan_invalid', 'each work-plan task must be an object');
-    const id = item.id === undefined ? null : normalizeTaskId(item.id);
-    if (id && !known.has(id)) {
-      throw new ContractError('work_plan_invalid', `task id ${id} was not returned by the current work plan; omit id to create this task`);
+    const suppliedId = item.id === undefined ? null : normalizeTaskId(item.id);
+    if (suppliedId && ids.has(suppliedId)) {
+      throw new ContractError('work_plan_invalid', `task id ${suppliedId} appears more than once; include each existing task id at most once`);
     }
-    if (id && ids.has(id)) {
-      throw new ContractError('work_plan_invalid', `task id ${id} appears more than once; include each existing task id at most once`);
+    if (suppliedId) ids.add(suppliedId);
+    // Compatibility: accept the next predictable id as a provisional label.
+    // NNA still assigns it; an unknown existing-task id cannot bind to new work.
+    if (suppliedId && !known.has(suppliedId) && suppliedId !== `T${nextTaskNumber}`) {
+      throw new ContractError('work_plan_invalid',
+        `task id ${suppliedId} is not in the current work plan; omit id for a new task (NNA will assign T${nextTaskNumber})`);
     }
-    if (id) ids.add(id);
+    const id = suppliedId && known.has(suppliedId) ? suppliedId : null;
+    if (id === null) nextTaskNumber += 1;
     const title = boundedText(item.title, 'task title', MAX_TASK_TITLE);
     const status = item.status ?? 'pending';
     if (!TASK_STATES.has(status)) throw new ContractError('work_plan_invalid', 'task status is invalid');

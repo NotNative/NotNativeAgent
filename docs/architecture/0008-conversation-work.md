@@ -29,6 +29,10 @@ granular tools support direct, intuitive updates to the same state machine. Thei
 does not itself create a plan. `work_plan` and `work_status` expose one round-trip-safe provider
 shape while durable snapshots retain their separate engine fields and timestamps. A returned
 revision is an optimistic concurrency guard: stale replacement is rejected without mutation.
+NNA owns task identities. New tasks should omit `id`; when a plan supplies the exact next
+identity NNA would assign in task order, replacement accepts it as a provisional label and
+still assigns the identity itself. Other unknown identities fail before mutation so a stale
+task reference cannot silently create different work.
 Explicit operator requests to set, create, load, or track a goal
 or task list must be persisted before dependent work begins. These tools add no filesystem,
 process, secret, or network authority. Hosted sessions receive only the exact work tools named
