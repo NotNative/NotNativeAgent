@@ -416,6 +416,69 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-38 — the headline changes meaning: six rows say plainly that no surface is owed, and the gate decides whether they may
+
+**This entry moves the ruler, not the work.** Nothing new appeared on a screen this round.
+
+Surfaces owed: **25 → 19**. Rows recorded as owing no surface: **0 → 6**. Both numbers are
+reported together from here on, because 19 is not "six surfaces built" — it is nineteen
+surfaces still owed plus six fields that say why they will never have one.
+
+For eleven rounds the headline counted every row with an empty `current_gui.path`, which mixed
+two different things: a surface we have not built, and a field that has no surface to build.
+Round after round I refused to close a `version` row because printing a number that is always
+1 is decoration, and each refusal left the row in the count — so the number got more honest
+and less useful at the same time, and by now it was mostly measuring my refusals.
+
+The census now carries the distinction as data instead of as prose in a `notes` field:
+`current_gui.owed: false` with a `basis` naming a source file and symbol, and a
+`justification`. **The release gate enforces the shape** — `scripts/settings-coverage-gate.mjs`
+rejects a claim that names a path and disowns it in the same row, rejects a basis that does
+not point at a file and a symbol, rejects a justification too short to be checked against that
+file, and prints `surface_not_owed` in the seal output so any future drop in the headline can
+be read against the number of rows that opted out. Two failure-path tests cover it, and the
+probe prints `unevidenced 0` so a hollow claim is visible without running the seal.
+
+**The six rows, named, because a reclassification that stays anonymous is the thing this
+ledger keeps objecting to:**
+
+| row | the guard | the drift test that refuses anything else |
+| --- | --- | --- |
+| `gateway:version` | `native-gateway.ts:parseNativeGatewayView`, `version !== 1` | `native-gateway.test.ts` with `version: 2` |
+| `trust:version` | `trust.ts:parseTrustList` | `trust.test.ts` with `version: 2` |
+| `web_fetch:version` | `web-fetch.ts:parseNativeWebFetchView` | `web-fetch.test.ts` with `version: 2` |
+| `compatibility_service:version` | `compatibility.ts:parseNativeCompatibilityView` | `compatibility.test.ts` with `version: 2` |
+| `update_state:format` | `update-state.ts:parseUpdateState`, `format !== 1` | `update-state.test.ts` with `format: 2` |
+| `web_search:version` | `web-search.ts:parseNativeWebSearchView` admits 2 only | `web-search.test.ts` with `version: 1` |
+
+The standard applied was deliberately narrow: **one legal value, the client refusing every
+other, and a test at that boundary proving the refusal.** Rows that merely have no control
+today are still owed — `web_search:profiles[*].managed`, the seven `manifest` records, the four
+`manifest_route` containers, `web_search:profiles[*].provider`, and the four
+`web_search_alias` rows all stay in the count.
+
+**Two of those stayed open for reasons found while looking, and they are the interesting
+half.** `web_search:profiles[*].provider` has exactly one legal value, and `normalizeProfile`
+in `src/web-search-config.js` throws `web_search_provider_invalid` for anything else — but no
+test anywhere, in either repository, ever fed it a provider that was not SearXNG. The
+client-side refusal at `web-search.ts:69` was likewise unasserted. That claim was load-bearing
+in a census note and nothing tested it, so the refusal is tested now (`web-search.test.ts`,
+six values including `'SEARXNG'` and `' searxng'`, plus an assertion that the parser can only
+ever emit the one). **NNA's own throw is still untested**, and that gap is recorded rather
+than smoothed over.
+
+`web_search:version` is the row that kept me honest here. It looks like the other five — the
+served document version is always 2 — but the thing an operator would want to know is
+*whether their file used the version-1 root keys*, and `normalizeWebSearchConfig` answers
+`{ version: 2 }` unconditionally, discarding the provenance. So the version row is decoration,
+while the real question moved to the four `web_search_alias` rows, which stay owed: showing
+them would need NNA to project what it currently throws away, and "we would have to build it"
+is a reason to owe a surface, not a reason to cancel one.
+
+After this round: surfaces owed 19; not owed with evidence 6; unverified surface status 0;
+unverified application class 42; unnamed citations 166 of 632; installed evidence 0 of 371;
+verified rows with no recorded examination 0.
+
 ## NND 20261007-37 — every verified row in the census is a source-reading claim, and the census said so in a field nobody filled
 
 Rows without a desktop surface: **25, unchanged** — nothing shipped to a screen this round.

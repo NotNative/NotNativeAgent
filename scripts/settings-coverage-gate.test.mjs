@@ -88,6 +88,38 @@ test('coverage gate passes a classified synthetic pair', windows, async t => {
   assert.equal(report.missing_rows.length, 0);
 });
 
+test('coverage gate admits an evidenced no-surface-owed claim and counts it', windows, async t => {
+  const census = structuredClone(healthyCensus);
+  const row = census.rows.find((item) => item.id === 'manifest_attachments:attachments');
+  row.current_gui = { path: null, status: 'unverified', owed: false,
+    basis: 'packages/ui/src/lib/nnd/native-gateway.ts:parseNativeGatewayView',
+    justification: 'The store reports one legal version and the client refuses every other '
+      + 'value, so the field can never differ between installations and any display of it '
+      + 'would be decoration rather than coverage.' };
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census });
+  const result = await run(f);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout.slice(0, result.stdout.indexOf('settings coverage gate passed')));
+  assert.equal(report.surface_not_owed, 1);
+});
+
+test('coverage gate rejects a no-surface-owed claim that carries no evidence', windows, async t => {
+  const census = structuredClone(healthyCensus);
+  const bare = census.rows.find((item) => item.id === 'manifest_attachments:attachments');
+  bare.current_gui = { path: null, status: 'unverified', owed: false };
+  const contradicted = census.rows.find((item) => item.id === 'manifest_attachments:attachments.enabled');
+  contradicted.current_gui = { path: 'packages/ui/src/components/settings/pages/x.tsx',
+    status: 'verified', owed: false, basis: 'packages/ui/src/lib/nnd/x.ts:symbol',
+    justification: 'Stated twice in the same row, which is exactly the mistake this check '
+      + 'exists to refuse, however long the sentence is.' };
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census });
+  const result = await run(f);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.unsupported_surface_claims.map((claim) => claim.id),
+    ['manifest_attachments:attachments', 'manifest_attachments:attachments.enabled']);
+});
+
 test('coverage gate rejects an unclassified catalog field', windows, async t => {
   const fields = [...happyFields, field('attachments.new_key', 'operator_setting', { generic_editable: false })];
   const f = await fixture(t, { fields, cliOptions: happyCliOptions, census: healthyCensus });

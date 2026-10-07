@@ -3,6 +3,37 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The headline splits into "owed" and "not owed", and the gate decides which is which · NND 20261007-38
+
+**Ruler change, disclosed up front: nothing appeared on a screen this round.** Surfaces owed
+**25 → 19**; rows recorded as owing no surface **0 → 6**. Report both together, always.
+
+Eleven rounds of refusing to credit decoration (printing a number that's always 1) left those
+rows in the headline, so the metric was increasingly measuring my refusals rather than the gap.
+The distinction now lives in the data: `current_gui.owed:false` + `basis` (a source file *and*
+symbol) + `justification` — and **`settings-coverage-gate.mjs` enforces the shape**: it rejects a
+row that names a path and disowns it, rejects a basis that points at nothing checkable, rejects
+a justification too short to verify, and prints `surface_not_owed` in the *seal* so any future
+headline drop can be read against the opt-out count. Two failure-path tests; probe prints
+`unevidenced 0`.
+
+The 6 (standard: one legal value + client guard + a test refusing anything else): `gateway:version`,
+`trust:version`, `web_fetch:version`, `compatibility_service:version`, `update_state:format`,
+`web_search:version`. Rows with no control *today* stay owed: `profiles[*].managed`, the 7
+manifest records, 4 route containers, `profiles[*].provider`, the 4 alias rows.
+
+**Found while looking:** `web_search:profiles[*].provider` — NNA throws `web_search_provider_invalid`
+for any non-SearXNG provider and the census *note* cited that refusal, but **no test in either
+repository ever fed it a different provider**; the client's own refusal at `web-search.ts:69` was
+unasserted too. Now tested (6 bad values, incl. `'SEARXNG'`/`' searxng'`, plus the parser emitting
+only `searxng`). **NNA's throw is still untested** — recorded, not smoothed over.
+
+`web_search:version` kept me honest: always 2 on the wire, but the fact an operator wants is
+*whether the file used v1 root keys* — and `normalizeWebSearchConfig` returns `{version: 2}`
+unconditionally, discarding provenance. So version is decoration; the real question moved to the
+4 `web_search_alias` rows, which stay **owed**: showing them needs NNA to project what it
+currently throws away, and "we'd have to build it" is a reason to owe a surface, not to cancel one.
+
 ## 2026-10-07 · The census's most important column has never been written · NND 20261007-37
 
 **No headline change (25 unchanged). Unnamed citations 184 → 166.**

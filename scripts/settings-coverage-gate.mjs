@@ -40,9 +40,35 @@ async function main(nnaSource, censusPath) {
   }
   const catalog = await dumpCatalog(nnaSource);
   const census = JSON.parse(await readFile(censusPath, 'utf8'));
-  const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [] };
+  const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [], surfaceClaims: [] };
   await trace(violations, census, catalog, nnaSource);
+  checkDispositions(violations, census);
   emit(violations, census, catalog);
+}
+
+/**
+ * A census row may state that no desktop surface is owed to it. That statement moves the
+ * headline number without any product changing, so it is only admissible with evidence: an
+ * empty path, a status that does not claim a surface, a basis naming a source file and a
+ * symbol in it, and a justification long enough to be checked against that source. Rows that
+ * satisfy this are counted in the seal output, so a falling headline can always be read
+ * against the number of rows that opted out.
+ */
+function checkDispositions(violations, census) {
+  for (const row of census.rows) {
+    const gui = row.current_gui;
+    if (gui?.owed !== false) continue;
+    const problems = [];
+    if (gui.path) problems.push('names a surface path');
+    if (gui.status === 'verified') problems.push('claims a verified surface');
+    if (typeof gui.basis !== 'string' || !/[\w./-]+\.(?:tsx|ts|jsx|js):\w/u.test(gui.basis)) {
+      problems.push('basis does not name a source file and symbol');
+    }
+    if (typeof gui.justification !== 'string' || gui.justification.trim().length < 60) {
+      problems.push('justification is missing or too short to check');
+    }
+    if (problems.length > 0) violations.surfaceClaims.push({ id: row.id, problems });
+  }
 }
 
 function emit(violations, census, catalog) {
@@ -56,11 +82,13 @@ function emit(violations, census, catalog) {
     kind_drift: violations.kindDrift.slice(0, 200),
     missing_option_rows: violations.missingOptions,
     stale_option_rows: violations.staleOptions,
+    surface_not_owed: census.rows.filter((row) => row.current_gui?.owed === false).length,
+    unsupported_surface_claims: violations.surfaceClaims.slice(0, 20),
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (violations.missingRows.length > 0 || violations.staleRows.length > 0
     || violations.kindDrift.length > 0 || violations.missingOptions.length > 0
-    || violations.staleOptions.length > 0) {
+    || violations.staleOptions.length > 0 || violations.surfaceClaims.length > 0) {
     process.stderr.write('settings coverage gate: unclassified or drifted coverage detected\n');
     process.exitCode = 1;
   } else {

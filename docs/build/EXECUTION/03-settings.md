@@ -1106,6 +1106,20 @@ The rule for the citations this relies on has not changed: name the file, quote 
 refuse or assert, and assert nothing about how many there are. A citation that cannot be
 opened is not evidence, however confident its prose.
 
+A row with an empty `current_gui.path` now says which of two cases it is. If a surface is
+still owed, the row simply has no path. If none is owed, the row states
+`current_gui.owed: false` with a `basis` naming a source file and the symbol in it, and a
+`justification` — and the coverage gate refuses the claim otherwise, including when the row
+names a path and disowns it in the same breath. The seal prints how many rows opted out.
+
+Admissible justification is narrow, on purpose: **the field has one legal value, the typed
+client refuses every other, and a test at that boundary proves the refusal.** That is a claim
+about the native contract, so it can be checked against it. "No control exists today", "an
+operator would not care", and "the page would look odd" are not justifications — they describe
+work not done. When a value could vary on the wire but NNA discards the fact (the web-search
+document's legacy shape, for instance, is folded into version 2 at load), the row stays owed:
+needing to build something is a reason to owe a surface, not to cancel one.
+
 ### C7 — Coverage and installed acceptance gate
 
 Dependency: C4–C6. Run the key-to-control-to-native-effect coverage report

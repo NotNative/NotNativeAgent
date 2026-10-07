@@ -46,6 +46,18 @@ describe('web search native view parser', () => {
     expect(bootstrapProposal.enabled).toBe(true);
     expect(bootstrapProposal.profiles.map(item => item.id)).toEqual(['docs']);
   });
+  it('refuses a profile that names any provider other than the one NNA supports', () => {
+    // NNA throws web_search_provider_invalid for these documents and the census row for
+    // profiles[*].provider cites that refusal. Neither end had ever been tested with a
+    // provider that is not SearXNG, so the single-legal-value claim rested on reading.
+    for (const provider of ['google', 'SEARXNG', '', ' searxng', null, undefined]) {
+      expect(() => parseNativeWebSearchView({ ...presentView(), profiles: [
+        { id: 'docs', display_name: 'docs', provider, endpoint: 'https://a.example', managed: false }] }))
+        .toThrow(NativeWebSearchFailure);
+    }
+    // The parser does not echo the served value back; it can only ever emit this one.
+    expect(parseNativeWebSearchView(presentView()).profiles[0]?.provider).toBe('searxng');
+  });
   it('canonicalizes endpoints exactly like the domain, collapsing /search and bare slashes', () => {
     expect(canonicalWebSearchEndpoint('HTTPS://Docs.Example.COM/search/')).toBe('https://docs.example.com');
     expect(canonicalWebSearchEndpoint('https://docs.example.com:8443')).toBe('https://docs.example.com:8443');

@@ -10388,9 +10388,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-search",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/lib/nnd/web-search.ts:parseNativeWebSearchView admits only version 2; packages/ui src/lib/nnd/__tests__/web-search.test.ts feeds version 1 and expects NativeWebSearchFailure",
+    "justification": "The served document version is 2 and the client refuses 1, so the field never varies on the wire. What does vary — whether the stored file used the version-1 root keys — is discarded by normalizeWebSearchConfig and is the separate web_search_alias question, not this row."
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
@@ -10407,7 +10409,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-18: The read view serves a per-file version counter and the typed client carries it, but the page prints the profile fields and the enabled state, not the counter, and no test ever asserted it. A pin to a verified surface is withdrawn here rather than left standing on nothing. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-18: The read view serves a per-file version counter and the typed client carries it, but the page prints the profile fields and the enabled state, not the counter, and no test ever asserted it. A pin to a verified surface is withdrawn here rather than left standing on nothing. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
   },
   {
    "id": "web_search:enabled",
@@ -10777,9 +10779,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/lib/nnd/web-fetch.ts:parseNativeWebFetchView rejects raw.version !== 1; packages/ui src/lib/nnd/__tests__/web-fetch.test.ts feeds version 2 and expects the failure",
+    "justification": "One legal value enforced at the parse boundary and tested there. The page shows the trusted origins and the update stamp the operator can compare against a release."
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
@@ -10800,7 +10804,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-19: the pre-C1 pin claimed a verified desktop surface and the page shows no version anywhere, so the claim is withdrawn rather than left to flatter the count. The client refuses any version but 1, and the page shows the source revision instead, which is what an operator can act on. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-19: the pre-C1 pin claimed a verified desktop surface and the page shows no version anywhere, so the claim is withdrawn rather than left to flatter the count. The client refuses any version but 1, and the page shows the source revision instead, which is what an operator can act on. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
   },
   {
    "id": "web_fetch:trusted_origins",
@@ -10922,9 +10926,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/gateway",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/lib/nnd/native-gateway.ts:parseNativeGatewayView rejects raw.version !== 1; packages/ui src/lib/nnd/__tests__/native-gateway.test.ts feeds version 2 and expects nnd_gateway_timeout_view_invalid",
+    "justification": "The gateway store reports one legal version and the typed client refuses to parse any other, so the value cannot differ between two installations. The page shows the source revision instead, which is the stamp an operator can actually act on; printing a number that is always 1 would be decoration, not coverage."
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
@@ -10944,7 +10950,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "Store-internal counter, not a surface: the client refuses any version other than 1, and the page shows the source revision instead, which is the stamp an operator can actually act on. Its pre-C1 pin claimed a verified desktop surface that no test supported and this page does not render, so the status is corrected downward rather than the claim left standing. Closed 20261007-18 on evidence. The class is not_applied because NNA produces this value; an operator never sets it, and the native catalog marks the field read-only with reason generated_state. The family scalars beside it declare restart_gateway, which is why this row does not carry that claim. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": "Store-internal counter, not a surface: the client refuses any version other than 1, and the page shows the source revision instead, which is the stamp an operator can actually act on. Its pre-C1 pin claimed a verified desktop surface that no test supported and this page does not render, so the status is corrected downward rather than the claim left standing. Closed 20261007-18 on evidence. The class is not_applied because NNA produces this value; an operator never sets it, and the native catalog marks the field read-only with reason generated_state. The family scalars beside it declare restart_gateway, which is why this row does not carry that claim. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
   },
   {
    "id": "gateway:enabled",
@@ -11299,9 +11305,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/compatibility-service",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/lib/nnd/compatibility.ts:parseNativeCompatibilityView rejects raw.version !== 1; packages/ui src/lib/nnd/__tests__/compatibility.test.ts feeds version 2 and expects the failure",
+    "justification": "One legal value, refused at the boundary and tested at the boundary. The page shows the fixed wire identity and the presence-only password source, which is what an operator can check without guessing."
    },
    "sensitivity": "unverified",
    "work_package": "C1",
@@ -11320,7 +11328,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native surface: view shows the fixed wire identity; the password is presence-only (source restricted local config or environment), application next_service_start Closed 20261007-24 on evidence. Shown: nothing: the page shows the wire identity a reader can act on, not a counter that is always one. The row had carried a verified surface since before C1 while citing no test whatsoever, so the surface was never actually checked; reading the page found the stamp missing from it entirely, which is why the last-saved line exists now. The class word is NNA (next_service_start, declared on this very document and repeated on the save receipt), and the generated rows keep not_applied rather than borrowing the start claim. Sensitivity stays as NNA set it. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": "native surface: view shows the fixed wire identity; the password is presence-only (source restricted local config or environment), application next_service_start Closed 20261007-24 on evidence. Shown: nothing: the page shows the wire identity a reader can act on, not a counter that is always one. The row had carried a verified surface since before C1 while citing no test whatsoever, so the surface was never actually checked; reading the page found the stamp missing from it entirely, which is why the last-saved line exists now. The class word is NNA (next_service_start, declared on this very document and repeated on the save receipt), and the generated rows keep not_applied rather than borrowing the start claim. Sensitivity stays as NNA set it. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
   },
   {
    "id": "compatibility_service:enabled",
@@ -11622,9 +11630,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/lib/nnd/trust.ts:parseTrustList rejects raw.version !== 1; packages/ui src/lib/nnd/__tests__/trust.test.ts feeds version 2 and expects the failure",
+    "justification": "Same shape as the gateway store version: one legal value, refused otherwise, and the trust page shows the trusted roots, which is the part that varies between machines."
    },
    "sensitivity": "unverified",
    "work_package": "C1",
@@ -11643,7 +11653,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "Left open on purpose 20261007-21: the page shows the trusted roots, not the store counter, and printing a value that is always 1 would be decoration rather than coverage. The surface status stays unverified for the same reason, and the class is not_applied because NNA owns the value. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": "Left open on purpose 20261007-21: the page shows the trusted roots, not the store counter, and printing a value that is always 1 would be decoration rather than coverage. The surface status stays unverified for the same reason, and the class is not_applied because NNA owns the value. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
   },
   {
    "id": "trust:workspaces[*].root",
@@ -12202,9 +12212,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/update-state; GET /v1/nnd/configuration/update-state/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/lib/nnd/update-state.ts:parseUpdateState rejects view.format !== 1; packages/ui src/lib/nnd/__tests__/update-state.test.ts feeds format 2 and expects the failure",
+    "justification": "The store format is never a choice: a record in any other format surfaces as the honest cannot-be-read-in-the-expected-shape sentence rather than as a field, so there is no state for a control to display or change."
    },
    "sensitivity": "unverified",
    "work_package": "C1",
@@ -12220,7 +12232,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "Left open 20261007-15 on purpose: the store format is never displayed. The client refuses any record whose format is not the one it understands, so a wrong format surfaces as the honest 'could not be read in the expected shape' sentence with no values at all, which is validation rather than a surface for the field. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": "Left open 20261007-15 on purpose: the store format is never displayed. The client refuses any record whose format is not the one it understands, so a wrong format surfaces as the honest 'could not be read in the expected shape' sentence with no values at all, which is validation rather than a surface for the field. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
   },
   {
    "id": "update_state:checked_at",
