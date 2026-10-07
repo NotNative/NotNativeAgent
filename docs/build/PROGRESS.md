@@ -3,6 +3,40 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Five provider fields proven on a surface that already existed · NND 20261007-33
+
+Two things worth writing down.
+
+**A metric moved because I changed the ruler, and I say so.** Last entry claimed "pre-C1 pins:
+0"; the probe actually said 13. Its rule — label doesn't start with `C1 stage 2` — was fine while
+C1 was the only labelling slice and wrong the instant a post-C1 lane labelled its own work, so my
+`C4 …` label counted as unexamined. The rule now asks what the label actually evidences: a dated
+slice marker = a recorded examination. Result: 334 verified = 321 sweep + 13 post-C1 + **0
+unexamined**, and the probe **prints every row it reclassifies** so a changed stick can't absorb
+rows silently. (My replacement regex was wrong first too.) The sealed sentence stays; the
+correction lives in the next entry, per the rule.
+
+**Proof, not rendering.** Five `manifest_provider` rows already claimed the provider-profile editor
+as their GUI with status `unverified` — a claim nobody had checked. Walking each field: create
+asserts id/endpoint/model; edit asserts an exact PATCH echo of display_name/endpoint/model and
+refuses a mismatching response; the window test drives the real editor through the real fetch layer
+and asserts `credential_env` lands in the POST body. **Unverified surfaces 13 → 8; headline 24
+unchanged** — these rows already had a path, so this is not a headline win and I won't dress it
+as one.
+
+Looking beat assuming, twice: the create path typed a display name that **nothing asserted** reached
+the request (assertion existed only on edit) — now asserted, and it did always flow; and the
+endpoint/credential fields opening **blank on edit** looked like a lost read-back but is a deliberate
+redaction (a test asserts the page never prints the stored secret name). I nearly filed a bug
+against a protection.
+
+Left alone on purpose: sensitivity. NNA's default for an unmarked field is `public`; the census has
+no such word and 209 rows say `unverified`. Stamping 209 rows with a new word would be the biggest
+label-move available and would look like progress.
+
+Citations name files, quote what each test does, and assert no counts. UI suite green with the new
+assertion (7/7 in the provider file).
+
 ## 2026-10-07 · Provider binding panel renders; the headline moves for the right reason (37 → 24) · NND 20261007-32
 
 Last round I said the count wouldn't move because nothing rendered the read. It renders

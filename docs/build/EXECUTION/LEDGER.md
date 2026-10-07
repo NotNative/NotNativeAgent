@@ -416,6 +416,54 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-33 — how a metric moved because I changed the ruler, and five provider fields proven rather than rendered
+
+**First, the disclosure the previous entry owes.** Last round's entry stated "pre-C1 pins
+never re-examined: 0". At the moment I wrote it, the probe said **13**. The probe defined
+"never examined" as *the row's implementation label does not start with `C1 stage 2`* — which was
+adequate while C1 was the only slice labelling rows, and became wrong the moment a post-C1 lane
+labelled its own work. My `C4 provider observation (…)` label was counted as an unexamined pin.
+The rule is now that a dated slice marker is the evidence of a recorded examination, which is
+what the label actually evidences. Under it, verified rows 334 = 321 by the C1 sweep + 13 by a
+post-C1 slice + **0 unexamined**, and the probe prints every row it treats as examined outside
+the sweep, so a changed stick cannot quietly absorb a row. My first replacement regex was itself
+wrong (`2026` plus six digits, while the dates carry four). The sealed sentence was true under
+the corrected rule and false under the one in force when it was written; it is corrected here,
+in the next entry, not by editing the sealed text.
+
+**Then this round, which moved a number by proof.** Five `manifest_provider` rows — id,
+display name, endpoint, model, credential environment — already named
+`packages/ui/src/components/settings/pages/provider-profile-editor.tsx` as their desktop
+surface, with status `unverified`: someone had claimed the panel years of work ago and nobody
+had checked. Checking is the whole slice. Walking each field through the tests: the create flow
+asserts `profile_id`, `endpoint` and `model`; the edit flow asserts a PATCH body that is exactly
+the echoed `display_name`, endpoint and model, and refuses a response that does not match; the
+window test drives the real editor through the real fetch layer and asserts `credential_env`
+reaches the POST body.
+
+Two findings from looking instead of assuming:
+
+- **One field was unproven, and I filled it in.** The create flow typed a display name and
+  nothing on that path asserted it reached the request — the assertion existed only on the edit
+  path. `display_name` is now asserted on create too, and passes, so the field was carried all
+  along and simply never checked.
+- **What looked like a bug is a redaction.** The endpoint and credential fields open *blank* when
+  editing a profile, which reads like a lost read-back. It is not: a test asserts the page never
+  prints the stored secret name. The blank field is deliberate, and I nearly filed it as a
+  defect.
+
+Rows with a desktop surface whose status was unverified: **13 → 8**. Rows with no desktop
+surface: **24, unchanged** — these five already had a path, so nothing here moves the headline,
+and it would be dishonest to imply the count went down because of work on the headline.
+Rows declaring an unverified application class: 47 (unchanged). Verified rows with no recorded
+examination: 0, by the corrected rule above, with the thirteen post-C1 exits itemised by the
+probe.
+
+Sensitivity was left exactly as the census set it. NNA defaults an unmarked field to
+`public`; the census vocabulary has no such word, and 209 rows read `unverified`. Inventing
+`public` and stamping it on 209 rows would be the largest label-move available to me, and it
+would look like progress.
+
 ## NND 20261007-32 — the provider binding panel renders, and the headline finally moves: 37 → 24
 
 Last round gave thirteen `manifest_provider` rows an endpoint and said plainly that

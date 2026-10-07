@@ -1806,21 +1806,25 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/provider-profile-editor.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider advanced fields (NNA 20261007-1, NND 20261007-33)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/settings-providers.test.tsx: the create flow asserts profile_id, endpoint and model on the request, asserts the display name the operator typed is carried too (added this slice, the one field no create-path test had ever asserted), and asserts credential_env is absent when the operator left the field blank; the update flow asserts the PATCH body is exactly the display name, endpoint and model echoed back, and refuses to accept a profile whose response does not match",
+     "packages/ui src/components/settings/__tests__/window.test.tsx: drives the real editor through the fetch layer — Profile ID, Endpoint URL, Default model, Credential environment variable, Create profile — and asserts the POST body carries profile_id, model and credential_env; it also asserts the page does not print the stored secret name, which is why the credential field opens blank instead of pre-filling",
+     "packages/ui src/components/settings/__tests__/provider-observation.test.tsx: reads the same provider fields back through the observation panel, so the id, endpoint, model and credential_env alias are shown as the service resolved them and not only as the operator typed them"
+    ],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration. Closed 20261007-33 by proving a surface that already existed rather than by building one: The operator types it on create and it is asserted on the request; the observation panel shows it as the service resolved it. The editor writes through POST /v1/provider-profiles and PATCH /v1/provider-profiles/:id, which is the provider-profile family rather than the observation read, so the application class stays whatever NNA declares for that family and this slice observed no installed effect. Sensitivity is left exactly as the census set it: NNA defaults a field it does not mark to public, the census has no such value, and rewriting 209 rows to a word NNA uses would move labels, not knowledge."
   },
   {
    "id": "manifest_provider:providers[*].display_name",
@@ -1850,21 +1854,25 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/provider-profile-editor.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider advanced fields (NNA 20261007-1, NND 20261007-33)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/settings-providers.test.tsx: the create flow asserts profile_id, endpoint and model on the request, asserts the display name the operator typed is carried too (added this slice, the one field no create-path test had ever asserted), and asserts credential_env is absent when the operator left the field blank; the update flow asserts the PATCH body is exactly the display name, endpoint and model echoed back, and refuses to accept a profile whose response does not match",
+     "packages/ui src/components/settings/__tests__/window.test.tsx: drives the real editor through the fetch layer — Profile ID, Endpoint URL, Default model, Credential environment variable, Create profile — and asserts the POST body carries profile_id, model and credential_env; it also asserts the page does not print the stored secret name, which is why the credential field opens blank instead of pre-filling",
+     "packages/ui src/components/settings/__tests__/provider-observation.test.tsx: reads the same provider fields back through the observation panel, so the id, endpoint, model and credential_env alias are shown as the service resolved them and not only as the operator typed them"
+    ],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration. Closed 20261007-33 by proving a surface that already existed rather than by building one: Typed on create and asserted on the request as of this slice; on edit it is pre-filled from the profile and the PATCH echo must match exactly. The editor writes through POST /v1/provider-profiles and PATCH /v1/provider-profiles/:id, which is the provider-profile family rather than the observation read, so the application class stays whatever NNA declares for that family and this slice observed no installed effect. Sensitivity is left exactly as the census set it: NNA defaults a field it does not mark to public, the census has no such value, and rewriting 209 rows to a word NNA uses would move labels, not knowledge."
   },
   {
    "id": "manifest_provider:providers[*].endpoint",
@@ -1894,21 +1902,25 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/provider-profile-editor.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider advanced fields (NNA 20261007-1, NND 20261007-33)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/settings-providers.test.tsx: the create flow asserts profile_id, endpoint and model on the request, asserts the display name the operator typed is carried too (added this slice, the one field no create-path test had ever asserted), and asserts credential_env is absent when the operator left the field blank; the update flow asserts the PATCH body is exactly the display name, endpoint and model echoed back, and refuses to accept a profile whose response does not match",
+     "packages/ui src/components/settings/__tests__/window.test.tsx: drives the real editor through the fetch layer — Profile ID, Endpoint URL, Default model, Credential environment variable, Create profile — and asserts the POST body carries profile_id, model and credential_env; it also asserts the page does not print the stored secret name, which is why the credential field opens blank instead of pre-filling",
+     "packages/ui src/components/settings/__tests__/provider-observation.test.tsx: reads the same provider fields back through the observation panel, so the id, endpoint, model and credential_env alias are shown as the service resolved them and not only as the operator typed them"
+    ],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration. Closed 20261007-33 by proving a surface that already existed rather than by building one: Typed on create and asserted on the request, echoed on edit, and shown by the observation panel as resolved. The editor writes through POST /v1/provider-profiles and PATCH /v1/provider-profiles/:id, which is the provider-profile family rather than the observation read, so the application class stays whatever NNA declares for that family and this slice observed no installed effect. Sensitivity is left exactly as the census set it: NNA defaults a field it does not mark to public, the census has no such value, and rewriting 209 rows to a word NNA uses would move labels, not knowledge."
   },
   {
    "id": "manifest_provider:providers[*].model",
@@ -1938,21 +1950,25 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/provider-profile-editor.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider advanced fields (NNA 20261007-1, NND 20261007-33)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/settings-providers.test.tsx: the create flow asserts profile_id, endpoint and model on the request, asserts the display name the operator typed is carried too (added this slice, the one field no create-path test had ever asserted), and asserts credential_env is absent when the operator left the field blank; the update flow asserts the PATCH body is exactly the display name, endpoint and model echoed back, and refuses to accept a profile whose response does not match",
+     "packages/ui src/components/settings/__tests__/window.test.tsx: drives the real editor through the fetch layer — Profile ID, Endpoint URL, Default model, Credential environment variable, Create profile — and asserts the POST body carries profile_id, model and credential_env; it also asserts the page does not print the stored secret name, which is why the credential field opens blank instead of pre-filling",
+     "packages/ui src/components/settings/__tests__/provider-observation.test.tsx: reads the same provider fields back through the observation panel, so the id, endpoint, model and credential_env alias are shown as the service resolved them and not only as the operator typed them"
+    ],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration. Closed 20261007-33 by proving a surface that already existed rather than by building one: Typed on create and asserted on the request, echoed on edit, and shown by the observation panel as resolved. The editor writes through POST /v1/provider-profiles and PATCH /v1/provider-profiles/:id, which is the provider-profile family rather than the observation read, so the application class stays whatever NNA declares for that family and this slice observed no installed effect. Sensitivity is left exactly as the census set it: NNA defaults a field it does not mark to public, the census has no such value, and rewriting 209 rows to a word NNA uses would move labels, not knowledge."
   },
   {
    "id": "manifest_provider:providers[*].trust_zone",
@@ -2076,21 +2092,25 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/provider-profile-editor.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider advanced fields (NNA 20261007-1, NND 20261007-33)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/settings-providers.test.tsx: the create flow asserts profile_id, endpoint and model on the request, asserts the display name the operator typed is carried too (added this slice, the one field no create-path test had ever asserted), and asserts credential_env is absent when the operator left the field blank; the update flow asserts the PATCH body is exactly the display name, endpoint and model echoed back, and refuses to accept a profile whose response does not match",
+     "packages/ui src/components/settings/__tests__/window.test.tsx: drives the real editor through the fetch layer — Profile ID, Endpoint URL, Default model, Credential environment variable, Create profile — and asserts the POST body carries profile_id, model and credential_env; it also asserts the page does not print the stored secret name, which is why the credential field opens blank instead of pre-filling",
+     "packages/ui src/components/settings/__tests__/provider-observation.test.tsx: reads the same provider fields back through the observation panel, so the id, endpoint, model and credential_env alias are shown as the service resolved them and not only as the operator typed them"
+    ],
     "installed_journey": null
    },
-   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration."
+   "notes": "Source form observed; native installed effect unverified. Blank credential_env is omitted, not cleared. Application class corrected 20261007-13 to NNA's catalog metadata (unverified -> engine_boundary): applyConfiguration rebuilds the model router from the published configuration. Closed 20261007-33 by proving a surface that already existed rather than by building one: Typed on create and asserted in the POST body through the real fetch layer. It is deliberately never displayed: the window test asserts the page does not print the stored name, so the field opens blank, which is a redaction and not a missing read-back. The editor writes through POST /v1/provider-profiles and PATCH /v1/provider-profiles/:id, which is the provider-profile family rather than the observation read, so the application class stays whatever NNA declares for that family and this slice observed no installed effect. Sensitivity is left exactly as the census set it: NNA defaults a field it does not mark to public, the census has no such value, and rewriting 209 rows to a word NNA uses would move labels, not knowledge."
   },
   {
    "id": "manifest_provider:providers[*].context_limit_bytes",

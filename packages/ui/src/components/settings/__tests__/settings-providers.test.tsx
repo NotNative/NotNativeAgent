@@ -109,6 +109,10 @@ describe('NNA provider profiles and diagnostics', () => {
     expect(requested.profile_id).toBe('new-profile');
     expect(requested.endpoint).toBe('https://provider.example.org');
     expect(requested.model).toBe('new-model');
+    // The name field was filled in and reaches the wire on the PATCH path, but
+    // nothing on the create path asserted it, so providers[*].display_name had no
+    // proof its create flow carried it at all.
+    expect(requested.display_name).toBe('New profile');
     expect(Object.hasOwn(requested, 'credential_env')).toBe(false);
   });
 

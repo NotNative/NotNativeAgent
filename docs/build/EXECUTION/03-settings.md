@@ -381,7 +381,22 @@ capability flags spelled out as yes or no. It never shows a value, and a test pl
 `value: 'sk-secret'` in a response to prove the client refuses such a body rather than
 rendering it. Two refusals here are stricter than NNA's own router, stated at the call
 site so the desktop is never mistaken for NNA's contract: a present manifest listing no
-providers, and any binding key beyond the reference grammar. Manifest container
+providers, and any binding key beyond the reference grammar.
+
+The provider-profile editor beside it writes the same family through
+`POST /v1/provider-profiles` and `PATCH /v1/provider-profiles/:id`, and five of its rows
+had been carried as "GUI exists" without anyone checking. Checking produced two rules
+worth keeping.
+
+A field that opens blank on edit is not necessarily missing. The endpoint and credential
+fields start empty when editing an existing profile, which reads as a lost read-back and
+is a redaction: the window test asserts the page never prints the stored secret's name.
+The fix would have been to pre-fill it, and that would have been a regression.
+
+And a claim needs the assertion on the path that makes it. The create flow typed a display
+name; only the edit flow asserted the name reached the request. That gap is closed — the
+create request is now asserted to carry the typed name — and it passed, which means the
+field always travelled and was never verified, the cheapest kind of hole there is. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container
