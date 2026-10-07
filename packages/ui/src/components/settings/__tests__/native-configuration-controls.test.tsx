@@ -360,6 +360,49 @@ it('previews and saves a catalog-advertised dream idle limit with native CAS', a
   expect(container.textContent).toContain('not applied');
 });
 
+it('renders all six dream census rows in the dream block with the native bounds', async () => {
+  const dreamView: NativeConfigurationView = { ...view, fields: [
+    { path: 'dream.enabled', catalog_path: 'dream.enabled', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'dream.idle_ms', catalog_path: 'dream.idle_ms', explicit: { present: false },
+      effective: { present: true, value: 45000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'dream.inter_stage_ms', catalog_path: 'dream.inter_stage_ms', explicit: { present: false },
+      effective: { present: true, value: 5000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'dream.inference_idle_ms', catalog_path: 'dream.inference_idle_ms', explicit: { present: false },
+      effective: { present: true, value: 120000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'dream.hygiene_idle_ms', catalog_path: 'dream.hygiene_idle_ms', explicit: { present: false },
+      effective: { present: true, value: 300000, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'dream.retention_days', catalog_path: 'dream.retention_days', explicit: { present: false },
+      effective: { present: true, value: 30, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'dream.enabled', type: 'boolean', editability: field.editability },
+    { path: 'dream.idle_ms', type: 'integer', editability: field.editability },
+    { path: 'dream.inter_stage_ms', type: 'integer', editability: field.editability },
+    { path: 'dream.inference_idle_ms', type: 'integer', editability: field.editability },
+    { path: 'dream.hygiene_idle_ms', type: 'integer', editability: field.editability },
+    { path: 'dream.retention_days', type: 'integer', editability: field.editability },
+  ] });
+  mount(dreamView); await act(async () => {});
+  const block = () => container.querySelector('[data-settings-item="native-configuration.dream"]')?.textContent ?? '';
+  expect(block()).toContain('Enable dream maintenance');
+  // The editor bounds mirror src/configuration-rules.js exactly.
+  const limits: Array<[string, number, number, number]> = [
+    ['Idle before maintenance (ms)', 45000, 5000, 3600000],
+    ['Pause between stages (ms)', 5000, 1000, 300000],
+    ['Inference idle delay (ms)', 120000, 10000, 3600000],
+    ['Hygiene idle delay (ms)', 300000, 30000, 7200000],
+    ['Retain dream records (days)', 30, 1, 365],
+  ];
+  for (const [label, value, min, max] of limits) {
+    expect(block()).toContain(label);
+    await act(async () => { button(label).click(); });
+    const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    expect(input.value, label).toBe(String(value));
+    expect(input.min, label).toBe(String(min)); expect(input.max, label).toBe(String(max));
+  }
+});
+
 it('shows host-effective dream enablement from the native preview rather than claiming activation', async () => {
   const dreamView: NativeConfigurationView = { ...view, fields: [
     { path: 'dream.enabled', catalog_path: 'dream.enabled', explicit: { present: false },

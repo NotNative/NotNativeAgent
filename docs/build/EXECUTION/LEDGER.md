@@ -416,6 +416,27 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-5 — dream maintenance limits ride the configuration view
+
+The 6 `manifest_dream` census rows closed against the EXISTING
+configuration view and the `NNA dream maintenance` editor block — no new
+native surface. The mechanical proof (NNA `test/nnd-configuration-view.test.js`)
+shows the six paths serving user values with `source: user`, the documented
+defaults with `source: compiled_default` (`enabled` true, `idle_ms` 45 000,
+`inter_stage_ms` 5 000, `inference_idle_ms` 120 000, `hygiene_idle_ms`
+300 000, `retention_days` 30), and out-of-range values refusing the whole
+resolve with `invalid_limit` before anything can apply. The bounds are the
+engine's own (`src/configuration-rules.js`) and the editor mirrors them
+exactly (5 000–3 600 000, 1 000–300 000, 10 000–3 600 000,
+30 000–7 200 000, 1–365 days), with the honest sentence that saved changes
+take effect only in a new constructed context — a workspace builds its
+`DreamCoordinator` from the resolved configuration the first time it
+touches maintenance. Idle maintenance is opt-out for a standalone agent and
+an authenticated hosted execution manifest always disables it
+(`src/dream-config.js:validateDream`), which is why the block reads the
+effective verdict from the native preview rather than claiming activation.
+Census rows without a verified GUI: 145 → 139.
+
 ## NNA (test-only) and NND 20261007-4 — skill fields read through the native catalog
 
 The 7 `manifest_skills` census rows closed against the EXISTING skills

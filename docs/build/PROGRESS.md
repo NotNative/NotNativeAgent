@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Dream maintenance limits ride the configuration view · NND 20261007-5
+
+The 6 `manifest_dream` rows closed against the EXISTING configuration view
+and the `NNA dream maintenance` editor block with no new native surface:
+the proof shows the six paths serving user values with `source: user`, the
+documented defaults with `source: compiled_default` (enabled true,
+45 000 / 5 000 / 120 000 / 300 000 ms, 30 days), and out-of-range values
+refusing the whole resolve with `invalid_limit`. The editor mirrors the
+engine's own bounds from `src/configuration-rules.js` exactly, and the
+workspace builds its `DreamCoordinator` from the resolved configuration the
+first time it touches maintenance — so saved changes take effect only in a
+new constructed context. Idle maintenance is opt-out for a standalone agent
+and an authenticated hosted execution manifest always disables it
+(`validateDream`), which is why the block reads the verdict from the native
+preview rather than claiming activation. Census rows without a verified
+GUI: 145 → 139. Next: memory 5, recovery 4, attachments 3, telemetry 3,
+reviewer_ledger 1, then manifest 38, route 48, provider 37.
+
 ## 2026-10-07 · Skill fields read through the native catalog · NND 20261007-4
 
 The 7 `manifest_skills` rows closed against the EXISTING

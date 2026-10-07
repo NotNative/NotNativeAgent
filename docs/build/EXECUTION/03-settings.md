@@ -228,7 +228,12 @@ reviewer/vision scalar routes also have focused controls. Typed controls for
 native user-manifest preview and save path. The provider scheduling limits
 `provider_concurrency` and `provider_queue_limit` also have bounded controls
 when NNA advertises them. Dream maintenance enablement, idle/stage delays,
-and retention also have typed controls gated by the native catalog. NNA can
+and retention also have typed controls gated by the native catalog, bounded
+exactly as the engine bounds them (`idle_ms` 5 000–3 600 000 default
+45 000, `inter_stage_ms` 1 000–300 000 default 5 000, `inference_idle_ms`
+10 000–3 600 000 default 120 000, `hygiene_idle_ms` 30 000–7 200 000
+default 300 000, `retention_days` 1–365 default 30; out-of-range values
+refuse the whole resolve with `invalid_limit`). NNA can
 still disable dream maintenance through host authority; a saved user-manifest
 value is not applied to an existing constructed context. These controls do not
 assert that running sessions adopt saved values. Provider connection and
