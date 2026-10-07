@@ -463,12 +463,22 @@ section (status, checked-at, latest version and digest, last error, or the
 honest no-record-yet default), mirrors the native store grammar exactly,
 and the census update_state rows carry the
 native read endpoints, the paired read permission, and the section path.
-The web-search family's four compatibility-alias rows reconcile to the
-family's existing native chain: NNA accepts legacy version-1 document keys
-on load and normalizes them into the served version-2 shape, so the aliases
-point at the native surface with a note that the modern shape only is
-served. The rows' application class stays unverified until an installed
-service is observed recording a real check; the remaining C6 external-store
+The web-search family's five shown rows (`enabled`, the `profiles` array, and
+each profile's identifier, display name and endpoint) are verified against the
+page that renders and edits them, with the class NNA itself declares,
+`next_search`: the search tool reloads the file on every invocation, so a saved
+change is honored by the next search, and a save goes through preview plus a
+native revision check. The family's four compatibility-alias rows are open and
+have no desktop surface at all: `src/nnd-web-search-routes.js` states the
+version-1 keys normalize into the version-2 profiles on load and are not
+projected, so there is nothing to render, and an earlier pin that named the
+web-search page for them named a component that cannot show those keys.
+`profiles[*].provider` is likewise open by choice: it has exactly one legal
+value, which NNA enforces and the typed client refuses to parse otherwise, so
+it is enforced rather than printed on every row. For update state, the class now
+records what the native catalog declares (`next_update_check`) rather than a
+placeholder; whether an installed service really records a check is still
+unobserved, which C7 and the L gates own. The remaining C6 external-store
 families stay open.
 
 Progress: at NNA `20261006-5` the three trust rows became the settings family's

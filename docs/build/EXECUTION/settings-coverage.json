@@ -10335,29 +10335,38 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_search",
+    "evidence": "src/nnd-web-search-routes.js declares this family application next_search because the search tool reloads web-search.json on every invocation, and src/nnd-web-search-transaction.js stamps every preview and save receipt with next_search; the catalog offers enabled and the profiles array (add_profile, promote_profile, remove_profile) under nnd.configuration.manage"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-17)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "normalizeWebSearchConfig"
+     "normalizeWebSearchConfig",
+     "normalizeProfile",
+     "dispatchNndWebSearchRequest",
+     "previewNativeWebSearch",
+     "saveNativeWebSearch",
+     "nativeWebSearchRequest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js, test/nnd-web-search-transaction.test.js and test/nnd-web-search-http.test.js (config domain, preview without persistence, save with the native revision check, receipt replay and operation lookup, catalog editability)",
+     "packages/ui web-search typed client tests (exact profile key set, provider must be searxng, endpoint canonicalization, duplicate and over-limit refusal, batch composition and CAS request shape)",
+     "packages/ui web-search page tests (profile rows show id, display name and endpoint with the primary marker, enabled state, preview then save with the exact revision, next-search wording, uncertain save retained across reload, terminal receipt released, expired handle recovery, hostile batch refused offline)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Closed 20261007-17 on evidence: the Enabled checkbox and the \"WebSearch is enabled/disabled\" summary line, and it composes into a set_enabled operation. A saved change is honored by the next web search because the tool reloads the file per invocation; the receipt says so, and a save goes through preview and a native revision check, never a blind write."
   },
   {
    "id": "web_search:profiles",
@@ -10377,29 +10386,38 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_search",
+    "evidence": "src/nnd-web-search-routes.js declares this family application next_search because the search tool reloads web-search.json on every invocation, and src/nnd-web-search-transaction.js stamps every preview and save receipt with next_search; the catalog offers enabled and the profiles array (add_profile, promote_profile, remove_profile) under nnd.configuration.manage"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-17)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "normalizeWebSearchConfig"
+     "normalizeWebSearchConfig",
+     "normalizeProfile",
+     "dispatchNndWebSearchRequest",
+     "previewNativeWebSearch",
+     "saveNativeWebSearch",
+     "nativeWebSearchRequest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js, test/nnd-web-search-transaction.test.js and test/nnd-web-search-http.test.js (config domain, preview without persistence, save with the native revision check, receipt replay and operation lookup, catalog editability)",
+     "packages/ui web-search typed client tests (exact profile key set, provider must be searxng, endpoint canonicalization, duplicate and over-limit refusal, batch composition and CAS request shape)",
+     "packages/ui web-search page tests (profile rows show id, display name and endpoint with the primary marker, enabled state, preview then save with the exact revision, next-search wording, uncertain save retained across reload, terminal receipt released, expired handle recovery, hostile batch refused offline)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Closed 20261007-17 on evidence: the profile list itself, edited through the add, make-primary and remove controls that the native catalog advertises as add_profile, promote_profile and remove_profile. A saved change is honored by the next web search because the tool reloads the file per invocation; the receipt says so, and a save goes through preview and a native revision check, never a blind write."
   },
   {
    "id": "web_search:profiles[*].id",
@@ -10419,29 +10437,38 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_search",
+    "evidence": "src/nnd-web-search-routes.js declares this family application next_search because the search tool reloads web-search.json on every invocation, and src/nnd-web-search-transaction.js stamps every preview and save receipt with next_search; the catalog offers enabled and the profiles array (add_profile, promote_profile, remove_profile) under nnd.configuration.manage"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-17)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "normalizeWebSearchConfig"
+     "normalizeWebSearchConfig",
+     "normalizeProfile",
+     "dispatchNndWebSearchRequest",
+     "previewNativeWebSearch",
+     "saveNativeWebSearch",
+     "nativeWebSearchRequest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js, test/nnd-web-search-transaction.test.js and test/nnd-web-search-http.test.js (config domain, preview without persistence, save with the native revision check, receipt replay and operation lookup, catalog editability)",
+     "packages/ui web-search typed client tests (exact profile key set, provider must be searxng, endpoint canonicalization, duplicate and over-limit refusal, batch composition and CAS request shape)",
+     "packages/ui web-search page tests (profile rows show id, display name and endpoint with the primary marker, enabled state, preview then save with the exact revision, next-search wording, uncertain save retained across reload, terminal receipt released, expired handle recovery, hostile batch refused offline)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Closed 20261007-17 on evidence: the leading identifier of each profile row; it is derived from the display name by the domain rather than typed, which the row states. A saved change is honored by the next web search because the tool reloads the file per invocation; the receipt says so, and a save goes through preview and a native revision check, never a blind write."
   },
   {
    "id": "web_search:profiles[*].display_name",
@@ -10461,29 +10488,38 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_search",
+    "evidence": "src/nnd-web-search-routes.js declares this family application next_search because the search tool reloads web-search.json on every invocation, and src/nnd-web-search-transaction.js stamps every preview and save receipt with next_search; the catalog offers enabled and the profiles array (add_profile, promote_profile, remove_profile) under nnd.configuration.manage"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-17)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "normalizeWebSearchConfig"
+     "normalizeWebSearchConfig",
+     "normalizeProfile",
+     "dispatchNndWebSearchRequest",
+     "previewNativeWebSearch",
+     "saveNativeWebSearch",
+     "nativeWebSearchRequest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js, test/nnd-web-search-transaction.test.js and test/nnd-web-search-http.test.js (config domain, preview without persistence, save with the native revision check, receipt replay and operation lookup, catalog editability)",
+     "packages/ui web-search typed client tests (exact profile key set, provider must be searxng, endpoint canonicalization, duplicate and over-limit refusal, batch composition and CAS request shape)",
+     "packages/ui web-search page tests (profile rows show id, display name and endpoint with the primary marker, enabled state, preview then save with the exact revision, next-search wording, uncertain save retained across reload, terminal receipt released, expired handle recovery, hostile batch refused offline)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Closed 20261007-17 on evidence: the display name on each profile row and in the add-profile field, canonicalized before it is sent. A saved change is honored by the next web search because the tool reloads the file per invocation; the receipt says so, and a save goes through preview and a native revision check, never a blind write."
   },
   {
    "id": "web_search:profiles[*].provider",
@@ -10525,7 +10561,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Left open 20261007-17 on purpose: the field has exactly one legal value. NNA refuses any other provider with web_search_provider_invalid and the desktop client refuses to parse a profile whose provider is not searxng, so it is enforced rather than displayed; the page states in prose that WebSearch runs over SearXNG instances, and printing one invariant value on every row would be decoration, not coverage."
   },
   {
    "id": "web_search:profiles[*].endpoint",
@@ -10545,29 +10581,38 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_search",
+    "evidence": "src/nnd-web-search-routes.js declares this family application next_search because the search tool reloads web-search.json on every invocation, and src/nnd-web-search-transaction.js stamps every preview and save receipt with next_search; the catalog offers enabled and the profiles array (add_profile, promote_profile, remove_profile) under nnd.configuration.manage"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-17)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "normalizeWebSearchConfig"
+     "normalizeWebSearchConfig",
+     "normalizeProfile",
+     "dispatchNndWebSearchRequest",
+     "previewNativeWebSearch",
+     "saveNativeWebSearch",
+     "nativeWebSearchRequest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js, test/nnd-web-search-transaction.test.js and test/nnd-web-search-http.test.js (config domain, preview without persistence, save with the native revision check, receipt replay and operation lookup, catalog editability)",
+     "packages/ui web-search typed client tests (exact profile key set, provider must be searxng, endpoint canonicalization, duplicate and over-limit refusal, batch composition and CAS request shape)",
+     "packages/ui web-search page tests (profile rows show id, display name and endpoint with the primary marker, enabled state, preview then save with the exact revision, next-search wording, uncertain save retained across reload, terminal receipt released, expired handle recovery, hostile batch refused offline)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Closed 20261007-17 on evidence: the endpoint on each profile row, canonicalized and checked for duplicates before a preview is offered, and a credential-bearing URL is refused before anything is sent. A saved change is honored by the next web search because the tool reloads the file per invocation; the receipt says so, and a save goes through preview and a native revision check, never a blind write."
   },
   {
    "id": "web_search:profiles[*].managed",
@@ -12561,8 +12606,8 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "product": null,
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -12577,7 +12622,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
   },
   {
    "id": "web_search_alias:endpoint",
@@ -12603,8 +12648,8 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "product": null,
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -12619,7 +12664,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
   },
   {
    "id": "web_search_alias:managed",
@@ -12645,8 +12690,8 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "product": null,
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -12661,7 +12706,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
   },
   {
    "id": "web_search_alias:profiles[*].displayName",
@@ -12687,8 +12732,8 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "product": null,
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -12703,7 +12748,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
   },
   {
    "id": "web_search_action:status",

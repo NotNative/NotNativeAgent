@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Web search closes five rows, and four false pins come off · NND 20261007-17
+
+This slice moved the headline number the wrong way on purpose. NNA says the
+version-1 web-search keys "normalize into the version-2 profiles on load and are
+not projected by this surface" — the read view, the catalog and the desktop's own
+client carry only the canonical spelling. A page cannot render what the contract
+refuses to serve, so four alias rows lost pins naming a component that cannot
+show them: rows without a surface went 33 → 37, rows with an unverified surface
+fell 26 → 17. What did close carries some of the strongest evidence in the
+census — preview-then-save with the exact revision, a batch spanning add,
+disable, promote and remove, an uncertain save retained across reload, expired
+receipt recovery, a hostile batch refused offline — plus a new assertion that a
+profile row really shows its identifier, display name and endpoint. The class is
+NNA's own `next_search`. One row stays open by judgement: `profiles[*].provider`
+has exactly one legal value, enforced at the contract and in the client, and
+printing a constant on every row is decoration, which is how a coverage table
+starts lying.
+
 ## 2026-10-07 · Environment closes on evidence, and a placeholder class says what NNA declares · NND 20261007-16
 
 Seven `environment` rows closed with no new surface: the panel, typed client,

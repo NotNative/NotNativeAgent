@@ -416,6 +416,41 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-17 — web search closes five rows, and four false pins are removed
+
+This slice moved the headline number **the wrong way on purpose**, because the
+record was wrong: `web_search` closed five rows, and four `web_search_alias`
+rows lost pins they never deserved, so rows without a desktop surface went from
+33 to 37 while rows with an unverified surface fell from 26 to 17.
+
+NNA is explicit about those four keys: the version-1 fields `provider`,
+`endpoint` and `managed` "normalize into the version-2 profiles on load and are
+not projected by this surface". The read view, the catalog and the desktop's own
+typed client carry only the canonical spelling. A page cannot render a field the
+native contract refuses to serve, so the earlier pins named a component that
+cannot show the key. They are open now, with the reason attached.
+
+What did close is worth stating plainly, because these rows carry the strongest
+evidence in the census: the enabled flag, the profile list, and each profile's
+identifier, display name and endpoint are rendered and edited through preview
+and a native revision check, never a blind write. The suite already covered a
+preview-then-save with the exact revision, a batch spanning add, disable,
+promote and remove, an uncertain save retained across a reload, a terminal
+receipt released so a fresh compare-and-save can start, recovery from an expired
+handle, and a hostile batch refused without contacting NNA. What was missing was
+the assertion that a row shows its three fields, so that exists now, and the
+class is NNA's own `next_search` — the tool reloads the file per invocation, so
+"the next search honors it" is a claim the receipt makes, not one the desktop
+invents.
+
+One row stays open by judgement rather than absence: `profiles[*].provider` has
+exactly one legal value, enforced by NNA refusing anything else and by the client
+refusing to parse it. Printing a constant on every row would be decoration, and
+decoration is how a coverage table starts lying.
+
+Census rows without a desktop surface: 33 → 37. Rows with an unverified desktop
+surface: 26 → 17. Rows declaring an unverified application class: 103 → 98.
+
 ## NND 20261007-16 — the environment family closes on evidence, and a placeholder class becomes what NNA declares
 
 Seven `environment` rows closed without needing a new surface: the panel, the

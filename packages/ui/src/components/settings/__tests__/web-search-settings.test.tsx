@@ -74,6 +74,16 @@ it('previews and saves a profile add with exact NNA revision and next-search app
     throw new Error('unexpected ' + path);
   });
   await mount();
+  // Each profile row carries the three fields the census asks about — id,
+  // display name and endpoint — and the summary states the enabled flag, so a
+  // row is not only exercised through the control that changes it.
+  const rowText = (id: string) => [...container.querySelectorAll('li')]
+    .find(item => item.textContent?.startsWith(`${id}:`))?.textContent ?? '';
+  expect(container.textContent).toContain('WebSearch is enabled');
+  expect(rowText('docs')).toContain('docs: docs search → https://a.example');
+  expect(rowText('docs')).toContain('(primary)');
+  expect(rowText('work')).toContain('work: work search → https://work.example');
+  expect(rowText('work')).not.toContain('(primary)');
   await addProfile('Docs new', 'https://docs.example/search/');
   expect(container.textContent).toContain('Docs new');
   await click('Preview native change');
