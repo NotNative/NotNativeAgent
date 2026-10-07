@@ -416,6 +416,32 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-24 — compatibility wiring closes, one flag turns out true, and a count goes down
+
+Seven rows closed, unverified classes 66 → 59, and the class is NNA's
+`next_service_start` — declared on this document and repeated on the save receipt
+with no restart verb, because the OpenCode wiring service reads the file when it
+starts. The desktop composes a candidate and saves it with a revision check; it
+starts nothing.
+
+The flag on `updated_at` was right this time. The row had carried a verified surface
+since before C1 while citing no test whatsoever, and the page simply never rendered
+the stamp — a claim nobody had ever checked, in the family the sweep pointed at. It
+was fixed by rendering: the status line now reads `last saved` with the real value,
+or `not recorded` for an absent store, so the field is covered because it is
+displayed rather than because a table says so.
+
+The store counter moved the other way. It was pinned as verified and is now an
+explicit unverified surface, because the page shows the wire identity a reader acts
+on and a counter that is always 1 is not information. That is why unverified-surface
+rows went 12 → 13 this round while six rows closed: an honest read of one's own work
+has to be allowed to lower the number, or the number stops meaning anything. The
+companion diagnostic also moved: rows claiming a verified GUI while citing no test
+fell 19 → 12, leaving exactly the four families still on the residual list.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified
+desktop surface: 12 → 13. Rows declaring an unverified application class: 66 → 59.
+
 ## NND 20261007-23 — seven secret actions close, and a citation that proves nothing is measured at scale
 
 Seven rows closed, unverified classes 73 → 66. The five mutating verbs carry NNA's

@@ -559,6 +559,18 @@ foreign-version stores fail closed (`nnd_compatibility_source_invalid` on reads;
 saves refuse to normalize a broken store), and the compatibility_service
 lifecycle actions (six operator_action rows) stay for their own slice.
 
+The seven configuration rows are now closed, and the sweep suspicion about
+`updated_at` was correct in the way it usually is not: the row carried a verified
+surface since before C1 while citing no test at all, and the page never rendered
+the stamp. Rather than record a claim nobody had checked, the status line now shows
+`last saved` with the real value and `not recorded` for an absent store, so the
+field is covered because it is displayed. The store counter went the other way —
+from an unexamined verified pin to an explicit unverified surface — because the
+page shows the wire identity a reader acts on, and a counter that is always one is
+not information. The five editable fields take NNA's `next_service_start`, declared
+on this document and repeated on the save receipt with no restart verb; the two
+generated rows keep `not_applied` rather than borrowing that start claim.
+
 Progress: at NNA `20261006-7` the compatibility family absorbed its independent
 review findings — preview checks the revision before building the merged
 candidate (corrupt or foreign-version stores report

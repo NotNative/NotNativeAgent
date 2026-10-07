@@ -120,6 +120,12 @@ it('stages the wire identity and a secret replace, previews, saves, and reloads 
   const status = () => container.querySelector('[data-testid="compat-status"]')?.textContent ?? '';
   expect(status()).toContain('4095');
   expect(status()).toContain('not configured');
+  // Hostname and username are their own census rows, so they are pinned as the
+  // bind target and the user rather than inferred from the port alone; an absent
+  // store says so instead of leaving the reader to guess.
+  expect(status()).toContain('bind: http://127.0.0.1:4095');
+  expect(status()).toContain('user: opencode');
+  expect(status()).toContain('last saved: not recorded');
   await check('[data-testid="compat-enabled"]');
   await type('[data-testid="compat-port"]', '4096');
   await select('[data-testid="compat-password-replace"]');
@@ -137,6 +143,7 @@ it('stages the wire identity and a secret replace, previews, saves, and reloads 
   expect(reloaded).toContain('4096');
   expect(reloaded).toContain('on');
   expect(reloaded).toContain('present (restricted local config)');
+  expect(reloaded).toContain('last saved: 2026-10-06T02:00:00.000Z');
   expect((container.textContent ?? '').includes(SECRET)).toBe(false);
 });
 

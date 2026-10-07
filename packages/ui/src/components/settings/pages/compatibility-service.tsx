@@ -149,7 +149,8 @@ export function CompatibilityServiceSettings(): ReactNode {
         {' '}{view.source_state} · revision: {view.source_revision.slice(0, 12)}</p>
       <p className="text-xs" data-testid="compat-status">Login auto-start: {view.enabled ? 'on' : 'off'} · bind:
         {' '}http://{view.hostname}:{view.port} · user: {view.username} · password:
-        {' '}{view.password.configured ? `present (${view.password.source})` : 'not configured'}</p>
+        {' '}{view.password.configured ? `present (${view.password.source})` : 'not configured'} · last saved:
+        {' '}{view.updated_at ?? 'not recorded'}</p>
       <fieldset disabled={disabled} className="space-y-2">
         <div className="text-xs">
           <label><input type="checkbox" data-testid="compat-enabled" checked={draft.enabled}

@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Compatibility wiring closes; one sweep flag proves true and a metric goes down · NND 20261007-24
+
+The `updated_at` suspicion was right this time: the row carried a verified surface
+from before C1 while citing no test at all, and the page never rendered the stamp.
+Fixed by rendering — `last saved` with the real value, `not recorded` for an absent
+store — so the field is covered because it's displayed, not because a table claims
+it. The store counter went the opposite way, from an unexamined verified pin to an
+explicit unverified surface, since the page shows the wire identity a reader acts on
+and an always-1 counter isn't information. Hence unverified surface 12 → **13** even
+as six rows closed: a read of your own work must be allowed to lower the number or
+the number stops meaning anything. Five editable fields took NNA's
+`next_service_start` (declared on the document, repeated on the receipt, no restart
+verb); the two generated rows kept `not_applied` instead of borrowing it. Uncited
+"verified" rows fell 19 → 12, leaving exactly the four residual families. Unverified
+class 66 → 59.
+
 ## 2026-10-07 · Seven secret actions close; a citation that proves nothing gets measured at scale · NND 20261007-23
 
 The seven pins' only evidence was `packages/ui vitest suite (245 files, 1,851 tests
