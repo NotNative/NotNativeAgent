@@ -132,3 +132,33 @@ test('absent tui blocks still project the documented defaults without inventing 
     { present: true, value: 'ctrl+s', source_unavailable: true });
   assert.equal(row(view, 'tui.key_bindings.scroll_bottom').effective.value, 'end');
 });
+
+test('the mission family serves the sixteen census paths as honest absence for the desktop principal', () => {
+  const census = ['mission.id', 'mission.outcome', 'mission.revocation_id', 'mission.not_before',
+    'mission.expires_at', 'mission.resources', 'mission.targets', 'mission.side_effects',
+    'mission.credential_refs', 'mission.bounds', 'mission.termination', 'mission.bounds.max_turns',
+    'mission.bounds.max_tool_calls', 'mission.bounds.max_duration_ms',
+    'mission.termination.suspend_on', 'mission.termination.terminate_on'];
+  const view = projectNndConfigurationView(snapshot());
+  for (const path of [...census, 'mission']) {
+    assert.ok(row(view, path), `mission path ${path} missing from the view`);
+    assert.deepEqual(row(view, path).explicit, { present: false }, `explicit ${path}`);
+    assert.deepEqual(row(view, path).effective, { present: false }, `effective ${path}`);
+  }
+});
+
+test('a user manifest carrying a mission block is refused before validation order and never reaches the view', () => {
+  const mission = {
+    id: 'mission_release', revocation_id: 'rev_1', outcome: 'ship the release',
+    not_before: '2026-10-01T00:00:00.000Z', expires_at: '2026-10-08T00:00:00.000Z',
+    resources: ['repo:release'], targets: ['packages/ui'], side_effects: ['irreversible'],
+    credential_refs: ['RELEASE_TOKEN'], bounds: { max_turns: 12 },
+    termination: { suspend_on: ['disconnect'], terminate_on: ['budget_exhaustion', 'expiration', 'disconnect'] },
+  };
+  // The principal is checked first (src/config.js:validateMission); the schedule order,
+  // bounded lists, and the required termination conditions never run for this operator.
+  assert.throws(() => snapshot({ mission }), (error) => error.code === 'mission_authority_forbidden'
+    && !JSON.stringify(error).includes('ship the release')
+    && !JSON.stringify(error).includes('RELEASE_TOKEN')
+    && !JSON.stringify(error).includes('2026-10-08'));
+});
