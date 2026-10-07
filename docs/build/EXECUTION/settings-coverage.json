@@ -14839,15 +14839,15 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "the native surface runs the startup alias loader (loadManagedProviderCredentials) verbatim on the served process against a spare environment and projects only the verdict — never a value; there is no operator-owned field to apply (the alias is loaded at CLI startup or configured through the provider bootstrap command)."
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/legacy-provider-credentials",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/legacy-credentials.tsx",
+        "status": "verified"
       },
       "sensitivity": "secret",
       "work_package": "C1",
@@ -14856,9 +14856,14 @@
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "loadManagedProviderCredentials"
+          "loadManagedProviderCredentials",
+          "createNndLegacyProviderCredentialsService",
+          "dispatchNndLegacyProviderCredentialsRequest"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-legacy-provider-credentials-routes.test.js 3/3",
+          "packages/ui vitest legacy-credentials lib parser + page drills 3/3"
+        ],
         "installed_journey": null
       },
       "notes": null

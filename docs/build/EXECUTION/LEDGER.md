@@ -416,6 +416,27 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-19 and NND 20261006-19 — legacy provider credential alias observation
+
+The `legacy_provider_credentials` census row closed with a real native
+surface reusing the startup alias loader verbatim: `GET
+/v1/nnd/configuration/legacy-provider-credentials`
+(`nnd.configuration.read`) runs `loadManagedProviderCredentials` on the
+served process against a **spare environment object** and projects only the
+verdict — whether the legacy `NNA_PROVIDER_INITIAL_KEY` alias store
+(`config/provider-credentials.json`) exists, validates, and would inject
+(`loaded`, count 0|1, and an honest reason when the store is malformed or
+oversized: the authority's own registered codes). The key value is never
+served — the load verdict projects `loaded/verdict` only, matching the
+row's `secret` sensitivity; the spare environment is discarded. An absent
+store is a successful 200 describing absence (`loaded:false, count:0`), a
+malformed/oversized store is an honest refused verdict (still 200, the
+authority's code in `reason`), an unresolvable read is the wrapped 503, and
+projector drift is the 500
+`nnd_legacy_provider_credentials_projection_invalid`. The desktop `Legacy
+provider credential alias` panel renders the three-line verdict without any
+value. Census rows without a verified GUI: 268 → 267.
+
 ## NNA 20261006-18 and NND 20261006-18 — native skills catalog observation
 
 The `skills_action:list` census row closed with a real native surface reusing

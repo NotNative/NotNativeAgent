@@ -23,6 +23,7 @@ import { PackageActionsPanel } from './package-actions.tsx';
 import { InstallationObservationPanel } from './installation-observation.tsx';
 import { BrowserObservationPanel } from './browser-observation.tsx';
 import { NativeSkillsPanel } from './native-skills.tsx';
+import { LegacyCredentialsPanel } from './legacy-credentials.tsx';
 import { ServiceLifecycleControls } from './service-lifecycle.tsx';
 
 function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): string {
@@ -143,5 +144,5 @@ export function NativeConfigurationPage(): ReactNode {
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ServiceLifecycleControls /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><HooksBundleSettings /><SecretActionsConsole /><UpdateActionsPanel /><PackageActionsPanel /><InstallationObservationPanel /><BrowserObservationPanel /><NativeSkillsPanel /></>;
+  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ServiceLifecycleControls /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><HooksBundleSettings /><SecretActionsConsole /><UpdateActionsPanel /><PackageActionsPanel /><InstallationObservationPanel /><BrowserObservationPanel /><NativeSkillsPanel /><LegacyCredentialsPanel /></>;
 }

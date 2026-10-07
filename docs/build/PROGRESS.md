@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Legacy provider credential alias · NNA 20261006-19 + NND 20261006-19
+
+The `legacy_provider_credentials` row closed with a real surface reusing the
+startup alias loader verbatim: the served process runs
+`loadManagedProviderCredentials` against a spare environment and projects
+the load verdict (loaded/count/reason) without ever serving the key value —
+absence is a successful 200, a malformed store an honest refused verdict,
+drift the 500 projector code. The desktop `Legacy provider credential
+alias` panel renders the verdict. Next families: gateway/web-search action
+triage (honest CLI-authority refusals for mutators), invocation flags, then
+the `manifest_*` grind.
+
 ## 2026-10-06 · Native skills catalog observation · NNA 20261006-18 + NND 20261006-18
 
 The `skills_action` family closed with a real surface reusing the skills CLI

@@ -36,9 +36,9 @@ graph LR
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
 | Client sync and state engine | 46 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
-| Harness SDK facade | 34 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
+| Harness SDK facade | 35 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
 | Runtime adaptation | 229 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
-| UI shell | 204 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
+| UI shell | 205 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 230 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
 | Quality gates | 74 | Client sync and state engine, Runtime adaptation, Web server | — |
@@ -48,11 +48,11 @@ graph LR
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 354 | 142 |
-| UI shell | Harness SDK facade | 113 | 82 |
-| UI shell | Client sync and state engine | 106 | 62 |
+| UI shell | Runtime adaptation | 357 | 143 |
+| UI shell | Harness SDK facade | 114 | 83 |
+| UI shell | Client sync and state engine | 107 | 63 |
 | Client sync and state engine | Harness SDK facade | 57 | 41 |
-| Harness SDK facade | Runtime adaptation | 32 | 30 |
+| Harness SDK facade | Runtime adaptation | 33 | 31 |
 | Quality gates | Web server | 23 | 7 |
 | Client sync and state engine | Runtime adaptation | 15 | 13 |
 | Runtime adaptation | Harness SDK facade | 10 | 7 |
@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:03783940ca4df397ff7d1ffc3167f9e8ae0b7677c211f16f742dde3ba5086396`.
+Source fingerprint: `sha256:287ed86149003b094c54355fc4fef7ba8f7eee66230328b84bc94b05019bc40f`.

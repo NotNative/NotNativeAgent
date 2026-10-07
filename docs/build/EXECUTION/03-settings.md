@@ -606,7 +606,12 @@ way: the native surface initializes the same workspace SkillRegistry the
 skills CLI authority builds — project skills included only on the trust
 verdict — and serves the catalog with body digests only plus registry
 diagnostics and honest failure codes; the desktop `Native skills catalog`
-panel renders it (distinct from the opencode skill-source browser).
+panel renders it (distinct from the opencode skill-source browser). The
+legacy provider credential alias then closed the same way: the served
+process runs the startup alias loader against a spare environment and
+projects only the load verdict (loaded, count, honest refusal reason) — the
+key value is never served — and the desktop `Legacy provider credential
+alias` panel renders that verdict.
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value
