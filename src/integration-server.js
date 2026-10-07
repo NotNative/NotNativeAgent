@@ -85,7 +85,7 @@ async function dispatch(request, response, context) {
     || context.nndUpdateActionsService || context.nndPackageActionsService
     || context.nndEnvironmentSnapshotService || context.nndInstallationSnapshotService
     || context.nndBrowserActionsService || context.nndSkillsService
-    || context.nndLegacyProviderCredentialsService
+    || context.nndLegacyProviderCredentialsService || context.nndProviderObservationService
     || context.nndGatewayStatusService || context.nndGatewayTestService
     || context.nndSearxngStatusService || context.nndInvocationService
     || context.nndMcpAdvancedConfigurationService

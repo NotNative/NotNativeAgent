@@ -23,6 +23,7 @@ import { createNndInstallationSnapshot } from './nnd-installation-snapshot.js';
 import { createNndBrowserActionsService } from './nnd-browser-routes.js';
 import { createNndSkillsService } from './nnd-skills-routes.js';
 import { createNndLegacyProviderCredentialsService } from './nnd-legacy-provider-credentials-routes.js';
+import { createNndProviderObservation } from './nnd-provider-observation.js';
 import { createNndGatewayStatusService, createNndGatewayTestService,
   createNndSearxngStatusService } from './nnd-action-triage-routes.js';
 import { createNndInvocationService } from './nnd-invocation-routes.js';
@@ -98,6 +99,8 @@ export function createNativeNndSettingsServices(paths, identity, environment) {
     nndSkillsService: createNndSkillsService({ paths, installationId: identity.installation_id,
       dataId: identity.data_id }),
     nndLegacyProviderCredentialsService: createNndLegacyProviderCredentialsService({ paths,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndProviderObservationService: createNndProviderObservation({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndGatewayStatusService: createNndGatewayStatusService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),

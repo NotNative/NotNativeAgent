@@ -192,6 +192,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_skills_projection_invalid', 'nnd_skills_catalog_too_large',
     'nnd_legacy_provider_credentials_request_invalid',
     'nnd_legacy_provider_credentials_projection_invalid',
+    'nnd_provider_observation_request_invalid', 'nnd_provider_observation_projection_invalid',
     'nnd_action_triage_request_invalid', 'nnd_action_triage_projection_invalid',
     'nnd_invocation_request_invalid', 'nnd_invocation_projection_invalid',
     'nnd_mcp_advanced_request_invalid', 'nnd_mcp_advanced_projection_invalid',

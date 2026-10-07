@@ -162,7 +162,7 @@ function failureStatus(code) {
     'nnd_package_projection_invalid', 'nnd_service_projection_invalid',
     'nnd_installation_projection_invalid', 'nnd_browser_projection_invalid',
     'nnd_skills_projection_invalid', 'nnd_action_triage_projection_invalid',
-    'nnd_invocation_projection_invalid', 'nnd_mcp_advanced_projection_invalid'].includes(code)) return 500;
+    'nnd_invocation_projection_invalid', 'nnd_mcp_advanced_projection_invalid', 'nnd_provider_observation_projection_invalid'].includes(code)) return 500;
   // Compatibility-service lifecycle: grammar stays at the default 400, but the
   // operational failures are honest 503s — the runtime could not be started or
   // its identity could not be verified, and the surface refuses harmlessly.

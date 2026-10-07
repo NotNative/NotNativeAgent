@@ -40,6 +40,7 @@ test('the exported settings-service key set is the exact routing surface', () =>
     'nndGatewayStatusService', 'nndGatewayTestService', 'nndGatewayTimeoutService',
     'nndHooksSettingsService', 'nndInstallationSnapshotService', 'nndInvocationService',
     'nndLegacyProviderCredentialsService', 'nndMcpCredentialsService', 'nndPackageActionsService',
+    'nndProviderObservationService',
     'nndSearxngStatusService', 'nndSecretsSettingsService', 'nndSkillsService', 'nndTrustService',
     'nndUpdateActionsService', 'nndUpdateStateStore', 'nndWebFetchSettingsService',
     'nndWebSearchSettingsService', 'nndWorkspaceGrantService']);
