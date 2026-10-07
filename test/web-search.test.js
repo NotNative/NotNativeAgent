@@ -30,6 +30,28 @@ test('global WebSearch configuration is absent-safe, normalized, and durable', a
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('only SearXNG is an admissible WebSearch provider, at either document shape', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-provider-'));
+  const path = join(root, 'web-search.json');
+  try {
+    // The census row for web_search:profiles[*].provider states that a control is pointless
+    // because NNA refuses every other provider. Nothing had ever exercised that refusal, at
+    // either the version-1 root key or the version-2 profile entry, so the claim rested on
+    // reading the throw.
+    await writeFile(path, JSON.stringify({ enabled: true, provider: 'brave', endpoint: 'https://search.example' }));
+    await assert.rejects(loadWebSearchConfig(path), { code: 'web_search_provider_invalid' });
+    await writeFile(path, JSON.stringify({ version: 2, enabled: true, profiles: [
+      { id: 'primary', display_name: 'Primary', provider: 'SearXNG', endpoint: 'https://search.example', managed: false }] }));
+    await assert.rejects(loadWebSearchConfig(path), { code: 'web_search_provider_invalid' });
+    // An omitted provider is not a refusal. It is the default, spelled out on the way out.
+    await writeFile(path, JSON.stringify({ version: 2, enabled: true, profiles: [
+      { id: 'primary', display_name: 'Primary', endpoint: 'https://search.example/search', managed: false }] }));
+    const loaded = await loadWebSearchConfig(path);
+    assert.equal(loaded.profiles[0].provider, 'searxng');
+    assert.equal(loaded.profiles[0].endpoint, 'https://search.example');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('SearXNG client requests JSON and returns bounded normalized results', async () => {
   let requested;
   const client = new SearxngClient({ fetch: async (url) => {
