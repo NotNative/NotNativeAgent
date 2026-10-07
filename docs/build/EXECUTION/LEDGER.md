@@ -416,6 +416,54 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-34 — eight rows lose a desktop surface they never had, and the headline goes up
+
+Rows without a desktop surface: **24 → 32**. The count went up and the count was wrong
+before, and both halves of that sentence are the point of this round.
+
+Eight census rows carried a `current_gui.path` naming a settings page with status
+`unverified`. Reading them one by one against the pages: not one of those six pages
+references the field it was credited for. `web-search-settings.tsx` never touches
+`version`, `provider` or `managed`; `web-fetch-trust.tsx`, `native-gateway-timeout.tsx`,
+`compatibility-service.tsx` and `trust-workspaces.tsx` never reference `version`;
+`native-update-state.tsx` renders the checked-at stamp, the status and the latest version,
+and never the `format`. A grep for `.version`, `.provider`, `.managed` and `.format`
+across those six files returns nothing at all.
+
+The census already told me what a real one looks like, in three places I did not look at
+until now: the hook list prints `v` before the bundle version, the skills list prints the
+entry version in parentheses, and the installation panel prints the descriptor version with
+a test asserting it. Those three are verified because the field is on the screen. The other
+five were verified-looking because the *family* had a page.
+
+That is the mechanism, and it is worth naming precisely, because it is not laziness: a
+family page is a real surface for the family, and it is easy to record the family's page
+against every row in the family. The census question is per field — does this field have a
+surface — and the row's own `status` column was the thing that quietly absorbed the
+difference. Where a row genuinely displayed its field, someone eventually wrote the test
+and `status` became verified. Where it did not, the row sat unverified forever with a path
+in it, and my headline metric — rows with *no path* — counted them as having one. So
+for many rounds the headline has been measuring "no page has been named yet", not "no
+surface shows this field", and the honest number is eight higher than the number I have
+been reporting.
+
+Nothing was deleted that was true. The citations stay: those families' suites still prove
+what they prove, and the typed clients really do enforce these values —
+`web-search.ts` refuses a version other than 2 and pins the provider to the one admitted
+value, `native-gateway.ts`, `web-fetch.ts` and `trust.ts` refuse a version other than 1, and
+`compatibility.ts` refuses it on read *and* compares it before accepting a save. A value the
+desktop enforces on every request while never printing it is enforced, not surfaced, and the
+distinction is exactly what this metric is for.
+
+Closing them honestly would mean printing a revision stamp the operator has no reason to
+read: its purpose is to make a concurrent write fail loudly. Building UI to move a counter
+is the failure mode this project keeps naming, so the rows stay open instead.
+
+**Census axes after the correction**: no desktop surface 32; rows naming a surface whose
+status is unverified **8 → 0** — that axis is now empty, which is only meaningful because
+the rows it held moved into the harder count rather than being marked verified. Unverified
+application class 47 (unchanged). Verified rows with no recorded examination 0.
+
 ## NND 20261007-33 — how a metric moved because I changed the ruler, and five provider fields proven rather than rendered
 
 **First, the disclosure the previous entry owes.** Last round's entry stated "pre-C1 pins

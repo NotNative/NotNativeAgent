@@ -10371,7 +10371,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "generated_state",
@@ -10384,11 +10384,12 @@
      "normalizeWebSearchConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (the family page drills assert the read view)"
+     "packages/ui vitest suite (the family page drills assert the read view)",
+     "packages/ui/src/lib/nnd/web-search.ts refuses a view whose version is not 2 and rebuilds the view from that pinned constant, so the desktop enforces the revision even though it never prints it; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .version at all"
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-18: The read view serves a per-file version counter and the typed client carries it, but the page prints the profile fields and the enabled state, not the counter, and no test ever asserted it. A pin to a verified surface is withdrawn here rather than left standing on nothing."
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-18: The read view serves a per-file version counter and the typed client carries it, but the page prints the profile fields and the enabled state, not the counter, and no test ever asserted it. A pin to a verified surface is withdrawn here rather than left standing on nothing. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "web_search:enabled",
@@ -10619,7 +10620,7 @@
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -10631,10 +10632,12 @@
     "source_symbols": [
      "normalizeWebSearchConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui/src/lib/nnd/web-search.ts refuses any profile whose provider is not the single admitted value and returns the pinned value, so the field is enforced rather than displayed; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .provider at all"
+    ],
     "installed_journey": null
    },
-   "notes": " Left open 20261007-17 on purpose: the field has exactly one legal value. NNA refuses any other provider with web_search_provider_invalid and the desktop client refuses to parse a profile whose provider is not searxng, so it is enforced rather than displayed; the page states in prose that WebSearch runs over SearXNG instances, and printing one invariant value on every row would be decoration, not coverage."
+   "notes": " Left open 20261007-17 on purpose: the field has exactly one legal value. NNA refuses any other provider with web_search_provider_invalid and the desktop client refuses to parse a profile whose provider is not searxng, so it is enforced rather than displayed; the page states in prose that WebSearch runs over SearXNG instances, and printing one invariant value on every row would be decoration, not coverage. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "web_search:profiles[*].endpoint",
@@ -10712,7 +10715,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "generated_state",
@@ -10725,11 +10728,12 @@
      "normalizeWebSearchConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (the family page drills assert the read view)"
+     "packages/ui vitest suite (the family page drills assert the read view)",
+     "packages/ui/src/lib/nnd/web-search.ts refuses a profile whose managed flag is not a boolean and returns it as parsed, so the desktop enforces the shape and shows nothing; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .managed at all"
     ],
     "installed_journey": null
    },
-   "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only. Surface status corrected 20261007-18: The served profile carries a managed flag marking a locally deployed SearXNG instance, and the client parses it, but the page distinguishes profiles by order and the (primary) marker only, so the flag is not displayed. Unlike a version counter this one would tell an operator something useful, so displaying it is recorded as real follow-up work rather than counted as coverage now."
+   "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only. Surface status corrected 20261007-18: The served profile carries a managed flag marking a locally deployed SearXNG instance, and the client parses it, but the page distinguishes profiles by order and the (primary) marker only, so the flag is not displayed. Unlike a version counter this one would tell an operator something useful, so displaying it is recorded as real follow-up work rather than counted as coverage now. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "web_fetch:version",
@@ -10756,7 +10760,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "generated_state",
@@ -10773,11 +10777,12 @@
      "NNA test/nnd-web-fetch-transaction.test.js (origin grammar and bounds, duplicate and host-case handling, one receipt per batch, updated_at stamped on save, oversize refused before publishing)",
      "NNA test/web-fetch-tool.test.js (the fetch tool consults the trusted-origin grant on each request, which is what makes next_fetch the application point)",
      "packages/ui web-fetch typed client tests (exact view shape, version must be 1, canonical origins, a non-empty list without a stamp refused as drift, operation and CAS request grammar bounded)",
-     "packages/ui web-fetch-trust page tests (grant list with its revoke control, add field refusing a hostile origin before anything is sent, preview then save with the exact revision, next-fetch wording, uncertain save kept across reload, expired receipt recovered, absent source bootstrapped, and the last-saved stamp shown with \"not recorded\" when there is none)"
+     "packages/ui web-fetch-trust page tests (grant list with its revoke control, add field refusing a hostile origin before anything is sent, preview then save with the exact revision, next-fetch wording, uncertain save kept across reload, expired receipt recovered, absent source bootstrapped, and the last-saved stamp shown with \"not recorded\" when there is none)",
+     "packages/ui/src/lib/nnd/web-fetch.ts refuses a frame whose version is not 1 before any other field is read; packages/ui/src/components/settings/pages/web-fetch-trust.tsx contains no reference to .version at all"
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-19: the pre-C1 pin claimed a verified desktop surface and the page shows no version anywhere, so the claim is withdrawn rather than left to flatter the count. The client refuses any version but 1, and the page shows the source revision instead, which is what an operator can act on."
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-19: the pre-C1 pin claimed a verified desktop surface and the page shows no version anywhere, so the claim is withdrawn rather than left to flatter the count. The client refuses any version but 1, and the page shows the source revision instead, which is what an operator can act on. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "web_fetch:trusted_origins",
@@ -10900,7 +10905,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "generated_state",
@@ -10916,11 +10921,12 @@
      "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
      "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
      "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
-     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)",
+     "packages/ui/src/lib/nnd/native-gateway.ts refuses a frame whose version is not 1 and carries the value in its model without rendering it; packages/ui/src/components/settings/pages/native-gateway-timeout.tsx contains no reference to .version at all"
     ],
     "installed_journey": null
    },
-   "notes": "Store-internal counter, not a surface: the client refuses any version other than 1, and the page shows the source revision instead, which is the stamp an operator can actually act on. Its pre-C1 pin claimed a verified desktop surface that no test supported and this page does not render, so the status is corrected downward rather than the claim left standing. Closed 20261007-18 on evidence. The class is not_applied because NNA produces this value; an operator never sets it, and the native catalog marks the field read-only with reason generated_state. The family scalars beside it declare restart_gateway, which is why this row does not carry that claim."
+   "notes": "Store-internal counter, not a surface: the client refuses any version other than 1, and the page shows the source revision instead, which is the stamp an operator can actually act on. Its pre-C1 pin claimed a verified desktop surface that no test supported and this page does not render, so the status is corrected downward rather than the claim left standing. Closed 20261007-18 on evidence. The class is not_applied because NNA produces this value; an operator never sets it, and the native catalog marks the field read-only with reason generated_state. The family scalars beside it declare restart_gateway, which is why this row does not carry that claim. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "gateway:enabled",
@@ -11276,7 +11282,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/compatibility-service.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -11291,11 +11297,12 @@
     "tests_run": [
      "NNA test/nnd-compatibility-routes.test.js (an absent file reads as the sticky wire identity and a preview bootstraps without persisting; the domain validates candidates including exposed bind and short password while the secret stays put; CAS receipts replay, persist revisions, and a corrupt store keeps its repair demand honest; HTTP offers the catalog and receipts, protects the secret, and gates by permission; the projector refuses drifted service shapes with its own server-side code)",
      "packages/ui compatibility typed client tests (the present projector shape and absent bootstrap frame accepted, drifted frames, wire-identity damage, leaking credentials and rich absent views refused, honest bind hosts accepted, port, username and replace secret bounded as the domain bounds them, the full wire identity composed with inputs trimmed and the replace value bound, and the seven census fields pinned with the manage authority statement on every edit)",
-     "packages/ui compatibility-service page tests (the bind target and user pinned on the status line beside the port and password presence, last saved shown as a real stamp and as not recorded for an absent store, the password staged as keep, replace or clear with the value confined to a password input and never appearing in the document, preview before save, a save that carries the expected revision, and the roster reloaded from the native read afterwards)"
+     "packages/ui compatibility-service page tests (the bind target and user pinned on the status line beside the port and password presence, last saved shown as a real stamp and as not recorded for an absent store, the password staged as keep, replace or clear with the value confined to a password input and never appearing in the document, preview before save, a save that carries the expected revision, and the roster reloaded from the native read afterwards)",
+     "packages/ui/src/lib/nnd/compatibility.ts refuses a version other than 1 on read and compares the saved view version against the one it sent before accepting a save; packages/ui/src/components/settings/pages/compatibility-service.tsx contains no reference to .version at all"
     ],
     "installed_journey": null
    },
-   "notes": "native surface: view shows the fixed wire identity; the password is presence-only (source restricted local config or environment), application next_service_start Closed 20261007-24 on evidence. Shown: nothing: the page shows the wire identity a reader can act on, not a counter that is always one. The row had carried a verified surface since before C1 while citing no test whatsoever, so the surface was never actually checked; reading the page found the stamp missing from it entirely, which is why the last-saved line exists now. The class word is NNA (next_service_start, declared on this very document and repeated on the save receipt), and the generated rows keep not_applied rather than borrowing the start claim. Sensitivity stays as NNA set it."
+   "notes": "native surface: view shows the fixed wire identity; the password is presence-only (source restricted local config or environment), application next_service_start Closed 20261007-24 on evidence. Shown: nothing: the page shows the wire identity a reader can act on, not a counter that is always one. The row had carried a verified surface since before C1 while citing no test whatsoever, so the surface was never actually checked; reading the page found the stamp missing from it entirely, which is why the last-saved line exists now. The class word is NNA (next_service_start, declared on this very document and repeated on the save receipt), and the generated rows keep not_applied rather than borrowing the start claim. Sensitivity stays as NNA set it. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "compatibility_service:enabled",
@@ -11598,7 +11605,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -11613,11 +11620,12 @@
     "tests_run": [
      "NNA test/nnd-trust-routes.test.js (grants, lists and revokes through the native trust functions; the projection refuses factory drift and identity lies; the catalog, honest refusals and an operator-only mutation gate; an existing root granted, the list reflecting it, lock contention mapped to 409)",
      "packages/ui trust typed client tests (list and receipt shapes, the census field names, refusals on drift)",
-     "packages/ui trust-workspaces page tests (the root of each row and the stamp its grant wrote, one revoke control per grant, grant through the native surface with the canonical root echoed on the receipt, revocation, the honest empty state, store refusals, and the signed-out pause)"
+     "packages/ui trust-workspaces page tests (the root of each row and the stamp its grant wrote, one revoke control per grant, grant through the native surface with the canonical root echoed on the receipt, revocation, the honest empty state, store refusals, and the signed-out pause)",
+     "packages/ui/src/lib/nnd/trust.ts refuses a frame whose version is not 1 alongside its source and workspace checks; packages/ui/src/components/settings/pages/trust-workspaces.tsx contains no reference to .version at all"
     ],
     "installed_journey": null
    },
-   "notes": "Left open on purpose 20261007-21: the page shows the trusted roots, not the store counter, and printing a value that is always 1 would be decoration rather than coverage. The surface status stays unverified for the same reason, and the class is not_applied because NNA owns the value."
+   "notes": "Left open on purpose 20261007-21: the page shows the trusted roots, not the store counter, and printing a value that is always 1 would be decoration rather than coverage. The surface status stays unverified for the same reason, and the class is not_applied because NNA owns the value. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "trust:workspaces[*].root",
@@ -12177,7 +12185,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-update-state.tsx",
+    "path": null,
     "status": "unverified"
    },
    "sensitivity": "unverified",
@@ -12189,10 +12197,12 @@
     "source_symbols": [
      "readUpdateState"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui/src/lib/nnd/update-state.ts refuses a recorded state whose format is not 1 and rebuilds it as format 1, and the page renders checked_at, status and the latest version but not the format; packages/ui/src/components/settings/pages/native-update-state.tsx contains no reference to .format at all"
+    ],
     "installed_journey": null
    },
-   "notes": "Left open 20261007-15 on purpose: the store format is never displayed. The client refuses any record whose format is not the one it understands, so a wrong format surfaces as the honest 'could not be read in the expected shape' sentence with no values at all, which is validation rather than a surface for the field."
+   "notes": "Left open 20261007-15 on purpose: the store format is never displayed. The client refuses any record whose format is not the one it understands, so a wrong format surfaces as the honest 'could not be read in the expected shape' sentence with no values at all, which is validation rather than a surface for the field. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
   },
   {
    "id": "update_state:checked_at",

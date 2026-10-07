@@ -3,6 +3,35 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Eight rows lose a surface they never had; the headline goes **up** · NND 20261007-34
+
+**24 → 32 rows without a desktop surface.** The number rose because it had been wrong: eight
+rows carried a `current_gui.path` for a page that never mentions the field. Grepping those six
+pages for `.version`, `.provider`, `.managed`, `.format`: **zero occurrences**.
+
+The census had the correct shape sitting in it all along — hooks print `v<version>`, skills
+print `(<version>`, the installation panel prints the descriptor version with an assertion.
+Those are verified because the field is on screen. The other rows looked verified because the
+*family* had a page, and it is very easy to record the family's page against every row in the
+family. My headline counted "no path named yet", not "no surface shows this field", so for many
+rounds I have been reporting a number eight better than the truth.
+
+Nothing true was deleted. The citations stand, and the typed clients genuinely enforce these
+values (`web-search.ts` pins the provider and refuses a version other than 2; gateway,
+web-fetch and trust refuse a version other than 1; `compatibility.ts` refuses it on read *and*
+compares it before accepting a save). **Enforced-on-every-request and never printed is
+enforcement, not a surface** — which is precisely what this metric is meant to distinguish.
+
+They stay open rather than being closed by printing a CAS revision stamp nobody reads. Building
+UI to move a counter is the failure mode this project keeps naming.
+
+Axis: rows naming an unverified surface **8 → 0** — the axis is empty only because those rows
+moved into the harder count, not because anything was marked verified.
+
+New rule for future rows: name a page only if the field is on the screen, and cite the test
+that reads it off the screen. A `status` stuck at `unverified` for many rounds means nobody
+looked.
+
 ## 2026-10-07 · Five provider fields proven on a surface that already existed · NND 20261007-33
 
 Two things worth writing down.

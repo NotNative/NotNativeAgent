@@ -396,7 +396,27 @@ The fix would have been to pre-fill it, and that would have been a regression.
 And a claim needs the assertion on the path that makes it. The create flow typed a display
 name; only the edit flow asserted the name reached the request. That gap is closed — the
 create request is now asserted to carry the typed name — and it passed, which means the
-field always travelled and was never verified, the cheapest kind of hole there is. Manifest container
+field always travelled and was never verified, the cheapest kind of hole there is.
+
+### A family page is not a surface for every field in the family
+
+`20261007-34` took eight rows apart and the headline went up by eight, because the rows
+were not missing a surface: they never had one. Each named a real settings page for its
+family, and none of those pages mentioned the field the row claimed. Six pages, grepped for
+`.version`, `.provider`, `.managed`, `.format`: no occurrences.
+
+The rule this leaves behind, stated for whoever writes the next row: **name the page only if
+the field is on the screen, and cite the test that reads it off the screen.** A page that
+forwards a field, validates a field, or refuses a frame over a field is enforcement, which
+belongs in the evidence and not in `current_gui.path`. The census shows the correct shape
+three times over — the hook list prints `v` and the bundle version, the skills list prints
+the entry version, the installation panel prints the descriptor version with a test that
+asserts it — so "we render it" is always checkable against a sibling, and a `status` left
+`unverified` for many rounds is a signal that nobody ever looked.
+
+The distinction earns its keep because these values are CAS guards: `version` exists so a
+concurrent write fails loudly. Rendering it would satisfy a counter, not an operator, and
+"close the row" is not a reason to build a panel. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container
