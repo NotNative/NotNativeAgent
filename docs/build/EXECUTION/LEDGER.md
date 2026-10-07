@@ -416,6 +416,26 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-4 — skill fields read through the native catalog
+
+The 7 `manifest_skills` census rows closed against the EXISTING skills
+catalog observation (`GET /v1/nnd/configuration/skills/catalog`, shipped
+for the `skills_action:list` row) — no new native surface. The mechanical
+proof (NNA `test/nnd-skills-routes.test.js`, real registry over a temp
+skill root) shows the served grammar is exactly the seven census fields —
+`id`, `version`, `description`, `invocation`, `source`, `requires_tools`,
+and the body **only** as `body_sha256` — that the digest is the SHA-256 of
+the real body and that the body text never crosses. Inline manifest skills
+remain host-only: `validateManifestSkills` checks the principal first, so
+the desktop is refused with `hosted_skills_forbidden` (echoing neither the
+body nor the description), and hosted grants share the same seven-field
+grammar through `validateHostedSkills`. The catalog the desktop does see is
+discovered roots only — bundled, user, and (while the workspace is
+trusted) project — with entries that need unavailable tools skipped under
+a visible diagnostic rather than silently dropped. The skills panel already
+renders every field per row and states that bodies are never rendered, only
+their digests. Census rows without a verified GUI: 152 → 145.
+
 ## NNA (test-only) and NND 20261007-3 — mission authority stays host-only
 
 The 16 `manifest_mission` census rows closed against the EXISTING

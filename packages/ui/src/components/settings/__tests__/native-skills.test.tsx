@@ -49,10 +49,17 @@ it('reads the native skills catalog on readiness and renders entries with digest
   const rendered = () => container.querySelector('[data-testid="native-skills-receipt"]')?.textContent ?? '';
   expect(rendered()).toContain('2 skills registered');
   expect(rendered()).toContain('untrusted (project skills excluded)');
+  // Every census field for a skill row renders: id, version, description,
+  // invocation, source, requires_tools, and the body only as its digest.
   expect(rendered()).toContain('demo.one');
+  expect(rendered()).toContain('(1, both, from bundled:demo, sha256:');
+  expect(rendered()).toContain('— first demo skill');
+  expect(rendered()).toContain('demo.two');
+  expect(rendered()).toContain('(2, agent, from user:C:\\nna\\skills, requires web_browse, sha256:');
   expect(rendered()).toContain(`sha256:${'a'.repeat(12)}…`);
   expect(rendered()).toContain('requires web_browse');
   expect(rendered()).toContain('[user] duplicate skill demo.one');
+  expect(rendered()).not.toContain('SENTINEL');
   expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/configuration/skills/catalog'))).toBe(true);
 });
 

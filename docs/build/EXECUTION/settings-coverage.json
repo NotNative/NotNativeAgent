@@ -8930,29 +8930,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-4: served verbatim per entry (lowercase path-safe identifiers, at most 128 characters; a duplicate fails a hosted grant and skips a discovered file with a diagnostic). Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_skills:skills[*].version",
@@ -8972,29 +8974,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-4: served verbatim (1 to 64 characters, defaulting to 1 for a discovered file). Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_skills:skills[*].description",
@@ -9014,29 +9018,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-4: served verbatim when present and null when absent (bounded to 1,024 characters). Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_skills:skills[*].invocation",
@@ -9056,29 +9062,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-4: served verbatim as user, agent, or both; an agent-invocable hosted grant additionally requires exact skill_search and skill_load tool grants. Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_skills:skills[*].body",
@@ -9098,29 +9106,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-4: never served as a value — only its SHA-256 digest crosses, and the panel states that bodies are never rendered. Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_skills:skills[*].source",
@@ -9140,29 +9150,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-4: names the scope (bundled:, user:, or project:) and the project root only counts while the workspace is trusted. Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_skills:skills[*].requires_tools",
@@ -9182,29 +9194,31 @@
     "authenticated_host_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/skill-registry.js:SkillRegistry.initialize builds the catalog when a session starts, and the observation route initializes a fresh registry per read"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/skills/catalog (one entry per discovered skill, serving id, version, description, invocation, source, and requires_tools verbatim and the body only as body_sha256)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-4)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateHostedSkills"
+     "validateHostedSkills",
+     "SkillRegistry.initialize",
+     "SkillRegistry.catalog",
+     "projectCatalog",
+     "dispatchNndSkillsRequest"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-skills-routes.test.js proves the served grammar is exactly the seven census fields, that body_sha256 is the digest of the real body and the body text never crosses, that hosted (inline manifest) grants share the same grammar, and that the desktop principal is refused inline skills with hosted_skills_forbidden; the NND skills panel test renders every census field per row"
    },
-   "notes": "Hosted skill admission prerequisite, not a tool grant: SkillRegistry.initialize checks these names against independently granted allowedTools and rejects unavailable capabilities."
+   "notes": "Hosted skill admission prerequisite, not a tool grant: SkillRegistry.initialize checks these names against independently granted allowedTools and rejects unavailable capabilities. Pinned 20261007-4: a sorted list of at most 64 tool names; a discovered entry needing an unavailable tool is skipped with a diagnostic while a hosted one fails the grant. Inline manifest skills stay host-only (src/config.js:validateManifestSkills checks the principal first, so the desktop is refused with hosted_skills_forbidden) and the desktop catalog is discovered roots only. NNA owns skills; NND renders the catalog read-only."
   },
   {
    "id": "manifest_mission:mission.id",

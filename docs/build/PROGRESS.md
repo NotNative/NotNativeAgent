@@ -3,6 +3,23 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Skill fields read through the native catalog · NND 20261007-4
+
+The 7 `manifest_skills` rows closed against the EXISTING
+`GET /v1/nnd/configuration/skills/catalog` that already serves
+`skills_action:list`: the proof shows the served grammar is exactly the
+seven census fields — `id`, `version`, `description`, `invocation`,
+`source`, `requires_tools`, and the body only as `body_sha256` (the digest
+of the real body; the body text never crosses). Inline manifest skills stay
+host-only (`hosted_skills_forbidden`, checked before the descriptor),
+hosted grants share the same seven-field grammar, and the catalog the
+desktop sees is discovered roots only — bundled, user, and project while
+the workspace is trusted — with unusable entries surfaced as diagnostics
+rather than dropped. The skills panel already renders every field per row
+and says bodies are never rendered. Census rows without a verified GUI:
+152 → 145. Next: dream 6, memory 5, recovery 4, attachments 3, telemetry 3,
+reviewer_ledger 1, then manifest 38, route 48, provider 37.
+
 ## 2026-10-07 · Mission authority stays host-only · NND 20261007-3
 
 The 16 `manifest_mission` rows closed against the EXISTING configuration

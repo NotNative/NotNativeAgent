@@ -607,6 +607,12 @@ skills CLI authority builds — project skills included only on the trust
 verdict — and serves the catalog with body digests only plus registry
 diagnostics and honest failure codes; the desktop `Native skills catalog`
 panel renders it (distinct from the opencode skill-source browser). The
+seven `manifest_skills` rows read through that same receipt: each entry
+serves `id`, `version`, `description`, `invocation`, `source`, and
+`requires_tools` verbatim and the body **only** as `body_sha256`, while
+inline manifest skills stay host-only (`hosted_skills_forbidden`, checked
+before the descriptor is ever validated), so the catalog the desktop sees
+is discovered roots only. The
 legacy provider credential alias then closed the same way: the served
 process runs the startup alias loader against a spare environment and
 projects only the load verdict (loaded, count, honest refusal reason) — the
