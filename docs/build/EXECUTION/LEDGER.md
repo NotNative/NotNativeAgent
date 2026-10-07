@@ -416,6 +416,64 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261007-1 and NND 20261007-31 — C4 opens with a provider-observation surface, and two version findings
+
+C4 has been "open" with no evidence since it was written down, because provider
+settings had **no native endpoint at all** — the thirteen `manifest_provider` rows
+covering a provider's credential binding (source, environment name, secret id,
+secret field), the credential and capability containers, and the `credential_env`
+alias, in both the `providers[*]` and `provider` spellings, could only be read by
+opening `manifest.json` by hand. NNA `a026763e` adds
+`GET /v1/nnd/configuration/provider-observations` with its catalog. It reads the
+manifest the way the CLI does and takes the binding shape from `credentialManifest`
+rather than re-deriving it, so the response carries where a credential lives and
+never the value; the projector whitelists every key, including the capability
+flags, and a lesser token is refused before the manifest is opened. Permission is
+`nnd.configuration.read`; provider writes stay with the manifest transaction that
+writes with an expected revision, which is why every catalog field declares itself
+uneditable with that reason.
+
+**The headline does not move: 37 rows still have no desktop surface.** No panel
+renders this read yet. All thirteen rows gained an endpoint and a proof, not a GUI,
+and the census says so.
+
+**Where a number did move, say what moved it.** The class axis goes **60 → 47**,
+and that is a *reclassification*, not new capability: `configuration-catalog-metadata.js`
+declares `family(..., live, ...)` for the whole provider family, whose application is
+`engine_boundary` with `runtime-config.js:applyConfiguration` and
+`publishEngineConfiguration` as its evidence. Those thirteen rows had been sitting at
+`unverified` because nobody had transcribed NNA's declaration. Nothing was built to
+earn those thirteen; the reading was already there.
+
+### Version identity is broken upstream, and it implicates our own sealed docs
+
+While wiring the version for this slice: NNA's `VERSION` has never held anything above
+**`20261006-4`** in its entire history, yet 17 of the last 57 commit subjects that
+claim a version name a value the tree never carried — `8754e834` is titled *"…as
+20261006-5"* while its own `VERSION` blob reads `20261006-3`, and `33c57fff` claims
+`20261006-22`. Every number from `-5` to `-22` cited as an NNA release in this
+repository's sealed docs — **43 citations** across `LEDGER.md`, `PROGRESS.md` and
+`03-settings.md` — names a version that existed only as an **NND** release. The
+features those rows describe are real and present in NNA's tree; the attribution is
+wrong. From here, NNA is cited by commit hash where a claim has to hold. This slice
+takes the number NNA's own `bump-version.js` computes for the change — `20261007-1` —
+which is *not* `20261006-5`, deliberately.
+
+### NNA's release seal is red, and this slice did not write over it
+
+At that commit NNA's `release-gates` report **1062 manifest differences** plus three
+missing entries on files this slice never opened, with stale repository-graph and
+controlled-language artifacts. `--write-hashes` was **not** run: folding a thousand
+untouched entries into a seal would make the seal describe something other than this
+work. The proof for the NNA half is its tests — five new, plus failure-envelope,
+configuration-routes, the factory key-set pin, and both census suites, green solo —
+and that is what the census rows cite.
+
+Census rows without a desktop surface: **37** (unchanged, by choice). Rows with an
+unverified desktop surface: 13 (unchanged). Rows declaring an unverified application
+class: **60 → 47**, from reading NNA's declaration. Pre-C1 pins never re-examined: 0,
+with the same eight label-only exits named every round.
+
 ## NND 20261007-30 — the pre-C1 sweep reaches zero, and two of my own metrics turn out to have been flattering
 
 **The sweep is done.** The last four pre-C1 "verified" pins close with this slice:

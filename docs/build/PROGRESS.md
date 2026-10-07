@@ -3,6 +3,36 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · C4 opens with provider observation; version identity proves broken · NNA 20261007-1 + NND 20261007-31
+
+Provider settings had **no native endpoint at all**, which is why C4 sat "open" with no
+evidence. NNA `a026763e` adds `GET /v1/nnd/configuration/provider-observations`: thirteen
+`manifest_provider` rows (credential binding source/name/secret_id/field, the credential
+and capability containers, the `credential_env` alias, in both spellings) can now be read
+without opening `manifest.json`. The binding shape comes from NNA's `credentialManifest`,
+so the response says *where* a credential lives and never the value; writes stay with the
+manifest transaction.
+
+**Headline unchanged at 37 — deliberately.** No panel renders the read yet, so the rows
+gained an endpoint and a proof, not a GUI.
+
+**Class 60 → 47 was reading, not building:** `configuration-catalog-metadata.js` declares
+`family(..., live, ...)` for the whole provider family, i.e. `engine_boundary`. Those rows
+sat at `unverified` because nobody transcribed NNA's declaration.
+
+Then, while setting the version: NNA's `VERSION` has **never** held anything above
+`20261006-4`, yet 17 of its last 57 version-bearing commits claim a value the tree never
+carried (`8754e834` is titled *as 20261006-5* with `VERSION` reading `-3`; `33c57fff`
+claims `-22`). **43 citations** in our own sealed docs attribute those numbers to NNA —
+they are **NND** release numbers. The features are real; the attribution is wrong. This
+slice cites NNA by commit hash, and takes the number its own script computes, `20261007-1`
+— not `20261006-5`.
+
+NNA's release seal is red at that commit (1062 manifest differences on untouched files,
+stale graph and language artifacts). `--write-hashes` was **not** run: a seal that folds in
+a thousand unrelated entries would stop describing this work. Proof here is NNA's tests,
+green solo, which is what the census cites.
+
 ## 2026-10-07 · Pre-C1 sweep hits zero; two of my metrics turn out to have been flattering · NND 20261007-30
 
 The last four pre-C1 pins close: **0 left**, from 62. But the zero needs last round's

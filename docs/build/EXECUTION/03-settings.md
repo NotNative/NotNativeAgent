@@ -337,7 +337,33 @@ same manifest through the same locked transforms, gated on
 `tool_call_mode`, a credential binding, and `profile_id` on create. No native
 write accepts `trust_zone`, and capability rows are derived state that nothing
 writes. Either way a saved profile applies because a published configuration
-rebuilds the model router, so the next request uses it. Manifest container
+rebuilds the model router, so the next request uses it.
+
+Reading a binding was a different gap, and a total one: the thirteen provider rows
+describing `credential.source`, `credential.name`, `credential.secret_id`,
+`credential.field`, the credential and capability containers and the
+`credential_env` alias had `native_endpoint: null`, so no surface could answer
+"which credential is this provider bound to" without opening `manifest.json`. NNA
+`a026763e` (`20261007-1`) opens
+`GET /v1/nnd/configuration/provider-observations` for exactly that. It resolves the
+manifest through the same `readManifestSnapshot` plus `resolveManifest` path the CLI
+uses and projects each binding with `credentialManifest`, so the response carries
+`source` with an environment name, or `source` with a secret id and field — the
+place, never the value — and the projector refuses a key it does not whitelist,
+including inside the capability flags. Trust zones are `config.js`'s own three
+words, and the catalog's classification, intent and sensitivity are transcribed
+from `configuration-catalog-metadata.js` rather than invented: credential and
+capability paths are `container`, `credential_env` is the `compatibility_alias` it
+has always been, and the binding leaves carry `credential_reference`. Writes are
+not this route's to own, so all thirteen fields report
+`editability: unavailable, reason: manifest_transaction_owns_writes`.
+
+The desktop renders nothing from it yet. The rows therefore gained an endpoint, a
+permission and a walked proof, and kept `current_gui.path: null` — the count of
+rows without a surface stays 37 because nothing was rendered to earn a change.
+Their application class moved from `unverified` to `engine_boundary` on NNA's
+declaration (`family(..., live, ...)` for the provider family), which is a
+transcription of what NNA already says, not a capability this slice built. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container

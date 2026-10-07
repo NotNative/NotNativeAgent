@@ -2020,10 +2020,10 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id",
+   "native_endpoint": "POST /v1/provider-profiles; PATCH /v1/provider-profiles/:id; GET /v1/nnd/configuration/provider-observations",
    "native_permission": "provider.manage or provider.profile.write",
    "current_gui": {
     "product": "NND",
@@ -2032,17 +2032,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:providers[*].credential_env",
@@ -2246,11 +2249,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -2258,17 +2261,20 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:providers[*].capabilities.streaming",
@@ -2566,11 +2572,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -2578,17 +2584,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:providers[*].credential.name",
@@ -2610,11 +2619,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -2622,17 +2631,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:providers[*].credential.secret_id",
@@ -2654,11 +2666,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -2666,17 +2678,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:providers[*].credential.field",
@@ -2698,11 +2713,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -2710,17 +2725,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.id",
@@ -2972,11 +2990,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -2984,17 +3002,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.credential_env",
@@ -3016,11 +3037,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -3028,17 +3049,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.context_limit_bytes",
@@ -3198,11 +3222,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -3210,17 +3234,20 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "validateProvider"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.capabilities.streaming",
@@ -3518,11 +3545,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -3530,17 +3557,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.credential.name",
@@ -3562,11 +3592,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -3574,17 +3604,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.credential.secret_id",
@@ -3606,11 +3639,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -3618,17 +3651,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_provider:provider.credential.field",
@@ -3650,11 +3686,11 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration, the application NNA declares for the whole provider family"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration/provider-observations",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": null,
@@ -3662,17 +3698,20 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 provider observation (NNA 20261007-1)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeCredentialBinding"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-provider-observation-routes.test.js: provider observation projects bindings and capability flags and never a credential value; provider observation refuses a bad factory identity and a lesser principal before any disk work; provider HTTP serves the read and the catalog read-only and honours the permission; provider HTTP passes manifest refusals through and treats projector drift as a server fault; the route grammar refuses a query string, an unwired service, and unrelated paths",
+     "NNA src/nnd-provider-observation.js takes the binding shape from credentialManifest, and src/nnd-provider-observation-routes.js whitelists every response key, so a credential value has no path into the response"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " NNA 20261007-1 (commit a026763e) added the read surface this row had no endpoint for; the desktop renders nothing from it yet, so the row still has no GUI path and the headline count does not move. The application class is NNA's own declaration for the provider family (family(..., live, ...) in configuration-catalog-metadata.js), not a claim about this read surface, whose installed effect stays unobserved. NNA's release seal is red at that commit for reasons predating this slice (1062 manifest differences on untouched files, stale graph and language artifacts), so the proof here is the named tests, not a seal."
   },
   {
    "id": "manifest_route:routes.primary.provider_id",
