@@ -12864,17 +12864,19 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "the alias is consumed at load, before any surface exists (application not_applied)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": null,
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "NNA src/web-search-config.js:legacyProfiles folds a version-1 root provider endpoint and managed flag into one primary profile, proved by NNA test/web-search.test.js at commit 7d3d4b2d; packages/ui src/lib/nnd/web-search.ts:parseNativeWebSearchView admits only version 2",
+    "justification": "A root provider is an input to NNA's loader and never an output of any native endpoint: the handler serves the canonical version-2 spelling only, and the desktop client refuses anything but a version-2 document. The operator-facing coverage already exists at the canonical field, web_search:profiles[*].provider, whose single-legal-value claim is proved at both ends. A desktop control for the load-time spelling would present a value that no read path can ever return."
    },
-   "sensitivity": "unverified",
+   "sensitivity": "compatibility_alias",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -12883,10 +12885,14 @@
     "source_symbols": [
      "legacyProfiles / normalizeProfile"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js loads raw version-1 bytes and asserts the folded single-profile envelope with exact key sets, the normalized endpoint, the display name derived from managed-ness, the camelCase promotion with canonical precedence, and shape dispatch ruling out a leftover root endpoint (commit 7d3d4b2d)",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts refuses a served view whose version is not 2, so the version-1 spellings cannot reach the desktop through the read path",
+     "packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx asserts the canonical roster spelling — id, display_name and endpoint per profile — which is the coverage the alias keys fold into"
+    ],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead. Dispositioned 20261007-52: the version-1 root keys are a load-time alias, now proved by NNA test/web-search.test.js at commit 7d3d4b2d (raw legacy bytes fold into one primary profile with the endpoint normalized and the display name derived from managed-ness; enabling legacy bytes without a root endpoint refuses). No native endpoint serves the version-1 spelling and the desktop parse refuses anything but version 2, so no desktop surface is owed; the canonical field web_search:profiles[*].provider owns the coverage."
   },
   {
    "id": "web_search_alias:endpoint",
@@ -12906,17 +12912,19 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "the alias folds into the canonical endpoint at load, before any surface exists (application not_applied)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": null,
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "NNA src/web-search-config.js:normalizeSearxngEndpoint strips the search suffix while legacyProfiles carries the version-1 root endpoint into the primary profile, proved by NNA test/web-search.test.js at commit 7d3d4b2d; packages/ui src/components/settings/web-search.ts:canonicalWebSearchEndpoint refuses credentials and empty hosts",
+    "justification": "The root endpoint exists only in stores written by older builds; on load it is normalized into profiles[0].endpoint and the served version-2 document carries no root endpoint at all. The value the operator can actually change lives at web_search:profiles[*].endpoint, whose desktop surface and its refusals are pinned by the web-search page and its suites. A control labelled endpoint at the document root would show a name whose meaning changed the moment the loader ran."
    },
-   "sensitivity": "unverified",
+   "sensitivity": "compatibility_alias",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -12925,10 +12933,14 @@
     "source_symbols": [
      "legacyProfiles / normalizeProfile"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js loads raw version-1 bytes and asserts the folded single-profile envelope with exact key sets, the normalized endpoint, the display name derived from managed-ness, the camelCase promotion with canonical precedence, and shape dispatch ruling out a leftover root endpoint (commit 7d3d4b2d)",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts refuses a served view whose version is not 2, so the version-1 spellings cannot reach the desktop through the read path",
+     "packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx asserts the canonical roster spelling — id, display_name and endpoint per profile — which is the coverage the alias keys fold into"
+    ],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead. Dispositioned 20261007-52: the version-1 root endpoint is a load-time alias, now proved by NNA test/web-search.test.js at commit 7d3d4b2d (legacy bytes produce one primary profile whose endpoint loses its search suffix; a profiles array wins shape dispatch so a leftover root endpoint is not an input). No served document carries a root endpoint, so no desktop surface is owed; the canonical field web_search:profiles[*].endpoint owns the coverage."
   },
   {
    "id": "web_search_alias:managed",
@@ -12948,17 +12960,19 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "the alias derives managed state at load, before any surface exists (application not_applied)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": null,
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "NNA src/web-search-config.js:legacyProfiles reads the version-1 root managed flag only to derive managed true and the display name Local SearXNG, proved by NNA test/web-search.test.js at commit 7d3d4b2d; packages/ui src/lib/nnd/web-search.ts:parseProfile refuses a managed field that is not a boolean",
+    "justification": "On load the root managed flag is consumed to mark the folded profile and to choose its derived name; the served document spells managed per profile and never at the root. The per-profile managed coverage is asserted in the web_search family by the page's managed counts and the client's boolean refusal. There is no read path that can ever show a root managed value, so a desktop control for it would be unusable by construction."
    },
-   "sensitivity": "unverified",
+   "sensitivity": "compatibility_alias",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -12967,10 +12981,14 @@
     "source_symbols": [
      "legacyProfiles / normalizeProfile"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js loads raw version-1 bytes and asserts the folded single-profile envelope with exact key sets, the normalized endpoint, the display name derived from managed-ness, the camelCase promotion with canonical precedence, and shape dispatch ruling out a leftover root endpoint (commit 7d3d4b2d)",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts refuses a served view whose version is not 2, so the version-1 spellings cannot reach the desktop through the read path",
+     "packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx asserts the canonical roster spelling — id, display_name and endpoint per profile — which is the coverage the alias keys fold into"
+    ],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead. Dispositioned 20261007-52: the version-1 root managed flag is a load-time alias, now proved by NNA test/web-search.test.js at commit 7d3d4b2d (managed true folds into the primary profile with managed: true and the derived name Local SearXNG). No served document carries a root managed key, so no desktop surface is owed; the canonical field web_search:profiles[*].managed owns the coverage."
   },
   {
    "id": "web_search_alias:profiles[*].displayName",
@@ -12990,17 +13008,19 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "the alias promotes into display_name at load, before any surface exists (application not_applied)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read + nnd.configuration.manage",
    "current_gui": {
-    "product": null,
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "NNA src/web-search-config.js:normalizeProfile promotes a camelCase displayName only when the canonical display_name is absent, proved by NNA test/web-search.test.js at commit 7d3d4b2d; packages/ui src/components/settings/pages/web-search-settings.tsx renders and stages only display_name",
+    "justification": "A profile carrying the camelCase spelling arrives only from a hand-edited store; the loader promotes it once, never over a canonical value, and the promoted field is gone from the served object. Everywhere the desktop projects a profile — the page roster, staged rows, and the add flow — it reads and writes display_name, and those spellings are exactly what the page tests assert. Rendering the alias spelling would show a key the loader guarantees cannot survive a save."
    },
-   "sensitivity": "unverified",
+   "sensitivity": "compatibility_alias",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -13009,10 +13029,14 @@
     "source_symbols": [
      "legacyProfiles / normalizeProfile"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/web-search.test.js loads raw version-1 bytes and asserts the folded single-profile envelope with exact key sets, the normalized endpoint, the display name derived from managed-ness, the camelCase promotion with canonical precedence, and shape dispatch ruling out a leftover root endpoint (commit 7d3d4b2d)",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts refuses a served view whose version is not 2, so the version-1 spellings cannot reach the desktop through the read path",
+     "packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx asserts the canonical roster spelling — id, display_name and endpoint per profile — which is the coverage the alias keys fold into"
+    ],
     "installed_journey": null
    },
-   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead."
+   "notes": "Compatibility alias of the native web-search settings family: NNA accepts the legacy v1 document keys (root provider/endpoint/managed and profiles[*].displayName) on load and normalizes them into the served version-2 profile shape; the native surface serves the modern shape only. Left open 20261007-17 because NNA does not project these version-1 keys at all: src/nnd-web-search-routes.js states the legacy fields normalize into the version-2 profiles on load, and the read view, the catalog and the typed client carry only the canonical spelling. There is nothing for a desktop surface to render, so the earlier pin to the web-search page named a component that cannot show this key; the canonical rows carry the coverage instead. Dispositioned 20261007-52: the camelCase displayName key is a load-time alias, now proved by NNA test/web-search.test.js at commit 7d3d4b2d (it promotes on load, is absent from the served object, and canonical display_name always wins; the loader's own name bounds are proved in the same file). No served object carries the alias spelling, so no desktop surface is owed; the canonical field web_search:profiles[*].display_name owns the coverage."
   },
   {
    "id": "web_search_action:status",

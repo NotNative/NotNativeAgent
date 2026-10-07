@@ -416,6 +416,56 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-52 — four alias rows are dispositioned, and the load path that justifies them is proved in NNA
+
+Surfaces owed **18 → 14**; not-owed-with-evidence **7 → 11** (unevidenced 0); unverified application
+class **42 → 38**. The four `web_search_alias` rows — `provider`, `endpoint`, `managed`,
+`profiles[*].displayName` — are the census's first rows to be dispositioned rather than re-cited: a
+compatibility alias is accepted at load and never projected by any native endpoint or parsed by the
+desktop read path, so no desktop surface is owed and the canonical `web_search` family owns the
+operator-facing coverage.
+
+The disposition's strength is its evidence chain, and the chain is new in both repositories this
+round. The census had left the family open since 20261007-17 with **empty `tests_run` arrays** — the
+only family that was quiet rather than padded with prose — because its claim, "NNA accepts the
+legacy v1 keys on load and normalizes them into the served v2 shape", had never been exercised by
+any test. That gap is closed first on the native side: NNA `test/web-search.test.js` (commit
+`7d3d4b2d`) now feeds **raw version-1 bytes** to `loadWebSearchConfig` and asserts the folded
+version-2 envelope with exact key sets, the `search` suffix stripped from the endpoint, the display
+name derived from managed-ness (`Local SearXNG` when the root flag is true), the camelCase
+`displayName` promoting on load but never over a canonical `display_name`, the leftover root
+endpoint losing shape dispatch to a `profiles` array, and legacy bytes with no root endpoint
+refusing `web_search_endpoint_required` when enabled. NNA's repository graph and controlled-language
+report measure test files, so the refreshed artifacts ride the commit.
+
+The four rows then disown with the gate-checked shape (basis naming `src/web-search-config.js:
+legacyProfiles` / `normalizeProfile` / `normalizeSearxngEndpoint` by symbol and the commit by hash;
+justification over the sixty-character floor; application `not_applied`; sensitivity
+`compatibility_alias`), and each carries **three file-naming citations**: the native load-path test
+by commit, the desktop client's version-2-only refusal
+(`packages/ui/src/lib/nnd/__tests__/web-search.test.ts` feeds a view at version 1 and expects
+`NativeWebSearchFailure`), and the canonical page suite whose roster, staged rows and add flow pin
+the canonical spellings the aliases fold into
+(`packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx`). Citations naming no
+test file stay **33 of 678** (total rose 666 → 678 because four previously citationless rows joined
+the family); naming no file at all stays **24**.
+
+What a disposition not in this version claims, and where the claim stops: the rows say the alias
+keys exist only in stores written by older builds, and that a desktop control would present a value
+no read path can return. What is **not** shown is a store actually carrying v1 bytes — the proof is
+the loader's behaviour on those bytes, not an observed installation with them. That residual is the
+installed-evidence axis, which is unchanged at zero and is the standing MVP hole. One NNA-side fact
+is recorded rather than fixed: `test/nnd-native-principal-promotion.test.js` fails solo on the
+**clean tree at `7e108cf7`** (edit stashed, reproduced), so it predates this round and is not
+quietly repaired here — the reference implementation's standing defect and its lane decision stay
+explicitly open.
+
+No NND production file changed, so the suites were not re-run and that is stated rather than
+assumed; typecheck was not re-run either, for the same reason. After this round: rows 371; surfaces
+owed 14; not owed with evidence 11 (unevidenced 0); unverified surface status 0; unverified
+application class 38; citations naming no test file 33 of 678 (no file at all 24); installed
+evidence 0 of 371.
+
 ## NND 20261007-51 — the secrets family cites its files, and the unscoped fork finally has an assertion
 
 Citations naming no test file: **45 → 33**; naming no file at all: **36 → 24**. Six rows rewritten,

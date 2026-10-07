@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Four alias rows dispositioned; the load path proved native-side first · NND 20261007-52
+
+**Owed 18 → 14; dispositions 7 → 11; unverified class 42 → 38.** The `web_search_alias` family's
+`tests_run` arrays were empty since 20261007-17 — closed by writing the missing native test first:
+NNA `7d3d4b2d` feeds raw v1 bytes to `loadWebSearchConfig` (folded envelope exact, endpoint
+normalized, display name derived from managed-ness, camelCase promoted under canonical precedence,
+leftover root endpoint loses shape dispatch, endpoint-less legacy enable refuses). Then the rows
+disown, each with the gate-checked basis/justification and three file-naming citations (native test
+by hash, client's version-2-only refusal, canonical page suite). No-test stays 33/678, no-file 24.
+
+Recorded, not fixed: NNA's principal-promotion test fails solo on the clean tree at `7e108cf7` —
+pre-existing, left to the NNA-lane decision. NNA derived artifacts (graph, language report) measure
+test files and ride the commit refreshed.
+
 ## 2026-10-07 · Secrets cited to files; the unscoped fork gets its test · NND 20261007-51
 
 **No-test 45 → 33; no-file-at-all 36 → 24.** 6 rows, 12 replaced, **6 kept**. Axes unchanged (owed 18,

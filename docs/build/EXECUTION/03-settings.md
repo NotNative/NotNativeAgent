@@ -1155,6 +1155,21 @@ bound (the client's copy of the native response ceiling) or a parameterised loop
 demonstrated one position at a time) is only partially exercised, the citation names the covered
 input and stops there rather than claiming the whole rule.
 
+The alias family taught the native half of the disposition rule. Four compatibility-alias rows said
+the loader accepts the version-1 spellings and had been left open with their `tests_run` arrays
+empty — the only family in the census that was quiet rather than padded with prose. The claim
+needed both repositories and was satisfied in one order: the NNA test was written first, feeding
+raw version-1 bytes to the loader and asserting the folded version-2 envelope, the derived display
+name, the camelCase promotion and the precedence of the canonical key; then the rows were
+dispositioned against that test's commit, with the desktop-side refusals already on file. A
+disposition that says never projects the legacy spelling is only as strong as the version-2-only
+read path behind it, so the cross-repo citation names a commit hash, not a workspace. Two
+bookkeeping facts rode along. NNA's repository graph and controlled-language report measure test
+files too, so a test-only edit staled the derived artifacts until they were regenerated, and the
+refreshed copies ride the commit whenever the comments change the measurements. And one of NNA's
+standing failures proved pre-existing the honest way: the edit was stashed, the clean tree re-run,
+and the same failure reproduced, which is a claim about the tree before the round, not a hope.
+
 ### A row may state that no desktop surface is owed
 
 If a surface is
