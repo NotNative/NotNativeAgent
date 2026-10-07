@@ -416,6 +416,28 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-21 — workspace trust closes, and two louder claims are declined
+
+`workspaces[*].root` is closed: every trusted root is a row asserted by its own
+text, carrying the stamp that grant wrote and a revoke control, with a path field
+that grants through the native surface and a receipt that repeats the **canonical**
+root rather than the path an operator typed. The class is `project_configuration`
+— read from NNA's route, not from the page fixture that happened to agree with it.
+Trust is an authority grant whose effect is the project configuration that becomes
+admissible; nothing in the desktop decides it, and that boundary is the reason the
+row is worth stating precisely.
+
+The rest of the slice is what did *not* get claimed. The trust stamp closed as
+`not_applied`, because NNA writes it and no operator sets a timestamp; the native
+catalog groups that field under the same `project_configuration` declaration as
+the grant, and borrowing the louder label for a value nobody can set would make
+the table read better and mean less. The store counter stays deliberately open
+with an unverified surface: the page lists roots, not the counter, and printing a
+value that is always 1 is decoration wearing coverage's clothes.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified
+desktop surface: 14 → 12. Rows declaring an unverified application class: 82 → 79.
+
 ## NND 20261007-20 — nine hook-roster rows close, and the difference between a claim and a checked claim
 
 Nine rows closed in one slice, moving unverified application classes from 91 to

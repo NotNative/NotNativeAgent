@@ -522,6 +522,19 @@ installed journey stays unverified until an installed NNA process is observed
 admitting a real granted workspace; the remaining C6 external-store families
 stay open.
 
+The three trust rows are now settled. The grant row closes on `root`: each
+trusted root is a row asserted by its own text, carrying the stamp that grant
+wrote and a revoke control, with a path field that grants through the native
+surface and a receipt repeating the canonical root rather than what was typed.
+The class is NNA's own `project_configuration`, read from the route rather than
+from the page fixture — the effect of trust is the project configuration that
+becomes admissible, and no desktop code decides it. The trust stamp is closed as
+`not_applied`, because NNA writes it and an operator never sets a timestamp; the
+native catalog groups that field under the same family declaration, and this row
+does not borrow the louder claim. The store counter stays deliberately open: the
+page lists roots, not the counter, and printing a value that is always 1 would
+make decoration look like coverage.
+
 Progress: at NNA `20261006-6` the seven compatibility_service rows gained a
 native settings surface at `/v1/nnd/configuration/compatibility-service` over
 `config/opencode.json` — the OpenCode wiring identity (login auto-start plus the

@@ -69,6 +69,11 @@ it('lists trusted roots, grants through the native surface, and renders canonica
   const text = container.textContent ?? '';
   expect(text).toContain('project configuration and skills');
   expect(container.querySelectorAll('[data-testid="trust-row-root"]')[0]?.textContent).toBe(canonical);
+  // The stamp the grant wrote and the control that can take the grant back are
+  // part of the row, not decoration: assert them rather than trusting the list.
+  expect(container.querySelectorAll('[data-testid="trust-row"]')[0]?.textContent)
+    .toContain('trusted 2026-10-06T01:02:03.004Z');
+  expect(container.querySelectorAll('[data-testid="trust-revoke"]')).toHaveLength(1);
   const draft = container.querySelector('[data-testid="trust-draft"]') as HTMLInputElement;
   expect(draft).not.toBeNull();
   await type('[data-testid="trust-draft"]', 'D:\\proj');

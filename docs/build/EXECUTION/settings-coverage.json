@@ -11490,8 +11490,8 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "the store carries one version, projected in the read view; there is nothing for anyone to apply"
    },
    "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
    "native_permission": "nnd.configuration.read",
@@ -11502,17 +11502,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-21)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "loadTrust"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-trust-routes.test.js (grants, lists and revokes through the native trust functions; the projection refuses factory drift and identity lies; the catalog, honest refusals and an operator-only mutation gate; an existing root granted, the list reflecting it, lock contention mapped to 409)",
+     "packages/ui trust typed client tests (list and receipt shapes, the census field names, refusals on drift)",
+     "packages/ui trust-workspaces page tests (the root of each row and the stamp its grant wrote, one revoke control per grant, grant through the native surface with the canonical root echoed on the receipt, revocation, the honest empty state, store refusals, and the signed-out pause)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Left open on purpose 20261007-21: the page shows the trusted roots, not the store counter, and printing a value that is always 1 would be decoration rather than coverage. The surface status stays unverified for the same reason, and the class is not_applied because NNA owns the value."
   },
   {
    "id": "trust:workspaces[*].root",
@@ -11532,29 +11536,33 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "project_configuration",
+    "evidence": "src/nnd-trust-routes.js declares the grant application project_configuration and offers it only through grant and revoke operations under nnd.workspace.manage; the receipt names the canonical root the native trustWorkspace function recorded, so the effect belongs to the project configuration that becomes admissible rather than to anything the desktop applies"
    },
    "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
    "native_permission": "nnd.configuration.read + nnd.workspace.manage",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-21)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "loadTrust"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-trust-routes.test.js (grants, lists and revokes through the native trust functions; the projection refuses factory drift and identity lies; the catalog, honest refusals and an operator-only mutation gate; an existing root granted, the list reflecting it, lock contention mapped to 409)",
+     "packages/ui trust typed client tests (list and receipt shapes, the census field names, refusals on drift)",
+     "packages/ui trust-workspaces page tests (the root of each row and the stamp its grant wrote, one revoke control per grant, grant through the native surface with the canonical root echoed on the receipt, revocation, the honest empty state, store refusals, and the signed-out pause)"
+    ],
     "installed_journey": null
    },
-   "notes": "Canonical workspace trust grant recorded by trustWorkspace/untrustWorkspace; governs admission of project configuration and skills. Preserve native trust/revoke semantics. The grant/revoke operations run through the native trust functions (canonical root, admission), so the surface records the canonical root in its receipts; the settings right alone is not enough — the workspace authority right is required too."
+   "notes": "Canonical workspace trust grant recorded by trustWorkspace/untrustWorkspace; governs admission of project configuration and skills. Preserve native trust/revoke semantics. The grant/revoke operations run through the native trust functions (canonical root, admission), so the surface records the canonical root in its receipts; the settings right alone is not enough — the workspace authority right is required too. Closed 20261007-21 on evidence. Shown: one row per trusted root, asserted by its text, with a revoke control on the row itself, and a path field that grants through the native surface. The receipt repeats the canonical root NNA recorded rather than the path that was typed, which the page explains because a canonical root can differ from what an operator entered. Trust is an authority grant: the class is NNA (project_configuration) since the effect is the project configuration that becomes admissible, and no desktop code decides trust."
   },
   {
    "id": "trust:workspaces[*].trustedAt",
@@ -11574,29 +11582,33 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "the stamp is written by the native grant and projected with the row; it records when the root became trusted and nothing applies it"
    },
    "native_endpoint": "GET /v1/nnd/configuration/trust; GET /v1/nnd/configuration/trust/catalog; POST /v1/nnd/configuration/trust/grant; POST /v1/nnd/configuration/trust/revoke",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/trust-workspaces.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-21)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "loadTrust"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-trust-routes.test.js (grants, lists and revokes through the native trust functions; the projection refuses factory drift and identity lies; the catalog, honest refusals and an operator-only mutation gate; an existing root granted, the list reflecting it, lock contention mapped to 409)",
+     "packages/ui trust typed client tests (list and receipt shapes, the census field names, refusals on drift)",
+     "packages/ui trust-workspaces page tests (the root of each row and the stamp its grant wrote, one revoke control per grant, grant through the native surface with the canonical root echoed on the receipt, revocation, the honest empty state, store refusals, and the signed-out pause)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Projected beside each root as \"trusted <stamp>\" and asserted on the row. Closed 20261007-21. The class is not_applied because NNA writes this value; the native catalog labels the field generated_state and refuses editability, and although it groups the field under the family declaration project_configuration, this row does not carry that claim because an operator never sets a timestamp."
   },
   {
    "id": "hooks:name",

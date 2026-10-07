@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Workspace trust closes; two louder claims get declined · NND 20261007-21
+
+The grant row closed on the root itself — each trusted root a row asserted by its
+own text, with the stamp its grant wrote and a revoke control, granting through the
+native surface and receiving back the **canonical** root rather than the path that
+was typed. `project_configuration` came from NNA's route rather than the page
+fixture that happened to agree, because a hint that matches still isn't a source.
+Two claims were then declined: the trust stamp closed as `not_applied` even though
+NNA's catalog groups it under the same declaration as the grant — borrowing the
+louder label for a timestamp nobody can set would make the table read better and
+mean less — and the store counter stays open with an unverified surface, since the
+page lists roots and printing an always-1 value is decoration in coverage's
+clothes. Unverified surface 14 → 12, unverified class 82 → 79, no-surface steady
+at 37.
+
 ## 2026-10-07 · Nine hook-roster rows close, exposing unevidenced rather than false pins · NND 20261007-20
 
 Nine rows closed and unverified classes fell 91 → 82, but the finding is a
