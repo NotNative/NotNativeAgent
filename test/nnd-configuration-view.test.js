@@ -81,3 +81,54 @@ test('effective projection includes actual defaults and inherited values omitted
   assert.equal(row(view, 'provider.tool_call_mode').effective.source_unavailable, true);
   assert.equal(row(view, 'provider.tool_call_mode').effective.source, undefined);
 });
+
+test('the tui family serves all twenty census paths with explicit, merged defaults and provenance', () => {
+  const census = ['tui.reduced_motion', 'tui.color', 'tui.key_bindings',
+    'tui.key_bindings.submit', 'tui.key_bindings.newline', 'tui.key_bindings.cancel',
+    'tui.key_bindings.help', 'tui.key_bindings.allow_once', 'tui.key_bindings.deny',
+    'tui.key_bindings.reset_keys', 'tui.key_bindings.undo', 'tui.key_bindings.toggle_activity',
+    'tui.key_bindings.new_tab', 'tui.key_bindings.close_tab', 'tui.key_bindings.previous_tab',
+    'tui.key_bindings.next_tab', 'tui.key_bindings.cycle_review', 'tui.key_bindings.scroll_page_up',
+    'tui.key_bindings.scroll_page_down', 'tui.key_bindings.scroll_bottom'];
+  const source = snapshot({ tui: { reduced_motion: true, color: false,
+    key_bindings: { submit: 'ctrl+e', cancel: 'ctrl+x' } } });
+  const view = projectNndConfigurationView(source);
+  for (const path of census) assert.ok(row(view, path), `census path ${path} missing from the view`);
+  assert.deepEqual(row(view, 'tui.reduced_motion').explicit, { present: true, value: true });
+  assert.deepEqual(row(view, 'tui.color').explicit, { present: true, value: false });
+  assert.deepEqual(row(view, 'tui.key_bindings').explicit, { present: true, value_unavailable: true });
+  assert.deepEqual(row(view, 'tui.key_bindings.submit').explicit, { present: true, value: 'ctrl+e' });
+  assert.deepEqual(row(view, 'tui.key_bindings.cancel').explicit, { present: true, value: 'ctrl+x' });
+  for (const action of ['newline', 'help', 'allow_once', 'deny', 'reset_keys', 'undo',
+    'toggle_activity', 'new_tab', 'close_tab', 'previous_tab', 'next_tab', 'cycle_review',
+    'scroll_page_up', 'scroll_page_down', 'scroll_bottom']) {
+    assert.deepEqual(row(view, `tui.key_bindings.${action}`).explicit, { present: false }, action);
+  }
+  assert.equal(row(view, 'tui.reduced_motion').effective.value, true);
+  assert.equal(row(view, 'tui.color').effective.value, false);
+  assert.deepEqual(row(view, 'tui.key_bindings').effective,
+    { present: true, value_unavailable: true, source_unavailable: true });
+  const merged = { submit: 'ctrl+e', newline: 'ctrl+j', cancel: 'ctrl+x', help: 'ctrl+g',
+    allow_once: 'ctrl+y', deny: 'ctrl+n', reset_keys: 'f12', undo: 'ctrl+z',
+    toggle_activity: 'ctrl+o', new_tab: 'ctrl+t', close_tab: 'ctrl+w', previous_tab: 'ctrl+pageup',
+    next_tab: 'ctrl+pagedown', cycle_review: 'shift+tab', scroll_page_up: 'pageup',
+    scroll_page_down: 'pagedown', scroll_bottom: 'end' };
+  for (const [action, binding] of Object.entries(merged)) {
+    assert.equal(row(view, `tui.key_bindings.${action}`).effective.value, binding, action);
+    const explicit = action === 'submit' || action === 'cancel';
+    if (explicit) assert.equal(row(view, `tui.key_bindings.${action}`).effective.source, 'user', action);
+    else assert.equal(row(view, `tui.key_bindings.${action}`).effective.source_unavailable, true, action);
+  }
+});
+
+test('absent tui blocks still project the documented defaults without inventing a source', () => {
+  const view = projectNndConfigurationView(snapshot());
+  assert.deepEqual(row(view, 'tui.reduced_motion').explicit, { present: false });
+  assert.deepEqual(row(view, 'tui.reduced_motion').effective,
+    { present: true, value: false, source: 'compiled_default' });
+  assert.deepEqual(row(view, 'tui.color').effective,
+    { present: true, value: true, source: 'compiled_default' });
+  assert.deepEqual(row(view, 'tui.key_bindings.submit').effective,
+    { present: true, value: 'ctrl+s', source_unavailable: true });
+  assert.equal(row(view, 'tui.key_bindings.scroll_bottom').effective.value, 'end');
+});
