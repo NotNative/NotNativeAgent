@@ -1184,6 +1184,29 @@ four census rows close verified on that unit; the containers keep the
 `unverified` class because the roles-family declaration carries no
 application. Surfaces owed are now **5 → 1**.
 
+The last owed row resolved without a surface (`20261007-61`):
+`manifest:mission`, the mission authority grant, went `owed: false` on the
+guide's narrow rule — the only admissible shape. The claim rests on the field
+having exactly one legal value for this client: NNA refuses a manifest
+carrying any mission content before validation order
+(`mission_authority_forbidden`, proven by
+`nnd-configuration-view.test.js` to leak no mission text into the error), so
+no mission value can ever vary on the wire to the desktop, and the runtime
+refuses a mission change into a live session
+(`configuration_mission_change`). Both sides of the boundary carry the proof
+the refusal rule demands: the producing side serves the root row and all
+sixteen census paths as honest absence for the desktop principal (NNA view
+test), and the reading side renders that absence verbatim and invents nothing
+(desktop test: every path present on the page, at least one *Not set* per
+path, and neither the refusal code nor the mission outcome text anywhere in
+the page). "No control exists today" was not the justification — that
+describes work not done; the tested one-value contract is. The row keeps
+`state: open` like the eleven precedent dispositions: an owed:false
+disposition cancels the owed claim, not the row, and installed-evidence
+questions (C7/V) remain askable. With it, the census's owed-surface list
+empties: **surfaces owed 1 → 0**, every row either verified on a surface,
+verified in place, or carrying a gate-checked `owed: false` with a basis.
+
 ### What "verified" means in the census, and what it does not
 
 `current_gui.status: verified` means one specific thing: a named test file reads the field off

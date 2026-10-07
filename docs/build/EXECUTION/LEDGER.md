@@ -416,6 +416,41 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-61 — the mission grant disowns its surface; the census owes nothing
+
+Rows without a desktop surface: **1 → 0**. `manifest:mission` — the mission authority grant, the
+last row with a null surface path and nothing disowned — resolved on the guide's narrow
+no-surface-owed rule, with no code change:
+
+- *The claim*: the mission block has exactly one legal value on this surface for the desktop
+  principal — absence. NNA refuses a manifest carrying any mission content **before validation
+  order** (`mission_authority_forbidden`, `src/config.js:validateMission`), and NNA's own view
+  test proves the error leaks no mission content (outcome text, credential refs, schedule). No
+  mission value can ever vary on the wire to this client. The write contract excludes the mission
+  family from generic editing, and the runtime refuses a mission change into a live session
+  (`configuration_mission_change`, pinned in `mission-authority.test.js` beside
+  `mission_manifest_mismatch`).
+- *Both sides tested* (the refusal rule's demand): producing side — `nnd-configuration-view.test.js`
+  "the mission family serves the sixteen census paths as honest absence for the desktop principal"
+  (root row + all sixteen paths `present: false` on both sides) and "a user manifest carrying a
+  mission block is refused before validation order and never reaches the view"; reading side —
+  `native-configuration.test.tsx` "renders the mission authority rows as honest absence for the
+  desktop principal" (all paths rendered, ≥1 *Not set* per path, neither the refusal code nor the
+  mission outcome text in the page) plus the root row in the composed-inventory fixture.
+- *Admissibility*: the justification is the tested one-value contract, not "no control exists
+  today". The row keeps `state: open` (12 disowned rows now, the gate's `surface_not_owed` count)
+  — an owed:false disposition cancels the owed claim, not the row; installed-evidence questions
+  stay askable. The endpoint field now names the honest serving view (`GET /v1/nnd/configuration`
+  as honesty-absent family); no permission beyond the view read is claimed.
+
+No source change; the gate passes with `surface_not_owed: 12`.
+
+After this round: rows 371; **surfaces owed 0** — every row now either verified on a surface
+(39), verified in place, or carried by a gate-checked `owed: false` (12); not-owed families
+resolved; the C6 census has no remaining buildable or omissible move. Unverified application
+class 33 (application-less declarations, transcribed as such); installed evidence 0 of 371
+(C7/V territory, not census territory).
+
 ## NND 20261007-60 — the four route-role containers close on a self-complete card
 
 Rows without a desktop surface: **5 → 1**. The last four containers of the route family —

@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The mission grant disowns its surface; the census owes nothing · NND 20261007-61
+
+`manifest:mission` went `owed: false` on the guide's narrow rule — one legal value for this
+client (absence: NNA refuses mission-carrying manifests before validation order with no content
+leak, and refuses revocation into live sessions), tested on both boundary sides (NNA's honest-
+absence view test; the desktop's honest-absence page test). No code change; gate green at
+`surface_not_owed: 12`. **Surfaces owed 1 → 0**: the C6 census has no remaining owed, unclosable,
+or undispositioned row.
+
 ## 2026-10-07 · The four route-role containers close on a self-complete card · NND 20261007-60
 
 The route cards previously rendered the binding pair only (2 of 11 members); the rest rode the

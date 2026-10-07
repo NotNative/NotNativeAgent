@@ -445,26 +445,33 @@
     "class": "new_session",
     "evidence": "configuration-catalog-metadata.js declares the mission container itself with application session (mission: container('object', { classification: 'authority_grant', default: absent, application: session })) and mission family session, evidenced by runtime-config.js:assertRuntimeConfigurationCompatible, which refuses a changed mission with configuration_mission_change; transcribed 20261007-57, a declaration move like 20261007-35, not a capability move"
    },
-   "native_endpoint": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission family as honest absence for the desktop principal)",
    "native_permission": null,
    "current_gui": {
     "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "packages/ui src/components/settings/pages/native-configuration.tsx:showValue renders the mission family exactly as NNA serves it (absent rows read 'Not set') and invents nothing; packages/ui src/components/settings/__tests__/native-configuration.test.tsx pins all sixteen census paths plus the root row as honest absence for the desktop principal ('renders the mission authority rows as honest absence for the desktop principal')",
+    "justification": "The mission block has exactly one legal value on this surface for the desktop principal: absence. NNA refuses a manifest carrying any mission content before validation order (mission_authority_forbidden, src/config.js:validateMission), so no mission value can ever vary on the wire to this client; the write contract excludes the mission family from generic editing (NNA.Configuration EDITABLE_FIELDS and the nnd view test prove the filter drops it); and the runtime refuses a mission change into a live session (configuration_mission_change). What the reader owes is honest absence plus refusal surfacing, both already tested on both sides of the boundary. No desktop mission control is owed because no authority backs one for this principal; a stdio-host mission surface would belong to that host, not to this census row's product"
    },
    "sensitivity": "public",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C6 honest-absence refusal (NND 20261007-61)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-configuration-view.test.js pins the read boundary both ways for the desktop principal: \"the mission family serves the sixteen census paths as honest absence for the desktop principal\" (the root row and all sixteen paths serve present:false on both sides, 20261007-61-viewed) and \"a user manifest carrying a mission block is refused before validation order and never reaches the view\" (mission_authority_forbidden with the error proven to leak no mission content)",
+     "NNA test/mission-authority.test.js pins the runtime guards that keep the grant out of the reader's hands: a resumed run whose mission changed refuses with mission_manifest_mismatch, and assertRuntimeConfigurationCompatible refuses a mission change with configuration_mission_change",
+     "packages/ui src/components/settings/__tests__/native-configuration.test.tsx proves the reader side (\"renders the mission authority rows as honest absence for the desktop principal\"): all sixteen census paths plus the root row render with at least one Not set per path, and the page text contains neither mission_authority_forbidden nor the mission outcome text; the same file's root-row fixture renders the bare mission row as honest absence in the composed inventory"
+    ],
     "installed_journey": null
    },
-   "notes": "Class and sensitivity transcribed 20261007-57 from NNA's own declaration; the row stays open and still owes a surface — a desktop mission control has no authority behind it for the desktop principal (configuration_mission_change / mission authority refused for non-stdio-host principals), so no closure and no disposition is claimed this round."
+   "notes": "Disowned 20261007-61 on the guide's narrow no-surface-owed rule, following the eleven precedent rows (the row keeps state open — the disposition cancels the owed CLAIM, it does not close the row). The narrow rule is met on both sides of the boundary: the producing side refuses every other value before validation order (mission_authority_forbidden leans nothing about the mission into the error, and NNA's view test asserts exactly that) and can therefore serve this principal only absence, which NNA's view test pins for the root row and sixteen paths; the reading side renders that absence verbatim and invents nothing, pinned by the desktop suite. Authority grants and the mission are the host's, not the operator's (NNA view test L525-531): the desktop principal receives an honest absence on both sides and the contract offers no editing. The endpoint field now names the serving view honestly (the family rides GET /v1/nnd/configuration as honest absence); no native permission is claimed because nothing beyond the view read is exercised. Surfaces owed-drop 1 -> 0 happens with this row: every remaining census row either has a verified surface, is verified in place, or carries an owed:false disposition with a basis the gate checks."
   },
   {
    "id": "manifest:workspace_root",
