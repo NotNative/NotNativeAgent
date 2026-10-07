@@ -1308,6 +1308,10 @@
     {
       "version": "20261007-17",
       "content_sha256": "0d832462799a48c0b6028e32d96fc24de72459dfd38f08a2bba4bc001f1b8aae"
+    },
+    {
+      "version": "20261007-18",
+      "content_sha256": "a651ebff8de3167af0e3943f07fdd42178b8b97f0829c577370bbe149b004557"
     }
   ]
 }

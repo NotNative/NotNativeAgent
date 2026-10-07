@@ -3,6 +3,25 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Gateway closes, and a verified pin gets corrected downward · NND 20261007-18
+
+Six gateway rows closed, and the token shows what real protection looks like: the
+projector refuses to emit the field and throws if a serialized view would contain
+it, the client refuses to model one, the replace control is a password input that
+starts empty, and the test asserts the secret never appears in the page text.
+Presence is all the surface has, and presence is all it shows. Two pre-C1 pins
+failed against the page — the second slice running — and they were handled
+differently because the evidence differed: `updated_at` was credited to a page
+that never rendered it, so the page renders it now (an absent stamp says "not
+recorded" rather than guessing), while `version` is a store-internal counter
+nobody should print, so its status moved **down**. An honest coverage table has
+to be allowed to say less sometimes. The class is NNA's own `restart_gateway`,
+recorded beside the fact that a read answers `not_applied` and only a restart
+applies it. Rows with an unverified surface: 17 → 12 as gateway closed, then 12 → 14 once a
+sweep of the 62 remaining pre-C1 "verified" pins found two more false ones in a
+family already declared closed — a version counter and a `managed` flag that no
+page renders. Unverified class: 98 → 92; rows with no surface unchanged at 37.
+
 ## 2026-10-07 · Web search closes five rows, and four false pins come off · NND 20261007-17
 
 This slice moved the headline number the wrong way on purpose. NNA says the

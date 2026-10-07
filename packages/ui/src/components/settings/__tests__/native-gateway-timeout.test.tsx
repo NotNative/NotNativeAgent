@@ -56,7 +56,7 @@ afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); runt
 
 it('previews and saves only a bounded polling timeout with exact NNA revision, then says restart required', async () => {
   fetchMock.mockImplementation((path: string, init: RequestInit) => {
-    if (path.endsWith('/gateway')) return Promise.resolve(json(view));
+    if (path.endsWith('/gateway')) return Promise.resolve(json({ ...view, updated_at: '2026-10-07T04:00:00.000Z' }));
     if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
     if (path.endsWith('/preview')) return Promise.resolve(json({ valid: true, expected_revision: revision,
       resolution_revision: revision, application: 'not_applied', view: { ...view, polling_timeout_seconds: 30 } }));
@@ -64,6 +64,24 @@ it('previews and saves only a bounded polling timeout with exact NNA revision, t
     throw new Error('unexpected ' + path);
   });
   await mount();
+  // The read state shows every field these rows ask about, and the secret never
+  // arrives as a value: the token reaches the surface only as its presence, and
+  // the replace field starts empty rather than echoing anything.
+  expect(container.textContent).toContain('Gateway is enabled');
+  expect(container.textContent).toContain('token present: no');
+  expect(container.textContent).toContain('saved polling timeout: 25 seconds');
+  expect(container.textContent).toContain('authorized users: 123');
+  expect(container.textContent).toContain('Authorized numeric user ids');
+  expect([...container.querySelectorAll('button')].filter(item => item.textContent === 'Remove')).toHaveLength(1);
+  const secretInput = container.querySelector<HTMLInputElement>('[data-testid="gateway-token-value"]')!;
+  expect(secretInput.type).toBe('password');
+  expect(secretInput.value).toBe('');
+  expect(container.querySelector<HTMLInputElement>('[data-testid="gateway-token-env"]')!.value)
+    .toBe('NNA_TELEGRAM_BOT_TOKEN');
+  expect(container.querySelector<HTMLInputElement>('[data-testid="gateway-workspace-root"]')!.value).toBe('');
+  // The stamp the native transaction writes on every save is shown rather than
+  // silently dropped, and an absent stamp says so instead of guessing.
+  expect(container.textContent).toContain('last saved: 2026-10-07T04:00:00.000Z');
   await type('input[type="number"]', '30');
   await click('Preview native change');
   expect(container.textContent).toContain('polling: 30 seconds');
@@ -89,6 +107,7 @@ it('composes token replacement, user grants, and enablement into one bounded bat
     throw new Error('unexpected ' + path);
   });
   await mount();
+  expect(container.textContent).toContain('last saved: not recorded');
   await type('input[type="number"]', '30');
   await type('input[type="password"]', token);
   await type('[data-testid="gateway-user-add"]', '55'); // user add field, unique hook

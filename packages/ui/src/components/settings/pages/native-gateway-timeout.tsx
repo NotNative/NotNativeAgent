@@ -155,7 +155,8 @@ export function NativeGatewayTimeout(): ReactNode {
     {view && draft ? <>
       <p className="text-xs">Selected installation: {view.installation_id} · data: {view.data_id} · revision: {view.source_revision.slice(0, 12)}</p>
       <p className="text-xs">Gateway is {view.enabled ? 'enabled' : 'disabled'} · token present: {view.token_present ? 'yes' : 'no'} ·
-        saved polling timeout: {view.polling_timeout_seconds} seconds · authorized users: {view.authorized_user_ids.join(', ') || 'none'}</p>
+        saved polling timeout: {view.polling_timeout_seconds} seconds · authorized users: {view.authorized_user_ids.join(', ') || 'none'}
+        · last saved: {view.updated_at ?? 'not recorded'}</p>
       <fieldset disabled={disabled} className="space-y-2">
         <label className="block text-xs">Enabled <input type="checkbox" checked={draft.enabled}
           onChange={event => patchDraft({ enabled: event.target.checked })} /></label>

@@ -10299,7 +10299,7 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "verified"
+    "status": "unverified"
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
@@ -10315,7 +10315,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-18: The read view serves a per-file version counter and the typed client carries it, but the page prints the profile fields and the enabled state, not the counter, and no test ever asserted it. A pin to a verified surface is withdrawn here rather than left standing on nothing."
   },
   {
    "id": "web_search:enabled",
@@ -10640,7 +10640,7 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
-    "status": "verified"
+    "status": "unverified"
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
@@ -10656,7 +10656,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only."
+   "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only. Surface status corrected 20261007-18: The served profile carries a managed flag marking a locally deployed SearXNG instance, and the client parses it, but the page distinguishes profiles by order and the (primary) marker only, so the flag is not displayed. Unlike a version counter this one would tell an operator something useful, so displaying it is recorded as real follow-up work rather than counted as coverage now."
   },
   {
    "id": "web_fetch:version",
@@ -10807,18 +10807,18 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "generated state rides the read view (application not_applied)"
+    "evidence": "the store carries a single schema version, projected in the read view and validated on the client; there is nothing to apply"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "verified"
+    "status": "unverified"
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -10826,11 +10826,14 @@
      "normalizeGatewayConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (the family page drills assert the read view)"
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
+   "notes": "Store-internal counter, not a surface: the client refuses any version other than 1, and the page shows the source revision instead, which is the stamp an operator can actually act on. Its pre-C1 pin claimed a verified desktop surface that no test supported and this page does not render, so the status is corrected downward rather than the claim left standing. Closed 20261007-18 on evidence. The class is not_applied because NNA produces this value; an operator never sets it, and the native catalog marks the field read-only with reason generated_state. The family scalars beside it declare restart_gateway, which is why this row does not carry that claim."
   },
   {
    "id": "gateway:enabled",
@@ -10850,29 +10853,34 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "restart_gateway",
+    "evidence": "src/nnd-gateway-timeout-routes.js declares every catalog field application restart_gateway; the read view carries application not_applied and a saved receipt answers next_action restart_gateway, because the gateway process loads gateway.json through normalizeGatewayConfig at start (src/gateway/config.js)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeGatewayConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Shown: the \"Gateway is enabled\" state line and the Enabled checkbox, which composes into a set operation on save. Closed 20261007-18 on evidence. The class records what the native catalog declares (restart_gateway); the read view says not_applied and a saved receipt answers next_action restart_gateway, so nothing takes effect while the service runs, and an installed restart is still unobserved; C7 and the L gates own that. Sensitivity stays as NNA classifies it: only the token is declared secret, and this census invents no classifications of its own."
   },
   {
    "id": "gateway:token",
@@ -10892,29 +10900,34 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "restart_gateway",
+    "evidence": "src/nnd-gateway-timeout-routes.js declares every catalog field application restart_gateway; the read view carries application not_applied and a saved receipt answers next_action restart_gateway, because the gateway process loads gateway.json through normalizeGatewayConfig at start (src/gateway/config.js)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeGatewayConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+    ],
     "installed_journey": null
    },
-   "notes": "Dedicated replace/clear; normal reads redact secret values."
+   "notes": "Dedicated replace/clear; normal reads redact secret values. Shown: presence only. The projector refuses to emit a token field at all, the desktop client refuses to model one, the replace control is a password input that starts empty rather than echoing, and the suite asserts the token string never appears in the page text. Replacing and clearing are two distinct native operations. Closed 20261007-18 on evidence. The class records what the native catalog declares (restart_gateway); the read view says not_applied and a saved receipt answers next_action restart_gateway, so nothing takes effect while the service runs, and an installed restart is still unobserved; C7 and the L gates own that. Sensitivity stays as NNA classifies it: only the token is declared secret, and this census invents no classifications of its own."
   },
   {
    "id": "gateway:token_env",
@@ -10934,29 +10947,34 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "restart_gateway",
+    "evidence": "src/nnd-gateway-timeout-routes.js declares every catalog field application restart_gateway; the read view carries application not_applied and a saved receipt answers next_action restart_gateway, because the gateway process loads gateway.json through normalizeGatewayConfig at start (src/gateway/config.js)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeGatewayConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Shown: the Token environment variable field, prefilled with the served name, where blank resets it to NNA_TELEGRAM_BOT_TOKEN as the catalog default states. Closed 20261007-18 on evidence. The class records what the native catalog declares (restart_gateway); the read view says not_applied and a saved receipt answers next_action restart_gateway, so nothing takes effect while the service runs, and an installed restart is still unobserved; C7 and the L gates own that. Sensitivity stays as NNA classifies it: only the token is declared secret, and this census invents no classifications of its own."
   },
   {
    "id": "gateway:authorized_user_ids",
@@ -10976,29 +10994,34 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "restart_gateway",
+    "evidence": "src/nnd-gateway-timeout-routes.js declares every catalog field application restart_gateway; the read view carries application not_applied and a saved receipt answers next_action restart_gateway, because the gateway process loads gateway.json through normalizeGatewayConfig at start (src/gateway/config.js)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeGatewayConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+    ],
     "installed_journey": null
    },
-   "notes": "Native gateway authorization allowlist, enforced by src/gateway/telegram.js; change through native authorize/revoke operations, not an ordinary presentation preference."
+   "notes": "Native gateway authorization allowlist, enforced by src/gateway/telegram.js; change through native authorize/revoke operations, not an ordinary presentation preference. Shown: the numbered grant list, one line per id with its own Remove control, plus an Add field that refuses a non-numeric id before anything is sent; grants change only through native authorize and revoke operations. Closed 20261007-18 on evidence. The class records what the native catalog declares (restart_gateway); the read view says not_applied and a saved receipt answers next_action restart_gateway, so nothing takes effect while the service runs, and an installed restart is still unobserved; C7 and the L gates own that. Sensitivity stays as NNA classifies it: only the token is declared secret, and this census invents no classifications of its own."
   },
   {
    "id": "gateway:workspace_root",
@@ -11018,29 +11041,34 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "restart_gateway",
+    "evidence": "src/nnd-gateway-timeout-routes.js declares every catalog field application restart_gateway; the read view carries application not_applied and a saved receipt answers next_action restart_gateway, because the gateway process loads gateway.json through normalizeGatewayConfig at start (src/gateway/config.js)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeGatewayConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Shown: the Workspace root field, empty when the root is unset, where blank resets it to none. Closed 20261007-18 on evidence. The class records what the native catalog declares (restart_gateway); the read view says not_applied and a saved receipt answers next_action restart_gateway, so nothing takes effect while the service runs, and an installed restart is still unobserved; C7 and the L gates own that. Sensitivity stays as NNA classifies it: only the token is declared secret, and this census invents no classifications of its own."
   },
   {
    "id": "gateway:polling_timeout_seconds",
@@ -11060,29 +11088,34 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "restart_gateway",
+    "evidence": "src/nnd-gateway-timeout-routes.js declares every catalog field application restart_gateway; the read view carries application not_applied and a saved receipt answers next_action restart_gateway, because the gateway process loads gateway.json through normalizeGatewayConfig at start (src/gateway/config.js)"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway; POST /v1/nnd/configuration/gateway/preview; POST /v1/nnd/configuration/gateway/save; GET /v1/nnd/configuration/gateway/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeGatewayConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Shown: the Polling timeout input, bounded 5 to 50 exactly as the catalog bounds it, and the \"saved polling timeout: N seconds\" state line. Closed 20261007-18 on evidence. The class records what the native catalog declares (restart_gateway); the read view says not_applied and a saved receipt answers next_action restart_gateway, so nothing takes effect while the service runs, and an installed restart is still unobserved; C7 and the L gates own that. Sensitivity stays as NNA classifies it: only the token is declared secret, and this census invents no classifications of its own."
   },
   {
    "id": "gateway:updated_at",
@@ -11103,7 +11136,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "projected state rides the read view (application not_applied)"
+    "evidence": "src/nnd-gateway-timeout-transaction.js stamps updated_at on every save and the projector carries it as a nullable ISO stamp; nothing applies it, it records when the family last changed"
    },
    "native_endpoint": "GET /v1/nnd/configuration/gateway",
    "native_permission": "nnd.configuration.read",
@@ -11114,7 +11147,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-18)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -11122,11 +11155,14 @@
      "normalizeGatewayConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (the family page drills assert the read view)"
+     "NNA test/nnd-gateway-timeout-http.test.js (settings projected with the token redacted and CAS performed; foreign identity, malformed values, query and methods refused without touching the source; the projector ignores private fields even when the service returns them; catalog unavailable without the full service)",
+     "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
+     "packages/ui native-gateway typed client tests (only whitelisted fields parse, version must be 1, the token is never modeled, operations and the compare-and-save request stay bounded)",
+     "packages/ui native-gateway-timeout page tests (read state shows enabled, token presence, token environment name, workspace root, polling timeout, grants and the last-saved stamp; the token string never appears in the page text; preview then save with the exact revision; restart wording; uncertain save kept across reload; expired receipt recovered; an invalid grant refused before anything is sent)"
     ],
     "installed_journey": null
    },
-   "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only."
+   "notes": "Stamped by the native transaction on every save and projected as a nullable ISO timestamp. The state line shows it, and an absent stamp reads \"last saved: not recorded\" rather than a guess. The earlier note on this row was copied from the web-search family and described a field this family does not have; it is replaced here. Closed 20261007-18 on evidence. The class is not_applied because NNA produces this value; an operator never sets it, and the native catalog marks the field read-only with reason generated_state. The family scalars beside it declare restart_gateway, which is why this row does not carry that claim."
   },
   {
    "id": "compatibility_service:version",

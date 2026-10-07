@@ -416,6 +416,59 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-18 — the gateway family closes, and a pin is corrected downward for the second time running
+
+Six gateway rows closed: the enabled flag, the Telegram token, its environment
+name, the workspace root, the bounded polling timeout, and the authorized-user
+allowlist. The token is the interesting one, because its protection is not a
+display choice. The native projector refuses to emit the field at all — it
+throws if the serialized view would contain a token key, and the suite confirms
+it ignores private fields even when the service hands them back. The desktop
+client refuses to model a token, the replace control is a password field that
+starts empty rather than echoing, and the page test asserts the secret string
+never appears in the rendered text. Presence is what the surface has, and
+presence is what it shows.
+
+Two pre-C1 pins needed correcting, which is the second slice in a row where a
+"verified" claim did not survive contact with the page:
+
+- `gateway:updated_at` was credited to this page and the page never rendered it.
+  Rather than downgrade a claim that was easy to make true, the state line now
+  shows the stamp, an absent stamp reads `last saved: not recorded` instead of a
+  guess, and both cases are asserted. The row's note was also wrong in a
+  revealing way: it was copied from the web-search family and described a
+  `managed` field this family has never had.
+- `gateway:version` was likewise pinned as verified and is not rendered, so its
+  status moved **down**. It is a store-internal counter that the client rejects
+  any value of other than one, and the page already shows the source revision,
+  which is the stamp an operator can act on. Making the number agree with the
+  evidence matters more than the number looking good, and an honest coverage
+  table has to be allowed to say less sometimes.
+
+The class is `restart_gateway`, the native catalog's own word, recorded beside
+the fact that the read view answers `not_applied` and a saved receipt points at
+a restart. Nothing takes effect while the service runs, and no installed restart
+has been observed: that belongs to C7 and the L gates, and both the row notes and
+this document say so. Sensitivity again follows NNA and nothing else — only the
+token is declared secret, and the census does not invent classifications.
+
+Census rows without a desktop surface: 37. Rows with an unverified desktop
+surface: 17 → 12 as the family closed, then 12 → **14** as the sweep below
+removed two more claims. Rows declaring an unverified application class: 98 → 92.
+
+The slice then asked a wider question, because two slices in a row had found
+false "verified" pins: how many of the 62 remaining pre-C1 pins would survive the
+same test? An automated triage of every one — does the named page exist, does its
+text mention the field at all — reported no missing pages and nine suspicious
+rows. Two were in the web-search family, already declared closed, and both were
+false: the page never renders its version counter or the `managed` flag that
+marks a locally deployed SearXNG instance, and no test had ever claimed
+otherwise. Their status moved down. The counter genuinely does not belong on
+screen; the `managed` flag does carry information an operator would want, so
+rendering it is written into the row as follow-up work rather than quietly
+counted as coverage. The other seven candidates stay on the list to be checked
+when their families come up, which is where they will be handled properly.
+
 ## NND 20261007-17 — web search closes five rows, and four false pins are removed
 
 This slice moved the headline number **the wrong way on purpose**, because the

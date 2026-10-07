@@ -399,11 +399,23 @@ receipts, bounded operation replay, and token-presence-only reads. NND ships
 the typed client and a settings page covering the family's bounded
 operations, and the census gateway rows now carry the native endpoints, the
 paired permissions, and the settings-page path; the C1 gate re-verified the
-census against the paired NNA catalog. The gateway rows' application class
-stays unverified until an installed journey exercises the change; the
-remaining C6 external-store families (web search, browser, compatibility
-service, environment, hooks, native updates, optional integrations) and the
-distinct TUI preferences page remain open.
+census against the paired NNA catalog. Those rows are now closed: the six
+operator fields are shown and edited on that page (the state line, the
+checkbox, the prefilled token-environment name, the workspace root, the
+bounded polling input, and the grant list with its own revoke control), the
+token is present-only end to end — the projector refuses to emit the field,
+the client refuses to model it, the replace control is a password input that
+starts empty, and the suite asserts the secret never appears in the page text —
+and the class records what the native catalog declares, `restart_gateway`, with
+the read view answering `not_applied` and a saved receipt pointing at
+`restart_gateway`. A declared point is not an observed one: an installed
+journey that restarts the gateway is still owed to C7 and the L gates. The
+update stamp is displayed rather than dropped, and an absent stamp says so;
+the store's internal version counter is not shown at all, so that row keeps an
+unverified surface instead of inheriting a claim no test supported. Web search,
+environment and native update state were closed in later slices; the remaining
+C6 external-store families (hooks, compatibility service, secrets and the
+optional integrations) and the distinct TUI preferences page remain open.
 
 Progress: at NNA `20261005-15` the WebFetch trust family followed the gateway
 template. The authority-grant list of exact credential-free HTTP(S) origins
