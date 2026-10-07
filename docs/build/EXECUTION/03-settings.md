@@ -768,6 +768,27 @@ it. One suspicious pin from the earlier sweep turned out to be sound: the
 enable/disable toggle really is clicked and its status request asserted, which is
 worth recording because the sweep is a pointer, not a verdict.
 
+The sweep now covers every row it started with: pre-C1 "verified" pins never
+re-examined stand at **0**, from 62. Two rules came out of finishing it, and both exist
+because a measurement of my own work was doing its job badly rather than well.
+
+First, the exit of a row from that bucket is a label, and a label is not an
+examination. Eight rows left on a "citation repair" label — the row's proof was walked
+through the test that renders it, nobody re-read the panel — and
+`probe-label-honesty.mjs` now prints them each round so the count cannot quietly absorb
+them again.
+
+Second, per-row citation checks are the wrong unit. "No verified row cites a suite in
+place of a file" was true while 176 of 559 individual citations named no file, because
+one precise citation on a row could carry a vague one beside it. The unit is the
+citation.
+
+Third, no counts in citations. `test/nnd-skills-routes.test.js` was cited as 3/3 while
+holding five tests, and the browser pair as "lib parser + page drills 2/2" where the two
+files hold one and two. A count is the part of a citation nobody maintains, and merged
+phrases across suites are true in total and unverifiable in every part. Citations here
+name the file, quote the tests, and assert nothing about how many there are.
+
 The
 `update_action` (2 install-action rows) and `nnd_package_action` (3) families
 closed in the next slice together with the runtime wiring repair they

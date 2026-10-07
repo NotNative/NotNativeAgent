@@ -14529,7 +14529,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-30)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14540,12 +14540,13 @@
      "dispatchNndBrowserRequest"
     ],
     "tests_run": [
-     "test/nnd-browser-routes.test.js 3/3",
-     "packages/ui vitest browser lib parser + browser page drills 2/2"
+     "NNA test/nnd-browser-routes.test.js: browser actions reuse the playwright authority verbatim and project one receipt grammar; browser HTTP serves the read receipt, the verify action, and the permission/grammar gates; browser HTTP honours the verify refusal and the projector drift",
+     "packages/ui src/lib/nnd/__tests__/browser.test.ts: accepts the two authority outcome shapes and refuses drift",
+     "packages/ui src/components/settings/__tests__/browser-observation.test.tsx: reads the managed-browser status on mount and re-verifies with the launch probe on demand; renders the honest refusal sentence when the managed runtime is missing"
     ],
     "installed_journey": null
    },
-   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
+   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only. Closed 20261007-30. Shown: the status line with the managed Chromium version and executable path, the on-demand verify receipt, and the missing-runtime sentence. the row claimed \"packages/ui vitest browser lib parser + browser page drills 2/2\"; the two files hold one test and two, so three, and the NNA half said 3/3 correctly only by luck of timing. The class was already NNA (not_applied: these verbs read an authority-owned runtime and change nothing an operator owns), and the sensitivity stays as the census set it. Each citation now names its file and quotes its tests, and none carries a count, because a count is the one part of a citation nobody maintains."
   },
   {
    "id": "browser_action:verify",
@@ -14577,7 +14578,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-30)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14588,12 +14589,13 @@
      "dispatchNndBrowserRequest"
     ],
     "tests_run": [
-     "test/nnd-browser-routes.test.js 3/3",
-     "packages/ui vitest browser lib parser + browser page drills 2/2"
+     "NNA test/nnd-browser-routes.test.js: browser HTTP serves the read receipt, the verify action, and the permission/grammar gates; browser HTTP honours the verify refusal and the projector drift",
+     "packages/ui src/lib/nnd/__tests__/browser.test.ts: accepts the two authority outcome shapes and refuses drift",
+     "packages/ui src/components/settings/__tests__/browser-observation.test.tsx: reads the managed-browser status on mount and re-verifies with the launch probe on demand; renders the honest refusal sentence when the managed runtime is missing"
     ],
     "installed_journey": null
    },
-   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
+   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only. Closed 20261007-30. Shown: the verify control and the receipt it returns, asserted by the click that posts it and by the refusal sentence when no runtime exists. same merged suite phrase as its sibling row, with the same miscount. The class was already NNA (not_applied: these verbs read an authority-owned runtime and change nothing an operator owns), and the sensitivity stays as the census set it. Each citation now names its file and quotes its tests, and none carries a count, because a count is the one part of a citation nobody maintains."
   },
   {
    "id": "skills_action:list",
@@ -14625,7 +14627,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-30)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14638,12 +14640,13 @@
      "dispatchNndSkillsRequest"
     ],
     "tests_run": [
-     "test/nnd-skills-routes.test.js 3/3",
-     "packages/ui vitest skills lib parser + native skills page drills 3/3"
+     "NNA test/nnd-skills-routes.test.js: the skills service initializes the workspace registry and projects one catalog grammar; skills HTTP serves the catalog receipt with honest failure codes; catalog failure wraps to the CLI-equivalent code and a missing workspace is a request refusal; the catalog surface serves the seven manifest skill fields and never a body; inline manifest skills stay host-only while sharing the same field grammar",
+     "packages/ui src/lib/nnd/__tests__/skills.test.ts: accepts the route projection and refuses drift",
+     "packages/ui src/components/settings/__tests__/native-skills.test.tsx: reads the native skills catalog on readiness and renders entries with digests only; surfaces the honest wrapped authority sentence when the registry cannot load"
     ],
     "installed_journey": null
    },
-   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the catalog is a read of installer/user/project skill files; the panel renders ids, versions, invocation, source scopes, tool requirements, and body digests — never a skill body."
+   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the catalog is a read of installer/user/project skill files; the panel renders ids, versions, invocation, source scopes, tool requirements, and body digests — never a skill body. Closed 20261007-30. Shown: the catalog rows with digests only, and the wrapped authority sentence when the registry will not load. the row claimed \"test/nnd-skills-routes.test.js 3/3\" and \"native skills page drills 3/3\"; the NNA file now holds five tests, and the 3/3 was one lib test plus two page tests merged into one phrase. The class was already NNA (not_applied: these verbs read an authority-owned runtime and change nothing an operator owns), and the sensitivity stays as the census set it. Each citation now names its file and quotes its tests, and none carries a count, because a count is the one part of a citation nobody maintains."
   },
   {
    "id": "update_action:check",
@@ -15711,7 +15714,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-30)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15721,12 +15724,13 @@
      "dispatchNndLegacyProviderCredentialsRequest"
     ],
     "tests_run": [
-     "test/nnd-legacy-provider-credentials-routes.test.js 3/3",
-     "packages/ui vitest legacy-credentials lib parser + page drills 3/3"
+     "NNA test/nnd-legacy-provider-credentials-routes.test.js: the legacy credentials service loads the alias authority on a spare environment and projects the verdict without the value; HTTP serves the verdict with honest failure codes; unrelated paths return false for the router chain",
+     "packages/ui src/lib/nnd/__tests__/legacy-credentials.test.ts: accepts the verdict grammar and refuses drift",
+     "packages/ui src/components/settings/__tests__/legacy-credentials.test.tsx: renders the loaded verdict without ever revealing the alias value; renders the honest store-refusal sentence when the alias store is malformed"
     ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Closed 20261007-30. Shown: the verdict alone, active at startup or not, with the alias value never rendered and the malformed-store refusal sentence. the merged \"lib parser + page drills 3/3\" was one lib test plus two page tests; the total was right and no part of it was checkable. The class was already NNA (not_applied: these verbs read an authority-owned runtime and change nothing an operator owns), and the sensitivity stays as the census set it. Each citation now names its file and quotes its tests, and none carries a count, because a count is the one part of a citation nobody maintains."
   },
   {
    "id": "managed_mcp_credentials:credentials.{NNA_MCP_MANAGED_reference}",

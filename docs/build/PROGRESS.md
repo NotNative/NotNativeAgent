@@ -3,6 +3,25 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Pre-C1 sweep hits zero; two of my metrics turn out to have been flattering · NND 20261007-30
+
+The last four pre-C1 pins close: **0 left**, from 62. But the zero needs last round's
+treatment — 8 rows exited on a *citation-repair label*, not a work label (`probe-label-honesty.mjs`
+names them every round now): for those I read the test that renders the surface, not the
+panel. Checkable, but weaker than re-rendering, and "0" must never read as "0 unverified by
+inspection".
+
+The bigger self-indictment: my "rows naming no test file: 0" was per-*row*, the wrong unit —
+one precise NNA citation could carry an unnamed NND one beside it. **Per citation: 176 of 559
+name no file**, across 19 families including my own closes (hooks 18, gateway 16,
+compatibility 14…). The zero wasn't a lie; it was the most flattering true thing available,
+which is exactly what measurement exists to stop.
+
+Counts rot too: `nnd-skills-routes.test.js` cited 3/3 holds 5 tests; the browser pair cited
+"2/2" where the files hold 1 and 2. Merged phrases ("lib parser + page drills 3/3") were right
+in total, unverifiable in every part. New rule for citations: **name the file, quote the tests,
+assert no count.**
+
 ## 2026-10-07 · Installation closes honestly; last round's count gets a correction · NND 20261007-29
 
 Correction first: last round's pre-C1 drop 17 → 10 overstated the work. Only two rows

@@ -416,6 +416,44 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-30 — the pre-C1 sweep reaches zero, and two of my own metrics turn out to have been flattering
+
+**The sweep is done.** The last four pre-C1 "verified" pins close with this slice:
+`browser_action` status and verify, `skills_action:list`, and the legacy provider
+credential alias. Pins never re-examined since before C1: **0**, from 62 when the sweep
+started.
+
+**But that zero needs the same treatment last round's number got.** Eight of the rows
+that left the bucket carry a "citation repair" label rather than a label for work done on
+the row itself, and `probe-label-honesty.mjs` names them every round from now on:
+`manifest:tool_concurrency`, the three `web_fetch_action` rows, the two `trust_action`
+rows, and the two `session_review` rows. For those, what was read is the test that
+renders the surface, not the panel. That is a real and checkable standard — every one of
+those rows now has a proof a reader can walk — but it is a weaker standard than
+re-rendering, and "0 re-examined" must never be read as "0 unverified by inspection".
+
+**The bigger finding indicts the metric I announced last round.** I reported "verified
+rows naming no test file: 0". That was true per *row*, and per-row was the wrong unit: a
+row passed if any one of its citations named a file, so a precise NNA citation could
+carry an unnamed NND one beside it. Measured per citation, **176 of 559 citations name no
+file**, across 19 families including the ones I closed myself — `hooks` 18, `gateway` 16,
+`compatibility_service` 14, `update_state` 14, `secret_action` 14, `environment` 14. The
+zero was not a lie, but it was the most flattering true thing that could be said, which is
+the thing a measurement exists to stop me doing.
+
+**And counts rot.** Inspecting the four rows to name their files found numbers that no
+longer matched the files: `nnd-skills-routes.test.js` was cited as 3/3 and holds five
+tests; the browser pair cited "lib parser + page drills 2/2" where one file holds one test
+and the other two. Merged phrases across two suites ("lib parser + page drills 3/3") were
+right in total and unverifiable in every part. So the rule now, applied to all citations
+written here: **name the file, quote the tests, assert no count** — a count is the one
+part of a citation nobody maintains, and it quietly becomes false.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 60 (unchanged).
+Pre-C1 pins never re-examined: 4 → 0, with the eight label-only exits named above.
+Citations naming no file: 180 → 176 of 559.
+
 ## NND 20261007-29 — installation closes honestly, and last round's count needs a correction
 
 **Correction first.** Last round reported pre-C1 "verified" pins never re-examined
