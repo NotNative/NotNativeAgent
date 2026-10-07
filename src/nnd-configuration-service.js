@@ -12,6 +12,7 @@ import { readManifestSnapshot, readManifestOperation, transactManifest } from '.
 import { normalizeNndConfigurationOperations, applyNndConfigurationOperations, nndConfigurationOperationPaths,
   NND_CONFIGURATION_EDITABLE_FIELDS } from './nnd-configuration-intents.js';
 import { createNndMcpConfigurationService } from './nnd-mcp-configuration.js';
+import { createNndMcpAdvancedConfigurationService } from './nnd-mcp-advanced-routes.js';
 
 const identityPattern = /^[A-Za-z0-9_-]{1,128}$/u;
 const operationPattern = /^[A-Za-z0-9_-]{1,64}$/u;
@@ -34,6 +35,8 @@ export function createNndConfigurationService({ paths, installationId, dataId })
   };
   return Object.freeze({
     ...createNndMcpConfigurationService({ paths, identity }),
+    nndMcpAdvancedConfigurationService:
+      createNndMcpAdvancedConfigurationService({ paths, identity }),
     read,
     async preview(principal, input) {
       authorize(principal, readPermission); authorize(principal, 'nnd.configuration.manage');

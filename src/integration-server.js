@@ -88,6 +88,7 @@ async function dispatch(request, response, context) {
     || context.nndLegacyProviderCredentialsService
     || context.nndGatewayStatusService || context.nndGatewayTestService
     || context.nndSearxngStatusService || context.nndInvocationService
+    || context.nndMcpAdvancedConfigurationService
     || context.nndUpdateStateStore || context.nndTrustService)
     && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService
