@@ -682,7 +682,9 @@ password choice; both the preview and the receipt state the change applies at th
 next service start, and honest refusals surface as sentences. Corrupt or
 foreign-version stores fail closed (`nnd_compatibility_source_invalid` on reads;
 saves refuse to normalize a broken store), and the compatibility_service
-lifecycle actions (six operator_action rows) stay for their own slice.
+lifecycle actions (six operator_action rows) stayed reserved at the time of
+that slice — they were closed with their native authority on 20261007-25 and
+their gui citations were rewritten with their own test on 20261007-50.
 
 The seven configuration rows are now closed, and the sweep suspicion about
 `updated_at` was correct in the way it usually is not: the row carried a verified
@@ -720,7 +722,9 @@ consumes both: the projection code joins the compatibility page's sentences, and
 a typed managed-MCP-credentials client plus settings section renders the
 reference roster and stages idempotent save/delete actions whose receipts claim
 nothing about replay. The remaining C6 families (compatibility lifecycle actions,
-hooks, update actions) stay open.
+hooks, update actions) stayed open at that date; the lifecycle rows were later
+closed with their native authority on 20261007-25 and the update_actions panel
+claimed its own slice after it.
 
 That single credential row is now closed, and it was the last row in the census
 claiming a verified desktop surface while citing no test — the hand-flagged case, and
@@ -768,7 +772,9 @@ absent-as-absent) with honest sentences — vault damage says the vault needs
 native repair — and a "NNA secrets metadata" settings section rendering the
 redaction-safe roster with the statement that values never render there and
 writes remain broker actions. Census rows updated in place; the `secret_action`
-mutations, compatibility lifecycle actions, and hooks stay open.
+mutations stayed open at that date (they closed through the broker-action rows
+with their slice), the compatibility lifecycle rows resurfaced on 20261007-25
+and closed there, and hooks stayed open for its slice.
 
 The six metadata rows are now closed, and the slice caught a defect the census
 could not have: the page said it shows field names and public metadata, but the
