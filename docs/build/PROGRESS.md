@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · CLI invocation flag vocabulary · NNA 20261006-21 + NND 20261006-24
+
+The 23 `invocation:*` rows closed with a real read surface: the invocation
+vocabulary now lives beside `parseCli` in `cli-options.js` and a mechanical
+consistency test proves it against the parser in every allowed mode. The
+native route serves the vocabulary fail-closed (registered codes, 500-group
+projection slip, read permission only), and the desktop `Invocation
+vocabulary` panel renders the 23-row grammar as read-only language facts —
+the flags stay terminal commands and the panel says so. Census rows without
+a verified GUI: 241 → 218. Next family: the `manifest_*` read-projection
+grind (route 48, provider 42, manifest 38, mcp 30, tui 20, …).
+
 ## 2026-10-06 · Gateway/web-search operator verb triage · NNA 20261006-20 + NND 20261006-20
 
 The 26 `gateway_action`/`web_search_action` rows closed with the per-verb

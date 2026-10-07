@@ -623,7 +623,13 @@ remove-deployment) are refused natively with honest `nnd_action_cli_only`
 200 verdicts pointing at the terminal — the native service never detaches,
 kills, or drives docker compose. The desktop panels `Gateway runtime` and
 `Managed SearXNG deployment` render those views and state the CLI-only
-stance honestly.
+stance honestly. The invocation flag rows then closed with a vocabulary
+read over the CLI's own flag grammar: one entry per census row (flag,
+aliases, argument grammar, allowed modes, the host/headless manifest
+refusal, the parsed option key, the operator effect), proven against
+`parseCli` by a mechanical consistency test and served fail-closed behind
+the read permission; the desktop `Invocation vocabulary` panel renders the
+grammar and states that the flags stay terminal commands.
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value

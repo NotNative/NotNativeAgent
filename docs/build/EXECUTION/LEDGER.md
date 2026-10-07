@@ -416,6 +416,29 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-21 and NND 20261006-24 — CLI invocation flag vocabulary
+
+The 23 `invocation:*` census rows closed with a real read surface over the
+CLI's own flag grammar (`parseCli`): the invocation vocabulary the slice
+added to `cli-options.js` is one entry per census row — flag, sibling
+aliases, argument grammar (value / none / prompt-text), allowed modes
+(universal rows are exact-match `'*'`, subcommand rows name their mode,
+opencode-only rows included), the host/headless refusal (endpoint, model,
+and the credential-environment NAME die on `host_override_requires_manifest`
+because those overrides must come from the authenticated initialization
+manifest), the parsed option key the branch lands on, and the
+operator-facing effect. The native route `GET /v1/nnd/configuration/
+invocation` projects the vocabulary fail-closed (a 23-row projection with
+its own registered codes, a 500_GROUP projection slip, and the standing
+parser/permission discipline — GET with a 16 KiB bound, read permission
+only); the mechanical consistency test proves the table against `parseCli`
+in every allowed mode (including the port bounds, mode-restricted flags
+refusing outside their mode, and the headless guard), so the description
+cannot drift from the parser without failing the suite. The flags stay
+terminal-owned: the desktop `Invocation vocabulary` panel renders the
+vocabulary as read-only language facts and states honestly that the CLI is
+their authority. Census rows without a verified GUI: 241 → 218.
+
 ## NNA 20261006-20 and NND 20261006-20 — gateway/web-search operator verb triage
 
 The 26 `gateway_action` + `web_search_action` census rows closed with a

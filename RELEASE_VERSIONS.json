@@ -1224,6 +1224,22 @@
     {
       "version": "20261006-20",
       "content_sha256": "f6738e8720f66f6b67b773c58a3cf2f91ebf7925373e201c3b20c2c296356365"
+    },
+    {
+      "version": "20261006-21",
+      "content_sha256": "a8ffc77c2d136ed50b57bb1f00b20cfcf772b81c86c041230eaae9553efbaa1a"
+    },
+    {
+      "version": "20261006-22",
+      "content_sha256": "57c0f97883f808dfb755971d1209d7a11451bbfd7905e8e4f43065d54559c182"
+    },
+    {
+      "version": "20261006-23",
+      "content_sha256": "a03bc4989a6a4f0f0d755e6180a7436b228352799b6f74a989984d3d013a91c8"
+    },
+    {
+      "version": "20261006-24",
+      "content_sha256": "02b4eff6d7d7d9061e31a7217f432e7c88817d21c62a8154e731dadebfe0cae8"
     }
   ]
 }
