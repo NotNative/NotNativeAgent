@@ -137,7 +137,8 @@ export function WebFetchTrust(): ReactNode {
     {view && draft ? <>
       <p className="text-xs">Selected installation: {view.installation_id} · data: {view.data_id} · source:
         {' '}{view.source_state} · revision: {view.source_revision.slice(0, 12)}</p>
-      <p className="text-xs">Trusted origins: {view.trusted_origins.join(', ') || 'none'}</p>
+      <p className="text-xs">Trusted origins: {view.trusted_origins.join(', ') || 'none'} · last saved:
+        {' '}{view.updated_at ?? 'not recorded'}</p>
       <fieldset disabled={disabled} className="space-y-2">
         <div className="text-xs">
           Draft trusted origins:

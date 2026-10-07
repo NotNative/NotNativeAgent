@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · WebFetch trust closes, and the missing-stamp pattern becomes undeniable · NND 20261007-19
+
+`trusted_origins` closed on the page that really edits it: saved list, draft list
+with a revoke control per grant, an add field that refuses anything but an exact
+credential-free origin before a request is composed, preview, revision-checked
+save, and NNA's own `next_fetch` class — an application point that comes from the
+fetch tool reloading the store per request, not from desktop guesswork. The
+recurring part is the diagnosis: this page, like gateway and web search before
+it, was credited with surfaces for its version counter and save stamp while
+showing neither. Four families running says the pre-C1 pins were written from the
+contract rather than the page. Stamps worth showing are now shown ("last saved:
+…", or `not recorded`); a counter that must always be 1 gets its claim withdrawn
+instead of padding the count. Unverified surface steady at 14 as one row closed
+and one false claim came down; unverified class 92 → 91; the suspicious-pin list
+is down from nine to five.
+
 ## 2026-10-07 · Gateway closes, and a verified pin gets corrected downward · NND 20261007-18
 
 Six gateway rows closed, and the token shows what real protection looks like: the

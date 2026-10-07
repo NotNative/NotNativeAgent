@@ -1312,6 +1312,10 @@
     {
       "version": "20261007-18",
       "content_sha256": "a651ebff8de3167af0e3943f07fdd42178b8b97f0829c577370bbe149b004557"
+    },
+    {
+      "version": "20261007-19",
+      "content_sha256": "eba17514cc22a00b10ccda2a868d23ae068f5905a1a9bc032509593d7947be76"
     }
   ]
 }

@@ -10677,18 +10677,18 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "generated state rides the read view (application not_applied)"
+    "evidence": "the store carries one schema version, projected in the read view and required to be 1 by the client; nothing applies it"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
-    "status": "verified"
+    "status": "unverified"
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-19)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -10696,11 +10696,15 @@
      "normalizeWebFetchConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (the family page drills assert the read view)"
+     "NNA test/nnd-web-fetch-http.test.js (read, catalog, preview without persistence, save under the native revision check, receipt lookup, refusals that leave the source untouched)",
+     "NNA test/nnd-web-fetch-transaction.test.js (origin grammar and bounds, duplicate and host-case handling, one receipt per batch, updated_at stamped on save, oversize refused before publishing)",
+     "NNA test/web-fetch-tool.test.js (the fetch tool consults the trusted-origin grant on each request, which is what makes next_fetch the application point)",
+     "packages/ui web-fetch typed client tests (exact view shape, version must be 1, canonical origins, a non-empty list without a stamp refused as drift, operation and CAS request grammar bounded)",
+     "packages/ui web-fetch-trust page tests (grant list with its revoke control, add field refusing a hostile origin before anything is sent, preview then save with the exact revision, next-fetch wording, uncertain save kept across reload, expired receipt recovered, absent source bootstrapped, and the last-saved stamp shown with \"not recorded\" when there is none)"
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Surface status corrected 20261007-19: the pre-C1 pin claimed a verified desktop surface and the page shows no version anywhere, so the claim is withdrawn rather than left to flatter the count. The client refuses any version but 1, and the page shows the source revision instead, which is what an operator can act on."
   },
   {
    "id": "web_fetch:trusted_origins",
@@ -10720,29 +10724,35 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_fetch",
+    "evidence": "src/nnd-web-fetch-routes.js declares the grant application next_fetch and stamps every preview, read view and save receipt with it, because src/web-fetch-tool.js reloads web-fetch.json per fetch; the catalog offers trusted_origins as an authority_grant array with trust and revoke operations under nnd.configuration.manage"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-fetch; POST /v1/nnd/configuration/web-fetch/preview; POST /v1/nnd/configuration/web-fetch/save; GET /v1/nnd/configuration/web-fetch/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/web-fetch-trust.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-19)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "normalizeWebFetchConfig"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-web-fetch-http.test.js (read, catalog, preview without persistence, save under the native revision check, receipt lookup, refusals that leave the source untouched)",
+     "NNA test/nnd-web-fetch-transaction.test.js (origin grammar and bounds, duplicate and host-case handling, one receipt per batch, updated_at stamped on save, oversize refused before publishing)",
+     "NNA test/web-fetch-tool.test.js (the fetch tool consults the trusted-origin grant on each request, which is what makes next_fetch the application point)",
+     "packages/ui web-fetch typed client tests (exact view shape, version must be 1, canonical origins, a non-empty list without a stamp refused as drift, operation and CAS request grammar bounded)",
+     "packages/ui web-fetch-trust page tests (grant list with its revoke control, add field refusing a hostile origin before anything is sent, preview then save with the exact revision, next-fetch wording, uncertain save kept across reload, expired receipt recovered, absent source bootstrapped, and the last-saved stamp shown with \"not recorded\" when there is none)"
+    ],
     "installed_journey": null
    },
-   "notes": "Exact-origin trust grants consulted by src/web-fetch-tool.js for trusted private origins; preserve native trust/revoke operations and normal tool review."
+   "notes": "Exact-origin trust grants consulted by src/web-fetch-tool.js for trusted private origins; preserve native trust/revoke operations and normal tool review. Closed 20261007-19 on evidence. Shown: the saved list on the state line and the draft list, each grant with its own Revoke control, and an add field that refuses anything but an exact credential-free HTTP(S) origin before a request is composed. Adding and revoking are native operations behind preview and a revision check, and a saved change is honored by the next fetch because the tool reloads the file per request. Sensitivity stays unverified because NNA declares none for this field; a grant list is an authority statement, not a secret, and the census does not invent classifications."
   },
   {
    "id": "web_fetch:updated_at",
@@ -10763,7 +10773,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "generated state rides the read view (application not_applied)"
+    "evidence": "src/nnd-web-fetch-transaction.js stamps updated_at on every save and the projector carries it as a nullable ISO stamp; it records when trust last changed rather than being applied by anyone"
    },
    "native_endpoint": "GET /v1/nnd/configuration/web-fetch",
    "native_permission": "nnd.configuration.read",
@@ -10774,7 +10784,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-19)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -10782,11 +10792,15 @@
      "normalizeWebFetchConfig"
     ],
     "tests_run": [
-     "packages/ui vitest suite (the family page drills assert the read view)"
+     "NNA test/nnd-web-fetch-http.test.js (read, catalog, preview without persistence, save under the native revision check, receipt lookup, refusals that leave the source untouched)",
+     "NNA test/nnd-web-fetch-transaction.test.js (origin grammar and bounds, duplicate and host-case handling, one receipt per batch, updated_at stamped on save, oversize refused before publishing)",
+     "NNA test/web-fetch-tool.test.js (the fetch tool consults the trusted-origin grant on each request, which is what makes next_fetch the application point)",
+     "packages/ui web-fetch typed client tests (exact view shape, version must be 1, canonical origins, a non-empty list without a stamp refused as drift, operation and CAS request grammar bounded)",
+     "packages/ui web-fetch-trust page tests (grant list with its revoke control, add field refusing a hostile origin before anything is sent, preview then save with the exact revision, next-fetch wording, uncertain save kept across reload, expired receipt recovered, absent source bootstrapped, and the last-saved stamp shown with \"not recorded\" when there is none)"
     ],
     "installed_journey": null
    },
-   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only"
+   "notes": "generated_state meta: the version (and the web-fetch update stamp) ride inside the read view the family page already consumes, are produced by the native transaction on every save, and expose no operator control (editability unavailable, application not_applied); correctness of the stamp is enforced by the transaction receipts and the sibling pin rows; the row carries the read right only Corrected 20261007-19: this row was pinned as a verified surface while the page rendered neither the stamp nor its absence. The state line now reads \"last saved\" with the value, and an absent stamp says not recorded instead of leaving the operator to guess."
   },
   {
    "id": "gateway:version",

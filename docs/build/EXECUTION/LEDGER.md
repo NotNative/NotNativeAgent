@@ -416,6 +416,36 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-19 — WebFetch trust closes, and the missing-stamp pattern is now unmistakable
+
+One row closed, and it was the cleanest kind: `trusted_origins` is an authority
+grant the page genuinely edits — the saved list, a draft list where each grant
+carries its own revoke control, an add field that refuses everything except an
+exact credential-free HTTP(S) origin before a request is even composed, then a
+preview and a revision-checked save. The class is `next_fetch`, which NNA already
+writes on every receipt, because the fetch tool reloads the store per request:
+the application point is a fact about the tool, not a guess by the desktop.
+
+The recurring part is what matters. This page, like the gateway and web-search
+pages before it, was credited with a surface for its version counter and its
+save stamp while rendering neither. That is now four families in a row, which
+says something about how the pre-C1 pins were written: from the contract, not
+from the page. Where a stamp is worth showing it gets shown — trust changes now
+read `last saved: …`, and an absent store says `not recorded` instead of letting
+an operator infer a time from the absence of data. Where the field is a counter
+that must always be 1, the claim comes down rather than a number being padded.
+
+Census rows without a desktop surface: 37. Rows with an unverified desktop
+surface: 14, holding steady as one row closed and one false claim was withdrawn.
+Rows declaring an unverified application class: 92 → 91.
+
+The systematic sweep is shrinking where it is checked: nine suspicious pre-C1
+pins became five — `compatibility_service:updated_at`,
+`compatibility_service_action:run`, `session_review:expected_revision`,
+`secret_action:enable_disable`, and one templated managed-MCP credential row.
+Each gets settled with its own family rather than in a bulk edit, because a
+coverage claim needs a page and a test behind it, not a patch script.
+
 ## NND 20261007-18 — the gateway family closes, and a pin is corrected downward for the second time running
 
 Six gateway rows closed: the enabled flag, the Telegram token, its environment

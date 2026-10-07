@@ -58,6 +58,12 @@ it('previews and saves a trust grant with exact NNA revision and next-fetch appl
     throw new Error('unexpected ' + path);
   });
   await mount();
+  // The grant list and the stamp the native save writes are both on screen,
+  // with the revision prefix that lets an operator see which read they hold.
+  expect(container.textContent).toContain('Trusted origins: https://a.example');
+  expect(container.textContent).toContain('last saved: 2026-10-06T01:02:03.000Z');
+  expect(container.textContent).toContain('revision: ' + revision.slice(0, 12));
+  expect([...container.querySelectorAll('li')].map(item => item.textContent)).toContain('https://a.exampleRevoke');
   await type('[data-testid="webfetch-origin-add"]', 'https://docs.example');
   await click('Add');
   await click('Preview native change');
@@ -206,6 +212,7 @@ it('bootstraps trust from an absent source through preview and save', async () =
   await mount();
   expect(container.textContent).toContain('source: absent');
   expect(container.textContent).toContain('Trusted origins: none');
+  expect(container.textContent).toContain('last saved: not recorded');
   await type('[data-testid="webfetch-origin-add"]', 'https://example.com');
   await click('Add');
   await click('Preview native change');

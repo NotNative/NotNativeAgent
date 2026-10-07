@@ -433,9 +433,16 @@ web-fetch rows carry the native endpoints, the paired permissions, and the
 settings-page path; an independent audit passed with no defects and its two
 risks — an unbounded origin length versus the family response bound, and a
 catalog editability asymmetry with the gateway mirror — were fixed before
-this consumer landed. The trust rows' application class stays unverified
-until an installed journey exercises a real grant; the remaining C6
-external-store families stay open.
+this consumer landed. The grant row is closed: `trusted_origins` is shown as the
+saved list and the editable draft, each grant with its own revoke control, the
+add field refuses anything but an exact credential-free origin before a request
+is composed, and the class is the honest `next_fetch` the native surface already
+stamps on every receipt. The page now also shows when trust last changed, and an
+absent store says `not recorded` rather than leaving the operator to infer it.
+The store's version counter is deliberately not displayed, so that row carries an
+unverified surface instead of a claim no test supported. Whether an installed
+journey exercises a real grant is still owed to C7 and the L gates; the remaining
+C6 external-store families stay open.
 
 Progress: at NNA `20261005-16` the WebSearch settings family followed both
 templates. The enabled flag plus at most eight canonical SearXNG profiles
