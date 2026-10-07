@@ -307,3 +307,49 @@ test('the reviewer-ledger family serves its single budget and refuses anything e
   assert.throws(() => snapshot({ reviewer_ledger: { retention: 'forever' } }),
     (error) => error.code === 'reviewer_ledger_config_invalid');
 });
+
+test('the manifest scalars serve their native defaults, derived provenance, and bounds', () => {
+  // Bounds and defaults come from src/configuration-rules.js. Three values
+  // cannot attribute a layer: provider_timeout_ms is derived from the
+  // primary route deadline, and the first-token/idle pair rides the
+  // legacy_stream_timeouts compatibility rule, so those rows carry
+  // source_unavailable instead of a guessed source.
+  const defaults = {
+    provider_timeout_ms: 1_800_000, first_token_timeout_ms: 600_000, idle_timeout_ms: 300_000,
+    provider_connect_timeout_ms: 10_000, semantic_review_timeout_ms: 1_800_000, approval_timeout_ms: 120_000,
+    provider_concurrency: 1, provider_queue_limit: 256, tool_concurrency: 1,
+    persistence_flush_timeout_ms: 10_000, shutdown_timeout_ms: 15_000, context_limit_bytes: 2_097_152,
+    context_compression_threshold: 0.4, context_compression_level_2_threshold: 0.55,
+    context_compression_level_3_threshold: 0.7, context_compaction_threshold: 0.75,
+  };
+  const derived = new Set(['provider_timeout_ms', 'first_token_timeout_ms', 'idle_timeout_ms']);
+  const view = projectNndConfigurationView(snapshot());
+  for (const [path, value] of Object.entries(defaults)) {
+    const row_ = row(view, path);
+    assert.ok(row_, `${path} is not served`);
+    assert.deepEqual(row_.explicit, { present: false }, path);
+    assert.deepEqual(row_.effective, { present: true, value,
+      ...(derived.has(path) ? { source_unavailable: true } : { source: 'compiled_default' }) }, path);
+  }
+  // The two derived thresholds follow compression plus three- and
+  // six-sevenths of the span to the compaction threshold.
+  const wider = projectNndConfigurationView(snapshot({ context_compression_threshold: 0.5 }));
+  assert.equal(row(wider, 'context_compression_level_2_threshold').effective.value, 0.5 + (0.75 - 0.5) * 3 / 7);
+  assert.equal(row(wider, 'context_compression_level_3_threshold').effective.value, 0.5 + (0.75 - 0.5) * 6 / 7);
+  const mine = projectNndConfigurationView(snapshot({ provider_timeout_ms: 900_000, provider_concurrency: 4,
+    context_limit_bytes: 4_194_304, context_compression_threshold: 0.5, approval_timeout_ms: 60_000 }));
+  for (const path of ['provider_timeout_ms', 'provider_concurrency', 'context_limit_bytes',
+    'context_compression_threshold', 'approval_timeout_ms']) {
+    assert.equal(row(mine, path).effective.source, 'user', path);
+  }
+  // Setting one half of the stream pair still leaves the other derived.
+  const paired = projectNndConfigurationView(snapshot({ first_token_timeout_ms: 120_000 }));
+  assert.equal(row(paired, 'first_token_timeout_ms').effective.source, 'user');
+  assert.equal(row(paired, 'idle_timeout_ms').effective.source_unavailable, true);
+  for (const bad of [{ provider_concurrency: 20 }, { context_limit_bytes: 1_000 },
+    { context_compression_threshold: 0.95 }, { approval_timeout_ms: 500 }]) {
+    assert.throws(() => snapshot(bad), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
+  }
+  assert.throws(() => snapshot({ context_compression_threshold: 0.8, context_compression_level_2_threshold: 0.5 }),
+    (error) => error.code === 'context_thresholds_invalid', 'the ordered thresholds must stay ordered');
+});
