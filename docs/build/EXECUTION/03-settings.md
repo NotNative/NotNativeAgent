@@ -223,7 +223,14 @@ configuration page can read the catalog and edit NNA-authorized generic scalar
 fields through preview, revision-checked save, and operation receipt lookup.
 It now offers direct typed controls for `attachments.enabled`,
 `attachments.max_bytes`, and `attachments.retain`; native TUI preferences and
-reviewer/vision scalar routes also have focused controls. Typed controls for
+reviewer/vision scalar routes also have focused controls. The three
+attachment rows carry NNA's semantics verbatim: enablement is opt-out (only
+an exact `false` disables), retention is opt-in (only an exact `true`
+retains, otherwise the store deletes files after the turn), and the byte
+ceiling defaults to 10 485 760 within 1 024–104 857 600. All three are
+`engine_boundary`: a compatible command republishes the engine
+configuration, so the next admission and the next cleanup see the new
+values without restarting the session. Typed controls for
 `memory.timeout_ms`, `memory.max_items`, and `memory.max_bytes` use the same
 native user-manifest preview and save path, alongside `memory.enabled` and
 `memory.required`, which NNA saves as a coupled pair (disabling memory also

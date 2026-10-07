@@ -416,6 +416,25 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-8 — attachment fields ride the view and apply live
+
+The 3 `manifest_attachments` census rows closed against the EXISTING
+configuration view and the `NNA attachments` block: the proof shows the
+defaults (`enabled` true, `max_bytes` 10 485 760, `retain` false) with
+`source: compiled_default`, user values with `source: user`, the
+asymmetric coercion NNA documents — anything but an exact `false` counts as
+enabled, anything but an exact `true` does not retain — and byte ceilings
+outside 1 024–104 857 600 refusing the resolve with `invalid_limit`. The
+editor renders the three rows and mirrors the byte bounds in the input
+(`min` 1024, `max` 104857600).
+
+These three are `engine_boundary` in NNA's own metadata, and the code backs
+it: `publishEngineConfiguration` assigns `engine.attachments.config` on a
+compatible command, so `experience/attachments.js` checks enablement and the
+size ceiling at the next admission and `attachments.js` consults retention
+at the next cleanup — no session restart, unlike memory-adjacent fields that
+need one. Census rows without a verified GUI: 130 → 127.
+
 ## NNA (test-only) and NND 20261007-7 — recovery budgets ride the view with an honest unverified class
 
 The 4 `manifest_recovery` census rows closed against the EXISTING

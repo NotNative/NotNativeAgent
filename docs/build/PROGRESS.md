@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Attachment fields ride the view and apply live · NND 20261007-8
+
+The 3 `manifest_attachments` rows closed against the EXISTING view and the
+`NNA attachments` block: defaults (true / 10 485 760 / false) with
+`compiled_default`, user values with `user`, the asymmetric coercion (only
+an exact `false` disables, only an exact `true` retains), and byte ceilings
+outside 1 024–104 857 600 refused with `invalid_limit`; the editor mirrors
+the bounds on the input. Class `engine_boundary`, as NNA's metadata says and
+the code backs: `publishEngineConfiguration` assigns
+`engine.attachments.config`, so the next admission and cleanup see new
+values. Census rows without a verified GUI: 130 → 127. Next: telemetry 3
+(`unverified`, destination private), reviewer_ledger 1, then manifest 38,
+route 48, provider 37.
+
 ## 2026-10-07 · Recovery budgets ride the view with an honest unverified class · NND 20261007-7
 
 The 4 `manifest_recovery` rows closed against the EXISTING configuration

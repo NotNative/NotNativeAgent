@@ -923,3 +923,29 @@ it('recovers an uncertain repair without copying a replacement document into ses
   expect(container.textContent).toContain('operation_1');
   expect(button('Repair selected source').disabled).toBe(true);
 });
+
+it('renders all three attachment census rows in the attachment block with the native byte bounds', async () => {
+  const attachmentView: NativeConfigurationView = { ...view, fields: [
+    { path: 'attachments.enabled', catalog_path: 'attachments.enabled', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'attachments.max_bytes', catalog_path: 'attachments.max_bytes', explicit: { present: false },
+      effective: { present: true, value: 10485760, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'attachments.retain', catalog_path: 'attachments.retain', explicit: { present: false },
+      effective: { present: true, value: false, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'attachments.enabled', type: 'boolean', editability: field.editability },
+    { path: 'attachments.max_bytes', type: 'integer', editability: field.editability },
+    { path: 'attachments.retain', type: 'boolean', editability: field.editability },
+  ] });
+  mount(attachmentView); await act(async () => {});
+  const block = () => container.querySelector('[data-settings-item="native-configuration.attachments"]')?.textContent ?? '';
+  expect(block()).toContain('Enable attachments');
+  expect(block()).toContain('Maximum attachment bytes');
+  expect(block()).toContain('Retain attachments');
+  await act(async () => button('Maximum attachment bytes').click());
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(input.value).toBe('10485760');
+  expect(input.min).toBe('1024');
+  expect(input.max).toBe('104857600');
+});
