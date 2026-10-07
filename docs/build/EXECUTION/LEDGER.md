@@ -416,6 +416,44 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-50 — the lifecycle verbs are named, and a fixture is not the same thing as an assertion
+
+Citations naming no test file: **57 → 45**; naming no file at all: **48 → 36**. Six rows rewritten,
+twelve prose citations replaced, **six citations naming a file kept**. No other axis moves: owed 18,
+dispositions 7, unverified surface 0, unverified class 42, installed evidence 0 of 371, surface paths
+346 of 346. No production file changed, so the suites were not re-run and that is stated rather than
+assumed.
+
+`lifecycle.test.ts` and `service-lifecycle.test.tsx` were read in full, and this family holds the
+strongest verb-shape claim in the census: **`status` is only ever fetched, never posted**, asserted by
+walking every recorded call and checking that no POST names the status endpoint. The same walk
+proves `run` is never addressed at all. Each verb is now cited to its own evidence:
+
+- **the credential is named once, not per line.** The panel says `basic auth configured (password
+  source: restricted local config)` and the suite counts the phrase — exactly once across the whole
+  observation — so presence is reported without the value and without a new leak surface per row.
+- **a no-op says it is a no-op**: pressing Stop when nothing was running yields *nothing was running*,
+  not a receipt implying a halt; and a forwarding refusal keeps *both* the sentence ("refuses to
+  stop") and the forwarded code, so an operator can quote something useful.
+- **wiring receipts are bound to their class.** A wiring receipt rewritten to claim the immediate
+  application class is refused, because the Startup script only takes effect at the next service
+  start; the page says exactly that, in both directions — *wired: installed*, *unwired: removed*,
+  each followed by *applies at the next service start*. Disable is its own verb, not the mirror of
+  enable, and the receipt wording is what proves it.
+- **`run` is refused three ways over**: the sentence explaining why there is no control, the absence
+  of any Run button, and no request aimed at the run endpoint.
+
+**The mistake this round was mine and it is the interesting kind.** Two draft citations claimed the
+client suite parses the *disable* wiring receipt. It doesn't: `wiring('disable')` exists as a fixture
+helper, and only the enable receipt is ever passed to the parser. A fixture that exists is not an
+assertion about that fixture — the same trap as the test-file comment last week, one level deeper.
+Both citations were rewritten before applying, to say the client suite exercises the enable verb and
+that the disable direction is evidenced on the page, where it genuinely is clicked.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 45 of 666 (no file at all 36);
+installed evidence 0 of 371.
+
 ## NND 20261007-49 — web_search citations named, and `managed` stops being a source-only claim
 
 Citations naming no test file: **69 → 57**; naming no file at all: **60 → 48**. Eight rows

@@ -3,6 +3,25 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Lifecycle verbs named; a fixture ≠ an assertion · NND 20261007-50
+
+**No-test 57 → 45; no-file-at-all 48 → 36.** 6 rows, 12 replaced, **6 kept**. Axes unchanged (owed 18,
+dispositions 7, installed 0/371, paths 346/346). No production change ⇒ suites not re-run (stated).
+
+Strongest verb-shape claim in the census: **`status` is only ever fetched, never posted** — asserted by
+walking every recorded call; the same walk proves `run` is never addressed. Also: the credential source
+phrase is counted at **exactly once** across the whole observation (presence without value, no new leak
+surface per row); a no-op Stop says *nothing was running*; a forwarding refusal keeps **both** the
+sentence and the code; wiring receipts rewritten to claim the immediate class are **refused** because
+the Startup script lands at the *next service start* — said in both directions (`wired: installed` /
+`unwired: removed`), which is why disable is its own verb and not enable's mirror; `run` is refused
+**three ways** (sentence, no button, no request to `/actions/run`).
+
+**My error, the interesting kind:** two drafts claimed the client parses the *disable* wiring receipt.
+It doesn't — `wiring('disable')` is a helper nobody hands the parser; only enable is. **A fixture that
+exists is not an assertion about it** — the comment trap one level deeper. Rewritten pre-apply to
+point disable at the page, where it really is clicked. Both traps now written into 03-settings.
+
 ## 2026-10-07 · web_search named; `managed` moves from source-read to asserted · NND 20261007-49
 
 **No-test 69 → 57; no-file-at-all 60 → 48.** 8 rows, 12 replaced, **10 kept** — including all three

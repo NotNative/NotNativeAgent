@@ -1137,6 +1137,13 @@ enable flip, the token-variable set and reset, and a grant revocation — were n
 turned into clicked assertions in the next, moving the UI suite from 1917 to 1918 and letting four
 rows cite a saved request body instead of a source line.
 
+Two traps produce the same false citation, and both were met while rewriting them. A **comment** in
+a test file is not an assertion: the sentence has to come from an `expect`, not the prose above it. A
+**fixture** is not an assertion either: a helper that can build a disable-shaped receipt proves only
+that somebody wrote the helper, unless a test hands that receipt to the parser and asserts something
+about the result. When a suite exercises one direction of a verb, the citation says so and points at
+the other direction's real evidence, which is usually a different suite.
+
 ### A row may state that no desktop surface is owed
 
 If a surface is
