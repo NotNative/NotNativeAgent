@@ -1088,6 +1088,24 @@ declared point, and the restart effect on an installed service is still
 unobserved, which C7 and the L gates own. The remaining C6 external-store
 families stay open.
 
+### What "verified" means in the census, and what it does not
+
+`current_gui.status: verified` means one specific thing: a named test file reads the field off
+the rendered surface, and a named source file shows NNA producing it. Every one of the 346
+verified rows rests on that, and nothing more. The census's `evidence.installed_journey`
+column, which is where an observation on an installed NNA/NND pair would be recorded, is empty
+in all 371 rows, and 208 verified rows carry no `evidence.kind` at all.
+
+Read together, those two facts say the coverage figure measures *read-and-unit-tested*
+coverage. It does not measure installed acceptance, which is C7's to decide and cannot be
+reached until C6 closes. Writing `source_inspection` onto 208 rows in one commit would make the
+schema look complete without adding one observation, so it is recorded only on rows whose
+evidence has been re-read by the person making the claim.
+
+The rule for the citations this relies on has not changed: name the file, quote what the tests
+refuse or assert, and assert nothing about how many there are. A citation that cannot be
+opened is not evidence, however confident its prose.
+
 ### C7 — Coverage and installed acceptance gate
 
 Dependency: C4–C6. Run the key-to-control-to-native-effect coverage report

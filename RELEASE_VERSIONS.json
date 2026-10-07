@@ -1384,6 +1384,10 @@
     {
       "version": "20261007-36",
       "content_sha256": "4521a866ca31d1a40ecc846e024baf8e954aa5035128f67a2763b1ea04488ba5"
+    },
+    {
+      "version": "20261007-37",
+      "content_sha256": "138d5d62dc2edad6f58d73196cd03ad30585a376d1800ea829b0aeddb735d616"
     }
   ]
 }

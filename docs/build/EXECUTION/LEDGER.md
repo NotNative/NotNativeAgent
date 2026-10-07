@@ -416,6 +416,65 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-37 — every verified row in the census is a source-reading claim, and the census said so in a field nobody filled
+
+Rows without a desktop surface: **25, unchanged** — nothing shipped to a screen this round.
+Citations naming no test file: **184 → 166**.
+
+Two things were found before anything was built, and the first matters more.
+
+**`evidence.installed_journey` is empty in all 371 rows.** Not mostly empty: the field exists
+on every row and holds nothing on any of them. So when this project says 346 rows have a
+verified desktop surface, the verification behind every one is that somebody read NNA's
+source and ran a jsdom unit test. Nobody has watched a setting go from this desktop, through
+an integration token, into a real NNA's manifest, and back as an effective value on a running
+engine. The census has had a column for that claim since the start and it has never been
+written.
+
+That is not a reason to start filling it with prose now — an installed journey is an
+observation, and there is no installed pair here to observe. It is a reason to stop letting
+the word *verified* carry a meaning the evidence does not support. From this round the
+standing count includes **rows with installed evidence: 0 of 371**, printed by the tooling
+rather than by me, because a number this easy to forget should not depend on my remembering it.
+
+Two related facts, so the shape of the gap is visible:
+
+- **208 of the 346 verified rows carry no `evidence.kind` at all.** They were not filled in.
+  `source_inspection` would describe them — they were built by reading files and their
+  citations are files — but stamping 208 rows in one commit is a label operation, and eight
+  rounds of this ledger argue that labels are where this project lies. The kind goes in on
+  rows whose evidence somebody has personally re-read, family by family.
+- **0 verified rows lack a citation.** Every one names at least one test file. The hole is in
+  the kind of evidence, not its absence.
+
+**C7, the installed acceptance gate, owns this and is not available.** Its dependency is
+C4–C6, and 03-settings still says the C6 external-store families stay open. The lane list
+being worked from names C4, C5, C7 and omits C6, so C7 has been unreachable throughout — and
+the same reading shows **C5 is finished**, not deferred: MCP mutation is create, patch and
+delete on the NNA side (`nnd-mcp-configuration.js`), all three modelled in
+`packages/ui/src/lib/nnd/native-mcp.ts`, all three offered by the editor, and all 31 MCP
+census rows verified. Next in order is C6, not C7.
+
+**The burn-down, because 166 unnamed citations are claims nobody can check.** The hooks
+family held 18: two per row, describing "hooks typed client tests" and "hooks-bundles page
+tests" with no file named. Both files were read in full before a word was rewritten, and the
+descriptions proved accurate — they simply could not be audited. They now name
+`packages/ui/src/lib/nnd/__tests__/hooks.test.ts` and
+`packages/ui/src/components/settings/__tests__/hooks-bundles.test.tsx` and quote what those
+tests actually refuse: a bundle name that escapes its directory, a subscription phase outside
+the admitted set, a concurrency above sixteen, a timeout under a hundred milliseconds, a
+command carrying a newline, a limit message claiming zero omissions — and on the page side the
+cap sentence, the skip reason, the priority/timeout/concurrency triple per subscription, and
+that exactly one control exists so nothing on the roster can be edited from there.
+
+The patcher's guard earned its keep: it counted replacements and failed at 9 of 18, because
+the filter looked for citations beginning `packages/ui hooks ` while the other half began
+`packages/ui hooks-bundles `. A patcher that only ever reports success reports nothing.
+
+After this round: no desktop surface 25; unverified surface status 0; unverified application
+class 42; verified rows with no recorded examination 0; unnamed citations 166; rows with an
+installed journey 0.
+
 ## NND 20261007-36 — which containers may close, taken from NNA's shape table rather than invented
 
 Rows without a desktop surface: **28 → 25**. Unverified application class: **43 → 42**, one

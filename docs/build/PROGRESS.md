@@ -3,6 +3,40 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The census's most important column has never been written · NND 20261007-37
+
+**No headline change (25 unchanged). Unnamed citations 184 → 166.**
+
+**`installed_journey` is empty in all 371 rows.** Every "verified" claim in this project is a
+source-read plus a jsdom unit test. No one has watched a value travel from this desktop through
+an integration token into a real NNA manifest and back as an effective value on a running
+engine. The column for that claim has existed since the census began and has never been
+written.
+
+Not filling it with prose — an installed journey is an *observation*, and there is no installed
+pair to observe. Instead the standing report now includes **installed evidence: 0 of 371**,
+printed by the probe rather than by me. A number this easy to forget shouldn't depend on my
+remembering it.
+
+Also measured: **208 of 346 verified rows have no `evidence.kind`** — deliberately *not*
+batch-filled. `source_inspection` would be true of them, but stamping 208 rows in one commit is
+a label operation, and this ledger's whole argument is that labels are where this project lies.
+It goes in family by family, on rows I've actually re-read. And **0 verified rows lack a
+citation** — the hole is the *kind* of evidence, not its absence.
+
+**Lane correction:** C7 (installed acceptance) depends on C4–**C6**, and the docs still record
+C6 external-store families as open — so C7 has been unreachable all along, and the lane list I
+work from simply omits C6. Reading it also settles **C5 as done**: create/patch/delete all exist
+in `nnd-mcp-configuration.js`, all three are modelled in `native-mcp.ts` and offered by the
+editor, and all 31 MCP rows are verified. Next in order is **C6**, not C7.
+
+Burn-down: hooks held 18 unnamed citations (2 per row). Read both files first — the claims were
+*accurate*, just unauditable. Now they name the files and quote the refusals (name escaping its
+directory, phase outside the admitted set, concurrency >16, timeout <100ms, command with a
+newline, a cap message claiming zero omissions; plus the page's priority/timeout/concurrency
+triple and its single-control check). My guard failed the run at 9/18 because the filter matched
+`packages/ui hooks ` and the others began `hooks-bundles ` — patchers must be able to fail.
+
 ## 2026-10-07 · Three containers close on NNA's own shape table; one closure refused · NND 20261007-36
 
 **28 → 25 no-surface; 43 → 42 class-unverified (one transcription, two left alone).**
