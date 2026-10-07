@@ -1400,6 +1400,10 @@
     {
       "version": "20261007-40",
       "content_sha256": "c83559124f0ff63401a832ec95018b85bbcbf1dbfa556ca3f3408a9ae99d0ea6"
+    },
+    {
+      "version": "20261007-41",
+      "content_sha256": "a426c794911adf14fa72dc46f793d165abd54482f43d8236d345a97a4306f7e0"
     }
   ]
 }

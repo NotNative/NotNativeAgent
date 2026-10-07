@@ -3,6 +3,29 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Burn-down gets a rule and a tool; last round's mistake does not repeat · NND 20261007-41
+
+**No-test citations 150 → 136; no-file-at-all 142 → 128.** 7 rows rewritten, 14 prose citations
+replaced, **8 file-naming citations kept**. Owed stays 18.
+
+`compatibility_service` had the same two family-wide sentences on all 7 rows. Both test files read
+in full; per-field citations now quote real refusals — hostname accepts bracketed/bare IPv6 and a
+64-char label but not `1.2.3.4.5`, a schemed URL, or a 254-char name (page: `0.0.0.0` → *"a bind
+beyond loopback needs Basic auth credentials"* instead of a save); **password refuses a leaking
+projection three ways** (configured-without-source, configured carrying `value`, unconfigured
+naming a source), rejects <20 chars or a newline, rejects `keep`/`clear` carrying a value, and the
+catalog parse refuses the identical catalog that asks for **read** instead of **manage** (page:
+secret absent from document text after preview *and* save, while the save body is asserted to
+carry it); port 1/65535 valid, 65536 and fractional not; `basic:auth` invalid and served
+`open:code` refused; `last saved: not recorded` for an absent store.
+
+**The real test of the round:** last round a `.test.`-keyed filter destroyed an absence proof. This
+rewriter keeps **any citation naming any file** — so `compatibility.ts` refusing version≠1 plus
+`compatibility-service.tsx` having no `.version` reference **survived**, confirmed by the diff probe
+(not in the vanished list). Tooling is now: a **plan JSON** + a **generic rewriter** (refuses to run
+if plan rows don't match the family) + the **diff probe** before sealing. Next families are plan
+files, not new chances to write a clever filter.
+
 ## 2026-10-07 · Gateway citations named — and the patcher that named them destroyed evidence · NND 20261007-40
 
 **No axis moved except citations: 166 → 150** (17 replaced, 1 restored). Owed stays 18.

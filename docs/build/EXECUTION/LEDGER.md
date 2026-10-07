@@ -416,6 +416,58 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-41 — the burn-down gets a rule and a tool, and the mistake it exists to prevent does not repeat
+
+Citations naming no test file: **150 → 136**; of those, naming no file at all: **142 → 128**.
+Seven rows rewritten, fourteen prose citations replaced, **eight citations that named a file
+were kept**. No other axis moves: surfaces owed 18, dispositions 7, unverified surface 0,
+unverified class 42, installed evidence 0 of 371.
+
+The `compatibility_service` family carried the same two family-wide sentences on all seven of
+its rows. Both test files were read in full —
+`packages/ui/src/lib/nnd/__tests__/compatibility.test.ts` and
+`packages/ui src/components/settings/__tests__/compatibility-service.test.tsx` — and the
+per-field citations that replace the prose quote the actual refusals:
+
+- `hostname`: IPv4, localhost, bracketed and bare IPv6, DNS names and a 64-character label
+  parse; a five-octet address, a name with a scheme, a bracket inside an IPv4 literal, a
+  254-character name and an empty string do not; a served hostname with a leading space is
+  refused, a damaged draft surfaces `opencode_hostname_invalid` — and on the page, `0.0.0.0`
+  followed by preview produces *"a bind beyond loopback needs Basic auth credentials"* instead
+  of a save.
+- `password`: the parser refuses a **leaking** projection three different ways — configured with
+  no source, configured while carrying a `value`, and not configured while naming a source; a
+  replacement under twenty characters or containing a newline is refused, as is a `keep` or
+  `clear` that carries a value; the catalog must present the field as a secret with the
+  **manage** permission and the parse refuses the identical catalog asking only for read. On
+  the page the secret is asserted absent from the document text after preview *and* after save
+  while the save body is asserted to carry it.
+- `port`: 1 and 65535 valid, 65536 and a fractional port not; a served 65536 refused;
+  the page shows 4095, previews 4096, and reads 4096 again after the reload.
+- `username`: `basic:auth` invalid, a served `open:code` refused, the status line pins
+  `user: opencode` rather than letting it be inferred from the bind target.
+- `enabled`, `updated_at` and `version` each name their own assertions, including *last saved:
+  not recorded* against an absent store and a numeric stamp refused on read.
+
+**The point of the round is that the `-34` mistake did not repeat.** Last round a filter keyed
+on `.test.` deleted an absence proof while "improving" citations. This round the rewriter keeps
+**any citation that names any file** and replaces only prose that names nothing, so the
+`compatibility_service:version` citation — `compatibility.ts` refusing a version other than 1,
+and `compatibility-service.tsx` containing no reference to `.version` — survived, and the diff
+probe confirms it: it is not in the vanished list. Everything listed there is family-wide prose
+that the new per-field citations supersede.
+
+The tooling is now three pieces rather than one: a **plan file** carrying the citations, a
+**generic rewriter** that refuses to run when the plan's rows do not match the family it is told
+to touch, and the **diff probe** run before sealing, which prints every citation the patcher
+removed. Splitting the words from the mechanics also means the next families — `update_state`,
+`secret_action`, `environment`, the `*_action` families — are plan files rather than new
+opportunities to write a clever filter.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 136 of 634 (no file at all 128);
+installed evidence 0 of 371; verified rows with no recorded examination 0.
+
 ## NND 20261007-40 — the gateway family's citations are named, and the patcher that did it destroyed evidence while doing so
 
 Citations naming no test file: **150** (was 166 — 17 replaced, 1 restored). Of those 150,
