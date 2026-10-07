@@ -232,3 +232,35 @@ it('renders provider profile rows with derived values, redaction, and honest abs
   expect(rowText('provider.capabilities.tools')).toContain('unknown');
   expect(container.textContent).not.toContain('undefined');
 });
+
+it('renders manifest root rows as invariants, structure, and honest absence', async () => {
+  // The root block is mostly not operator-editable: version stamps, blocks
+  // that are structure rather than values, and grants the host owns. Each of
+  // those has to read differently from a setting the operator forgot to set.
+  const rootView: NativeConfigurationView = { ...view, fields: [
+    { path: 'format_version', catalog_path: 'format_version', explicit: { present: false },
+      effective: { present: true, value: 1, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'persistence', catalog_path: 'persistence', explicit: { present: false },
+      effective: { present: true, value: 'durable', source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'workspace_root', catalog_path: 'workspace_root', explicit: { present: true, value: 'C:/work/site' },
+      effective: { present: true, value: 'C:/work/site', source: 'user' }, application: 'not_applied' },
+    { path: 'routes', catalog_path: 'routes', explicit: { present: false },
+      effective: { present: true, value_unavailable: true, source_unavailable: true }, application: 'not_applied' },
+    { path: 'allowed_tools', catalog_path: 'allowed_tools', explicit: { present: false },
+      effective: { present: false }, application: 'not_applied' },
+    { path: 'mission', catalog_path: 'mission', explicit: { present: false }, effective: { present: false },
+      application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(rootView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('format_version')).toContain('1');
+  expect(rowText('format_version')).toContain('compiled_default');
+  expect(rowText('persistence')).toContain('durable');
+  expect(rowText('workspace_root')).toContain('C:/work/site');
+  expect(rowText('routes')).toContain('Value unavailable');
+  expect(rowText('allowed_tools')).toContain('Not set');
+  expect(rowText('mission')).toContain('Not set');
+  expect(container.textContent).not.toContain('undefined');
+});

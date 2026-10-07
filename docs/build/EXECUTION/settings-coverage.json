@@ -74,28 +74,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "src/configuration-catalog-metadata.js declares this field unverified: it records which contract the manifest was written under and is not a value the engine applies."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": "Schema/migration marker; not an arbitrary numeric preference."
+   "notes": "Schema/migration marker; not an arbitrary numeric preference. Pinned 20261007-14: an internal invariant shown so the record states which manifest contract is in force; the operator never edits it. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:routing_inheritance_version",
@@ -118,28 +118,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "src/configuration-catalog-metadata.js declares this field unverified: it records which contract the manifest was written under and is not a value the engine applies."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": "Schema/migration marker; not an arbitrary numeric preference."
+   "notes": "Schema/migration marker; not an arbitrary numeric preference. Pinned 20261007-14: an internal invariant recording the routing inheritance contract in force. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:output_headroom_version",
@@ -162,28 +162,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "src/configuration-catalog-metadata.js declares this field unverified: it records which contract the manifest was written under and is not a value the engine applies."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": "Schema/migration marker; not an arbitrary numeric preference."
+   "notes": "Schema/migration marker; not an arbitrary numeric preference. Pinned 20261007-14: an internal invariant recording the output headroom contract in force. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:persistence",
@@ -206,28 +206,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.write (preview and compare-and-save through the generic editor)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: durable unless the operator chooses ephemeral, and it is one of the two root rows the contract offers for editing; a live session refuses the change with configuration_scope_change because persistence is fixed for the session. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (new_session)."
   },
   {
    "id": "manifest:provider",
@@ -381,29 +381,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over it, so the next request uses the published value."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.write (preview and compare-and-save through the generic editor)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: empty until the operator writes one, and the other root row offered for editing; the served text is the operator own prompt. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:mission",
@@ -470,28 +470,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: the workspace the manifest was read for, served verbatim so the operator knows which installation is displayed; it is the one field this surface never edits, because the contract rejects a workspace change as configuration_scope_change. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (new_session)."
   },
   {
    "id": "manifest:provider_timeout_ms",
@@ -1481,29 +1481,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: a host-owned capability grant the desktop principal does not receive, so both sides read absent. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (new_session)."
   },
   {
    "id": "manifest:allowed_tools",
@@ -1525,29 +1525,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: a host-owned tool grant the desktop principal does not receive, so both sides read absent. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (new_session)."
   },
   {
    "id": "manifest:disconnect_policy",
@@ -1569,29 +1569,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: a host-owned disconnect policy the desktop principal does not receive, so both sides read absent. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (new_session)."
   },
   {
    "id": "manifest:skills",
@@ -1613,29 +1613,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-14)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "assertRuntimeConfigurationCompatible"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
    },
-   "notes": null
+   "notes": "Pinned 20261007-14: a host-owned skill grant the desktop principal does not receive, so both sides read absent. Displayed read-only: NNA does not offer this path for editing. The class follows NNA catalog metadata (new_session)."
   },
   {
    "id": "manifest:reviewer_ledger",

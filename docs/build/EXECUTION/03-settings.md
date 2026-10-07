@@ -331,7 +331,19 @@ write. A credential reference in any shape arrives `redacted` and is never
 carried as text, and the inventory labels it `Redacted` rather than leaving a
 blank cell that reads like a missing secret. Saving a provider change is not
 offered here; profiles apply because a published configuration rebuilds the
-model router, so the next request uses the saved profile. Provider identities,
+model router, so the next request uses the saved profile. Manifest container
+rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
+`tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
+`mission` roots stay open by rule rather than by case: NNA serves a container
+with no printable value and declares no application class for it, so the
+members carry the settings and each of those carries its own evidence. Of the
+remaining manifest roots only `persistence` and the application system prompt
+are offered for editing; `workspace_root` is displayed verbatim so the
+operator knows which installation is shown, while a saved persistence or
+workspace change names a new session instead of claiming a live one. The three
+version stamps are displayed as the contract version in force and are
+labelled unverified by NNA itself, because they record a contract rather than
+an applied value. Provider identities,
 credentials, authority grants, and external-store settings require separate
 native contracts and acceptance evidence. The gateway external store now has
 a dedicated polling-timeout control when NNA advertises its separate native

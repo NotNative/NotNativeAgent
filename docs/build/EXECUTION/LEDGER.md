@@ -416,6 +416,37 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-14 — the manifest root closes, and containers get a written rule
+
+The last value-bearing manifest rows closed 10 of 22, and the family is now
+finished in the only sense available to it: **every remaining row in all three
+families is structure, not a value.** That is no longer a per-slice judgement
+— a container row stays open when NNA serves it with no printable value and no
+application class, because its members carry the settings and each of those
+has its own row and its own evidence. Two roots proved the rule from the
+metadata side: `provider` and `mission` have no application class at all, so
+they cannot be pinned even though their members are covered.
+
+The root block also draws the line between seeing and changing. Only two of
+its rows are offered for editing at all — `persistence` and the application
+system prompt — and each refuses something honest: a saved persistence change
+cannot land in a live session (`configuration_scope_change`), because
+persistence is fixed for the session, and `workspace_root` is served verbatim
+so the operator knows which installation is on screen while the contract
+declines to move it. The three version stamps are the strangest rows here:
+NNA's own metadata labels them `unverified`, because they record which
+contract a manifest was written under rather than a value the engine applies,
+and the census follows the metadata even when the metadata declines to claim.
+
+Census rows without a verified GUI: 43 → 33. The remaining work in the
+census is no longer mostly about the GUI. Counting the other axes shows what
+is left: 40 rows still carry a pre-C1 `unverified` GUI status, 115 declare an
+`unverified` application class, 147 name no implementation package, and 117
+cite no test. That is the residual lane — hooks, web search, gateway, update
+state, compatibility service, secrets and the rest — and closing it means
+running this ceremony against evidence already partly in place, not building
+another surface.
+
 ## NNA (test-only) and NND 20261007-13 — provider profiles are shown, not edited, and the class audit closes
 
 The provider family closed 24 of its 37 open rows on a read-projection

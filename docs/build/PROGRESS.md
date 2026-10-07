@@ -3,6 +3,23 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The manifest root closes and containers get a written rule · NND 20261007-14
+
+Ten of the last 22 `manifest` rows closed; every row still open in the
+`manifest`, `manifest_route` and `manifest_provider` families is now structure
+rather than a value. The rule is written down: a container stays open when NNA
+serves it with no printable value and no application class, because its
+members hold the settings and each has its own row — `provider` and `mission`
+demonstrated it from the metadata side by having no class at all. Two root
+rows are offered for editing (`persistence`, the application system prompt);
+the rest is display-only, including `workspace_root`, served verbatim so the
+operator knows which installation is displayed while the contract refuses to
+move it, and a saved persistence change that names a new session rather than
+lying about a live one. The three version stamps are labelled `unverified` by
+NNA's own metadata — a contract declaration, not an applied value — and the
+census follows the metadata even when it declines to claim. Census rows
+without a verified GUI: 43 → 33.
+
 ## 2026-10-07 · Provider profiles are shown, not edited, and the class audit closes · NND 20261007-13
 
 Twenty-four `manifest_provider` rows closed on a read-projection basis; the
