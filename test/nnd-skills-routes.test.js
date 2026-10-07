@@ -4,7 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createNndSkillsService, dispatchNndSkillsRequest } from '../src/nnd-skills-routes.js';
+import { createNndSkillsService, dispatchNndSkillsRequest, projectCatalog } from '../src/nnd-skills-routes.js';
+import { SkillRegistry } from '../src/skill-registry.js';
+import { resolveConfiguration } from '../src/configuration-sources.js';
+import { NND_CONFIGURATION_OPTIONS } from '../src/nnd-configuration-sources.js';
+import { createHash } from 'node:crypto';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
 import { ContractError } from '../src/ids.js';
@@ -102,4 +106,51 @@ test('skills catalog failure wraps to the CLI-equivalent code and missing worksp
     installationId: 'install_skills', dataId: 'data_skills' }), { code: 'nnd_skills_request_invalid' });
   assert.equal(await dispatchNndSkillsRequest({}, {}, { url: new URL('http://x/other'),
     principal: PERMITTED }), false, 'unrelated paths return false for the router chain');
+});
+
+const CENSUS_FIELDS = ['id', 'version', 'description', 'invocation', 'source', 'requires_tools', 'body_sha256'];
+
+test('the catalog surface serves the seven manifest skill fields and never a body', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nnd-skills-census-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const skillDirectory = join(root, 'report');
+  await mkdir(skillDirectory, { recursive: true });
+  const body = 'SENTINEL BODY: read the manifest then ship the release';
+  await writeFile(join(skillDirectory, 'SKILL.md'), `---\nid: acme.report\nversion: 2.1.0\n`
+    + `description: formats reports\ninvocation: both\nrequires_tools: read_file, web_browse\n---\n${body}\n`, 'utf8');
+  const service = createNndSkillsService({ paths: { trustedWorkspaces: join(root, 'missing-trust.json'), skills: root },
+    installationId: 'install_skills', dataId: 'data_skills', trustedCheck: async () => false,
+    registryFactory: () => new SkillRegistry({ roots: [{ scope: 'user', path: skillDirectory }] }) });
+  const receipt = projectCatalog(await service.catalog(root));
+  assert.equal(receipt.catalog.length, 1);
+  assert.deepEqual(Object.keys(receipt.catalog[0]), CENSUS_FIELDS, 'the served grammar is exactly the census fields');
+  const entry = receipt.catalog[0];
+  assert.equal(entry.id, 'acme.report');
+  assert.equal(entry.version, '2.1.0');
+  assert.equal(entry.description, 'formats reports');
+  assert.equal(entry.invocation, 'both');
+  assert.ok(entry.source.startsWith('user:'), 'discovered entries name their scope');
+  assert.deepEqual(entry.requires_tools, ['read_file', 'web_browse']);
+  assert.equal(entry.body_sha256, createHash('sha256').update(body).digest('hex'));
+  assert.ok(!JSON.stringify(receipt).includes('SENTINEL'), 'the body never crosses as a value');
+});
+
+test('inline manifest skills stay host-only while sharing the same field grammar', async () => {
+  const body = 'HOST INLINE BODY FOR THE CENSUS PROBE';
+  const hosted = new SkillRegistry({ hosted: true, allowedTools: ['skill_search', 'skill_load'],
+    hostSkills: [{ id: 'acme.inline', version: '1', description: 'host supplied',
+      invocation: 'both', body, requires_tools: [] }] });
+  await hosted.initialize();
+  const [entry] = hosted.catalog();
+  assert.deepEqual(Object.keys(entry).sort(), ['bodySha256', 'description', 'id', 'invocation',
+    'requiresTools', 'source', 'version'], 'hosted grants use the same seven fields');
+  assert.equal(entry.bodySha256, createHash('sha256').update(body).digest('hex'));
+  assert.ok(!JSON.stringify(hosted.catalog()).includes('HOST INLINE BODY'));
+  const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
+  assert.throws(() => resolveConfiguration([{ name: 'user', manifest: { provider,
+    workspace_root: process.cwd(), skills: [{ id: 'acme.inline', version: '1',
+      description: 'host supplied', invocation: 'both', body, requires_tools: [] }] } }],
+  { manifestOptions: NND_CONFIGURATION_OPTIONS }), (error) => error.code === 'hosted_skills_forbidden'
+    && !JSON.stringify(error).includes('HOST INLINE BODY')
+    && !JSON.stringify(error).includes('host supplied'), 'src/config.js:validateManifestSkills checks the principal first');
 });
