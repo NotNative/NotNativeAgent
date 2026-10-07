@@ -3,6 +3,35 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Gateway citations named — and the patcher that named them destroyed evidence · NND 20261007-40
+
+**No axis moved except citations: 166 → 150** (17 replaced, 1 restored). Owed stays 18.
+
+Read both gateway test files in full first (the prose was *accurate*), then gave each of the 8
+rows its **own** pair of citations naming file + exact assertion instead of two family-wide
+sentences seventeen rows shared: `enabled:'yes'` refused at parse; `token:'PRIVATE'` never
+reaches the model (view *and* receipt paths) while the page's password input starts empty and
+the typed token is absent after preview and save; hex / zero / leading-zero / missing user ids
+refused, and **Add stays disabled** for `abc`; workspace reads mirror the *projector* bound
+(4097 refused, a 4096-byte request still round-trips); timeout 51 refused **on read**; the stamp
+parser mirrors the projector rather than stricter ISO grammar.
+
+**The regression:** the patcher decided what to keep by `includes('.test.')`, which deleted the
+`20261007-34` citation on `gateway:version` — the **absence proof** that the page contains no
+reference to `version`, the very evidence behind refusing to credit that row. A filter written to
+recognise one kind of evidence destroyed another. Caught with `probe-citation-diff.mjs` (added for
+this: diff the patcher's own backup, print everything that vanished); the claim was **re-read**
+before restoring, not reinstated on trust. Same probe on the `-37` hooks patcher: destroyed
+nothing. **Rule: a patcher may add and may replace prose, but may not drop a citation naming a
+file.**
+
+Because the restore *raised* the flagged count (149→150), the count got examined: it has always
+counted citations naming **no test file**, while the probe printed "naming no file". Split now:
+**150 name no test file, 142 name no file at all** — only the 142 are the burn-down list
+(compatibility_service 14, update_state 14, secret_action 14, environment 14, web_search_action 13,
+gateway_action 13, web_search 12, compatibility_service_action 12, secrets 12, …). The 8 source-only
+absence proofs are deliberate and stay.
+
 ## 2026-10-07 · A census row was citing a refusal nobody had ever tested · NND 20261007-39
 
 **Owed 19 → 18; evidenced dispositions 6 → 7.** One row moved; the test went into **NNA**.

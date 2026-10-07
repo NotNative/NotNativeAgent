@@ -1106,7 +1106,24 @@ The rule for the citations this relies on has not changed: name the file, quote 
 refuse or assert, and assert nothing about how many there are. A citation that cannot be
 opened is not evidence, however confident its prose.
 
-A row with an empty `current_gui.path` now says which of two cases it is. If a surface is
+Two kinds of citation fail that rule differently, and conflating them corrupts the count. A
+citation naming **no file at all** is a claim nobody can check and is the thing being burned
+down. A citation naming a **source file but no test** is sometimes the correct instrument: an
+absence proof ("this page contains no reference to the store's version counter") has no test to
+name because the fact is a grep. The census metric therefore reports both — citations naming no
+test file, and of those, how many name no file at all — and only the second is treated as a
+defect.
+
+Because citations get rewritten in batches, a patcher is allowed to add citations and to replace
+prose, but **not to drop a citation that names a file**. Filters that recognise only one kind of
+evidence destroy the other kind: a rewrite that keyed on `includes('.test.')` deleted the absence
+proof above, which was the evidence behind a refusal to credit a row. Every citation rewrite runs
+against the patcher's own backup first, and anything that vanished is restored only after its
+claim has been re-read.
+
+### A row may state that no desktop surface is owed
+
+If a surface is
 still owed, the row simply has no path. If none is owed, the row states
 `current_gui.owed: false` with a `basis` naming a source file and the symbol in it, and a
 `justification` — and the coverage gate refuses the claim otherwise, including when the row

@@ -416,6 +416,72 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-40 — the gateway family's citations are named, and the patcher that did it destroyed evidence while doing so
+
+Citations naming no test file: **150** (was 166 — 17 replaced, 1 restored). Of those 150,
+**142 name no file at all**; the other 8 name a source file deliberately. Surfaces owed and
+every other axis are unchanged at 18 / 0 / 42: nothing shipped to a screen.
+
+Both gateway test files were read in full before anything was rewritten —
+`packages/ui/src/lib/nnd/__tests__/native-gateway.test.ts` and
+`packages/ui/src/components/settings/__tests__/native-gateway-timeout.test.tsx` — and the
+prose they replaced was accurate. What changed is that each of the eight rows now carries a
+pair of citations naming the file and the specific assertion, rather than two family-wide
+sentences that seventeen rows shared:
+
+- `enabled`: the parser refuses `enabled: 'yes'`; the page says *Gateway is enabled* from the
+  served view, not from the draft being edited.
+- `token`: a response carrying `token: 'PRIVATE'` is parsed and the serialised result is
+  asserted not to contain `PRIVATE`, on the view path and the receipt path; the page's replace
+  control is a password input that starts empty, the typed token is absent from the text after
+  preview *and* after save, and a polling-only save carries no `token` key.
+- `authorized_user_ids`: a hex id is refused by the parser; `authorize` rejects a non-numeric,
+  a zero, a leading-zero id and a missing one; the local mirror reproduces NNA's lexicographic
+  ordering; on the page, `abc` leaves **Add** disabled so an invalid grant never becomes a request.
+- `workspace_root`: reads mirror the projector bound rather than the setter — a relative path
+  and an empty string parse, 4097 characters does not — and a workspace long enough to push the
+  request past 4096 bytes still round-trips; the page refuses a relative workspace as outside
+  the bounded grammar *and* asserts no preview request was sent.
+- `polling_timeout_seconds`: 51 seconds is refused while **reading**, and the save body is
+  asserted to be the exact compare-and-set request carrying that one operation and both revisions.
+- `updated_at`: the stamp parser mirrors the projector's bound rather than stricter ISO grammar,
+  accepting a compact stamp and refusing one with a stray character; the page shows the stamp or
+  says `not recorded`.
+- `token_env` and `version` likewise name their own assertions.
+
+**Then the part that matters more than the improvement.** The patcher decided which citations
+to keep by asking whether each named a `.test.` file — and on `gateway:version` that discarded
+a citation written in `20261007-34`, which named two source files and recorded that
+`native-gateway-timeout.tsx` contains no reference to `version` at all. That citation was not
+weak prose; it was the *absence proof* behind the honest refusal to credit that row, and a tool
+whose job was to strengthen evidence deleted it because its filter was written to recognise
+only one kind of evidence.
+
+It was caught by a second probe added for exactly this purpose — `probe-citation-diff.mjs`,
+which compares a patcher's own backup against the result and prints every citation that
+disappeared — and the claim was **re-read before being restored**: the page still has no
+occurrence of `version`. The citation is back with that re-check noted. The same probe was run
+against the hooks patcher from `20261007-37`, which destroyed nothing: everything it removed
+was prose that its own new citations superseded.
+
+The rule now: **a patcher may add citations and may replace prose, but it may not drop a
+citation that names a file.** Where a filter looks like it will drop one, the diff probe runs
+before the commit, and an absence proof is worth more than a tidy metric.
+
+Because that restore raised the flagged count from 149 to 150, the count itself was worth
+examining. It has always counted citations **naming no test file**, while the probe printed the
+words "naming no file" — the number I have been reporting matched the intent in the ledger
+entries, but the tool's own label has been wrong since it was written. Splitting them gives the
+honest shape: **150 name no test file, of which 142 name no file at all**, and those 142 are
+the real burn-down list — `compatibility_service` 14, `update_state` 14, `secret_action` 14,
+`environment` 14, `web_search_action` 13, `gateway_action` 13, `web_search` 12,
+`compatibility_service_action` 12, `secrets` 12, then `web_fetch`, `trust` and `nnd_package_action`
+at 6 each. The 8 deliberately source-only citations are not defects and are not "fixed".
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 150 (no file at all 142);
+installed evidence 0 of 371; verified rows with no recorded examination 0.
+
 ## NND 20261007-39 — a census row had been citing a refusal that neither repository tested
 
 Surfaces owed: **19 → 18**. Rows with an evidenced no-surface disposition: **6 → 7**.
