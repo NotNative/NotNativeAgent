@@ -416,6 +416,46 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-42 — update_state citations named, and the round includes a citation I had to take back
+
+Citations naming no test file: **136 → 122**; naming no file at all: **128 → 114**. Eight rows
+rewritten, fourteen prose citations replaced, **eight file-naming citations kept** — including the
+`update_state:format` source citation, which the diff probe confirms survived. No other axis
+moves: owed 18, dispositions 7, unverified surface 0, unverified class 42, installed evidence 0.
+
+`packages/ui/src/lib/nnd/__tests__/update-state.test.ts` and the page suite were read in full. The
+citations now say what those files do: a recorded state at format 2 is refused while format 1 is
+rebuilt rather than echoed; an offset timestamp is kept as served instead of rewritten to UTC and
+a stamp naming a thirteenth month is refused; `status: 'paused'` is outside the served grammar
+while `unavailable` parses with its error code; a `v`-prefixed version is accepted where the
+native validator accepts one and a plain build stamp survives the rebuild; a forty-character
+value that is not hexadecimal is refused, so the commit the page prints is constrained to the
+shape of one; the catalog's eight paths are pinned in served order and a catalog carrying only the
+first seven is refused, as is one that declares a generated field editable or reclassifies
+`checked_at` as an operator setting. On the page: the table is counted at six lines for the six
+fields an operator actually reads; an unrecorded tag reads `unknown` rather than a blank cell; a
+failed check shows `unavailable` with `update_check_timeout` and **still reads as a recorded
+check** rather than as nothing having happened; and a catalog that suddenly claims editability
+renders nothing at all.
+
+**The part worth recording is the mistake.** The citation I wrote for `update_state:latest_tag`
+claimed the parser "accepts brief values carrying punctuation where the native grammar allows
+them". The test file's *comment* says that; its assertions do not — they cover a `v`-prefixed
+version and an offset timestamp, never the tag. I had spent two rounds telling other people's
+citations that a claim must be checked against what a test actually asserts, then wrote one
+sourced from a comment. It is replaced with what the file really shows — the tag rides through the
+rebuild in the parser's fixed key order, and a failed record with a null version and a null sha
+parses rather than being rejected — and the row's note says the first draft overstated it.
+
+The correction landed before the seal, so nothing false was sealed; the record of it lives here
+rather than in a silent amendment. The lesson is specific: **a comment in a test file is not
+evidence of an assertion.** When writing a citation, the sentence must come from an `expect`, not
+from the prose above it.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 122 of 636 (no file at all 114);
+installed evidence 0 of 371; verified rows with no recorded examination 0.
+
 ## NND 20261007-41 — the burn-down gets a rule and a tool, and the mistake it exists to prevent does not repeat
 
 Citations naming no test file: **150 → 136**; of those, naming no file at all: **142 → 128**.

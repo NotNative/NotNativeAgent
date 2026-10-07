@@ -3,6 +3,28 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · update_state named — including a citation I had to retract · NND 20261007-42
+
+**No-test 136 → 122; no-file-at-all 128 → 114.** 8 rows, 14 prose replaced, **8 file-naming
+citations kept** (`update_state:format`'s source proof survived — diff probe confirms).
+
+Both suites read in full first. New citations quote real assertions: format 2 refused while format
+1 is *rebuilt not echoed*; offset timestamps kept as served (no UTC rewrite) and month 13 refused;
+`status: 'paused'` refused, `unavailable` parses with its code; `v`-prefixed versions accepted;
+a 40-char non-hex value refused; the catalog's 8 paths pinned in order, refusing a 7-field catalog,
+a generated field declared editable, and `checked_at` reclassified as an operator setting. Page:
+table counted at **6 lines** for the 6 readable fields; unrecorded tag reads `unknown`, not blank;
+a failed check shows `unavailable` + `update_check_timeout` and **still reads as recorded**; a
+catalog claiming editability renders **nothing**.
+
+**My error:** the `latest_tag` citation claimed the parser "accepts brief values carrying
+punctuation where the native grammar allows them" — that's the test file's *comment*, not an
+assertion (it asserts a `v`-prefixed version and an offset timestamp; never the tag). After two
+rounds of insisting citations come from assertions, I wrote one from a comment. Replaced with what
+the file shows, row note says the first draft overstated it, **fixed before the seal** so nothing
+false was sealed. Rule: *a comment in a test file is not evidence of an assertion* — the sentence
+must come from an `expect`.
+
 ## 2026-10-07 · Burn-down gets a rule and a tool; last round's mistake does not repeat · NND 20261007-41
 
 **No-test citations 150 → 136; no-file-at-all 142 → 128.** 7 rows rewritten, 14 prose citations

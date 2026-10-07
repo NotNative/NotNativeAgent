@@ -12232,11 +12232,13 @@
      "readUpdateState"
     ],
     "tests_run": [
-     "packages/ui/src/lib/nnd/update-state.ts refuses a recorded state whose format is not 1 and rebuilds it as format 1, and the page renders checked_at, status and the latest version but not the format; packages/ui/src/components/settings/pages/native-update-state.tsx contains no reference to .format at all"
+     "packages/ui/src/lib/nnd/update-state.ts refuses a recorded state whose format is not 1 and rebuilds it as format 1, and the page renders checked_at, status and the latest version but not the format; packages/ui/src/components/settings/pages/native-update-state.tsx contains no reference to .format at all",
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: a recorded state carrying format 2 is refused outright, while the served record at format 1 is rebuilt rather than echoed",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the rendered table is counted at six lines for the six fields an operator reads, and the store format is not among them"
     ],
     "installed_journey": null
    },
-   "notes": "Left open 20261007-15 on purpose: the store format is never displayed. The client refuses any record whose format is not the one it understands, so a wrong format surfaces as the honest 'could not be read in the expected shape' sentence with no values at all, which is validation rather than a surface for the field. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check."
+   "notes": "Left open 20261007-15 on purpose: the store format is never displayed. The client refuses any record whose format is not the one it understands, so a wrong format surfaces as the honest 'could not be read in the expected shape' sentence with no values at all, which is validation rather than a surface for the field. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-38: the census now says plainly that no desktop surface is owed here, with the guard and the drift test that prove the value cannot vary, instead of leaving the row in the count of surfaces still to build. The release gate refuses this shape unless the basis names a source file and symbol and the justification is long enough to check. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "update_state:checked_at",
@@ -12277,12 +12279,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: an offset timestamp is kept exactly as served rather than rewritten to UTC, and a stamp naming a thirteenth month is refused",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the check time has its own line and reads the served stamp verbatim"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Checked at line, showing the stored timestamp verbatim. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Checked at line, showing the stored timestamp verbatim. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "update_state:status",
@@ -12323,12 +12325,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: a recorded state with status unavailable parses with its error code, while a status of paused is refused as outside the served grammar",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the status line reads ready for a good check and unavailable for a failed one, and a failed check still reads as recorded rather than as nothing having happened"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Status line, showing the recorded status verbatim. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Status line, showing the recorded status verbatim. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "update_state:latest_version",
@@ -12369,12 +12371,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: a v-prefixed version is accepted as the native validator would accept it and a plain build stamp survives the rebuild unchanged, while an unavailable check may carry no version at all",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the latest line shows the served build stamp, and when the check failed with no version it reads unknown instead of an empty cell"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Latest version line, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Latest version line, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "update_state:latest_ref",
@@ -12415,12 +12417,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: the record is rebuilt in a fixed key order that carries the ref, and the catalog parse pins the eight served field paths in order and refuses a catalog carrying only the first seven",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the ref has its own line and reads main from the served record"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Release ref line added 20261007-15, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Release ref line added 20261007-15, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "update_state:latest_tag",
@@ -12461,12 +12463,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: the tag rides through the rebuild in the fixed key order the parser writes, and a failed record whose version and sha are both null parses rather than being rejected, so an absent value is not treated as damage",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: an unrecorded tag reads unknown rather than a blank cell, and a recorded tag shows the tag itself"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Release tag line added 20261007-15, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Release tag line added 20261007-15, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out. Citation tightened 20261007-42: the first draft of it claimed the parser accepts punctuation-bearing brief values, which this file does not assert about the tag."
   },
   {
    "id": "update_state:latest_sha",
@@ -12507,12 +12509,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: a forty-character value that is not hexadecimal is refused, so the commit the page prints is constrained to the shape of one",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the sha line shows the served forty-character value in full"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Release digest line, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Release digest line, reading unknown when the check recorded none. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "update_state:error_code",
@@ -12553,12 +12555,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-update-state-route.test.js (store read projects the eight census fields, drift refuses, HTTP serves the record, honest absence, and the read-only catalog)",
-     "packages/ui update-state parser tests (record rebuild in fixed order, unknown keys dropped, hostile drift including a format other than 1)",
-     "packages/ui native-update-state page tests (every served line, recorded failure with its error code, honest absence, catalog drift rendering nothing, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: a failed check parses with its error code preserved, and a record without one keeps it null rather than substituting a word",
+     "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: a recorded failure shows its code update_check_timeout on its own line while the panel still says a check was recorded, and a catalog that suddenly claims editability renders nothing rather than the values it has"
     ],
     "installed_journey": null
    },
-   "notes": "Closed 20261007-15 on evidence: the Last error line, present only when the last check recorded a code. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts."
+   "notes": "Closed 20261007-15 on evidence: the Last error line, present only when the last check recorded a code. The value is written by the update worker, never by this surface: the native catalog states every one of the eight fields as generated state that cannot be edited here, and the page refuses to render anything if that catalog drifts. Rewritten 20261007-42 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "installation:product",
