@@ -164,6 +164,38 @@ test('a user manifest carrying a mission block is refused before validation orde
     && !JSON.stringify(error).includes('2026-10-08'));
 });
 
+test('the recovery family serves the documented ladder truncation and refuses bad budgets', () => {
+  // src/configuration-rules.js: max_model_steps 16..100_000 default 1024,
+  // local_retry_limit 2..5 default 3, turn_wall_clock_ms 1_000..86_400_000
+  // with null and 0 meaning unset. src/config.js:validateRecovery slices
+  // the ladder to local_retry_limit - 1 steps.
+  const bare = projectNndConfigurationView(snapshot());
+  assert.deepEqual(row(bare, 'recovery.max_model_steps').effective,
+    { present: true, value: 1024, source: 'compiled_default' });
+  assert.deepEqual(row(bare, 'recovery.local_retry_limit').effective,
+    { present: true, value: 3, source: 'compiled_default' });
+  assert.deepEqual(row(bare, 'recovery.turn_wall_clock_ms').effective,
+    { present: true, value: null, source: 'compiled_default' });
+  assert.deepEqual(row(bare, 'recovery.ladder').effective,
+    { present: true, value: ['nudge', 'compact'], source_unavailable: true },
+    'the default ladder is truncated to the default limit minus one');
+  const mine = projectNndConfigurationView(snapshot({ recovery: { max_model_steps: 64, local_retry_limit: 5,
+    turn_wall_clock_ms: 300_000, ladder: ['nudge', 'compact', 'compact', 'compact'] } }));
+  assert.deepEqual(row(mine, 'recovery.max_model_steps').effective, { present: true, value: 64, source: 'user' });
+  assert.deepEqual(row(mine, 'recovery.turn_wall_clock_ms').explicit, { present: true, value: 300_000 });
+  assert.deepEqual(row(mine, 'recovery.ladder').explicit?.value, ['nudge', 'compact', 'compact', 'compact']);
+  const tighter = projectNndConfigurationView(snapshot({ recovery: { local_retry_limit: 3,
+    ladder: ['nudge', 'compact', 'compact', 'compact'] } }));
+  assert.deepEqual(row(tighter, 'recovery.ladder').effective?.value, ['nudge', 'compact'],
+    'an explicit ladder longer than the limit minus one is truncated');
+  for (const bad of [{ ladder: ['nudge'] }, { ladder: ['explode'] }]) {
+    assert.throws(() => snapshot({ recovery: bad }), (error) => error.code === 'recovery_config_invalid', JSON.stringify(bad));
+  }
+  for (const bad of [{ local_retry_limit: 9 }, { turn_wall_clock_ms: 5 }]) {
+    assert.throws(() => snapshot({ recovery: bad }), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
+  }
+});
+
 test('the memory family serves user values, the documented defaults, and refuses out-of-range bounds', () => {
   // Bounds come from src/configuration-rules.js: timeout_ms 50..30_000,
   // max_items 1..64, max_bytes 1_024..262_144; enabled is opt-out and
