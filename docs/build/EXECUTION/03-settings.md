@@ -1120,6 +1120,13 @@ work not done. When a value could vary on the wire but NNA discards the fact (th
 document's legacy shape, for instance, is folded into version 2 at load), the row stays owed:
 needing to build something is a reason to owe a surface, not to cancel one.
 
+Where the justification is a **refusal**, the refusal belongs to both sides of the boundary and
+has to be tested on both: the side that produces the value and the side that reads it. A basis
+naming one guard and one test can pass the gate while describing half a contract. The
+web-search profile provider row carried a note citing a native `throw` for a long time before
+anybody noticed that neither repository had a test feeding it a provider that was not SearXNG;
+the disposition went on only after NNA `7e108cf7` and the desktop test in `20261007-38` existed.
+
 ### C7 — Coverage and installed acceptance gate
 
 Dependency: C4–C6. Run the key-to-control-to-native-effect coverage report

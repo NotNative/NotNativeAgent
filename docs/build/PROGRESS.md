@@ -3,6 +3,27 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · A census row was citing a refusal nobody had ever tested · NND 20261007-39
+
+**Owed 19 → 18; evidenced dispositions 6 → 7.** One row moved; the test went into **NNA**.
+
+`web_search:profiles[*].provider` had said for ages: no control, because NNA refuses every
+non-SearXNG provider and the client refuses to parse one. True of the code — and **untested in
+either repository**. The citation pointed at a `throw` and asked to be believed.
+
+Native half now proved (`test/web-search.test.js`, NNA `7e108cf7`): v1 root `provider: 'brave'`
+refused, v2 profile `provider: 'SearXNG'` refused, and — the case a reader of the `throw` alone
+gets wrong — **omitting** `provider` isn't a refusal, it's the default, written out explicitly on
+the way back. Desktop half was proved in `-38`.
+
+**The row only got `owed:false` after both halves were tested.** The gate can't tell a one-sided
+basis from a two-sided one, so the ordering is the control: *when the justification is a refusal,
+prove it on the side that produces the value and the side that reads it.* Written into 03-settings.
+
+**No NNA version bump** — test-only, contract unchanged, and five commits in NNA's history
+(`3ab03ea9`..`e0fc314a`) set that precedent. Minting a build number no operator can distinguish is
+exactly how this ledger's phantom versions got made; we already paid for that once.
+
 ## 2026-10-07 · The headline splits into "owed" and "not owed", and the gate decides which is which · NND 20261007-38
 
 **Ruler change, disclosed up front: nothing appeared on a screen this round.** Surfaces owed

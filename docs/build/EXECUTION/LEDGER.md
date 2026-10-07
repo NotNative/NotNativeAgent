@@ -416,6 +416,45 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-39 — a census row had been citing a refusal that neither repository tested
+
+Surfaces owed: **19 → 18**. Rows with an evidenced no-surface disposition: **6 → 7**.
+One row moved, one test was added, and it was added to NNA.
+
+`web_search:profiles[*].provider` is the row. Its note said, since well before this ledger
+started keeping scores, that no control exists because the field has exactly one legal value:
+NNA refuses any other provider with `web_search_provider_invalid`, and the desktop client
+refuses to parse a profile whose provider is not `searxng`. That sentence is true of the code.
+It was also, until this round, **untested in either repository**: no test had ever handed a
+non-SearXNG provider to `normalizeProfile`, to `legacyProfiles`, or to the client parser. A
+citation is supposed to be the thing an auditor can open; this one pointed at a `throw`
+statement and asked to be believed.
+
+The desktop half got its test in `20261007-38`. The native half is `test/web-search.test.js`
+at NNA commit `7e108cf7`, which covers all three cases rather than only the convenient two:
+a version-1 document naming `brave` at the root is refused, a version-2 profile naming
+`SearXNG` in the wrong case is refused, and — the part a reader of the `throw` alone would get
+wrong — **omitting** `provider` is not a refusal at all, it is the default, and the profile
+comes back carrying `provider: 'searxng'` explicitly.
+
+Only after both halves were tested did the row receive `current_gui.owed: false`, and its
+`basis` names both ends, so the claim can be walked from the seal to a test in each repository.
+That ordering matters more than the number: had I written the disposition last round, the
+evidence would have covered one boundary out of two, and the gate would have waved it through
+because it cannot tell a one-sided basis from a two-sided one. **Where a justification is a
+refusal, the refusal has to be proved on the side that produces the value as well as the side
+that reads it** — recorded in 03-settings so the standard is not quietly one-sided again.
+
+**NNA did not get a version for this.** The commit is test-only, the shipped contract is
+unchanged, and five commits in NNA's own history (`3ab03ea9` through `e0fc314a`) are test-only
+commits that carry no version bump. Inventing a new NNA build number that no operator can
+distinguish from the previous one is how the phantom versions in this ledger came to exist in
+the first place, and this project has already paid for that once.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; unnamed citations 166 of 632; installed evidence 0 of 371;
+verified rows with no recorded examination 0.
+
 ## NND 20261007-38 — the headline changes meaning: six rows say plainly that no surface is owed, and the gate decides whether they may
 
 **This entry moves the ruler, not the work.** Nothing new appeared on a screen this round.

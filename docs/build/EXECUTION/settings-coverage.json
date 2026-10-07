@@ -10639,9 +10639,11 @@
    "native_endpoint": "GET /v1/nnd/configuration/web-search; POST /v1/nnd/configuration/web-search/preview; POST /v1/nnd/configuration/web-search/save; GET /v1/nnd/configuration/web-search/operations/:id",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
    "current_gui": {
-    "product": "NND",
     "path": null,
-    "status": "unverified"
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/web-search-config.js:normalizeProfile and src/web-search-config.js:legacyProfiles throw web_search_provider_invalid for any other provider, proved by NNA test test/web-search.test.js at commit 7e108cf7; packages/ui src/lib/nnd/web-search.ts:parseProfile refuses a profile whose provider is not searxng, proved by packages/ui src/lib/nnd/__tests__/web-search.test.ts with six drifted values",
+    "justification": "The field has one legal value on both sides of the boundary and neither side accepts anything else, so no installed pair can differ here and a control would have one option to offer. The page shows the endpoint, the display name and the managed flag, which are the profile fields that actually differ."
    },
    "sensitivity": "unverified",
    "work_package": "C1",
@@ -10653,11 +10655,13 @@
      "normalizeWebSearchConfig"
     ],
     "tests_run": [
-     "packages/ui/src/lib/nnd/web-search.ts refuses any profile whose provider is not the single admitted value and returns the pinned value, so the field is enforced rather than displayed; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .provider at all"
+     "packages/ui/src/lib/nnd/web-search.ts refuses any profile whose provider is not the single admitted value and returns the pinned value, so the field is enforced rather than displayed; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .provider at all",
+     "src/web-search-config.js web-search provider refusal, proved at NNA test/web-search.test.js (only SearXNG is an admissible WebSearch provider, at either document shape): a version-1 document naming brave at the root and a version-2 profile naming SearXNG with the wrong case are both refused, while an omitted provider normalizes to searxng rather than throwing",
+     "packages/ui src/lib/nnd/__tests__/web-search.test.ts: refuses a profile that names any provider other than the one NNA supports, across six drifted values, and asserts the parser can only ever emit searxng"
     ],
     "installed_journey": null
    },
-   "notes": " Left open 20261007-17 on purpose: the field has exactly one legal value. NNA refuses any other provider with web_search_provider_invalid and the desktop client refuses to parse a profile whose provider is not searxng, so it is enforced rather than displayed; the page states in prose that WebSearch runs over SearXNG instances, and printing one invariant value on every row would be decoration, not coverage. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read."
+   "notes": " Left open 20261007-17 on purpose: the field has exactly one legal value. NNA refuses any other provider with web_search_provider_invalid and the desktop client refuses to parse a profile whose provider is not searxng, so it is enforced rather than displayed; the page states in prose that WebSearch runs over SearXNG instances, and printing one invariant value on every row would be decoration, not coverage. Corrected 20261007-34: the page named here is the family page, not a surface for this field. The census already shows what a verified version field looks like — the hook list prints v followed by the bundle version, the skills list prints the entry version in parentheses, and the installation panel prints the descriptor version with a test asserting it. None of those three pages was invented; this one was credited without the field being rendered. Removing the path raises the count of rows without a desktop surface, which is the point: the previous number counted a family page as a surface for every field in the family. Rendering the revision stamp would close it honestly and is not worth doing, because the value exists to make a concurrent write fail loudly rather than to be read. Disposition recorded 20261007-39, and only now: the census note had cited a refusal that neither repository tested until this round. The native side is proved by NNA commit 7e108cf7 and the desktop side by the test added in 20261007-38, so the single-legal-value claim is now checked at both ends instead of read off the source."
   },
   {
    "id": "web_search:profiles[*].endpoint",
