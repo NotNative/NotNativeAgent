@@ -5,6 +5,7 @@ import { resolveConfiguration } from '../src/configuration-sources.js';
 import { NND_CONFIGURATION_OPTIONS } from '../src/nnd-configuration-sources.js';
 import { projectNndConfigurationView } from '../src/nnd-configuration-view.js';
 import { validateDream } from '../src/dream-config.js';
+import { NND_CONFIGURATION_EDITABLE_FIELDS, NND_ROUTE_BINDING_FIELDS, normalizeNndConfigurationOperations } from '../src/nnd-configuration-intents.js';
 
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 function snapshot(raw = {}) {
@@ -352,4 +353,78 @@ test('the manifest scalars serve their native defaults, derived provenance, and 
   }
   assert.throws(() => snapshot({ context_compression_threshold: 0.8, context_compression_level_2_threshold: 0.5 }),
     (error) => error.code === 'context_thresholds_invalid', 'the ordered thresholds must stay ordered');
+});
+
+test('the route family serves inherited bindings, canonical zeros, and its own availability gate', () => {
+  const roles = ['primary', 'reviewer', 'subagent', 'vision'];
+  const keys = ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
+    'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking'];
+  const bare = projectNndConfigurationView(snapshot());
+  for (const role of roles) {
+    for (const key of keys) {
+      assert.ok(row(bare, `routes.${role}.${key}`), `routes.${role}.${key} is not served`);
+    }
+    // Only the primary route states its own layer; the others inherit from it,
+    // so the view refuses to name a source it did not observe.
+    const inherited = role === 'primary' ? { source: 'compiled_default' } : { source_unavailable: true };
+    assert.deepEqual(row(bare, `routes.${role}.provider_id`).effective, { present: true, value: 'local', ...inherited });
+    assert.deepEqual(row(bare, `routes.${role}.model`).effective, { present: true, value: 'base', ...inherited });
+    // Every route deadline is derived from the provider timeout, so it is
+    // never attributable to a layer, and unset route limits stay null.
+    assert.deepEqual(row(bare, `routes.${role}.deadline_ms`).effective,
+      { present: true, value: 1_800_000, source_unavailable: true });
+    assert.deepEqual(row(bare, `routes.${role}.context_limit_bytes`).effective,
+      { present: true, value: null, source_unavailable: true });
+    assert.deepEqual(row(bare, `routes.${role}.fallbacks`).effective,
+      { present: true, value: [], source_unavailable: true });
+    for (const key of ['temperature', 'max_output_tokens', 'budget', 'reasoning_effort', 'enable_thinking']) {
+      assert.deepEqual(row(bare, `routes.${role}.${key}`).effective,
+        { present: true, value: null, source: 'compiled_default' }, `routes.${role}.${key}`);
+    }
+  }
+  const mine = projectNndConfigurationView(snapshot({ routes: { reviewer: {
+    provider_id: 'local', model: 'rev', temperature: 0.5, budget: 2, deadline_ms: 0, max_output_tokens: 0 } } }));
+  for (const [path, value] of [['routes.reviewer.provider_id', 'local'], ['routes.reviewer.model', 'rev'],
+    ['routes.reviewer.temperature', 0.5], ['routes.reviewer.budget', 2]]) {
+    assert.deepEqual(row(mine, path).explicit, { present: true, value }, path);
+    assert.equal(row(mine, path).effective.value, value, path);
+    assert.equal(row(mine, path).effective.source, 'user', path);
+  }
+  // Zero is canonical for a deadline and means unset for the two optional
+  // limits: the saved document keeps the operator's zero, the effective
+  // value is null.
+  for (const key of ['deadline_ms', 'max_output_tokens']) {
+    const path = `routes.reviewer.${key}`;
+    assert.deepEqual(row(mine, path).explicit, { present: true, value: 0 }, path);
+    assert.deepEqual(row(mine, path).effective, { present: true, value: null, source: 'user' }, path);
+  }
+  for (const bad of [{ routes: { reviewer: { temperature: 3 } } }, { routes: { reviewer: { deadline_ms: 50 } } },
+    { routes: { reviewer: { context_limit_bytes: 1_000 } } }]) {
+    assert.throws(() => snapshot(bad), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
+  }
+  // NNA's own gate decides which route rows a surface may offer: 36 typed
+  // scalars plus the reviewer/vision provider-and-model pair, and nothing
+  // else — the primary and subagent bindings and the four route objects are
+  // not editable through the configuration contract.
+  const generic = new Set(NND_CONFIGURATION_EDITABLE_FIELDS);
+  const binding = new Set(NND_ROUTE_BINDING_FIELDS);
+  const offered = [];
+  const refused = [];
+  for (const role of roles) {
+    for (const key of keys) {
+      const path = `routes.${role}.${key}`;
+      (generic.has(path) || binding.has(path) ? offered : refused).push(path);
+    }
+    if (!generic.has(`routes.${role}`) && !binding.has(`routes.${role}`)) refused.push(`routes.${role}`);
+  }
+  assert.equal(offered.length, 40, 'route rows offered for editing');
+  assert.equal(offered.filter(path => !binding.has(path)).length, 36, 'typed route scalars offered');
+  assert.deepEqual(binding, new Set(['routes.reviewer.provider_id', 'routes.reviewer.model',
+    'routes.vision.provider_id', 'routes.vision.model']));
+  assert.deepEqual(refused.sort(), ['routes.primary', 'routes.primary.model', 'routes.primary.provider_id',
+    'routes.reviewer', 'routes.subagent', 'routes.subagent.model', 'routes.subagent.provider_id',
+    'routes.vision'].sort());
+  assert.throws(() => normalizeNndConfigurationOperations([
+    { op: 'bind_route', role: 'primary', provider_id: 'local', model: 'x' }]),
+    () => true, 'only the reviewer and vision routes may be rebound');
 });
