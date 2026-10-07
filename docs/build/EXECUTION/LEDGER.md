@@ -416,6 +416,37 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-54 — the trust family cites both desktop suites trace by trace
+
+Citations naming no test file: **27 → 21**; naming no file at all: **18 → 12**. Three rows rewritten
+(`version`, `workspaces[*].root`, `workspaces[*].trustedAt`), six prose citations replaced, **four
+file-naming citations kept** — three naming NNA's trust route suite (grants, lists, revokes, the
+projection's refusal of factory drift and identity lies, lock contention as 409) and one being the
+desktop absence pin. Axes otherwise unchanged: owed 14, dispositions 11, unverified class 38,
+installed 0 of 371, paths 346 of 346.
+
+Both cited suites were read in full this round. The client
+(`packages/ui/src/lib/nnd/__tests__/trust.test.ts`) opens its hostile list with the served list
+rewritten at version 2, rebuilds the granted list with each workspace carrying exactly `root` and
+`trusted_at`, echoes the canonical root from a grant receipt while refusing a replayed receipt whose
+operation mismatches, and runs the catalog drift loop in both directions — the version field recast
+as an editable authority grant is refused, and so is the root field losing its revoke operation or
+drifting its required permission. The page
+(`packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx`) renders the canonical
+root verbatim with the grant-written stamp inside the same row, grants and revokes through the
+native surface showing the receipt words, prints the honest empty list, surfaces `unreadable` and
+`does not exist` store refusals rather than inventing states, pauses signed-out without lying about
+trust, and recovers with exactly one fresh read when the session returns.
+
+No production file changed, so the suites were not re-run and that is stated rather than assumed.
+The kept absence pin was re-verified against the live sources:
+`trust-workspaces.tsx` still contains no reference to the store version, and `trust.ts` still
+refuses a list not stamped version 1 before reading the workspaces.
+
+After this round: rows 371; surfaces owed 14; not owed with evidence 11 (unevidenced 0); unverified
+application class 38; citations naming no test file 21 of 678 (no file at all 12); installed
+evidence 0 of 371.
+
 ## NND 20261007-53 — the web_fetch family's two desktop suites are cited trace by trace
 
 Citations naming no test file: **33 → 27**; naming no file at all: **24 → 18**. Three rows rewritten

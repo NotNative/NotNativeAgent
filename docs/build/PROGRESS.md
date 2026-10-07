@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · trust family cited trace by trace; no-test 27 → 21 · NND 20261007-54
+
+Three rows rewritten (6 out, 4 kept; no-file **18 → 12**). Version refusal, exact key sets, receipt
+replay and catalog drift cited from `trust.test.ts`; canonical root, per-row stamp, revoke control,
+honest refusals and the signed-out pause cited from `trust-workspaces.test.tsx`. No production or
+test file changed — suites deliberately not re-run; absence pin re-verified live
+(`trust-workspaces.tsx` never reads the version; `trust.ts` refuses ≠ 1).
+
 ## 2026-10-07 · web_fetch cited trace by trace; no-test 33 → 27 · NND 20261007-53
 
 Three rows rewritten (6 out, 10 kept; no-file **24 → 18**). Both desktop suites read in full; every
