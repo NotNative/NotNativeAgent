@@ -416,6 +416,36 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-22 — six secrets rows close, and a page is caught promising more than it shows
+
+Six more rows closed, unverified classes 79 → 73, but this slice found something
+the census itself could never have found. The secrets page states plainly that the
+roster shows each record's field names and public metadata. It did not. The line it
+rendered printed a **count** of fields and no metadata whatsoever — so two census
+rows were claimed against a surface that did not display them, and because the
+pre-C1 pins cited no test, no check existed to notice the drift.
+
+That is the sharpest argument yet for why an unevidenced pin is not merely
+incomplete but actively dangerous: the table said "verified", the page's prose said
+the same, and the two appeared to corroborate each other while both described work
+nobody had checked. A coverage claim with a test behind it fails loudly when the
+UI changes; one without can sit there for months, getting trusted more precisely
+because the neighbouring sentence repeats it.
+
+The fix went toward the truth rather than toward the metric. The row now really does
+carry the field names and the metadata **names**, so the sentence above it stayed
+true instead of being quietly shaved down to match a thinner page. Values remain
+unrendered and are now asserted absent — a metadata key is safe to list, its
+contents are not this surface's business — and a record without a scope says
+`unscoped` instead of going quiet. All six take NNA's `next_secret_use`; nothing
+here is editable, since creating, rotating, enabling and deleting belong to the
+broker, and the sensitivity NNA set stays `secret`.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified
+desktop surface: 12 (unchanged — the two rows that were not rendered are rendered
+now, rather than being downgraded). Rows declaring an unverified application class:
+79 → 73.
+
 ## NND 20261007-21 — workspace trust closes, and two louder claims are declined
 
 `workspaces[*].root` is closed: every trusted root is a row asserted by its own

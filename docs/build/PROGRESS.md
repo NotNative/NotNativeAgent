@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Six secrets rows close after the page is caught promising more than it shows · NND 20261007-22
+
+The secrets page says the roster shows field names and public metadata. It didn't —
+the line printed a field **count** and no metadata, so two census rows were claimed
+against a surface that never displayed them, and with no test cited by the pre-C1
+pin, nothing could notice. It's the strongest case yet against an unevidenced pin:
+the table said "verified", the page's prose said the same, and the two looked like
+corroboration while both described unchecked work. The fix went toward truth rather
+than toward the metric — field names and metadata **names** now genuinely render and
+the sentence above them stayed true instead of being shaved to fit a thinner page.
+Values are asserted absent (a metadata key is safe to list; its contents are not this
+surface's business), and a scopeless record says `unscoped` rather than going quiet.
+Unverified class 79 → 73; surface axes unchanged, since the two unrendered rows are
+now rendered instead of being downgraded.
+
 ## 2026-10-07 · Workspace trust closes; two louder claims get declined · NND 20261007-21
 
 The grant row closed on the root itself — each trusted root a row asserted by its

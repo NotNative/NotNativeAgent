@@ -51,7 +51,8 @@ export function SecretsMetadataSettings(): ReactNode {
       <button type="button" className={BUTTON} onClick={load} disabled={disabled}>Refresh</button>
     </div>
     <p className="text-xs">NNA stores secret values encrypted in its vault; this roster shows only the redaction-safe
-      metadata each record carries — label, kind, ownership scope, public metadata, FIELD NAMES, and enabled state.
+      metadata each record carries — label, kind, ownership scope, the NAMES of its public
+      metadata, FIELD NAMES, and enabled state.
       Values and encrypted material never render here, and nothing is written: creating, rotating, renaming,
       enabling, or deleting a secret stays on the native secret broker's own surfaces. Inspecting needs
       nnd.configuration.read.</p>
@@ -63,11 +64,12 @@ export function SecretsMetadataSettings(): ReactNode {
       <p className="text-xs" data-testid="secrets-status">Selected installation: {view.installation_id} · data:
         {' '}{view.data_id} · vault: {view.source_state} · records: {view.count}</p>
       <ul className="text-xs" data-testid="secrets-list">
-        {view.secrets.map(item => <li key={item.id}>
-          {item.label} · {item.kind} · {item.enabled ? 'enabled' : 'disabled'} ·
-          {' '}fields {item.fields.length} {item.scope ? `· scope ${item.scope.kind}:${item.scope.id}` : ''} ·
-          {' '}updated {item.updated_at}
-        </li>)}
+        {view.secrets.map(item => <li key={item.id}>{[
+          item.label, item.kind, item.enabled ? 'enabled' : 'disabled',
+          `fields ${item.fields.join(', ') || 'none'}`,
+          `metadata ${Object.keys(item.metadata).sort().join(', ') || 'none'}`,
+          item.scope ? `scope ${item.scope.kind}:${item.scope.id}` : 'unscoped',
+          `updated ${item.updated_at}`].join(' · ')}</li>)}
       </ul>
     </> : null}
   </SettingsSection>;

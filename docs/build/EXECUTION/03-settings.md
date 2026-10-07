@@ -609,6 +609,17 @@ redaction-safe roster with the statement that values never render there and
 writes remain broker actions. Census rows updated in place; the `secret_action`
 mutations, compatibility lifecycle actions, and hooks stay open.
 
+The six metadata rows are now closed, and the slice caught a defect the census
+could not have: the page said it shows field names and public metadata, but the
+line it rendered printed a field **count** and no metadata at all. Two census rows
+were therefore claimed against a surface that did not display them — and the pins
+had cited no test, so nothing noticed. The row now carries the field names and the
+metadata **names** in full, with values asserted absent, because a metadata key is
+safe to list while its contents are not this surface's business; a record with no
+scope says `unscoped` rather than going quiet. All six take NNA's own
+`next_secret_use`, with the refusal to edit recorded as the broker's, and the
+sensitivity NNA set stays `secret`.
+
 Progress: at NNA `20261006-9` the six `compatibility_service_action` rows became
 the product's first operator-action surface at
 `/v1/nnd/configuration/compatibility-service/actions`, reusing

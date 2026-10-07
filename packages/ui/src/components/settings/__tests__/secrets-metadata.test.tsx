@@ -45,7 +45,9 @@ it('renders the roster honestly: absent vault, present records, vault damage sen
   const status = () => container.querySelector('[data-testid="secrets-status"]')?.textContent ?? '';
   expect(status()).toContain('vault: absent');
   expect(status()).toContain('records: 0');
-  // A real roster renders redaction-safe lines only: label · kind · enabled · field count.
+  // A real roster renders redaction-safe lines only: the record's own label, kind
+  // and enabled state, its field NAMES, its metadata NAMES (never values), its
+  // ownership scope, and the update stamp. Absence is spelled out, not left silent.
   fetchMock.mockImplementation((path: string) => path.endsWith('/configuration/secrets/catalog')
     ? Promise.resolve(jsonResponse(catalog()))
     : Promise.resolve(jsonResponse({ ...identity, source_state: 'present', count: 1,
@@ -54,7 +56,12 @@ it('renders the roster honestly: absent vault, present records, vault damage sen
   await act(async () => refresh.click()); await settle();
   expect(status()).toContain('records: 1');
   expect(container.querySelector('[data-testid="secrets-list"]')?.textContent)
-    .toContain('Registry credential · api_key · enabled · fields 1 · scope workspace:io');
+    .toContain('Registry credential · api_key · enabled · fields apikey · metadata region, team'
+      + ' · scope workspace:io · updated 2026-10-06T00:00:00.000Z');
+  // Metadata names are shown; metadata VALUES are not, and neither are secret values.
+  const listed = container.querySelector('[data-testid="secrets-list"]')?.textContent ?? '';
+  expect(listed).not.toContain('eu-1');
+  expect(listed).not.toContain('core');
   expect(JSON.stringify(fetchMock.mock.calls.map(call => call[1]?.body))).not.toContain('apikey:');
   // Vault damage shows the honest repair sentence instead of an empty roster.
   fetchMock.mockImplementation((path: string) => path.endsWith('/configuration/secrets/catalog')
