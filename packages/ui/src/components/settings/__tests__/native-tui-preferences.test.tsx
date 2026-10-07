@@ -5,12 +5,16 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { requestNativeConfiguration, type NativeConfigurationView } from '../../../lib/nnd/configuration.ts';
+import { updateDesktopSettings } from '../../../lib/settings/persistence.ts';
+import { useSettingsStore } from '../../../lib/settings/store.ts';
 import { nativeChange, previewNativeConfiguration, requestNativeConfigurationCatalog,
   saveNativeConfiguration, lookupNativeConfigurationOperation } from '../../../lib/nnd/configuration-mutation.ts';
 import { NativeConfigurationControls } from '../pages/native-configuration-controls.tsx';
 import { NativeTuiPreferencesPage } from '../pages/native-tui-preferences.tsx';
 
 vi.mock('../../../lib/nnd/configuration.ts', () => ({ requestNativeConfiguration: vi.fn() }));
+vi.mock('../../../lib/settings/persistence.ts', () => ({ onSettingsSynced: vi.fn(), loadDesktopSettings: vi.fn(async () => ({})),
+  updateDesktopSettings: vi.fn(), startSettingsSync: vi.fn(async () => ({})) }));
 vi.mock('../../../lib/runtime-switch.ts', async importOriginal => ({ ...(await importOriginal<object>()),
   getRuntimeKey: () => 'local' }));
 vi.mock('../../../lib/runtime-url.ts', async importOriginal => ({ ...(await importOriginal<object>()),
@@ -82,6 +86,29 @@ it('shows the native installation, data, and source revision before editing TUI 
   expect(container.textContent).toContain(view.installation_id);
   expect(container.textContent).toContain(view.data_id);
   expect(container.textContent).toContain(revision);
+});
+
+it('leaves NND shortcut overrides untouched across a full TUI save cycle', async () => {
+  vi.mocked(nativeChange).mockReturnValue(request);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: revision,
+    resolution_revision: resolution, application: 'not_applied', view });
+  vi.mocked(saveNativeConfiguration).mockResolvedValue({ installation_id: view.installation_id, data_id: view.data_id,
+    scope: 'user', operation_id: 'operation_1', persistence: 'saved', persisted_revision: 'c'.repeat(64),
+    before_revision: revision, application: 'not_applied', replayed: false });
+  useSettingsStore.setState({ doc: { shortcutOverrides: { 'chat.focusSearch': 'ctrl+k' } }, loading: false });
+  mount(); await act(async () => {});
+  await act(async () => { const select = container.querySelector('select')!; select.value = 'tui.key_bindings.submit';
+    select.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => { const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    setter.call(input, 'ctrl+x'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => button('Preview change').click());
+  await act(async () => button('Save to NNA').click());
+  expect(saveNativeConfiguration).toHaveBeenCalledTimes(1);
+  expect(container.textContent).toContain('saved');
+  expect(updateDesktopSettings).not.toHaveBeenCalled();
+  expect(useSettingsStore.getState().doc['shortcutOverrides']).toEqual({ 'chat.focusSearch': 'ctrl+k' });
+  expect(container.textContent).not.toContain('ctrl+k');
 });
 
 it('keeps an uncertain TUI save operation for receipt lookup instead of resubmitting', async () => {

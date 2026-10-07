@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The C6-exit audit closes the stage: residue is prose, not rows · NND 20261007-63
+
+Independent audit verdict: C6 exit criteria met standing (owed 0; honest
+missing-install guidance; native service lifecycle with retained failure
+evidence). Bookkeeping: C1/C2/C3/C6 ledger rows refreshed (C6 verified), aged
+guide-03 tails converted to dated hindsight, census header fixed from "all rows
+open" to live disposition state. One hardening test: a full TUI save cycle
+pins that the NND settings document — `shortcutOverrides` first of the profile
+keys — and its PUT bridge stay untouched. No census row changed; gate green at
+`surface_not_owed: 12`.
+
 ## 2026-10-07 · The mission grant disowns its surface; the census owes nothing · NND 20261007-61
 
 `manifest:mission` went `owed: false` on the guide's narrow rule — one legal value for this

@@ -44,7 +44,7 @@ Existing native review-mode, question, projection, goal-audit, walkthrough, noti
 
 Depends on: L service identity/activation, C configuration scopes. Unlocks F3, F4, F6, F8, F9.
 
-Targets: NND `packages/web/src/server/routes/projects.ts`, `routes/git-worktrees.ts`, `harness/nna-local.ts`, `packages/ui/src/sync/session-actions.ts`, `lib/nnd/client.ts`, `components/worktrees/WorktreesView.tsx`; NNA `src/nnd-harness-routes.js`, `nnd-engine-host.js`, `nnd-session-description.js`, and authenticated integration-principal/session-catalog code.
+Targets: NND `packages/web/src/server/routes/projects.ts`, `routes/git-worktrees.ts`, `harness/nna-local.ts`, `packages/ui/src/sync/session-lifecycle.ts`, `lib/nnd/client.ts`, `components/worktrees/WorktreesView.tsx`; NNA `src/nnd-harness-routes.js`, `nnd-engine-host.js`, `nnd-session-description.js`, and authenticated integration-principal/session-catalog code.
 
 1. Add a native project/workspace admission contract: NNA resolves and authorizes canonical Windows roots, returns opaque workspace identity plus safe display path, and persists the grant under the authenticated principal. A user-selected path is a request for admission, never a grant.
 2. Bind session creation to that admitted workspace identity and immutable initial execution root. Return the authoritative directory before inserting a session into a directory store. Reject missing/expired scope with an actionable response; never substitute the host's default project silently.

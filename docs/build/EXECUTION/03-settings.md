@@ -1,7 +1,8 @@
 # C — Complete native configuration coverage
 
-Working evidence: [settings-coverage.json](settings-coverage.json) is the partial C1
-source census. All rows remain open; it does not establish GUI or installed coverage.
+Working evidence: [settings-coverage.json](settings-coverage.json) is the C1
+source census. Its rows carry live disposition state; it does not establish GUI
+or installed coverage except where the install column says otherwise.
 
 Incremental implementation: the providers page now consumes native
 `GET /v1/nnd/setup/status` and explicit `POST /v1/nnd/setup/activate` through
@@ -231,7 +232,10 @@ tune — the primary and subagent limits, and the reviewer and vision
 capability and fallback lists — ride the catalog-gated chooser on the native
 configuration page. NNA leaves the primary and subagent provider/model pair
 uneditable and treats no route object as a value, so those eight census rows
-stay open by design rather than by omission. Route rows show an inherited
+stayed open at that date rather than by omission (`20261007-60` later closed the
+four route-role containers through their self-complete member card; the
+today-open set is `manifest:mission` only, disowned with `owed: false` on the
+one-legal-value rule). Route rows show an inherited
 value with an `Unavailable` origin instead of a guessed layer, and a saved
 zero keeps its explicit `0` while the effective deadline resolves to `null`,
 because zero means no deadline rather than a length of zero. The three
@@ -423,7 +427,8 @@ it holds is rendered in that unit.** The provider credential container closed be
 line carries the whole thing — source, secret id and field, or the variable name. A route
 card that prints provider and model does not put `routes.primary` on screen: the route holds
 thirteen members and the other eleven live in the editor below, so the four route container
-rows stay open while their leaf fields close.
+rows stayed open at that date while their leaf fields closed (`20261007-60`
+later closed them through the self-complete member card).
 
 The other thing that slice corrected was a type that masqueraded as a domain fact.
 `RoleBinding` accepted `'reviewer' | 'vision'`, inherited from NNA's
@@ -538,9 +543,10 @@ journey that restarts the gateway is still owed to C7 and the L gates. The
 update stamp is displayed rather than dropped, and an absent stamp says so;
 the store's internal version counter is not shown at all, so that row keeps an
 unverified surface instead of inheriting a claim no test supported. Web search,
-environment and native update state were closed in later slices; the remaining
-C6 external-store families (hooks, compatibility service, secrets and the
-optional integrations) and the distinct TUI preferences page remain open.
+environment and native update state were closed in later slices — as were hooks,
+compatibility service, secrets, the optional integrations, and the distinct TUI
+preferences page, each with its own dated slice — so the families this paragraph
+once called remaining stayed open only at that date.
 
 Progress: at NNA `20261005-15` the WebFetch trust family followed the gateway
 template. The authority-grant list of exact credential-free HTTP(S) origins
@@ -567,7 +573,8 @@ absent store says `not recorded` rather than leaving the operator to infer it.
 The store's version counter is deliberately not displayed, so that row carries an
 unverified surface instead of a claim no test supported. Whether an installed
 journey exercises a real grant is still owed to C7 and the L gates; the remaining
-C6 external-store families stay open.
+C6 external-store families stayed open at that date, and each has since closed
+with its own slice.
 
 Progress: at NNA `20261005-16` the WebSearch settings family followed both
 templates. The enabled flag plus at most eight canonical SearXNG profiles
@@ -588,7 +595,8 @@ save), and the census web-search settings rows carry the native endpoints,
 the paired permissions, and the settings-page path; two independent
 non-author audits returned PASS with no defects. The family rows'
 application class stays unverified until an installed journey exercises a
-real search; the remaining C6 external-store families stay open.
+real search; the remaining C6 external-store families stayed open at that date,
+and each has since closed with its own slice.
 
 Progress: at NNA `20261006-4` the update_state entries became a read-only
 native surface at `/v1/nnd/configuration/update-state` (read plus catalog,
@@ -623,7 +631,7 @@ it is enforced rather than printed on every row. For update state, the class now
 records what the native catalog declares (`next_update_check`) rather than a
 placeholder; whether an installed service really records a check is still
 unobserved, which C7 and the L gates own. The remaining C6 external-store
-families stay open.
+families stayed open at that date, and each has since closed with its own slice.
 
 Progress: at NNA `20261006-5` the three trust rows became the settings family's
 first authority-grant surface at `/v1/nnd/configuration/trust`: the granted
@@ -645,7 +653,7 @@ page: listed roots with trust times, a staged grant with the canonical-root
 receipt shown, per-row revoke, and honest refusals in sentences; the section's
 installed journey stays unverified until an installed NNA process is observed
 admitting a real granted workspace; the remaining C6 external-store families
-stay open.
+stayed open at that date, and each has since closed with its own slice.
 
 The three trust rows are now settled. The grant row closes on `root`: each
 trusted root is a row asserted by its own text, carrying the stamp that grant
@@ -818,7 +826,8 @@ actions" settings section rendering the redacted wire panel, honest runtime/
 login/environment sentences, per-verb receipts, run-less wording, and native
 code sentences. Census rows updated in place; the `secret_action` mutations,
 `update_action`, `nnd_package_action`, hooks, and the served-family action
-columns (gateway/web_fetch/web_search/browser) stay open.
+columns (gateway/web_fetch/web_search/browser) stayed open at that date and
+closed in their own slices.
 
 Those six action rows are now closed, and they are the slice where closing meant
 nothing to the headline counts: the class words were already NNA's, read from the
@@ -858,7 +867,8 @@ runtime grammar excluded — this family has none, every live bundle field, and
 the diagnostics shapes) and an "NNA hook bundles" settings section rendering
 the honest absence sentence, per-diagnostic lines, and per-bundle subscription
 rows. Census rows updated in place; the `secret_action`, `update_action`,
-`nnd_package_action`, and served-family action columns stay open.
+`nnd_package_action`, and served-family action columns stayed open at that
+date and closed in their own slices.
 
 The nine roster rows are now closed on evidence, which also documents what the
 earlier pin was worth: it named this page as a verified surface and cited no test
@@ -1092,7 +1102,9 @@ surface is verified. Their application class now records what the native
 catalog declares (`restart_service`) instead of a placeholder; that is a
 declared point, and the restart effect on an installed service is still
 unobserved, which C7 and the L gates own. The remaining C6 external-store
-families stay open.
+families stayed open at that date; the C6 census finished on 20261007-61 with
+every row dispositioned (verified on a surface, verified in place, or a
+gate-checked owed:false basis).
 
 Progress: at NND `20261007-57` the seven manifest record-containers that the
 shape-table round (`20261007-36`) kept open closed on evidence the intervening
@@ -1125,7 +1137,7 @@ recovery remain `unverified` because NNA's own metadata declares nothing for
 those families. Mission stays owed: a desktop mission control has no authority
 behind it for the desktop principal, so the row keeps no surface instead of
 inheriting a claim no test supported. Unverified application class
-**38 → 33**.
+**38 → 33** (the advance read at the end of this lane pulled it to 31).
 
 The last one of the six buildable leaves closed the next round
 (`20261007-58`): `web_search:profiles[*].managed`, the one owed
@@ -1212,6 +1224,24 @@ disposition cancels the owed claim, not the row, and installed-evidence
 questions (C7/V) remain askable. With it, the census's owed-surface list
 empties: **surfaces owed 1 → 0**, every row either verified on a surface,
 verified in place, or carrying a gate-checked `owed: false` with a basis.
+
+At `20261007-63` the independent C6-exit audit returned **closed as standing**
+(against the three exit criteria — every external-store row dispositioned with a
+working GUI operation or a gate-checked noneditable classification; honest
+missing-installation guidance; privileged changes routed through native service
+lifecycle with retained failure evidence). The residue it reported was prose, not
+rows: the ledger's C6 row still named five closed families as open, and aged
+"stayed open" narrative tails (provider-store, trust, web-search, update-state,
+installation, hooks/action columns, service lifecycle) still spoke in the present
+tense about rows the census shows closed. This slice converted every such tail to
+dated hindsight ("stayed open at that date; closed in its own later slice"),
+refreshed the C1/C2/C3/C6 ledger rows (C6 now verified), fixed the census header
+that still called the file a partial census with all rows open, and pinned the
+store separation the audit wanted explicit: a full TUI save cycle leaves the NND
+settings document — `shortcutOverrides` first among the profile keys — untouched
+(`native-tui-preferences.test.tsx`, new negative test; the two pages share no
+store, no client, and no write path). No census row changed; the round is
+bookkeeping and one hardening test.
 
 ### What "verified" means in the census, and what it does not
 
