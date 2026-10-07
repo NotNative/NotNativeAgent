@@ -13819,26 +13819,37 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "the native surface initializes the same SkillRegistry the skills CLI authority builds (bundled + user +, when the workspace is trusted, its project root) and freezes the catalog plus its diagnostics; there is no operator-owned setting to apply — trusting a workspace is the trust family's own surface."
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/skills/catalog",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": {
+        "class": "generated_state",
+        "evidence": "the catalog is a read of installer/user/project skill files; the panel renders ids, versions, invocation, source scopes, tool requirements, and body digests — never a skill body."
+      },
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runSkillsCommand"
+          "runSkillsCommand",
+          "SkillRegistry",
+          "runtimeSkillRoots",
+          "workspaceIsTrusted",
+          "createNndSkillsService",
+          "dispatchNndSkillsRequest"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-skills-routes.test.js 3/3",
+          "packages/ui vitest skills lib parser + native skills page drills 3/3"
+        ],
         "installed_journey": null
       },
       "notes": null

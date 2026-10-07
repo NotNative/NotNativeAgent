@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Native skills catalog observation · NNA 20261006-18 + NND 20261006-18
+
+The `skills_action` family closed with a real surface reusing the skills CLI
+authority verbatim: `GET /v1/nnd/configuration/skills/catalog` initializes
+the same workspace SkillRegistry (project root included only on the trusted
+verdict) and serves the catalog with body digests only, plus registry
+diagnostics and the honest failure codes (wrapped-authority 503, unresolved
+workspace 400, drift 500, over-bound 413). The desktop `Native skills
+catalog` panel renders it. Next families: legacy credential alias rows,
+gateway/web-search action triage, invocation flags, then the `manifest_*`
+grind.
+
 ## 2026-10-06 · Managed browser status + verify · NNA 20261006-17 + NND 20261006-17
 
 The `browser_action` family closed with a real surface reusing the webbrowse

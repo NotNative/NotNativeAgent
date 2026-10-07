@@ -416,6 +416,27 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-18 and NND 20261006-18 — native skills catalog observation
+
+The `skills_action:list` census row closed with a real native surface reusing
+the skills CLI authority verbatim: `GET /v1/nnd/configuration/skills/catalog`
+(`nnd.configuration.read`) initializes the same SkillRegistry
+`runSkillsCommand` builds — bundled + user skills plus the serving
+workspace's project root when, and only when, the workspace is trusted (the
+read-only `workspaceIsTrusted` verdict, surfaced in the receipt) — and
+freezes the catalog exactly as the CLI returns it: ids, versions,
+descriptions, invocation, source scopes, tool requirements, and body
+SHA-256 digests; a skill body is never served. Registry diagnostics
+(skipped duplicates/capability gaps per scope) ride the receipt. A failed
+discovery or initialization wraps to the CLI-equivalent
+`nnd_skills_catalog_unavailable` (503, honest); an unresolved workspace is
+the 400 `nnd_skills_request_invalid`; projector drift is the 500
+`nnd_skills_projection_invalid`, and an over-bound catalog is the honest 413
+`nnd_skills_catalog_too_large`. The desktop `Native skills catalog` panel
+renders the catalog with digests only and the per-scope skip reasons. This
+is the native registry read, distinct from the opencode skill-source
+browser page. Census rows without a verified GUI: 269 → 268.
+
 ## NNA 20261006-17 and NND 20261006-17 — managed browser status and verify
 
 The two `browser_action` census rows closed with a real native surface that

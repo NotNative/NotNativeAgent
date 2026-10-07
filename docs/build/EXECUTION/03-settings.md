@@ -601,9 +601,12 @@ managed Playwright Chromium exactly as `playwrightStatus` reads it, and the
 verify action runs that authority with the launch probe (headless Chromium,
 a validation page, a clean close; nothing on disk changes) — and the desktop
 `Managed browser` panel renders the one fail-closed receipt grammar with
-honest refusal sentences.
-
-Progress: at NNA `20261006-3` the environment rows became a read-only native
+honest refusal sentences. The `skills_action` family then closed the same
+way: the native surface initializes the same workspace SkillRegistry the
+skills CLI authority builds — project skills included only on the trust
+verdict — and serves the catalog with body digests only plus registry
+diagnostics and honest failure codes; the desktop `Native skills catalog`
+panel renders it (distinct from the opencode skill-source browser).
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value
