@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { resolveConfiguration } from '../src/configuration-sources.js';
 import { NND_CONFIGURATION_OPTIONS } from '../src/nnd-configuration-sources.js';
 import { projectNndConfigurationView } from '../src/nnd-configuration-view.js';
+import { validateDream } from '../src/dream-config.js';
 
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 function snapshot(raw = {}) {
@@ -161,4 +162,29 @@ test('a user manifest carrying a mission block is refused before validation orde
     && !JSON.stringify(error).includes('ship the release')
     && !JSON.stringify(error).includes('RELEASE_TOKEN')
     && !JSON.stringify(error).includes('2026-10-08'));
+});
+
+test('the dream family serves user values, the documented defaults, and the host forced-disable', () => {
+  // Bounds come from src/configuration-rules.js: idle_ms 5_000..3_600_000,
+  // inter_stage_ms 1_000..300_000, inference_idle_ms 10_000..3_600_000,
+  // hygiene_idle_ms 30_000..7_200_000, retention_days 1..365.
+  const defaults = { 'dream.enabled': true, 'dream.idle_ms': 45_000, 'dream.inter_stage_ms': 5_000,
+    'dream.inference_idle_ms': 120_000, 'dream.hygiene_idle_ms': 300_000, 'dream.retention_days': 30 };
+  const view = projectNndConfigurationView(snapshot());
+  for (const [path, value] of Object.entries(defaults)) {
+    assert.deepEqual(row(view, path).explicit, { present: false }, path);
+    assert.deepEqual(row(view, path).effective, { present: true, value, source: 'compiled_default' }, path);
+  }
+  const mine = projectNndConfigurationView(snapshot({ dream: { enabled: false, idle_ms: 60_000,
+    inter_stage_ms: 15_000, inference_idle_ms: 90_000, hygiene_idle_ms: 60_000, retention_days: 7 } }));
+  assert.deepEqual(row(mine, 'dream.enabled').effective, { present: true, value: false, source: 'user' });
+  assert.deepEqual(row(mine, 'dream.idle_ms').effective, { present: true, value: 60_000, source: 'user' });
+  assert.deepEqual(row(mine, 'dream.retention_days').explicit, { present: true, value: 7 });
+  // Out-of-range values fail the resolve before anything can apply.
+  assert.throws(() => snapshot({ dream: { idle_ms: 1_000 } }), (error) => error.code === 'invalid_limit');
+  assert.throws(() => snapshot({ dream: { retention_days: 400 } }), (error) => error.code === 'invalid_limit');
+  // Idle maintenance is opt-out for a standalone host, and an authenticated
+  // hosted execution manifest always disables it (src/dream-config.js:validateDream).
+  assert.equal(validateDream({ enabled: true }, { id: 'execution_fixture' }).enabled, false);
+  assert.equal(validateDream({ enabled: true }, null).enabled, true);
 });
