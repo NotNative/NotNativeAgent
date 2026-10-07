@@ -416,6 +416,27 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-9 — telemetry rows are recorded as carried, not applied
+
+The 3 `manifest_telemetry` rows closed against the EXISTING configuration view and
+the settings inventory: the proof shows `enabled` false and both other
+values `null` by default with `source: compiled_default`, user values with
+`source: user` including the destination URL, a resolve that refuses to
+enable telemetry without a string destination
+(`telemetry_destination_required`), and a disabled block that resolves
+destination and retention to `null` while the explicit source value stays
+visible in the row.
+
+These three keep `apply.class: unverified`, and this time the reason is
+stronger than mixed propagation: the resolved block is carried into the
+canonical configuration (`provider/route-configuration.js`), but nothing in
+NNA reads `telemetry.enabled` or `telemetry.destination` at runtime, and
+`runtime-config.js` republishes nothing for it. The desktop renders the
+values NNA serves — including the destination string, which the native
+projector serves in the clear, so the row keeps its private sensitivity
+label rather than pretending otherwise. Census rows without a verified GUI:
+127 → 124.
+
 ## NNA (test-only) and NND 20261007-8 — attachment fields ride the view and apply live
 
 The 3 `manifest_attachments` census rows closed against the EXISTING

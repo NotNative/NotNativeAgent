@@ -162,3 +162,24 @@ it('renders all four recovery census rows with the unset wall clock and the unav
   expect(rowText('recovery.ladder')).toContain('Unavailable');
   expect(container.textContent).toContain('Not set');
 });
+
+it('renders the three telemetry census rows with the inert nulls and the user destination', async () => {
+  const telemetryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'telemetry.enabled', catalog_path: 'telemetry.enabled', explicit: { present: true, value: true },
+      effective: { present: true, value: true, source: 'user' }, application: 'not_applied' },
+    { path: 'telemetry.destination', catalog_path: 'telemetry.destination',
+      explicit: { present: true, value: 'https://collector.example/uploads' },
+      effective: { present: true, value: 'https://collector.example/uploads', source: 'user' }, application: 'not_applied' },
+    { path: 'telemetry.retention', catalog_path: 'telemetry.retention', explicit: { present: false },
+      effective: { present: true, value: null, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(telemetryView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('telemetry.enabled')).toContain('true');
+  expect(rowText('telemetry.destination')).toContain('https://collector.example/uploads');
+  expect(rowText('telemetry.retention')).toContain('Not set');
+  expect(rowText('telemetry.retention')).toContain('null');
+  expect(rowText('telemetry.retention')).toContain('compiled_default');
+});

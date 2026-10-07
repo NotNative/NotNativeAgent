@@ -269,7 +269,14 @@ than the declared one; the wall clock is unset by default, where `null` and
 `0` both mean unset. All four recovery rows keep an `unverified` application
 class, matching NNA's own catalog metadata: the step loop reads the budget
 and wall clock from live engine limits at each entry, while the recovery
-supervisor fixes its limit and ladder at construction. Approval wait,
+supervisor fixes its limit and ladder at construction. The three telemetry
+rows are opt-in (`enabled` only on an exact `true`), refuse to enable
+without a string destination (`telemetry_destination_required`), and resolve
+destination and retention to `null` while telemetry is off even when the
+source declares values. The native projector serves the destination string
+in the clear, so the row keeps its private sensitivity label; the settings
+inventory renders all three, and none claims an application moment because
+no NNA runtime path consumes the block. Approval wait,
 persistence flush, and shutdown timeouts have bounded controls gated by the
 native catalog. Their save receipt does not claim application to running
 work or to the running service, nor does approval wait change permission

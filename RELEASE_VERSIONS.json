@@ -1272,6 +1272,10 @@
     {
       "version": "20261007-8",
       "content_sha256": "ae227b73891a4d7eb9e1b43675dc6965216ecbf4e48ba6ca5b8a1025267adf8d"
+    },
+    {
+      "version": "20261007-9",
+      "content_sha256": "a6c94fefbb56d0789bd24593a36673ad581335d8301592578776a91034d63a56"
     }
   ]
 }

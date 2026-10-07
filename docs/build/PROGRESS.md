@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Telemetry rows are recorded as carried, not applied · NND 20261007-9
+
+The 3 `manifest_telemetry` rows closed against the EXISTING view and the
+settings inventory: `enabled` false and `destination`/`retention` `null` by
+default (`compiled_default`), user values with `source: user` including the
+destination URL, `telemetry_destination_required` when enabling without a
+destination string, and a disabled block resolving both to `null` while the
+explicit value stays visible. Class stays `unverified`, with the strongest
+reason in the family set: the resolved block is carried into the canonical
+configuration but no NNA runtime path reads it. The destination is served in
+the clear by the native projector, so the private sensitivity label stays.
+Census rows without a verified GUI: 127 → 124. Next: reviewer_ledger 1
+(bounds already mirrored in the editor), then manifest 38, route 48,
+provider 37.
+
 ## 2026-10-07 · Attachment fields ride the view and apply live · NND 20261007-8
 
 The 3 `manifest_attachments` rows closed against the EXISTING view and the
