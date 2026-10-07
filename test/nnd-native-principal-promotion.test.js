@@ -23,7 +23,7 @@ test('same native listener resolves operator principal only after private promot
     createNndInstallationSnapshot: () => ({}), createNndBrowserActionsService: () => ({}),
     createNndSkillsService: () => ({}), createNndLegacyProviderCredentialsService: () => ({}),
     createNndGatewayStatusService: () => ({}), createNndGatewayTestService: () => ({}),
-    createNndSearxngStatusService: () => ({}),
+    createNndSearxngStatusService: () => ({}), createNndInvocationService: () => ({}),
     userDataPaths: () => ({ managedPlaywright: 'C:\\nna\\managed\\playwright' }),
     createNndUpdateStateStore: () => ({}), createNativeNndTrustServices: () => ({}),
     createNndLocalIntegrationActivation: () => ({}),

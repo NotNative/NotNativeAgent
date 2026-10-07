@@ -25,6 +25,7 @@ import { createNndSkillsService } from './nnd-skills-routes.js';
 import { createNndLegacyProviderCredentialsService } from './nnd-legacy-provider-credentials-routes.js';
 import { createNndGatewayStatusService, createNndGatewayTestService,
   createNndSearxngStatusService } from './nnd-action-triage-routes.js';
+import { createNndInvocationService } from './nnd-invocation-routes.js';
 import { userDataPaths } from './product.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -103,6 +104,8 @@ export function createNativeNndSettingsServices(paths, identity, environment) {
     nndGatewayTestService: createNndGatewayTestService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndSearxngStatusService: createNndSearxngStatusService({ paths,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndInvocationService: createNndInvocationService({
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndUpdateStateStore: createNndUpdateStateStore({ path: paths.updateState,
       installationId: identity.installation_id, dataId: identity.data_id }),

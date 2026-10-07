@@ -20,7 +20,9 @@ const updatePrincipal = { subjectId: 'operator@example.com', permissions: ['nnd.
 
 test('the exported settings-service key set is the exact routing surface', () => {
   const paths = Object.freeze({
-    gatewayConfig: join(tmpdir(), 'gateway.json'), webFetchConfig: join(tmpdir(), 'web-fetch.json'),
+    gatewayConfig: join(tmpdir(), 'gateway.json'), gateway: join(tmpdir(), 'gateway'),
+    managedSearxng: join(tmpdir(), 'managed-searxng'),
+    webFetchConfig: join(tmpdir(), 'web-fetch.json'),
     webSearchConfig: join(tmpdir(), 'web-search.json'), opencodeConfig: join(tmpdir(), 'opencode.json'),
     opencode: join(tmpdir(), 'opencode'), logs: join(tmpdir(), 'logs'), hooks: join(tmpdir(), 'hooks'),
     config: join(tmpdir(), 'config'), secretVault: join(tmpdir(), 'vault.json'),
@@ -36,9 +38,9 @@ test('the exported settings-service key set is the exact routing surface', () =>
     'nndBrowserActionsService', 'nndCompatibilityLifecycleService', 'nndCompatibilitySettingsService',
     'nndConfigurationService', 'nndEnvironmentSnapshotService',
     'nndGatewayStatusService', 'nndGatewayTestService', 'nndGatewayTimeoutService',
-    'nndHooksSettingsService', 'nndInstallationSnapshotService',
-    'nndLegacyProviderCredentialsService', 'nndSearxngStatusService', 'nndMcpCredentialsService',
-    'nndPackageActionsService', 'nndSecretsSettingsService', 'nndSkillsService', 'nndTrustService',
+    'nndHooksSettingsService', 'nndInstallationSnapshotService', 'nndInvocationService',
+    'nndLegacyProviderCredentialsService', 'nndMcpCredentialsService', 'nndPackageActionsService',
+    'nndSearxngStatusService', 'nndSecretsSettingsService', 'nndSkillsService', 'nndTrustService',
     'nndUpdateActionsService', 'nndUpdateStateStore', 'nndWebFetchSettingsService',
     'nndWebSearchSettingsService', 'nndWorkspaceGrantService']);
 });

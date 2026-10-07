@@ -64,6 +64,93 @@ const MODES = new Set([
 // detached start and the login startup script; it is not a documented command.
 const OPENCODE_ACTIONS = new Set(['status', 'start', 'stop', 'enable', 'disable', 'run']);
 
+/** The operator invocation vocabulary the 20261006-15 census pinned as the
+ * 23 `invocation:*` operator_action rows (validator parseCli). One row per
+ * census flag; aliases enumerate the sibling census rows that share the
+ * branch. `modes: '*'` means the flag branch runs in every mode; `headless`
+ * records whether the flag survives host/headless (the
+ * host_override_requires_manifest guard). `option` is the parsed option key
+ * the branch lands on (null for pure mode selectors). The tests mechanically
+ * prove each entry against parseCli behavior, so this table cannot drift
+ * from the parser without failing the suite. Sensitivity note: the family is
+ * the operator invocation channel; --provider-credential-env references a
+ * credential environment NAME (never its value) and --delete-user-data is
+ * the destructive uninstall choice. */
+export const INVOCATION_VOCABULARY = Object.freeze({
+  modes: Object.freeze([...MODES].sort()),
+  flags: Object.freeze([
+    Object.freeze({ flag: '--manifest', aliases: Object.freeze(['--config']), argument: 'value',
+      modes: '*', headless: true, option: 'manifestPath',
+      effect: 'selects the user manifest file for this invocation (regular file, at most 1,048,576 bytes)' }),
+    Object.freeze({ flag: '--config', aliases: Object.freeze(['--manifest']), argument: 'value',
+      modes: '*', headless: true, option: 'manifestPath',
+      effect: 'alias of --manifest; selects the user manifest file for this invocation' }),
+    Object.freeze({ flag: '--session', aliases: Object.freeze([]), argument: 'value',
+      modes: '*', headless: true, option: 'sessionId',
+      effect: 'selects the conversation session to resume for this invocation' }),
+    Object.freeze({ flag: '-provider', aliases: Object.freeze(['--provider', '--provider-profile']),
+      argument: 'value', modes: '*', headless: true, option: 'providerProfile',
+      effect: 'selects the provider profile for this invocation' }),
+    Object.freeze({ flag: '--provider', aliases: Object.freeze(['-provider', '--provider-profile']),
+      argument: 'value', modes: '*', headless: true, option: 'providerProfile',
+      effect: 'selects the provider profile for this invocation' }),
+    Object.freeze({ flag: '--provider-profile', aliases: Object.freeze(['-provider', '--provider']),
+      argument: 'value', modes: '*', headless: true, option: 'providerProfile',
+      effect: 'selects the provider profile for this invocation' }),
+    Object.freeze({ flag: '--provider-endpoint', aliases: Object.freeze([]), argument: 'value',
+      modes: '*', headless: false, option: 'providerEndpoint',
+      effect: 'overrides the provider endpoint for this invocation; refused in host/headless mode, which takes its overrides from the authenticated initialization manifest' }),
+    Object.freeze({ flag: '--model', aliases: Object.freeze([]), argument: 'value',
+      modes: '*', headless: false, option: 'model',
+      effect: 'overrides the model for this invocation; refused in host/headless mode' }),
+    Object.freeze({ flag: '--provider-credential-env', aliases: Object.freeze([]), argument: 'value',
+      modes: '*', headless: false, option: 'providerCredentialEnv',
+      effect: 'names the environment variable holding the provider credential for this invocation (an environment-variable name, never its value); refused in host/headless mode' }),
+    Object.freeze({ flag: '--no-color', aliases: Object.freeze([]), argument: 'none',
+      modes: '*', headless: true, option: 'color',
+      effect: 'disables colored terminal output for this invocation' }),
+    Object.freeze({ flag: '--reduced-motion', aliases: Object.freeze([]), argument: 'none',
+      modes: '*', headless: true, option: 'reducedMotion',
+      effect: 'enables reduced terminal motion for this invocation' }),
+    Object.freeze({ flag: '--hostname', aliases: Object.freeze([]), argument: 'value',
+      modes: Object.freeze(['opencode']), headless: false, option: 'serveHostname',
+      effect: 'binds the opencode serve listener host for this invocation' }),
+    Object.freeze({ flag: '--port', aliases: Object.freeze([]), argument: 'value',
+      modes: Object.freeze(['opencode']), headless: false, option: 'servePort',
+      effect: 'binds the opencode serve listener TCP port (1-65535) for this invocation' }),
+    Object.freeze({ flag: '--check', aliases: Object.freeze([]), argument: 'none',
+      modes: Object.freeze(['update']), headless: false, option: 'prompt',
+      effect: 'requests the update check for the update subcommand' }),
+    Object.freeze({ flag: '--delete-user-data', aliases: Object.freeze([]), argument: 'none',
+      modes: Object.freeze(['uninstall']), headless: false, option: 'prompt',
+      effect: 'uninstall choice that explicitly deletes NND user data (destructive)' }),
+    Object.freeze({ flag: '--help', aliases: Object.freeze(['-h']), argument: 'none',
+      modes: '*', headless: true, option: null,
+      effect: 'informational usage output; no configuration effect (a mode selector)' }),
+    Object.freeze({ flag: '--json', aliases: Object.freeze([]), argument: 'none',
+      modes: Object.freeze(['skills']), headless: false, option: 'prompt',
+      effect: 'requests JSON output for the skills list subcommand' }),
+    Object.freeze({ flag: '--keep-user-data', aliases: Object.freeze([]), argument: 'none',
+      modes: Object.freeze(['uninstall']), headless: false, option: 'prompt',
+      effect: 'uninstall choice that retains user data' }),
+    Object.freeze({ flag: '--prompt', aliases: Object.freeze(['-p']), argument: 'prompt-text',
+      modes: '*', headless: true, option: 'prompt',
+      effect: 'enters text mode with the prompt as conversation input (the text is content, not configuration)' }),
+    Object.freeze({ flag: '--version', aliases: Object.freeze(['-v']), argument: 'none',
+      modes: '*', headless: true, option: null,
+      effect: 'informational version output; no configuration effect (a mode selector)' }),
+    Object.freeze({ flag: '-h', aliases: Object.freeze(['--help']), argument: 'none',
+      modes: '*', headless: true, option: null,
+      effect: 'short form of --help' }),
+    Object.freeze({ flag: '-p', aliases: Object.freeze(['--prompt']), argument: 'prompt-text',
+      modes: '*', headless: true, option: 'prompt',
+      effect: 'short form of --prompt; text mode with conversation input' }),
+    Object.freeze({ flag: '-v', aliases: Object.freeze(['--version']), argument: 'none',
+      modes: '*', headless: true, option: null,
+      effect: 'short form of --version' }),
+  ]),
+});
+
 function parseServePort(value) {
   const port = Number(value);
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {

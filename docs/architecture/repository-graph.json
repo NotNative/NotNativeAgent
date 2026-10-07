@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:61b49c7e3411157ff5264d6dcebcd941f15137bc081de3851f73f8dd3e3d4654",
+  "source_digest": "sha256:115f800e6efa2de604e633c22378edd0537dbf75b92110ff0c513d7282f826fa",
   "counts": {
-    "modules": 545,
+    "modules": 546,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 237
+      "module_count": 238
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 712,
-      "module_count": 212
+      "import_count": 716,
+      "module_count": 213
     },
     {
       "from": "experience-engine",
@@ -132,8 +132,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 71,
-      "module_count": 40
+      "import_count": 73,
+      "module_count": 41
     },
     {
       "from": "foundation",
@@ -2648,6 +2648,7 @@
         "src/nnd-gateway-timeout-routes.js",
         "src/nnd-hooks-routes.js",
         "src/nnd-installation-route.js",
+        "src/nnd-invocation-routes.js",
         "src/nnd-legacy-provider-credentials-routes.js",
         "src/nnd-mcp-configuration-routes.js",
         "src/nnd-mcp-credentials-routes.js",
@@ -2984,6 +2985,17 @@
         "src/ids.js",
         "src/integration-principal.js",
         "src/nnd-service-identity.js"
+      ]
+    },
+    {
+      "path": "src/nnd-invocation-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/cli-options.js",
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
       ]
     },
     {
@@ -3448,6 +3460,7 @@
         "src/nnd-gateway-timeout-transaction.js",
         "src/nnd-hooks-routes.js",
         "src/nnd-installation-snapshot.js",
+        "src/nnd-invocation-routes.js",
         "src/nnd-legacy-provider-credentials-routes.js",
         "src/nnd-mcp-credentials-transaction.js",
         "src/nnd-native-principal-selection.js",
