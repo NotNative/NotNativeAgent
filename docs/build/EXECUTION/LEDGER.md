@@ -416,6 +416,40 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-23 — seven secret actions close, and a citation that proves nothing is measured at scale
+
+Seven rows closed, unverified classes 73 → 66. The five mutating verbs carry NNA's
+`next_secret_use`: the broker writes an encrypted vault whose values reach a trusted
+consumer at use time with exact-value redaction active, and the console never calls
+the use endpoint, so it cannot manufacture the event that marks the effect. `list`
+and `audit` are reads and say `not_applied` rather than borrowing an effect claim
+they cannot support.
+
+What this slice found while checking one row is the larger item. The seven pins'
+only citation was `packages/ui vitest suite (245 files, 1,851 tests at
+20261006-11)` — a real number, honestly reported, proving nothing about any
+particular field. A suite-wide count attached to a row looks like evidence and
+survives every skim, because nobody re-runs 1,851 tests to check one cell. So I
+measured the pattern instead of finding it again by accident: **19 rows claim a
+verified GUI and cite no test at all**, and 10 more cite a suite without naming a
+file.
+
+That number is reassuring in one specific way. The 19 fall entirely inside
+`compatibility_service` (7), `compatibility_service_action` (6),
+`nnd_package_action` (3), `update_action` (2) and `managed_mcp_credentials` (1) —
+the same families the pre-C1 pin sweep already ranked as unexamined. Two
+measurements built independently now point at one list, which is the kind of
+agreement worth trusting, and it means no hidden pocket of uncited claims is left
+outside the work I had already planned.
+
+One flagged pin was also cleared honestly: `enable_disable` looked suspicious and
+turned out to be genuinely driven, its status request asserted in the console test.
+The sweep says where to look; it does not say what is there.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified
+desktop surface: 12 (unchanged). Rows declaring an unverified application class:
+73 → 66. New diagnostic, not a goal in itself: 19 verified rows still cite no test.
+
 ## NND 20261007-22 — six secrets rows close, and a page is caught promising more than it shows
 
 Six more rows closed, unverified classes 79 → 73, but this slice found something

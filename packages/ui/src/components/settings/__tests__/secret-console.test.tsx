@@ -92,6 +92,10 @@ it('drives all seven census actions with redacted receipts and never re-renders 
   expect(roster()).toContain('Registry credential · api_key · global (null scope)');
   expect(roster()).toContain('fields [apikey]');
   expect(roster()).toContain('native audit');
+  // The audit read is its own census action, so its content is asserted, not just
+  // the panel that hosts it: time, event and outcome, with no value anywhere.
+  expect(container.querySelector('[data-testid="secret-audit"]')?.textContent)
+    .toContain(`${STAMP.slice(11, 19)} secret.created succeeded`);
   // create → POST with values sent once; the receipt is the redacted label.
   await type('label', 'Vault token'); await type('field name', 'token');
   await type('field value', 'SENT-ONCE-VALUE'); await click('Create secret');

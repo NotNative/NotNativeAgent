@@ -703,7 +703,22 @@ update renames or re-scopes without values; enable/disable and delete are
 per-row; the audit ledger views the newest events with no values, ever. The
 parser refuses drifted grammars (sorted-unique field names, scope kinds,
 stamps, and audit events' fixed 14 keys). Census rows updated in place with
-`secret` sensitivity, verified GUI paths, and per-row evidence. The
+`secret` sensitivity and verified GUI paths; the "per-row evidence" this passage
+claimed at the time was in fact one bulk suite count shared by all seven rows and
+no application evidence at all.
+
+Those seven rows are now closed on evidence. The five mutating verbs take NNA's
+own `next_secret_use`: the broker writes an encrypted vault whose values are handed
+to a trusted consumer at use time with exact-value redaction active, and the
+console never calls the use endpoint, so it cannot manufacture the very event that
+marks the effect. `list` and `audit` are reads and say `not_applied` rather than
+borrowing an effect claim they cannot support. The audit read is now asserted as
+content — time, event, outcome — instead of by the heading of the panel that hosts
+it. One suspicious pin from the earlier sweep turned out to be sound: the
+enable/disable toggle really is clicked and its status request asserted, which is
+worth recording because the sweep is a pointer, not a verdict.
+
+The
 `update_action` (2 install-action rows) and `nnd_package_action` (3) families
 closed in the next slice together with the runtime wiring repair they
 surfaced: `/v1/nnd/configuration/update/actions` runs the CLI's forced

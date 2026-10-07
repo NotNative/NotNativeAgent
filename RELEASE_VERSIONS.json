@@ -1328,6 +1328,10 @@
     {
       "version": "20261007-22",
       "content_sha256": "4dbbe7d33cfa64ef3ec6af05c7c54264a7f109df49dd459fac449f9c19c1ea78"
+    },
+    {
+      "version": "20261007-23",
+      "content_sha256": "82300a98686aad4523b4869679874a1628bcb4f90201db23cb16829a9b20eef5"
     }
   ]
 }

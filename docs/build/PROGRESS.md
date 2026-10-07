@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Seven secret actions close; a citation that proves nothing gets measured at scale · NND 20261007-23
+
+The seven pins' only evidence was `packages/ui vitest suite (245 files, 1,851 tests
+at 20261006-11)` — an honest number that proves nothing about any specific field,
+because a suite-wide count attached to a row survives every skim: nobody re-runs
+1,851 tests to check one cell. Measuring the pattern rather than tripping over it
+again gave a new diagnostic: **19 rows claim a verified GUI and cite no test at
+all**, 10 more cite a suite without naming a file. Reassuringly, those 19 land
+exactly in the five families the pre-C1 sweep already ranked as unexamined — two
+independent measurements pointing at one list, so no uncited pocket sits outside the
+planned work. The five mutating verbs took NNA's `next_secret_use` (the console never
+calls the use endpoint, so it can't manufacture the event marking the effect);
+`list` and `audit` are reads and said `not_applied` instead of borrowing an effect
+claim. A flagged pin, `enable_disable`, turned out genuinely driven — the sweep
+points, it doesn't judge. Unverified class 73 → 66; surface axes unchanged.
+
 ## 2026-10-07 · Six secrets rows close after the page is caught promising more than it shows · NND 20261007-22
 
 The secrets page says the roster shows field names and public metadata. It didn't —

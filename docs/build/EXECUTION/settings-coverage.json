@@ -15270,8 +15270,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "a read of the vault, not a change to it: src/secret-broker-server.js answers it from the broker with redacted records and nothing is applied, honoured, or scheduled by asking"
    },
    "native_endpoint": "GET /v1/secrets",
    "native_permission": "secret.read",
@@ -15282,7 +15282,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15292,11 +15292,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: the roster itself, one row per record with label, kind, scope and field names, and every value withheld. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "secret_action:create",
@@ -15316,8 +15319,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_secret_use",
+    "evidence": "src/secret-broker-server.js routes this verb straight to the runtime SecretBroker over the integration server, where values are stored encrypted and only metadata projects; the effect lands when a trusted consumer next reads the vault, which is when NNA hands values over transiently with exact-value redaction active. The word next_secret_use is NNA (src/nnd-secrets-routes.js declares it for this same vault, and POST /v1/secrets/:id/use is the use event itself); the broker has no catalog of its own, and this console never calls that endpoint, so it never fabricates a use"
    },
    "native_endpoint": "POST /v1/secrets",
    "native_permission": "secret.manage",
@@ -15328,7 +15331,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15338,11 +15341,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: the create form, whose field-name and value inputs post once and never echo the value back. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "secret_action:update",
@@ -15362,8 +15368,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_secret_use",
+    "evidence": "src/secret-broker-server.js routes this verb straight to the runtime SecretBroker over the integration server, where values are stored encrypted and only metadata projects; the effect lands when a trusted consumer next reads the vault, which is when NNA hands values over transiently with exact-value redaction active. The word next_secret_use is NNA (src/nnd-secrets-routes.js declares it for this same vault, and POST /v1/secrets/:id/use is the use event itself); the broker has no catalog of its own, and this console never calls that endpoint, so it never fabricates a use"
    },
    "native_endpoint": "PATCH /v1/secrets/:id",
    "native_permission": "secret.manage",
@@ -15374,7 +15380,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15384,11 +15390,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: the per-record edit panel applying a rename through PATCH without carrying values. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "secret_action:rotate",
@@ -15408,8 +15417,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_secret_use",
+    "evidence": "src/secret-broker-server.js routes this verb straight to the runtime SecretBroker over the integration server, where values are stored encrypted and only metadata projects; the effect lands when a trusted consumer next reads the vault, which is when NNA hands values over transiently with exact-value redaction active. The word next_secret_use is NNA (src/nnd-secrets-routes.js declares it for this same vault, and POST /v1/secrets/:id/use is the use event itself); the broker has no catalog of its own, and this console never calls that endpoint, so it never fabricates a use"
    },
    "native_endpoint": "PUT /v1/secrets/:id/values",
    "native_permission": "secret.manage",
@@ -15420,7 +15429,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15430,11 +15439,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: the rotate panel, whose new values are cleared from the inputs the moment they are sent. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "secret_action:enable_disable",
@@ -15454,8 +15466,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_secret_use",
+    "evidence": "src/secret-broker-server.js routes this verb straight to the runtime SecretBroker over the integration server, where values are stored encrypted and only metadata projects; the effect lands when a trusted consumer next reads the vault, which is when NNA hands values over transiently with exact-value redaction active. The word next_secret_use is NNA (src/nnd-secrets-routes.js declares it for this same vault, and POST /v1/secrets/:id/use is the use event itself); the broker has no catalog of its own, and this console never calls that endpoint, so it never fabricates a use"
    },
    "native_endpoint": "PATCH /v1/secrets/:id/status",
    "native_permission": "secret.manage",
@@ -15466,7 +15478,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15476,11 +15488,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: one toggle button per record that flips between Enable and Disable and posts the status change. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "secret_action:delete",
@@ -15500,8 +15515,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_secret_use",
+    "evidence": "src/secret-broker-server.js routes this verb straight to the runtime SecretBroker over the integration server, where values are stored encrypted and only metadata projects; the effect lands when a trusted consumer next reads the vault, which is when NNA hands values over transiently with exact-value redaction active. The word next_secret_use is NNA (src/nnd-secrets-routes.js declares it for this same vault, and POST /v1/secrets/:id/use is the use event itself); the broker has no catalog of its own, and this console never calls that endpoint, so it never fabricates a use"
    },
    "native_endpoint": "DELETE /v1/secrets/:id",
    "native_permission": "secret.manage",
@@ -15512,7 +15527,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15522,11 +15537,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: the delete control on each record row. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "secret_action:audit",
@@ -15546,8 +15564,8 @@
     "native_secret_scope"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "not_applied",
+    "evidence": "a read of the vault, not a change to it: src/secret-broker-server.js answers it from the broker with redacted records and nothing is applied, honoured, or scheduled by asking"
    },
    "native_endpoint": "GET /v1/secrets/audit",
    "native_permission": "secret.audit",
@@ -15558,7 +15576,7 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-23)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -15568,11 +15586,14 @@
      "publicSecret"
     ],
     "tests_run": [
-     "packages/ui vitest suite (245 files, 1,851 tests at 20261006-11)"
+     "NNA test/secret-broker-server.test.js (authenticated broker management is metadata-only and scope filtered, the endpoint enforces principal permissions and immutable ownership, refuses non-loopback binding, and stays dormant without an installed activation)",
+     "NNA test/secret-broker.test.js (values stored encrypted with metadata only exposed, a trusted consumer receives values transiently with exact-value redaction active during use, rotation, revoke and deletion preserve non-secret audit events, ciphertext is bound to its record metadata, durable mutations succeed when audit observation fails, and audit reads skip malformed ledger lines while retaining valid events)",
+     "packages/ui secret-actions typed client tests (the honest export surface with no value-read consumer at all, the redacted roster and audit parsed verbatim with value-shaped drift refused, forwarded broker codes mapped to honest sentences)",
+     "packages/ui secret-console page tests (one flow driving create, update, rotate, the enable and disable toggle, and delete with each request method and path asserted, receipts naming the record rather than the value, the audit ledger rendered with its time, event and outcome, rotated and created values never reappearing in any input, and no request ever reaching the use endpoint)"
     ],
     "installed_journey": null
    },
-   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view)"
+   "notes": "NND console consumes the runtime SecretBroker verbatim (dispatchSecretBrokerRequest over the integration server): the roster renders the redacted publicSecret records only - labels, kinds, scopes, field NAMES, enablement, use counts, never a value - and mutations send typed field values ONCE (create POST /v1/secrets, rotate PUT /v1/secrets/:id/values, update PATCH label/scope/metadata with no values, enable/disable PATCH /v1/secrets/:id/status, delete DELETE /v1/secrets/:id), each returning the broker redacted receipt; the audit view reads GET /v1/secrets/audit whose events carry no values; there is deliberately no client for POST /v1/secrets/:id/use - consumption stays with trusted local callers holding secret.use, which the NND operator principal never carries; permissions ride the principal (secret.read/list + secret.manage mutations + secret.audit audit view) Closed 20261007-23 on evidence. Shown: the native audit ledger with each event's time, event name and outcome, asserted as content rather than as a panel heading. The pin came from before C1: its only citation was a bulk suite count, the whole vitest run named as proof of one field, which proves nothing about this row even when the number is honest, and it carried no application evidence at all. Reading the actual console test is what confirmed the claim rather than contradicting it, worth saying plainly since other pre-C1 pins did not survive the same look. The class word is NNA (next_secret_use) rather than a desktop coinage, and where a verb is a pure read the row says not_applied instead of borrowing the effect claim. Sensitivity stays secret as the vault family sets it."
   },
   {
    "id": "legacy_provider_credentials:credentials.NNA_PROVIDER_INITIAL_KEY",
