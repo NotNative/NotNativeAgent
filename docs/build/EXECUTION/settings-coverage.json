@@ -513,29 +513,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 1800000 bounded 100 to 86400000 where 0 disables the deadline"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 1800000 bounded 100 to 86400000 where 0 disables the deadline; the provider deadline block previews it beside the primary route override. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:first_token_timeout_ms",
@@ -557,29 +557,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 600000 bounded 100 to 86400000 under the legacy stream-timeout pair rule"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 600000 bounded 100 to 86400000 under the legacy stream-timeout pair rule; the stream timeout block declines the ambiguous legacy 30000 sentinel and the paired default. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:idle_timeout_ms",
@@ -601,29 +601,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 300000 bounded 100 to 86400000 and it stays derived even when its pair partner is set by hand"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 300000 bounded 100 to 86400000 and it stays derived even when its pair partner is set by hand; the stream timeout block offers zero as disabled and refuses the legacy 45000 sentinel. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:provider_connect_timeout_ms",
@@ -645,29 +645,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 10000 bounded 100 to 600000"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 10000 bounded 100 to 600000; the connection and review timeout block. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:semantic_review_timeout_ms",
@@ -689,29 +689,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; inherits the provider timeout (1800000 by default) bounded 100 to 86400000; 15000 is a legacy inherited sentinel the editor warns about"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: inherits the provider timeout (1800000 by default) bounded 100 to 86400000; 15000 is a legacy inherited sentinel the editor warns about; the connection and review timeout block with an explicit reset to inheritance. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:approval_timeout_ms",
@@ -733,29 +733,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 120000 bounded 1000 to 3600000"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 120000 bounded 1000 to 3600000; the session deadlines block, which states that a save does not change approval permissions. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:provider_concurrency",
@@ -777,29 +777,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 1 bounded 1 to 16"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 1 bounded 1 to 16; the provider scheduling block. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:provider_queue_limit",
@@ -821,29 +821,29 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/runtime-config.js:applyConfiguration and src/runtime-config.js:publishEngineConfiguration republish engine.config (and push the reviewer timeout, permission timeout, and scheduler capacity directly), so the next turn or request reads the new numbers from engine.config.limits"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 256 bounded 1 to 4096"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 256 bounded 1 to 4096; the provider scheduling block. The class follows NNA catalog metadata (engine_boundary)."
   },
   {
    "id": "manifest:tool_concurrency",
@@ -866,28 +866,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "; default 1 bounded 1 to 16, read per subagent fan-out"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 1 bounded 1 to 16, read per subagent fan-out; no focused block: the row is offered in the catalog-gated field chooser for raw editing. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:persistence_flush_timeout_ms",
@@ -910,28 +910,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 10000 bounded 100 to 120000"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 10000 bounded 100 to 120000; the session deadlines block. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:shutdown_timeout_ms",
@@ -954,28 +954,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 15000 bounded 100 to 120000"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 15000 bounded 100 to 120000; the session deadlines block, which states that a save does not reach a running service. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:context_limit_bytes",
@@ -998,28 +998,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen manifest scalars serve the documented defaults with their real provenance (compiled_default, or source_unavailable where NNA derives the value), carry user values with source user, and refuse out-of-range drafts with invalid_limit; the NND editor test asserts the rendered input carries those exact bounds; default 2097152 bounded 65536 to 16777216; a provider or route ceiling can constrain it further"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 2097152 bounded 65536 to 16777216; a provider or route ceiling can constrain it further; the context budget block. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:context_compression_threshold",
@@ -1042,28 +1042,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the ordered thresholds derive from compression plus three and six sevenths of the span to compaction and reject an unordered set with context_thresholds_invalid; the NND editor test refuses an out-of-range draft before preview; default 0.40 bounded 0.20 to 0.90"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 0.40 bounded 0.20 to 0.90; the context budget block renders the decimal field with inputMode and validates the draft before preview. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:context_compression_level_2_threshold",
@@ -1086,28 +1086,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the ordered thresholds derive from compression plus three and six sevenths of the span to compaction and reject an unordered set with context_thresholds_invalid; the NND editor test refuses an out-of-range draft before preview; derived as compression plus three sevenths of the span to compaction (0.55 by default) bounded 0.20 to 0.99"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: derived as compression plus three sevenths of the span to compaction (0.55 by default) bounded 0.20 to 0.99; the context budget block previews the whole ordered threshold set. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:context_compression_level_3_threshold",
@@ -1130,28 +1130,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the ordered thresholds derive from compression plus three and six sevenths of the span to compaction and reject an unordered set with context_thresholds_invalid; the NND editor test refuses an out-of-range draft before preview; derived as compression plus six sevenths of that span (0.70 by default) bounded 0.20 to 0.99"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: derived as compression plus six sevenths of that span (0.70 by default) bounded 0.20 to 0.99; the context budget block previews the whole ordered threshold set. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:context_compaction_threshold",
@@ -1174,28 +1174,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for this scalar. The value is read from engine.config.limits at its use site and runtime-config.js republishes engine.config, but NNA certifies no moment, so the census records unverified rather than an inferred live claim"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-11)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "resolveManifest"
+     "resolveManifest",
+     "projectNndConfigurationView",
+     "publishEngineConfiguration"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the ordered thresholds derive from compression plus three and six sevenths of the span to compaction and reject an unordered set with context_thresholds_invalid; the NND editor test refuses an out-of-range draft before preview; default 0.75 bounded 0.30 to 0.99"
    },
-   "notes": null
+   "notes": "Pinned 20261007-11: default 0.75 bounded 0.30 to 0.99; the context budget block validates the ordered set before preview. The class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest:attachments",

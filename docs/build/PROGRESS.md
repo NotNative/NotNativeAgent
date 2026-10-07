@@ -3,6 +3,23 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The manifest scalars — provider, timeout and context limits · NND 20261007-11
+
+The first sub-slice of the 38-row `manifest` family: its 16 scalar rows
+closed against the EXISTING view and the focused blocks that already edit
+them. Three values have no attributable source — `provider_timeout_ms` is
+derived from the primary route deadline and the first-token/idle pair rides
+the legacy stream-pair rule — so those rows report `source_unavailable`,
+and the idle row stays derived even when its partner is set by hand. The
+upper compression thresholds are derived as well (compression plus three and
+six sevenths of the span to compaction, 0.55 and 0.70), and an unordered
+threshold set fails preview with `context_thresholds_invalid`. Eight rows
+are `engine_boundary` in NNA's metadata; the other eight stay `unverified`
+because that is what NNA declares, not what a reader would infer.
+`tool_concurrency` has no focused block — the field chooser offers it for
+raw editing, and the test asserts that instead of claiming a control.
+Census rows without a verified GUI: 123 → 107.
+
 ## 2026-10-07 · The reviewer-ledger budget closes the small manifest families · NND 20261007-10
 
 `reviewer_ledger.retention_entries` closed against the EXISTING view and the

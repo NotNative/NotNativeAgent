@@ -416,6 +416,37 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-11 — the provider, timeout, and context scalars of the manifest family
+
+The first sub-slice of the 38-row `manifest` family: its 16 scalar rows
+(provider timeouts and the stream pair, connection and semantic-review
+timeouts, approval wait, scheduling pair, tool concurrency, the session
+deadlines, and the context ceiling with its four thresholds) closed against
+the EXISTING configuration view and the focused editor blocks that already
+exist for them.
+
+The proof pins down the parts a reader would otherwise guess. Three values
+carry no attributable source: `provider_timeout_ms` is derived from the
+primary route deadline, and `first_token_timeout_ms`/`idle_timeout_ms` ride
+the legacy stream-pair rule, so their rows report `source_unavailable`
+instead of a guessed layer — and the idle row stays derived even when the
+first-token half is set by hand. The two upper compression thresholds are
+derived too: compression plus three and six sevenths of the span to the
+compaction threshold (0.55 and 0.70 by default), and an unordered set is
+refused with `context_thresholds_invalid`. Out-of-range drafts fail the
+resolve with `invalid_limit`.
+
+Eight of the rows are `engine_boundary` in NNA's metadata — a republished
+configuration reaches `engine.config.limits`, and the reviewer timeout,
+permission timeout, and scheduler capacity are pushed directly. The other
+eight (tool concurrency, the two session flush/shutdown deadlines, and the
+five context scalars) stay `unverified` because that is what NNA declares;
+the notes record that the values are read at their use sites without
+claiming a moment NNA has not certified. `tool_concurrency` has no focused
+block at all — the field chooser offers it for raw editing, and the test
+says so rather than pretending otherwise. Census rows without a verified
+GUI: 123 → 107.
+
 ## NNA (test-only) and NND 20261007-10 — the reviewer-ledger budget closes the small families
 
 The last single-row `manifest_*` family closed: `reviewer_ledger.retention_entries`

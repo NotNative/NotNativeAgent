@@ -949,3 +949,78 @@ it('renders all three attachment census rows in the attachment block with the na
   expect(input.min).toBe('1024');
   expect(input.max).toBe('104857600');
 });
+
+it('renders every bounded manifest scalar row in its block with the native bounds', async () => {
+  // Integer bounds mirror src/configuration-rules.js exactly; NNA owns them
+  // and the input carries them. tool_concurrency has no focused block: it is
+  // offered only in the catalog-gated field chooser, where the raw JSON
+  // value is edited.
+  const bounded: Array<[string, string, number, number, number]> = [
+    ['Global provider timeout (ms)', 'provider_timeout_ms', 1800000, 100, 86400000],
+    ['Provider connection timeout (ms)', 'provider_connect_timeout_ms', 10000, 100, 600000],
+    ['Semantic review timeout (ms)', 'semantic_review_timeout_ms', 1800000, 100, 86400000],
+    ['Approval wait (ms)', 'approval_timeout_ms', 120000, 1000, 3600000],
+    ['Concurrent provider requests', 'provider_concurrency', 1, 1, 16],
+    ['Provider queue limit', 'provider_queue_limit', 256, 1, 4096],
+    ['Persistence flush timeout (ms)', 'persistence_flush_timeout_ms', 10000, 100, 120000],
+    ['Shutdown timeout (ms)', 'shutdown_timeout_ms', 15000, 100, 120000],
+    ['Context byte ceiling', 'context_limit_bytes', 2097152, 65536, 16777216],
+  ];
+  const valueOf = new Map(bounded.map(([, path, value]) => [path, value] as const));
+  valueOf.set('tool_concurrency', 1);
+  const scalarView: NativeConfigurationView = {
+    ...view,
+    fields: [...valueOf].map(([path, value]) => ({
+      path, catalog_path: path, explicit: { present: false },
+      effective: { present: true, value, source: 'compiled_default' }, application: 'not_applied' as const,
+    })),
+  };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [...valueOf].map(([path]) => ({
+    path, type: 'integer', editability: field.editability,
+  })) });
+  mount(scalarView); await act(async () => {});
+  expect(container.querySelector('select')?.textContent).toContain('tool_concurrency');
+  expect(container.querySelector('[data-settings-item="native-configuration.provider-scheduling"]')?.textContent)
+    .not.toContain('tool_concurrency');
+  for (const [label, , value, min, max] of bounded) {
+    expect(container.textContent, label).toContain(label);
+    await act(async () => button(label).click());
+    const input = container.querySelector<HTMLInputElement>('input[type="number"]');
+    expect(input, `${label} number input`).not.toBeNull();
+    expect(input!.value, label).toBe(String(value));
+    expect(input!.min, label).toBe(String(min));
+    expect(input!.max, label).toBe(String(max));
+  }
+});
+
+it('validates the four context threshold drafts against the native decimal bounds', async () => {
+  // The decimal thresholds ride a text field with inputMode, so the range is
+  // enforced by validation rather than by HTML min/max: a draft outside
+  // src/configuration-rules.js keeps Preview disabled.
+  const thresholds: Array<[string, string, number, string]> = [
+    ['context_compression_threshold', 'First compression threshold (0–1)', 0.4, '0.1'],
+    ['context_compression_level_2_threshold', 'Second compression threshold (0–1)', 0.55, '0.1'],
+    ['context_compression_level_3_threshold', 'Third compression threshold (0–1)', 0.7, '1.5'],
+    ['context_compaction_threshold', 'Full compaction threshold (0–1)', 0.75, '0.2'],
+  ];
+  const decimalView: NativeConfigurationView = {
+    ...view,
+    fields: thresholds.map(([path, , value]) => ({
+      path, catalog_path: path, explicit: { present: false },
+      effective: { present: true, value, source: 'compiled_default' }, application: 'not_applied' as const,
+    })),
+  };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: thresholds.map(([path]) => ({
+    path, type: 'number', editability: field.editability,
+  })) });
+  mount(decimalView); await act(async () => {});
+  for (const [, label, value, tooLow] of thresholds) {
+    await act(async () => button(label).click());
+    const input = container.querySelector<HTMLInputElement>('input[type="text"]');
+    expect(input, `${label} text input`).not.toBeNull();
+    expect(input!.value, label).toBe(String(value));
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, tooLow);
+      input!.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect((button('Preview change') as HTMLButtonElement).disabled, `${label} rejects ${tooLow}`).toBe(true);
+  }
+});
