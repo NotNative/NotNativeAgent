@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Secrets cited to files; the unscoped fork gets its test · NND 20261007-51
+
+**No-test 45 → 33; no-file-at-all 36 → 24.** 6 rows, 12 replaced, **6 kept**. Axes unchanged (owed 18,
+dispositions 7, installed 0/371, paths 346/346). Test files changed ⇒ suites re-run in full: **UI
+1919 → 1920**/265, web 1447/132, typecheck 0.
+
+Gaps closed before re-citing, not instead of it: the client now refuses an empty/97-char/control-char
+label and a metadata name outside the grammar (the value-*order* refusal is that and only that), and
+the page asserts the **unscoped** rendering for a scopeless record — a fork every old fixture
+bypassed. Named gaps stay named with locations (response-ceiling bounds, optional-stamp parity,
+catalog loop demonstrated one position at a time) per the `-47` rule.
+
+Two citation species written into 03-settings: an **order refusal is not a name-set refusal**, and a
+**fork the fixture never feeds** is a citation of the branch, not the behaviour.
+
 ## 2026-10-07 · Lifecycle verbs named; a fixture ≠ an assertion · NND 20261007-50
 
 **No-test 57 → 45; no-file-at-all 48 → 36.** 6 rows, 12 replaced, **6 kept**. Axes unchanged (owed 18,

@@ -1144,6 +1144,17 @@ that somebody wrote the helper, unless a test hands that receipt to the parser a
 about the result. When a suite exercises one direction of a verb, the citation says so and points at
 the other direction's real evidence, which is usually a different suite.
 
+Two more species arrived with the secrets family. An **order refusal is not a name-set refusal**: the
+fixture keeps the metadata names identical and reorders only the values, so the citation must say what
+actually failed — claiming a foreign name is refused describes a refusal for a different input, and
+the name-grammar refusal had to be written as its own line before it could be cited. And a **fork the
+fixture never feeds** is a citation of the branch, not of the behaviour: the renderer's unscoped line
+existed while every fixture carried a scope, so the honest citation is a new test that feeds the
+scopeless record and asserts the word, not a pointer to the line that would print it. When a mirrored
+bound (the client's copy of the native response ceiling) or a parameterised loop (catalog refusals
+demonstrated one position at a time) is only partially exercised, the citation names the covered
+input and stops there rather than claiming the whole rule.
+
 ### A row may state that no desktop surface is owed
 
 If a surface is

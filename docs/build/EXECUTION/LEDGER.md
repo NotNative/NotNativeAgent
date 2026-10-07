@@ -416,6 +416,46 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-51 — the secrets family cites its files, and the unscoped fork finally has an assertion
+
+Citations naming no test file: **45 → 33**; naming no file at all: **36 → 24**. Six rows rewritten,
+twelve prose citations replaced, **six citations naming a file kept**. Axes stayed (owed 18,
+dispositions 7, unverified surface 0, unverified class 42, installed evidence 0 of 371, surface paths
+346 of 346) — and this time the suites moved, because two named gaps became assertions first: the UI
+suite **1919 → 1920** across the same 265 files, web held 1447/132, typecheck 0.
+
+What changed in the suites, both facts now cited from the lines that assert them. On the client
+(`packages/ui/src/lib/nnd/__tests__/secrets.test.ts`), four refusals were added beside the refused
+record whose metadata values arrive out of ascending order with names unchanged: an **empty label**, a
+**97-character label**, a **label carrying a control character**, and a **metadata name outside the
+name grammar** — deliberately written as its own line, because the existing refusal is about value
+*order*, not about names, and citing it as a name-set refusal would have been the new species. On the
+page (`packages/ui/src/components/settings/__tests__/secrets-metadata.test.tsx`), a second test feeds
+a record whose scope is null and asserts the word **unscoped** renders with no `scope ` prefix — a
+fork the renderer always had and no fixture ever fed; the first test keeps the workspace-scoped
+rendering with its exact roster string, the value-absence counts, and the GET-only walk.
+
+The family's headline claims point at real lines on both sides: the roster is redaction-safe — at the
+parser boundary no projection carries a `ciphertext` or `nonce` key, and at the page the metadata
+values (`eu-1`, `core`) never appear in the rendered list and no request body carries a field-value
+pattern; the six read-only catalog paths are pinned in exact order with their editability invariant,
+drifted envelopes and records refuse on the exact key sets, and vault damage maps to a repair
+sentence keeping the vault code visible. Every prose citation names the test file, the test, and the
+exact assertion.
+
+**Named gaps stay named, with locations** (the `-47` rule; they are to-dos, not resting places): the
+client mirrors NNA's 2 MiB + 65,536 response ceiling (`SECRETS_RESPONSE_BOUNDS`) and its own bounded
+stream reader, and NEITHER bound nor any oversized payload is exercised by this suite
+(`secrets.test.ts`); the optional stamps (`rotated_at`, `last_used_at`) are asserted only as the
+null-or-ISO shapes the passing fixtures happen to carry; the catalog drift loop is demonstrated one
+position at a time (editability flipped on the scope row, the sixth path removed) — a seventh path or
+a misclassified field is refused by the same loop but not shown in a test. A later slice that touches
+this family should close these or say why it cannot.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 33 of 666 (no file at all 24);
+installed evidence 0 of 371.
+
 ## NND 20261007-50 — the lifecycle verbs are named, and a fixture is not the same thing as an assertion
 
 Citations naming no test file: **57 → 45**; naming no file at all: **48 → 36**. Six rows rewritten,

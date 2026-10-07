@@ -42,6 +42,10 @@ describe('native secrets list parser', () => {
     refusal({ ...list([record()]), secrets: [{ ...record(), created_at: 'yesterday' }] });
     refusal({ ...list([record()]), secrets: [{ ...record(), use_count: -1 }] });
     refusal({ ...list([record()]), secrets: [{ ...record(), scope: { kind: 'other', id: 'x' } }] });
+    refusal({ ...list([record()]), secrets: [{ ...record(), label: '' }] });
+    refusal({ ...list([record()]), secrets: [{ ...record(), label: 'x'.repeat(97) }] });
+    refusal({ ...list([record()]), secrets: [{ ...record(), label: 'bad\nline' }] });
+    refusal({ ...list([record()]), secrets: [{ ...record(), metadata: { 'BAD NAME': ['core', 'fringe'] } }] });
   });
 });
 

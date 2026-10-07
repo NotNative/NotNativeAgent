@@ -74,3 +74,17 @@ it('renders the roster honestly: absent vault, present records, vault damage sen
   const methods = fetchMock.mock.calls.map(call => (call[1] as RequestInit | undefined)?.method ?? 'GET');
   expect(methods.every(method => method === 'GET')).toBe(true);
 });
+
+it('a scopeless record says unscoped rather than going quiet', async () => {
+  fetchMock.mockImplementation((path: string) => path.endsWith('/configuration/secrets/catalog')
+    ? Promise.resolve(jsonResponse(catalog()))
+    : Promise.resolve(jsonResponse({ ...identity, source_state: 'present', count: 1,
+      secrets: [{ ...record(), scope: null }], application: 'next_secret_use' })));
+  await mount();
+  const listed = () => container.querySelector('[data-testid="secrets-list"]')?.textContent ?? '';
+  expect(listed()).toContain('unscoped');
+  expect(listed()).not.toContain('scope ');
+  expect(listed()).toContain('updated 2026-10-06T00:00:00.000Z');
+  const methods = fetchMock.mock.calls.map(call => (call[1] as RequestInit | undefined)?.method ?? 'GET');
+  expect(methods.every(method => method === 'GET')).toBe(true);
+});
