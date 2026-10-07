@@ -164,6 +164,27 @@ test('a user manifest carrying a mission block is refused before validation orde
     && !JSON.stringify(error).includes('2026-10-08'));
 });
 
+test('the memory family serves user values, the documented defaults, and refuses out-of-range bounds', () => {
+  // Bounds come from src/configuration-rules.js: timeout_ms 50..30_000,
+  // max_items 1..64, max_bytes 1_024..262_144; enabled is opt-out and
+  // required is opt-in (src/config.js:validateMemory).
+  const defaults = { 'memory.enabled': true, 'memory.required': false, 'memory.timeout_ms': 750,
+    'memory.max_items': 8, 'memory.max_bytes': 16_384 };
+  const view = projectNndConfigurationView(snapshot());
+  for (const [path, value] of Object.entries(defaults)) {
+    assert.deepEqual(row(view, path).explicit, { present: false }, path);
+    assert.deepEqual(row(view, path).effective, { present: true, value, source: 'compiled_default' }, path);
+  }
+  const mine = projectNndConfigurationView(snapshot({ memory: { enabled: false, required: false,
+    timeout_ms: 2_000, max_items: 16, max_bytes: 65_536 } }));
+  assert.deepEqual(row(mine, 'memory.enabled').effective, { present: true, value: false, source: 'user' });
+  assert.deepEqual(row(mine, 'memory.timeout_ms').effective, { present: true, value: 2_000, source: 'user' });
+  assert.deepEqual(row(mine, 'memory.max_bytes').explicit, { present: true, value: 65_536 });
+  for (const bad of [{ timeout_ms: 10 }, { max_items: 100 }, { max_bytes: 1_000 }]) {
+    assert.throws(() => snapshot({ memory: bad }), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
+  }
+});
+
 test('the dream family serves user values, the documented defaults, and the host forced-disable', () => {
   // Bounds come from src/configuration-rules.js: idle_ms 5_000..3_600_000,
   // inter_stage_ms 1_000..300_000, inference_idle_ms 10_000..3_600_000,
