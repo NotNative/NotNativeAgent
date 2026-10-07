@@ -183,3 +183,18 @@ it('renders the three telemetry census rows with the inert nulls and the user de
   expect(rowText('telemetry.retention')).toContain('null');
   expect(rowText('telemetry.retention')).toContain('compiled_default');
 });
+
+it('renders the reviewer-ledger retention row with its default budget', async () => {
+  const ledgerPath = 'reviewer_ledger.retention_entries';
+  const ledgerView: NativeConfigurationView = { ...view, fields: [
+    { path: ledgerPath, catalog_path: ledgerPath, explicit: { present: false },
+      effective: { present: true, value: 10000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(ledgerView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText(ledgerPath)).toContain('Not set');
+  expect(rowText(ledgerPath)).toContain('10000');
+  expect(rowText(ledgerPath)).toContain('compiled_default');
+});

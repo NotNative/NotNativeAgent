@@ -416,6 +416,26 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-10 — the reviewer-ledger budget closes the small families
+
+The last single-row `manifest_*` family closed: `reviewer_ledger.retention_entries`
+against the EXISTING configuration view and the reviewer-retention block,
+which already bound the control at 1–100 000 (default 10 000) and reject
+`0`, `05000`, and `100001` before preview. The new proof shows the view
+serving the default with `source: compiled_default` and a user value with
+`source: user`, `invalid_limit` for `0`, `100001`, and a non-integer, and
+`reviewer_ledger_config_invalid` for any other key inside the block — NNA
+accepts exactly one key there.
+
+The row keeps `apply.class: unverified`, matching NNA's metadata and the
+code: `engine/components.js` hands the resolved number to the ledger once at
+construction, `persistence/reviewer-ledger.js` compacts settled reviews beyond
+it at the next write, and `runtime-config.js` republishes nothing — so a save
+is not verified to re-budget a ledger already running. With this, every
+`manifest_*` family except the three big ones is closed; what remains under
+the census metric is `manifest` 38, `manifest_route` 48, and
+`manifest_provider` 37. Census rows without a verified GUI: 124 → 123.
+
 ## NNA (test-only) and NND 20261007-9 — telemetry rows are recorded as carried, not applied
 
 The 3 `manifest_telemetry` rows closed against the EXISTING configuration view and

@@ -288,7 +288,10 @@ values to running work. Reviewer-ledger retention has a bounded catalog-gated
 control for
 `reviewer_ledger.retention_entries` (1–100,000). Its preview and save use the
 native revision-checked path; a saved receipt does not change running work or
-execution authority. Older NNA releases can evict unfinished reviews when the
+execution authority. The default is 10 000 entries; the engine reads the
+budget once when it builds its reviewer ledger and compacts settled reviews
+beyond it at the next write, and any other key inside the block is refused
+with `reviewer_ledger_config_invalid`. Older NNA releases can evict unfinished reviews when the
 limit is exceeded. Repaired NNA releases preserve unresolved reviews through
 compaction, including those with an uncertain external effect. The NND
 configuration view does not expose a trustworthy NNA product version, so this

@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The reviewer-ledger budget closes the small manifest families · NND 20261007-10
+
+`reviewer_ledger.retention_entries` closed against the EXISTING view and the
+reviewer-retention block (default 10 000, bounds 1–100 000, `0`/`05000`/
+`100001` rejected before preview): the view proof adds `compiled_default`
+vs `user` provenance, `invalid_limit` for `0`, `100001` and a non-integer,
+and `reviewer_ledger_config_invalid` for any other key in the block. Class
+stays `unverified` — the engine reads the budget once at ledger
+construction and the ledger compacts settled reviews at the next write, so a
+save is not verified to re-budget a running ledger.
+
+With this the small `manifest_*` families are done; the census metric now
+counts only `manifest` 38, `manifest_route` 48 and `manifest_provider` 37.
+Census rows without a verified GUI: 124 → 123. Next: `manifest` (38 rows) —
+split into verified sub-slices if one round cannot carry them honestly.
+
 ## 2026-10-07 · Telemetry rows are recorded as carried, not applied · NND 20261007-9
 
 The 3 `manifest_telemetry` rows closed against the EXISTING view and the

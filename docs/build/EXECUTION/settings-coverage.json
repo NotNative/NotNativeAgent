@@ -6601,28 +6601,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "engine/components.js passes the resolved value once when the engine builds its reviewer ledger, and persistence/reviewer-ledger.js trims settled entries beyond it at the next write; src/runtime-config.js republishes nothing for it, so an accepted save is not verified to re-budget a ledger that is already running — the class NNA catalog metadata declares is unverified"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-10)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateReviewerLedger"
+     "validateReviewerLedger",
+     "projectNndConfigurationView",
+     "retentionCompactionTarget"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the row serves 10000 by default with source compiled_default, carries a user value with source user, refuses 0, 100001 and a non-integer with invalid_limit, and refuses any other key inside the block with reviewer_ledger_config_invalid; the NND controls test bounds the advertised control at 1 and 100000, rejects 0, 05000 and 100001 before preview, and saves through preview, CAS save, and receipt lookup, while the page test renders the row"
    },
-   "notes": null
+   "notes": "Pinned 20261007-10: default 10000 bounded 1 to 100000; the reviewer block renders the control with those bounds and NNA rejects any other key inside the block with reviewer_ledger_config_invalid. The ledger applies the budget to settled review entries at its next compaction, so the row records no application moment. NNA owns the bounds and the class follows NNA catalog metadata (unverified)."
   },
   {
    "id": "manifest_recovery:recovery.max_model_steps",
