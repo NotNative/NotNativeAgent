@@ -416,6 +416,37 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-53 — the web_fetch family's two desktop suites are cited trace by trace
+
+Citations naming no test file: **33 → 27**; naming no file at all: **24 → 18**. Three rows rewritten
+(`version`, `trusted_origins`, `updated_at`), six prose citations replaced, **ten file-naming
+citations kept** — six naming NNA's three web-fetch suites (transaction, HTTP routes, and the fetch
+tool that makes `next_fetch` the application point) and the desktop absence pin
+(`web-fetch-trust.tsx` never reads the store version), four being the two shared prose blocks that
+named no file. Axes otherwise unchanged: owed 14, dispositions 11, unverified class 38, installed 0
+of 371, paths 346 of 346.
+
+Both cited suites were read in full this round and every claim in the new citations is a line that
+exists. The client (`packages/ui/src/lib/nnd/__tests__/web-fetch.test.ts`) refuses the read view at
+version 2 inside a nine-position drift loop, pins the stamp value verbatim with `updated_at: null`
+against the absent shape, keeps origins sorted-unique as served, canonicalizes drafts with host
+case, bounds the operation grammar before transport, mirrors the store's dedupe-sort-filter
+normalization, and composes the CAS request including the absent basis. The page
+(`packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx`) pins the roster with one
+revoke control per grant, the saved stamp with the read's revision prefix, credential-bearing or
+path-carrying drafts refused before the preview endpoint is called at all, mixed-host-case batches
+saved in canonical order, uncertain and unpublished writes resolved by receipt lookup, expired
+receipts recovered explicitly, and the absent source bootstrapped through preview and save.
+
+No production file changed, so the suites were not re-run and that is stated rather than assumed —
+as with `-50`. The absence claim inside the kept citation was re-verified against the live sources
+rather than trusted: `web-fetch-trust.tsx` still contains no reference to the store version, and the
+client still refuses `version !== 1` at `web-fetch.ts` before any other field is read.
+
+After this round: rows 371; surfaces owed 14; not owed with evidence 11 (unevidenced 0); unverified
+application class 38; citations naming no test file 27 of 678 (no file at all 18); installed
+evidence 0 of 371.
+
 ## NND 20261007-52 — four alias rows are dispositioned, and the load path that justifies them is proved in NNA
 
 Surfaces owed **18 → 14**; not-owed-with-evidence **7 → 11** (unevidenced 0); unverified application

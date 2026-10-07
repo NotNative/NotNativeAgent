@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · web_fetch cited trace by trace; no-test 33 → 27 · NND 20261007-53
+
+Three rows rewritten (6 out, 10 kept; no-file **24 → 18**). Both desktop suites read in full; every
+new citation names the file, the test, and the exact assertion. Kept citations re-verified against
+live sources (page still never reads the store version; client still refuses version ≠ 1). Axes
+otherwise unchanged; installed 0/371. No production or test file changed — suites deliberately not
+re-run, stated in the ledger.
+
 ## 2026-10-07 · Four alias rows dispositioned; the load path proved native-side first · NND 20261007-52
 
 **Owed 18 → 14; dispositions 7 → 11; unverified class 42 → 38.** The `web_search_alias` family's
