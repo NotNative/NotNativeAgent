@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · secret_action named; the `-42` lesson fires *before* the tool runs · NND 20261007-43
+
+**No-test 122 → 108; no-file-at-all 114 → 100.** 7 rows, 14 prose replaced, **14 file-naming
+citations kept** — nothing lost but the prose (diff probe confirms).
+
+Two things worth keeping beyond the per-action error-code mappings: the client's **export surface is
+pinned to 13 named members, none of them a value-read consumer** — the console can't reach `/use`
+because nothing in the module allows it, and the page asserts no request in the whole
+create→update→rotate→toggle→delete flow touches `/use`. And rotation, the dangerous flow, has the
+unglamorous assertion: after the values PUT, **no password input still holds the sent value** —
+"the secret is cleared from the form" only means something if somebody checks the inputs.
+
+**`-42`'s rule changed behaviour early:** the first `enable_disable` page citation claimed "the
+roster keeps its audit row rather than pretending the record vanished" — from a *comment*, the exact
+`-42` mistake. Caught **while writing the plan, before applying**; replaced with the assertion plus
+an explicit note that the disabled-record rendering **is not asserted by this suite**. A gap named
+in a citation is cheaper than one papered over.
+
 ## 2026-10-07 · update_state named — including a citation I had to retract · NND 20261007-42
 
 **No-test 136 → 122; no-file-at-all 128 → 114.** 8 rows, 14 prose replaced, **8 file-naming

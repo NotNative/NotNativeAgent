@@ -416,6 +416,39 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-43 — secret_action citations named, and last round's lesson changes what the tool accepted
+
+Citations naming no test file: **122 → 108**; naming no file at all: **114 → 100**. Seven rows
+rewritten, fourteen prose citations replaced, **fourteen citations that named a file kept** —
+nothing was lost but the prose. No other axis moves: owed 18, dispositions 7, unverified surface
+0, unverified class 42, installed evidence 0 of 371.
+
+The two things worth keeping from `packages/ui/src/lib/nnd/__tests__/secret-actions.test.ts` and
+`secret-console.test.tsx`, beyond the per-action mappings (each forwarded broker code rendered as
+a sentence: a duplicate label says *already exists*, a forbidden scope says *ownership scope*, an
+invalid field says *field names and bounds*, an unavailable broker says *unavailable*, and anything
+unrecognised gets one honest generic line rather than an invented explanation):
+
+- the client's **export surface is pinned to thirteen named members**, and the test's purpose is
+  that none of them is a value-read consumer — the console cannot reach the use endpoint because
+  nothing in the module lets it, and the page suite independently asserts that no request made
+  during the whole create-update-rotate-toggle-delete flow touches `/use`;
+- rotation is the dangerous flow and the assertion is the unglamorous one: after the values put,
+  **no password input on the page still holds the value that was sent**. "The secret is cleared
+  from the form" is only true if somebody checks the inputs, and somebody did.
+
+**The lesson from `-42` changed behaviour this round, and changed it early.** The first draft of
+the `enable_disable` page citation said *"the roster keeps its audit row rather than pretending the
+record vanished"* — taken from a comment above the assertion, exactly the mistake made last round.
+It was caught while writing the plan, before anything was applied, and replaced with what the file
+asserts plus an explicit note that the panel's behaviour once a record reads as disabled **is not
+asserted by this suite**. A gap named in a citation is cheaper than a gap papered over, and the
+suite is now on record for what it does not cover.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 108 of 636 (no file at all 100);
+installed evidence 0 of 371; verified rows with no recorded examination 0.
+
 ## NND 20261007-42 — update_state citations named, and the round includes a citation I had to take back
 
 Citations naming no test file: **136 → 122**; naming no file at all: **128 → 114**. Eight rows
