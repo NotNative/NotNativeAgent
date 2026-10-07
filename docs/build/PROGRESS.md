@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Environment closes on evidence, and a placeholder class says what NNA declares · NND 20261007-16
+
+Seven `environment` rows closed with no new surface: the panel, typed client,
+native route and all three suites already existed, and what was missing was the
+record — no cited tests, no application evidence, a surface status never
+confirmed. Assertions now cover all seven rows, not five, and the guarantee is
+worth naming: credential withholding is enforced (the client refuses a secret
+entry that arrives carrying a value), not merely labelled. The class was a
+placeholder with no evidence; it is now `restart_service`, NNA's own word, with
+its limit stated in the same breath — a declared point is not an observed one,
+and whether a restarted installed service picks up a changed environment is still
+C7 and L gate territory. Sensitivity was left as classified, because the census
+has no value meaning "unremarkable" and inventing one is noise dressed as rigour.
+Census rows with an unverified desktop surface: 33 → 26.
+
 ## 2026-10-07 · Update state closes on evidence, and a provider write-path claim is corrected · NND 20261007-15
 
 Seven of eight `update_state` rows closed on the residual axis — rows that

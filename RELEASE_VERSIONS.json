@@ -1300,6 +1300,10 @@
     {
       "version": "20261007-15",
       "content_sha256": "100e11ec2e74b6ee8d7f43613208e8aadb27f3856dee93d12f76c6afc0c12b38"
+    },
+    {
+      "version": "20261007-16",
+      "content_sha256": "2bf94d09b8e955a427697960c3be123b612867debbbfa6fd694b065f8e28b956"
     }
   ]
 }

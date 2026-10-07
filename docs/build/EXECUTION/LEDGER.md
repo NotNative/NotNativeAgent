@@ -416,6 +416,44 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-16 — the environment family closes on evidence, and a placeholder class becomes what NNA declares
+
+Seven `environment` rows closed without needing a new surface: the panel, the
+typed client, the native route and all three test suites already existed, and
+what was missing was the record — no cited tests, no application evidence, and a
+surface status nobody had ever confirmed. Row-level assertions now cover all
+seven entries rather than five, and the reading is worth restating because it is
+the interesting part: credential withholding on this surface is **enforced, not
+merely labelled**. NNA's snapshot carries presence and no value for the two names
+it lists as secrets, the desktop's typed client refuses one that arrives
+*carrying* a value, and the page prints `set · value withheld`. An empty value
+reads differently from an unset one, and the observation digest deliberately
+covers public values plus presence only, so the panel cannot be turned into an
+offline oracle for guessing credentials.
+
+The slice also fixed a defect the reporting itself had hidden: three rows
+(`browser_action:status`, `browser_action:verify`, `skills_action:list`) had a
+classification statement written into the **sensitivity** field instead of the
+application field, which already held its own value — in JSON reports it
+rendered as `[object Object]` and quietly corrupted every sensitivity count.
+They now classify as generated state, which is what the misplaced statement
+asserted, and the sentence survives in the row notes. No field was invented and
+nothing was deleted.
+
+The class on these rows was `external_source_change` with no evidence — a
+placeholder that said roughly what everyone assumed. It is now `restart_service`,
+which is what NNA's own catalog declares for every observed name. That swap is
+honest only with its limit attached, and the limit is written in both the row
+notes and this document: a declared application point is not an observed one.
+Whether a restarted installed service really picks up a changed environment is
+still unobserved, and C7 and the L gates own that.
+
+The sensitivity classifications were left alone, deliberately. Two rows are
+credentials and the census agrees with NNA's own list of secret names; the other
+five are ordinary process configuration that the surface prints in full, and the
+census has no value for "unremarkable", so inventing one would add noise dressed
+as rigour. Census rows with an unverified desktop surface: 33 → 26.
+
 ## NND 20261007-15 — the update-state family closes on evidence, and a provider write-path claim is corrected
 
 This slice belongs to the residual lane: rows that already named a desktop

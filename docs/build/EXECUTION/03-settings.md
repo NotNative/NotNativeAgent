@@ -771,10 +771,16 @@ changed in the Windows shell and reaches the service at its restart. Unknown
 service fields are dropped, and a drifted projection fails closed. NND
 consumes the surface with a typed client and a read-only default settings
 section that renders the observation, the shell-and-restart explanation, and
-a refresh; the census environment rows carry the native read endpoints, the
-paired read permission, and the section component path. The rows'
-application class stays unverified until an installed service is observed
-through its restart; the remaining C6 external-store families stay open.
+a refresh; every one of the seven rows is asserted at row level, including
+the two credential rows, and the typed client refuses a credential entry that
+arrives carrying a value, so withholding is enforced rather than merely
+labelled. The census environment rows carry the native read endpoints, the
+paired read permission, and the section component path, and their desktop
+surface is verified. Their application class now records what the native
+catalog declares (`restart_service`) instead of a placeholder; that is a
+declared point, and the restart effect on an installed service is still
+unobserved, which C7 and the L gates own. The remaining C6 external-store
+families stay open.
 
 ### C7 — Coverage and installed acceptance gate
 

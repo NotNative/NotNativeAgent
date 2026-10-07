@@ -59,10 +59,17 @@ it('reads the observation with withheld credential values and honest empty/absen
   const cell = (name: string) => container.querySelector(`[data-testid="native-environment-${name.toLowerCase()}"]`)
     ?.textContent ?? '';
   expect(cell('nna_home')).toBe('value-text');
+  expect(cell('nna_provider_endpoint')).toBe('value-text');
+  expect(cell('nna_reduced_motion')).toBe('value-text');
   expect(cell('nna_model')).toBe('(empty value)');
   expect(cell('no_color')).toBe('not set in the service process');
   expect(cell('nna_telegram_bot_token')).toBe('set · value withheld');
   expect(cell('opencode_server_password')).toBe('set · value withheld');
+  // Seven census rows, one line each, and the digest that ties the read to
+  // one observation. The catalog has arrived, so the pending caveat is gone.
+  expect(container.querySelectorAll('[data-testid="native-environment-table"] li')).toHaveLength(7);
+  expect(text).toContain('Observation digest abababababab');
+  expect(text).not.toContain('(catalog pending)');
   expect(text).toContain('service process');
   await click('Refresh');
   expect(fetchMock.mock.calls.filter(([path]) => String(path).endsWith('/environment')).length).toBe(2);

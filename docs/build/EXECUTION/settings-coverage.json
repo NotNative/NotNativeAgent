@@ -14313,10 +14313,7 @@
     "path": "packages/ui/src/components/settings/pages/browser-observation.tsx",
     "status": "verified"
    },
-   "sensitivity": {
-    "class": "generated_state",
-    "evidence": "the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
-   },
+   "sensitivity": "generated_state",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -14334,7 +14331,7 @@
     ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
   },
   {
    "id": "browser_action:verify",
@@ -14364,10 +14361,7 @@
     "path": "packages/ui/src/components/settings/pages/browser-observation.tsx",
     "status": "verified"
    },
-   "sensitivity": {
-    "class": "generated_state",
-    "evidence": "the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
-   },
+   "sensitivity": "generated_state",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -14385,7 +14379,7 @@
     ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
   },
   {
    "id": "skills_action:list",
@@ -14415,10 +14409,7 @@
     "path": "packages/ui/src/components/settings/pages/native-skills.tsx",
     "status": "verified"
    },
-   "sensitivity": {
-    "class": "generated_state",
-    "evidence": "the catalog is a read of installer/user/project skill files; the panel renders ids, versions, invocation, source scopes, tool requirements, and body digests — never a skill body."
-   },
+   "sensitivity": "generated_state",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -14438,7 +14429,7 @@
     ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": " Integrity repair 20261007-16: a classification statement had been written into the sensitivity field instead of the application field, which already carried its own value. The statement is preserved here: the catalog is a read of installer/user/project skill files; the panel renders ids, versions, invocation, source scopes, tool requirements, and body digests — never a skill body."
   },
   {
    "id": "update_action:check",
@@ -15514,29 +15505,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "userDataPaths"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
   },
   {
    "id": "environment:NNA_PROVIDER_ENDPOINT",
@@ -15556,29 +15555,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "manifestFromEnvironment"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
   },
   {
    "id": "environment:NNA_MODEL",
@@ -15598,29 +15605,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "manifestFromEnvironment"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
   },
   {
    "id": "environment:NNA_REDUCED_MOTION",
@@ -15640,29 +15655,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "runtimeEnvironment"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
   },
   {
    "id": "environment:NO_COLOR",
@@ -15682,29 +15705,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "runtimeEnvironment"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
   },
   {
    "id": "environment:NNA_TELEGRAM_BOT_TOKEN",
@@ -15724,29 +15755,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "gatewayToken"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: NNA lists this name in SECRET_NAMES, so the entry carries presence but no value at all; the panel says \"set · value withheld\" and the client parser refuses an entry of this name that carries a value. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: this is a credential and it is withheld everywhere."
   },
   {
    "id": "environment:OPENCODE_SERVER_PASSWORD",
@@ -15766,29 +15805,37 @@
     "process_invocation"
    ],
    "apply": {
-    "class": "external_source_change",
-    "evidence": null
+    "class": "restart_service",
+    "evidence": "src/nnd-environment-route.js declares every observed name application restart_service with editability unavailable and reason process_environment; src/nnd-environment-snapshot.js builds the seven entries from the served process environment and carries no value at all for the names in SECRET_NAMES, so the value takes effect when the service restarts with a new environment, never from this surface"
    },
    "native_endpoint": "GET /v1/nnd/configuration/environment; GET /v1/nnd/configuration/environment/catalog",
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-environment.tsx",
-    "status": "unverified"
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-16)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
-     "opencodePublicStatus"
+     "OBSERVED_NAMES",
+     "SECRET_NAMES",
+     "parseNativeEnvironmentView",
+     "parseNativeEnvironmentCatalog",
+     "environmentEntryIsSecret"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
+     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
+     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+    ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Full environment census pending."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: NNA lists this name in SECRET_NAMES, so the entry carries presence but no value at all; the panel says \"set · value withheld\" and the client parser refuses an entry of this name that carries a value. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: this is a credential and it is withheld everywhere."
   },
   {
    "id": "invocation:--manifest",
