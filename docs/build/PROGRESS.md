@@ -3,6 +3,30 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · web_search named; `managed` moves from source-read to asserted · NND 20261007-49
+
+**No-test 69 → 57; no-file-at-all 60 → 48.** 8 rows, 12 replaced, **10 kept** — including all three
+absence proofs (`version`/`provider`/`managed`), confirmed not in the vanished list. UI **1918 →
+1919**; web 1447/132. Axes unchanged (owed 18, dispositions 7, installed 0/371, paths 346/346).
+
+`profiles[*].managed` had only source-only evidence because every fixture served `managed: false`.
+Closed instead of re-cited: the parser refuses a string, `'true'`, `1`, null, `''`, **or the key being
+absent** (the key set is exact), and `managed: true` survives the rebuild. **The row is still owed** —
+the page renders nothing and the citation calls that honest, but "we think no surface is right" ≠
+evidenced `owed:false`, so the headline doesn't move; any later disown must meet the same bar as the
+other seven.
+
+Rest of the family: order preserved not sorted; duplicate id refused; emptying the roster by removals
+comes back disabled; un-normalized id refused; ids derived from names (`Docs Search`→`docs-search`,
+`Again & more!!`→`again-more`); names trimmed, blank/129 refused; endpoints canonicalized (trailing
+`/search`, bare slashes, port kept) with credentials/non-https/garbage refused on drafts **and
+credentials refused when served**; page saves the canonical form and disables Add on a
+credential-bearing endpoint **with no request at all**.
+
+Four phrasings fixed pre-apply — same species twice now: a value arriving from a **mocked preview
+response** proves what the page displays, not what the domain derived; and pinning three columns isn't
+proof a fourth is never rendered.
+
 ## 2026-10-07 · The `-47` gaps closed by tests: UI suite 1917 → 1918 · NND 20261007-48
 
 **Coverage actually rose this time.** `native-gateway-timeout.test.tsx` 7 → 8 tests (one drives four

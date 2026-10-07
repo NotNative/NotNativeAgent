@@ -416,6 +416,47 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-49 — web_search citations named, and `managed` stops being a source-only claim
+
+Citations naming no test file: **69 → 57**; naming no file at all: **60 → 48**. Eight rows
+rewritten, twelve prose citations replaced, **ten citations naming a file kept** — including all
+three of this family's absence proofs (`version`, `provider`, `managed`), which the diff probe
+confirms are not in the vanished list. The UI suite goes **1918 → 1919**; web stays 1447 of 132.
+No census axis moves: owed 18, dispositions 7, unverified surface 0, unverified class 42, installed
+evidence 0 of 371, surface paths 346 of 346.
+
+`profiles[*].managed` had been cited only from the parser source, because every fixture in the suite
+served `managed: false`. Per the rule written last version, that gap was closed rather than cited
+again: the parser refuses a managed flag that is a string, the string `'true'`, the number 1, null,
+an empty string, **or absent from the profile object entirely** — the key set is exact — and a
+profile with `managed: true` stays managed through the rebuild. So the row now cites an assertion,
+and the flag is pinned rather than read.
+
+**This row is still counted as owed**, and it should be said plainly: the page renders nothing for
+`managed`, and the citation says that is the honest outcome for a property an operator cannot set —
+but "we think no surface is right" is not the same as having evidenced `owed: false` against a basis,
+so the headline does not move. If a later round decides the row is genuinely not owed, it has to make
+the same argument the other seven dispositions made, with a file and symbol.
+
+The rest of the family's evidence, at the level the tests actually work at: order is preserved rather
+than sorted, a duplicate id in a roster is refused, and emptying a roster by removals comes back
+disabled; an id that is not normalized is refused and the domain derives the id from the name, so
+`Docs Search` becomes `docs-search` and `Again & more!!` becomes `again-more`; a name is trimmed
+before transport and refused blank or over 129 characters; endpoints canonicalize exactly like the
+domain, collapsing a trailing `/search` and bare slashes while keeping a port, with credentials,
+non-https and malformed text refused on drafts, credentials refused when **served**, and a duplicate
+endpoint refused. On the page, an endpoint typed with a trailing `/search/` is saved canonicalized,
+and typing one with credentials leaves Add disabled **with no request made at all**.
+
+Four phrasings were fixed before applying, and the pattern is worth naming: a value that arrives from
+a mocked preview response proves what the page *displays*, not what the domain *derived*; and a suite
+pinning three columns is not proof that a fourth is never rendered anywhere. Those claims were
+downgraded to what the assertions cover.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 57 of 666 (no file at all 48);
+installed evidence 0 of 371.
+
 ## NND 20261007-48 — the three gaps named last version are closed by tests, and four rows re-cited to click level
 
 This round is the rare kind: **coverage actually rose**. `native-gateway-timeout.test.tsx` goes from

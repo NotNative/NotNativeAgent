@@ -46,6 +46,22 @@ describe('web search native view parser', () => {
     expect(bootstrapProposal.enabled).toBe(true);
     expect(bootstrapProposal.profiles.map(item => item.id)).toEqual(['docs']);
   });
+  it('enforces the managed flag as a boolean in both directions', () => {
+    // The census row for profiles[*].managed could only cite the parser source, because
+    // every fixture in this file served managed: false. The flag is a real member of the
+    // profile key set, so it is asserted rather than read: a non-boolean is refused, and a
+    // managed profile stays managed through the rebuild.
+    const withManaged = (managed: unknown) => {
+      parseNativeWebSearchView({ ...presentView(), profiles: [{ id: 'docs',
+        display_name: 'docs', provider: 'searxng', endpoint: 'https://a.example', managed }] });
+    };
+    for (const bad of ['yes', 'true', 1, null, '', undefined]) {
+      expect(() => withManaged(bad)).toThrow(NativeWebSearchFailure);
+    }
+    expect(parseNativeWebSearchView({ ...presentView(), profiles: [{ id: 'docs',
+      display_name: 'docs', provider: 'searxng', endpoint: 'https://a.example',
+      managed: true }] }).profiles[0]?.managed).toBe(true);
+  });
   it('refuses a profile that names any provider other than the one NNA supports', () => {
     // NNA throws web_search_provider_invalid for these documents and the census row for
     // profiles[*].provider cites that refusal. Neither end had ever been tested with a
