@@ -255,7 +255,14 @@ stream timeouts before the same revision-checked save. Recovery model-step and
 local-retry budgets have bounded controls when NNA advertises
 `recovery.max_model_steps` and `recovery.local_retry_limit`. NNA preview validates
 the retry limit against its configured recovery ladder before save. The ladder
-and recovery wall-clock limit remain generic JSON controls. Approval wait,
+and recovery wall-clock limit remain generic JSON controls. The ladder takes
+only `nudge` and `compact`, at most four entries, and NNA stores just the
+first `local_retry_limit − 1` steps, so the effective ladder can be shorter
+than the declared one; the wall clock is unset by default, where `null` and
+`0` both mean unset. All four recovery rows keep an `unverified` application
+class, matching NNA's own catalog metadata: the step loop reads the budget
+and wall clock from live engine limits at each entry, while the recovery
+supervisor fixes its limit and ladder at construction. Approval wait,
 persistence flush, and shutdown timeouts have bounded controls gated by the
 native catalog. Their save receipt does not claim application to running
 work or to the running service, nor does approval wait change permission

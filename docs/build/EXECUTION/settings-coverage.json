@@ -6645,28 +6645,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for recovery settings, and the code agrees that no single moment covers all four: engine/step-loop.js reads the model-step budget and turn wall clock from the live engine limits at each loop entry, while reliability/recovery-supervisor.js fixes the retry limit and ladder when the supervisor is constructed. The desktop records the values, not a moment."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-7)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateRecovery"
+     "validateRecovery",
+     "projectNndConfigurationView",
+     "withRecoverySettings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the four recovery paths serve 1024 model steps, retry limit 3, unset wall clock and the truncated default ladder, show user values with source user, truncate an explicit ladder to the retry limit minus one, and refuse a short or unknown-item ladder with recovery_config_invalid and out-of-range budgets with invalid_limit; the NND page test renders all four rows and the controls test saves an advertised retry limit through preview, CAS save, and receipt lookup"
    },
-   "notes": null
+   "notes": "Pinned 20261007-7: default 1024 bounded 16 to 100000 with a focused editor control; engine/step-loop.js reads it from the live engine limits at each step-loop entry. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata."
   },
   {
    "id": "manifest_recovery:recovery.local_retry_limit",
@@ -6689,28 +6689,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for recovery settings, and the code agrees that no single moment covers all four: engine/step-loop.js reads the model-step budget and turn wall clock from the live engine limits at each loop entry, while reliability/recovery-supervisor.js fixes the retry limit and ladder when the supervisor is constructed. The desktop records the values, not a moment."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-7)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateRecovery"
+     "validateRecovery",
+     "projectNndConfigurationView",
+     "withRecoverySettings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the four recovery paths serve 1024 model steps, retry limit 3, unset wall clock and the truncated default ladder, show user values with source user, truncate an explicit ladder to the retry limit minus one, and refuse a short or unknown-item ladder with recovery_config_invalid and out-of-range budgets with invalid_limit; the NND page test renders all four rows and the controls test saves an advertised retry limit through preview, CAS save, and receipt lookup"
    },
-   "notes": null
+   "notes": "Pinned 20261007-7: default 3 bounded 2 to 5 with a focused editor control; reliability/recovery-supervisor.js fixes the limit when the supervisor is constructed. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata."
   },
   {
    "id": "manifest_recovery:recovery.ladder",
@@ -6733,28 +6733,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for recovery settings, and the code agrees that no single moment covers all four: engine/step-loop.js reads the model-step budget and turn wall clock from the live engine limits at each loop entry, while reliability/recovery-supervisor.js fixes the retry limit and ladder when the supervisor is constructed. The desktop records the values, not a moment."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-7)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateRecovery"
+     "validateRecovery",
+     "projectNndConfigurationView",
+     "withRecoverySettings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the four recovery paths serve 1024 model steps, retry limit 3, unset wall clock and the truncated default ladder, show user values with source user, truncate an explicit ladder to the retry limit minus one, and refuse a short or unknown-item ladder with recovery_config_invalid and out-of-range budgets with invalid_limit; the NND page test renders all four rows and the controls test saves an advertised retry limit through preview, CAS save, and receipt lookup"
    },
-   "notes": null
+   "notes": "Pinned 20261007-7: nudge and compact only, at most four entries, and NNA stores only the first local_retry_limit minus 1 steps, so the effective ladder is shorter than a declared one. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata."
   },
   {
    "id": "manifest_recovery:recovery.turn_wall_clock_ms",
@@ -6777,28 +6777,28 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": null
+    "evidence": "NNA catalog metadata declares no application class for recovery settings, and the code agrees that no single moment covers all four: engine/step-loop.js reads the model-step budget and turn wall clock from the live engine limits at each loop entry, while reliability/recovery-supervisor.js fixes the retry limit and ladder when the supervisor is constructed. The desktop records the values, not a moment."
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
+   "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-7)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateRecovery"
+     "validateRecovery",
+     "projectNndConfigurationView",
+     "withRecoverySettings"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the four recovery paths serve 1024 model steps, retry limit 3, unset wall clock and the truncated default ladder, show user values with source user, truncate an explicit ladder to the retry limit minus one, and refuse a short or unknown-item ladder with recovery_config_invalid and out-of-range budgets with invalid_limit; the NND page test renders all four rows and the controls test saves an advertised retry limit through preview, CAS save, and receipt lookup"
    },
-   "notes": null
+   "notes": "Pinned 20261007-7: unset by default (null and 0 both mean unset) bounded 1000 to 86400000; engine/step-loop.js compares it against the turn start at each step. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata."
   },
   {
    "id": "manifest_tui:tui.key_bindings.submit",

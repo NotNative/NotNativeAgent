@@ -416,6 +416,29 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-7 — recovery budgets ride the view with an honest unverified class
+
+The 4 `manifest_recovery` census rows closed against the EXISTING
+configuration view and the native-configuration page: `max_model_steps`
+(default 1024, bounded 16–100 000) and `local_retry_limit` (default 3,
+bounded 2–5) already have focused editor controls that preview, save
+through CAS, and read the receipt; `turn_wall_clock_ms` is unset by default
+— `null` and `0` both mean unset, bounded 1 000–86 400 000 — and
+`recovery.ladder` only accepts `nudge` and `compact`, at most four entries,
+and NNA stores just the first `local_retry_limit − 1` steps, so an explicit
+four-step ladder under the default limit resolves to two. A short ladder
+or an unknown step fails the resolve with `recovery_config_invalid`; an
+out-of-range budget fails with `invalid_limit`.
+
+These four keep `apply.class: unverified`, which is what NNA's own catalog
+metadata declares for them, and the code agrees that no single moment
+covers all four values: `engine/step-loop.js` reads the step budget and the
+turn wall clock from the live engine limits at each loop entry, while
+`reliability/recovery-supervisor.js` fixes the retry limit and ladder when
+the supervisor is constructed. Recording the honest non-claim is the point
+of the field — the desktop shows the values and the bounds, not a moment it
+cannot support. Census rows without a verified GUI: 134 → 130.
+
 ## NNA (test-only) and NND 20261007-6 — memory limits ride the view, and application classes follow NNA's own metadata
 
 Two things in one slice. The 5 `manifest_memory` census rows closed against

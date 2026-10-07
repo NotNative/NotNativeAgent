@@ -138,3 +138,27 @@ it('labels unsupported endpoint separately from a native missing source', async 
   expect(container.textContent).toContain('missing');
   expect(container.querySelector('[data-settings-item="native-configuration.inventory"] [role="alert"]')).toBeNull();
 });
+
+it('renders all four recovery census rows with the unset wall clock and the unavailable ladder origin', async () => {
+  const recoveryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'recovery.max_model_steps', catalog_path: 'recovery.max_model_steps', explicit: { present: false },
+      effective: { present: true, value: 1024, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.local_retry_limit', catalog_path: 'recovery.local_retry_limit', explicit: { present: false },
+      effective: { present: true, value: 3, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.turn_wall_clock_ms', catalog_path: 'recovery.turn_wall_clock_ms', explicit: { present: false },
+      effective: { present: true, value: null, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.ladder', catalog_path: 'recovery.ladder', explicit: { present: false },
+      effective: { present: true, value: ['nudge', 'compact'], source_unavailable: true }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(recoveryView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('recovery.max_model_steps')).toContain('1024');
+  expect(rowText('recovery.max_model_steps')).toContain('compiled_default');
+  expect(rowText('recovery.local_retry_limit')).toContain('3');
+  expect(rowText('recovery.turn_wall_clock_ms')).toContain('null');
+  expect(rowText('recovery.ladder')).toContain('["nudge","compact"]');
+  expect(rowText('recovery.ladder')).toContain('Unavailable');
+  expect(container.textContent).toContain('Not set');
+});

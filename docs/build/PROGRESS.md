@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Recovery budgets ride the view with an honest unverified class · NND 20261007-7
+
+The 4 `manifest_recovery` rows closed against the EXISTING configuration
+view and the native-configuration page. `max_model_steps` (1024,
+16–100 000) and `local_retry_limit` (3, 2–5) already had focused controls
+with preview, CAS save, and receipt lookup; `turn_wall_clock_ms` is unset
+by default (`null` and `0` both mean unset, 1 000–86 400 000); the ladder
+takes only `nudge`/`compact`, at most four entries, and NNA stores only the
+first `local_retry_limit − 1` steps. Bad ladders fail with
+`recovery_config_invalid`, bad budgets with `invalid_limit`.
+
+All four keep `apply.class: unverified`, the class NNA's catalog metadata
+declares, because no single moment covers them: the step loop reads the
+budget and wall clock from live engine limits each entry, while the
+recovery supervisor fixes limit and ladder at construction. Census rows
+without a verified GUI: 134 → 130. Next: attachments 3 (engine_boundary),
+telemetry 3, reviewer_ledger 1, then manifest 38, route 48, provider 37.
+
 ## 2026-10-07 · Memory limits ride the view; application classes follow NNA metadata · NND 20261007-6
 
 The 5 `manifest_memory` rows closed against the EXISTING configuration view
