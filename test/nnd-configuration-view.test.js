@@ -428,3 +428,62 @@ test('the route family serves inherited bindings, canonical zeros, and its own a
     { op: 'bind_route', role: 'primary', provider_id: 'local', model: 'x' }]),
     () => true, 'only the reviewer and vision routes may be rebound');
 });
+
+test('provider profiles are served read-only, mirrored by the alias, and credential-bound', () => {
+  const profile = projectNndConfigurationView(snapshot());
+  const derived = { present: true, source_unavailable: true };
+  // The declared profile carries identity and a trust zone; the limits and
+  // the capability probe are derived, so they name no layer.
+  assert.deepEqual(row(profile, 'providers[local].trust_zone').explicit, { present: false });
+  assert.deepEqual(row(profile, 'providers[local].trust_zone').effective,
+    { present: true, value: 'loopback', source: 'user' });
+  assert.deepEqual(row(profile, 'providers[local].context_limit_bytes').effective,
+    { present: true, value: null, source_unavailable: true });
+  assert.deepEqual(row(profile, 'providers[local].output_limit_tokens').effective,
+    { present: true, value: null, source_unavailable: true });
+  assert.deepEqual(row(profile, 'providers[local].tool_call_mode').effective,
+    { present: true, value: 'single', source_unavailable: true });
+  assert.deepEqual(row(profile, 'providers[local].capabilities').effective,
+    { present: true, value_unavailable: true, source_unavailable: true });
+  assert.deepEqual(row(profile, 'providers[local].capabilities.streaming').effective,
+    { present: true, value: true, source_unavailable: true });
+  for (const key of ['tools', 'images', 'structured_output', 'usage', 'cancellation']) {
+    assert.deepEqual(row(profile, `providers[local].capabilities.${key}`).effective,
+      { ...derived, value: 'unknown' }, key);
+  }
+  // The legacy provider block mirrors the same resolved profile.
+  for (const [key, value] of [['id', 'local'], ['model', 'base'], ['trust_zone', 'loopback']]) {
+    assert.deepEqual(row(profile, `provider.${key}`).effective.value, value, key);
+    assert.equal(row(profile, `provider.${key}`).effective.source, 'user', key);
+  }
+  assert.deepEqual(row(profile, 'provider.display_name').effective,
+    { present: true, value: 'local', source_unavailable: true }, 'a display name is invented, not declared');
+  assert.deepEqual(row(profile, 'provider.capabilities').effective,
+    { present: true, value_unavailable: true, source_unavailable: true });
+  // Credential material never crosses the projection: every reference arrives
+  // redacted, whatever shape the operator declared.
+  const redactedRows = ['providers[local].credential', 'providers[local].credential.source',
+    'providers[local].credential.name', 'providers[local].credential.secret_id',
+    'providers[local].credential.field', 'providers[local].credential_env', 'provider.credential',
+    'provider.credential.source', 'provider.credential.name', 'provider.credential.secret_id',
+    'provider.credential.field', 'provider.credential_env'];
+  const secret = 'SUPER_SECRET_ENV_VAR';
+  for (const patch of [{ credential_env: secret }, { credential: { source: 'environment', name: secret } },
+    { credential: { source: 'secret', secret_id: 'sec_1234567890', field: 'api_key' } }]) {
+    const armed = projectNndConfigurationView(snapshot({ provider: { ...provider, ...patch } }));
+    for (const path of redactedRows) {
+      const line = row(armed, path);
+      assert.ok(line, `${path} is not served`);
+      for (const side of [line.explicit, line.effective]) {
+        if (!side.present) continue;
+        assert.equal(side.redacted, true, `${path} leaked a value for ${JSON.stringify(patch)}`);
+        assert.ok(!('value' in side), `${path} carried a value for ${JSON.stringify(patch)}`);
+      }
+    }
+    assert.ok(!JSON.stringify(armed).includes(secret), 'the environment name never reaches the view');
+    assert.ok(!JSON.stringify(armed).includes('sec_1234567890'), 'the secret id never reaches the view');
+  }
+  // And the configuration contract offers no provider editing at all: profile
+  // writes belong to the provider and credential lanes, not to this surface.
+  assert.deepEqual(NND_CONFIGURATION_EDITABLE_FIELDS.filter(field => /^(?:provider\.|providers\[)/u.test(field)), []);
+});
