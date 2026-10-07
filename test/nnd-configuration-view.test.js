@@ -265,3 +265,25 @@ test('the attachments family serves the documented defaults, user values, and by
     assert.throws(() => snapshot({ attachments: bad }), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
   }
 });
+
+test('the telemetry family is opt-in, requires a destination when enabled, and is inert when disabled', () => {
+  // src/config.js:validateTelemetry: enabled only on exact true; enabling
+  // without a string destination throws telemetry_destination_required;
+  // when disabled, destination and retention resolve to null but the
+  // explicit source value stays visible.
+  const bare = projectNndConfigurationView(snapshot());
+  assert.deepEqual(row(bare, 'telemetry.enabled').effective, { present: true, value: false, source: 'compiled_default' });
+  assert.deepEqual(row(bare, 'telemetry.destination').effective, { present: true, value: null, source: 'compiled_default' });
+  assert.deepEqual(row(bare, 'telemetry.retention').effective, { present: true, value: null, source: 'compiled_default' });
+  const mine = projectNndConfigurationView(snapshot({ telemetry: { enabled: true,
+    destination: 'https://collector.example/uploads', retention: 'PT24H' } }));
+  assert.deepEqual(row(mine, 'telemetry.enabled').effective, { present: true, value: true, source: 'user' });
+  assert.deepEqual(row(mine, 'telemetry.destination').effective,
+    { present: true, value: 'https://collector.example/uploads', source: 'user' });
+  assert.deepEqual(row(mine, 'telemetry.retention').explicit, { present: true, value: 'PT24H' });
+  assert.throws(() => snapshot({ telemetry: { enabled: true } }), (error) => error.code === 'telemetry_destination_required');
+  const disabled = projectNndConfigurationView(snapshot({ telemetry: { destination: 'not a url' } }));
+  assert.deepEqual(row(disabled, 'telemetry.destination').explicit, { present: true, value: 'not a url' });
+  assert.deepEqual(row(disabled, 'telemetry.destination').effective.value, null,
+    'a disabled telemetry block resolves the destination to null');
+});
