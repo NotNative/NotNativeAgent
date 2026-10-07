@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:187407e07169f8b5a056fafef666950e482fb3cab6154b34e52c850ea5939cd5",
+  "source_digest": "sha256:e47e24f95bf9e80ae1a1aa03fb795328e0b9dba6f2a82a345995035a715960e5",
   "counts": {
-    "modules": 542,
+    "modules": 543,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 234
+      "module_count": 235
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 701,
-      "module_count": 209
+      "import_count": 705,
+      "module_count": 210
     },
     {
       "from": "experience-engine",
@@ -138,8 +138,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 65,
-      "module_count": 37
+      "import_count": 67,
+      "module_count": 38
     },
     {
       "from": "tools",
@@ -192,8 +192,8 @@
     {
       "from": "foundation",
       "to": "experience-engine",
-      "import_count": 16,
-      "module_count": 13
+      "import_count": 17,
+      "module_count": 14
     },
     {
       "from": "foundation",
@@ -316,6 +316,12 @@
       "module_count": 3
     },
     {
+      "from": "foundation",
+      "to": "guidance",
+      "import_count": 6,
+      "module_count": 6
+    },
+    {
       "from": "governance-engine",
       "to": "governance-engine",
       "import_count": 6,
@@ -342,12 +348,6 @@
     {
       "from": "foundation",
       "to": "governance-engine",
-      "import_count": 5,
-      "module_count": 5
-    },
-    {
-      "from": "foundation",
-      "to": "guidance",
       "import_count": 5,
       "module_count": 5
     },
@@ -2637,6 +2637,7 @@
         "src/nnd-mcp-credentials-routes.js",
         "src/nnd-package-routes.js",
         "src/nnd-secrets-routes.js",
+        "src/nnd-skills-routes.js",
         "src/nnd-trust-routes.js",
         "src/nnd-update-actions-routes.js",
         "src/nnd-update-state-route.js",
@@ -3424,6 +3425,7 @@
         "src/nnd-package-routes.js",
         "src/nnd-secrets-routes.js",
         "src/nnd-setup-config.js",
+        "src/nnd-skills-routes.js",
         "src/nnd-trial-admission.js",
         "src/nnd-trust-routes.js",
         "src/nnd-update-actions-routes.js",
@@ -3564,6 +3566,19 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/nnd-skills-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/trust.js",
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js",
+        "src/skill-registry.js",
+        "src/startup-configuration.js"
+      ]
     },
     {
       "path": "src/nnd-transcript-identity.js",

@@ -28,6 +28,7 @@ test('the exported settings-service key set is the exact routing surface', () =>
     trustedWorkspaces: join(tmpdir(), 'trusted-workspaces.json'),
     updateState: join(tmpdir(), 'update-state.json'), root: tmpdir(),
     mcpCredentials: join(tmpdir(), 'mcp-credentials.json'),
+    skills: join(tmpdir(), 'skills'),
   });
   const services = createNativeNndSettingsServices(paths, identity, {});
   assert.deepEqual(Object.keys(services).sort(), [
@@ -35,7 +36,7 @@ test('the exported settings-service key set is the exact routing surface', () =>
     'nndConfigurationService', 'nndEnvironmentSnapshotService',
     'nndGatewayTimeoutService', 'nndHooksSettingsService', 'nndInstallationSnapshotService',
     'nndMcpCredentialsService',
-    'nndPackageActionsService', 'nndSecretsSettingsService', 'nndTrustService',
+    'nndPackageActionsService', 'nndSecretsSettingsService', 'nndSkillsService', 'nndTrustService',
     'nndUpdateActionsService', 'nndUpdateStateStore', 'nndWebFetchSettingsService',
     'nndWebSearchSettingsService', 'nndWorkspaceGrantService']);
 });

@@ -21,6 +21,7 @@ import { createNndPackageActionsService } from './nnd-package-routes.js';
 import { createNndEnvironmentSnapshot } from './nnd-environment-snapshot.js';
 import { createNndInstallationSnapshot } from './nnd-installation-snapshot.js';
 import { createNndBrowserActionsService } from './nnd-browser-routes.js';
+import { createNndSkillsService } from './nnd-skills-routes.js';
 import { userDataPaths } from './product.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
@@ -90,6 +91,8 @@ export function createNativeNndSettingsServices(paths, identity, environment) {
     nndBrowserActionsService: createNndBrowserActionsService({
       root: userDataPaths().managedPlaywright,
       installationId: identity.installation_id, dataId: identity.data_id }),
+    nndSkillsService: createNndSkillsService({ paths, installationId: identity.installation_id,
+      dataId: identity.data_id }),
     nndUpdateStateStore: createNndUpdateStateStore({ path: paths.updateState,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndTrustService: createNativeNndTrustServices({ path: paths.trustedWorkspaces,

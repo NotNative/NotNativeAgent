@@ -131,7 +131,7 @@ function failureStatus(code) {
   // The installation observation fails closed when the descriptor no longer
   // verifies: the service cannot host reads over an admission the disk lost.
   if (code === 'nnd_install_descriptor_unavailable' || code === 'nnd_install_descriptor_invalid'
-    || code === 'nnd_install_runtime_unavailable') return 503;
+    || code === 'nnd_install_runtime_unavailable' || code === 'nnd_skills_catalog_unavailable') return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy') return 409;
@@ -149,7 +149,8 @@ function failureStatus(code) {
   if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout'].includes(code)) return 504;
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
-  if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large'].includes(code)) return 413;
+  if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large',
+    'nnd_skills_catalog_too_large'].includes(code)) return 413;
   if (code === 'nnd_activity_tombstones_invalid') return 500;
   // Trust rows must never degrade to an empty list; repairs are retried after the
   // honest failure surfaces.
@@ -159,7 +160,8 @@ function failureStatus(code) {
   if (['nnd_compatibility_projection_invalid', 'nnd_secrets_projection_invalid',
     'nnd_hooks_projection_invalid', 'nnd_update_projection_invalid',
     'nnd_package_projection_invalid', 'nnd_service_projection_invalid',
-    'nnd_installation_projection_invalid', 'nnd_browser_projection_invalid'].includes(code)) return 500;
+    'nnd_installation_projection_invalid', 'nnd_browser_projection_invalid',
+    'nnd_skills_projection_invalid'].includes(code)) return 500;
   // Compatibility-service lifecycle: grammar stays at the default 400, but the
   // operational failures are honest 503s — the runtime could not be started or
   // its identity could not be verified, and the surface refuses harmlessly.
