@@ -15939,12 +15939,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: the observation is rebuilt with the seven names in served order and a top-level field the parser does not know is dropped rather than echoed, the entry is refused when the native surface flips it from set to absent, and the helper that decides whether a name is a secret answers false for it",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell reads the served value verbatim, the observation digest is printed so the read is tied to one observation, and pressing Refresh performs a second read rather than a write"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "environment:NNA_PROVIDER_ENDPOINT",
@@ -15989,12 +15989,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: the value is carried as served, and an observation reordered so the names no longer arrive in the pinned order is refused, as is one missing any of the seven",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell reads the served value, and the mock in this suite throws for any path other than the observation and its catalog, so a write from this page would fail the test loudly"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "environment:NNA_MODEL",
@@ -16039,12 +16039,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: an entry that is present with an empty string keeps the empty string instead of becoming absent, which is the distinction the page relies on",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell reads (empty value) rather than an empty cell or not set"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "environment:NNA_REDUCED_MOTION",
@@ -16089,12 +16089,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: the rebuilt roster keeps the pinned seven names in order, and the catalog parse refuses a catalog whose fields are truncated to six or whose source names another surface",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell reads the served value and the table is counted at exactly seven lines, one per census row, with the pending-catalog caveat gone once the catalog has arrived"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "environment:NO_COLOR",
@@ -16139,12 +16139,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: an entry the native surface reports as not present parses as absent with a null value rather than an empty string, keeping honest absence distinct from an empty value",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell reads not set in the service process, which is the other half of the empty-versus-absent distinction"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: the served process value is displayed as it is held, and an empty value reads differently from an unset one. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: the value is ordinary process configuration that the surface shows in full, and the census has no vocabulary for an unremarkable value, so no new claim is invented here. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "environment:NNA_TELEGRAM_BOT_TOKEN",
@@ -16189,12 +16189,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: a projection that carries a value for this secret name is refused outright, and so is one that claims the secret is absent, so neither a leak nor a false absence parses; the secret helper answers true for it",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell reads set and value withheld, and a refused read maps to the specific sentence about exceeding the projection bound rather than a generic failure"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: NNA lists this name in SECRET_NAMES, so the entry carries presence but no value at all; the panel says \"set · value withheld\" and the client parser refuses an entry of this name that carries a value. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: this is a credential and it is withheld everywhere."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: NNA lists this name in SECRET_NAMES, so the entry carries presence but no value at all; the panel says \"set · value withheld\" and the client parser refuses an entry of this name that carries a value. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: this is a credential and it is withheld everywhere. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "environment:OPENCODE_SERVER_PASSWORD",
@@ -16239,12 +16239,12 @@
     ],
     "tests_run": [
      "NNA test/nnd-environment-route.test.js (the seven census names with secret redaction, hostile environments and oversize values refused, HTTP observation and read-only catalog, projector fail-closed against drift)",
-     "packages/ui environment parser tests (observation and catalog rebuilt exactly, unknown fields dropped, a secret name carrying a value refused, shifted classifications refused)",
-     "packages/ui native-environment page tests (all seven rows asserted, withheld credential values, empty value distinct from unset, honest absence, digest shown, reads only)"
+     "packages/ui/src/lib/nnd/__tests__/environment.test.ts: the seven-name roster is pinned in served order and an observation that drops or reorders any entry is refused, so this credential is present in every frame the parser accepts; the catalog parse refuses a field whose classification is shifted from credential to setting or back, demonstrated on the first name and applied to every field",
+     "packages/ui src/components/settings/__tests__/native-environment.test.tsx: its cell also reads set and value withheld, and the same suite shows the panel pausing rather than guessing when signed out, then leaving no table behind when the read fails"
     ],
     "installed_journey": null
    },
-   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: NNA lists this name in SECRET_NAMES, so the entry carries presence but no value at all; the panel says \"set · value withheld\" and the client parser refuses an entry of this name that carries a value. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: this is a credential and it is withheld everywhere."
+   "notes": "Show source/presence; service and interactive environments can differ. Closed 20261007-16 on evidence: NNA lists this name in SECRET_NAMES, so the entry carries presence but no value at all; the panel says \"set · value withheld\" and the client parser refuses an entry of this name that carries a value. The value comes from the service process environment, so the row is read-only by nature and the native catalog says so. The class records what the native catalog declares (restart_service) rather than the earlier placeholder; that is a declared point, and the restart effect on an installed service is still unobserved, which C7 and the L gates own. Sensitivity stays as classified: this is a credential and it is withheld everywhere. Rewritten 20261007-44 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
   },
   {
    "id": "invocation:--manifest",

@@ -416,6 +416,40 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-44 — environment citations named, with the empty-versus-absent split proved on both sides
+
+Citations naming no test file: **108 → 94**; naming no file at all: **100 → 86**.
+Seven rows rewritten, fourteen prose citations replaced, **seven citations naming a file kept**.
+No other axis moves: owed 18, dispositions 7, unverified surface 0, unverified class 42, installed
+evidence 0 of 371.
+
+`packages/ui/src/lib/nnd/__tests__/environment.test.ts` and `native-environment.test.tsx` were read
+in full, and the family turns out to carry a distinction worth more than the citation count:
+
+- **empty and absent are different facts, and each side is proved twice.** The parser keeps an
+  entry that is present with an empty string as an empty string rather than folding it into
+  absence, and parses a not-present entry with a null value; the page then renders `(empty value)`
+  for one and *not set in the service process* for the other. Collapsing those two would tell an
+  operator their model was cleared when it was never set, or the reverse.
+- **the two credential names refuse both failure directions**: a frame carrying a value for a
+  secret name is refused, and so is a frame claiming the secret is absent. A leak and a false
+  absence are equally unacceptable, and the test refuses both rather than only the flattering one.
+- the read-only claim is enforced mechanically rather than by prose: the page suite's mock
+  **throws for any path other than the observation and its catalog**, so a write from this page
+  would break the test loudly instead of quietly shipping; and when signed out the panel shows the
+  sign-in sentence and, once back online with a failing read, leaves **no stale table** behind.
+
+**The self-check rule now fires before the tool a second time.** The draft citation for
+`OPENCODE_SERVER_PASSWORD` claimed the catalog parse refuses *this* name being reclassified. The
+test demonstrates the reclassification refusal on `NNA_HOME`, not on the password; the citation is
+now phrased as the roster-order pin it actually is, with the demonstrated case attributed to the
+name where it is asserted. Two rounds running in which the mistake was caught while writing rather
+than after applying is the whole point of the rule.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 94 of 636 (no file at all 86);
+installed evidence 0 of 371; verified rows with no recorded examination 0.
+
 ## NND 20261007-43 — secret_action citations named, and last round's lesson changes what the tool accepted
 
 Citations naming no test file: **122 → 108**; naming no file at all: **114 → 100**. Seven rows

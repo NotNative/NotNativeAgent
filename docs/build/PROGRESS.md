@@ -3,6 +3,25 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · environment named: empty ≠ absent, proved on both sides · NND 20261007-44
+
+**No-test 108 → 94; no-file-at-all 100 → 86.** 7 rows, 14 prose replaced, **7 file-naming
+citations kept** (diff probe: only prose vanished).
+
+The family carries a distinction worth more than the count: **empty and absent are different facts,
+each proved twice** — the parser keeps a present-with-empty-string entry as `''` and a not-present
+entry as null; the page renders `(empty value)` for one and *not set in the service process* for the
+other. Collapsing them would tell an operator their model was cleared when it was never set. The two
+credential names **refuse both failure directions**: a frame carrying a value for a secret is
+refused, and so is one claiming the secret is absent — a leak and a false absence are equally
+unacceptable. And read-only is enforced mechanically: the page mock **throws for any path other than
+the observation and its catalog**, so a write breaks the test loudly; signed out shows the sign-in
+sentence, and a failing read leaves **no stale table**.
+
+**Rule fired before the tool again:** my draft claimed the catalog refuses *this* credential being
+reclassified — the test demonstrates it on `NNA_HOME`. Rewritten as the roster-order pin it actually
+is. Two rounds running where the mistake died in the plan, not the seal.
+
 ## 2026-10-07 · secret_action named; the `-42` lesson fires *before* the tool runs · NND 20261007-43
 
 **No-test 122 → 108; no-file-at-all 114 → 100.** 7 rows, 14 prose replaced, **14 file-naming
