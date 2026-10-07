@@ -587,7 +587,15 @@ pages' read views (no operator control, read right only), and the
 `session_review` pair pinned the same way: the NNA review-mode commit
 (idle-session policing + request-only compare-and-set) is consumed by the
 chat panel's `ReviewModeControl`, verified with lib and page drills since
-their own slices.
+their own slices. The installation family then closed with a real surface:
+`GET /v1/nnd/configuration/installation` re-verifies the descriptor through
+the admission authority on every read and fails closed on disk drift (the
+authority's `nnd_install_*` verdicts surfaced verbatim at 503), and the
+desktop `NNA installation` panel renders the descriptor; the configuration
+router now surfaces registered failure codes verbatim — closing a `-12`
+registry gap where the package root codes were silently rebranded — and the
+two remaining served-family field rows pinned as census-only projected
+state.
 
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read

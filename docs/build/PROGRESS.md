@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Installation observation + registered-code surfacing · NNA 20261006-16 + NND 20261006-16
+
+The installation family closed with a real surface: the service re-verifies
+its install.json descriptor through the authority behind every
+`GET /v1/nnd/configuration/installation` read and refuses to project an
+admission the disk no longer supports (the `-3` stance), with the desktop
+`NNA installation` panel rendering the descriptor. The router now surfaces
+**registered** failure codes verbatim (registry = the safety filter; nothing
+unregistered is projected), closing a `-12` gap where the package root codes
+were silently rebranded, and mapping descriptor-unavailable statuses to the
+honest 503 group. Two served-family field rows pinned census-only. Next
+families: the sweep (browser status/verify, skills catalog, legacy
+credential alias, per-verb gateway/web-search action triage, invocation
+flags) then the `manifest_*` read-projection grind.
+
 ## 2026-10-06 · Session-review rows pinned · NND 20261006-15 (NNA unchanged)
 
 The `session_review` pair closed as census pins of the already-served

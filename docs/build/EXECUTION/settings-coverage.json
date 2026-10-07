@@ -10133,17 +10133,17 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "projected state rides the read view (application not_applied)"
       },
       "native_endpoint": "GET /v1/nnd/configuration/web-search",
       "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
@@ -10152,10 +10152,12 @@
         "source_symbols": [
           "normalizeWebSearchConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (the family page drills assert the read view)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only."
     },
     {
       "id": "web_fetch:version",
@@ -10601,17 +10603,17 @@
         "user_data_root"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "projected state rides the read view (application not_applied)"
       },
       "native_endpoint": "GET /v1/nnd/configuration/gateway",
       "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
@@ -10620,10 +10622,12 @@
         "source_symbols": [
           "normalizeGatewayConfig"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "packages/ui vitest suite (the family page drills assert the read view)"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "served-family projected field: managed is produced by the native transaction on every save of the web-search profiles and updated_at by the gateway transaction; both ride inside the read view the family page already consumes and expose no operator control (application not_applied); correctness is enforced by the transaction receipts and the sibling pinned rows in the same view; the row carries the read right only."
     },
     {
       "id": "compatibility_service:version",
@@ -11784,8 +11788,8 @@
       "key": "product",
       "source": {
         "product": "NNA",
-        "path": "src/nnd-service-identity.js",
-        "validator": "validateDescriptor"
+        "path": "src/nnd-installation-snapshot.js",
+        "validator": "createNndInstallationSnapshot"
       },
       "store": {
         "owner": "NNA",
@@ -11795,29 +11799,33 @@
         "selected_installation"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "installer-owned state rides the read view (application not_applied)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/installation",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/installation-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateDescriptor"
+          "readNndServiceIdentity",
+          "createNndInstallationSnapshot"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-installation-route.test.js 4/4",
+          "packages/ui vitest installation lib + panel drills"
+        ],
         "installed_journey": null
       },
-      "notes": "Installer-owned descriptor, not generic mutable settings; full installation census pending."
+      "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
     },
     {
       "id": "installation:version",
@@ -11826,8 +11834,8 @@
       "key": "version",
       "source": {
         "product": "NNA",
-        "path": "src/nnd-service-identity.js",
-        "validator": "validateDescriptor"
+        "path": "src/nnd-installation-snapshot.js",
+        "validator": "createNndInstallationSnapshot"
       },
       "store": {
         "owner": "NNA",
@@ -11837,29 +11845,33 @@
         "selected_installation"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "installer-owned state rides the read view (application not_applied)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/installation",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/installation-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateDescriptor"
+          "readNndServiceIdentity",
+          "createNndInstallationSnapshot"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-installation-route.test.js 4/4",
+          "packages/ui vitest installation lib + panel drills"
+        ],
         "installed_journey": null
       },
-      "notes": "Installer-owned descriptor, not generic mutable settings; full installation census pending."
+      "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
     },
     {
       "id": "installation:install_root",
@@ -11868,8 +11880,8 @@
       "key": "install_root",
       "source": {
         "product": "NNA",
-        "path": "src/nnd-service-identity.js",
-        "validator": "validateDescriptor"
+        "path": "src/nnd-installation-snapshot.js",
+        "validator": "createNndInstallationSnapshot"
       },
       "store": {
         "owner": "NNA",
@@ -11879,29 +11891,32 @@
         "selected_installation"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "installer-owned state rides the read view (application not_applied)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/installation",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/installation-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateDescriptor"
+          "readNndServiceIdentity"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-installation-route.test.js 4/4",
+          "packages/ui vitest installation lib + panel drills"
+        ],
         "installed_journey": null
       },
-      "notes": "Installer-owned descriptor, not generic mutable settings; full installation census pending."
+      "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
     },
     {
       "id": "installation:data_root",
@@ -11910,8 +11925,8 @@
       "key": "data_root",
       "source": {
         "product": "NNA",
-        "path": "src/nnd-service-identity.js",
-        "validator": "validateDescriptor"
+        "path": "src/nnd-installation-snapshot.js",
+        "validator": "createNndInstallationSnapshot"
       },
       "store": {
         "owner": "NNA",
@@ -11921,29 +11936,32 @@
         "selected_installation"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "installer-owned state rides the read view (application not_applied)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/installation",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/installation-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateDescriptor"
+          "readNndServiceIdentity"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-installation-route.test.js 4/4",
+          "packages/ui vitest installation lib + panel drills"
+        ],
         "installed_journey": null
       },
-      "notes": "Installer-owned descriptor, not generic mutable settings; full installation census pending."
+      "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
     },
     {
       "id": "installation:node",
@@ -11952,8 +11970,8 @@
       "key": "node",
       "source": {
         "product": "NNA",
-        "path": "src/nnd-service-identity.js",
-        "validator": "validateDescriptor"
+        "path": "src/nnd-installation-snapshot.js",
+        "validator": "createNndInstallationSnapshot"
       },
       "store": {
         "owner": "NNA",
@@ -11963,29 +11981,33 @@
         "selected_installation"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "installer-owned state rides the read view (application not_applied)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/installation",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/installation-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateDescriptor"
+          "readNndServiceIdentity",
+          "probeNode"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-installation-route.test.js 4/4",
+          "packages/ui vitest installation lib + panel drills"
+        ],
         "installed_journey": null
       },
-      "notes": "Installer-owned descriptor, not generic mutable settings; full installation census pending."
+      "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
     },
     {
       "id": "installation:node_major",
@@ -11994,8 +12016,8 @@
       "key": "node_major",
       "source": {
         "product": "NNA",
-        "path": "src/nnd-service-identity.js",
-        "validator": "validateDescriptor"
+        "path": "src/nnd-installation-snapshot.js",
+        "validator": "createNndInstallationSnapshot"
       },
       "store": {
         "owner": "NNA",
@@ -12005,29 +12027,33 @@
         "selected_installation"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "installer-owned state rides the read view (application not_applied)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/installation",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/installation-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "generated_state",
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "validateDescriptor"
+          "readNndServiceIdentity",
+          "probeNode"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-installation-route.test.js 4/4",
+          "packages/ui vitest installation lib + panel drills"
+        ],
         "installed_journey": null
       },
-      "notes": "Installer-owned descriptor, not generic mutable settings; full installation census pending."
+      "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
     },
     {
       "id": "web_search_alias:provider",

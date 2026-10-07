@@ -416,6 +416,32 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-16 and NND 20261006-16 — installation observation and registered-code surfacing
+
+The six `installation` census rows (the install.json descriptor: product,
+version, install_root, data_root, node, node_major) closed with a real
+native surface: `GET /v1/nnd/configuration/installation`
+(`nnd.configuration.read`) re-verifies the descriptor on every read through
+the admission authority (`readNndServiceIdentity` — descriptor validation,
+canonicalization, payload checks, runtime probe) and fails closed when the
+disk no longer supports the admitted installation, surfacing the authority's
+`nnd_install_*` verdicts verbatim at 503; a projected value the router
+cannot accept is the 500 `nnd_installation_projection_invalid`. The desktop
+panel `NNA installation` renders product, version, install root, data root,
+and the node runtime. The slice also repaired two error-surfacing defects
+the new surface exposed: the configuration router now passes **registered**
+failure codes through verbatim (registered = safe to surface; unregistered
+errors stay rebranded as `nnd_configuration_unavailable`), which uncovered
+and closed a `-12` registry gap (`nnd_package_root_invalid`,
+`nnd_package_command_invalid`, `nnd_package_root_mismatch` were never
+registered while the shared filter silently rebranded them), and the
+descriptor-unavailable/status mapping joined the honest 503 group.
+Registered-code surfacing is enforced by the routing-filter test and the
+installation drift test. Two served-family field rows
+(`web_search:profiles[*].managed`, `gateway:updated_at`) pinned as
+census-only projected fields riding their family views. Census rows without
+a verified GUI: 279 → 271.
+
 ## NNA 20261006-10 (runtime unchanged) and NND 20261006-15 — session-review rows pinned
 
 The two `session_review` rows closed as census pins of an already-served and
