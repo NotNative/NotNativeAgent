@@ -416,6 +416,43 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-29 — installation closes honestly, and last round's count needs a correction
+
+**Correction first.** Last round reported pre-C1 "verified" pins never re-examined
+falling 17 → 10. Seven rows left that bucket, but only two were examined as that number
+implies. The count is kept by a field — `implementation_package` not beginning "C1 stage
+2" — and the citation-repair patcher wrote a "C1 stage 2 citation repair" label onto five
+action rows, which moved them out of the bucket by *labelling*. What that slice did was
+read the tests that render those surfaces and name them; nobody re-read the panels.
+Reading a test that renders a surface is weaker evidence than rendering it, and the drop
+should have been reported as five labels and two examinations. It is corrected here
+rather than edited away there, because that version is sealed and sealed content does
+not change — the release gate enforces this, having caught me trying.
+
+**The installation family, done properly.** Six rows closed, axes unchanged: the class
+was already `not_applied`, which NNA writes on the response itself
+(`nnd-installation-route.js:38`), and all six fields are classified `generated_state` by
+the snapshot module's own `OBSERVED_DESCRIPTOR`. The desktop reads a descriptor the
+admission authority re-verifies on every GET and changes nothing — product must equal a
+constant, version and the two roots must match path grammars, `node_major` must be an
+integer between 24 and 100, and any drift is a projection refusal rather than a blank
+panel.
+
+Two defects were live in that panel's tests. The citation read "packages/ui vitest
+installation lib + panel drills", a suite phrase rather than a file, and **`install_root`
+and `data_root` had never been asserted at all** — the panel renders both on adjacent
+lines and nothing checked either. Those are the two fields an operator actually acts on
+when an installation is wrong: the product name and the node version tell you what is
+installed, the roots tell you what to go and fix. Both are asserted now.
+
+That is why these six may carry the stage label and last round's five could not have
+been described that way: the page was read, the gap found in it, the test widened, and
+the widened test run.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 60 (unchanged).
+Pre-C1 pins never re-examined: 10 → 4, six of them by this slice's own work.
+
 ## NND 20261007-28 — eight pin citations repaired, and a class word found that NNA never wrote
 
 The eight rows left citing a suite description instead of a file are fixed. Seven now

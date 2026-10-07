@@ -45,6 +45,10 @@ it('projects the verified installation descriptor on the settings page', async (
   expect(rendered()).toContain('NotNativeAgent');
   expect(rendered()).toContain('20261006-16');
   expect(rendered()).toContain('node.exe (24)');
+  // The two roots are the fields an operator actually acts on when an installation is
+  // wrong, and they had never been asserted despite the panel rendering both.
+  expect(rendered()).toContain('C:\\Program Files\\NotNativeAgent');
+  expect(rendered()).toContain('C:\\Users\\operator\\AppData\\Roaming\\NotNativeAgent');
   expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/configuration/installation')
     && !String(path).includes('/catalog'))).toBe(true);
 });

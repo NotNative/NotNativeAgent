@@ -12463,7 +12463,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "installer-owned state rides the read view (application not_applied)"
+    "evidence": "src/nnd-installation-route.js projects application not_applied on every read (L38): the GET re-runs the admission authority and returns what the descriptor says, writing nothing. src/nnd-installation-snapshot.js classifies all six descriptor fields as generated_state (OBSERVED_DESCRIPTOR, L19-20) and the projector refuses drift, so there is no application moment for the desktop to claim. The projector requires product to equal the constant PRODUCT (src/nnd-installation-route.js L74), so a descriptor from another product fails closed."
    },
    "native_endpoint": "GET /v1/nnd/configuration/installation",
    "native_permission": "nnd.configuration.read",
@@ -12474,7 +12474,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-29)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -12483,12 +12483,13 @@
      "createNndInstallationSnapshot"
     ],
     "tests_run": [
-     "test/nnd-installation-route.test.js 4/4",
-     "packages/ui vitest installation lib + panel drills"
+     "NNA test/nnd-installation-route.test.js 4/4 (the snapshot re-verifies through the authority and projects the descriptor; a bad factory identity and a lesser principal are refused; HTTP projects the descriptor and catalog read-only and honours the permission; HTTP honours the descriptor drift status with a transport-honest grammar)",
+     "packages/ui src/lib/nnd/__tests__/installation.test.ts (accepts the verified descriptor grammar and refuses drift)",
+     "packages/ui src/components/settings/__tests__/installation-observation.test.tsx (the panel renders product, version, both roots and the node runtime with its major version, and a 503 drift verdict becomes the repair sentence rather than a blank panel)"
     ],
     "installed_journey": null
    },
-   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
+   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI. Closed 20261007-29 on evidence read from the route and the snapshot module. Shown: the Product line. The class was already NNA (not_applied is written on the response itself), and the panel does render the field; the second citation had named a whole suite rather than a file, and install_root and data_root had never been asserted anywhere despite being the two fields an operator acts on when an installation is wrong. Both are asserted now. These are installer-owned facts: the desktop reads them and changes none, which is why sensitivity stays generated_state as the census set it."
   },
   {
    "id": "installation:version",
@@ -12509,7 +12510,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "installer-owned state rides the read view (application not_applied)"
+    "evidence": "src/nnd-installation-route.js projects application not_applied on every read (L38): the GET re-runs the admission authority and returns what the descriptor says, writing nothing. src/nnd-installation-snapshot.js classifies all six descriptor fields as generated_state (OBSERVED_DESCRIPTOR, L19-20) and the projector refuses drift, so there is no application moment for the desktop to claim. Version must match the VERSION grammar at src/nnd-installation-route.js L74, and the snapshot carries the value the authority re-read (src/nnd-installation-snapshot.js L35)."
    },
    "native_endpoint": "GET /v1/nnd/configuration/installation",
    "native_permission": "nnd.configuration.read",
@@ -12520,7 +12521,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-29)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -12529,12 +12530,13 @@
      "createNndInstallationSnapshot"
     ],
     "tests_run": [
-     "test/nnd-installation-route.test.js 4/4",
-     "packages/ui vitest installation lib + panel drills"
+     "NNA test/nnd-installation-route.test.js 4/4 (the snapshot re-verifies through the authority and projects the descriptor; a bad factory identity and a lesser principal are refused; HTTP projects the descriptor and catalog read-only and honours the permission; HTTP honours the descriptor drift status with a transport-honest grammar)",
+     "packages/ui src/lib/nnd/__tests__/installation.test.ts (accepts the verified descriptor grammar and refuses drift)",
+     "packages/ui src/components/settings/__tests__/installation-observation.test.tsx (the panel renders product, version, both roots and the node runtime with its major version, and a 503 drift verdict becomes the repair sentence rather than a blank panel)"
     ],
     "installed_journey": null
    },
-   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
+   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI. Closed 20261007-29 on evidence read from the route and the snapshot module. Shown: the Version line. The class was already NNA (not_applied is written on the response itself), and the panel does render the field; the second citation had named a whole suite rather than a file, and install_root and data_root had never been asserted anywhere despite being the two fields an operator acts on when an installation is wrong. Both are asserted now. These are installer-owned facts: the desktop reads them and changes none, which is why sensitivity stays generated_state as the census set it."
   },
   {
    "id": "installation:install_root",
@@ -12555,7 +12557,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "installer-owned state rides the read view (application not_applied)"
+    "evidence": "src/nnd-installation-route.js projects application not_applied on every read (L38): the GET re-runs the admission authority and returns what the descriptor says, writing nothing. src/nnd-installation-snapshot.js classifies all six descriptor fields as generated_state (OBSERVED_DESCRIPTOR, L19-20) and the projector refuses drift, so there is no application moment for the desktop to claim. The projector requires install_root to be a string matching its PATH grammar (src/nnd-installation-route.js L75), so a descriptor that lost the root fails closed instead of rendering empty."
    },
    "native_endpoint": "GET /v1/nnd/configuration/installation",
    "native_permission": "nnd.configuration.read",
@@ -12566,7 +12568,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-29)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -12574,12 +12576,13 @@
      "readNndServiceIdentity"
     ],
     "tests_run": [
-     "test/nnd-installation-route.test.js 4/4",
-     "packages/ui vitest installation lib + panel drills"
+     "NNA test/nnd-installation-route.test.js 4/4 (the snapshot re-verifies through the authority and projects the descriptor; a bad factory identity and a lesser principal are refused; HTTP projects the descriptor and catalog read-only and honours the permission; HTTP honours the descriptor drift status with a transport-honest grammar)",
+     "packages/ui src/lib/nnd/__tests__/installation.test.ts (accepts the verified descriptor grammar and refuses drift)",
+     "packages/ui src/components/settings/__tests__/installation-observation.test.tsx (the panel renders product, version, both roots and the node runtime with its major version, and a 503 drift verdict becomes the repair sentence rather than a blank panel)"
     ],
     "installed_journey": null
    },
-   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
+   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI. Closed 20261007-29 on evidence read from the route and the snapshot module. Shown: the Install root line. The class was already NNA (not_applied is written on the response itself), and the panel does render the field; the second citation had named a whole suite rather than a file, and install_root and data_root had never been asserted anywhere despite being the two fields an operator acts on when an installation is wrong. Both are asserted now. These are installer-owned facts: the desktop reads them and changes none, which is why sensitivity stays generated_state as the census set it."
   },
   {
    "id": "installation:data_root",
@@ -12600,7 +12603,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "installer-owned state rides the read view (application not_applied)"
+    "evidence": "src/nnd-installation-route.js projects application not_applied on every read (L38): the GET re-runs the admission authority and returns what the descriptor says, writing nothing. src/nnd-installation-snapshot.js classifies all six descriptor fields as generated_state (OBSERVED_DESCRIPTOR, L19-20) and the projector refuses drift, so there is no application moment for the desktop to claim. data_root carries the same PATH grammar check (src/nnd-installation-route.js L76)."
    },
    "native_endpoint": "GET /v1/nnd/configuration/installation",
    "native_permission": "nnd.configuration.read",
@@ -12611,7 +12614,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-29)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -12619,12 +12622,13 @@
      "readNndServiceIdentity"
     ],
     "tests_run": [
-     "test/nnd-installation-route.test.js 4/4",
-     "packages/ui vitest installation lib + panel drills"
+     "NNA test/nnd-installation-route.test.js 4/4 (the snapshot re-verifies through the authority and projects the descriptor; a bad factory identity and a lesser principal are refused; HTTP projects the descriptor and catalog read-only and honours the permission; HTTP honours the descriptor drift status with a transport-honest grammar)",
+     "packages/ui src/lib/nnd/__tests__/installation.test.ts (accepts the verified descriptor grammar and refuses drift)",
+     "packages/ui src/components/settings/__tests__/installation-observation.test.tsx (the panel renders product, version, both roots and the node runtime with its major version, and a 503 drift verdict becomes the repair sentence rather than a blank panel)"
     ],
     "installed_journey": null
    },
-   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
+   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI. Closed 20261007-29 on evidence read from the route and the snapshot module. Shown: the Data root line. The class was already NNA (not_applied is written on the response itself), and the panel does render the field; the second citation had named a whole suite rather than a file, and install_root and data_root had never been asserted anywhere despite being the two fields an operator acts on when an installation is wrong. Both are asserted now. These are installer-owned facts: the desktop reads them and changes none, which is why sensitivity stays generated_state as the census set it."
   },
   {
    "id": "installation:node",
@@ -12645,7 +12649,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "installer-owned state rides the read view (application not_applied)"
+    "evidence": "src/nnd-installation-route.js projects application not_applied on every read (L38): the GET re-runs the admission authority and returns what the descriptor says, writing nothing. src/nnd-installation-snapshot.js classifies all six descriptor fields as generated_state (OBSERVED_DESCRIPTOR, L19-20) and the projector refuses drift, so there is no application moment for the desktop to claim. The runtime path is projected as-is and must be a string (src/nnd-installation-route.js L77)."
    },
    "native_endpoint": "GET /v1/nnd/configuration/installation",
    "native_permission": "nnd.configuration.read",
@@ -12656,7 +12660,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-29)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -12665,12 +12669,13 @@
      "probeNode"
     ],
     "tests_run": [
-     "test/nnd-installation-route.test.js 4/4",
-     "packages/ui vitest installation lib + panel drills"
+     "NNA test/nnd-installation-route.test.js 4/4 (the snapshot re-verifies through the authority and projects the descriptor; a bad factory identity and a lesser principal are refused; HTTP projects the descriptor and catalog read-only and honours the permission; HTTP honours the descriptor drift status with a transport-honest grammar)",
+     "packages/ui src/lib/nnd/__tests__/installation.test.ts (accepts the verified descriptor grammar and refuses drift)",
+     "packages/ui src/components/settings/__tests__/installation-observation.test.tsx (the panel renders product, version, both roots and the node runtime with its major version, and a 503 drift verdict becomes the repair sentence rather than a blank panel)"
     ],
     "installed_journey": null
    },
-   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
+   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI. Closed 20261007-29 on evidence read from the route and the snapshot module. Shown: the Node runtime line, shown together with its major version. The class was already NNA (not_applied is written on the response itself), and the panel does render the field; the second citation had named a whole suite rather than a file, and install_root and data_root had never been asserted anywhere despite being the two fields an operator acts on when an installation is wrong. Both are asserted now. These are installer-owned facts: the desktop reads them and changes none, which is why sensitivity stays generated_state as the census set it."
   },
   {
    "id": "installation:node_major",
@@ -12691,7 +12696,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "installer-owned state rides the read view (application not_applied)"
+    "evidence": "src/nnd-installation-route.js projects application not_applied on every read (L38): the GET re-runs the admission authority and returns what the descriptor says, writing nothing. src/nnd-installation-snapshot.js classifies all six descriptor fields as generated_state (OBSERVED_DESCRIPTOR, L19-20) and the projector refuses drift, so there is no application moment for the desktop to claim. node_major must be a safe integer between 24 and 100 (src/nnd-installation-route.js L78), so an unsupported runtime is a projection refusal rather than a number on screen."
    },
    "native_endpoint": "GET /v1/nnd/configuration/installation",
    "native_permission": "nnd.configuration.read",
@@ -12702,7 +12707,7 @@
    },
    "sensitivity": "generated_state",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-29)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -12711,12 +12716,13 @@
      "probeNode"
     ],
     "tests_run": [
-     "test/nnd-installation-route.test.js 4/4",
-     "packages/ui vitest installation lib + panel drills"
+     "NNA test/nnd-installation-route.test.js 4/4 (the snapshot re-verifies through the authority and projects the descriptor; a bad factory identity and a lesser principal are refused; HTTP projects the descriptor and catalog read-only and honours the permission; HTTP honours the descriptor drift status with a transport-honest grammar)",
+     "packages/ui src/lib/nnd/__tests__/installation.test.ts (accepts the verified descriptor grammar and refuses drift)",
+     "packages/ui src/components/settings/__tests__/installation-observation.test.tsx (the panel renders product, version, both roots and the node runtime with its major version, and a 503 drift verdict becomes the repair sentence rather than a blank panel)"
     ],
     "installed_journey": null
    },
-   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI."
+   "notes": "the service always projects the re-verified descriptor on GET /v1/nnd/configuration/installation (nnd.configuration.read): the read re-runs the admission authority (readNndServiceIdentity — descriptor validation, canonicalization, payload and runtime checks) and fails closed when the disk no longer supports the admitted installation (nnd_install_* surfaced verbatim at 503; a projected value the router cannot accept is the 500 nnd_installation_projection_invalid), so the operator repairs the installation instead of the listener projecting a lost admission; registered failure codes now surface verbatim from the configuration router (registered = safe to surface). The desktop panel (NNA installation) renders product, version, install root, data root, and the node runtime; the -3 environment page shows only the manifest ownership identity (no installer state), so it is not this family's GUI. Closed 20261007-29 on evidence read from the route and the snapshot module. Shown: the parenthesised major version beside the runtime path. The class was already NNA (not_applied is written on the response itself), and the panel does render the field; the second citation had named a whole suite rather than a file, and install_root and data_root had never been asserted anywhere despite being the two fields an operator acts on when an installation is wrong. Both are asserted now. These are installer-owned facts: the desktop reads them and changes none, which is why sensitivity stays generated_state as the census set it."
   },
   {
    "id": "web_search_alias:provider",

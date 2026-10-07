@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Installation closes honestly; last round's count gets a correction · NND 20261007-29
+
+Correction first: last round's pre-C1 drop 17 → 10 overstated the work. Only two rows
+were examined as that number implies; five left the bucket because the patcher wrote a
+"C1 stage 2 citation repair" **label** into the field the probe reads. Reading a test that
+renders a surface is weaker than rendering it. Corrected here rather than edited away
+there — that version is sealed, and the gate enforced it by catching me trying.
+
+Installation's six rows closed with axes unchanged (class was already `not_applied`,
+written on NNA's response; all six fields are `generated_state` per the snapshot module's
+own `OBSERVED_DESCRIPTOR`). Two live defects: the citation was a suite phrase, not a file,
+and **`install_root`/`data_root` had never been asserted at all** — rendered on adjacent
+lines, checked by nobody. They're the two fields you act on when an install is wrong: name
+and version say what's installed, the roots say what to fix. Both asserted now, page read,
+test widened, test run. Pre-C1 pins 10 → 4.
+
 ## 2026-10-07 · Eight pin citations repaired; a class word found that NNA never wrote · NND 20261007-28
 
 Seven rows gained citations naming the file that proves them — WebFetch's trust/revoke

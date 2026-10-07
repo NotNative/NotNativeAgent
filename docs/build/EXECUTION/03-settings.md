@@ -829,7 +829,19 @@ desktop `NNA installation` panel renders the descriptor; the configuration
 router now surfaces registered failure codes verbatim — closing a `-12`
 registry gap where the package root codes were silently rebranded — and the
 two remaining served-family field rows pinned as census-only projected
-state. The `browser_action` family then closed the same way: the native
+state. Those six installation rows are now closed on evidence read from the route
+itself: `not_applied` is written on the response (`nnd-installation-route.js:38`), the
+snapshot module names all six fields `generated_state` in `OBSERVED_DESCRIPTOR`, and the
+projector is where the honesty lives — product must equal the `PRODUCT` constant, version
+and both roots must match their grammars (L74-76), the node path must match it too (L77),
+and `node_major` must sit between 24 and 100 (L78), so drift is a projection refusal
+rather than a plausible-looking panel. Reading the panel against its tests found that
+`install_root` and `data_root` had never been asserted, though the page renders both on
+adjacent lines: the product and version say what is installed, but the roots are what an
+operator goes and fixes. Both are asserted now, and the citation names the file instead
+of a suite. These remain installer-owned facts — the desktop reads them and changes none.
+
+The `browser_action` family then closed the same way: the native
 surface reuses the webbrowse CLI authority verbatim — the read reports the
 managed Playwright Chromium exactly as `playwrightStatus` reads it, and the
 verify action runs that authority with the launch probe (headless Chromium,
