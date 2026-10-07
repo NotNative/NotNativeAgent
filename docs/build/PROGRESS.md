@@ -3,6 +3,35 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Four route bindings show on the page; the ceremony skips a step because NNA needed nothing · NND 20261007-35
+
+**32 → 28 no-surface; 47 → 43 class-unverified — the second of those is transcription, not capability.**
+
+No NNA commit this slice, and there was nothing to build there: `effectiveManifest`
+(nnd-configuration-view.js) already writes every role's resolved `provider_id`/`model` into
+every configuration view, and `buildRoutes` resolves all four roles in `contracts.js` `ROLES`,
+inheriting from Primary when a specialist was never assigned. The desktop just rendered two of
+the four.
+
+`RoleBinding` was typed `'reviewer' | 'vision'`, which *looks* like a domain constraint and
+isn't one: NNA's `NND_ROUTE_BINDING_ROLES` limits which roles the desktop may **rebind**, not
+which it may **see**. All four cards render now, each with the note true for that role —
+reviewer/vision name the paired binding offered below; primary/subagent name the provider
+route authority (`PATCH /v1/provider-route`, `/v1/provider-route/subagent`), because nothing
+here can change them. A card implying otherwise is a lie with nicer layout.
+
+The class move is labelled what it is: the roles family is declared `live` in
+`configuration-catalog-metadata.js`, so 43 means "four more rows cite NNA's own declaration",
+not "four rows became safe". No installed effect observed.
+
+**Containers stay open on principle.** A card showing 2 of a route's 13 members is not the
+container on screen. New refinement of last round's rule: *a container is on screen only when
+everything it holds is rendered in that unit* — which is why the provider credential container
+closed (its line carries source, id/name, field — all of it) and the route card doesn't.
+
+8/8 in the routes file (2 new tests: the four cards with differing notes; a role the view omits
+renders the no-value marker, not a blank).
+
 ## 2026-10-07 · Eight rows lose a surface they never had; the headline goes **up** · NND 20261007-34
 
 **24 → 32 rows without a desktop surface.** The number rose because it had been wrong: eight

@@ -25,7 +25,9 @@ const row = (path: string, value: string | number) => ({ path, catalog_path: pat
   effective: { present: true as const, value, source: 'user' }, application: 'not_applied' as const });
 const view: NativeConfigurationView = { schema_version: '1.0', installation_id: 'nna_test', data_id: 'data_test',
   scope: 'user', source_state: 'present', source_revision: revision, resolution_revision: resolution,
-  source_revisions: [], application: 'not_applied', fields: [row('routes.reviewer.provider_id', 'local'),
+  source_revisions: [], application: 'not_applied', fields: [row('routes.primary.provider_id', 'local'),
+    row('routes.primary.model', 'primary-model'), row('routes.subagent.provider_id', 'cheap'),
+    row('routes.subagent.model', 'sub-model'), row('routes.reviewer.provider_id', 'local'),
     row('routes.reviewer.model', 'review-model'), row('routes.vision.provider_id', 'visual'),
     row('routes.vision.model', 'image-model'), row('routes.reviewer.temperature', 0.4),
     row('routes.vision.temperature', 0.2), row('memory.enabled', 'true'),
@@ -61,6 +63,34 @@ it('shows reviewer and vision bindings with paired native editing while keeping 
   expect(options).toContain('routes.vision.temperature');
   expect(options).not.toContain('routes.reviewer.provider_id');
   expect(options).not.toContain('memory.enabled');
+});
+
+it('shows all four route bindings with the authority that actually changes each one', async () => {
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>));
+  await act(async () => {});
+  const card = (role: string) => container.querySelector(`[data-testid="route-binding-${role}"]`)?.textContent ?? '';
+  // NNA resolves every role in contracts.js ROLES and the read view projects each one,
+  // so the page may not show only the two roles the desktop is allowed to rebind.
+  expect(card('primary')).toContain('local');
+  expect(card('primary')).toContain('primary-model');
+  expect(card('subagent')).toContain('cheap');
+  expect(card('subagent')).toContain('sub-model');
+  // The notes must not promise an editor that NNA does not offer for these roles.
+  expect(card('primary')).toContain('provider route authority');
+  expect(card('subagent')).toContain('provider route authority');
+  expect(card('reviewer')).toContain('paired native binding');
+  expect(card('vision')).toContain('paired native binding');
+});
+
+it('renders a role whose binding the view does not carry as no value rather than a blank', async () => {
+  vi.mocked(requestNativeConfiguration).mockResolvedValue({
+    ...view, fields: view.fields.filter(field => field.path !== 'routes.subagent.provider_id'),
+  } as never);
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>));
+  await act(async () => {});
+  const card = container.querySelector('[data-testid="route-binding-subagent"]')?.textContent ?? '';
+  expect(card).toContain('sub-model');
+  expect(card).toContain('—');
 });
 
 it('previews and saves one paired reviewer provider/model binding with native CAS and receipt', async () => {

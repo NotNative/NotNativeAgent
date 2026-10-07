@@ -416,6 +416,54 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-35 — four route bindings appear on the page, and the ceremony is missing a step because NNA needed nothing
+
+Rows without a desktop surface: **32 → 28**. Rows declaring an unverified application
+class: **47 → 43** — and that second number moved by transcription, not by capability,
+which is said below rather than left for the reader to infer.
+
+This slice has no NNA commit, and the honest reason is that there was nothing to build
+there. The read surface already resolved and projected every route role:
+`effectiveManifest` in `src/nnd-configuration-view.js` writes each role's resolved
+`provider_id` and `model` into every configuration view, iterating `config.routes`, and
+`buildRoutes` in `src/config.js` resolves all four roles in `contracts.js` `ROLES`,
+inheriting from Primary where a specialist role was never assigned. The desktop simply
+rendered two of the four.
+
+`RoleBinding` in `packages/ui/src/components/settings/pages/native-routes.tsx` had been
+typed `'reviewer' | 'vision'`, which looks like a domain constraint and is not one: NNA's
+`NND_ROUTE_BINDING_ROLES` restricts which roles the *desktop may rebind* through
+`bind_route`, not which roles exist or which the operator is allowed to see. The page now
+renders `contracts.js`'s four roles in its order, and each card carries the note that
+matches the truth for that role — reviewer and vision name the paired native binding
+offered below, primary and subagent name the provider route authority
+(`PATCH /v1/provider-route`, and `/v1/provider-route/subagent`), because nothing on this
+page can change them. A card that promised the editor below could rebind Primary would be
+a lie with a nicer layout.
+
+One test asserts the four cards and their differing notes; another covers the case where
+the view omits a role's provider and the card must print the no-value marker rather than
+an empty string.
+
+**The class move is a transcription and is labelled as such.** Those four rows went
+`unverified` → `engine_boundary` because `configuration-catalog-metadata.js` declares the
+roles family `live` (`roles: family('buildRoutes', live, ...)`) and the view re-projects
+the resolved route on each read. That is what NNA already says about its own family. This
+slice observed no installed effect and exercised no route change; the desktop read a
+declaration and recorded it. Anyone reading 43 instead of 47 should read it as
+"four rows now cite NNA's own declaration", not "four rows became safe".
+
+Four rows in the same family stay open on purpose: the containers `routes.primary`,
+`.reviewer`, `.subagent`, `.vision`. A card that shows two of a route's thirteen members is
+not the container on screen, and crediting it would repeat last round's family-page
+mistake, which cost eight rows their honest count. The rule now reads: **a container is on
+screen only when everything it holds is rendered in that unit** — which is why the provider
+credential container closed last round (its line carries source, id, field or variable name,
+all of it) and why a route card does not close this one.
+
+After this round: no desktop surface 28; rows naming a surface with unverified status 0;
+unverified application class 43; verified rows with no recorded examination 0.
+
 ## NND 20261007-34 — eight rows lose a desktop surface they never had, and the headline goes up
 
 Rows without a desktop surface: **24 → 32**. The count went up and the count was wrong

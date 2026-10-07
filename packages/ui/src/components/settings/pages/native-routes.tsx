@@ -37,17 +37,27 @@ function routeValue(value: NativeValue | undefined): string {
   return 'value' in value ? String(value.value) : '—';
 }
 
-function RoleBinding({ view, role }: { view: NativeConfigurationView; role: 'reviewer' | 'vision' }): ReactNode {
+// NNA's own role list (src/contracts.js:12) and the subset it lets the desktop rebind
+// (NND_ROUTE_BINDING_ROLES, src/nnd-configuration-intents.js:7). Primary and subagent are
+// bound through the provider route authority instead, so their cards must not imply that
+// the editor below can change them.
+const ROUTE_ROLES = ['primary', 'reviewer', 'subagent', 'vision'] as const;
+const ROUTE_BINDING_ROLES: readonly string[] = ['reviewer', 'vision'];
+type RouteRole = typeof ROUTE_ROLES[number];
+
+function RoleBinding({ view, role }: { view: NativeConfigurationView; role: RouteRole }): ReactNode {
   const { t } = useI18n();
   const provider = view.fields.find(field => field.path === `routes.${role}.provider_id`);
   const model = view.fields.find(field => field.path === `routes.${role}.model`);
-  return <div className="rounded border border-border/60 p-2 text-xs">
+  return <div className="rounded border border-border/60 p-2 text-xs" data-testid={`route-binding-${role}`}>
     <h3 className="font-semibold">{role}</h3>
     <dl className="grid grid-cols-[auto_1fr] gap-x-3">
       <dt>{t('settings.nativeRoutes.provider')}</dt><dd>{routeValue(provider?.effective)}</dd>
       <dt>{t('settings.nativeRoutes.model')}</dt><dd>{routeValue(model?.effective)}</dd>
     </dl>
-    <p className="text-muted-foreground">{t('settings.nativeRoutes.bindingReadOnly')}</p>
+    <p className="text-muted-foreground">{ROUTE_BINDING_ROLES.includes(role)
+      ? t('settings.nativeRoutes.bindingReadOnly')
+      : t('settings.nativeRoutes.bindingProviderRoute')}</p>
   </div>;
 }
 
@@ -67,8 +77,7 @@ export function NativeRoutesPage(): ReactNode {
     {view ? <>
       <p className="text-xs text-muted-foreground">{t('settings.nativeConfiguration.installation')}: {view.installation_id};
         {' '}{t('settings.nativeConfiguration.data')}: {view.data_id}</p>
-      <RoleBinding view={view} role="reviewer" />
-      <RoleBinding view={view} role="vision" />
+      {ROUTE_ROLES.map(role => <RoleBinding key={role} view={view} role={role} />)}
       <p role="status" className="text-xs text-amber-500">{t('settings.nativeConfiguration.notApplied')}</p>
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} family="routes" />

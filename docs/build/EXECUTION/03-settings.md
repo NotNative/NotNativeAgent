@@ -416,7 +416,29 @@ asserts it — so "we render it" is always checkable against a sibling, and a `s
 
 The distinction earns its keep because these values are CAS guards: `version` exists so a
 concurrent write fails loudly. Rendering it would satisfy a counter, not an operator, and
-"close the row" is not a reason to build a panel. Manifest container
+"close the row" is not a reason to build a panel.
+
+The companion rule, settled by `20261007-35`: **a container is on screen only when everything
+it holds is rendered in that unit.** The provider credential container closed because its
+line carries the whole thing — source, secret id and field, or the variable name. A route
+card that prints provider and model does not put `routes.primary` on screen: the route holds
+thirteen members and the other eleven live in the editor below, so the four route container
+rows stay open while their leaf fields close.
+
+The other thing that slice corrected was a type that masqueraded as a domain fact.
+`RoleBinding` accepted `'reviewer' | 'vision'`, inherited from NNA's
+`NND_ROUTE_BINDING_ROLES` — a list of the roles the desktop may *rebind* through
+`bind_route`, not a list of the roles that exist. `contracts.js` `ROLES` names four, and
+`effectiveManifest` resolves and projects each one on every read, so an operator reading
+route bindings is entitled to see Primary and Subagent too. Visibility and mutability are
+different questions, and a page that confuses them hides half the system's configuration
+behind a permission it was never gated by.
+
+That also fixes the copy: a card must name the authority that can change what it shows.
+Reviewer and vision point at the paired binding offered below; Primary and Subagent point
+at the provider route authority (`PATCH /v1/provider-route`, `/v1/provider-route/subagent`).
+Telling the operator that the editor below changes Primary would be false in a place where
+false is expensive. Manifest container
 rows (`providers`, `routes`, `attachments`, `memory`, `dream`, `mcp_servers`,
 `tui`, `telemetry`, `reviewer_ledger`, `recovery`) and the `provider` and
 `mission` roots stay open by rule rather than by case: NNA serves a container

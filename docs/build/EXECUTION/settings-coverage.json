@@ -3766,29 +3766,32 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/configuration-catalog-metadata.js declares the roles family live (roles: family('buildRoutes', live, ...)), and src/nnd-configuration-view.js projects the resolved route for every role in src/contracts.js ROLES on each read, so a change reaches the router on the next resolution rather than at an application moment the desktop owns. The desktop observes this class; it does not exercise the provider route authority."
    },
    "native_endpoint": "PATCH /v1/provider-route",
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 route binding observation (NNA a026763e, NND 20261007-35)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/native-routes.test.tsx: shows all four route bindings with the authority that actually changes each one, asserting the resolved provider and model for primary and subagent beside reviewer and vision, and asserting that primary and subagent name the provider route authority while reviewer and vision name the paired native binding; and renders a role whose binding the view does not carry as no value rather than a blank",
+     "packages/ui src/lib/nnd/__tests__/configuration-mutation.test.ts: the catalog parser admits only the two roles NNA declares bindable, which is why the other two cards must describe a different authority instead of pointing at the editor below"
+    ],
     "installed_journey": null
    },
-   "notes": "Save changes persisted route; existing NND engines retain prior route after activation."
+   "notes": "Save changes persisted route; existing NND engines retain prior route after activation. Closed 20261007-35 because the page now shows it: the Primary card names the provider the router resolved, whether the manifest stated it or inherited it. No NNA change was needed and none was made — the read surface already resolved and projected every role, and the desktop had simply chosen to render two of the four. The application class is a transcription of what NNA already declares for the roles family, not a capability this slice built, and installed effect is still unobserved. The four container rows for these roles stay open on purpose: a card showing two of a route's thirteen members is not the container on screen, and crediting it would repeat the family-page mistake that cost eight rows their honest count last round."
   },
   {
    "id": "manifest_route:routes.vision",
@@ -3986,29 +3989,32 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/configuration-catalog-metadata.js declares the roles family live (roles: family('buildRoutes', live, ...)), and src/nnd-configuration-view.js projects the resolved route for every role in src/contracts.js ROLES on each read, so a change reaches the router on the next resolution rather than at an application moment the desktop owns. The desktop observes this class; it does not exercise the provider route authority."
    },
    "native_endpoint": "PATCH /v1/provider-route",
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 route binding observation (NNA a026763e, NND 20261007-35)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/native-routes.test.tsx: shows all four route bindings with the authority that actually changes each one, asserting the resolved provider and model for primary and subagent beside reviewer and vision, and asserting that primary and subagent name the provider route authority while reviewer and vision name the paired native binding; and renders a role whose binding the view does not carry as no value rather than a blank",
+     "packages/ui src/lib/nnd/__tests__/configuration-mutation.test.ts: the catalog parser admits only the two roles NNA declares bindable, which is why the other two cards must describe a different authority instead of pointing at the editor below"
+    ],
     "installed_journey": null
    },
-   "notes": "Save changes persisted route; existing NND engines retain prior route after activation."
+   "notes": "Save changes persisted route; existing NND engines retain prior route after activation. Closed 20261007-35 because the page now shows it: the Primary card names the model the router resolved. No NNA change was needed and none was made — the read surface already resolved and projected every role, and the desktop had simply chosen to render two of the four. The application class is a transcription of what NNA already declares for the roles family, not a capability this slice built, and installed effect is still unobserved. The four container rows for these roles stay open on purpose: a card showing two of a route's thirteen members is not the container on screen, and crediting it would repeat the family-page mistake that cost eight rows their honest count last round."
   },
   {
    "id": "manifest_route:routes.primary.context_limit_bytes",
@@ -4950,29 +4956,32 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/configuration-catalog-metadata.js declares the roles family live (roles: family('buildRoutes', live, ...)), and src/nnd-configuration-view.js projects the resolved route for every role in src/contracts.js ROLES on each read, so a change reaches the router on the next resolution rather than at an application moment the desktop owns. The desktop observes this class; it does not exercise the provider route authority."
    },
    "native_endpoint": "PATCH /v1/provider-route/subagent",
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 route binding observation (NNA a026763e, NND 20261007-35)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/native-routes.test.tsx: shows all four route bindings with the authority that actually changes each one, asserting the resolved provider and model for primary and subagent beside reviewer and vision, and asserting that primary and subagent name the provider route authority while reviewer and vision name the paired native binding; and renders a role whose binding the view does not carry as no value rather than a blank",
+     "packages/ui src/lib/nnd/__tests__/configuration-mutation.test.ts: the catalog parser admits only the two roles NNA declares bindable, which is why the other two cards must describe a different authority instead of pointing at the editor below"
+    ],
     "installed_journey": null
    },
-   "notes": "Save changes persisted route; existing NND engines retain prior route after activation."
+   "notes": "Save changes persisted route; existing NND engines retain prior route after activation. Closed 20261007-35 because the page now shows it: the Subagent card names the provider resolved for the subagent role. No NNA change was needed and none was made — the read surface already resolved and projected every role, and the desktop had simply chosen to render two of the four. The application class is a transcription of what NNA already declares for the roles family, not a capability this slice built, and installed effect is still unobserved. The four container rows for these roles stay open on purpose: a card showing two of a route's thirteen members is not the container on screen, and crediting it would repeat the family-page mistake that cost eight rows their honest count last round."
   },
   {
    "id": "manifest_route:routes.subagent.model",
@@ -4994,29 +5003,32 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "src/configuration-catalog-metadata.js declares the roles family live (roles: family('buildRoutes', live, ...)), and src/nnd-configuration-view.js projects the resolved route for every role in src/contracts.js ROLES on each read, so a change reaches the router on the next resolution rather than at an application moment the desktop owns. The desktop observes this class; it does not exercise the provider route authority."
    },
    "native_endpoint": "PATCH /v1/provider-route/subagent",
    "native_permission": "provider.route.manage",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C4 route binding observation (NNA a026763e, NND 20261007-35)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "buildRoutes"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "packages/ui src/components/settings/__tests__/native-routes.test.tsx: shows all four route bindings with the authority that actually changes each one, asserting the resolved provider and model for primary and subagent beside reviewer and vision, and asserting that primary and subagent name the provider route authority while reviewer and vision name the paired native binding; and renders a role whose binding the view does not carry as no value rather than a blank",
+     "packages/ui src/lib/nnd/__tests__/configuration-mutation.test.ts: the catalog parser admits only the two roles NNA declares bindable, which is why the other two cards must describe a different authority instead of pointing at the editor below"
+    ],
     "installed_journey": null
    },
-   "notes": "Save changes persisted route; existing NND engines retain prior route after activation."
+   "notes": "Save changes persisted route; existing NND engines retain prior route after activation. Closed 20261007-35 because the page now shows it: the Subagent card names the model resolved for the subagent role. No NNA change was needed and none was made — the read surface already resolved and projected every role, and the desktop had simply chosen to render two of the four. The application class is a transcription of what NNA already declares for the roles family, not a capability this slice built, and installed effect is still unobserved. The four container rows for these roles stay open on purpose: a card showing two of a route's thirteen members is not the container on screen, and crediting it would repeat the family-page mistake that cost eight rows their honest count last round."
   },
   {
    "id": "manifest_route:routes.subagent.context_limit_bytes",
