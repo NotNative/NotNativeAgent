@@ -14232,7 +14232,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
+    "evidence": "src/nnd-compatibility-lifecycle-routes.js answers status by observing only (L66 passes not_applied), and run is refused outright with nnd_service_run_unsupported (L73-78) because the managed foreground runtime is spawned detached by start or the login script and a request that never returns is not something an operator surface can host"
    },
    "native_endpoint": "GET /v1/nnd/configuration/compatibility-service/actions/status",
    "native_permission": "nnd.configuration.read",
@@ -14243,17 +14243,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-25)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "opencodeServiceStatus"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-compatibility-lifecycle-routes.test.js (the six verbs over the shipped lifecycle service with per-verb application classes pinned on the receipt, the run refusal, and the projection refusals)",
+     "packages/ui lifecycle typed client tests (the observation and the four receipts parsed against the domain variant grammars, drifted shapes refused, forwarded codes mapped to sentences)",
+     "packages/ui service-lifecycle page tests (the observation line with credential presence named once and no value in any request body, start reporting the runtime url and carrying the start_service word, stop recording an honest not_running, enable and disable each reporting what the Startup script now is and that the wiring applies at the next service start, the unverified-runtime stop refusal keeping its sentence, the sentence explaining why run has no button, no Run control in the document, and no request aimed at the run endpoint)"
+    ],
     "installed_journey": null
    },
-   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
+   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s Closed 20261007-25. Shown: the observation lines: service wiring, runtime state with verified or UNVERIFIED spelled out, login script, environment. The class word was already right, taken from the receipt the route writes; what was missing was any evidence that could be checked. The old line said only that a receipt application mirrors a native surface, which is true of every row in this file and therefore distinguishes nothing, and the citation list was empty, so a verified surface had never been looked at. Two gaps were real: the disable verb had never been clicked in a test, and the refusal of run was proved only by a missing request rather than by the sentence that explains it. Both are asserted now, and the class is confirmed against the route header and the receipt builder rather than assumed."
   },
   {
    "id": "compatibility_service_action:start",
@@ -14274,7 +14278,7 @@
    ],
    "apply": {
     "class": "start_service",
-    "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
+    "evidence": "src/nnd-compatibility-lifecycle-routes.js declares start_service on the receipt (L84-85) because the verb reads the persisted wiring at that moment into a fresh detached runtime; the desktop only asks, and src/opencode/service.js owns the session lock, the spawn, and the pid record"
    },
    "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/start",
    "native_permission": "nnd.service.manage",
@@ -14285,17 +14289,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-25)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "startOpencodeService"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-compatibility-lifecycle-routes.test.js (the six verbs over the shipped lifecycle service with per-verb application classes pinned on the receipt, the run refusal, and the projection refusals)",
+     "packages/ui lifecycle typed client tests (the observation and the four receipts parsed against the domain variant grammars, drifted shapes refused, forwarded codes mapped to sentences)",
+     "packages/ui service-lifecycle page tests (the observation line with credential presence named once and no value in any request body, start reporting the runtime url and carrying the start_service word, stop recording an honest not_running, enable and disable each reporting what the Startup script now is and that the wiring applies at the next service start, the unverified-runtime stop refusal keeping its sentence, the sentence explaining why run has no button, no Run control in the document, and no request aimed at the run endpoint)"
+    ],
     "installed_journey": null
    },
-   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
+   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s Closed 20261007-25. Shown: the Start button and the receipt naming the url the runtime came up at, carrying the start_service word. The class word was already right, taken from the receipt the route writes; what was missing was any evidence that could be checked. The old line said only that a receipt application mirrors a native surface, which is true of every row in this file and therefore distinguishes nothing, and the citation list was empty, so a verified surface had never been looked at. Two gaps were real: the disable verb had never been clicked in a test, and the refusal of run was proved only by a missing request rather than by the sentence that explains it. Both are asserted now, and the class is confirmed against the route header and the receipt builder rather than assumed."
   },
   {
    "id": "compatibility_service_action:stop",
@@ -14316,7 +14324,7 @@
    ],
    "apply": {
     "class": "stop_service",
-    "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
+    "evidence": "src/nnd-compatibility-lifecycle-routes.js declares stop_service (L84-85) because stopping takes effect immediately, and it refuses a runtime whose identity cannot be verified rather than killing an unknown process"
    },
    "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/stop",
    "native_permission": "nnd.service.manage",
@@ -14327,17 +14335,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-25)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "stopOpencodeService"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-compatibility-lifecycle-routes.test.js (the six verbs over the shipped lifecycle service with per-verb application classes pinned on the receipt, the run refusal, and the projection refusals)",
+     "packages/ui lifecycle typed client tests (the observation and the four receipts parsed against the domain variant grammars, drifted shapes refused, forwarded codes mapped to sentences)",
+     "packages/ui service-lifecycle page tests (the observation line with credential presence named once and no value in any request body, start reporting the runtime url and carrying the start_service word, stop recording an honest not_running, enable and disable each reporting what the Startup script now is and that the wiring applies at the next service start, the unverified-runtime stop refusal keeping its sentence, the sentence explaining why run has no button, no Run control in the document, and no request aimed at the run endpoint)"
+    ],
     "installed_journey": null
    },
-   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
+   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s Closed 20261007-25. Shown: the Stop button and its receipt, including the honest nothing-was-running outcome and the refusal to stop an unverified runtime. The class word was already right, taken from the receipt the route writes; what was missing was any evidence that could be checked. The old line said only that a receipt application mirrors a native surface, which is true of every row in this file and therefore distinguishes nothing, and the citation list was empty, so a verified surface had never been looked at. Two gaps were real: the disable verb had never been clicked in a test, and the refusal of run was proved only by a missing request rather than by the sentence that explains it. Both are asserted now, and the class is confirmed against the route header and the receipt builder rather than assumed."
   },
   {
    "id": "compatibility_service_action:enable",
@@ -14358,7 +14370,7 @@
    ],
    "apply": {
     "class": "next_service_start",
-    "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
+    "evidence": "src/nnd-compatibility-lifecycle-routes.js declares next_service_start for enable and disable (L84-85): the verb writes the login Startup script and flips the persisted flag, and the wiring is read when the service next starts"
    },
    "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/enable",
    "native_permission": "nnd.service.manage",
@@ -14369,17 +14381,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-25)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "enableOpencodeService"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-compatibility-lifecycle-routes.test.js (the six verbs over the shipped lifecycle service with per-verb application classes pinned on the receipt, the run refusal, and the projection refusals)",
+     "packages/ui lifecycle typed client tests (the observation and the four receipts parsed against the domain variant grammars, drifted shapes refused, forwarded codes mapped to sentences)",
+     "packages/ui service-lifecycle page tests (the observation line with credential presence named once and no value in any request body, start reporting the runtime url and carrying the start_service word, stop recording an honest not_running, enable and disable each reporting what the Startup script now is and that the wiring applies at the next service start, the unverified-runtime stop refusal keeping its sentence, the sentence explaining why run has no button, no Run control in the document, and no request aimed at the run endpoint)"
+    ],
     "installed_journey": null
    },
-   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
+   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s Closed 20261007-25. Shown: the Enable login auto-start button and a receipt saying the script is wired and the wiring lands at the next service start. The class word was already right, taken from the receipt the route writes; what was missing was any evidence that could be checked. The old line said only that a receipt application mirrors a native surface, which is true of every row in this file and therefore distinguishes nothing, and the citation list was empty, so a verified surface had never been looked at. Two gaps were real: the disable verb had never been clicked in a test, and the refusal of run was proved only by a missing request rather than by the sentence that explains it. Both are asserted now, and the class is confirmed against the route header and the receipt builder rather than assumed."
   },
   {
    "id": "compatibility_service_action:disable",
@@ -14400,7 +14416,7 @@
    ],
    "apply": {
     "class": "next_service_start",
-    "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
+    "evidence": "src/nnd-compatibility-lifecycle-routes.js declares next_service_start for enable and disable (L84-85): the verb writes the login Startup script and flips the persisted flag, and the wiring is read when the service next starts"
    },
    "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/disable",
    "native_permission": "nnd.service.manage",
@@ -14411,17 +14427,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-25)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "disableOpencodeService"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-compatibility-lifecycle-routes.test.js (the six verbs over the shipped lifecycle service with per-verb application classes pinned on the receipt, the run refusal, and the projection refusals)",
+     "packages/ui lifecycle typed client tests (the observation and the four receipts parsed against the domain variant grammars, drifted shapes refused, forwarded codes mapped to sentences)",
+     "packages/ui service-lifecycle page tests (the observation line with credential presence named once and no value in any request body, start reporting the runtime url and carrying the start_service word, stop recording an honest not_running, enable and disable each reporting what the Startup script now is and that the wiring applies at the next service start, the unverified-runtime stop refusal keeping its sentence, the sentence explaining why run has no button, no Run control in the document, and no request aimed at the run endpoint)"
+    ],
     "installed_journey": null
    },
-   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
+   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s Closed 20261007-25. Shown: the Disable login auto-start button and a receipt saying whether the script was removed or is still installed, with the same next-service-start wording. The class word was already right, taken from the receipt the route writes; what was missing was any evidence that could be checked. The old line said only that a receipt application mirrors a native surface, which is true of every row in this file and therefore distinguishes nothing, and the citation list was empty, so a verified surface had never been looked at. Two gaps were real: the disable verb had never been clicked in a test, and the refusal of run was proved only by a missing request rather than by the sentence that explains it. Both are asserted now, and the class is confirmed against the route header and the receipt builder rather than assumed."
   },
   {
    "id": "compatibility_service_action:run",
@@ -14442,7 +14462,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "route receipt application (mirrors the native 20261006-9 surface)"
+    "evidence": "src/nnd-compatibility-lifecycle-routes.js answers status by observing only (L66 passes not_applied), and run is refused outright with nnd_service_run_unsupported (L73-78) because the managed foreground runtime is spawned detached by start or the login script and a request that never returns is not something an operator surface can host"
    },
    "native_endpoint": "POST /v1/nnd/configuration/compatibility-service/actions/run (refused natively)",
    "native_permission": "nnd.service.manage",
@@ -14453,17 +14473,21 @@
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-25)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "runManagedService"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-compatibility-lifecycle-routes.test.js (the six verbs over the shipped lifecycle service with per-verb application classes pinned on the receipt, the run refusal, and the projection refusals)",
+     "packages/ui lifecycle typed client tests (the observation and the four receipts parsed against the domain variant grammars, drifted shapes refused, forwarded codes mapped to sentences)",
+     "packages/ui service-lifecycle page tests (the observation line with credential presence named once and no value in any request body, start reporting the runtime url and carrying the start_service word, stop recording an honest not_running, enable and disable each reporting what the Startup script now is and that the wiring applies at the next service start, the unverified-runtime stop refusal keeping its sentence, the sentence explaining why run has no button, no Run control in the document, and no request aimed at the run endpoint)"
+    ],
     "installed_journey": null
    },
-   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s"
+   "notes": "native lifecycle surface reusing src/opencode/service.js verbatim: status projects the redacted wire identity (credential presence and source only), the managed runtime variant grammar exactly as ProcessIdentity produces it, login wiring, and the presence-only OpenChamber environment observation with stale_binding; start reads the persisted wiring NOW into a fresh detached runtime, stop refuses an unverified runtime and is an honest no-op when nothing runs; enable/disable install or remove the Startup-folder .vbs with the same rollback and flip the persisted flag (wiring surface applies at the next service start; run is the foreground managed runtime the detached start and the login script drive, refused honestly on the operator surface with nnd_service_run_unsupported); operations carry nnd.service.manage, status nnd.configuration.read; projection drift fails closed (nnd_service_projection_invalid, 500), operational failures are honest 503s Closed 20261007-25. Shown: the sentence explaining that the managed foreground runtime is driven by the detached start and the login script, so this surface offers no control for it; asserted alongside the absence of any Run button. The class word was already right, taken from the receipt the route writes; what was missing was any evidence that could be checked. The old line said only that a receipt application mirrors a native surface, which is true of every row in this file and therefore distinguishes nothing, and the citation list was empty, so a verified surface had never been looked at. Two gaps were real: the disable verb had never been clicked in a test, and the refusal of run was proved only by a missing request rather than by the sentence that explains it. Both are asserted now, and the class is confirmed against the route header and the receipt builder rather than assumed."
   },
   {
    "id": "browser_action:status",

@@ -665,6 +665,20 @@ code sentences. Census rows updated in place; the `secret_action` mutations,
 `update_action`, `nnd_package_action`, hooks, and the served-family action
 columns (gateway/web_fetch/web_search/browser) stay open.
 
+Those six action rows are now closed, and they are the slice where closing meant
+nothing to the headline counts: the class words were already NNA's, read from the
+receipt the route writes, and no row changed state. What was missing was anything a
+reader could check. The evidence on all six said a receipt application "mirrors the
+native surface", a sentence true of every row in the file and therefore
+distinguishing none of them, and the citation list was empty — a verified surface
+that had never been looked at. Two gaps were genuine once the page was read against
+the tests: `disable` had never been clicked, and the refusal of `run` was evidenced
+only by a request that did not happen rather than by the sentence explaining why no
+button exists. Both are asserted now, with no `Run` control in the document.
+
+Worth stating plainly: this slice moved no census axis at all. It is recorded because
+removing an unfalsifiable claim is the work, not because a number moved.
+
 Progress: at NNA `20261006-10` the nine `hooks` rows (name, version, and the
 seven `subscriptions[*]` fields) became the product's second multi-instance
 read roster at `/v1/nnd/configuration/hooks`, reusing `src/hook-manifest.js`

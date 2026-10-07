@@ -36,7 +36,10 @@ const resources = { status: () => ({ schema_version: '1.0', ...identity, action:
   enable: () => ({ schema_version: '1.0', ...identity, action: 'enable',
     application: 'next_service_start', operation_id: OPERATION, service: statusView().service,
     login: { supported: true, installed: true, script_path: 'C:/startup/NotNativeAgent-OpenCode.vbs' },
-    runtime: { running: false } }) };
+    runtime: { running: false } }),
+  disable: () => ({ schema_version: '1.0', ...identity, action: 'disable',
+    application: 'next_service_start', operation_id: OPERATION, service: statusView().service,
+    login: { supported: true, installed: false, script_path: null }, runtime: { running: false } }) };
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 let container: HTMLDivElement;
 let root: Root | undefined;async function settle() { await act(async () => { for (let i = 0; i < 8; i += 1) await Promise.resolve(); }); }
@@ -58,6 +61,7 @@ it('renders the observation honestly, applies inputless verbs, and refuses run v
     if (verb === 'stop') return Promise.resolve(jsonResponse(resources.stop()));
     if (verb === 'start') return Promise.resolve(jsonResponse(resources.start()));
     if (verb === 'enable') return Promise.resolve(jsonResponse(resources.enable()));
+    if (verb === 'disable') return Promise.resolve(jsonResponse(resources.disable()));
     throw new Error('unexpected ' + path);
   });
   await mount();
@@ -83,9 +87,22 @@ it('renders the observation honestly, applies inputless verbs, and refuses run v
     .toContain('login auto-start wired: installed');
   expect(container.querySelector('[data-testid="lifecycle-receipt"]')?.textContent)
     .toContain('applies at the next service start');
+  // Disable is its own census verb, not the mirror image of enable: it unwires the
+  // Startup script and says which of the two outcomes the receipt recorded.
+  await click('Disable login auto-start');
+  expect(container.querySelector('[data-testid="lifecycle-receipt"]')?.textContent)
+    .toContain('login auto-start unwired: removed');
+  expect(container.querySelector('[data-testid="lifecycle-receipt"]')?.textContent)
+    .toContain('applies at the next service start');
+  // 'run' has no control to click, so its coverage is the sentence that says why,
+  // plus proof that no such button exists and no request was ever aimed at it.
+  expect(container.textContent)
+    .toContain('the generic managed foreground runtime (run) is driven by the detached start');
+  expect([...container.querySelectorAll('button')].map(button => button.textContent))
+    .not.toContain('Run');
   const paths = verbs.map(([, path]) => path);
   for (const path of paths) expect(path).not.toContain('/actions/run');
-  expect(verbs.every(([, path]) => path.split('/').at(-1) === 'status' || path.endsWith('/stop') || path.endsWith('/start') || path.endsWith('/enable'))).toBe(true);
+  expect(verbs.every(([, path]) => path.split('/').at(-1) === 'status' || path.endsWith('/stop') || path.endsWith('/start') || path.endsWith('/enable') || path.endsWith('/disable'))).toBe(true);
   expect(verbs.filter(([method]) => method === 'POST').every(([, path]) => path.split('/').at(-1) !== 'status')).toBe(true);
   // A wiring-platform refusal keeps its sentence and the forwarded code.
   fetchMock.mockImplementation((path: string) => path.split('/').at(-1) === 'stop'

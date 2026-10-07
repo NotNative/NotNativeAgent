@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Six lifecycle actions close in a slice that moves no number at all · NND 20261007-25
+
+Nothing on the scoreboard moved: no surface gained, no class changed, no row opened.
+The class words were already NNA's, taken from the receipt the lifecycle route writes.
+What was missing was anything checkable — all six rows carried the evidence line
+"route receipt application (mirrors the native surface)", true of every action row in
+the file and therefore distinguishing none, with an empty citation list behind a
+"verified" surface nobody had looked at. Reading the page against the tests found two
+genuine gaps: `disable` had never been clicked, and `run`'s refusal was evidenced only
+by a request that didn't happen rather than by the sentence explaining why no button
+exists. Both asserted now. It's last round's bulk suite count in a different costume: a
+big number on a row proves nothing about that row, and neither does an evidence
+sentence that would be true whichever row you read it on. Proof has to be capable of
+being wrong about something. Verified rows citing no test: 12 → 6; rows citing no
+specific test file: 73 → 60.
+
 ## 2026-10-07 · Compatibility wiring closes; one sweep flag proves true and a metric goes down · NND 20261007-24
 
 The `updated_at` suspicion was right this time: the row carried a verified surface

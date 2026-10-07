@@ -416,6 +416,33 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-25 — six lifecycle actions close, and a slice that moves no number at all
+
+Six rows closed and **nothing on the scoreboard moved**: no surface gained, no class
+changed, no row opened. The class words were already correct, read from the receipt
+NNA's lifecycle route writes — `not_applied` for the observation, `start_service` and
+`stop_service` for the immediate verbs, `next_service_start` for the wiring flips, and
+`run` refused outright because an HTTP handler cannot host a call that never returns.
+
+What was missing was anything a reader could check. All six carried the evidence line
+`route receipt application (mirrors the native 20261006-9 surface)`, which is true of
+every action row in the file and therefore distinguishes none of them, and their
+citation list was empty — a verified surface nobody had ever looked at. Reading the
+page against the tests found two real gaps: `disable` had never been clicked in any
+test, and the refusal of `run` was evidenced only by a request that did not happen,
+not by the sentence explaining why no button exists. Both are asserted now, along
+with the absence of a `Run` control.
+
+This is the same failure as last round's bulk suite count, in a different costume. A
+big number attached to a row proves nothing about that row; so does an evidence
+sentence that would be true no matter which row you read it on. Proof has to be
+capable of being wrong about something, and neither of these ever could be.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 59
+(unchanged). The quality diagnostic did move: verified rows citing no test fell 12 → 6,
+and rows citing no specific test file fell 73 → 60.
+
 ## NND 20261007-24 — compatibility wiring closes, one flag turns out true, and a count goes down
 
 Seven rows closed, unverified classes 66 → 59, and the class is NNA's
