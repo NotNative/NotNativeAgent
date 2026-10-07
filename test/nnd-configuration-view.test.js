@@ -287,3 +287,23 @@ test('the telemetry family is opt-in, requires a destination when enabled, and i
   assert.deepEqual(row(disabled, 'telemetry.destination').effective.value, null,
     'a disabled telemetry block resolves the destination to null');
 });
+
+test('the reviewer-ledger family serves its single budget and refuses anything else', () => {
+  // src/configuration-rules.js bounds retention_entries 1..100_000 with
+  // default 10_000; src/config.js:validateReviewerLedger rejects any other
+  // key inside the block, and engine/components.js reads the value once when
+  // the engine builds its reviewer ledger.
+  const view = projectNndConfigurationView(snapshot());
+  assert.deepEqual(row(view, 'reviewer_ledger.retention_entries').explicit, { present: false });
+  assert.deepEqual(row(view, 'reviewer_ledger.retention_entries').effective,
+    { present: true, value: 10_000, source: 'compiled_default' });
+  const mine = projectNndConfigurationView(snapshot({ reviewer_ledger: { retention_entries: 5_000 } }));
+  assert.deepEqual(row(mine, 'reviewer_ledger.retention_entries').explicit, { present: true, value: 5_000 });
+  assert.deepEqual(row(mine, 'reviewer_ledger.retention_entries').effective,
+    { present: true, value: 5_000, source: 'user' });
+  for (const bad of [{ retention_entries: 0 }, { retention_entries: 100_001 }, { retention_entries: 'many' }]) {
+    assert.throws(() => snapshot({ reviewer_ledger: bad }), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
+  }
+  assert.throws(() => snapshot({ reviewer_ledger: { retention: 'forever' } }),
+    (error) => error.code === 'reviewer_ledger_config_invalid');
+});
