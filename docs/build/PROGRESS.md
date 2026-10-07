@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The census names a test at every citation; no-test axis closed · NND 20261007-56
+
+Last 9 no-test citations re-pointed in place at their proving tests; **no-test 9 → 0 of 678**. One
+new click test proves `remove_profile` composition end to end. Suites stated fresh: UI 265/1921
+green (+1 new test), cited lib suites 35/35, typecheck clean. Absence pins re-verified live across
+all six page sources. Citation-quality axis exhausted; next: installed evidence (0/371) or PLAN.md's
+next unclosed package.
+
 ## 2026-10-07 · Last file-blind citations burned; every citation names a file · NND 20261007-55
 
 Three families, one sweep, zero file-blind citations left: **no-test 21 → 9, no-file 12 → 0** of 678

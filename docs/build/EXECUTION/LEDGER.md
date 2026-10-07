@@ -416,6 +416,41 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-56 — the census names a test at every citation
+
+Citations naming no test file: **9 → 0 of 678**. The no-test axis is closed. The tooling boundary
+that produced this round: the standing rewriter only replaces citations that name no file at all,
+and the 9 survivors had all been allowed to stay no-test precisely because they *name* files —
+8 parser-source pins for the generated-state version rows plus 1 composition pointer for
+`web_search_action:remove-profile`. They were therefore re-pointed in place, by exact, asserted
+substrings, against the tests that prove their claims:
+
+- `web_search` version/provider/managed — the client suite drives both halves (hostile parse loop;
+  page render); the absent-display claims were reworded to pin the page suite's asserted content.
+- `web_fetch:version`, `gateway:version`, `compatibility_service:version`, `trust:version`,
+  `update_state:format` — keep client- and page-suite citations; the appended pin names the lib
+  test's refusal plus the page test's render, and the absence claim over the page *source* is
+  kept as a dated live fact (`re-read 20261007-54`, or `re-read 20261007-55` for compatibility).
+- `web_search_action:remove-profile` — the composition pointer is retired by a **new click test**
+  (`packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx`, "composes
+  remove_profile from the clicked row and keeps the roster honest through preview and save"):
+  it removes the non-primary roster row, previews, saves with the native revision check, and
+  asserts the batch as exactly one `remove_profile` naming the removed profile — the census row no
+  longer needs to say "this suite does not click remove". First draft of that test asserted a
+  primary-removal guard the page never had; the debug run disproved the invented rule and the
+  test was rewritten to what the page really does.
+
+Suites are stated fresh this round, not assumed: full UI 265 files / 1921 tests green (the +1 test
+is the new click test), the six cited lib suites re-run green (35/35), typecheck clean across
+packages/ui and packages/web. Web suite unchanged since its last full green run; not re-run. The
+absence claims were re-verified live against all six page sources in one pass before sealing:
+zero `.version`/`.format` references.
+
+After this round: rows 371; surfaces owed 14; not owed with evidence 11 (unevidenced 0); unverified
+application class 38; **citations naming no test file 0 of 678 (no file at all 0)**; installed
+evidence 0 of 371. The citation-quality axis is exhausted; the remaining census lane is the
+installed-evidence axis (0/371), and the build's next unclosed package per PLAN.md.
+
 ## NND 20261007-55 — the action families burn the last citations that name no file
 
 Citations naming no test file: **21 → 9**; and — the milestone this slice was aimed at — citations

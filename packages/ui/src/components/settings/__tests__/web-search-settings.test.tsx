@@ -124,6 +124,25 @@ it('composes one canonicalizing batch across add, disable, promote, and remove',
     { op: 'promote_profile', id: 'work' }]);
 });
 
+it('composes remove_profile from the clicked row and keeps the roster honest through preview and save', async () => {
+  fetchMock.mockImplementation((path: string, init: RequestInit) => {
+    if (path.endsWith('/web-search')) return Promise.resolve(json(view));
+    if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
+    if (path.endsWith('/preview')) return Promise.resolve(json(previewOf({
+      profiles: [profile('docs')] })));
+    if (path.endsWith('/save')) return Promise.resolve(json(receipt(JSON.parse(String(init.body)).operation_id)));
+    throw new Error('unexpected ' + path);
+  });
+  await mount();
+  await click('Remove');
+  await click('Preview native change');
+  expect(container.textContent).toContain('docs');
+  expect(container.textContent).not.toContain('work:');
+  await click('Save with native revision check');
+  const saveCall = fetchMock.mock.calls.find(([path]) => String(path).endsWith('/save'))!;
+  expect(JSON.parse(String(saveCall[1].body)).operations).toEqual([{ op: 'remove_profile', id: 'work' }]);
+});
+
 it('retains an uncertain save for native receipt lookup after reload', async () => {
   let operationId = '';
   fetchMock.mockImplementation((path: string, init: RequestInit) => {

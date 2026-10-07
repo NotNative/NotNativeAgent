@@ -10404,7 +10404,7 @@
      "normalizeWebSearchConfig"
     ],
     "tests_run": [
-     "packages/ui/src/lib/nnd/web-search.ts refuses a view whose version is not 2 and rebuilds the view from that pinned constant, so the desktop enforces the revision even though it never prints it; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .version at all",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts drives the store version through both suites: the parse loop refuses the served view recast at version 1 while the served version-2 read rebuilds its pinned shape, and the page suite mounts the served view in full to pin the summary, the profile rows and the next-search wording — nothing either suite asserts contains the store version, so the desktop enforces the revision without displaying it",
      "packages/ui/src/lib/nnd/__tests__/web-search.test.ts accepts the served view at version 2 and refuses the same view at version 1, so a document from the older store shape cannot be read as current",
      "packages/ui src/components/settings/__tests__/web-search-settings.test.tsx asserts the summary, the profile rows and the next-search wording; the store version appears in nothing this suite pins"
     ],
@@ -10656,7 +10656,7 @@
      "normalizeWebSearchConfig"
     ],
     "tests_run": [
-     "packages/ui/src/lib/nnd/web-search.ts refuses any profile whose provider is not the single admitted value and returns the pinned value, so the field is enforced rather than displayed; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .provider at all",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts drives the provider through both suites: the parse loop refuses google, the capitalized form of the admitted value, an empty string, a value with a leading space, null and undefined, and asserts the parser can only ever emit searxng, while the page suite mounts the served view in full to pin each row as id, display name and endpoint — no provider is displayed anywhere in what it asserts, so the field is enforced rather than displayed",
      "src/web-search-config.js web-search provider refusal, proved at NNA test/web-search.test.js (only SearXNG is an admissible WebSearch provider, at either document shape): a version-1 document naming brave at the root and a version-2 profile naming SearXNG with the wrong case are both refused, while an omitted provider normalizes to searxng rather than throwing",
      "packages/ui src/lib/nnd/__tests__/web-search.test.ts: refuses a profile that names any provider other than the one NNA supports, across six drifted values, and asserts the parser can only ever emit searxng",
      "packages/ui/src/lib/nnd/__tests__/web-search.test.ts refuses a profile naming google, the capitalized form of the admitted value, an empty string, a value with a leading space, null and undefined, and the only value the parser can emit is the admitted one",
@@ -10755,7 +10755,7 @@
      "normalizeWebSearchConfig"
     ],
     "tests_run": [
-     "packages/ui/src/lib/nnd/web-search.ts refuses a profile whose managed flag is not a boolean and returns it as parsed, so the desktop enforces the shape and shows nothing; packages/ui/src/components/settings/pages/web-search-settings.tsx contains no reference to .managed at all",
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts drives the managed flag through both suites: the parse loop refuses a managed flag that is a string, a number, null, an empty string or absent, and keeps a profile managed through the rebuild when the flag is the boolean true, while the page suite mounts the served view in full and renders nothing for the field — the honest outcome for a property the operator cannot set",
      "packages/ui/src/lib/nnd/__tests__/web-search.test.ts refuses a managed flag that is a string, a number, null, an empty string or absent, and keeps a profile managed through the rebuild when the flag is the boolean true",
      "packages/ui src/components/settings/__tests__/web-search-settings.test.tsx renders nothing for this field, which is the honest outcome for a property the operator cannot set; the flag itself is asserted as of 20261007-49"
     ],
@@ -10806,7 +10806,7 @@
      "NNA test/nnd-web-fetch-http.test.js (read, catalog, preview without persistence, save under the native revision check, receipt lookup, refusals that leave the source untouched)",
      "NNA test/nnd-web-fetch-transaction.test.js (origin grammar and bounds, duplicate and host-case handling, one receipt per batch, updated_at stamped on save, oversize refused before publishing)",
      "NNA test/web-fetch-tool.test.js (the fetch tool consults the trusted-origin grant on each request, which is what makes next_fetch the application point)",
-     "packages/ui/src/lib/nnd/web-fetch.ts refuses a frame whose version is not 1 before any other field is read; packages/ui/src/components/settings/pages/web-fetch-trust.tsx contains no reference to .version at all",
+     "packages/ui/src/lib/nnd/__tests__/web-fetch.test.ts feeds the served read view back at version 2 inside the drift-refusal loop and expects NativeWebFetchFailure, so a document whose store version is not 1 cannot be parsed as current; the page suite mounts the served version-1 frames in full and pins the roster, stamp and refusals, and the page it renders — verified against the live source at 20261007-54 — contains no .version reference: the store version is enforced but never displayed",
      "packages/ui/src/lib/nnd/__tests__/web-fetch.test.ts feeds the served read view back at version 2 inside the drift-refusal loop and expects NativeWebFetchFailure, so a document whose store version is not 1 cannot be parsed as current; the loop in the same test rejects loose stamps and drifted revisions on the same parser before any other field is used",
      "packages/ui/src/components/settings/__tests__/web-fetch-trust.test.tsx pins the read view the page actually renders — the grant roster with its revoke control, the saved stamp with the revision prefix at which the read was taken, the uncertain and absent states — while the page source never reads the store version, which is why no control exists for it"
     ],
@@ -10954,7 +10954,7 @@
      "NNA test/nnd-gateway-timeout-transaction.test.js (the raw token and unknown fields stay in the store and are never projected; stale CAS and malformed sources refuse changes; the family changes under one receipt and updated_at is stamped; receipts that would carry the token are refused; oversize output refused)",
      "packages/ui/src/lib/nnd/__tests__/native-gateway.test.ts: parseNativeGatewayView is fed version 2 and throws nnd_gateway_timeout_view_invalid, while the same frame carrying an unknown private token field parses without ever putting the value in the model",
      "packages/ui src/components/settings/__tests__/native-gateway-timeout.test.tsx: mounts the page against the family view and never prints the store version; the page markup is asserted through the fields an operator can act on, and the source revision carries the save stamp instead",
-     "packages/ui/src/lib/nnd/native-gateway.ts:parseNativeGatewayView refuses a frame whose version is not 1 and carries the value in its model without rendering it; packages/ui/src/components/settings/pages/native-gateway-timeout.tsx contains no occurrence of version, re-read 20261007-40, so the store counter has no path to the screen"
+     "packages/ui/src/lib/nnd/__tests__/native-gateway.test.ts drives the store counter through both suites: parseNativeGatewayView is fed version 2 and throws nnd_gateway_timeout_view_invalid while the same frame with an unknown private token field parses without error, and packages/ui/src/components/settings/__tests__/native-gateway-timeout.test.tsx mounts the family view and never prints the counter — and the page it renders, verified against the live source at 20261007-40, contains no version reference, so the counter has no path to the screen"
     ],
     "installed_journey": null
    },
@@ -11330,7 +11330,7 @@
     ],
     "tests_run": [
      "NNA test/nnd-compatibility-routes.test.js (an absent file reads as the sticky wire identity and a preview bootstraps without persisting; the domain validates candidates including exposed bind and short password while the secret stays put; CAS receipts replay, persist revisions, and a corrupt store keeps its repair demand honest; HTTP offers the catalog and receipts, protects the secret, and gates by permission; the projector refuses drifted service shapes with its own server-side code)",
-     "packages/ui/src/lib/nnd/compatibility.ts refuses a version other than 1 on read and compares the saved view version against the one it sent before accepting a save; packages/ui/src/components/settings/pages/compatibility-service.tsx contains no reference to .version at all",
+     "packages/ui/src/lib/nnd/__tests__/compatibility.test.ts drives the version through both suites: parseNativeCompatibilityView accepts the present frame at version 1 and the absent bootstrap frame and refuses the same frame carrying version 2, and packages/ui/src/components/settings/__tests__/compatibility-service.test.tsx asserts the status line field by field and reloads from the native read after a save — and the page it renders, re-read 20261007-55, contains no .version reference, so the store version stays out of the screen",
      "packages/ui/src/lib/nnd/__tests__/compatibility.test.ts: parseNativeCompatibilityView accepts the present frame at version 1 and the absent bootstrap frame, and refuses the same frame carrying version 2",
      "packages/ui src/components/settings/__tests__/compatibility-service.test.tsx: the status line is asserted field by field and never carries the store version; after a save the page reloads from the native read rather than echoing a counter"
     ],
@@ -11655,7 +11655,7 @@
     ],
     "tests_run": [
      "NNA test/nnd-trust-routes.test.js (grants, lists and revokes through the native trust functions; the projection refuses factory drift and identity lies; the catalog, honest refusals and an operator-only mutation gate; an existing root granted, the list reflecting it, lock contention mapped to 409)",
-     "packages/ui/src/lib/nnd/trust.ts refuses a frame whose version is not 1 alongside its source and workspace checks; packages/ui/src/components/settings/pages/trust-workspaces.tsx contains no reference to .version at all",
+     "packages/ui/src/lib/nnd/__tests__/trust.test.ts opens its hostile list with the served list rewritten at version 2 and expects the parse to throw, and its catalog drift loop refuses the version field recast as an editable authority grant, while packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx loads every fixture at the version-1 shape and asserts only the projections the census editability drives — rows, stamps, grants and refusals — and nothing the suite pins prints the store version",
      "packages/ui/src/lib/nnd/__tests__/trust.test.ts opens its hostile list with the served list rewritten at version 2 and expects the parse to throw, and its catalog drift loop refuses the version field recast as authority_grant or made editable, so a list not stamped version 1 and a catalog whose version pretends to be an operator field both fail closed",
      "packages/ui/src/components/settings/__tests__/trust-workspaces.test.tsx loads every fixture with version 1 and asserts only the projections the census editability drives — rows, stamps, grants and refusals — while the page source never reads the store version, which is why no control exists for it"
     ],
@@ -12236,7 +12236,7 @@
      "readUpdateState"
     ],
     "tests_run": [
-     "packages/ui/src/lib/nnd/update-state.ts refuses a recorded state whose format is not 1 and rebuilds it as format 1, and the page renders checked_at, status and the latest version but not the format; packages/ui/src/components/settings/pages/native-update-state.tsx contains no reference to .format at all",
+     "packages/ui/src/lib/nnd/__tests__/update-state.test.ts drives the staleness rule through both suites: a recorded state carrying format 2 is refused outright while the served record at format 1 is rebuilt rather than echoed, and the page suite counts the rendered table at six lines for the six fields an operator reads, so the store format is not among them — and the page renders checked_at, status and the latest version but never the format, keeping the store format off the screen",
      "packages/ui/src/lib/nnd/__tests__/update-state.test.ts: a recorded state carrying format 2 is refused outright, while the served record at format 1 is rebuilt rather than echoed",
      "packages/ui src/components/settings/__tests__/native-update-state.test.tsx: the rendered table is counted at six lines for the six fields an operator reads, and the store format is not among them"
     ],
@@ -13643,7 +13643,7 @@
     "tests_run": [
      "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
      "packages/ui/src/lib/nnd/__tests__/web-search.test.ts composes two removals that empty the roster and flip enabled to false, and refuses a removal whose id is not in normalized form",
-     "packages/ui src/components/settings/pages/web-search-settings.tsx composes a remove_profile operation for each profile the draft marks removed; the composition is proved at the client boundary rather than by a click, and this suite does not click remove"
+     "packages/ui/src/lib/nnd/__tests__/web-search.test.ts composes two removals that empty the roster and flip enabled to false, and refuses a removal whose id is not in normalized form at the client boundary, while packages/ui/src/components/settings/__tests__/web-search-settings.test.tsx clicks Remove on a roster row, previews the native change and saves with the native revision check, asserting the batch as exactly one remove_profile operation naming the removed profile"
     ],
     "installed_journey": null
    },
