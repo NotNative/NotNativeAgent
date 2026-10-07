@@ -100,6 +100,10 @@ it('upserts a token, shows the reference and applied flag, and never renders the
   expect(refreshed()).toContain(stored.reference!);
   expect(refreshed()).toContain('applied');
   expect(container.textContent).toContain("Operation ");
+  // The receipt is where this row's application class reaches an operator: naming the
+  // reference and saying the engine host applies it at the next server spawn.
+  expect(container.textContent).toContain('the reference is ' + stored.reference);
+  expect(container.textContent).toContain('applies saved references at the next server spawn');
   expect(container.textContent).not.toContain(TOKEN);
   // Delete the stored credential: the honest path reports the receipt and empties the roster.
   await click('Delete');

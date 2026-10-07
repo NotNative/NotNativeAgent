@@ -416,6 +416,32 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-27 — the last uncited "verified" row closes, and the metric that found it hits zero
+
+One row closed. It happens to be the one the sweep flagged by hand and never looked
+at, and it was the last row in the file claiming a verified desktop surface while
+citing no test whatsoever. That measurement is now **0 of 321** verified-surface rows.
+
+The flag was right about the evidence and wrong about the surface. The reference roster
+is genuinely rendered and genuinely asserted — reference, applied flag, count, staged
+save, staged delete, and the token value absent from the document at every step. What
+had never been checked was the application class: it sat at `unverified` because nobody
+had matched the receipt's wording to the route. `next_server_spawn` is NNA's, declared on
+the catalog field itself and enforced against any receipt carrying anything else, and
+the sentence that carries it is now asserted too. Sensitivity stays `secret` as the
+catalog sets it, and no token value ever renders.
+
+The milestone should not hide its neighbour. Eight verified rows still cite a suite
+*description* without naming a single test file — `web_fetch_action` ×3, `trust_action`
+×2, `session_review` ×2, and `manifest:tool_concurrency`. Every one of them was recorded
+as a pin of a surface verified somewhere else, never by work in its own slice. A
+citation you cannot walk up to is closer to a claim than to a proof, so the count that
+went to zero is not the count that matters most yet.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 59 → 58.
+Verified rows citing no test: 1 → 0.
+
 ## NND 20261007-26 — five action rows close on evidence, and a fixture nobody ever ran
 
 Five rows closed and, as with the lifecycle family, no headline axis moved: 37 rows

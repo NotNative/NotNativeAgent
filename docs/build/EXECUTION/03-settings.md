@@ -597,6 +597,24 @@ reference roster and stages idempotent save/delete actions whose receipts claim
 nothing about replay. The remaining C6 families (compatibility lifecycle actions,
 hooks, update actions) stay open.
 
+That single credential row is now closed, and it was the last row in the census
+claiming a verified desktop surface while citing no test — the hand-flagged case, and
+a false positive about the surface: the reference roster really is rendered and really
+is asserted, token value never appearing in the document at any step. What had never
+been checked was the class, left `unverified` because nobody had matched the receipt's
+wording to the route. `next_server_spawn` is NNA's, declared on the catalog field
+itself and enforced against any receipt that carries something else, and the sentence
+carrying it — the engine host applies saved references at the next server spawn — is
+now asserted rather than assumed. Sensitivity stays `secret` as the catalog sets it.
+
+With that row closed, the diagnostic that found it returns empty: no row in the file
+claims a verified surface with no test behind it. The neighbouring measurement is not
+empty: eight verified rows still cite a suite description without ever naming a test
+file (`web_fetch_action` ×3, `trust_action` ×2, `session_review` ×2,
+`manifest:tool_concurrency`) — all of them recorded as pins of surfaces verified
+elsewhere rather than by work in their own slice. A citation that cannot be walked up
+to is closer to a claim than to a proof, so those rows are the next thing on this list.
+
 Progress: at NNA `20261006-8` the six `secrets` rows became the settings
 family's first pure read surface at `/v1/nnd/configuration/secrets` (list plus
 catalog, `nnd.configuration.read` only; no operations, query strings refused).

@@ -15732,8 +15732,8 @@
     "user_data_root"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "next_server_spawn",
+    "evidence": "src/nnd-mcp-credentials-routes.js declares this one-field catalog entry as type secret with application next_server_spawn (L23-26), and the transaction refuses a receipt carrying any other application (nnd-mcp-credentials-transaction.js L57 and L75) because the engine host reads the store when it spawns a managed server; the desktop saves and deletes through that transaction and applies nothing"
    },
    "native_endpoint": "GET /v1/nnd/configuration/mcp-credentials; GET /v1/nnd/configuration/mcp-credentials/catalog; POST /v1/nnd/configuration/mcp-credentials/credentials/save; POST /v1/nnd/configuration/mcp-credentials/credentials/delete",
    "native_permission": "nnd.configuration.read to inspect; nnd.configuration.manage to change",
@@ -15744,17 +15744,21 @@
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-27)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "saveManagedMcpCredential / listManagedMcpCredentials"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-mcp-credentials-routes.test.js (an absent store lists honestly and a save bootstraps the store with the derived reference; request grammar and the domain validator stay native; upsert idempotence and honest deletes; the http surface serves the one-field catalog, gates by permission, and never projects tokens)",
+     "packages/ui mcp-credentials typed client tests (the reference list and receipts parsed with drift refused, token values never carried into a projected shape)",
+     "packages/ui managed-mcp-credentials page tests (the roster showing the reference and whether it is applied, references counted on the status line, the staged save naming the derived reference, the delete staged against the same reference, the receipt naming the reference and saying the engine host applies it at the next server spawn, the store-absent reading, refusal sentences for token grammar and store repair, and the token value never appearing in the document after any step)"
+    ],
     "installed_journey": null
    },
-   "notes": "native surface: list shows references and applied presence only (token values never project), save is an idempotent upsert keyed by the server id, delete reports absent when nothing was stored, application next_server_spawn"
+   "notes": "native surface: list shows references and applied presence only (token values never project), save is an idempotent upsert keyed by the server id, delete reports absent when nothing was stored, application next_server_spawn Closed 20261007-27 on evidence. Shown: the credential reference with its applied flag, the count on the status line, the staged save naming the reference NNA will derive, and the receipt that names the reference and says the engine host applies saved references at the next server spawn. This was the last row claiming a verified desktop surface while citing no test, and the flag proved to be a false positive about the surface: the reference really is rendered and asserted. What was missing was the class, left unverified because the receipt wording had never been checked against the route; next_server_spawn is NNA (declared on the catalog field itself and enforced against the receipt), and the receipt sentence carrying it is now asserted too. Sensitivity stays secret as NNA set it, and no token value ever renders."
   },
   {
    "id": "environment:NNA_HOME",

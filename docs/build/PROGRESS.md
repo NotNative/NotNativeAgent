@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · The last uncited "verified" row closes and the metric that found it hits zero · NND 20261007-27
+
+One row closed: the hand-flagged MCP credential reference, the last row claiming a
+verified GUI while citing no test. That measurement is now **0 of 321**. The flag was
+right about the evidence and wrong about the surface — the roster really is rendered and
+asserted, token absent from the document at every step. What nobody had checked was the
+class, parked at `unverified` because the receipt wording had never been matched to the
+route: `next_server_spawn` is declared on the catalog field and enforced against any
+receipt carrying anything else, and the sentence carrying it is asserted now. The
+milestone shouldn't hide its neighbour — eight rows still cite a suite *description*
+with no test filename (`web_fetch_action` ×3, `trust_action` ×2, `session_review` ×2,
+`manifest:tool_concurrency`), all recorded as pins of surfaces verified elsewhere. A
+citation you can't walk up to is closer to a claim than a proof. Unverified class
+59 → 58.
+
 ## 2026-10-07 · Five action rows close on evidence; a fixture nobody ever ran · NND 20261007-26
 
 No headline axis moved again — the classes were already NNA's, the routes were verified
