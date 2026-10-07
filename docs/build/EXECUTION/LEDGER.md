@@ -416,6 +416,54 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-55 — the action families burn the last citations that name no file
+
+Citations naming no test file: **21 → 9**; and — the milestone this slice was aimed at — citations
+naming **no file at all: 12 → 0**. Every one of the 678 citations in the census now names a real
+file somewhere in the repository pair. Three families were rewritten in one sweep over the shared
+desktop suites:
+
+- `nnd_package_action` (`activate`, `deactivate`, `status`): 6 prose replaced, 3 kept. The client
+  (`packages/ui/src/lib/nnd/__tests__/update-package-actions.test.ts`) pins the registry variant
+  grammar — activated receipts carry the operation id and `registered_root`, status receipts carry a
+  null operation id and `not_applied`, the unregistered reading carries `registered: false` with no
+  root — and refuses drift in both directions, including an application class bound to the wrong
+  action; the page
+  (`packages/ui/src/components/settings/__tests__/update-package-actions.test.tsx`) drives
+  Activate… and Deactivate… to their own endpoints with the verb and echo asserted, and repeats the
+  honest reading when nothing is registered.
+- `update_action` (`check`, `install`): 4 prose replaced, 2 kept. The same client pins the forced
+  check receipt's availability envelope and its eight refusal positions, and pins the installer
+  refusal mapping — the code containing the word *refused*, the generic sentence replacing any other
+  code, and deliberately no install receipt grammar, because the native surface refuses the verb; the
+  same page posts the check and renders `status ready · current 20261006-3 · update available
+  20261006-9`, then posts Install available update… and renders the code plus *refused on this
+  surface*.
+- `managed_mcp_credentials` (`credentials.{NNA_MCP_MANAGED_reference}`): 2 prose replaced, 1 kept.
+  The client (`packages/ui/src/lib/nnd/__tests__/mcp-credentials.test.ts`) pins the derived
+  reference mirror (stem plus digest), count parity, the foreign-reference and applied-flag
+  refusals, the single-secret catalog, the save request pinned once, and the delete request
+  refusing foreign handles and dirty ids with distinct codes; the page
+  (`packages/ui/src/components/settings/__tests__/managed-mcp-credentials.test.tsx`) stages, saves
+  and deletes against the derived reference, carries the after-every-test guard proving the token
+  value is never rendered, and surfaces the over-bound token and a corrupt store as the honest
+  sentences.
+
+The kept Keep citations name NNA's shared action suite and were verified to remain accurate.
+No production file changed, so the suites were not re-run and that is stated rather than assumed.
+
+What remains named instead of testified: **9 citations naming a non-test file, all on purpose**.
+Eight are the generated-state version rows (web_search, web_fetch, gateway, compatibility_service,
+trust, update_state) whose citation pins the parser's version refusal in the source and the page's
+verified absence of the version reference; the ninth is `web_search_action:remove-profile`, whose
+composition pointer names the page source because no test drives that composition yet. Re-pointing
+those at real tests is the next slice, and where a test does not exist the `-47` rule says write one
+rather than leave the pointer.
+
+After this round: rows 371; surfaces owed 14; not owed with evidence 11 (unevidenced 0); unverified
+application class 38; citations naming no test file 9 of 678 (no file at all **0**); installed
+evidence 0 of 371.
+
 ## NND 20261007-54 — the trust family cites both desktop suites trace by trace
 
 Citations naming no test file: **27 → 21**; naming no file at all: **18 → 12**. Three rows rewritten

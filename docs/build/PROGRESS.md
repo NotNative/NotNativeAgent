@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Last file-blind citations burned; every citation names a file · NND 20261007-55
+
+Three families, one sweep, zero file-blind citations left: **no-test 21 → 9, no-file 12 → 0** of 678
+(`nnd_package_action` 6, `update_action` 4, `managed_mcp_credentials` 2). Kept sources verified. The
+9 remaining no-test citations all name real files on purpose — 8 generated-state version rows
+pinning parser refusals + page absence, 1 composition pointer. No prod/test file changed; suites
+deliberately not re-run.
+
 ## 2026-10-07 · trust family cited trace by trace; no-test 27 → 21 · NND 20261007-54
 
 Three rows rewritten (6 out, 4 kept; no-file **18 → 12**). Version refusal, exact key sets, receipt
