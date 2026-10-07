@@ -3,6 +3,28 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · 13 rows that cited a *shell command* retired; refusal cited on both sides · NND 20261007-45
+
+**No-test 94 → 82; no-file-at-all 86 → 73.** 13 rows, 13 replaced, **13 file-naming kept**. The
+worst entries in the census read, verbatim: `nnd pnpm --filter @notnative/ui test + @notnative/web
+test` — a shell command naming no test, no assertion, no outcome. Thirteen different verbs shared one
+line; a reader couldn't tell whether the family is tested at all.
+
+Now each verb carries its own evidence: mutations are proved **by the body they send** (an add is
+exactly one `add_profile` with the canonical endpoint beside both served revisions; `Make primary`
+→ `promote_profile` after the add and disable in the same batch; a credential-bearing endpoint
+leaves Add disabled before any request exists). The client refuses damage **before transport** —
+empty list, 17 ops, extra keys, 129-char names, non-https, duplicate endpoint, promoting a ghost.
+**`remove-profile` says it isn't click-tested**: composition proved at the client boundary, citation
+records that the suite never clicks remove. The four lifecycle verbs **cite the refusal on both
+sides** — NNA refuses, the desktop prose says these steps *stay terminal commands*, and the
+deployment panel prints the connection-refused error as served.
+
+**Three more overstatements caught in the plan, not after the seal:** drafts claimed the suite
+proves the panel *never* calls a lifecycle endpoint. It doesn't — that mock answers empty to
+anything unexpected and makes no negative assertions. Citations now say what's asserted, and say so
+where the guarantee is weaker than the verb implies.
+
 ## 2026-10-07 · environment named: empty ≠ absent, proved on both sides · NND 20261007-44
 
 **No-test 108 → 94; no-file-at-all 100 → 86.** 7 rows, 14 prose replaced, **7 file-naming

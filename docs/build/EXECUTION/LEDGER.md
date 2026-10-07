@@ -416,6 +416,52 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-45 — thirteen rows that cited a command line are retired, and a refusal is finally cited on both sides
+
+Citations naming no test file: **94 → 82**; naming no file at all: **86 → 73**. Thirteen rows
+rewritten, thirteen prose citations replaced, **thirteen citations naming a file kept**.
+No other axis moves: owed 18, dispositions 7, unverified surface 0, unverified class 42, installed
+evidence 0 of 371.
+
+These thirteen were the worst entries in the census. Their evidence read, verbatim:
+`nnd pnpm --filter @notnative/ui test + @notnative/web test`. That is not a claim about a field —
+it is a shell command naming no test file, no assertion, and no outcome. A reader could not tell
+from it whether anything in this family is tested at all. The rows also covered thirteen different
+verbs, all sharing the one line.
+
+`web-search-settings.test.tsx`, `web-search.test.ts` and `gateway-runtime.test.tsx` were read in
+full and each verb now carries its own evidence:
+
+- **the mutation verbs are proved by the body they send.** An add is asserted to produce exactly
+  one `add_profile` operation with the canonical endpoint beside both revisions the view was served
+  with; `Make primary` produces `promote_profile` with that id *after* the add and the disable in
+  the same batch; a typed endpoint with a trailing search path is saved canonicalized, and typing
+  an endpoint carrying credentials leaves the add control disabled before any request exists.
+- **the client refuses domain-shaped damage before transport**: an empty operation list, seventeen
+  operations in one batch, an operation with an extra key, a name over one hundred twenty-nine
+  characters, a non-https URL, a duplicate endpoint and a promotion naming a profile that does not
+  exist.
+- **`remove-profile` says so when it is not click-tested.** The composition is proved at the client
+  boundary — two removals empty the roster and flip `enabled` to false — and the citation records
+  that the suite does not click remove. That is a gap, and it is now written where a reader will
+  find it.
+- **the four lifecycle verbs cite the refusal on both sides.** NNA refuses them;
+  `gateway-runtime.test.tsx` asserts the desktop prose says these steps *stay terminal commands*,
+  so the operator is told rather than the option being silently absent. The deployment panel shows
+  the container and prints the connection-refused error as served — an unreachable deployment reads
+  as unreachable.
+
+**Three more overstatements were caught in the plan, not after the seal.** Drafts for
+`install-local`, `remove` and `remove-deployment` claimed the suite proves the panel *never* calls a
+lifecycle endpoint. It does not: that mock answers an empty response to anything unexpected, so an
+extra call would surface as a missing projection, not a failure — and it makes no negative
+assertions at all. The citations now say what the file asserts and, where the guarantee is weaker
+than the verb implies, say so.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 82 of 649 (no file at all 73);
+installed evidence 0 of 371; verified rows with no recorded examination 0.
+
 ## NND 20261007-44 — environment citations named, with the empty-versus-absent split proved on both sides
 
 Citations naming no test file: **108 → 94**; naming no file at all: **100 → 86**.
