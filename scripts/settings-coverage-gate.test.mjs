@@ -223,6 +223,34 @@ export function parseCli(argv) { return argv; }
   assert.match(undeclaredReport.stale_rows.join('|'), /legacy\.endpoint: no live catalog field/u);
 });
 
+test('coverage gate rejects a surface path that names no file', windows, async t => {
+  // Six census rows once claimed a verified component at a path renamed away
+  // from the native- prefix. Nothing noticed, because nothing asked whether the
+  // file existed. A claimed path is now a claim about the tree.
+  const census = structuredClone(healthyCensus);
+  census.rows[0].current_gui = { product: 'NND',
+    path: 'scripts/__surface_that_was_renamed_away__.tsx', status: 'verified' };
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census });
+  const result = await run(f);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.surface_files_missing.length, 1);
+  assert.equal(report.surface_files_missing[0].path, 'scripts/__surface_that_was_renamed_away__.tsx');
+  assert.match(result.stderr, /unclassified or drifted coverage detected/u);
+});
+
+test('coverage gate accepts a surface path that names a real file', windows, async t => {
+  const census = structuredClone(healthyCensus);
+  census.rows[0].current_gui = { product: 'NND', path: 'scripts/settings-coverage-gate.mjs',
+    status: 'verified' };
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census });
+  const result = await run(f);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  // The success path appends a verdict line after the report, so the seal text
+  // is matched rather than parsed.
+  assert.match(result.stdout, /"surface_files_missing": \[\]/u);
+});
+
 function run({ nna, censusPath }) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [gate, nna, censusPath], { windowsHide: true });

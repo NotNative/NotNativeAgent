@@ -416,6 +416,43 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-46 — six rows claimed a verified surface at a file that does not exist, and the gate now refuses that
+
+No census axis moves this round: rows 371, surfaces owed 18, not owed with evidence 7, unverified
+surface status 0, unverified application class 42, citations naming no test file 82 of 649 (no file
+at all 73), installed evidence 0 of 371. What moves is a guarantee that did not exist before.
+
+While starting the `gateway_action` burn-down, the census was asked a question nothing had ever
+asked it: **does every surface a row claims actually exist?** Six rows said no.
+
+- five `gateway_action` rows — `status`, `test`, `run`, `start`, `stop` — claimed a verified surface
+  at `packages/ui/src/components/settings/pages/native-gateway-runtime.tsx`. There is no such file.
+  The component is `gateway-runtime.tsx`, and it is the one the suite imports and mounts.
+- `web_search_action:refresh-managed` claimed `…/pages/native-searxng-deployment.tsx`. The real
+  component is `searxng-deployment.tsx`.
+
+The pattern is a rename away from a `native-` prefix that the rows never followed, and every row
+kept `status: 'verified'`. That matters more than a stale path usually would: "verified" in this
+census means a person read the surface, and a reader checking any of these six would have opened a
+file that is not there. The rows were left pointing at a phantom while claiming to have been read.
+
+All six now name the file that exists, each with a note saying what was wrong and when it was found,
+and **the coverage gate rejects a claimed path that is not a file** — check 6, resolved against the
+owning product's tree so an NNA claim is checked in NNA and an NND claim in NND. The seal prints
+`surface_files_missing`, and two self-tests pin both directions: a phantom path fails the build, a
+real path passes. The gate suite goes from ten tests to twelve, green.
+
+This is the second time this month that a claim in the census was true when written and false
+because the world moved, and nothing noticed — the first was the alias provenance, this one the file
+names. Both were caught by asking a mechanical question the ledger itself had never asked. The
+standing answer for a census field is therefore: if it names a thing outside itself, something must
+check that the thing is there.
+
+The new probe `.tmp/c1/probe-surface-exists.mjs` reports the census-wide count each round:
+**346 rows claim a surface, 346 of those paths exist.** The `gateway_action` citations — still the
+thirteen shell-command entries — are deliberately left for the next version so that this round
+carries one change with one cause.
+
 ## NND 20261007-45 — thirteen rows that cited a command line are retired, and a refusal is finally cited on both sides
 
 Citations naming no test file: **94 → 82**; naming no file at all: **86 → 73**. Thirteen rows

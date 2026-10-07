@@ -3,6 +3,29 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Six "verified" rows pointed at files that don't exist; the gate now refuses that · NND 20261007-46
+
+**No axis moves** (owed 18, dispositions 7, no-test 82/649, no-file 73, installed 0/371). What moves
+is a guarantee that didn't exist.
+
+Starting `gateway_action`, the census was asked a question never asked before: **does every claimed
+surface exist?** Six said no — five `gateway_action` rows (`status/test/run/start/stop`) claimed
+`pages/native-gateway-runtime.tsx`, and `web_search_action:refresh-managed` claimed
+`pages/native-searxng-deployment.tsx`. Neither file exists; the components were renamed away from the
+`native-` prefix and `status: verified` stayed. "Verified" here means a person read the surface — a
+reader would have opened a file that isn't there.
+
+All six now name real files with correction notes, and **the coverage gate rejects a claimed path
+that isn't a file** (check 6: NNA claims resolved in NNA, NND in NND). Seal prints
+`surface_files_missing`; two self-tests pin both directions (gate suite 10 → **12, green**). Second
+time this month a claim was true when written and went false because the world moved and nothing
+noticed (first: alias provenance). Rule: **a census field pointing outside itself is only as
+trustworthy as the check that follows the pointer.** New standing probe: **346 rows claim a surface,
+346 paths exist**.
+
+`gateway_action`'s 13 shell-command citations are deliberately left to the next version so this round
+carries one change with one cause.
+
 ## 2026-10-07 · 13 rows that cited a *shell command* retired; refusal cited on both sides · NND 20261007-45
 
 **No-test 94 → 82; no-file-at-all 86 → 73.** 13 rows, 13 replaced, **13 file-naming kept**. The

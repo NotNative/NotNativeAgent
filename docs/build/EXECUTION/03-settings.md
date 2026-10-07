@@ -1121,6 +1121,15 @@ proof above, which was the evidence behind a refusal to credit a row. Every cita
 against the patcher's own backup first, and anything that vanished is restored only after its
 claim has been re-read.
 
+A claimed path is itself a claim about the tree, and it rots the way code rots. Six rows long
+claimed a verified surface at `pages/native-gateway-runtime.tsx` and
+`pages/native-searxng-deployment.tsx`: components renamed away from the `native-` prefix, with
+`status: verified` left in place. Nothing noticed, because no check had ever opened the path. The
+coverage gate now rejects any row whose `current_gui.path` names a file that does not exist in the
+owning product's tree, and the seal prints the count as `surface_files_missing`. The general rule:
+**a census field that points outside itself is only as trustworthy as the check that follows the
+pointer** — the same reason a citation must name a file a reader can open.
+
 ### A row may state that no desktop surface is owed
 
 If a surface is

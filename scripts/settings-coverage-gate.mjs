@@ -11,7 +11,8 @@
  *  3. census row `kind` agrees with the live catalog classification;
  *  4. every dashed CLI option literal in NNA `src/cli.js` and
  *     `src/cli-options.js` has an invocation census row;
- *  5. every census invocation option is still declared on the NNA side.
+ *  5. every census invocation option is still declared on the NNA side;
+ *  6. every surface path a row claims is a file that exists in its own product.
  *
  * The option scan is mechanical literal extraction: humans own the census
  * classifications; the gate only rejects unclassified additions. It scans the
@@ -23,6 +24,7 @@
  * NNA source and census; production reads the committed census.
  */
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -40,10 +42,30 @@ async function main(nnaSource, censusPath) {
   }
   const catalog = await dumpCatalog(nnaSource);
   const census = JSON.parse(await readFile(censusPath, 'utf8'));
-  const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [], surfaceClaims: [] };
+  const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [], surfaceClaims: [], missingFiles: [] };
   await trace(violations, census, catalog, nnaSource);
   checkDispositions(violations, census);
+  checkSurfaceFiles(violations, census, nnaSource);
   emit(violations, census, catalog);
+}
+
+/**
+ * A row that claims a desktop surface makes a checkable claim about a file in the tree. Six
+ * rows named a component with a `native-` prefix that was renamed away, and stayed `verified`
+ * because nothing had ever asked whether the path existed. A named path must be a file.
+ */
+function checkSurfaceFiles(violations, census, nnaSource) {
+  const nndRoot = fileURLToPath(new URL('..', import.meta.url));
+  for (const row of census.rows) {
+    const gui = row.current_gui;
+    const claimed = gui?.path;
+    if (typeof claimed !== 'string' || claimed.length === 0) continue;
+    if (/[*\s]/u.test(claimed)) continue;
+    const root = String(gui.product ?? 'NND') === 'NNA' ? nnaSource : nndRoot;
+    if (!existsSync(join(root, claimed))) {
+      violations.missingFiles.push({ id: row.id, product: String(gui.product ?? 'NND'), path: claimed });
+    }
+  }
 }
 
 /**
@@ -84,11 +106,13 @@ function emit(violations, census, catalog) {
     stale_option_rows: violations.staleOptions,
     surface_not_owed: census.rows.filter((row) => row.current_gui?.owed === false).length,
     unsupported_surface_claims: violations.surfaceClaims.slice(0, 20),
+    surface_files_missing: violations.missingFiles.slice(0, 20),
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (violations.missingRows.length > 0 || violations.staleRows.length > 0
     || violations.kindDrift.length > 0 || violations.missingOptions.length > 0
-    || violations.staleOptions.length > 0 || violations.surfaceClaims.length > 0) {
+    || violations.staleOptions.length > 0 || violations.surfaceClaims.length > 0
+    || violations.missingFiles.length > 0) {
     process.stderr.write('settings coverage gate: unclassified or drifted coverage detected\n');
     process.exitCode = 1;
   } else {

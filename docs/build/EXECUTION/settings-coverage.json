@@ -13082,7 +13082,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-searxng-deployment.tsx",
+    "path": "packages/ui/src/components/settings/pages/searxng-deployment.tsx",
     "status": "verified"
    },
    "sensitivity": "security",
@@ -13102,7 +13102,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — torn between CLI authority and a read: the CLI verb refreshes only when assets drift (a mutating docker lifecycle), so the native surface observes the current deployment (managed-status; http + docker ps identity) and its staleness honestly — the refresh, when needed, is the deploy refusal’s CLI authority Rewritten 20261007-45 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out."
+   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — torn between CLI authority and a read: the CLI verb refreshes only when assets drift (a mutating docker lifecycle), so the native surface observes the current deployment (managed-status; http + docker ps identity) and its staleness honestly — the refresh, when needed, is the deploy refusal’s CLI authority Rewritten 20261007-45 with per-field citations naming the test file and the exact assertion; any earlier citation that named a file was kept rather than filtered out. Surface path corrected 20261007-46: this row claimed a verified surface at packages/ui/src/components/settings/pages/native-searxng-deployment.tsx, a file that does not exist in the tree. The component was renamed away from the native- prefix and the row was never re-checked; the coverage gate now rejects a claimed path that is not a file."
   },
   {
    "id": "web_search_action:reset",
@@ -13781,7 +13781,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+    "path": "packages/ui/src/components/settings/pages/gateway-runtime.tsx",
     "status": "verified"
    },
    "sensitivity": "security",
@@ -13800,7 +13800,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — native gateway runtime read reusing the CLI authorities verbatim (gatewayPublicStatus over the parsed config + runtimeStatus over the pid file, identity-verified); merges the live runtime pid/verified state the stored-file read cannot show"
+   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — native gateway runtime read reusing the CLI authorities verbatim (gatewayPublicStatus over the parsed config + runtimeStatus over the pid file, identity-verified); merges the live runtime pid/verified state the stored-file read cannot show Surface path corrected 20261007-46: this row claimed a verified surface at packages/ui/src/components/settings/pages/native-gateway-runtime.tsx, a file that does not exist in the tree. The component was renamed away from the native- prefix and the row was never re-checked; the coverage gate now rejects a claimed path that is not a file."
   },
   {
    "id": "gateway_action:token",
@@ -14195,7 +14195,7 @@
    "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+    "path": "packages/ui/src/components/settings/pages/gateway-runtime.tsx",
     "status": "verified"
    },
    "sensitivity": "security",
@@ -14214,7 +14214,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — native honest 200-verdict probe reusing the CLI authority verbatim: the Telegram getMe call over the resolved token (gatewayToken source precedence); an unconfigured or unreachable token is an honest refusal verdict (telegram_token_missing / gateway_test_unreachable), still a read, no mutation, no CLI fallback"
+   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — native honest 200-verdict probe reusing the CLI authority verbatim: the Telegram getMe call over the resolved token (gatewayToken source precedence); an unconfigured or unreachable token is an honest refusal verdict (telegram_token_missing / gateway_test_unreachable), still a read, no mutation, no CLI fallback Surface path corrected 20261007-46: this row claimed a verified surface at packages/ui/src/components/settings/pages/native-gateway-runtime.tsx, a file that does not exist in the tree. The component was renamed away from the native- prefix and the row was never re-checked; the coverage gate now rejects a claimed path that is not a file."
   },
   {
    "id": "gateway_action:run",
@@ -14241,7 +14241,7 @@
    "native_permission": "nnd.service.manage",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+    "path": "packages/ui/src/components/settings/pages/gateway-runtime.tsx",
     "status": "verified"
    },
    "sensitivity": "security",
@@ -14260,7 +14260,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the foreground gateway stays attached to the owning terminal and the native service process never takes over a child runtime; the CLI stays its authority"
+   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the foreground gateway stays attached to the owning terminal and the native service process never takes over a child runtime; the CLI stays its authority Surface path corrected 20261007-46: this row claimed a verified surface at packages/ui/src/components/settings/pages/native-gateway-runtime.tsx, a file that does not exist in the tree. The component was renamed away from the native- prefix and the row was never re-checked; the coverage gate now rejects a claimed path that is not a file."
   },
   {
    "id": "gateway_action:start",
@@ -14287,7 +14287,7 @@
    "native_permission": "nnd.service.manage",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+    "path": "packages/ui/src/components/settings/pages/gateway-runtime.tsx",
     "status": "verified"
    },
    "sensitivity": "security",
@@ -14306,7 +14306,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the detached process spawn stays with the CLI (owner terminal, pid bookkeeping, identity-verified runtime evidence); refused honestly instead of pretending"
+   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the detached process spawn stays with the CLI (owner terminal, pid bookkeeping, identity-verified runtime evidence); refused honestly instead of pretending Surface path corrected 20261007-46: this row claimed a verified surface at packages/ui/src/components/settings/pages/native-gateway-runtime.tsx, a file that does not exist in the tree. The component was renamed away from the native- prefix and the row was never re-checked; the coverage gate now rejects a claimed path that is not a file."
   },
   {
    "id": "gateway_action:stop",
@@ -14333,7 +14333,7 @@
    "native_permission": "nnd.service.manage",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+    "path": "packages/ui/src/components/settings/pages/gateway-runtime.tsx",
     "status": "verified"
    },
    "sensitivity": "security",
@@ -14352,7 +14352,7 @@
     ],
     "installed_journey": null
    },
-   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): pid reuse is machine-verified only by the runtime-status authority and killing another process is a CLI-owned act; the native surface refuses with the terminal hint"
+   "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): pid reuse is machine-verified only by the runtime-status authority and killing another process is a CLI-owned act; the native surface refuses with the terminal hint Surface path corrected 20261007-46: this row claimed a verified surface at packages/ui/src/components/settings/pages/native-gateway-runtime.tsx, a file that does not exist in the tree. The component was renamed away from the native- prefix and the row was never re-checked; the coverage gate now rejects a claimed path that is not a file."
   },
   {
    "id": "compatibility_service_action:status",
