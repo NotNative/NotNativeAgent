@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Five action rows close on evidence; a fixture nobody ever ran · NND 20261007-26
+
+No headline axis moved again — the classes were already NNA's, the routes were verified
+at ship time, and the page tests already drove every verb. The rows carried the same
+generic evidence line as the lifecycle family and no citations. One real gap came from
+the fixtures: `packageReceipt()` had an unregistered parameter written at ship time and
+never passed, so nothing ever showed an operator being told the registry holds nothing.
+Asserted now. That's the bug shape worth having — behaviour built, claim looked fine,
+state unexercised. The metric these slices do move: verified rows citing no test 6 → 1,
+leaving only the `managed_mcp_credentials` reference the sweep flagged by hand and that
+still hasn't been looked at. Rows citing no specific test file: 60 → 55.
+
 ## 2026-10-07 · Six lifecycle actions close in a slice that moves no number at all · NND 20261007-25
 
 Nothing on the scoreboard moved: no surface gained, no class changed, no row opened.

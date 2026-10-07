@@ -416,6 +416,33 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-26 — five action rows close on evidence, and a fixture nobody ever ran
+
+Five rows closed and, as with the lifecycle family, no headline axis moved: 37 rows
+still have no surface, 13 still carry an unverified surface, 59 still declare an
+unverified class. The classes were already NNA's — `update_check_recorded` stamped on
+the check receipt, `registered_root` and `unregistered_root` on the registry receipts,
+`not_applied` for the observation and for the installer that is refused outright
+because the local CLI keeps that authority. The routes were verified when they shipped
+and the page tests already drove every verb. The rows themselves carried the same
+generic evidence line as the lifecycle family and not one citation.
+
+One genuine gap came out of the fixtures. `packageReceipt()` had a parameter for the
+unregistered case, written at ship time and never passed: nothing in the suite ever
+showed an operator being told the registry holds nothing. That reading is asserted now
+alongside the registered one, which is the shape of the bug worth having — the
+behaviour was built, the claim looked fine, and the state went unexercised.
+
+The reason to keep doing these slices despite the flat scoreboard is the one metric
+they do move: verified rows that cite no test fell 6 → 1, leaving a single row, the
+`managed_mcp_credentials` reference that the sweep flagged by hand and that has still
+not been looked at.
+
+Census rows without a desktop surface: 37 (unchanged). Rows with an unverified desktop
+surface: 13 (unchanged). Rows declaring an unverified application class: 59
+(unchanged). Verified rows citing no test: 6 → 1. Rows citing no specific test file:
+60 → 55.
+
 ## NND 20261007-25 — six lifecycle actions close, and a slice that moves no number at all
 
 Six rows closed and **nothing on the scoreboard moved**: no surface gained, no class

@@ -110,4 +110,14 @@ it('registers and unregisters the package root through the runtime registry', as
   expect(requests.find(([path, method]) => method === 'POST'
     && String(path).endsWith('/nnd-package/actions/deactivate'))).toBeTruthy();
   expect(receipt()).toContain('deactivated D:/apps/desktop');
+  // The unregistered reading exists in the fixture but had never been exercised.
+  // An operator with nothing registered must be told so, not handed an empty panel.
+  fetchMock.mockImplementation((path: string, init?: RequestInit) => {
+    requests.push([path, init?.method]);
+    const body = String(path).endsWith('/nnd-package') ? packageReceipt(false) : {};
+    const status = String(path).endsWith('/nnd-package') ? 200 : 404;
+    return Promise.resolve(new Response(JSON.stringify(body), { status }));
+  });
+  await click('Refresh');
+  expect(view()).toContain('no NND package is registered natively');
 });

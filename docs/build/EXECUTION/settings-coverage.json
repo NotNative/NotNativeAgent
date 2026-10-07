@@ -14654,7 +14654,7 @@
    ],
    "apply": {
     "class": "update_check_recorded",
-    "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
+    "evidence": "src/nnd-update-actions-routes.js stamps the check receipt application update_check_recorded (L96) because the verb runs the CLI checkForUpdate with force and records a live repository probe exactly as the CLI does; the desktop displays what the probe found and decides nothing"
    },
    "native_endpoint": "POST /v1/nnd/configuration/update/actions/check",
    "native_permission": "nnd.update.manage",
@@ -14665,7 +14665,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-26)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14673,10 +14673,14 @@
      "checkForUpdate",
      "updateAvailability"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-update-package-actions.test.js (the exported settings-service key set is the exact routing surface; update check reuse projects the availability receipt grammar and refuses drift; update http serves the refused install pin, the refresh check, and the permission gate; package actions reuse the CLI registry verbatim through the http surface)",
+     "packages/ui update-package-actions typed client tests (the forced check receipt pinned with drifted availability refused, and the registry variant grammar pinned with drift refused)",
+     "packages/ui update-package-actions page tests (the check posted and the availability line rendered, the install refusal shown with its code and the words refused on this surface, the registered root with version and validity, activation and deactivation each posting their own verb and naming the root in the receipt, and the honest reading when nothing is registered)"
+    ],
     "installed_journey": null
    },
-   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
+   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again Closed 20261007-26. Shown: the availability line with status, current version and the update on offer, after a forced POST. The class word was already NNA (re-read at the route that writes it), and the page tests did drive the verb; what the row carried instead was an evidence line true of every action row in the file and an empty citation list. One fixture branch had been built for the unregistered reading and never used, so the honest absence is now exercised as well. Sensitivity stays security as the shipped rows set it."
   },
   {
    "id": "update_action:install",
@@ -14697,7 +14701,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
+    "evidence": "src/nnd-update-actions-routes.js refuses install outright with nnd_update_install_unsupported (L50): the product installer belongs to the local CLI, and a settings surface that half-did a system mutation would be worse than one that says no"
    },
    "native_endpoint": "POST /v1/nnd/configuration/update/actions/install (refused natively)",
    "native_permission": "nnd.update.manage",
@@ -14708,7 +14712,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-26)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14716,10 +14720,14 @@
      "installAvailableUpdate",
      "updateAvailability"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-update-package-actions.test.js (the exported settings-service key set is the exact routing surface; update check reuse projects the availability receipt grammar and refuses drift; update http serves the refused install pin, the refresh check, and the permission gate; package actions reuse the CLI registry verbatim through the http surface)",
+     "packages/ui update-package-actions typed client tests (the forced check receipt pinned with drifted availability refused, and the registry variant grammar pinned with drift refused)",
+     "packages/ui update-package-actions page tests (the check posted and the availability line rendered, the install refusal shown with its code and the words refused on this surface, the registered root with version and validity, activation and deactivation each posting their own verb and naming the root in the receipt, and the honest reading when nothing is registered)"
+    ],
     "installed_journey": null
    },
-   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
+   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again Closed 20261007-26. Shown: the refusal itself, with its code and the words refused on this surface. The class word was already NNA (re-read at the route that writes it), and the page tests did drive the verb; what the row carried instead was an evidence line true of every action row in the file and an empty citation list. One fixture branch had been built for the unregistered reading and never used, so the honest absence is now exercised as well. Sensitivity stays security as the shipped rows set it."
   },
   {
    "id": "trust_action:trust",
@@ -14828,7 +14836,7 @@
    ],
    "apply": {
     "class": "registered_root",
-    "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
+    "evidence": "src/nnd-package-routes.js writes registered_root on the activate receipt (L60) because the effect is that the runtime registry now resolves this root; the CLI registry functions are reused verbatim"
    },
    "native_endpoint": "POST /v1/nnd/configuration/nnd-package/actions/activate",
    "native_permission": "nnd.package.manage",
@@ -14839,7 +14847,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-26)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14847,10 +14855,14 @@
      "runNndPackageCommand",
      "validateNndPackage"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-update-package-actions.test.js (the exported settings-service key set is the exact routing surface; update check reuse projects the availability receipt grammar and refuses drift; update http serves the refused install pin, the refresh check, and the permission gate; package actions reuse the CLI registry verbatim through the http surface)",
+     "packages/ui update-package-actions typed client tests (the forced check receipt pinned with drifted availability refused, and the registry variant grammar pinned with drift refused)",
+     "packages/ui update-package-actions page tests (the check posted and the availability line rendered, the install refusal shown with its code and the words refused on this surface, the registered root with version and validity, activation and deactivation each posting their own verb and naming the root in the receipt, and the honest reading when nothing is registered)"
+    ],
     "installed_journey": null
    },
-   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
+   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again Closed 20261007-26. Shown: the activate control on a typed root, with the receipt naming the root it registered. The class word was already NNA (re-read at the route that writes it), and the page tests did drive the verb; what the row carried instead was an evidence line true of every action row in the file and an empty citation list. One fixture branch had been built for the unregistered reading and never used, so the honest absence is now exercised as well. Sensitivity stays security as the shipped rows set it."
   },
   {
    "id": "nnd_package_action:deactivate",
@@ -14871,7 +14883,7 @@
    ],
    "apply": {
     "class": "unregistered_root",
-    "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
+    "evidence": "src/nnd-package-routes.js writes unregistered_root on the deactivate receipt (L60), and a root that is not the registered one is refused rather than silently unregistered"
    },
    "native_endpoint": "POST /v1/nnd/configuration/nnd-package/actions/deactivate",
    "native_permission": "nnd.package.manage",
@@ -14882,7 +14894,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-26)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14890,10 +14902,14 @@
      "runNndPackageCommand",
      "validateNndPackage"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-update-package-actions.test.js (the exported settings-service key set is the exact routing surface; update check reuse projects the availability receipt grammar and refuses drift; update http serves the refused install pin, the refresh check, and the permission gate; package actions reuse the CLI registry verbatim through the http surface)",
+     "packages/ui update-package-actions typed client tests (the forced check receipt pinned with drifted availability refused, and the registry variant grammar pinned with drift refused)",
+     "packages/ui update-package-actions page tests (the check posted and the availability line rendered, the install refusal shown with its code and the words refused on this surface, the registered root with version and validity, activation and deactivation each posting their own verb and naming the root in the receipt, and the honest reading when nothing is registered)"
+    ],
     "installed_journey": null
    },
-   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
+   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again Closed 20261007-26. Shown: the deactivate control with the receipt naming the root it unregistered. The class word was already NNA (re-read at the route that writes it), and the page tests did drive the verb; what the row carried instead was an evidence line true of every action row in the file and an empty citation list. One fixture branch had been built for the unregistered reading and never used, so the honest absence is now exercised as well. Sensitivity stays security as the shipped rows set it."
   },
   {
    "id": "nnd_package_action:status",
@@ -14914,7 +14930,7 @@
    ],
    "apply": {
     "class": "not_applied",
-    "evidence": "route receipt application (mirrors the native 20261006-12 surface)"
+    "evidence": "src/nnd-package-routes.js answers status as not_applied (L48): it reports what the runtime registry holds without touching it"
    },
    "native_endpoint": "GET /v1/nnd/configuration/nnd-package",
    "native_permission": "nnd.configuration.read",
@@ -14925,7 +14941,7 @@
    },
    "sensitivity": "security",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-26)",
    "state": "open",
    "evidence": {
     "kind": "source_inspection",
@@ -14933,10 +14949,14 @@
      "runNndPackageCommand",
      "validateNndPackage"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "NNA test/nnd-update-package-actions.test.js (the exported settings-service key set is the exact routing surface; update check reuse projects the availability receipt grammar and refuses drift; update http serves the refused install pin, the refresh check, and the permission gate; package actions reuse the CLI registry verbatim through the http surface)",
+     "packages/ui update-package-actions typed client tests (the forced check receipt pinned with drifted availability refused, and the registry variant grammar pinned with drift refused)",
+     "packages/ui update-package-actions page tests (the check posted and the availability line rendered, the install refusal shown with its code and the words refused on this surface, the registered root with version and validity, activation and deactivation each posting their own verb and naming the root in the receipt, and the honest reading when nothing is registered)"
+    ],
     "installed_journey": null
    },
-   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again"
+   "notes": "native operator surface reusing the shipped operators verbatim: the check line runs the update CLI's checkForUpdate with force (a live repository probe recorded exactly as the CLI does; the -4 update-state observation stays the cached read) and install is refused honestly with nnd_update_install_unsupported because the installer inherits the owning console and replaces the running implementation, so the CLI (nna update) stays its authority; the package lines reuse runNndPackageCommand verbatim (status reads the registry, activate validates a package root through the manifest transaction and registers root/version/protocol, deactivate unregisters only the matching root), with wrong-root deactivation refused at 400; the receipt projection for both surfaces fails closed on drift (nnd_update_projection_invalid / nnd_package_projection_invalid, 500); the wiring fix spreads every settings service into the listener context so no surface can be silently dropped again Closed 20261007-26. Shown: the registered root with its version and validity, or the words no NND package is registered natively when the registry holds nothing. The class word was already NNA (re-read at the route that writes it), and the page tests did drive the verb; what the row carried instead was an evidence line true of every action row in the file and an empty citation list. One fixture branch had been built for the unregistered reading and never used, so the honest absence is now exercised as well. Sensitivity stays security as the shipped rows set it."
   },
   {
    "id": "session_review:mode",

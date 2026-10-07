@@ -759,7 +759,16 @@ and fixed a real native wiring defect: the listener context had dropped the
 compatibility lifecycle, MCP-credential, secrets, and hooks services since
 `-9` (production-only; the route tests had injected services directly), so
 the option set now spreads the whole classified service list and the
-factory's exported key set is locked by test. Remaining families belong to C4
+factory's exported key set is locked by test. Those five action rows are now closed
+on evidence a reader can follow, and the work was almost entirely evidentiary: the
+class words were already NNA's (`update_check_recorded` stamped on the check receipt,
+`registered_root` and `unregistered_root` on the registry receipts, `not_applied` for
+the observation and the refused installer), the routes had been verified at ship time,
+and the page tests already drove every verb. What the rows carried was the same
+generic evidence line as the lifecycle family and no citation at all. One real gap
+surfaced in the fixtures: a branch built for the unregistered reading had never been
+exercised, so the honest absence — the registry holding nothing — was now finally
+asserted rather than assumed. Remaining families belong to C4
 (provider advanced fields), C5 (MCP mutation), C7 (installed gates), and the
 F/L lanes. The `trust_action` and `web_fetch_action` pairs then closed as
 census pins of already-verified surfaces (the `-5` grant/revoke surface and
