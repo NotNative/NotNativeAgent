@@ -416,6 +416,49 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-47 — the second half of the shell-command citations, and three test gaps the citations exposed
+
+Citations naming no test file: **82 → 69**; naming no file at all: **73 → 60**. Thirteen rows
+rewritten, thirteen command lines replaced, **thirteen citations naming a file kept** — the diff
+probe lists only the retired lines. No other axis moves: owed 18, dispositions 7, unverified surface
+0, unverified class 42, installed evidence 0 of 371, and all 346 claimed surface paths exist.
+
+`gateway_action` was the other half of the `nnd pnpm --filter …` class, and its verbs are the ones an
+operator would most expect to be tested: replacing the bot token, granting and revoking who may talk
+to the gateway, pointing it at a workspace, starting and stopping it. The three suites were read in
+full — `native-gateway.test.ts`, `native-gateway-timeout.test.tsx`, `gateway-runtime.test.tsx` — and
+what they hold:
+
+- **the secret has a shape and a place.** A replacement under twenty characters is refused, the
+  token input is a password field that starts empty, the secret is absent from the rendered document
+  after preview *and* after save, and the saved body carries it exactly once as `set_token`. A save
+  that changes only the polling timeout carries **no key named token at all**. A server that leaks a
+  token value in a view, a preview candidate or a receipt has that value dropped before it reaches
+  the model.
+- **grants are grammar, not vibes.** `abc`, `0` and `007` are refused as user ids, the Add control is
+  disabled while the draft reads `abc`, a hostile batch never reaches the server, and a new grant
+  lands in the store's lexicographic order rather than the order typed.
+- **the workspace bound is the projector's, not the setter's**: any string up to 4096 characters or
+  none, one character over refused, and the body limit lifted so a legal long path can be sent.
+- **the lifecycle refusal is cited on both sides again**: no composed request has a shape that could
+  start a process, and the rendered prose says these steps stay terminal commands, on the deployment
+  panel and the runtime panel both.
+
+**Three gaps that the citations made visible, and named in the census rather than smoothed over:**
+`native-gateway-timeout.tsx` composes `set enabled` and `set`/`reset token_env` in its source, and
+the suite **never exercises either composition** — so `enable`, `disable` and `token-env` now say
+that the flip lives in source and is unasserted. The `Remove` control for a grant is pinned as being
+offered exactly once and **never clicked**. These are missing tests, not missing features, and the
+honest next step is to write them rather than to keep citing the boundary where they stop.
+
+Four client-side claims were tightened before applying, all the same species as before: dropping a
+leaked field is not *refusing* a projection, and asserting that a request has exactly six keys is not
+*refusing* a seventh.
+
+After this round: surfaces owed 18; not owed with evidence 7; unverified surface status 0;
+unverified application class 42; citations naming no test file 69 of 662 (no file at all 60);
+installed evidence 0 of 371.
+
 ## NND 20261007-46 — six rows claimed a verified surface at a file that does not exist, and the gate now refuses that
 
 No census axis moves this round: rows 371, surfaces owed 18, not owed with evidence 7, unverified

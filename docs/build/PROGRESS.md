@@ -3,6 +3,26 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Second half of the shell-command citations gone; 3 test gaps named · NND 20261007-47
+
+**No-test 82 → 69; no-file-at-all 73 → 60.** 13 rows, 13 command lines replaced, **13 kept**. All
+346 surface paths still exist.
+
+`gateway_action` verbs are what an operator most expects tested (replace the bot token, grant/revoke
+who may talk to the gateway, workspace, start/stop). Three suites read in full. Findings: the secret
+has **a shape and a place** — <20 chars refused, password field starts empty, absent from the document
+after preview *and* save, present exactly once in the body as `set_token`, and a polling-only save
+carries **no key named token**; a server that leaks a value has it dropped before the model. Grants
+are grammar: `abc`/`0`/`007` refused, Add disabled on `abc`, hostile batch never reaches the server,
+new grant lands in the store's *lexicographic* order. Workspace bound = the projector's (≤4096 or none;
++1 refused; body limit lifted so a legal long path can ship). Lifecycle refusal cited **both sides**.
+
+**Gaps named, not smoothed:** the page composes `set enabled` and `set/reset token_env` but the suite
+**never exercises either**; the grant's `Remove` control is pinned as offered once and **never
+clicked**. Missing *tests*, not missing features — the honest next step is writing them, not citing
+the boundary again. Four claims tightened pre-apply, same species: dropping a leaked field ≠ refusing
+a projection; "request has exactly six keys" ≠ "refuses a seventh".
+
 ## 2026-10-07 · Six "verified" rows pointed at files that don't exist; the gate now refuses that · NND 20261007-46
 
 **No axis moves** (owed 18, dispositions 7, no-test 82/649, no-file 73, installed 0/371). What moves
