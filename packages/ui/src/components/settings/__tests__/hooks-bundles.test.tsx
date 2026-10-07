@@ -58,7 +58,11 @@ it('renders the discovery honesty verbatim: cap, skips, subscriptions, and absen
   expect(roster()).toContain('cmd --flag');
   expect(roster()).toContain('session.start:post');
   expect(roster()).toContain('blocking false');
-  expect(roster()).toContain('timeout 10000 ms');
+  // Every census field carries its own value, not just an event line: the
+  // tuning fields (priority, timeout, concurrency) are the ones a reader would
+  // otherwise have to trust the page on.
+  expect(roster()).toContain('priority 5, timeout 5000 ms, max 2 concurrent');
+  expect(roster()).toContain('priority 100, timeout 10000 ms, max 1 concurrent');
   expect(roster()).not.toContain('c:\\');
   // Refresh swaps in the honest absence sentence; no mutations are ever attempted.
   await click('Refresh');

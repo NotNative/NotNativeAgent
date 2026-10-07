@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Nine hook-roster rows close, exposing unevidenced rather than false pins · NND 20261007-20
+
+Nine rows closed and unverified classes fell 91 → 82, but the finding is a
+different species from the last three slices. The hooks pins were **not lying**:
+the page genuinely renders all nine fields. They simply cited no test at all, and
+two values — priority and the concurrency ceiling — were rendered without ever
+being asserted. Defensible and uncheckable at once is exactly the state a coverage
+table has to be dragged out of, so the assertions went in first and the verdict
+was earned afterwards. The automated sweep called these rows plausible and was
+right, but "plausible" only means the page mentions the field: the sweep points at
+where to look, it never does the looking. Class is NNA's own `next_hook_use`;
+nothing here is editable, the catalog refuses every field, and the page has one
+refresh and no save. Unverified surface unchanged at 14, no-surface unchanged at 37.
+
 ## 2026-10-07 · WebFetch trust closes, and the missing-stamp pattern becomes undeniable · NND 20261007-19
 
 `trusted_origins` closed on the page that really edits it: saved list, draft list

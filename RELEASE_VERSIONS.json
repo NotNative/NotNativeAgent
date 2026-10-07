@@ -1316,6 +1316,10 @@
     {
       "version": "20261007-19",
       "content_sha256": "eba17514cc22a00b10ccda2a868d23ae068f5905a1a9bc032509593d7947be76"
+    },
+    {
+      "version": "20261007-20",
+      "content_sha256": "bbac1b8818615c63d3066a430fbd4aae0e252752232c4ca1382aec46cef2054c"
     }
   ]
 }

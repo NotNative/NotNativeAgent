@@ -416,6 +416,34 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-20 — nine hook-roster rows close, and the difference between a claim and a checked claim
+
+Nine rows closed in one slice, moving unverified application classes from 91 to
+82. The class is `next_hook_use`, NNA's own word for all nine fields, and nothing
+here is editable from the desktop: the native catalog refuses every field with
+the reason `hook_store_mutation_separate`, the page has a refresh control and no
+save, and execution belongs to the hook runtime.
+
+What this slice really exposed is a different failure from the last three. The
+hooks pins were **not false** — the page does render all nine fields, name and
+version and each subscription's event, phase, command, blocking flag, priority,
+timeout and concurrency. They were **unevidenced**: the pins cited no test
+whatsoever, and two of the nine values (priority and the concurrency ceiling)
+were rendered but never asserted anywhere. So the claim was defensible and
+uncheckable at the same time, which is precisely the state a coverage table must
+not be allowed to sit in. Adding the missing assertions made the existing verdict
+true rather than making it look true.
+
+It is worth being precise about what the automated sweep can and cannot tell me.
+Its heuristic said "plausible" for all nine hooks rows and it was right — but
+"plausible" means only that the page mentions the field, and it took reading the
+page and the test to learn that the gap was proof rather than truth. The sweep
+finds places to look; it does not do the looking.
+
+Census rows without a desktop surface: 37. Rows with an unverified desktop
+surface: 14 (unchanged — these rows already had a surface, they lacked proof).
+Rows declaring an unverified application class: 91 → 82.
+
 ## NND 20261007-19 — WebFetch trust closes, and the missing-stamp pattern is now unmistakable
 
 One row closed, and it was the cleanest kind: `trusted_origins` is an authority

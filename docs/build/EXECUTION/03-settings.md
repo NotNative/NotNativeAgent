@@ -655,6 +655,14 @@ the honest absence sentence, per-diagnostic lines, and per-bundle subscription
 rows. Census rows updated in place; the `secret_action`, `update_action`,
 `nnd_package_action`, and served-family action columns stay open.
 
+The nine roster rows are now closed on evidence, which also documents what the
+earlier pin was worth: it named this page as a verified surface and cited no test
+at all, and two of the nine fields (priority and concurrency) had their values
+rendered but never asserted. Both gaps are now covered, every subscription field
+carries a value assertion, and the class records NNA's own `next_hook_use`
+alongside the reason no row is editable here — the store is changed elsewhere,
+the page offers a refresh and no save, and execution belongs to the hook runtime.
+
 Progress: the seven `secret_action` rows closed with an NND-only consumption
 slice (NNA runtime unchanged at `20261006-10`): the runtime SecretBroker over
 the integration server (`dispatchSecretBrokerRequest`) already served
