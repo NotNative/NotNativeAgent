@@ -85,6 +85,7 @@ export const enNativeConfiguration = {
   'settings.nativeInstallation.installRoot': 'Install root',
   'settings.nativeInstallation.dataRoot': 'Data root',
   'settings.nativeInstallation.node': 'Node runtime',
+  'settings.nativeBrowser.title': 'NNA managed browser',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
   'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',

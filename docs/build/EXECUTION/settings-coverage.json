@@ -13717,26 +13717,35 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "the native surface reads and verifies the installer-owned runtime (verify launches headless Chromium and closes it; nothing on disk changes) — there is no operator-owned field to apply; the census cite is the webbrowse CLI authority, which the route reuses verbatim."
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/browser",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/browser-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": {
+        "class": "generated_state",
+        "evidence": "the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
+      },
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runWebBrowseCommand"
+          "runWebBrowseCommand",
+          "playwrightStatus",
+          "createNndBrowserActionsService",
+          "dispatchNndBrowserRequest"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-browser-routes.test.js 3/3",
+          "packages/ui vitest browser lib parser + browser page drills 2/2"
+        ],
         "installed_journey": null
       },
       "notes": null
@@ -13759,26 +13768,35 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "the native surface reads and verifies the installer-owned runtime (verify launches headless Chromium and closes it; nothing on disk changes) — there is no operator-owned field to apply; the census cite is the webbrowse CLI authority, which the route reuses verbatim."
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/browser/actions/verify",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/browser-observation.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": {
+        "class": "generated_state",
+        "evidence": "the browser runtime is installer-owned; the panel renders presence, version, browser path, and the honest refusal reason only."
+      },
       "work_package": "C1",
       "implementation_package": "unverified",
       "state": "open",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runWebBrowseCommand"
+          "runWebBrowseCommand",
+          "playwrightStatus",
+          "createNndBrowserActionsService",
+          "dispatchNndBrowserRequest"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "test/nnd-browser-routes.test.js 3/3",
+          "packages/ui vitest browser lib parser + browser page drills 2/2"
+        ],
         "installed_journey": null
       },
       "notes": null

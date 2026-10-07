@@ -1208,6 +1208,10 @@
     {
       "version": "20261006-16",
       "content_sha256": "1ec312b2d28f81ce3724cc923e16bd33932b52443f8dff08315bb937242607a6"
+    },
+    {
+      "version": "20261006-17",
+      "content_sha256": "c22c8b944ece2dbc9f44d5c5df60ddbe21b8707b27917a08e661019b0b719f41"
     }
   ]
 }

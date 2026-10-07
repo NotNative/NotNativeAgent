@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:66c9beaa94e4e56abdd5c567e84cc894b5ad9af6a1daefbc73e9fec60a28b3d4",
+  "source_digest": "sha256:e9a4a580980204a46e4f4306071b00afeafe5f90e855a353bc98c8aa7f9f2a09",
   "counts": {
-    "modules": 826,
+    "modules": 828,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 32
+      "module_count": 33
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 202
+      "module_count": 203
     },
     {
       "id": "web-server",
@@ -109,20 +109,20 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 348,
-      "module_count": 140
+      "import_count": 351,
+      "module_count": 141
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 111,
-      "module_count": 80
+      "import_count": 112,
+      "module_count": 81
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 104,
-      "module_count": 60
+      "import_count": 105,
+      "module_count": 61
     },
     {
       "from": "sync-engine",
@@ -133,8 +133,8 @@
     {
       "from": "harness-facade",
       "to": "runtime-io",
-      "import_count": 30,
-      "module_count": 28
+      "import_count": 31,
+      "module_count": 29
     },
     {
       "from": "gates",
@@ -1677,6 +1677,19 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/browser-observation.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/nnd/browser.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/browser-push-control.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -1883,6 +1896,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/browser-observation.tsx",
         "packages/ui/src/components/settings/pages/compatibility-service.tsx",
         "packages/ui/src/components/settings/pages/hooks-bundles.tsx",
         "packages/ui/src/components/settings/pages/installation-observation.tsx",
@@ -3477,6 +3491,14 @@
         "packages/ui/src/lib/snippets-source.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/browser.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {

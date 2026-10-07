@@ -595,7 +595,13 @@ desktop `NNA installation` panel renders the descriptor; the configuration
 router now surfaces registered failure codes verbatim — closing a `-12`
 registry gap where the package root codes were silently rebranded — and the
 two remaining served-family field rows pinned as census-only projected
-state.
+state. The `browser_action` family then closed the same way: the native
+surface reuses the webbrowse CLI authority verbatim — the read reports the
+managed Playwright Chromium exactly as `playwrightStatus` reads it, and the
+verify action runs that authority with the launch probe (headless Chromium,
+a validation page, a clean close; nothing on disk changes) — and the desktop
+`Managed browser` panel renders the one fail-closed receipt grammar with
+honest refusal sentences.
 
 Progress: at NNA `20261006-3` the environment rows became a read-only native
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read

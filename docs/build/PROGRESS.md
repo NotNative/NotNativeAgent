@@ -3,6 +3,19 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Managed browser status + verify · NNA 20261006-17 + NND 20261006-17
+
+The `browser_action` family closed with a real surface reusing the webbrowse
+CLI authority verbatim: `GET /v1/nnd/configuration/browser` reads the
+managed Playwright Chromium (presence, pinned version, browser path, honest
+refusal reason) and `POST …/actions/verify` runs the same authority with the
+launch probe — headless Chromium launches, renders a validation page, and
+closes; nothing on disk changes. The desktop `Managed browser` panel renders
+the single fail-closed receipt grammar with the honest refusal sentences.
+Next families: `skills_action` native catalog, the legacy credential alias,
+per-verb gateway/web-search action triage, invocation flags, then the
+`manifest_*` grind.
+
 ## 2026-10-06 · Installation observation + registered-code surfacing · NNA 20261006-16 + NND 20261006-16
 
 The installation family closed with a real surface: the service re-verifies

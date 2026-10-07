@@ -416,6 +416,25 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-17 and NND 20261006-17 — managed browser status and verify
+
+The two `browser_action` census rows closed with a real native surface that
+reuses the webbrowse CLI authority verbatim: `GET
+/v1/nnd/configuration/browser` (`nnd.configuration.read`) reports the
+managed Playwright Chromium exactly as `playwrightStatus` reads it —
+presence, the pinned version, the browser path, and the honest refusal
+reason (`not_installed` | `version_mismatch` | `validation_failed`); `POST
+…/actions/verify` runs the same authority WITH the launch probe (headless
+Chromium launches, renders a validation page, and closes) so an operator
+learns the runtime works, not merely that files exist. The receipt is one
+fail-closed grammar (the router normalizes the authority's two outcome
+shapes before sending; drift is the 500 `nnd_browser_projection_invalid`),
+the desktop `Managed browser` panel renders the observation and offers
+status and verify buttons with the honest refusal sentences, and nothing on
+disk ever changes — both verbs read. The service manage root derives from
+the per-user data root (`managed/playwright`), the same root the product
+uses. Census rows without a verified GUI: 271 → 269.
+
 ## NNA 20261006-16 and NND 20261006-16 — installation observation and registered-code surfacing
 
 The six `installation` census rows (the install.json descriptor: product,
