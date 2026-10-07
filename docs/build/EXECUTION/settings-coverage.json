@@ -439,8 +439,8 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "new_session",
+    "evidence": "configuration-catalog-metadata.js declares the mission container itself with application session (mission: container('object', { classification: 'authority_grant', default: absent, application: session })) and mission family session, evidenced by runtime-config.js:assertRuntimeConfigurationCompatible, which refuses a changed mission with configuration_mission_change; transcribed 20261007-57, a declaration move like 20261007-35, not a capability move"
    },
    "native_endpoint": null,
    "native_permission": null,
@@ -449,7 +449,7 @@
     "path": null,
     "status": "unverified"
    },
-   "sensitivity": "unverified",
+   "sensitivity": "public",
    "work_package": "C1",
    "implementation_package": "unverified",
    "state": "open",
@@ -461,7 +461,7 @@
     "tests_run": [],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Class and sensitivity transcribed 20261007-57 from NNA's own declaration; the row stays open and still owes a surface — a desktop mission control has no authority behind it for the desktop principal (configuration_mission_change / mission authority refused for non-stdio-host principals), so no closure and no disposition is claimed this round."
   },
   {
    "id": "manifest:workspace_root",
@@ -1266,29 +1266,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "configuration-catalog-metadata.js declares the attachments family live (attachments: family('validateAttachments', live, ...) with evidence runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration); transcribed 20261007-57, a declaration move like 20261007-35, not a capability move"
    },
    "native_endpoint": null,
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: attachments.enabled, attachments.max_bytes, attachments.retain are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx, \"renders all three attachment census rows in the attachment block with the native byte bounds\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest:memory",
@@ -1310,29 +1312,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "engine_boundary",
+    "evidence": "configuration-catalog-metadata.js declares the memory family live (memory: family('validateMemory', live, ...) with evidence runtime-config.js:applyConfiguration and runtime-config.js:publishEngineConfiguration); transcribed 20261007-57, a declaration move like 20261007-35, not a capability move"
    },
    "native_endpoint": null,
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: memory.enabled, memory.required, memory.timeout_ms, memory.max_items, memory.max_bytes are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx, \"renders all five memory census rows in the memory block with the native bounds\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest:dream",
@@ -1354,29 +1358,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "construction_only",
+    "evidence": "configuration-catalog-metadata.js declares the dream family construction (dream: family('validateDream', construction, ...) with evidence experience/dream.js:initializeWorkspaceDream and dream-coordinator.js:constructor); transcribed 20261007-57, a declaration move like 20261007-35, not a capability move"
    },
    "native_endpoint": null,
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: dream.enabled, dream.idle_ms, dream.inter_stage_ms, dream.inference_idle_ms, dream.hygiene_idle_ms, dream.retention_days are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx, \"renders all six dream census rows in the dream block with the native bounds\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest:mcp_servers",
@@ -1444,29 +1450,31 @@
     "explicit_invocation_manifest"
    ],
    "apply": {
-    "class": "unverified",
-    "evidence": null
+    "class": "surface_invocation",
+    "evidence": "configuration-catalog-metadata.js declares the tui family surface_invocation (tui: family('validateTui', { class: 'surface_invocation', evidence: ['experience/key-bindings.js:validateKeyBindings', 'tui/terminal-adapter.js:setBindings'], verification: 'no_generic_live_application_claim' }) with the declared verification guard kept); transcribed 20261007-57, a declaration move like 20261007-35, not a capability move"
    },
    "native_endpoint": null,
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: tui.reduced_motion, tui.color, tui.key_bindings, and all 17 tui.key_bindings.* members are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration.test.tsx, \"renders the tui keyboard family with merged defaults, provenance and honest container absence\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest:telemetry",
@@ -1495,22 +1503,24 @@
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: telemetry.enabled, telemetry.destination, telemetry.retention are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration.test.tsx, \"renders the three telemetry census rows with the inert nulls and the user destination\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest:allowed_capabilities",
@@ -1723,22 +1733,24 @@
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: reviewer_ledger.retention_entries are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration.test.tsx, \"renders the reviewer-ledger retention row with its default budget\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest:recovery",
@@ -1767,22 +1779,24 @@
    "native_permission": null,
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
-   "state": "open",
+   "implementation_package": "C6 record assembly closure (NND 20261007-57)",
+   "state": "verified",
    "evidence": {
     "kind": "source_inspection",
     "source_symbols": [
      "resolveManifest"
     ],
-    "tests_run": [],
+    "tests_run": [
+     "members render together in one unit as of 20261007-57: recovery.max_model_steps, recovery.local_retry_limit, recovery.ladder, recovery.turn_wall_clock_ms are all rendered by one composed jsdom view — packages/ui/src/components/settings/__tests__/native-configuration.test.tsx, \"renders all four recovery census rows with the unset wall clock and the unavailable ladder origin\" — beside the NNA view test that proves the same paths from the live catalog, on packages/ui/src/components/settings/pages/native-configuration.tsx"
+    ],
     "installed_journey": null
    },
-   "notes": null
+   "notes": "Record container closed 20261007-57 on the composed-fixture rule: a record is on screen when one unit renders everything it holds (guide 03, 20261007-35 + the 20261007-36 shape-table kind object), and packages/ui/src/components/settings/__tests__/native-configuration.test.tsx proves the whole member set rendered together in one fixture beside NNA's own view test. The four route role containers do not meet this bar and stay open (their posed unit, the role card, renders two of thirteen members and the rest render through a chooser across two pages), and mission stays owed. Installed evidence remains 0."
   },
   {
    "id": "manifest_provider:providers[*].id",

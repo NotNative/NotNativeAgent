@@ -416,6 +416,71 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-57 — the seven shape-table record-containers close on fixtures, and five classes are transcribed
+
+Rows without a desktop surface: **14 → 7**. Unverified application class: **38 → 33**. Verified
+rows: **26 → 33**. No code changed and no test changed; every closure rests on composed
+fixtures and block renderers that previous rounds had already built and tested, and every class
+move is a transcription of a declaration in
+`D:\ProjectRepo\NotNativeAgent\src\configuration-catalog-metadata.js`, labelled in each row's
+apply evidence like the `20261007-35` moves.
+
+`20261007-36` closed the three shape-table **collections** on membership and deferred the seven
+`object`-kind **records** — attachments, memory, dream, tui, telemetry, reviewer_ledger,
+recovery — "until somebody proves it". The proves-it bar existed in the founding rule all along:
+`20261007-35` had already settled that the *provider credential* conversation closes when one
+line carries the whole thing, "on a unit by unit and case by case basis". Nothing separates an
+asserted whole-record fixture from an asserted whole-credential row except the number of
+members named, so the census adopted the composed-fixture bar rather than inventing a new
+vocabulary: **a record container is on screen when one unit renders everything it holds, and a
+fixture names every member beside NNA's own view test.** Each of the seven then closed on its
+own fixture, all pre-existing:
+
+- memory (5 rows), attachments (3), dream (6) — the typed block suites in
+  `native-configuration-controls.test.tsx`: "renders all five memory census rows in the memory
+  block with the native bounds", "renders all three attachment census rows in the attachment
+  block with the native byte bounds", "renders all six dream census rows in the dream block with
+  the native bounds";
+- recovery (4), telemetry (3), reviewer_ledger (1), tui (20) — the composed inventory views in
+  `native-configuration.test.tsx`: "renders all four recovery census rows with the unset wall
+  clock and the unavailable ladder origin", "renders the three telemetry census rows with the
+  inert nulls and the user destination", "renders the reviewer-ledger retention row with its
+  default budget", "renders the tui keyboard family with merged defaults, provenance and honest
+  container absence".
+
+The four `manifest_route` role containers do not meet the bar and stay **open**: their posed
+unit, the role card, renders two of a role's thirteen members, and the other members ride the
+catalog-gated chooser across both settings pages. `manifest:provider` still fails its
+companion claim (the panel never says which spelling the file used) and `manifest:mission`
+still owes a surface — the row now says *why* that is stable (the mission authority is
+schedule-checked first and the desktop principal is refused with `mission_authority_forbidden`,
+so a desktop mission control would be a control with no authority behind it) — but the row
+keeps no path without a legal disposition, since the guide's narrow rule (one legal value,
+client refuses the rest) is not what holds here.
+
+The class transcription, one line per row in the census's apply evidence: memory and
+attachments → `engine_boundary` (`memory: family('validateMemory', live, ...)`,
+`attachments: family('validateAttachments', live, ...)`; `live` is
+`runtime-config.js:applyConfiguration` + `publishEngineConfiguration`); dream →
+`construction_only` (`experience/dream.js:initializeWorkspaceDream` + `dream-coordinator.js`); tui →
+`surface_invocation` with the declared `no_generic_live_application_claim` guard recorded
+unchanged; mission → `new_session` (the container itself declares
+`application: session`, and `assertRuntimeConfigurationCompatible` refuses a changed mission
+with `configuration_mission_change` — so the whole grant is new-session, not only its leaves)
+and mission sensitivity `unverified` → `public` from the container's own declaration.
+Telemetry, reviewer_ledger and recovery keep `unverified` because NNA's own metadata declares
+`unverified` for those families — the eight leaf rows' investigated unverified evidence (which
+rounds `-7`, `-9`, `-10` wrote) stays as it is.
+
+This was a census-and-guide round: the desktop code was read, not written; the two cited suites
+are asserted fixtures with member-set checks (member names are asserted against the fixture by
+the closure patcher `.tmp/c1/patch-record-containers.mjs`, which refuses to write
+anything unless every precondition matches); the coverage gate passes against the paired NNA
+checkout; no NNA behaviour changed, so NNA needs nothing this round.
+
+After this round: rows 371; surfaces owed 7; not owed with evidence 11 (unevidenced 0); unverified
+application class 33; citations naming no test file 0 of 678; installed evidence 0 of 371.
+
 ## NND 20261007-56 — the census names a test at every citation
 
 Citations naming no test file: **9 → 0 of 678**. The no-test axis is closed. The tooling boundary

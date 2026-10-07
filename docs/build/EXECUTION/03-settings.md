@@ -1088,6 +1088,39 @@ declared point, and the restart effect on an installed service is still
 unobserved, which C7 and the L gates own. The remaining C6 external-store
 families stay open.
 
+Progress: at NND `20261007-57` the seven manifest record-containers that the
+shape-table round (`20261007-36`) kept open closed on evidence the intervening
+rounds had already built. `-36` deferred the `object`-kind records —
+attachments, memory, dream, tui, telemetry, reviewer_ledger, recovery —
+because their fields "render apart"; since then every one of them grew a unit
+that renders all of its members together and a fixture asserting exactly that:
+the memory, attachment and dream typed blocks
+(`native-configuration-controls.test.tsx`: "renders all five memory census
+rows in the memory block", "renders all three attachment census rows in the
+attachment block", "renders all six dream census rows in the dream block") and
+the recovery, telemetry, reviewer-ledger and tui composed inventory views
+(`native-configuration.test.tsx`: "renders all four recovery census rows",
+"renders the three telemetry census rows", "renders the reviewer-ledger
+retention row", "renders the tui keyboard family with merged defaults,
+provenance and honest container absence"). The founding rule ("a container is
+on screen only when everything it holds is rendered in that unit",
+`20261007-35`) therefore stops separating these records from the collections
+that closed at `-36`: a fixture that names every member beside NNA's own view
+test is the same composed evidence the first closures used, decided
+member-set-by-member-set and never by family page. The four route role
+containers do not meet the bar and stay open — the role card renders two of a
+role's thirteen members and the rest ride the catalog-gated chooser across two
+pages. The class axis follows NNA's own declarations, transcribed like
+`20261007-35` and named in each row's apply evidence: memory and attachments
+`engine_boundary`, dream `construction_only`, tui `surface_invocation` (with
+its `no_generic_live_application_claim` guard kept), and mission
+`new_session` with sensitivity `public` — while telemetry, reviewer_ledger and
+recovery remain `unverified` because NNA's own metadata declares nothing for
+those families. Mission stays owed: a desktop mission control has no authority
+behind it for the desktop principal, so the row keeps no surface instead of
+inheriting a claim no test supported. Unverified application class
+**38 → 33**.
+
 ### What "verified" means in the census, and what it does not
 
 `current_gui.status: verified` means one specific thing: a named test file reads the field off

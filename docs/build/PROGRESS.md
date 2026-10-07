@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Seven record-containers close on composed fixtures; five classes transcribed · NND 20261007-57
+
+The seven shape-table `object` records `-36` deferred closed on their own asserted member-set
+fixtures (memory 5, attachments 3, dream 6, recovery 4, telemetry 3, reviewer_ledger 1, tui 20) —
+surfaces owed **14 → 7**. Class moves are pure transcriptions from NNA's
+`configuration-catalog-metadata.js`, named in each row's apply evidence: memory/attachments
+`engine_boundary`, dream `construction_only`, tui `surface_invocation` (verification guard kept),
+mission `new_session` + sens public; telemetry/reviewer_ledger/recovery stay `unverified` because
+NNA declares them so. Unverified class **38 → 33**; no code or test changed; route role
+containers (posed unit renders 2 of 13 members), provider (spelling never shown) and mission
+(desktop refused by authority) stay open with their reasons.
+
 ## 2026-10-07 · The census names a test at every citation; no-test axis closed · NND 20261007-56
 
 Last 9 no-test citations re-pointed in place at their proving tests; **no-test 9 → 0 of 678**. One
