@@ -12241,29 +12241,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-search",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: the status verb IS the web-search settings file view (the enabled flag plus the canonical SearXNG profile list, order preserved) that the -14 family already serves"
     },
     {
       "id": "web_search_action:refresh-managed",
@@ -12283,29 +12287,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/web-search/actions/managed-status",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-searxng-deployment.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — torn between CLI authority and a read: the CLI verb refreshes only when assets drift (a mutating docker lifecycle), so the native surface observes the current deployment (managed-status; http + docker ps identity) and its staleness honestly — the refresh, when needed, is the deploy refusal’s CLI authority"
     },
     {
       "id": "web_search_action:reset",
@@ -12325,29 +12333,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"set_enabled\"}|{op:\"add_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: the reset verb disables + clears the profiles to the default document; the native equivalent is set_enabled=false plus remove_profile sweeps through the same save transaction (same transform as resetWebSearchConfig)"
     },
     {
       "id": "web_search_action:disable",
@@ -12367,29 +12379,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"set_enabled\"}|{op:\"add_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: the disable verb shares resetWebSearchConfig; native equivalent set_enabled=false through the same transaction (config stays on disk, only the flag flips)"
     },
     {
       "id": "web_search_action:install-if-unconfigured",
@@ -12409,29 +12425,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"set_enabled\"}|{op:\"add_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: install-if-unconfigured is a conditional configure (endpoint form); the native surface serves the configure transform + reads (the deploy form needs docker, refused — the CLI stays its authority for deploy)"
     },
     {
       "id": "web_search_action:configure",
@@ -12451,29 +12471,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"set_enabled\"}|{op:\"add_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: configure replaces the primary profile with the candidate endpoint (the replacePrimaryWebSearch transform served through set_enabled + add_profile CAS operations), the CLI live probe maps to the read managed-status surface (the search.ok probe) — no native gap remains"
     },
     {
       "id": "web_search_action:deploy",
@@ -12493,29 +12517,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/actions/deploy (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): docker compose provisioning of the managed root stays with the CLI (staged assets, secret rotation, port preflight); the native read surface (managed-status) observes the result"
     },
     {
       "id": "web_search_action:install-local",
@@ -12535,29 +12563,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/actions/install-local (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the shared deploy lifecycle drives docker compose; refused honestly, the managed read continues to observe"
     },
     {
       "id": "web_search_action:remove",
@@ -12577,29 +12609,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/actions/remove (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): removing the managed root (compose down + root rm) is destructive docker lifecycle, the managed-root refusal guard (managed_root_unexpected) stays CLI-shaped"
     },
     {
       "id": "web_search_action:remove-deployment",
@@ -12619,29 +12655,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/actions/remove-deployment (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the second name of the removal verb, same CLI authority"
     },
     {
       "id": "web_search_action:add",
@@ -12661,29 +12701,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"add_profile\"}|{op:\"promote_profile\"}|{op:\"remove_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: add_profile appends with a domain-derived unique id through the web-search save transaction (same transform as appendWebSearchProfile, CAS receipts)"
     },
     {
       "id": "web_search_action:promote",
@@ -12703,29 +12747,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"add_profile\"}|{op:\"promote_profile\"}|{op:\"remove_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: promote_profile moves a profile to primary through the same transaction (same transform as promoteWebSearchProfile)"
     },
     {
       "id": "web_search_action:remove-profile",
@@ -12745,29 +12793,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "next_search",
+        "evidence": "route receipt application (the search tool reloads the file per invocation)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/web-search/save (operations [{op:\"add_profile\"}|{op:\"promote_profile\"}|{op:\"remove_profile\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/web-search-settings.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
+          "runGatewayCommand",
           "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: managed-status projection, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (add/promote/remove-profile/reset/disable/configure/install-if-unconfigured) are ALREADY native via the web-search save transaction (add_profile/promote_profile/remove_profile/set_enabled operations CAS-checked, receipts carry the operation id and replay info; config applies next_search); status is the -14 settings read; refresh-managed is pinned to the NEW managed-status read (SearxngDeployment.status(): HTTP probe + docker ps identity, the native honest observation; the refresh lifecycle itself is the deploy refusal’s CLI authority); deploy/install-local/remove/remove-deployment are REFUSED natively with nnd_action_cli_only (docker compose lifecycle stays with the CLI), per the update_action:install precedent; the desktop surface is web-search-settings.tsx + the new ManagedDeploymentPanel in native-configuration.tsx — already-served native surface pinned in place: remove_profile deletes a profile through the same transaction (same transform as removeWebSearchProfile)"
     },
     {
       "id": "web_fetch_action:status",
@@ -12919,29 +12971,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "GET /v1/nnd/configuration/gateway/status",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — native gateway runtime read reusing the CLI authorities verbatim (gatewayPublicStatus over the parsed config + runtimeStatus over the pid file, identity-verified); merges the live runtime pid/verified state the stored-file read cannot show"
     },
     {
       "id": "gateway_action:token",
@@ -12961,29 +13017,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"set_token\"}|{op:\"clear_token\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: set_token via the gateway save transaction (dedicated replace operation, redacted receipt), value never projected"
     },
     {
       "id": "gateway_action:token-stdin",
@@ -13003,29 +13063,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"set_token\"}]; token-stdin supplies the value, token-env pairs set token_env + clear_token)",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: the stdin transport is a CLI input variant, the set_token save operation is the native equivalent (20..512-char token grammar)"
     },
     {
       "id": "gateway_action:token-env",
@@ -13045,29 +13109,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"set_token\"}]; token-stdin supplies the value, token-env pairs set token_env + clear_token)",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: a token_env set + clear_token pair over the same save transaction mirrors the CLI verb (env name + cleared stored token)"
     },
     {
       "id": "gateway_action:authorize",
@@ -13087,29 +13155,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"authorize\"}|{op:\"revoke\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: authorize appends a normalized user id (normalizeUserId verbatim) through the gateway save transaction (authority_grant semantics)"
     },
     {
       "id": "gateway_action:revoke",
@@ -13129,29 +13201,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"authorize\"}|{op:\"revoke\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: revoke filters the allowlist through the same transaction; both authority operations are audit-shaped, never presented as preferences"
     },
     {
       "id": "gateway_action:workspace",
@@ -13171,29 +13247,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"set\"}|{op:\"reset\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: a set workspace_root operation through the same save transaction (absolute-path grammar, null = unset; 4096 cap)"
     },
     {
       "id": "gateway_action:enable",
@@ -13213,29 +13293,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"set\"}|{op:\"reset\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: the enabled flag flips via set enabled=true (class next_service_start; the gateway reloads its config per poll, so application is the next start, exactly the catalog application restart_gateway)"
     },
     {
       "id": "gateway_action:disable",
@@ -13255,29 +13339,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/save (operations [{op:\"set\"}|{op:\"reset\"}])",
+      "native_permission": "nnd.configuration.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — already-served native surface pinned in place: set enabled=false through the same transaction"
     },
     {
       "id": "gateway_action:test",
@@ -13297,29 +13385,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/actions/test",
+      "native_permission": "nnd.configuration.read",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — native honest 200-verdict probe reusing the CLI authority verbatim: the Telegram getMe call over the resolved token (gatewayToken source precedence); an unconfigured or unreachable token is an honest refusal verdict (telegram_token_missing / gateway_test_unreachable), still a read, no mutation, no CLI fallback"
     },
     {
       "id": "gateway_action:run",
@@ -13339,29 +13431,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/actions/run (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the foreground gateway stays attached to the owning terminal and the native service process never takes over a child runtime; the CLI stays its authority"
     },
     {
       "id": "gateway_action:start",
@@ -13381,29 +13477,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/actions/start (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): the detached process spawn stays with the CLI (owner terminal, pid bookkeeping, identity-verified runtime evidence); refused honestly instead of pretending"
     },
     {
       "id": "gateway_action:stop",
@@ -13423,29 +13523,33 @@
         "unverified"
       ],
       "apply": {
-        "class": "unverified",
-        "evidence": null
+        "class": "not_applied",
+        "evidence": "route receipt application (the -14 catalog declares application restart_gateway)"
       },
-      "native_endpoint": null,
-      "native_permission": null,
+      "native_endpoint": "POST /v1/nnd/configuration/gateway/actions/stop (refused natively)",
+      "native_permission": "nnd.service.manage",
       "current_gui": {
         "product": "NND",
-        "path": null,
-        "status": "unverified"
+        "path": "packages/ui/src/components/settings/pages/native-gateway-runtime.tsx",
+        "status": "verified"
       },
-      "sensitivity": "unverified",
+      "sensitivity": "security",
       "work_package": "C1",
-      "implementation_package": "unverified",
-      "state": "open",
+      "implementation_package": "C1 stage 2 (20261006-20)",
+      "state": "verified",
       "evidence": {
         "kind": "source_inspection",
         "source_symbols": [
-          "runGatewayCommand"
+          "runGatewayCommand",
+          "runWebSearchCommand"
         ],
-        "tests_run": [],
+        "tests_run": [
+          "nna node --test test/nnd-action-triage-routes.test.js (3 green: status merge, test verdicts, refusal grammar + HTTP matrix)",
+          "nnd pnpm --filter @notnative/ui test + @notnative/web test"
+        ],
         "installed_journey": null
       },
-      "notes": null
+      "notes": "native triage surfaces over the operator verbs (20261006-20): config-mutation verbs (token/token-stdin/token-env/authorize/revoke/workspace/enable/disable) are ALREADY native via the gateway save transaction (set_token/clear_token/authorize/revoke/set+reset operations, redacted receipts, CAS revision checks — catalog application restart_gateway so these apply at the next gateway (re)start); status and test are NEW live reads reusing the CLI authorities verbatim (gatewayPublicStatus + runtimeStatus pid-file identity; the Telegram getMe probe over the resolved token as an honest 200-verdict receipt); run/start/stop are REFUSED natively with nnd_action_cli_only (the native service never detaches or kills gateway children — run it in the terminal), per the update_action:install / compatibility_service_action:run precedent; the desktop surface is native-configuration.tsx (GatewayRuntimePanel: live status + test probe, refusal sentences) + the -14 timeout panel for the config fields — honest CLI-authority refusal (nnd_action_cli_only 200 receipt): pid reuse is machine-verified only by the runtime-status authority and killing another process is a CLI-owned act; the native surface refuses with the terminal hint"
     },
     {
       "id": "compatibility_service_action:status",

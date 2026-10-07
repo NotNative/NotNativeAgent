@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-06 · Gateway/web-search operator verb triage · NNA 20261006-20 + NND 20261006-20
+
+The 26 `gateway_action`/`web_search_action` rows closed with the per-verb
+triage: config-mutation verbs pinned to the already-native save surfaces,
+four new read surfaces reusing the CLI authorities verbatim (gateway
+status/test, managed SearXNG observation), and the eight runtime/docker
+verbs refused natively with honest `nnd_action_cli_only` 200 verdicts
+pointing to the terminal. The desktop panels: `Gateway runtime` (live view
++ read-only Telegram probe) and `Managed SearXNG deployment` (observation
+only, lifecycle stays CLI). Census rows without a verified GUI: 267 → 241.
+Next families: invocation flag rows, then the `manifest_*` grind.
+
 ## 2026-10-06 · Legacy provider credential alias · NNA 20261006-19 + NND 20261006-19
 
 The `legacy_provider_credentials` row closed with a real surface reusing the

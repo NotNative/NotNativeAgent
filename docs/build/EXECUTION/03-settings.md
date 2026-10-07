@@ -611,7 +611,19 @@ legacy provider credential alias then closed the same way: the served
 process runs the startup alias loader against a spare environment and
 projects only the load verdict (loaded, count, honest refusal reason) — the
 key value is never served — and the desktop `Legacy provider credential
-alias` panel renders that verdict.
+alias` panel renders that verdict. The gateway/web-search operator verbs
+then closed via a per-verb triage over the two CLI authorities: the
+config-mutation verbs were already native through the two save transactions
+and are pinned to those surfaces; the gateway status/test reads and the
+managed SearXNG observation reuse the CLI authorities verbatim (public
+config + identity-verified pid runtime, a read-only Telegram getMe probe,
+the HTTP probe + docker ps identity); and the eight runtime/docker verbs
+(gateway run/start/stop; SearXNG deploy/install-local/remove/
+remove-deployment) are refused natively with honest `nnd_action_cli_only`
+200 verdicts pointing at the terminal — the native service never detaches,
+kills, or drives docker compose. The desktop panels `Gateway runtime` and
+`Managed SearXNG deployment` render those views and state the CLI-only
+stance honestly.
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value

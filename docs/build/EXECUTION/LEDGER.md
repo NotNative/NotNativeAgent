@@ -416,6 +416,39 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA 20261006-20 and NND 20261006-20 — gateway/web-search operator verb triage
+
+The 26 `gateway_action` + `web_search_action` census rows closed with a
+per-verb triage over the two CLI authorities (`runGatewayCommand`,
+`runWebSearchCommand`): the config-mutation verbs were ALREADY native through
+the two save transactions (gateway `set_token`/`clear_token`/`authorize`/
+`revoke`/`set`+`reset`; web-search `add_profile`/`promote_profile`/
+`remove_profile`/`set_enabled` — token/token-stdin/token-env map to
+set_token variants, authorize/revoke/workspace/enable/disable to authority
+and set operations, add/promote/remove-profile/reset/disable/configure/
+install-if-unconfigured to profile operations) and are now pinned to those
+surfaces. Four new read surfaces reuse the CLI authorities verbatim: `GET
+/v1/nnd/configuration/gateway/status` merges `gatewayPublicStatus` with the
+identity-verified pid-file runtime status; `POST …/gateway/actions/test`
+runs the live Telegram getMe probe over the resolved token as an honest
+200-verdict receipt (`telegram_token_missing` / `gateway_test_unreachable`
+refusal verdicts, read-only, no token value served); `GET
+/v1/nnd/configuration/web-search/actions/managed-status` projects
+`SearxngDeployment.status()` (HTTP probe + docker ps identity) as the
+observation behind `refresh-managed`; and the eight runtime/lifecycle verbs
+(gateway `run`/`start`/`stop`, SearXNG `deploy`/`install-local`/
+`remove`/`remove-deployment` + the refresh's mutating twin) are REFUSED
+natively with honest `nnd_action_cli_only` 200 verdicts carrying terminal
+hints (the native service never detaches or kills processes or drives docker
+compose — the CLI stays their authority), per the update_action:install /
+compatibility_service_action:run precedent. New codes registered
+(`nnd_action_triage_request_invalid`, `nnd_action_triage_projection_invalid`
+— a 500 projection slip alongside its 400 sibling). The desktop gained the
+`Gateway runtime` panel (merged view + probe verdict, refusal sentences)
+and the `Managed SearXNG deployment` panel (endpoint, container identity,
+search probe) — both stating the CLI-only stance honestly. Census rows
+without a verified GUI: 267 → 241.
+
 ## NNA 20261006-19 and NND 20261006-19 — legacy provider credential alias observation
 
 The `legacy_provider_credentials` census row closed with a real native
