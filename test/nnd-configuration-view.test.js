@@ -5,6 +5,7 @@ import { resolveConfiguration } from '../src/configuration-sources.js';
 import { NND_CONFIGURATION_OPTIONS } from '../src/nnd-configuration-sources.js';
 import { projectNndConfigurationView } from '../src/nnd-configuration-view.js';
 import { validateDream } from '../src/dream-config.js';
+import { assertRuntimeConfigurationCompatible } from '../src/runtime-config.js';
 import { NND_CONFIGURATION_EDITABLE_FIELDS, NND_ROUTE_BINDING_FIELDS, normalizeNndConfigurationOperations } from '../src/nnd-configuration-intents.js';
 
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
@@ -486,4 +487,54 @@ test('provider profiles are served read-only, mirrored by the alias, and credent
   // And the configuration contract offers no provider editing at all: profile
   // writes belong to the provider and credential lanes, not to this surface.
   assert.deepEqual(NND_CONFIGURATION_EDITABLE_FIELDS.filter(field => /^(?:provider\.|providers\[)/u.test(field)), []);
+});
+
+test('the manifest root serves its invariants, its two editable rows, and its honest absences', () => {
+  const view = projectNndConfigurationView(snapshot());
+  // The three version stamps are internal invariants: compiled defaults that
+  // the operator never edits, shown so the record states which contract the
+  // manifest was written against.
+  for (const key of ['format_version', 'routing_inheritance_version', 'output_headroom_version']) {
+    assert.deepEqual(row(view, key).explicit, { present: false }, key);
+    assert.deepEqual(row(view, key).effective, { present: true, value: 1, source: 'compiled_default' }, key);
+  }
+  // Only two rows in this remainder are offered for editing at all.
+  assert.ok(NND_CONFIGURATION_EDITABLE_FIELDS.includes('persistence'), 'persistence is editable');
+  assert.ok(NND_CONFIGURATION_EDITABLE_FIELDS.includes('application_system_prompt'), 'the prompt is editable');
+  assert.ok(!NND_CONFIGURATION_EDITABLE_FIELDS.includes('workspace_root'), 'the workspace is fixed per session');
+  assert.deepEqual(row(view, 'persistence').effective,
+    { present: true, value: 'durable', source: 'compiled_default' });
+  assert.deepEqual(row(view, 'application_system_prompt').effective,
+    { present: true, value: '', source_unavailable: true }, 'an unset prompt is empty, not invented');
+  // A saved persistence change cannot land in a live session: the contract
+  // refuses it rather than lying about what is running.
+  const base = { workspaceRoot: process.cwd(), persistence: 'durable', mcpServers: {}, executionManifest: {} };
+  assert.throws(() => assertRuntimeConfigurationCompatible(base, { ...base, persistence: 'ephemeral' }),
+    err => err.code === 'configuration_scope_change', 'persistence requires a new session');
+  assert.throws(() => assertRuntimeConfigurationCompatible(base, { ...base, workspaceRoot: 'D:\\other' }),
+    err => err.code === 'configuration_scope_change', 'the workspace requires a new session');
+  // The workspace path itself is served verbatim: it says which manifest the
+  // operator is looking at, and it is the one field this surface never edits.
+  assert.equal(row(view, 'workspace_root').explicit.value, process.cwd());
+  assert.deepEqual(row(view, 'workspace_root').effective,
+    { present: true, value: process.cwd(), source: 'user' });
+  // The legacy single-provider block is an input alias: it is visible as an
+  // unprintable structure and then disappears into providers[local].
+  assert.deepEqual(row(view, 'provider').explicit, { present: true, value_unavailable: true });
+  assert.deepEqual(row(view, 'provider').effective, { present: false });
+  // Authority grants and the mission are the host's, not the operator's: the
+  // desktop principal receives an honest absence on both sides.
+  for (const key of ['mission', 'allowed_capabilities', 'allowed_tools', 'disconnect_policy', 'skills']) {
+    assert.deepEqual(row(view, key).explicit, { present: false }, key);
+    assert.deepEqual(row(view, key).effective, { present: false }, key);
+    assert.ok(!NND_CONFIGURATION_EDITABLE_FIELDS.includes(key), `${key} is not offered for editing`);
+  }
+  // Containers carry no printable value and no layer; their members hold the
+  // settings, each with its own row.
+  for (const key of ['providers', 'routes', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui',
+    'telemetry', 'reviewer_ledger', 'recovery']) {
+    assert.deepEqual(row(view, key).explicit, { present: false }, key);
+    assert.deepEqual(row(view, key).effective,
+      { present: true, value_unavailable: true, source_unavailable: true }, key);
+  }
 });
