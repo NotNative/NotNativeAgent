@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Mission authority stays host-only · NND 20261007-3
+
+The 16 `manifest_mission` rows closed against the EXISTING configuration
+view with no new native surface: `validateMission` checks the principal
+first, so the desktop operator is refused with `mission_authority_forbidden`
+before the schedule order, bounded lists, and required termination
+conditions are ever reached, and the proof shows the paths serve as honest
+absence (the refusal never echoes outcome, references, or schedule). A
+host grant must still carry the ordered schedule, bounded lists, the three
+resource bounds, and termination that always includes
+`budget_exhaustion`, `expiration`, and `disconnect` — validated in that
+order, applying to the sessions the host starts. The inventory page
+renders the rows as `Not set`; NNA owns mission authority and NND renders
+the honest absence read-only. Census rows without a verified GUI:
+168 → 152. Next families: skills 7, dream 6, memory 5, recovery 4,
+attachments 3, telemetry 3, reviewer_ledger 1, then manifest 38, route 48,
+provider 37.
+
 ## 2026-10-07 · TUI keyboard family rides the configuration view · NND 20261007-2
 
 The 20 `manifest_tui` rows closed against the EXISTING configuration view

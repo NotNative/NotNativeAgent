@@ -1248,6 +1248,10 @@
     {
       "version": "20261007-2",
       "content_sha256": "d832b4871e8879f516c033f920afed2115fa27779d6774dcfc94c1a25b357cdb"
+    },
+    {
+      "version": "20261007-3",
+      "content_sha256": "ad058c74f961b96e1b9b081763897b45337d7e7d3a218dec51f8a7e7f0081d3d"
     }
   ]
 }

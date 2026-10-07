@@ -73,6 +73,29 @@ it('aborts an in-flight read on auth expiry and ignores its late response', asyn
   expect(container.textContent).not.toContain('provider.credential');
   expect(requestNativeConfiguration).toHaveBeenCalledTimes(1);
 });
+it('renders the mission authority rows as honest absence for the desktop principal', async () => {
+  const paths = ['mission', 'mission.id', 'mission.outcome', 'mission.revocation_id',
+    'mission.not_before', 'mission.expires_at', 'mission.resources', 'mission.targets',
+    'mission.side_effects', 'mission.credential_refs', 'mission.bounds', 'mission.termination',
+    'mission.bounds.max_turns', 'mission.bounds.max_tool_calls', 'mission.bounds.max_duration_ms',
+    'mission.termination.suspend_on', 'mission.termination.terminate_on'];
+  const missionView: NativeConfigurationView = {
+    ...view,
+    fields: paths.map((path) => ({
+      path, catalog_path: path,
+      explicit: { present: false },
+      effective: { present: false },
+      application: 'not_applied' as const,
+    })),
+  };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(missionView);
+  mount(); await act(async () => {});
+  for (const path of paths) expect(container.textContent).toContain(path);
+  expect((container.textContent?.match(/Not set/g) ?? []).length).toBeGreaterThanOrEqual(paths.length);
+  expect(container.textContent).not.toContain('mission_authority_forbidden');
+  expect(container.textContent).not.toContain('ship the release');
+});
+
 it('renders the tui keyboard family with merged defaults, provenance and honest container absence', async () => {
   const binding = (action: string, key: string, explicit: boolean): NativeConfigurationField => ({
     path: `tui.key_bindings.${action}`, catalog_path: `tui.key_bindings.${action}`,

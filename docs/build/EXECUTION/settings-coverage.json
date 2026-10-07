@@ -9225,28 +9225,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded safe mission identifier is required; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.outcome",
@@ -9267,28 +9267,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: an intended outcome is required first (the validator checks it before the schedule); the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.revocation_id",
@@ -9309,28 +9309,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded revocation identifier is required; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.not_before",
@@ -9351,28 +9351,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: an ordered schedule (not_before < expires_at) is required before the bounds; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.expires_at",
@@ -9393,28 +9393,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: the schedule end must follow not_before; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.resources",
@@ -9435,28 +9435,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded unique list of at most 32 safe resource identifiers; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.targets",
@@ -9477,28 +9477,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "private",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded unique list of at most 128 targets; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.side_effects",
@@ -9519,28 +9519,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded unique list from read_only, reversible, irreversible, unknown; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.credential_refs",
@@ -9561,28 +9561,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "secret",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: at most 64 environment-style credential references; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.bounds",
@@ -9603,28 +9603,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: resource bounds (max_turns, max_tool_calls, max_duration_ms only) are checked after the schedule; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.termination",
@@ -9645,28 +9645,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: termination conditions are validated last; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.bounds.max_turns",
@@ -9687,28 +9687,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded scalar (one of the three bound keys); the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.bounds.max_tool_calls",
@@ -9729,28 +9729,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded scalar (one of the three bound keys); the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.bounds.max_duration_ms",
@@ -9771,28 +9771,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: a bounded scalar (one of the three bound keys); the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.termination.suspend_on",
@@ -9813,28 +9813,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: an optional bounded list of suspension conditions; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "manifest_mission:mission.termination.terminate_on",
@@ -9855,28 +9855,28 @@
    ],
    "apply": {
     "class": "new_session",
-    "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible"
+    "evidence": "src/config.js:validateMission checks the principal first (the desktop operator is always refused before the schedule order, bounded lists, and required termination conditions run); mission authority is host-only and applies when the authenticated headless host starts a session"
    },
-   "native_endpoint": null,
-   "native_permission": null,
+   "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves the mission paths as honest absence; a user manifest carrying a mission block is refused with mission_authority_forbidden before the schedule order, bounded lists, and required termination conditions are ever reached)",
+   "native_permission": "nnd.configuration.read",
    "current_gui": {
     "product": "NND",
-    "path": null,
-    "status": "unverified"
+    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "status": "verified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "unverified",
+   "implementation_package": "C1 stage 2 (20261007-3)",
    "state": "open",
    "evidence": {
-    "kind": "source_inspection",
     "source_symbols": [
-     "validateMission"
+     "validateMission",
+     "projectNndConfigurationView",
+     "readNndConfigurationSources"
     ],
-    "tests_run": [],
-    "installed_journey": null
+    "tests_run": "NNA test/nnd-configuration-view.test.js proves the sixteen census paths (plus the container) serve as honest absence for the desktop principal and that the principal is checked first, before the schedule order, bounds, and termination conditions; the NND inventory page test renders the mission rows as Not set"
    },
-   "notes": null
+   "notes": "Pinned 20261007-3: budget_exhaustion, expiration, and disconnect are always required; the principal is checked first, so the desktop never sees or sets a mission block. NNA owns mission authority; NND renders the honest absence read-only."
   },
   {
    "id": "web_search:version",

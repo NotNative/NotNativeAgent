@@ -653,6 +653,19 @@ applied at TUI start (`src/tui.js:runTui` → `decoder.setBindings`) before
 the first frame; `reduced_motion` skips animation frames and `color` gates
 ANSI rendering. The container projects presence only. The desktop inventory
 page renders the rows read-only; NNA owns the block.
+Mission authority is host-only and rides the same view with no new
+surface: `validateMission` checks the principal first, so the
+`authenticated-nnd-operator` read is refused with
+`mission_authority_forbidden` before the schedule order (`not_before` <
+`expires_at`), the bounded lists (resources ≤ 32, targets ≤ 128, the
+four `side_effects` choices, credential references ≤ 64), the three
+resource bounds (`max_turns`, `max_tool_calls`, `max_duration_ms`), and
+the termination checks (which always require `budget_exhaustion`,
+`expiration`, and `disconnect`) are ever reached. The view test proves the
+16 paths serve as honest absence and the refusal echoes nothing of the
+outcome, references, or schedule. The inventory page renders the rows as
+`Not set`; NNA owns mission authority, the desktop never sets or observes
+a mission block, and NND renders the honest absence read-only.
 surface at `/v1/nnd/configuration/environment` (read plus catalog, read
 permission only). The seven census-named entries are projected exactly as
 the served process resolves them: public entries carry their value

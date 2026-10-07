@@ -416,6 +416,29 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NNA (test-only) and NND 20261007-3 — mission authority stays host-only
+
+The 16 `manifest_mission` census rows closed against the EXISTING
+configuration view — the slice adds no native surface, and the desktop
+never sets or observes a mission block: `validateMission` checks the
+principal first (src/config.js), and the `authenticated-nnd-operator`
+principal is refused with `mission_authority_forbidden` before the
+schedule order, bounded lists, or termination conditions are ever reached.
+The mechanical proof (NNA `test/nnd-configuration-view.test.js`) shows the
+16 paths (plus the container) serve as honest absence for the desktop
+view; a manifest that carries a mission is refused before resolution, and
+the refusal never echoes the outcome, credential references, or schedule.
+Host grants, when an authenticated headless host supplies them, must carry
+the ordered schedule (`not_before` < `expires_at`), the bounded lists
+(resources ≤ 32, targets ≤ 128, `side_effects` from the four choices,
+credential references ≤ 64 environment-style names), the three resource
+bounds (`max_turns`, `max_tool_calls`, `max_duration_ms`), and termination
+that always requires `budget_exhaustion`, `expiration`, and `disconnect` —
+validated in that order, and they apply to the sessions that host starts.
+The desktop inventory page renders the rows as `Not set`; NNA owns mission
+authority and NND renders the honest absence read-only. Census rows
+without a verified GUI: 168 → 152.
+
 ## NND 20261007-2 — TUI keyboard family rides the configuration view
 
 The 20 `manifest_tui` census rows closed against the EXISTING configuration
