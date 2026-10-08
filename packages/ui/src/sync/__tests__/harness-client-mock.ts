@@ -66,6 +66,7 @@ export const harnessClient: Record<string, unknown> & {
   listMessages: (id: string, limit?: number, opts?: { directory?: string }) => handle('listMessages', `/session/${id}/message`, 'GET', undefined, opts?.directory, { ...(opts ?? {}), limit }),
   listMessagesPage: (id: string, opts?: { limit?: number; before?: string; directory?: string }) => handle('listMessagesPage', `/session/${id}/message`, 'GET', undefined, opts?.directory, opts as unknown as Record<string, unknown>),
   promptAsync: (id: string, body: unknown, opts?: { directory?: string }) => handle('promptAsync', `/session/${id}/prompt_async`, 'POST', body, opts?.directory, opts as unknown as Record<string, unknown>),
+  uploadAttachment: (id: string, body: unknown, opts?: { directory?: string }) => handle('uploadAttachment', `/v1/nnd/sessions/${id}/attachments`, 'POST', body, opts?.directory, opts as unknown as Record<string, unknown>),
   sendCommand: (id: string, body: unknown, opts?: { directory?: string }) => handle('sendCommand', `/session/${id}/command`, 'POST', body, opts?.directory, opts as unknown as Record<string, unknown>),
   listPermissions: (opts?: { directory?: string }) => handle('listPermissions', '/permission', 'GET', undefined, opts?.directory, opts as unknown as Record<string, unknown>),
   replyToPermission: (id: string, reply: string, _message: string | undefined, opts?: { directory?: string }) => handle('replyToPermission', `/permission/${id}/reply`, 'POST', { reply }, opts?.directory, opts as unknown as Record<string, unknown>),

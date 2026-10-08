@@ -19,6 +19,7 @@ import { useGlobalSyncStore } from './global-stores.ts';
 import { adoptSessionProjection, sessionProjection } from './nna-projection.ts';
 import { shouldSkipStaleSessionEvent } from './event-equality.ts';
 import { assertFreshAuthority } from './authority-sync.ts';
+import { promptWireParts } from './native-prompt-parts.ts';
 
 export interface SendFailureRecord {
   at: number;
@@ -191,6 +192,10 @@ async function dispatchPrompt(
   store: StoreApi<DirectoryStore>,
 ): Promise<void> {
   assertFreshAuthority();
+  const nativeUploads = nnaOwnsPermissionReview(store.getState().config)
+    || nnaOwnsPermissionReview(useGlobalSyncStore.getState().config);
+  const parts = await promptWireParts(input.sessionID, directory, messageID, input.parts, nativeUploads);
+  assertFreshAuthority();
   const result = await harnessClient.promptAsync(
     input.sessionID,
     {
@@ -202,12 +207,7 @@ async function dispatchPrompt(
       },
       ...(input.agent ? { agent: input.agent } : {}),
       ...(input.delivery ? { delivery: input.delivery } : {}),
-      parts: input.parts.map((part) =>
-        part.type === 'text'
-          ? { type: 'text', text: part.text, ...(part.synthetic ? { synthetic: true } : {}),
-              ...(part.systemContext ? { systemContext: part.systemContext } : {}) }
-          : { type: 'file', url: part.url ?? '', mime: part.mime ?? 'application/octet-stream', filename: part.filename },
-      ),
+      parts,
     },
     { directory },
   );

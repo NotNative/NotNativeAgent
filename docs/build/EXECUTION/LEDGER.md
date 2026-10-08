@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 F3 attachment transport slice
+
+NNA `20261008-6` adds an authenticated `POST /v1/nnd/sessions/:id/attachments`
+route with bounded data URL parsing, session/principal ownership, short-lived
+in-memory bytes, idempotent upload IDs, and prompt reference preflight. Native
+attachment admission copies uploaded images or UTF-8 text into the managed fact
+lifecycle; file-only text reaches the primary provider as untrusted context.
+NND `20261008-12` uploads before `prompt_async` using the optimistic message ID
+and sends only the upload reference. Definite failures retain the composer draft;
+queued attachments are held in the draft rather than reduced to names.
+
+Focused evidence: NNA `test/nnd-attachment-uploads.test.js`,
+`test/integration-server.test.js`, and `test/phase4.test.js`; NND
+`actions-recovery.test.ts` and both package typechecks. NND full UI and web
+suites and the paired source smoke, including its file-only upload/provider
+assertion, passed. This is implementation evidence,
+not installed F3 acceptance: browser/desktop upload, image route, lost reply,
+restart, queue/steer, and audio journeys remain open.
+
 ## Grounded source facts (verified this session, 2026-10-01)
 
 | Fact | Evidence |
@@ -51,7 +70,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium/desktop three-root journey passed across native restart: same session IDs/root bindings, governed reads/writes and sibling denials, exact reviewer approvals and disk effects, bound-worktree removal refusal then release/removal, stale-ID refusal, browser isolation and surviving desktop service. F1 remains open for installed aliases/junctions, removed roots/permission loss, hard shell/process scope, TUI tab preservation, and UI controls. Native inventory latency traced to two serial Windows ACL manifest probes; NNA `20261008-4` parallelizes the fresh reads, with installed diagnostic improvement but no new full installed acceptance yet. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
-| F3 | Composer/governed submission | F1-F2, C4 | in-progress | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | NNA `20261008-5` rejects unsupported file/image/unknown prompt parts before accepting a native turn, so attachments cannot be silently dropped. Native attachment ingestion and delivery, file-only input, queue/steer/abort, questions, and audio acceptance remain open. |
+| F3 | Composer/governed submission | F1-F2, C4 | in-progress | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | NNA `20261008-5` rejects unsupported file/image/unknown prompt parts before accepting a native turn. NNA `20261008-6` accepts bounded, authenticated, session-owned upload references, copies them into managed attachment facts, and accepts file-only prompts; NND `20261008-12` uploads browser files before submission and retains a file-only draft on failure. Focused native host/route/engine/provider and UI tests pass; full installed browser/desktop attachment acceptance, image observation, queue/steer/abort, questions, and audio remain open. |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
 | F5 | Model helpers/route selection | C4, F1-F2 | open | NND small-model/lib walkthrough/goal-audit callers; NNA nnd-walkthrough, nnd-notification, nnd-goal-audit, provider scheduler | — |
 | F6 | Files/review/plans/Git visibility | F1-F3, F5 | open | NND files/diff/git/plan components + lib/files/git/plan; server routes/git*, filesystem, GitHub/Linear | — |

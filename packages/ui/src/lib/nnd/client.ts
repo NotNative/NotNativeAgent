@@ -374,6 +374,10 @@ export const harnessClient = {
   async promptAsync(sessionId: string, body: PromptAsyncBody, opts?: DirOption): Promise<HarnessResult<void>> {
     return request('promptAsync', `/session/${sid(sessionId)}/prompt_async`, post(body), undefined, opts?.directory);
   },
+  async uploadAttachment(sessionId: string, body: { upload_id: string; filename: string; mime_type: string; data_url: string },
+    opts?: DirOption): Promise<HarnessResult<{ upload_id: string; sha256: string; mime_type: string; bytes: number; expires_at: string }>> {
+    return request('uploadAttachment', `/v1/nnd/sessions/${sid(sessionId)}/attachments`, post(body), undefined, opts?.directory);
+  },
   async sendCommand(sessionId: string, body: Record<string, unknown>, opts?: DirOption): Promise<HarnessResult<{ info: unknown; parts: unknown }>> {
     return request('sendCommand', `/session/${sid(sessionId)}/command`, post(body), undefined, opts?.directory);
   },

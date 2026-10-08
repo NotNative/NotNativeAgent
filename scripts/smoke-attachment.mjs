@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: Apache-2.0
+import assert from 'node:assert/strict';
+
+/** Verify browser bytes reach the real native provider without becoming prompt-body bytes. */
+export async function probeAttachment(call, json, sessionId, waitForTurn, providerRequests) {
+  const marker = 'NND_SOURCE_UPLOAD_MARKER';
+  const uploaded = await json(call, `/api/v1/nnd/sessions/${sessionId}/attachments`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+      upload_id: 'smoke_upload', filename: 'smoke.txt', mime_type: 'text/plain',
+      data_url: `data:text/plain;base64,${Buffer.from(marker).toString('base64')}`,
+    }),
+  }, 201);
+  assert.equal(uploaded.upload_id, 'smoke_upload');
+  const fileOnly = await call(`/api/session/${sessionId}/prompt_async`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messageID: 'smoke_file_only', parts: [{ type: 'text', text: '' },
+      { type: 'file', upload_id: 'smoke_upload' }] }),
+  });
+  assert.equal(fileOnly.status, 204);
+  await waitForTurn('smoke_file_only');
+  assert.ok(providerRequests().some((request) => request.messages?.some((message) =>
+    typeof message.content === 'string' && message.content.includes(marker)
+      && message.content.includes('Untrusted attachment observation'))),
+  'native upload was not delivered to the primary provider as untrusted context');
+}

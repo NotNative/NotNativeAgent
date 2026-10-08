@@ -237,7 +237,7 @@ export function Composer(props: ComposerProps): ReactNode {
 
   const submit = async (): Promise<void> => {
     const composed = shell ? text.trim() : text.trim();
-    if (!composed || sendBlocked) return;
+    if ((!composed && attachments.length === 0) || sendBlocked) return;
     restoreSnapshot.current = { text, attachments };
     const tokens = tokenizePrompt(shell ? `!${text}` : text, { commands: commandSet, skills: skillSet, snippets, agents: new Set(agentNames) });
     const skillInstruction = skillInstructionFrom(tokens);
@@ -284,6 +284,10 @@ export function Composer(props: ComposerProps): ReactNode {
       }
     }
     if (plan.queueTarget) {
+      if (attachments.length > 0) {
+        toast.error('Wait for the current turn before sending attachments. Your draft is still here.');
+        return;
+      }
       const { rider, panelActive } = btwSendState();
       await handleQueuedTarget({
         directory,
@@ -444,7 +448,7 @@ export function Composer(props: ComposerProps): ReactNode {
   // Invariant: a failed or pending config request cannot silently select the mock route for NNA.
   const sendBlocked = authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel);
   // §6.7 step 3: the send guard blocks while the session expiry is confirmed.
-  const canSend = text.trim().length > 0 && !sendBlocked;
+  const canSend = (text.trim().length > 0 || attachments.length > 0) && !sendBlocked;
   const starterList = props.starters ?? [];
 
   return (<>

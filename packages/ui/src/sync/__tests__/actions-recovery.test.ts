@@ -90,6 +90,23 @@ it('blocks prompt, create, fork, rename, and question decisions while native aut
 });
 
 describe('optimistic send (§E.2)', () => {
+  it('uploads native files before submitting a file-only prompt with a stable reference', async () => {
+    configureHarness({
+      uploadAttachment: (call) => ({ data: { upload_id: (call.body as { upload_id: string }).upload_id }, response: { status: 201 } }),
+      promptAsync: () => ({ data: undefined, response: { status: 204 } }),
+    });
+    const store = freshStore({ config: { nnd: { engine: 'nna' } } });
+    const engine = services({ ensureChild: () => store });
+    await optimisticSend(engine, { directory: 'D:/work', sessionID: 's1',
+      parts: [{ type: 'text', text: '' }, { type: 'file', url: 'data:text/plain;base64,SGk=', mime: 'text/plain', filename: 'note.txt' }],
+      model: { providerID: 'p', modelID: 'm' } });
+    const upload = callsFor('uploadAttachment')[0]!;
+    const sent = callsFor('promptAsync')[0]!.body as { messageID: string; parts: Array<{ type: string; upload_id?: string }> };
+    expect(upload.path).toBe('/v1/nnd/sessions/s1/attachments');
+    expect(sent.parts).toEqual([{ type: 'text', text: '' },
+      { type: 'file', upload_id: (upload.body as { upload_id: string }).upload_id }]);
+    expect((upload.body as { upload_id: string }).upload_id).toMatch(new RegExp(`^${sent.messageID}_1$`));
+  });
   it('does not send when a replay gap appears during connection wait', async () => {
     let resume!: () => void;
     const engine = services({ waitForConnection: () => new Promise<void>((resolve) => { resume = resolve; }) });

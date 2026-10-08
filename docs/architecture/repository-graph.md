@@ -35,13 +35,13 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Client sync and state engine | 46 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
+| Client sync and state engine | 47 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
 | Harness SDK facade | 40 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
 | Runtime adaptation | 230 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
 | UI shell | 212 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 231 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
-| Quality gates | 77 | Client sync and state engine, Runtime adaptation, Web server | — |
+| Quality gates | 78 | Client sync and state engine, Runtime adaptation, Web server | — |
 | Product foundation | 0 | — | — |
 
 ## Strongest observed component dependencies
@@ -51,7 +51,7 @@ graph LR
 | UI shell | Runtime adaptation | 372 | 148 |
 | UI shell | Harness SDK facade | 123 | 91 |
 | UI shell | Client sync and state engine | 114 | 70 |
-| Client sync and state engine | Harness SDK facade | 57 | 41 |
+| Client sync and state engine | Harness SDK facade | 59 | 42 |
 | Harness SDK facade | Runtime adaptation | 39 | 36 |
 | Quality gates | Web server | 26 | 8 |
 | Client sync and state engine | Runtime adaptation | 15 | 13 |
@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:66109fc27d1503660f93321d67529c791e879555cb37171ccbc08748095ff08e`.
+Source fingerprint: `sha256:47f80a76f33d9d0e9c8a72a6a5af8f8e067715d176607133be5d97dc41e6e86e`.

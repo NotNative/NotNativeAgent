@@ -7,7 +7,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs';
+import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs'; import { probeAttachment } from './smoke-attachment.mjs';
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
 import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
 import { probeNotificationRoutes } from './smoke-notification-routes.mjs';
@@ -18,10 +18,8 @@ import { probeNnaProjection, probeRestoredProjection } from './smoke-nna-project
 import { probeWorkspaceIdentity } from './smoke-workspace-identity.mjs';
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
-const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
-const CHILD_REPLY = 'NND_CHILD_REPLY';
-const CHILD_STEER = 'Include NND_STEER_ACK in your final answer.';
-const CHILD_STEER_ACK = 'NND_STEER_ACK';
+const CHILD_TASK = 'Reply with NND_CHILD_REPLY.'; const CHILD_REPLY = 'NND_CHILD_REPLY';
+const CHILD_STEER = 'Include NND_STEER_ACK in your final answer.'; const CHILD_STEER_ACK = 'NND_STEER_ACK';
 const PARENT_REPLY = 'NND_PARENT_REPLY';
 // The stream spans the origin-gate request and session creation, each with
 // its own step deadline. Give the live subscription their combined budget.
@@ -235,6 +233,8 @@ async function probeSession(call, workspace, nextEvent, provider, workspaceId) {
     'NNA must project the submitted user ID for optimistic transcript reconciliation');
   assert.ok(settledMessages[1].info.time.completed >= settledMessages[1].info.time.created,
     'journal-backed assistant reply must be complete, not a perpetual live tail');
+  await probeAttachment(call, json, id, (requestId) => withTimeout(waitForCompletedTurn(nextEvent, id, requestId),
+    15_000, 'native file-only upload turn did not complete'), provider.requests);
   await probeWalkthrough(call, json, id, provider.requests);
   const delegated = await call(`/api/session/${id}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -496,5 +496,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, model-only diff walkthrough, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, direct and SSE-driven autonomous continuation, completion, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, model-only diff walkthrough, live events, governed prompt, file-only upload, delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, direct and SSE-driven autonomous continuation, completion, and origin gate.\n');
 }

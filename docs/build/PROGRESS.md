@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Native attachment upload and file-only delivery · NNA 20261008-6 / NND 20261008-12
+
+An authenticated, session-owned upload route now admits bounded image and UTF-8
+text bytes before a prompt is acknowledged. NND uploads browser files to native
+in-memory references, and NNA copies them into its managed attachment lifecycle.
+A real native provider fixture and the paired NND↔NNA source smoke receive a
+file-only text observation; route tests cover authorization and prompt
+references, and the UI checks upload-before-send.
+Native upload bytes expire or release after a turn. Full installed Chromium and
+Electron attachment acceptance, image observation, queue/steer behavior, and the
+rest of F3 remain open. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Native prompt parts fail closed · NNA 20261008-5
 
 NNA now rejects unsupported file, image, or unknown `prompt_async` parts

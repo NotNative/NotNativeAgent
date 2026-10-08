@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:66109fc27d1503660f93321d67529c791e879555cb37171ccbc08748095ff08e",
+  "source_digest": "sha256:47f80a76f33d9d0e9c8a72a6a5af8f8e067715d176607133be5d97dc41e6e86e",
   "counts": {
-    "modules": 849,
+    "modules": 851,
     "component_edges": 17
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 46
+      "module_count": 47
     },
     {
       "id": "harness-facade",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 77
+      "module_count": 78
     },
     {
       "id": "foundation",
@@ -128,8 +128,8 @@
     {
       "from": "sync-engine",
       "to": "harness-facade",
-      "import_count": 57,
-      "module_count": 41
+      "import_count": 59,
+      "module_count": 42
     },
     {
       "from": "harness-facade",
@@ -5334,6 +5334,15 @@
       ]
     },
     {
+      "path": "packages/ui/src/sync/native-prompt-parts.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/sync/nna-projection.ts",
       "component": "sync-engine",
       "entrypoint": false,
@@ -5421,6 +5430,7 @@
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/materialization.ts",
         "packages/ui/src/sync/message-ordering.ts",
+        "packages/ui/src/sync/native-prompt-parts.ts",
         "packages/ui/src/sync/nna-projection.ts",
         "packages/ui/src/sync/session-lifecycle.ts",
         "packages/ui/src/sync/types.ts"
@@ -8312,6 +8322,12 @@
     },
     {
       "path": "scripts/settings-coverage-gate.test.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/smoke-attachment.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": []

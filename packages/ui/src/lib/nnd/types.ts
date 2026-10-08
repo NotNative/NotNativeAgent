@@ -285,6 +285,7 @@ export interface PromptPartInput {
   mime?: string;
   filename?: string;
   url?: string;
+  upload_id?: string;
   [key: string]: unknown;
 }
 
