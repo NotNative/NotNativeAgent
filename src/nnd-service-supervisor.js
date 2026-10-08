@@ -33,8 +33,9 @@ import { cleanupNndRetirementEvidenceUnderOwnership, recordNndTerminalRetirement
   clearNndRetirementBarriersUnderOwnership } from './nnd-activation-retirement-cleanup.js';
 import { userDataPaths } from './product.js';
 const RETAINED_BY_LEASE = new WeakMap();
-// Why: installed restart replays sessions while the GUI starts; 20 seconds expired on Windows.
-const SUPERVISED_SETUP_TIMEOUT_MS = 60_000;
+// Why: installed two-root/worktree recovery took 56 seconds in the private Windows profile;
+// leave bounded headroom for service and GUI startup around native session replay.
+const SUPERVISED_SETUP_TIMEOUT_MS = 120_000;
 async function readMetadata(path) {
   const file = await open(path, 'r');
   try {
