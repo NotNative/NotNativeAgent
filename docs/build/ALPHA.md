@@ -37,12 +37,12 @@ repository as the disposable test profile.
    credentials, or unrelated workspaces. Record versions, commits, failures,
    and the exact profile used.
 
-## Acceptance ledger at NND 20261008-19 / NNA 20261008-8
+## Acceptance ledger at NND 20261008-22 / NNA 20261008-8
 
 | Gate | Current evidence | State / next proof |
 | --- | --- | --- |
 | A1: independent installed service and two doors | Disposable source install, authenticated Chromium and Electron, surviving service, restart and desktop reattach passed on the pinned pair. | Verified for the disposable source fixture; operator profile and prebuilt distribution are separate gates. |
-| A2: setup without provider | `nna-supervised-smoke.mjs` passed on the pinned pair: setup-required browser auth, one-use ticket, session execution denied, controller stop. | In progress: configure a provider from the actual setup experience and make the first governed turn in one installed journey. |
+| A2: setup without provider | `installed-source-acceptance.mjs --native-setup-turn` passed on a disposable source install with no manifest: authenticated setup status, denied execution, native configuration repair receipt, explicit activation, first governed provider turn, and fresh Chromium chat attachment. The supervised one-use ticket/stop smoke also passed. | In progress: native API setup-to-turn is proven on the pinned source-installed pair. The GUI repair form and same-tab transition still need installed acceptance; the pre-activation browser tab did not show reliable composer error feedback after activation. |
 | A3: core chat and files | Installed direct and composer file-only sends reached real fixture providers; names survived restart; duplicate retry did not resend. Unsupported PDF was rejected before a native turn and remained a correctable draft. | Verified for fixture provider and Chromium; add ordinary text-only and desktop-originated turn in one journey. |
 | A4: native review | Earlier installed multi-root F1 journey proved exact reviewer approvals, governed disk effects, and sibling-root refusals. | In progress: prove an actual reviewer denial and one permitted effect on this pinned alpha pair in both doors. |
 | A5: safe alpha surface | The installed native service now refuses terminal HTTP and WebSocket access before PTY creation, and the native GUI disables its terminal control. Git, file, worktree, queue, and other feature routes still extend beyond core chat. | In progress: fence or explicitly authorize the remaining out-of-scope side-effecting surfaces at the server and make their unavailable state clear in the GUI. UI hiding alone is insufficient. |

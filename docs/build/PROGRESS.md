@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed setup-to-first-turn acceptance · NND 20261008-22 / NNA 20261008-8
+
+The source-installed Windows acceptance now starts with no provider manifest.
+An authenticated Chromium client observes setup-required status and refused
+execution, publishes a provider through NNA's revisioned configuration repair
+API, explicitly activates NNA, and runs governed direct and composer turns
+through the fixture provider. A fresh browser attachment rejects an unsupported
+PDF and preserves its draft, then delivers image/text files. Native restart
+recovers both transcripts without resending the provider request, and Electron
+attaches to the surviving service. The browser tab opened before activation
+did not show reliable composer error feedback after activation; the same-tab
+transition and GUI repair form still need installed acceptance. A2 remains in
+progress, while the native API setup-to-turn path is proven.
+
 ## 2026-10-08 · First alpha surface fence · NND 20261008-21
 
 The installed NNA-owned service now rejects terminal HTTP and WebSocket access

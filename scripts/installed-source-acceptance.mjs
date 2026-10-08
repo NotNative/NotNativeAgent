@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, setupBrowserProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -274,12 +274,33 @@ async function newFixture(nnaSource) {
   await privateDirectory(root);
   return prepare(nnaSource, root);
 }
-async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false) {
+async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn, attachmentProvider }) {
+  const ticket = (await cli(fixture, 'ui-ticket')).ticket;
+  const scenarioModule = nativeReplayGap ? join(fixture.root, 'native-replay-gap-browser.mjs') : null;
+  if (scenarioModule) await cp(join(source, 'scripts/electron-native-replay-gap-browser.mjs'), scenarioModule);
+  const setupResult = nativeSetupTurn ? await shell(fixture, 'browser', status.endpoint, ticket, [],
+    setupBrowserProbe(fixture.root, attachmentProvider.port)) : null;
+  if (setupResult) {
+    assert.equal(setupResult.setup_before, 'setup_required');
+    assert.equal(setupResult.setup_receipt, 'saved');
+    assert.equal(setupResult.setup_after, 'ready');
+  }
+  const chatTicket = nativeSetupTurn ? (await cli(fixture, 'ui-ticket')).ticket : ticket;
+  const browserResult = await shell(fixture, 'browser', status.endpoint, chatTicket, [],
+    nativeAttachments || nativeSetupTurn ? attachmentBrowserProbe() : '', scenarioModule);
+  if (nativeAttachments || nativeSetupTurn) assertInstalledAttachmentDelivery(browserResult, attachmentProvider.requests);
+  const desktopStatus = nativeAttachments || nativeSetupTurn
+    ? await restartAttachmentService(fixture, status, browserResult, attachmentProvider.requests) : status;
+  await shell(fixture, 'desktop', desktopStatus.endpoint);
+  const after = await cli(fixture, 'status');
+  assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');
+}
+async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false, nativeSetupTurn = false) {
   const fixture = await newFixture(nnaSource); const root = fixture.root;
   let serviceStopped = false; let accepted = false;
   let attachmentProvider;
   try {
-    if (nativeAttachments) attachmentProvider = await startAttachmentProvider();
+    if (nativeAttachments || nativeSetupTurn) attachmentProvider = await startAttachmentProvider();
     if (nativeReplayGap || nativeAttachments) await writeProbeManifest(fixture, nativeAttachments, attachmentProvider?.port);
     await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
       join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
@@ -300,22 +321,13 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     assert.equal(status.installation_id, selected.installation_id);
     assert.equal(status.data_id, selected.data_id);
     assert.ok(['ready', 'setup_required'].includes(status.service_state));
+    if (nativeSetupTurn) assert.equal(status.service_state, 'setup_required');
     assert.equal(status.package_state, 'ready');
     assert.equal(status.package_version, packageVersion);
-    const ticket = (await cli(fixture, 'ui-ticket')).ticket;
-    const scenarioModule = nativeReplayGap ? join(root, 'native-replay-gap-browser.mjs') : null;
-    if (scenarioModule) await cp(join(source, 'scripts/electron-native-replay-gap-browser.mjs'), scenarioModule);
-    const browserResult = await shell(fixture, 'browser', status.endpoint, ticket, [],
-      nativeAttachments ? attachmentBrowserProbe() : '', scenarioModule);
-    if (nativeAttachments) assertInstalledAttachmentDelivery(browserResult, attachmentProvider.requests);
-    const desktopStatus = nativeAttachments
-      ? await restartAttachmentService(fixture, status, browserResult, attachmentProvider.requests) : status;
-    await shell(fixture, 'desktop', desktopStatus.endpoint);
-    const after = await cli(fixture, 'status');
-    assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');
+    await runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn, attachmentProvider });
     await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true;
     accepted = true;
-    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeAttachments ? ', file-only composer delivery and service restart recovery' : ''}, desktop attach and service lifetime passed.\n`);
+    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeSetupTurn ? ', fresh native setup and first turn' : ''}${nativeAttachments || nativeSetupTurn ? ', file-only composer delivery and service restart recovery' : ''}, desktop attach and service lifetime passed.\n`);
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
@@ -331,7 +343,8 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (![3, 4].includes(process.argv.length) || process.argv.length === 4
-    && !['--native-replay-gap', '--native-attachments'].includes(process.argv[3]))
-    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments]');
-  await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap', process.argv[3] === '--native-attachments');
+    && !['--native-replay-gap', '--native-attachments', '--native-setup-turn'].includes(process.argv[3]))
+    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments|--native-setup-turn]');
+  await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap', process.argv[3] === '--native-attachments',
+    process.argv[3] === '--native-setup-turn');
 }

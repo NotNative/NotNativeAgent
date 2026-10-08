@@ -73,6 +73,37 @@ export function attachmentBrowserProbe() {
   })()`;
 }
 
+export function setupBrowserProbe(workspaceRoot, providerPort) {
+  return `(async()=>{
+    const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const before=await fetch('/api/v1/nnd/setup/status');
+    if(before.status!==200)throw Error('setup status '+before.status);
+    const initial=await before.json();
+    if(initial.service_state!=='setup_required'||initial.execution_state!=='unavailable')
+      throw Error('fresh install did not require setup '+JSON.stringify(initial));
+    const denied=await post('/api/session',{});
+    if(denied.status!==503)throw Error('unconfigured execution was admitted '+denied.status);
+    const read=await fetch('/api/v1/nnd/configuration');
+    if(read.status!==200)throw Error('configuration read '+read.status+' '+await read.text());
+    const view=await read.json();
+    if(view.source_state!=='missing'||view.source_revision!=='absent')
+      throw Error('fresh configuration source was not missing '+JSON.stringify({state:view.source_state,revision:view.source_revision}));
+    const configurationDocument={workspace_root:${JSON.stringify(workspaceRoot)},provider:{id:'smoke',
+      endpoint:${JSON.stringify(`http://127.0.0.1:${providerPort}/v1`)},model:'test',trust_zone:'loopback'}};
+    const repaired=await post('/api/v1/nnd/configuration/repair',{installation_id:view.installation_id,
+      data_id:view.data_id,scope:'user',expected_revision:view.source_revision,
+      operation_id:'installed_first_setup',document:configurationDocument});
+    if(repaired.status!==200)throw Error('native setup repair '+repaired.status+' '+await repaired.text());
+    const receipt=await repaired.json();
+    if(receipt.persistence!=='saved'||receipt.application!=='not_applied')throw Error('setup receipt '+JSON.stringify(receipt));
+    const activated=await post('/api/v1/nnd/setup/activate',{});
+    if(activated.status!==200)throw Error('native setup activation '+activated.status+' '+await activated.text());
+    const active=await activated.json();
+    if(active.service_state!=='ready'||active.execution_state!=='ready')throw Error('native setup not ready '+JSON.stringify(active));
+    return {setup_before:initial.service_state,setup_receipt:receipt.persistence,setup_after:active.service_state};
+  })()`;
+}
+
 function composerBrowserProbe() {
   return `(async()=>{
     const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
