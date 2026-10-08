@@ -1,6 +1,8 @@
 # NotNativeDesktop executable build guide
 
 Status: accepted product direction; implementation work packages remain open.
+For an earlier, narrower operator-testing milestone, see [Windows testable
+alpha](ALPHA.md); it does not change this MVP completion contract.
 Decision date: 2026-10-01. Implementation resumed; see the [execution ledger](EXECUTION/LEDGER.md).
 For a framework-first, multi-agent handoff from the current shipped baseline, use
 the [MVP executor handoff](EXECUTION/mvp-agent-handoff.md). It identifies the

@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Narrow Windows testable alpha milestone
+
+The [alpha gate](ALPHA.md) records a shorter path to isolated operator testing:
+one selected native installation and workspace, authenticated browser/desktop,
+configured governed chat, file delivery, service recovery, and safe removal.
+The current pair passed the supervised setup-required smoke as well as the
+installed attachment/restart journey. Native setup-to-first-turn, current-pair
+review decisions, and fencing unverified side-effecting surfaces remain open
+before a hands-on alpha install. The broad MVP plan and package statuses are
+unchanged.
+
 ## 2026-10-08 · Installed unsupported attachment recovery · NND 20261008-19 / NNA 20261008-8
 
 Draft-origin session creation now registers the native session without changing

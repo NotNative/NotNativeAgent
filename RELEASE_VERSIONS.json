@@ -1600,6 +1600,10 @@
     {
       "version": "20261008-19",
       "content_sha256": "047c9a2842ce9a5127f27867a814df828ae6bb8522223b02139e437d5642b214"
+    },
+    {
+      "version": "20261008-20",
+      "content_sha256": "f769e91bff5e7eb4f8f46f7b2f124f035f8dc0b0c4a19d67d9991a1980d835f6"
     }
   ]
 }
