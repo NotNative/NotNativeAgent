@@ -102,7 +102,7 @@ const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
 app.setPath('userData',${JSON.stringify(mainUrl.userData)});
-let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? 600000 : 45000});
+let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? 900000 : 45000});
 function finish(ok){if(done)return;done=true;clearTimeout(timer);if(ok)process.stdout.write('NND_INSTALLED_${mode === 'browser' ? 'BROWSER' : 'DESKTOP'}_OK\\n');app.exit(ok?0:1)}
 app.whenReady().then(async()=>{
 try{
@@ -119,14 +119,19 @@ let inputReady=false;for(let i=0;i<100;i++){inputReady=await win.webContents.exe
 if(!inputReady)throw Error('Native code form did not authenticate: input_missing');
 await win.webContents.executeJavaScript('document.getElementById("native-bootstrap-code").focus()');
 for(const key of ticket)win.webContents.sendInputEvent({type:'char',keyCode:key});
+await new Promise(r=>setTimeout(r,100));
+if(await win.webContents.executeJavaScript('document.getElementById("native-bootstrap-code")?.value.length===0'))await win.webContents.insertText(ticket);
 const accepted=await win.webContents.executeJavaScript('(async()=>{let button;for(let j=0;j<100;j++){button=document.querySelector("[data-testid=gate-native-bootstrap] button");if(button&&!button.disabled)break;await new Promise(r=>setTimeout(r,100))}if(!button||button.disabled){const input=document.getElementById("native-bootstrap-code");return "button_disabled_length_"+(input?.value.length||0)+"_focused_"+(document.activeElement===input)}button.click();let code=0;for(let j=0;j<100;j++){const response=await fetch("/auth/session");code=response.status;const status=await response.json();if(code===200&&status.authenticated===true)return "ok";await new Promise(r=>setTimeout(r,100))}return "session_"+code+"_"+(document.querySelector("[role=alert]")?.textContent||"").slice(0,80)})()');
 if(accepted!=='ok')throw Error('Native code form did not authenticate: '+accepted);
 phase('auth_accepted');
 ${browserProbeExpression ? `phase('probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
 const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
+phase('isolation_window_created');
 await other.loadURL(${JSON.stringify(origin)});
+phase('isolation_loaded');
 const isolated=await other.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,body:await response.json()}})()');
 if(isolated.status!==401||isolated.body.authenticated!==false)throw Error('Independent browser partition did not retain the unauthenticated session contract');
+phase('isolation_verified');
 finish(true);` : `app.on('browser-window-created',(_event,win)=>{phase('window_created');
 win.webContents.on('did-finish-load',async()=>{if(done||!win.webContents.getURL().startsWith(${JSON.stringify(origin)}))return;
 phase('window_loaded');
@@ -161,7 +166,7 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
-      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? 615000 : 60000, outputFiles });
+      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? 915000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);

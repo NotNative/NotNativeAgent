@@ -38,6 +38,8 @@ export async function probeSelectedWorkspace(app, primary, secondary, providerRe
   assert.equal(submitted.status, 204);
   await waitForReply(call, created.id);
   assert.ok(providerRequests().length > priorRequests, 'selected-root prompt did not reach the isolated provider');
+  await probeGovernedWrite(call, created.id, secondary, primary, providerRequests);
+  await probeGovernedReads(call, created.id, primaryMarker, providerRequests);
   const write = await json(call, `/api/fs/write?directory=${encoded(secondary)}`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ path: 'F1_SELECTED_WRITE.txt', content: 'selected-write' }),
@@ -51,6 +53,52 @@ export async function probeSelectedWorkspace(app, primary, secondary, providerRe
   assert.equal(escape.status, 403, 'selected root must not read its sibling fixture');
   await probeRemovedWorkspace(call, primary, row.id);
   return { id: created.id, workspaceId: row.id, secondary };
+}
+
+async function probeGovernedWrite(call, sessionId, secondary, primary, providerRequests) {
+  const repliesBefore = await replyCount(call, sessionId);
+  await submitToolPrompt(call, sessionId, 'NND_TOOL_WRITE_ALLOW: Write F1_GOVERNED_WRITE.txt with governed-selected in this workspace.');
+  await waitForReply(call, sessionId, repliesBefore + 1);
+  const toolResult = providerRequests().flatMap(request => request.messages ?? [])
+    .find(message => message.role === 'tool' && message.tool_call_id === 'nnd_write_allow');
+  assert.ok(toolResult, 'selected-root governed write did not reach NNA');
+  assert.ok(String(toolResult.content).includes('"tool_lifecycle_status":"succeeded"'),
+    `selected-root governed write failed: ${String(toolResult.content).slice(0, 500)}`);
+  assert.equal(await readFile(join(secondary, 'F1_GOVERNED_WRITE.txt'), 'utf8'), 'governed-selected');
+  await assert.rejects(access(join(primary, 'F1_GOVERNED_WRITE.txt')), { code: 'ENOENT' });
+}
+
+async function submitToolPrompt(call, sessionId, text) {
+  const body = JSON.stringify({ messageID: `tool_${randomUUID().replaceAll('-', '')}`, parts: [{ type: 'text', text }] });
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const sent = await call(`/api/session/${sessionId}/prompt_async`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body,
+    });
+    if (sent.status === 204) return;
+    assert.equal(sent.status, 409, `tool prompt failed: ${await sent.text()}`);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error(`native session stayed busy before governed tool prompt: ${text}`);
+}
+
+async function probeGovernedReads(call, sessionId, primaryMarker, providerRequests) {
+  for (const [prompt, callId, expected, forbidden] of [
+    ['NND_TOOL_READ_ALLOW', 'nnd_read_allow', 'secondary-only', 'primary-only'],
+    [`NND_TOOL_READ_ESCAPE:${primaryMarker}`, 'nnd_read_escape', null, 'primary-only'],
+  ]) {
+    const repliesBefore = await replyCount(call, sessionId);
+    await submitToolPrompt(call, sessionId, prompt);
+    await waitForReply(call, sessionId, repliesBefore + 1);
+    const toolResult = providerRequests().flatMap(request => request.messages ?? [])
+      .find(message => message.role === 'tool' && message.tool_call_id === callId);
+    assert.ok(toolResult, `${callId} did not execute through NNA`);
+    assert.ok(!String(toolResult.content).includes(forbidden),
+      `${callId} leaked another workspace: ${String(toolResult.content).slice(0, 500)}`);
+    if (expected) assert.ok(String(toolResult.content).includes(expected), `${callId} did not read its selected workspace`);
+    else assert.ok(String(toolResult.content).includes('tool_scope_denied'),
+      `${callId} was not denied by the workspace boundary`);
+  }
 }
 
 async function admitSecondary(call, primary, secondary) {

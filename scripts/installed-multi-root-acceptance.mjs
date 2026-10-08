@@ -27,9 +27,28 @@ async function provider() {
       }
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
-      requests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      requests.push(body);
+      const userText = String(body.messages?.filter(message => message.role === 'user').at(-1)?.content ?? '');
+      const toolProbe = userText.includes('NND_TOOL_READ_ALLOW') ? 'allow'
+        : userText.includes('NND_TOOL_READ_ESCAPE') ? 'escape' : null;
+      const callId = toolProbe === 'allow' ? 'nnd_read_allow' : 'nnd_read_escape';
+      const toolReply = toolProbe ? body.messages?.find(message => message.role === 'tool' && message.tool_call_id === callId) : null;
+      let delta = { role: 'assistant', content: 'NND_INSTALLED_REPLY' };
+      if (toolProbe && !toolReply) delta = { role: 'assistant', tool_calls: [{ index: 0, id: callId,
+        type: 'function', function: { name: 'fs_read', arguments: JSON.stringify({ path: toolProbe === 'allow'
+          ? 'SECONDARY_SENTINEL.txt' : userText.match(/NND_TOOL_READ_ESCAPE:(\S+)/u)?.[1] }) } }] };
+      if (toolReply) {
+        const result = JSON.parse(toolReply.content);
+        const valid = toolProbe === 'allow'
+          ? result.tool_lifecycle_status === 'succeeded' && result.content === 'secondary-only'
+          : result.tool_lifecycle_status !== 'succeeded' && toolReply.content.includes('tool_scope_denied')
+            && !toolReply.content.includes('primary-only');
+        delta = { role: 'assistant', content: valid ? `NND_INSTALLED_READ_${toolProbe.toUpperCase()}_PASS`
+          : `NND_INSTALLED_READ_${toolProbe.toUpperCase()}_FAIL` };
+      }
       response.writeHead(200, { 'content-type': 'text/event-stream' });
-      response.end(`data: ${JSON.stringify({ choices: [{ delta: { role: 'assistant', content: 'NND_INSTALLED_REPLY' }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
+      response.end(`data: ${JSON.stringify({ choices: [{ delta, finish_reason: toolProbe && !toolReply ? 'tool_calls' : 'stop' }] })}\n\ndata: [DONE]\n\n`);
     })().catch(() => { if (!response.headersSent) response.writeHead(400); response.end(); });
   });
   await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
@@ -57,7 +76,7 @@ async function fixtureRepositories(fixture, providerPort) {
   return { primary: await realpath(primary), secondary: await realpath(secondary) };
 }
 
-async function browserSelectedBefore({ primary, secondary }) {
+async function browserSelectedBefore({ primary, secondary }, governedReads) {
   const jsonBody = value => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
   const request = async (path, init, expected) => {
     const started = Date.now(); console.info(`NND_PROBE_STEP:${path}:start`);
@@ -99,6 +118,7 @@ async function browserSelectedBefore({ primary, secondary }) {
     await new Promise(done => setTimeout(done, 100));
   }
   if (!replied) throw Error('selected installed turn did not complete');
+  await governedReads(request, session.id, primary);
   const write = await request(`/api/fs/write?directory=${encodeURIComponent(secondary)}`, jsonBody({ path: 'SELECTED_WRITE.txt', content: 'installed-selected' }), 200);
   if (write.success !== true) throw Error('selected file write failed');
   const escape = await fetch(`/api/fs/read?directory=${encodeURIComponent(secondary)}&path=${encodeURIComponent('../../primary/shared/PRIMARY_SENTINEL.txt')}`);
@@ -106,6 +126,37 @@ async function browserSelectedBefore({ primary, secondary }) {
   console.info(`NND_PROBE_STEP:late-escape:${escape.status}:${escapeBody.slice(0, 160)}`);
   if (escape.status !== 403) throw Error(`sibling repository read escaped selected scope: ${escape.status} ${escapeBody.slice(0, 300)}`);
   return { workspaceId: row.id, sessionId: session.id };
+}
+
+async function browserGovernedReads(request, sessionId, primary) {
+  for (const [prompt, marker] of [
+    ['NND_TOOL_READ_ALLOW', 'NND_INSTALLED_READ_ALLOW_PASS'],
+    [`NND_TOOL_READ_ESCAPE:${primary}\\PRIMARY_SENTINEL.txt`, 'NND_INSTALLED_READ_ESCAPE_PASS'],
+  ]) {
+    const body = JSON.stringify({ messageID: `tool_${crypto.randomUUID()}`, parts: [{ type: 'text', text: prompt }] });
+    let accepted = false;
+    for (let i = 0; i < 150; i++) {
+      const response = await fetch(`/api/session/${sessionId}/prompt_async`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body,
+      });
+      if (response.status === 204) { accepted = true; break; }
+      if (response.status !== 409) throw Error(`native tool prompt failed: ${response.status} ${await response.text()}`);
+      await new Promise(done => setTimeout(done, 100));
+    }
+    if (!accepted) throw Error(`native session stayed busy before tool probe: ${prompt}`);
+    let complete = false;
+    for (let i = 0; i < 150; i++) {
+      const messages = await request(`/api/session/${sessionId}/message`, undefined, 200);
+      if (messages.some(message => message.info?.role === 'assistant'
+        && message.parts?.some(part => part.text?.includes(marker)))) { complete = true; break; }
+      if (messages.some(message => message.info?.role === 'assistant'
+        && message.parts?.some(part => part.text?.includes(marker.replace('_PASS', '_FAIL'))))) {
+        throw Error(`native tool scope failed: ${prompt}`);
+      }
+      await new Promise(done => setTimeout(done, 100));
+    }
+    if (!complete) throw Error(`native tool probe did not complete: ${prompt}`);
+  }
 }
 
 async function browserWorktreeBefore({ primary }) {
@@ -240,7 +291,7 @@ async function main(nnaSource) {
     const initial = await waitReady(fixture, await cli(fixture, 'status'));
     assert.equal(initial.service_state, 'ready', `installed native runtime did not activate: ${JSON.stringify(initial)}`);
     const before = await shell(fixture, 'browser', initial.endpoint, (await cli(fixture, 'ui-ticket')).ticket,
-      [], `(async roots => ({ ...await (${browserSelectedBefore.toString()})(roots), ...await (${browserWorktreeBefore.toString()})(roots) }))(${JSON.stringify(roots)})`);
+      [], `(async roots => ({ ...await (${browserSelectedBefore.toString()})(roots, ${browserGovernedReads.toString()}), ...await (${browserWorktreeBefore.toString()})(roots) }))(${JSON.stringify(roots)})`);
     assert.equal(await readFile(join(roots.secondary, 'SELECTED_WRITE.txt'), 'utf8'), 'installed-selected');
     await assert.rejects(readFile(join(roots.primary, 'SELECTED_WRITE.txt')), { code: 'ENOENT' });
     assert.equal(await readFile(join(before.worktreeRoot, 'WORKTREE_WRITE.txt'), 'utf8'), 'installed-worktree');

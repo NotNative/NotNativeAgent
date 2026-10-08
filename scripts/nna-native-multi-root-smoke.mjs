@@ -37,9 +37,41 @@ async function provider() {
       }
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
-      requests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      requests.push(body);
+      const userText = String(body.messages?.filter(message => message.role === 'user').at(-1)?.content ?? '');
+      const toolProbe = userText.includes('NND_TOOL_WRITE_ALLOW') ? 'write'
+        : userText.includes('NND_TOOL_READ_ALLOW') ? 'allow'
+          : userText.includes('NND_TOOL_READ_ESCAPE') ? 'escape' : null;
+      const callId = toolProbe === 'allow' ? 'nnd_read_allow'
+        : toolProbe === 'escape' ? 'nnd_read_escape' : 'nnd_write_allow';
+      const toolReply = body.messages?.find(message => message.role === 'tool' && message.tool_call_id === callId);
+      const searched = body.messages?.some(message => message.role === 'tool' && message.tool_call_id === 'nnd_write_search');
+      const toolCall = toolProbe === 'write' && !searched
+        ? { id: 'nnd_write_search', name: 'tool_search', args: { query: 'fs_write_text' } }
+        : toolProbe && !toolReply ? { id: callId, name: toolProbe === 'write' ? 'fs_write_text' : 'fs_read',
+          args: toolProbe === 'write' ? { path: 'F1_GOVERNED_WRITE.txt', content: 'governed-selected' }
+            : { path: toolProbe === 'allow' ? 'F1_SECONDARY_SENTINEL.txt'
+              : userText.match(/NND_TOOL_READ_ESCAPE:(\S+)/u)?.[1] } } : null;
+      const delta = toolCall ? { role: 'assistant', tool_calls: [{ index: 0, id: toolCall.id, type: 'function',
+        function: { name: toolCall.name, arguments: JSON.stringify(toolCall.args) } }] }
+        : { role: 'assistant', content: 'NND_SOURCE_REPLY' };
+      if (body.messages?.[0]?.content?.includes('isolated tool-permission decision')) {
+        const review = JSON.parse(body.messages.find(message => message.role === 'user')?.content ?? '{}');
+        const intent = review.authenticatedIntent?.find(item => item.content?.includes('NND_TOOL_WRITE_ALLOW'));
+        const approved = review.request?.toolName === 'fs_write_text'
+          && review.request.args?.path === 'F1_GOVERNED_WRITE.txt'
+          && review.request.args?.content_sha256 === createHash('sha256').update('governed-selected').digest('hex')
+          && review.request.args?.content_bytes === 17 && intent;
+        delta.content = JSON.stringify({ outcome: approved ? 'approve' : 'deny_with_guidance', confidence: 1,
+          reason_code: approved ? 'exact_fixture_write' : 'fixture_write_mismatch',
+          authority_anchors: approved ? [intent.sequence] : [],
+          ...(!approved ? { guidance: 'This fixture approves only its exact selected-root write.' } : {}) });
+        delete delta.tool_calls;
+      }
       response.writeHead(200, { 'content-type': 'text/event-stream' });
-      response.end(`data: ${JSON.stringify({ choices: [{ delta: { role: 'assistant', content: 'NND_SOURCE_REPLY' }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
+      response.end(`data: ${JSON.stringify({ choices: [{ delta,
+        finish_reason: delta.tool_calls ? 'tool_calls' : 'stop' }] })}\n\ndata: [DONE]\n\n`);
     })().catch(() => { if (!response.headersSent) response.writeHead(400); response.end(); });
   });
   await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
@@ -133,7 +165,7 @@ async function main(nnaSource) {
       await rm(canonical, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   }
-  process.stdout.write('Native two-root source smoke passed: admission receipt, selected and primary provider turns, scoped file access, and restart recovery.\n');
+  process.stdout.write('Native two-root source smoke passed: admission, provider turns, governed selected-root read/write and scope denial, and restart recovery.\n');
 }
 
 async function configureNativeFixture(nnaSource, fixture, primary, data, providerPort) {

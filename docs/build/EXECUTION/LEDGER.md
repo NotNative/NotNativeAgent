@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; governed tool scope, permission loss, and broader feature coverage remain open. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed governed write, shell/process scope, permission loss, and broader feature coverage remain open. |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -415,6 +415,40 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261008-2 / NNA 20261008-2 (`00ff181c`) — native selected-root tool boundary
+
+An adversarial F1 probe found that NND sessions inherited the Console's
+host-wide filesystem path policy. A provider-driven `fs_read` from the
+secondary repository actually returned the primary repository's sentinel.
+NNA now bounds parent and child NND tool paths to their immutable native
+workspace binding while the TUI retains its existing host scope. A focused
+native regression passes 5/5, and the source two-root/worktree smoke now
+exercises a provider-governed selected-root file write, an in-root read, and
+an exact `tool_scope_denied` for a sibling-root read. The source fixture
+verifies the write on disk and proves no corresponding primary-root file.
+Its fake reviewer approves only the exact user-requested fixture write.
+
+The installed tool probe first exposed a 10-second `fs_read` deadline spent
+in Windows identity/path revalidation, recorded by NNA as `tool_timeout`.
+Canonical `fs_read` now has a finite 30-second deadline. A subsequent private
+installed run recorded a successful selected-root read and exact
+`tool_scope_denied` for the primary sentinel. Its restored turn then exposed
+a fixture-provider bug: an old tool result in restored history was treated as
+the current turn's result, returning provider HTTP 400. The provider fixture
+now scopes that lookup to tool-probe turns. The final fresh installed run
+passed authenticated Chromium selected-root read/scope denial, both selected
+and worktree provider turns after native stop/start, worktree revocation and
+stale-ID 409, desktop attach, clean service stop, and fixture removal. The
+Chromium Native code harness gained a paste fallback after one earlier run
+delivered no characters to a focused form. Adversarial review also
+found that shell/process arguments can still name host paths despite the
+bounded working directory, so hard cross-root execution isolation and the
+remaining per-root/restart governed tool cases are explicitly open. NNA's
+bounded full suite encountered concurrent Windows staging failures; the
+affected census/slot-staging tests passed 26/26 in isolation. Current
+cross-platform conformance evidence is still absent, so NNA's distribution
+seal remains unwritten.
 
 ## NND 20261008-1 / NNA 20261008-1 (`5b81a449`) — installed worktree recovery acceptance
 
