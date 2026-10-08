@@ -111,6 +111,11 @@ function installExtensions(engine, options) {
   engine.questionBroker = questionBroker(engine, options);
 }
 
+function boundedToolSurface(engine, options) {
+  // Security: selected desktop sessions must not inherit the Console's host-wide file paths.
+  return engine.config.executionManifest !== null || options.surface === 'nnd' || options.surface === 'nnd_subagent';
+}
+
 function installCapabilities(engine, options, storeRoot, hooks) {
   installNotifications(engine, options); const imageObserver = createImageObserver(engine);
   installConversationWork(engine, options, hooks);
@@ -123,7 +128,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
     workspaceIdentityCheck: nndToolWorkspaceIdentityCheck(engine, options.workspaceBinding, options.workspaceBindingResolver),
     browserSurface: options.surface === 'nnd' || options.surface === 'nnd_subagent' ? 'nnd' : 'playwright',
-    hosted: engine.config.executionManifest !== null, boundedToWorkspace: engine.config.executionManifest !== null,
+    hosted: engine.config.executionManifest !== null, boundedToWorkspace: boundedToolSurface(engine, options),
     administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),
     allowedTools: engine.config.executionManifest?.allowedTools,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rename, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventHub } from '../src/events.js';
@@ -67,6 +67,24 @@ test('NND child engines inherit the same immutable native workspace check', asyn
   await assert.rejects(parent.tools.assertWorkspaceIdentity(), { code: 'tool_revalidation_drift' });
   await assert.rejects(child.tools.assertWorkspaceIdentity(), { code: 'tool_revalidation_drift' });
   await assert.doesNotReject(consoleEngine.tools.assertWorkspaceIdentity());
+});
+
+test('NND parent and child tools cannot read a sibling root while the TUI retains host scope', async t => {
+  const f = await fixture(t);
+  const sibling = join(f.parent, 'sibling.txt');
+  await writeFile(sibling, 'sibling-secret');
+  const config = resolveManifest({ persistence: 'ephemeral', workspace_root: f.root,
+    provider: { id: 'fixture', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture', trust_zone: 'loopback' } });
+  const parent = new SessionEngine({ config, surface: 'nnd', workspaceBinding: f.binding,
+    workspaceBindingResolver: f.resolver });
+  const child = new SessionEngine({ ...parent.subagentOptions, config, surface: 'nnd_subagent', subagentDepth: 1 });
+  const consoleEngine = new SessionEngine({ config, surface: 'interactive_tui' });
+  await Promise.all([parent.tools.initialize(), child.tools.initialize(), consoleEngine.tools.initialize()]);
+  t.after(() => { parent.tools.close(); child.tools.close(); consoleEngine.tools.close(); });
+  for (const engine of [parent, child]) {
+    await assert.rejects(engine.tools.definition('fs_read').validate({ path: sibling }));
+  }
+  await assert.doesNotReject(consoleEngine.tools.definition('fs_read').validate({ path: sibling }));
 });
 
 test('replaced native workspace blocks execution before the reviewer ledger starts', async t => {

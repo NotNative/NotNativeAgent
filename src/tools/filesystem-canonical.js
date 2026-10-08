@@ -32,7 +32,9 @@ function readDefinition(legacy) {
   return {
     name: 'fs_read', version: 1,
     purpose: 'Read bounded UTF-8 text from one accessible file. Omit line arguments for the complete file, or provide start_line and line_count for a numbered window. Every result records the snapshot receipt required by later edits.',
-    sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
+    // Why: installed Windows roots can spend the former 10-second budget in
+    // native identity and path revalidation before a bounded file read begins.
+    sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 30_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to one UTF-8 text file.' },
       start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Optional first one-based line. Omit for the complete file.' },
