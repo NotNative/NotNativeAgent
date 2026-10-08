@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed governed write, shell/process scope, permission loss, and broader feature coverage remain open. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed selected-root governed writes before and after restart have journal/reviewer/disk evidence, but the expanded full fixture timed out during post-removal inventory. Shell/process scope, permission loss, other-root governed effects, and broader feature coverage remain open. |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -415,6 +415,37 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261008-3 / NNA 20261008-3 (`22259beb`) — installed governed write proof
+
+The private installed Windows fixture now sends exact selected-root
+`fs_write_text` calls through the native tool registry and isolated reviewer
+before and after native service restart. The fake reviewer approves only a
+write whose path, content hash, byte count, and authenticated user intent
+match the fixture. Native journal receipts record both writes as succeeded;
+the second completed in 11.1 seconds, beyond the former 10-second tool
+deadline. The exact post-restart bytes were observed under the selected
+secondary repository, with no counterpart in the primary repository. NNA
+raised only `fs_write_text` to a finite 30-second deadline. Focused native
+tool tests passed 17/17, productization tests 28/28, and an independent
+adversarial review found the deadline change appropriately scoped. The NNA
+bounded full suite again had parallel Windows staging failures; the affected
+staging/census tests passed 26/26 in isolation. NNA distribution sealing is
+still withheld pending current cross-platform conformance evidence.
+
+The expanded installed fixture's first Chromium phase completed. After
+restart it verified the selected write and resumed worktree turn, deleted the
+worktree file, released its session, and received a 200 worktree-removal
+response. Slow installed API calls then exhausted the fixture's 15-minute
+Chromium watchdog while reading the post-removal inventory. The failed
+fixture remains preserved; this run does **not** pass full installed
+acceptance or recertify desktop attachment and final service cleanup. An
+earlier `20261008-2` private installed run passed those original worktree,
+desktop, and cleanup checks. The harness also gained a generated-script
+syntax check after a malformed restart probe failed before any API call.
+F1 remains in progress: worktree and primary governed effects, permission
+loss, TUI preservation in this updated pair, and hard shell/process scope
+still need proof or implementation.
 
 ## NND 20261008-2 / NNA 20261008-2 (`00ff181c`) — native selected-root tool boundary
 
