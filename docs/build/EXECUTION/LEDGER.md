@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | open | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | — |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Native admission and selected session roots implemented in source; governed two-repository/worktree and installed acceptance remain open. |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -415,6 +415,39 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261007-64 — F1 native workspace admission and selected session roots (in progress)
+
+NNA `20261007-2` / `9a62154b` added durable, replayable native admission;
+NNA `20261007-3` / `e5c3d5ab` binds an admitted `ws_` identity to the engine,
+catalog, prompt authority and child turn, and projects attached/admitted roots
+to the local operator. The NND browser now offers an admitted project selector
+and explicit Add workspace action. Its server checks the native inventory and
+local canonical directory before forwarding a selected `workspace_id`; created
+sessions must return the selected root and project ID. The local proxy principal
+has the native workspace-manage permission needed for the explicit admission
+operation. Native protocol remains `1.0`.
+
+Adversarial review found and we repaired a primary-only post-create guard that
+returned 409 after a successful secondary-root create, broad workspace scope
+on delegated turns, broadening of every authenticated principal, and startup
+failure when one admitted root was revoked or missing. Unavailable admitted
+catalog entries are retained and quarantined during startup; the attached root
+still serves sessions. The native source tests cover replay, poisoned identity,
+selected-root creation, scoped turns, revocation, and preserved catalog recovery.
+Focused native F1 tests passed 16/16. The serial NNA full run reported
+2,413 passing, one failing test fixture, and eight skips out of 2,422; the
+fixture omitted newly wired service factories, was repaired, and its isolated
+test passed after the run. NNA graph, language and quality gates passed.
+NND UI passed 1,929/1,929; web 1,449/1,449; Electron 218 passing with two
+skips; typecheck and quality gates passed. Cross-repo source smoke and a
+disposable Windows installed-source browser/desktop attachment passed before
+the version bumps (NND `20261007-63`, NNA `20261007-2` working sources).
+These do not prove a sealed `20261007-64` installation or a multi-root governed
+turn. F1 remains in progress: two-repository/worktree governed read/write,
+file/Git/terminal binding, alias/junction and removal scenarios, and installed
+browser/desktop restart acceptance are still required. F2-F10 and V gates stay
+open.
 
 ## NND 20261007-63 — the C6-exit audit closes the stage: prose residue cleared, store separation pinned
 

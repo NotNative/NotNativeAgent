@@ -64,7 +64,7 @@ describe('managed local NNA launcher', () => {
     const second = JSON.parse(Buffer.from(harness.principal(), 'base64url').toString('utf8'));
     expect(first.workspace_ids).toEqual([id]);
     expect(first.permissions).toContain('nnd.workspace.read');
-    expect(first.permissions).not.toContain('nnd.workspace.manage');
+    expect(first.permissions).toContain('nnd.workspace.manage');
     expect(first.permissions).toContain('nnd.steer');
     expect(first.permissions).toContain('provider.read');
     expect(first.permissions).toContain('provider.discover');
@@ -231,5 +231,16 @@ describe('managed local NNA launcher', () => {
     expect(result.status).toBe(409);
     expect(await result.text()).toContain('created-1');
     expect(forward).toHaveBeenCalledOnce();
+  });
+
+  it('accepts a selected admitted workspace identity from a guarded create', async () => {
+    const primary = `ws_${'a'.repeat(24)}`;
+    const selected = `ws_${'b'.repeat(24)}`;
+    const forward = vi.fn(async () => new Response(JSON.stringify({ id: 'created-2', projectID: selected }), { status: 200 }));
+    const guarded = guardLocalNnaHarness({ handle: forward },
+      { isRunning: () => true, ensurePrimaryWorkspaceId: async () => primary });
+    const response = await guarded.handle(new Request('http://nnd.local/api/session', { method: 'POST',
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace_id: selected }) }));
+    expect(response.status).toBe(200);
   });
 });

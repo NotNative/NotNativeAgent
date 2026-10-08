@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:b49950c6738be54738bf4a25614044c5697c20fb45ccef98b52d3b41b2639cfd",
+  "source_digest": "sha256:7f5ef2671d5deb47aa0cb0ace9347f7dfce43963999379113d3b0c86a5b5769c",
   "counts": {
-    "modules": 841,
+    "modules": 843,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 39
+      "module_count": 40
     },
     {
       "id": "runtime-io",
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 210
+      "module_count": 211
     },
     {
       "id": "web-server",
@@ -115,14 +115,14 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 119,
-      "module_count": 88
+      "import_count": 121,
+      "module_count": 89
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 112,
-      "module_count": 68
+      "import_count": 113,
+      "module_count": 69
     },
     {
       "from": "sync-engine",
@@ -133,8 +133,8 @@
     {
       "from": "harness-facade",
       "to": "runtime-io",
-      "import_count": 37,
-      "module_count": 35
+      "import_count": 39,
+      "module_count": 36
     },
     {
       "from": "gates",
@@ -868,6 +868,15 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/session-sidebar-utils.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/session-ordering.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/session-sidebar.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -875,10 +884,12 @@
         "packages/ui/src/chat/session-pin-cleanup.ts",
         "packages/ui/src/chat/session-row-evidence.ts",
         "packages/ui/src/chat/session-sidebar-hierarchy.ts",
+        "packages/ui/src/chat/session-sidebar-utils.ts",
         "packages/ui/src/chat/time-format.ts",
         "packages/ui/src/lib/multirun/fusion.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/nnd/workspace-admission.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/session-folders.ts",
         "packages/ui/src/stores/useSessionExpansionStore.ts",
@@ -3910,6 +3921,15 @@
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts",
         "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/workspace-admission.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
       ]
     },
     {

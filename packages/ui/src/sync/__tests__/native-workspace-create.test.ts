@@ -53,6 +53,24 @@ it('selects a new session only when NNA confirms the same attached workspace', a
   expect(selection).toHaveBeenCalledWith('ses_a', rootA);
 });
 
+it('sends an admitted workspace ID and requires the native session to confirm it', async () => {
+  const workspaceId = `ws_${'a'.repeat(24)}`;
+  vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify({ directory: rootB,
+    workspace_id: workspaceId })));
+  const store = { setState: vi.fn() }; insert.mockReturnValue(store);
+  vi.mocked(harnessClient.createSession).mockResolvedValue({ data: { id: 'ses_b', directory: rootB,
+    projectID: workspaceId } as never });
+  await createSession(engine, { directory: rootB });
+  expect(harnessClient.createSession).toHaveBeenCalledWith({ title: undefined, directory: rootB,
+    workspace_id: workspaceId });
+  expect(selection).toHaveBeenCalledWith('ses_b', rootB);
+  vi.mocked(harnessClient.createSession).mockResolvedValue({ data: { id: 'ses_wrong', directory: rootB,
+    projectID: 'ws_wrong' } as never });
+  vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify({ directory: rootB,
+    workspace_id: workspaceId })));
+  await expect(createSession(engine, { directory: rootB })).rejects.toThrow('ses_wrong');
+});
+
 it('does not issue create when a replay gap appears during native workspace admission', async () => {
   let admit!: (response: Response) => void;
   vi.mocked(runtimeFetch).mockImplementation(() => new Promise((resolve) => { admit = resolve; }));

@@ -42,14 +42,16 @@ export async function createSession(engine: EngineServices, input: { directory: 
   const selected = await nativeWorkspaceForCreate(requested);
   // Native admission is async; a replay gap discovered during it closes writes.
   assertFreshAuthority();
-  const result = await harnessClient.createSession({ title: input.title, directory: requested, ...(input.parentID ? { parentID: input.parentID } : {}) });
+  const result = await harnessClient.createSession({ title: input.title, directory: selected.directory,
+    ...(selected.workspace_id ? { workspace_id: selected.workspace_id } : {}),
+    ...(input.parentID ? { parentID: input.parentID } : {}) });
   if (result.error || !result.data) throw new Error(result.error ?? 'createSession failed');
   const session = result.data;
   assertCreatedSessionAuthority(session.id);
   // A configuration transition can race the read-only preflight. Preserve a
   // session created in the new root, but never select or dispatch into it.
   const sessionDirectory = typeof session.directory === 'string' ? normalizeDirectory(session.directory) : '';
-  if (sessionDirectory !== selected) {
+  if (sessionDirectory !== selected.directory || selected.workspace_id && session.projectID !== selected.workspace_id) {
     throw new Error(`NNA created session ${session.id} in ${sessionDirectory || 'an unknown workspace'} after its workspace changed. `
       + 'The session remains recoverable in NNA; refresh the workspace before sending.');
   }
@@ -97,19 +99,27 @@ function boundedWorkspace(value: unknown): string | null {
   return path;
 }
 
-async function nativeWorkspaceForCreate(requested: string): Promise<string> {
+async function nativeWorkspaceForCreate(requested: string): Promise<{ directory: string; workspace_id?: string }> {
   const chosen = boundedWorkspace(requested);
   if (!chosen) {
     throw new Error('NNA workspace identity is unavailable. Refresh the native connection before creating a session.');
   }
   const response = await runtimeFetch(`/api/native-workspace/admission?directory=${encodeURIComponent(chosen)}`);
-  const payload = await response.json().catch(() => null) as { directory?: unknown; error?: { message?: unknown } } | null;
+  const payload = await response.json().catch(() => null) as { directory?: unknown; workspace_id?: unknown;
+    error?: { message?: unknown } } | null;
   if (!response.ok) {
     throw new Error(typeof payload?.error?.message === 'string' ? payload.error.message : 'NNA workspace identity is unavailable.');
   }
   const native = boundedWorkspace(payload?.directory);
-  if (!native || native !== chosen) throw new Error('NNA workspace identity is unavailable. Refresh the native connection before creating a session.');
-  return native;
+  if (!native || (native !== chosen && !(/^[A-Z]:\//u.test(native) && /^[A-Z]:\//u.test(chosen)
+    && native.toLowerCase() === chosen.toLowerCase()))) {
+    throw new Error('NNA workspace identity is unavailable. Refresh the native connection before creating a session.');
+  }
+  if (payload?.workspace_id !== undefined && (typeof payload.workspace_id !== 'string'
+    || !/^ws_[a-f0-9]{24}$/u.test(payload.workspace_id))) {
+    throw new Error('NNA workspace identity is unavailable. Refresh the native connection before creating a session.');
+  }
+  return { directory: native, ...(payload?.workspace_id ? { workspace_id: payload.workspace_id } : {}) };
 }
 
 function insertCreatedSession(store: StoreApi<DirectoryStore>, session: Session): void {

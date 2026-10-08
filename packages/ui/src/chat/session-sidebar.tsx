@@ -7,10 +7,11 @@
  * split view from the global sessions cache.
  */
 import { useEffect, useSyncExternalStore, useMemo, useState, type ReactNode, type ChangeEvent } from 'react';
-import { normalizeDirectory } from '../lib/nnd/client.ts';
+import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
-import { useGlobalSessionsStore, useGlobalSessionStatusStore } from '../sync/global-stores.ts';
-import { useSessionOrderingStore, orderSessionsByLifecycle } from '../sync/session-ordering.ts';
+import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
+import { addNativeWorkspace, readNativeWorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
+import { useSessionOrderingStore } from '../sync/session-ordering.ts';
 import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSessionFoldersStore.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import type { Session, SessionStatus } from '../lib/nnd/types.ts';
@@ -23,6 +24,7 @@ import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { clearKnownSessionTreePins } from './session-pin-cleanup.ts';
 import { expandedParentIds, useSessionExpansionStore } from '../stores/useSessionExpansionStore.ts';
 import { fusionIdentityFromSession } from '../lib/multirun/fusion.ts';
+import { filterSessions, orderSessionsByLifecycleWrap, sessionDepths, shortDirectory } from './session-sidebar-utils.ts';
 
 const AVATAR_LIMIT = 50;
 
@@ -54,7 +56,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [collapsedZones, setCollapsedZones] = useState<Record<string, true>>({});
+  const [canAddWorkspace, setCanAddWorkspace] = useState(false);
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
+  const projects = useGlobalSyncStore((state) => state.projects);
   const sessionsGlobal = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const folders = useSyncExternalStore(useSessionFoldersStore.subscribe, useSessionFoldersStore.getState);
   const statusById = useSyncExternalStore(useGlobalSessionStatusStore.subscribe, () => useGlobalSessionStatusStore.getState().statusById);
@@ -112,6 +116,13 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
 
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
   useEffect(() => {
+    let live = true;
+    setCanAddWorkspace(false);
+    void readNativeWorkspaceAdmissions().then(() => { if (live) setCanAddWorkspace(true); })
+      .catch(() => { if (live) setCanAddWorkspace(false); });
+    return () => { live = false; };
+  }, [runtimeKey]);
+  useEffect(() => {
     if (!useGlobalSessionsStore.getState().hasLoaded) void useGlobalSessionsStore.getState().loadSessions();
   }, [runtimeKey]);
   useEffect(() => {
@@ -135,6 +146,24 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
 
   const filtered = useMemo(() => filterSessions([...sessionsGlobal.active], query), [sessionsGlobal.active, query]);
   const filteredDirectories = new Set(filtered.map((session) => normalizeDirectory(session.directory ?? 'global')));
+  const workspaceOptions = projects.filter((project) => typeof project.worktree === 'string')
+    .map((project) => ({ directory: normalizeDirectory(String(project.worktree)),
+      label: typeof project.name === 'string' ? project.name : String(project.worktree) }));
+  const currentWorkspace = normalizeDirectory(props.currentDirectory);
+  if (currentWorkspace && !workspaceOptions.some((item) => item.directory === currentWorkspace)) {
+    workspaceOptions.unshift({ directory: currentWorkspace, label: currentWorkspace });
+  }
+  const addWorkspace = async (): Promise<void> => {
+    const path = prompt('Enter the absolute folder path to add as a workspace:'); // eslint-disable-line no-alert
+    if (path === null) return;
+    try {
+      const directory = await addNativeWorkspace(path);
+      const refreshed = await harnessClient.listProjects();
+      if (refreshed.error || !refreshed.data) throw new Error('Workspace was admitted; refresh to see it in the list.');
+      useGlobalSyncStore.getState().set({ projects: refreshed.data as unknown as Record<string, unknown>[] });
+      props.actions.openDraft(normalizeDirectory(directory));
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not add workspace.'); }
+  };
   if (!query.trim() && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
   const archivedInDirectory = sessionsGlobal.archived.filter((session) => normalizeDirectory(session.directory ?? 'global') === normalizeDirectory(props.currentDirectory));
   const nameCounts = new Map<string, number>();
@@ -146,6 +175,15 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   return (
     <aside className="flex w-72 min-w-64 flex-col border-r border-white/10 bg-neutral-950/80" data-testid="session-sidebar">
       <nav className="p-2">
+        {workspaceOptions.length > 0 ? <label className="mb-2 block text-[11px] text-neutral-500">
+          Workspace
+          <select aria-label="Workspace" value={currentWorkspace} className="mt-1 w-full rounded bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-200"
+            onChange={(event) => props.actions.openDraft(event.target.value)}>
+            {workspaceOptions.map((item) => <option key={item.directory} value={item.directory}>{item.label}</option>)}
+          </select>
+        </label> : null}
+        {canAddWorkspace ? <button type="button" className="mb-2 w-full rounded px-2 py-1 text-left text-[11px] text-neutral-400 hover:bg-white/5 hover:text-neutral-100"
+          onClick={() => void addWorkspace()}>+ Add workspace</button> : null}
         <button type="button" className="w-full rounded-lg bg-white/5 px-3 py-2 text-left text-[13px] text-neutral-200 hover:bg-white/10" onClick={() => props.actions.openDraft(props.currentDirectory)}>
           + New session
         </button>
@@ -449,49 +487,6 @@ function ArchivedRow({ session, actions }: { session: Session; actions: ChatSide
 function foldersOfSession(session: Session): import('../lib/session-folders.ts').SessionFolder[] {
   const directory = normalizeDirectory(session.directory ?? '');
   return useSessionFoldersStore.getState().foldersByDirectory[directory] ?? [];
-}
-
-function orderSessionsByLifecycleWrap(sessions: Session[]): Session[] {
-  // §F.10 orders by rank/created only — the ORIGINAL session objects must ride
-  // through untouched: the fallback projection dropped `title`/`directory`,
-  // so rows rendered as "Untitled Session" and openSession lost its directory.
-  return orderSessionsByLifecycle(sessions);
-}
-
-/** Depth is presentation-only. Missing/cyclic parents render as roots so an
- * orphan cannot imply that its unavailable parent can be navigated to. */
-function sessionDepths(sessions: Session[]): Map<string, number> {
-  const byId = new Map(sessions.map((session) => [session.id, session]));
-  const depths = new Map<string, number>();
-  for (const session of sessions) {
-    let depth = 0;
-    let parentID = session.parentID;
-    const seen = new Set<string>([session.id]);
-    while (parentID && byId.has(parentID) && !seen.has(parentID)) {
-      seen.add(parentID);
-      depth += 1;
-      parentID = byId.get(parentID)?.parentID;
-    }
-    depths.set(session.id, parentID && (!byId.has(parentID) || seen.has(parentID)) ? 0 : depth);
-  }
-  return depths;
-}
-
-function shortDirectory(directory: string): string {
-  const segments = directory.split('/').filter(Boolean);
-  if (segments.length === 0) return directory || 'general';
-  return segments.at(-1) ?? directory;
-}
-
-function filterSessions(sessions: Session[], query: string): Session[] {
-  const text = query.trim();
-  if (text.length === 0) return sessions;
-  if (text.toLowerCase().startsWith('ses_')) {
-    const needle = text.toLowerCase();
-    return sessions.filter((session) => session.id.toLowerCase() === needle);
-  }
-  const needle = text.toLowerCase();
-  return sessions.filter((session) => (session.title ?? '').toLowerCase().includes(needle) || session.id.toLowerCase().includes(needle));
 }
 
 export { toast, sessionAttention, childActivityPhrase };

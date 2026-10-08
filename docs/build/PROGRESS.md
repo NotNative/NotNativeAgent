@@ -3,6 +3,19 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-07 · Native multi-workspace session selection begins · NND 20261007-64
+
+NNA `20261007-3` (`e5c3d5ab`) now binds admitted workspaces to native session
+execution and durable identity. NND can explicitly add a canonical workspace,
+select it, and verify the native root/project returned at creation. Adversarial
+repairs keep selected children scoped and healthy primary sessions available
+when an admitted root is lost. Focused tests, NND UI/web/Electron suites,
+typecheck, quality gates, source smoke and disposable installed-source
+attachment passed; the NNA full run had one test fixture failure repaired by
+an isolated passing rerun. F1 remains open for governed two-repository and
+worktree execution plus installed multi-root restart evidence; F2-F10 and V
+remain open.
+
 ## 2026-10-07 · The C6-exit audit closes the stage: residue is prose, not rows · NND 20261007-63
 
 Independent audit verdict: C6 exit criteria met standing (owed 0; honest

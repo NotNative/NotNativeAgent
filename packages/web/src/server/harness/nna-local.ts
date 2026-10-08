@@ -257,10 +257,13 @@ export function guardLocalNnaHarness(adapter: HarnessAdapter,
     if (!/^\/api\/session(?:\/|$)/u.test(pathname) || !harness.ensurePrimaryWorkspaceId) return adapter.handle(request);
     const id = creates || !harness.workspaceId?.() ? await harness.ensurePrimaryWorkspaceId() : harness.workspaceId();
     if (!id) return harnessError('NNA primary workspace identity is unavailable. Complete NNA setup and refresh the connection.', 503);
+    const selected = creates ? await request.clone().json().catch(() => null) as Record<string, unknown> | null : null;
+    const expectedId = typeof selected?.workspace_id === 'string' && /^ws_[a-f0-9]{24}$/u.test(selected.workspace_id)
+      ? selected.workspace_id : id;
     const response = await adapter.handle(request);
     if (!creates || !response.ok) return response;
     const record = await response.clone().json().catch(() => null) as Record<string, unknown> | null;
-    if (!record || record.projectID !== id) {
+    if (!record || record.projectID !== expectedId) {
       const session = typeof record?.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(record.id) ? record.id : 'unknown';
       return harnessError(`NNA created session ${session} with a changed workspace identity. It remains recoverable in NNA; refresh before sending.`, 409);
     }
@@ -283,7 +286,7 @@ function mintLocalPrincipal(workspaceId: string | null): string {
   const now = new Date().toISOString();
   return Buffer.from(JSON.stringify({
     subject_id: 'nnd-local-operator', platform_role: 'operator',
-    permissions: ['nnd.read', 'nnd.workspace.read', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
+    permissions: ['nnd.read', 'nnd.workspace.read', 'nnd.workspace.manage', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
     workspace_ids: workspaceId ? [workspaceId] : [], group_ids: [], trace_id: randomUUID(), request_id: randomUUID(), issued_at: now,
   }), 'utf8').toString('base64url');
 }

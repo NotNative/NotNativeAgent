@@ -101,3 +101,35 @@ it.skipIf(process.platform !== 'win32')('accepts Windows case aliases in request
   expect((await create(alternateCase)).status).toBe(200);
   expect((await create(rootB)).status).toBe(409);
 });
+
+it('uses the native admitted ID for a second root and checks the created session', async () => {
+  const selectedId = `ws_${'a'.repeat(24)}`;
+  const seen: { directory?: string; workspace_id?: string }[] = [];
+  registerHarnessAdapter({ handle: async request => {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/path') return Response.json({ directory: rootA, worktree: rootA });
+    if (path === '/api/v1/nnd/workspaces/admissions') return Response.json({ selection_enabled: true,
+      attached: { root: rootA }, admitted: [{ root: rootB, id: selectedId }] });
+    if (path === '/api/session') {
+      seen.push(await request.json() as { directory?: string; workspace_id?: string });
+      return Response.json({ id: 'ses_selected', directory: rootB, projectID: selectedId });
+    }
+    return new Response(null, { status: 404 });
+  } });
+  const app = new Hono(); registerNativeWorkspaceAdmissionRoute(app);
+  const admitted = await app.request(`/api/native-workspace/admission?directory=${encodeURIComponent(rootB)}`);
+  expect(admitted.status).toBe(200);
+  expect(await admitted.json()).toEqual({ directory: rootB, workspace_id: selectedId });
+  const created = await callHarness(new Request('http://local/api/session', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-nnd-directory': rootB },
+    body: JSON.stringify({ directory: rootB, workspace_id: selectedId }),
+  }));
+  expect(created.status).toBe(200);
+  expect(seen).toEqual([{ directory: rootB, workspace_id: selectedId }]);
+  const wrongId = await callHarness(new Request('http://local/api/session', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-nnd-directory': rootB },
+    body: JSON.stringify({ directory: rootB, workspace_id: `ws_${'b'.repeat(24)}` }),
+  }));
+  expect(wrongId.status).toBe(409);
+  expect(seen).toHaveLength(1);
+});
