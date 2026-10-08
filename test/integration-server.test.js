@@ -613,7 +613,7 @@ test('NND harness session routes bind creation to the complete principal workspa
     });
     assert.equal(filePrompt.status, 204);
     assert.deepEqual(engines[0].lastSubmission.attachments,
-      [{ upload_id: 'upload_http', mime_type: 'text/plain' }]);
+      [{ upload_id: 'upload_http', mime_type: 'text/plain', filename: 'notes.txt' }]);
     assert.equal(engines[0].lastSubmission.content, '');
     assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, uploader, {
       method: 'POST', body: { messageID: 'other_message', parts: [{ type: 'file', upload_id: 'upload_http' }] },

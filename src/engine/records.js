@@ -20,6 +20,14 @@ export function userMessage(turnId, content, extra = {}) {
   return { type: 'message', role: 'user', content, trust: 'operator', turnId, partial: false, ...extra };
 }
 
+export function submittedUserMessage(turnId, command) {
+  // Why: retain only display labels; upload bytes and source paths stay outside the conversation journal.
+  const attachmentDisplay = command.attachments?.filter(item => typeof item.filename === 'string')
+    .map(item => ({ filename: item.filename, mime: item.mime_type }));
+  return userMessage(turnId, command.content,
+    { requestId: command.request_id, ...(attachmentDisplay?.length ? { attachmentDisplay } : {}) });
+}
+
 export function assistantMessage(turnId, content, detail) {
   return {
     type: 'message', role: 'assistant', content, trust: 'model', turnId,

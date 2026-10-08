@@ -4,7 +4,7 @@ import { appendRecoveryHint } from './context.js';
 import { EventFactory } from './event-factory.js';
 import { EventHub, phaseIsCancelable } from './events.js';
 import { ContractError, newId } from './ids.js';
-import { acceptedRecord, assistantMessage, failure, normalizeFailure, userMessage } from './engine/records.js';
+import { acceptedRecord, assistantMessage, failure, normalizeFailure, submittedUserMessage, userMessage } from './engine/records.js';
 import { admissionFromRetry, createActiveTurn } from './engine/active.js';
 import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
 import { HealthInspector } from './health.js';
@@ -120,7 +120,7 @@ export class SessionEngine {
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
       active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, command.content);
       armMissionDeadline(active);
-      await this.#persist('message', userMessage(turn.id, command.content, { requestId: command.request_id }));
+      await this.#persist('message', submittedUserMessage(turn.id, command));
       await this.#persist('turn_accepted', { turnId: turn.id, requestId: command.request_id });
       await this.output(acceptedRecord(command.request_id, this, turn.id));
       await emitEngineStatus(this, 'preparing', active);

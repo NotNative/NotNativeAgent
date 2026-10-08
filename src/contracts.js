@@ -151,7 +151,9 @@ function validateAttachments(value) {
     if (!isRecord(item) || !(typeof item.path === 'string' && item.upload_id === undefined
       && item.path.length <= PROTOCOL_LIMITS.attachmentPathChars
       || typeof item.upload_id === 'string' && item.path === undefined && /^[A-Za-z0-9_-]{1,128}$/u.test(item.upload_id))
-      || typeof item.mime_type !== 'string' || item.mime_type.length > PROTOCOL_LIMITS.mimeTypeChars) {
+      || typeof item.mime_type !== 'string' || item.mime_type.length > PROTOCOL_LIMITS.mimeTypeChars
+      || item.filename !== undefined && (typeof item.filename !== 'string' || item.filename.length < 1
+        || item.filename.length > 255 || /[\\/:*?"<>|\u0000-\u001f\u007f]/u.test(item.filename))) {
       throw new ContractError('invalid_attachment', 'attachment descriptors require a bounded path or native upload ID and MIME type');
     }
   }

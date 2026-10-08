@@ -32,6 +32,8 @@ completed turn releases its upload bytes; an expired or foreign reference fails 
 A retry of a persisted prompt ID is recognized before resolving released upload bytes,
 so a lost acknowledgement cannot cause a second turn. A new prompt cannot reuse
 the released bytes.
+The journal retains only bounded file names and MIME values for NND transcript
+display; projected file parts expose no source path, upload bytes, or reusable URL.
 
 Memory is an optional replaceable adapter. Queries are redacted, project-scoped,
 deadline-bound, and smaller than the transcript. Results require stable attribution,

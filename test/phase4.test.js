@@ -7,6 +7,7 @@ import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { AttachmentManager } from '../src/attachments.js';
 import { NndAttachmentUploads } from '../src/nnd-attachment-uploads.js';
+import { validateCommand } from '../src/contracts.js';
 import { ContractError } from '../src/ids.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { ExtensionRegistry } from '../src/extensions.js';
@@ -59,11 +60,23 @@ test('a file-only native upload reaches the provider through its managed copy', 
     } }) });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'file-only', content: '',
-    attachments: [{ upload_id: 'upload_one', mime_type: 'text/plain' }] }, 'operator');
+    attachments: [{ upload_id: 'upload_one', mime_type: 'text/plain', filename: 'notes.txt' }] }, 'operator');
   assert.equal(result.outcome, 'completed');
+  assert.deepEqual(engine.transcript.find(item => item.type === 'message' && item.role === 'user')?.attachmentDisplay,
+    [{ filename: 'notes.txt', mime: 'text/plain' }]);
   assert.ok(calls[0].messages.some(item => typeof item.content === 'string'
     && item.content.includes('UPLOADED_TEXT_MARKER') && item.content.includes('Untrusted attachment observation')));
   await engine.shutdown({ request_id: 'file-only-shutdown' });
+});
+
+test('attachment display names reject path-like and oversized metadata before submission', () => {
+  const command = { version: '1.0', type: 'submit', request_id: 'display_name', content: '',
+    attachments: [{ upload_id: 'upload_one', mime_type: 'text/plain', filename: 'notes.txt' }] };
+  assert.equal(validateCommand(command).attachments[0].filename, 'notes.txt');
+  for (const filename of ['../private.txt', 'C:\\private.txt', 'a'.repeat(256), 'bad\nname']) {
+    assert.throws(() => validateCommand({ ...command, attachments: [{ ...command.attachments[0], filename }] }),
+      { code: 'invalid_attachment' });
+  }
 });
 
 test('plain-text admission refuses invalid UTF-8 and never changes the source', async () => {

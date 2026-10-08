@@ -65,7 +65,7 @@ export class NndAttachmentUploads {
     }
     return refs.map(ref => {
       const item = this.#items.get(`${sessionId}\0${ref.upload_id}`);
-      return { upload_id: item.id, mime_type: item.mimeType };
+      return { upload_id: item.id, mime_type: item.mimeType, filename: item.filename };
     });
   }
 

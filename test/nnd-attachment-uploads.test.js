@@ -14,7 +14,7 @@ test('native uploads are session and principal bound, idempotent, and consumed b
   assert.equal(receipt.bytes, 12);
   assert.deepEqual(uploads.upload('session_one', 'owner', input(), 1_000_000), receipt);
   assert.deepEqual(uploads.assertRefs('session_one', 'owner', 'request_one', [{ upload_id: 'upload_one' }]),
-    [{ upload_id: 'upload_one', mime_type: 'text/plain' }]);
+    [{ upload_id: 'upload_one', mime_type: 'text/plain', filename: 'notes.txt' }]);
   assert.equal(uploads.resolve('session_one', 'upload_one', 'text/plain').bytes.toString(), 'fixture text');
   assert.throws(() => uploads.assertRefs('session_two', 'owner', 'request_one', [{ upload_id: 'upload_one' }]),
     { code: 'nnd_attachment_upload_expired' });

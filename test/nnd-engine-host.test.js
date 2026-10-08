@@ -1003,6 +1003,21 @@ test('NND projection reconciles submitted user IDs and settles persisted assista
   assert.equal(projected[0].info.time.completed, undefined);
 });
 
+test('NND projection retains bounded file names without publishing upload paths or bytes', async () => {
+  const engine = fakeEngine();
+  engine.transcript = [{ type: 'message', role: 'user', content: '', requestId: 'msg_file',
+    attachmentDisplay: [
+      { filename: 'notes.txt', mime: 'text/plain' }, { filename: 'marker.png', mime: 'image/png' },
+      { filename: '../private.txt', mime: 'text/plain' },
+    ] }];
+  const host = new NndEngineHost({ createEngine: async () => engine });
+  await host.create('session_a', owner);
+  const [message] = host.messages('session_a', owner);
+  assert.deepEqual(message.parts.map(part => [part.type, part.filename, part.url]), [
+    ['text', undefined, undefined], ['file', 'notes.txt', ''], ['file', 'marker.png', ''],
+  ]);
+});
+
 test('NND restored transcript suppresses a retried prompt and rejects projected-ID collisions', async () => {
   const engine = fakeEngine();
   engine.transcript = [
