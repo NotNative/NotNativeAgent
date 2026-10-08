@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed three-root restart journey passes · NND 20261008-9
+
+A fresh disposable installed Windows run passed the full Chromium/desktop F1
+journey against NNA `20261008-3`: primary, secondary, and worktree sessions
+kept their native roots through restart; governed reads/writes changed only
+their selected roots; sibling access was denied; bound worktree removal was
+refused, then succeeded after session release; stale admission was rejected;
+browser isolation and desktop attachment to the surviving service passed.
+The successful fixture was removed. Only the post-restart browser deadline
+changed from 30 to 60 minutes after the previous partial run; production code
+is unchanged from `20261008-8`. F1 remains open for aliases/junctions,
+permission loss, shell/process scope, TUI tab preservation, and UI controls.
+Observed 1–3 minute native API calls in the isolated profile remain a
+product-readiness concern. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Attached workspace selection and expanded installed F1 evidence · NND 20261008-8
 
 An installed three-root journey exposed and fixed session creation with the

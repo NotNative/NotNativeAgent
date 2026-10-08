@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium run verified primary, secondary, and worktree governed read/write and sibling denial before restart, with journal and disk evidence. After restart the same session IDs and roots survived; all three recorded governed effects and denials. The 30-minute browser phase timed out immediately after the worktree's completed governed write, before file deletion/removal and desktop continuity. F1 remains open for those final checks, aliases/junctions, removed roots, permission loss, shell/process scope, TUI tab preservation, and UI controls. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium/desktop three-root journey passed across native restart: same session IDs/root bindings, governed reads/writes and sibling denials, exact reviewer approvals and disk effects, bound-worktree removal refusal then release/removal, stale-ID refusal, browser isolation and surviving desktop service. F1 remains open for installed aliases/junctions, removed roots/permission loss, hard shell/process scope, TUI tab preservation, and UI controls. Slow native API calls in the isolated profile need diagnosis. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -451,6 +451,36 @@ The full worktree removal and post-removal admission assertions therefore
 did not run to completion. F1 cannot close on this result. Several native API
 requests in the post-restart phase took 90–122 seconds; latency needs
 diagnosis before the expanded installed journey can serve as an MVP gate.
+
+## NND 20261008-9 / NNA 20261008-3 (`22259beb`) — installed F1 three-root restart journey
+
+Baseline NND `8022ef00` (`20261008-8`); product code unchanged. A fresh
+disposable installed-source run passed after raising only the second Chromium
+phase deadline from 30 to 60 minutes. The first phase created same-name
+primary and secondary repositories and a governed worktree, selected native
+workspace IDs, submitted provider turns from installed Chromium, proved
+distinct completed governed reads/writes and sibling-root denials, exact
+reviewer approvals and disk locations, refused removal of a bound worktree,
+and verified a separate browser partition could not access protected APIs.
+After native stop/start, the same three session IDs retained their root
+bindings. New provider turns and governed read/write/denial cases completed
+for each root; browser file reads found both worktree effects. Four fixture
+files were deleted through the browser API, the bound session was released,
+Git worktree removal returned 200, the native inventory dropped its ID, and
+a stale-ID session request was refused. The desktop attached to the same
+ready native service and leaving it did not change service owner or endpoint.
+The final disk and reviewer assertions passed; successful fixture
+`installed-accept-0d5c4214e19c4622` was removed. No operator installation
+or data was changed.
+
+This is one F1 installed journey, not full F1 closure. Windows aliases and
+junction escapes have source coverage but need installed cases; removed
+roots/permission loss, shell/process scope, independent TUI tab order, and
+actual UI controls remain. Some isolated-profile native API calls took
+106–176 seconds, including session reads and prompt submission. That
+latency requires diagnosis before treating the product as responsive in
+operator testing. The journal endpoint used by this fixture observed exact
+completed native turns; it did not assert browser message rendering.
 
 ## NND 20261008-8 / NNA 20261008-3 (`22259beb`) — attached selection and installed F1 three-root evidence
 

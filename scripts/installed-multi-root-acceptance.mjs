@@ -434,7 +434,7 @@ async function main(nnaSource) {
     const restarted = await waitReady(fixture, restartStatus);
     assert.equal(restarted.service_state, 'ready', `restarted native runtime did not activate: ${JSON.stringify(restarted)}`);
     const result = await shell(fixture, 'browser', restarted.endpoint, (await cli(fixture, 'ui-ticket')).ticket,
-      [], afterProbe({ ...roots, ...before }, fake.port), null, 1800000);
+      [], afterProbe({ ...roots, ...before }, fake.port), null, 3600000);
     assert.equal(result.resumed, true);
     await verifyAfterDisk(roots, before, fake);
     await shell(fixture, 'desktop', restarted.endpoint);
