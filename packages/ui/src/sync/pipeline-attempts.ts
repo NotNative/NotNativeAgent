@@ -127,7 +127,7 @@ async function readSseStream(ctx: AttemptContext, response: Response, signal: Ab
     }
   } finally {
     clearTimeout(timeout);
-    if (!established) resetSseCursor(ctx);
+    if (!established && !signal.aborted) resetSseCursor(ctx);
     await reader.cancel().catch(() => undefined);
   }
 }

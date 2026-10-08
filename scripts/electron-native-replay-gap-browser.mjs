@@ -54,10 +54,10 @@ async function rowVisible(win, title) {
   return browser(win, `()=>[...document.querySelectorAll('[data-testid="session-row"]')].some(row=>row.textContent.includes(${JSON.stringify(title)}))`);
 }
 
-async function probeNativeGap(win) {
+async function probeNativeGap(win, cursor = UNKNOWN_CURSOR) {
   return browser(win, `async()=>{
     const controller=new AbortController();
-    const response=await fetch('/api/global/event',{headers:{'last-event-id':${JSON.stringify(UNKNOWN_CURSOR)}},signal:AbortSignal.any([controller.signal,AbortSignal.timeout(5000)])});
+    const response=await fetch('/api/global/event',{headers:{'last-event-id':${JSON.stringify(cursor)}},signal:AbortSignal.any([controller.signal,AbortSignal.timeout(5000)])});
     if(response.status!==200||!response.body)return {status:response.status};
     const reader=response.body.getReader(),decoder=new TextDecoder();let data='';
     try{while(data.length<8192){const part=await reader.read();if(part.done)break;data+=decoder.decode(part.value,{stream:true});if(/\\r?\\n\\r?\\n/.test(data))break;}}
@@ -86,6 +86,7 @@ function installReplayHooks(win, origin, state) {
     if (isGlobalStream(details.url, origin)) {
       state.globalRequests += 1;
       const key = Object.keys(headers).find((name) => name.toLowerCase() === 'last-event-id');
+      state.requestTrace.push({ cursor: key ? headers[key] : null, block: state.block, inject: state.inject });
       if (key && typeof headers[key] === 'string' && headers[key]) state.observedCursor = headers[key];
       if (state.expectReset && (!key || !headers[key])) state.resetRequestSeen += 1;
       if (state.inject && key && typeof headers[key] === 'string' && headers[key]) {
@@ -106,7 +107,8 @@ function installReplayHooks(win, origin, state) {
 export async function runNativeReplayGapBrowser(win) {
   const origin = new URL(win.webContents.getURL()).origin;
   const state = { block: false, inject: false, blockedGlobal: 0, injected: 0,
-    priorCursor: null, observedCursor: null, globalRequests: 0, expectReset: false, resetRequestSeen: 0 };
+    priorCursor: null, observedCursor: null, globalRequests: 0, expectReset: false, resetRequestSeen: 0,
+    requestTrace: [] };
   const cleanup = installReplayHooks(win, origin, state);
   try {
     const first = `NND replay before ${Date.now()}`;
@@ -118,6 +120,13 @@ export async function runNativeReplayGapBrowser(win) {
     await until(() => rowVisible(win, first), 'first native session in sidebar');
     await browser(win, `()=>window.dispatchEvent(new Event('online'))`);
     await until(() => state.observedCursor, 'non-null renderer replay cursor after first event');
+    const firstCursor = state.observedCursor;
+    const completeProbe = await probeNativeGap(win, firstCursor);
+    assert.equal(completeProbe.opener?.payload?.properties?.replayStatus, 'complete',
+      `Native did not retain the first renderer cursor: ${JSON.stringify(completeProbe)}`);
+    // The request header precedes the stream opener. Let that reconnect finish
+    // its authoritative recovery before deliberately cutting the connection.
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
     const probe = await probeNativeGap(win);
     assert.equal(probe.status, 200, 'Native SSE replay probe was not admitted');
     assert.equal(probe.opener?.payload?.type, 'server.connected', 'Native SSE opener missing');
@@ -134,7 +143,8 @@ export async function runNativeReplayGapBrowser(win) {
     state.block = false;
     state.inject = true;
     await browser(win, `()=>window.dispatchEvent(new Event('online'))`);
-    await until(() => state.injected > 0, 'renderer reconnect with a non-null Last-Event-ID');
+    try { await until(() => state.injected > 0, 'renderer reconnect with a non-null Last-Event-ID', 30_000); }
+    catch (error) { throw new Error(`${String(error)}; state=${JSON.stringify(state)}`); }
     assert.ok(state.priorCursor && state.priorCursor !== UNKNOWN_CURSOR, 'Renderer had no valid cursor before forced gap');
     await until(() => rowVisible(win, second), 'offline idle session recovered in Chromium sidebar', 30_000);
     await browser(win, `()=>document.querySelector('button[aria-label="Activity"]')?.click()`);

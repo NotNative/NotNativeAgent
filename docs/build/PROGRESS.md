@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Native replay-gap source journey and interrupted cursor repair · NND 20261008-4
+
+The source Electron/Chromium journey now verifies native `complete` and `gap`
+openers, authoritative sidebar recovery of an offline-created session, the
+Activity incomplete-history notice, and cursor reset. It passed twice against
+NNA `20261008-3`. The UI also preserves a prior event cursor when a supervisor
+interrupts asynchronous opener recovery, then rechecks it on the next request.
+The full UI/web/Electron suites, typecheck, and source integration smoke passed.
+F2 stays in progress: installed/restart/retention/revocation and the broader
+recovery matrix remain open; F1 and later feature/verification packages remain
+open. Evidence and the test's timing caveat are in [the ledger](EXECUTION/LEDGER.md).
+
 ## 2026-10-07 · Native multi-workspace session selection begins · NND 20261007-64
 
 NNA `20261007-3` (`e5c3d5ab`) now binds admitted workspaces to native session

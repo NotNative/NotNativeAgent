@@ -78,6 +78,28 @@ describe('SSE replay cursor', () => {
     expect(state.received).toContain('session.updated');
   });
 
+  it('keeps the prior cursor when reconnect interrupts opener recovery', async () => {
+    const state = streamContext('old');
+    const abort = new AbortController();
+    let release!: () => void;
+    const recovery = new Promise<void>((resolve) => { release = resolve; });
+    vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(opener('complete') + event('unseen')));
+    const established = vi.fn(() => recovery);
+    const attempt = attemptSse(state.ctx, '/api/global/event', abort.signal, established);
+    await vi.waitFor(() => expect(established).toHaveBeenCalledOnce());
+    abort.abort();
+    release();
+    await attempt;
+    state.ctx.queues.flushAll();
+    expect(state.cursor()).toBe('old');
+    expect(state.received).toEqual([]);
+
+    vi.mocked(runtimeFetch).mockResolvedValueOnce(streamResponse(opener('complete')));
+    await attemptSse(state.ctx, '/api/global/event', new AbortController().signal, vi.fn());
+    const headers = vi.mocked(runtimeFetch).mock.lastCall?.[1]?.headers as Headers;
+    expect(headers.get('last-event-id')).toBe('old');
+  });
+
   it('accepts a native transcript preview larger than 64 KiB', async () => {
     const state = streamContext('old');
     const large = `id: next\ndata: ${JSON.stringify({ payload: {
