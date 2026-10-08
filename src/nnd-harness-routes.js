@@ -271,7 +271,12 @@ function trustedWorkspace(value) {
 
 function textContent(parts) {
   if (!Array.isArray(parts)) throw new ContractError('request_invalid', 'NND prompt requires message parts');
-  const text = parts.filter((part) => part?.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('\n');
+  // Security: an acknowledged prompt must not silently drop a file, image,
+  // or unknown part before the native provider sees it.
+  if (parts.some((part) => part?.type !== 'text' || typeof part.text !== 'string')) {
+    throw new ContractError('nnd_prompt_part_unsupported', 'NNA cannot submit this message part; remove it before sending');
+  }
+  const text = parts.map((part) => part.text).join('\n');
   if (!text) throw new ContractError('invalid_content', 'NND prompt requires text content');
   return text;
 }

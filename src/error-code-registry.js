@@ -117,7 +117,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_goal_invalid', 'nnd_goal_conflict', 'nnd_goal_audit_invalid', 'nnd_goal_audit_conflict',
     'nnd_walkthrough_invalid', 'nnd_walkthrough_context_large',
     'nnd_notification_invalid',
-    'nnd_model_override_unsupported', 'nnd_agent_override_unsupported',
+    'nnd_model_override_unsupported', 'nnd_agent_override_unsupported', 'nnd_prompt_part_unsupported',
   ]),
   extension: Object.freeze([
     'event_contract_invalid', 'event_hub_closed', 'extension_async_factory_unsupported',

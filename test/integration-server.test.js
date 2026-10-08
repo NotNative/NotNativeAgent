@@ -596,6 +596,12 @@ test('NND harness session routes bind creation to the complete principal workspa
       method: 'POST', body: { messageID: 'msg_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'hello NNA' }] },
     });
     assert.equal(prompt.status, 204);
+    const unsupportedPart = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { messageID: 'msg_attachment', parts: [
+        { type: 'text', text: 'summarize this' }, { type: 'file', url: 'file:///private/marker.txt', mime: 'text/plain' }] },
+    });
+    assert.equal(unsupportedPart.status, 400);
+    assert.equal(unsupportedPart.value.error.code, 'nnd_prompt_part_unsupported');
     const wrongModel = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { model: { providerID: 'mock', modelID: 'mock-smart' }, parts: [{ type: 'text', text: 'wrong route' }] },
     });
