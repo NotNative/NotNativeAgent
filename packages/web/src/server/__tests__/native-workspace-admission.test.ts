@@ -106,6 +106,36 @@ it.skipIf(process.platform !== 'win32')('accepts Windows case aliases in request
   expect((await create(rootB)).status).toBe(409);
 });
 
+it('accepts the reported attached workspace ID and refuses a mismatched ID', async () => {
+  const attachedId = `ws_${'a'.repeat(24)}`;
+  const wrongId = `ws_${'b'.repeat(24)}`;
+  let attachedRoot = rootA;
+  let returnedProjectId = attachedId;
+  const seen: string[] = [];
+  registerHarnessAdapter({ handle: async request => {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/path') return Response.json({ directory: rootA, worktree: rootA });
+    if (path === '/api/v1/nnd/workspaces/admissions') return Response.json({ selection_enabled: true,
+      attached: { root: attachedRoot, id: attachedId }, admitted: [] });
+    if (path === '/api/session') {
+      seen.push((await request.json() as { workspace_id: string }).workspace_id);
+      return Response.json({ id: 'ses_primary', directory: rootA, projectID: returnedProjectId });
+    }
+    return new Response(null, { status: 404 });
+  } });
+  const create = (workspaceId: string) => callHarness(new Request('http://local/api/session', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-nnd-directory': rootA },
+    body: JSON.stringify({ directory: rootA, workspace_id: workspaceId }),
+  }));
+  expect((await create(attachedId)).status).toBe(200);
+  expect((await create(wrongId)).status).toBe(409);
+  returnedProjectId = wrongId;
+  expect((await create(attachedId)).status).toBe(409);
+  attachedRoot = rootB;
+  expect((await create(attachedId)).status).toBe(409);
+  expect(seen).toEqual([attachedId, attachedId]);
+});
+
 it('uses the native admitted ID for a second root and checks the created session', async () => {
   const selectedId = `ws_${'a'.repeat(24)}`;
   const seen: { directory?: string; workspace_id?: string }[] = [];

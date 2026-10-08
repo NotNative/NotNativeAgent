@@ -62,7 +62,7 @@ export async function admitNativeWorkspace(candidate: unknown, readPath: () => P
 }
 
 type WorkspaceInventory = { selection_enabled?: unknown; installation_id?: unknown; data_id?: unknown;
-  revision?: unknown; attached?: { root?: unknown };
+  revision?: unknown; attached?: { root?: unknown; id?: unknown };
   admitted?: { root?: unknown; id?: unknown; operation_id?: unknown }[] };
 const WORKSPACE_ID = /^ws_[a-f0-9]{24}$/u;
 // The selected native service can spend most of 30 seconds on durable grant
@@ -220,8 +220,9 @@ async function admitSelectedWorkspace(candidate: unknown, requestedId?: unknown,
     throw new WorkspaceAdmissionError('NNA workspace selection is unavailable.', 503);
   }
   await admitNativeWorkspace(inventory.attached?.root, readPath);
-  const row = inventory.admitted.find(value => WORKSPACE_ID.test(String(value?.id))
-    && sameWorkspacePath(value?.root, chosen) && (requestedId === undefined || value.id === requestedId));
+  const rows = [inventory.attached, ...inventory.admitted];
+  const row = rows.find(value => WORKSPACE_ID.test(String(value?.id))
+    && sameWorkspacePath(value?.root, chosen) && (requestedId === undefined || value?.id === requestedId));
   if (!row || typeof row.id !== 'string' || typeof row.root !== 'string' || !workspacePath(row.root)) {
     throw new WorkspaceAdmissionError('This workspace is not admitted by NNA.', 409);
   }

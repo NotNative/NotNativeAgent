@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed selected-root governed writes before and after restart have journal/reviewer/disk evidence, and the expanded fixture resumed a worktree provider turn after restart, but timed out during the subsequent worktree file deletion request. Shell/process scope, permission loss, other-root governed effects, and broader feature coverage remain open. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium run verified primary, secondary, and worktree governed read/write and sibling denial before restart, with journal and disk evidence. After restart the same session IDs and roots survived; all three recorded governed effects and denials. The 30-minute browser phase timed out immediately after the worktree's completed governed write, before file deletion/removal and desktop continuity. F1 remains open for those final checks, aliases/junctions, removed roots, permission loss, shell/process scope, TUI tab preservation, and UI controls. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -451,6 +451,42 @@ The full worktree removal and post-removal admission assertions therefore
 did not run to completion. F1 cannot close on this result. Several native API
 requests in the post-restart phase took 90–122 seconds; latency needs
 diagnosis before the expanded installed journey can serve as an MVP gate.
+
+## NND 20261008-8 / NNA 20261008-3 (`22259beb`) — attached selection and installed F1 three-root evidence
+
+Baseline NND `621b2b26` (`20261008-7`). The expanded disposable installed
+fixture first exposed a real native admission bug: an explicit session
+selection of the attached primary workspace ID returned 409 because NND
+searched `inventory.admitted` but not `inventory.attached`. The selection now
+accepts the attached row while still validating the requested ID, the
+canonical root against native `/api/path`, and the project ID returned by
+NNA. Focused tests cover success and those refusal branches (10/10); the full
+web suite passed 1,457/1,457, typecheck passed, and an independent adversarial
+review found no authority regression.
+
+Fresh isolated fixture `installed-accept-a964a63217014177` used installed
+NND `20261008-7` source plus the admission fix and NNA `20261008-3`. Its
+first Chromium phase passed: secondary, attached primary, and governed
+worktree sessions; distinct completed native turns for allowed reads/writes;
+exact sibling-root tool denials; on-disk write locations and absent sibling
+files; direct browser filesystem 403s; and protected API 401s from a separate
+browser partition. The same three session IDs and root bindings survived
+native stop/start. The second Chromium phase recorded completed governed
+writes and allowed reads plus sibling denials for all three roots. The
+worktree's final post-restart write has a completed native journal outcome
+and exact bytes on disk, but the browser phase hit its 30-minute deadline
+before its final response/cleanup assertions. The service was stopped and
+the fixture preserved at
+`C:\Users\Mongrel\nnd-installed-acceptance-fixtures\installed-accept-a964a63217014177`.
+Post-restart API latency varied widely (primary session GET 95 seconds,
+worktree GET 138 seconds, primary attention abort 109 seconds, worktree prompt
+submission 106 seconds). The fixture's provider-only journal wait avoids
+repeated slow message polling and was adversarially reviewed to require
+matching completed turn IDs; it is native-turn evidence, not browser message
+rendering evidence. Full deletion, worktree removal, stale-ID refusal,
+desktop attachment, and final service continuity did not run in this attempt.
+F1 remains in progress; do not promote this partial run to a full installed
+MVP gate.
 
 ## NND 20261008-5 / NNA 20261008-3 (`22259beb`) — installed native replay-gap acceptance
 

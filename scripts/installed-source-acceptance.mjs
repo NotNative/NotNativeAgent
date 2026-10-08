@@ -95,14 +95,14 @@ export async function selectedPackage(fixture) {
     { cwd: fixture.root, env: fixture.env, timeout: 45000 });
   return JSON.parse(output.trim());
 }
-function chromiumScript(origin, mode, mainUrl, browserProbeExpression, browserScenarioModule) {
+function chromiumScript(origin, mode, mainUrl, browserProbeExpression, browserScenarioModule, browserProbeTimeoutMs) {
   return `import {app,BrowserWindow,dialog} from 'electron';
 import {appendFileSync} from 'node:fs';
 const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\n');
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
 app.setPath('userData',${JSON.stringify(mainUrl.userData)});
-let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? 900000 : browserScenarioModule ? 360000 : 45000});
+let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? browserProbeTimeoutMs : browserScenarioModule ? 360000 : 45000});
 function finish(ok){if(done)return;done=true;clearTimeout(timer);if(ok)process.stdout.write('NND_INSTALLED_${mode === 'browser' ? 'BROWSER' : 'DESKTOP'}_OK\\n');app.exit(ok?0:1)}
 app.whenReady().then(async()=>{
 try{
@@ -132,8 +132,8 @@ const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-ac
 phase('isolation_window_created');
 await other.loadURL(${JSON.stringify(origin)});
 phase('isolation_loaded');
-const isolated=await other.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,body:await response.json()}})()');
-if(isolated.status!==401||isolated.body.authenticated!==false)throw Error('Independent browser partition did not retain the unauthenticated session contract');
+const isolated=await other.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");const workspace=await fetch("/api/v1/nnd/workspaces/admissions");return {status:response.status,body:await response.json(),workspaceStatus:workspace.status}})()');
+if(isolated.status!==401||isolated.body.authenticated!==false||isolated.workspaceStatus!==401)throw Error('Independent browser partition did not retain the unauthenticated workspace contract');
 phase('isolation_verified');
 finish(true);` : `app.on('browser-window-created',(_event,win)=>{phase('window_created');
 win.webContents.on('did-finish-load',async()=>{if(done||!win.webContents.getURL().startsWith(${JSON.stringify(origin)}))return;
@@ -143,7 +143,7 @@ if(result.status!==200||result.authenticated!==true||result.token||Object.keys(r
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
 }catch(error){process.stderr.write(error?.stack||error?.message||JSON.stringify(error)||String(error));finish(false)} });`;
 }
-export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '', browserScenarioModule = null) {
+export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '', browserScenarioModule = null, browserProbeTimeoutMs = 900000) {
   const probeId = randomUUID().replaceAll('-', '').slice(0, 16);
   const shellData = join(fixture.root, `${mode}-profile-${probeId}`);
   await mkdir(shellData);
@@ -165,11 +165,11 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
       try { await handle.writeFile(ticket); await handle.sync(); } finally { await handle.close(); }
     }
     await writeFile(wrapper, chromiumScript(origin, mode, { userData: shellData,
-      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }, browserProbeExpression, browserScenarioModule));
+      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }, browserProbeExpression, browserScenarioModule, browserProbeTimeoutMs));
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
-      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? 915000 : browserScenarioModule ? 375000 : 60000, outputFiles });
+      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? browserProbeTimeoutMs + 15000 : browserScenarioModule ? 375000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);

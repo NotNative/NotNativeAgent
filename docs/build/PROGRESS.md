@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Attached workspace selection and expanded installed F1 evidence · NND 20261008-8
+
+An installed three-root journey exposed and fixed session creation with the
+primary attached workspace ID: NND had looked only in the secondary admitted
+list. Focused refusal tests, the full web suite (1,457/1,457), and typecheck
+passed. A fresh isolated install then verified browser submissions, native
+governed reads/writes, sibling denials, and disk effects for primary,
+secondary, and worktree roots before restart. After restart, all three
+sessions retained their roots and recorded new governed effects and denials.
+The 30-minute post-restart Chromium phase timed out after the worktree write
+completed in the native journal and on disk, before file deletion, worktree
+removal, and desktop continuity checks. The fixture was preserved and stopped.
+F1 remains in progress; native API latency in the isolated profile needs work.
+[Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Bounded token mint and runtime-switch ownership · NND 20261008-7
 
 F2 reconnect token minting now has a finite deadline and cancellation, and
