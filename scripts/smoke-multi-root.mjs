@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { access, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { json } from './smoke-http.mjs';
 
 const encoded = value => encodeURIComponent(value);
@@ -47,13 +47,14 @@ export async function probeSelectedWorkspace(app, primary, secondary, providerRe
   await assert.rejects(access(join(primary, 'F1_SELECTED_WRITE.txt')), { code: 'ENOENT' });
   assert.equal(await readFile(primaryMarker, 'utf8'), 'primary-only');
   assert.equal(await readFile(secondaryMarker, 'utf8'), 'secondary-only');
-  const escape = await call(`/api/fs/read?directory=${encoded(secondary)}&path=${encoded('../primary/F1_PRIMARY_SENTINEL.txt')}`);
+  const escape = await call(`/api/fs/read?directory=${encoded(secondary)}&path=${encoded(relative(secondary, primaryMarker))}`);
   assert.equal(escape.status, 403, 'selected root must not read its sibling fixture');
   await probeRemovedWorkspace(call, primary, row.id);
   return { id: created.id, workspaceId: row.id, secondary };
 }
 
 async function admitSecondary(call, primary, secondary) {
+  assert.equal(basename(primary), basename(secondary), 'fixture must test conflicting same-name projects');
   const before = await json(call, '/api/v1/nnd/workspaces/admissions', 200);
   assert.equal(before.selection_enabled, true);
   assert.ok(samePath(before.attached.root, primary));
@@ -70,9 +71,11 @@ async function admitSecondary(call, primary, secondary) {
   const inventory = await json(call, '/api/v1/nnd/workspaces/admissions', 200);
   const row = inventory.admitted.find(item => samePath(item.root, secondary));
   assert.match(row?.id ?? '', /^ws_[a-f0-9]{24}$/u);
+  assert.notEqual(row.id, inventory.attached.id, 'same-name roots must have distinct workspace identities');
   assert.equal(row.operation_id, operationId);
   const projects = await json(call, '/api/project', 200);
   assert.ok(projects.some(item => item.id === row.id && samePath(item.worktree, secondary)));
+  assert.ok(projects.some(item => item.id === inventory.attached.id && samePath(item.worktree, primary)));
   const status = await json(call, `/api/git/status?directory=${encoded(secondary)}`, 200);
   assert.equal(status.isGitRepository, true);
   if (process.platform === 'win32') {

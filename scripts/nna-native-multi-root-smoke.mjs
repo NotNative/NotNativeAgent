@@ -49,14 +49,14 @@ async function provider() {
 async function main(nnaSource) {
   await access(join(nnaSource, 'src', 'nnd-service-native.js'));
   const fixture = await mkdtemp(join(homedir(), 'nnd-native-multi-root-'));
-  const primary = join(fixture, 'primary');
-  const secondary = join(fixture, 'secondary');
+  const primary = join(fixture, 'primary', 'shared');
+  const secondary = join(fixture, 'secondary', 'shared');
   const data = join(fixture, 'data');
   let service;
   let fake;
   let failed = false;
   try {
-    await Promise.all([mkdir(primary), mkdir(secondary)]);
+    await Promise.all([mkdir(primary, { recursive: true }), mkdir(secondary, { recursive: true })]);
     for (const repository of [primary, secondary]) {
       execFileSync('git', ['init', '-q', '-b', 'main', repository]);
       execFileSync('git', ['config', 'user.name', 'NND Smoke'], { cwd: repository });

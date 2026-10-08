@@ -416,6 +416,19 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-70 — same-name root collision and installed shell regression
+
+The two native source-smoke repositories now both have the visible name
+`shared`, in distinct parent directories. The inventory must retain distinct
+opaque workspace IDs and matching project roots, and the sibling file escape
+uses the actual relative path to the other repository. The full source-native
+smoke passes. Separately, the disposable `20261007-69` source install passed
+its Chromium Native-code browser admission, desktop attach, and persistent
+service-lifetime journey. That installed run is a regression of the package
+and shells; it does not yet execute a selected-root or governed tool turn
+inside the installed app. Permission-loss, installed multi-root, governed
+read/write, and existing TUI preservation remain owed by F1.
+
 ## NND 20261007-69 — F1 native two-root source acceptance (in progress)
 
 The native Windows source-built NNA service and NND app now run a disposable
