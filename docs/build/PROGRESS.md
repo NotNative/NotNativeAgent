@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed unsupported attachment recovery · NND 20261008-19 / NNA 20261008-8
+
+Draft-origin session creation now registers the native session without changing
+the visible composer until its first submission succeeds. In a disposable
+installed Chromium journey, a file-only PDF is rejected by native upload,
+starts no native turn, and leaves its attachment chip available for removal.
+The corrected PNG/text draft then reaches the provider, survives service
+restart with file names intact, and remains visible through desktop attach.
+Over-limit, deleted/expired and cross-session upload cases, annotation upload,
+queue/steer/abort, questions, and audio still require installed acceptance.
+[Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Durable attachment names in transcript · NNA 20261008-8 / NND 20261008-18
 
 NNA now journals the validated file name and MIME with an uploaded file-only

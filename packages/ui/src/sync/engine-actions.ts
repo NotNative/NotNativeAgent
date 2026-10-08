@@ -16,7 +16,7 @@ import { assertFreshAuthority } from './authority-sync.ts';
 export type SessionActionsApi = {
   send: (input: Parameters<typeof optimisticSend>[1]) => Promise<void>;
   createSession: (input: { directory: string; title?: string; parentID?: string;
-    projectContextPins?: import('../chat/project-context-pins.ts').ProjectContextPinTargets }) => Promise<Session>;
+    projectContextPins?: import('../chat/project-context-pins.ts').ProjectContextPinTargets; select?: boolean }) => Promise<Session>;
   archive: (sessionID: string, directory: string) => Promise<void>;
   restore: (sessionID: string, directory: string) => Promise<void>;
   deleteSession: (sessionID: string, directory: string) => Promise<void>;

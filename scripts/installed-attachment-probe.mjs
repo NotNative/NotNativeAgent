@@ -75,10 +75,42 @@ function composerBrowserProbe() {
     if(!composer)throw Error('installed composer did not mount');
     const newSession=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='+ New session');
     if(!newSession)throw Error('new session control missing');newSession.click();
-    const before=await (await fetch('/api/session?roots=true')).json();
-    const prior=new Set(before.map(row=>row.id));
     const input=document.querySelector('[data-testid="composer"] input[type="file"]');
     if(!input)throw Error('composer file input missing');
+    const sessionsBeforeUnsupported=await (await fetch('/api/session?roots=true')).json();
+    const priorUnsupported=new Set(sessionsBeforeUnsupported.map(row=>row.id));
+    const unsupported=new DataTransfer();
+    unsupported.items.add(new File(['unsupported fixture'],'unsupported.pdf',{type:'application/pdf'}));
+    input.files=unsupported.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+    let rejectedSend;
+    for(let i=0;i<100;i++){
+      rejectedSend=document.querySelector('[data-testid="composer"] button[aria-label="Send message"]');
+      if(document.querySelector('[aria-label="Remove unsupported.pdf"]')&&rejectedSend&&!rejectedSend.disabled)break;
+      await delay(100);
+    }
+    if(!rejectedSend||rejectedSend.disabled)throw Error('unsupported file-only draft did not enable');
+    rejectedSend.click();
+    let rejectionShown=false;
+    const rejectionDeadline=Date.now()+120000;
+    while(Date.now()<rejectionDeadline){
+      if(document.body.textContent?.includes('Message failed to send. Attachments restored.')){rejectionShown=true;break}
+      await delay(250);
+    }
+    const retained=Boolean(document.querySelector('[aria-label="Remove unsupported.pdf"]'));
+    if(!rejectionShown||!retained)
+      throw Error('unsupported upload did not reject and preserve the composer draft '+JSON.stringify({rejectionShown,retained,
+        toast:[...document.querySelectorAll('[data-sonner-toast]')].map(row=>row.textContent?.slice(0,160))}));
+    const afterUnsupported=await (await fetch('/api/session?roots=true')).json();
+    const rejectedSession=afterUnsupported.find(row=>!priorUnsupported.has(row.id));
+    if(!rejectedSession)throw Error('unsupported upload did not create an isolated native session');
+    const rejectedActivity=await (await fetch('/api/session/'+encodeURIComponent(rejectedSession.id)+'/activity')).json();
+    if(rejectedActivity.some(row=>row.kind==='turn'))throw Error('unsupported upload started a native turn');
+    const remove=document.querySelector('[aria-label="Remove unsupported.pdf"]');
+    remove.click();
+    for(let i=0;i<100&&document.querySelector('[aria-label="Remove unsupported.pdf"]');i++)await delay(100);
+    if(document.querySelector('[aria-label="Remove unsupported.pdf"]'))throw Error('unsupported draft could not be corrected');
+    const before=await (await fetch('/api/session?roots=true')).json();
+    const prior=new Set(before.map(row=>row.id));
     const bytes=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
     const files=new DataTransfer();
     files.items.add(new File([${JSON.stringify(UI_TEXT_MARKER)}],'ui-notes.txt',{type:'text/plain'}));

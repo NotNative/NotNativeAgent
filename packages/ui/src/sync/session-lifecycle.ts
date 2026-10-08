@@ -37,7 +37,7 @@ export interface EngineServices {
 
 /** §F.1 createSession: routing pre-register, child insert, loader claim, select. */
 export async function createSession(engine: EngineServices, input: { directory: string; title?: string; parentID?: string;
-  projectContextPins?: ProjectContextPinTargets }): Promise<Session> {
+  projectContextPins?: ProjectContextPinTargets; select?: boolean }): Promise<Session> {
   const requested = normalizeDirectory(input.directory);
   const selected = await nativeWorkspaceForCreate(requested);
   // Native admission is async; a replay gap discovered during it closes writes.
@@ -79,7 +79,7 @@ export async function createSession(engine: EngineServices, input: { directory: 
   engine.registerSessionRoute(session.id, sessionDirectory);
   insertCreatedSession(store, session);
   engine.loaderInitializeCreated(sessionDirectory, session.id, store);
-  engine.onSelectSession(session.id, sessionDirectory);
+  if (input.select !== false) engine.onSelectSession(session.id, sessionDirectory);
   return session;
 }
 

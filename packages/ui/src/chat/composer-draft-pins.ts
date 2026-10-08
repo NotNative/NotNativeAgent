@@ -19,7 +19,7 @@ export interface NewSessionDeliveryInput {
   services: { engine: { actions: {
     send: (input: { directory: string; sessionID: string; parts: NewSessionDeliveryInput['outgoing'];
       model: { providerID: string; modelID: string }; agent?: string; delivery?: 'steer' }) => Promise<void>;
-    createSession: (input: { directory: string; projectContextPins?: ProjectContextPinTargets }) => Promise<NewSessionLike>;
+    createSession: (input: { directory: string; projectContextPins?: ProjectContextPinTargets; select?: boolean }) => Promise<NewSessionLike>;
   } } };
 }
 
@@ -30,6 +30,7 @@ export async function deliverToNewSession(input: NewSessionDeliveryInput): Promi
   const hasTargets = Boolean(targets && (targets.notes.length > 0 || targets.plans.length > 0));
   const created = await input.services.engine.actions.createSession({
     directory: input.directory,
+    select: false,
     ...(hasTargets ? { projectContextPins: targets } : {}),
   });
   await input.services.engine.actions.send({

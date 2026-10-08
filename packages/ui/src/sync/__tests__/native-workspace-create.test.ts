@@ -53,6 +53,14 @@ it('selects a new session only when NNA confirms the same attached workspace', a
   expect(selection).toHaveBeenCalledWith('ses_a', rootA);
 });
 
+it('registers a draft-send session without replacing the visible draft before delivery', async () => {
+  vi.mocked(harnessClient.createSession).mockResolvedValue({ data: { id: 'ses_draft', directory: rootA } as never });
+  insert.mockReturnValue({ setState: vi.fn() });
+  expect((await createSession(engine, { directory: rootA, select: false })).id).toBe('ses_draft');
+  expect(route).toHaveBeenCalledWith('ses_draft', rootA);
+  expect(selection).not.toHaveBeenCalled();
+});
+
 it('sends an admitted workspace ID and requires the native session to confirm it', async () => {
   const workspaceId = `ws_${'a'.repeat(24)}`;
   vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify({ directory: rootB,
