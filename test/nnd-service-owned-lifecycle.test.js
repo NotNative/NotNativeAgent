@@ -71,6 +71,7 @@ async function waitFor(predicate) {for(let n=0;n<100;n++){if(predicate())return;
 test('public supervision still admits registered package and withholds controller grants before publication',async()=>{
  const f=await fixture(),started=f.api.startNndSupervisor(identity,paths,{skipAdmission:true,packageRoot:'C:/untrusted'});
  await waitFor(()=>f.trace.includes('child:start'));
+ assert.equal(f.nativeOptions.activationTimeoutMs,60_000);
  assert.equal(f.controller.getRecord(),null);await assert.rejects(f.controller.ticket(),{code:'nnd_service_not_running'});
  assert.ok(f.trace.indexOf('package:admit')<f.trace.indexOf('native:start'));assert.ok(f.trace.includes('data:admit'));
  f.childReady.resolve();const owner=await started;

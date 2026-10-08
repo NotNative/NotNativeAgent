@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createNndSetupRuntime } from '../src/nnd-setup-runtime.js';
 import { readNndSetupConfiguration } from '../src/nnd-setup-config.js';
-import { createIntegrationNndEngineHost, runNndIntegrationCommand } from '../src/integration-cli.js';
+import { createIntegrationLifecycle, createIntegrationNndEngineHost, runNndIntegrationCommand } from '../src/integration-cli.js';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
 
 async function fixture(t) {
@@ -220,6 +220,12 @@ test('lifecycle timeout limits cannot be disabled or made unbounded', () => {
     assert.throws(() => createNndSetupRuntime({ loadConfiguration: async () => ({}), createHost: async () => ({}),
       activationTimeoutMs: value }), { code: 'nnd_setup_timeout_invalid' });
   }
+});
+
+test('native integration forwards the supervised activation bound to setup runtime validation', async (t) => {
+  const paths = await fixture(t);
+  await assert.rejects(createIntegrationLifecycle(paths, { activationTimeoutMs: 99 }, 'nnd', null, {}),
+    { code: 'nnd_setup_timeout_invalid' });
 });
 
 test('an open SSE connection cannot hold native CLI shutdown indefinitely', { timeout: 5000 }, async (t) => {

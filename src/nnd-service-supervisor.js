@@ -33,6 +33,8 @@ import { cleanupNndRetirementEvidenceUnderOwnership, recordNndTerminalRetirement
   clearNndRetirementBarriersUnderOwnership } from './nnd-activation-retirement-cleanup.js';
 import { userDataPaths } from './product.js';
 const RETAINED_BY_LEASE = new WeakMap();
+// Why: installed restart replays sessions while the GUI starts; 20 seconds expired on Windows.
+const SUPERVISED_SETUP_TIMEOUT_MS = 60_000;
 async function readMetadata(path) {
   const file = await open(path, 'r');
   try {
@@ -59,9 +61,7 @@ export async function admitNndServicePackage(paths, identity) {
 }
 async function availableUiOrigin() {
   const server = createServer();
-  await new Promise((resolve, reject) => {
-    server.once('error', reject); server.listen(0, '127.0.0.1', resolve);
-  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const origin = `http://127.0.0.1:${server.address().port}`;
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   return origin;
@@ -81,7 +81,7 @@ export async function startNndSupervisor(identity, paths, options = {}) {
     state.package = await admitNndServicePackage(paths, identity);
     await admitFreshNndServiceData(paths, identity, lease);
     const previous = await readNndServiceDiscovery(identity);
-    state.native = await startNndNativeService(paths, identity, options);
+    state.native = await startNndNativeService(paths, identity, { ...options, activationTimeoutMs: SUPERVISED_SETUP_TIMEOUT_MS });
     state.controller = await startNndController({ getRecord: () => state.published ? state.record : null,
       status: () => status(state), stop, ticket: () => issueSupervisorTicket(state) });
     state.record = await createNndDiscoveryGeneration(identity, lease, { endpoint: state.controller.endpoint });

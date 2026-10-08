@@ -153,6 +153,7 @@ export async function createIntegrationLifecycle(paths, options, owner, broker, 
     return { getHost: () => host, close: () => host.shutdown(), runtime: undefined };
   }
   const runtime = createNndSetupRuntime({
+    ...(options.activationTimeoutMs === undefined ? {} : { activationTimeoutMs: options.activationTimeoutMs }),
     loadConfiguration: (signal) => readNndSetupConfiguration(paths, signal),
     createHost: (preparedConfig, { signal }) => createIntegrationNndEngineHost(paths, { ...hostOptions, preparedConfig, setupSignal: signal }),
   });
