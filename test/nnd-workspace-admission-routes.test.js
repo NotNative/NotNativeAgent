@@ -29,7 +29,7 @@ const body = (root, operationId = 'adm_1') => ({ installation_id: 'i', data_id: 
 
 test('admission routes authorize first, keep the grammar exact, and separate receipts', async () => {
   let reads = 0, mutations = 0;
-  const service = { inventory: () => { reads++; return { selection_enabled: false, admitted: [] }; },
+  const service = { inventory: () => { reads++; return { selection_enabled: true, admitted: [] }; },
     admit: () => { mutations++; return { persistence: 'saved' }; },
     revoke: () => { mutations++; return { persistence: 'saved', revoked_root: 'x' }; },
     operation: (_, id) => ({ operation_id: id }) };
@@ -40,7 +40,7 @@ test('admission routes authorize first, keep the grammar exact, and separate rec
   assert.equal(reads + mutations, 0);
   const inventory = await dispatch('/v1/nnd/workspaces/admissions', 'GET', ['nnd.workspace.read'], service);
   assert.equal(inventory.status, 200);
-  assert.equal(inventory.body.selection_enabled, false);
+  assert.equal(inventory.body.selection_enabled, true);
   await assert.rejects(dispatch('/v1/nnd/workspaces/admissions', 'GET', ['nnd.workspace.read'], service, undefined, 'root=x'),
     { code: 'nnd_workspace_admission_request_invalid' });
   for (const malformed of [{}, { ...body('C:/w'), extra: 1 },
@@ -91,7 +91,7 @@ test('the admission family serves end-to-end over the integration server', async
       expected_revision: revision, operation_id: operationId, root });
     const inventory = await call('');
     assert.equal(inventory.status, 200);
-    assert.equal(inventory.body.selection_enabled, false);
+    assert.equal(inventory.body.selection_enabled, true);
     assert.deepEqual(inventory.body.admitted, []);
     const grants = await fetch(`http://127.0.0.1:${server.address.port}/v1/nnd/workspaces`,
       { headers: { authorization: `Bearer ${token}` } });

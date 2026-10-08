@@ -41,6 +41,10 @@ export function samePrincipal(context, principal) {
   return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
 }
 
+export function scopedPrincipal(context, principal) {
+  return { ...principal, workspaceIds: [...context.workspaceIds] };
+}
+
 export function validCatalogRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }

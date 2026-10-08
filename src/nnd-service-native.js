@@ -135,7 +135,8 @@ export async function startNndNativeService(paths, identity, options = {}) {
   const settings = createNativeNndSettingsServices(paths, identity, environment);
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
     readEffectiveConfiguration: () => readNndSetupConfiguration(paths) });
-  const lifecycle = await createIntegrationLifecycle(paths, options, 'nnd', broker, {});
+  const lifecycle = await createIntegrationLifecycle(paths,
+    { ...options, workspaceAdmissionService: settings.nndWorkspaceAdmissionService }, 'nnd', broker, {});
   let service;
   try {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,

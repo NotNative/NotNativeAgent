@@ -28,8 +28,7 @@ export async function primaryNndWorkspaceBinding(configuredRoot) {
 
 export function assertPrimaryNndWorkspaceBinding(binding, principal, directory, expected, restoring) {
   assertSameNndWorkspaceBinding(binding, expected);
-  if (!Array.isArray(principal?.workspaceIds) || principal.workspaceIds.length !== 1
-    || principal.workspaceIds[0] !== expected.id) throw mismatch();
+  if (!Array.isArray(principal?.workspaceIds) || !principal.workspaceIds.includes(expected.id)) throw mismatch();
   if (restoring ? directory !== expected.configured_root
     : directory !== undefined && directory !== expected.configured_root) throw mismatch();
   return expected;
@@ -50,7 +49,7 @@ export function nndToolWorkspaceIdentityCheck(engine, binding, resolver) {
   return async () => {
     assertBoundEngineWorkspace(engine, captured);
     let current;
-    try { current = await resolver(); } catch { throw mismatch(); }
+    try { current = await resolver(captured.id); } catch { throw mismatch(); }
     assertSameNndWorkspaceBinding(captured, current);
     assertBoundEngineWorkspace(engine, captured);
   };
@@ -64,10 +63,10 @@ export function assertLegacyNndWorkspaceBinding(principal, directory, expected) 
 
 export async function preflightNndWorkspaceCatalog(records, resolver, validRecord) {
   if (!resolver) return;
-  const expected = await resolver();
   for (const record of records) {
     if (!validRecord(record)) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
     const principal = { workspaceIds: record.workspaceIds };
+    const expected = await resolver(record.workspaceBinding?.id);
     if (record.workspaceBinding === undefined) assertLegacyNndWorkspaceBinding(principal, record.directory, expected);
     else assertPrimaryNndWorkspaceBinding(record.workspaceBinding, principal, record.directory, expected, true);
   }
@@ -75,7 +74,8 @@ export async function preflightNndWorkspaceCatalog(records, resolver, validRecor
 
 export async function resolveContextBinding(resolver, principal, options, restoring) {
   if (!resolver) return null;
-  const binding = await resolver();
+  const selectedId = restoring ? options.workspaceBinding?.id : options.workspace_id;
+  const binding = await resolver(selectedId);
   if (restoring && options.workspaceBinding === undefined) {
     assertLegacyNndWorkspaceBinding(principal, options.directory, binding);
   } else {
@@ -90,7 +90,7 @@ export function assertBoundEngineWorkspace(engine, binding) {
 
 export async function recheckContextBinding(resolver, binding, principal, options, restoring) {
   if (!binding) return;
-  assertPrimaryNndWorkspaceBinding(binding, principal, options.directory, await resolver(), restoring);
+  assertPrimaryNndWorkspaceBinding(binding, principal, options.directory, await resolver(binding.id), restoring);
 }
 
 export async function assertLiveNndWorkspaceBinding(context, resolver, principal, currentContext) {

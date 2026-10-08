@@ -21,10 +21,16 @@ The native listener serves `GET /v1/nnd/workspaces/admissions` and the matching
 admit, revoke, and operation-receipt endpoints. An authenticated local operator
 can record a canonical directory after filesystem identity checks. Reads recheck
 the stored identity and the existing primary and secondary grant document;
-retries use durable operation receipts. Admission currently records an inventory
-only. Session creation and engine execution still use the configured primary
-workspace. The inventory reports `selection_enabled:false` until those paths
-consume the admitted identity and pass a real multi-workspace turn.
+retries use durable operation receipts. Session creation accepts an admitted
+workspace ID, binds the engine and durable catalog to that root, and rechecks
+admission before work. The inventory reports `selection_enabled:true`. The
+local operator can list attached and admitted projects; a selected session's
+engine and delegated children retain only that workspace identity. Missing or
+revoked admitted roots are preserved in the catalog but quarantined during
+startup so healthy sessions can restore. A later restart can restore a
+quarantined session after the root and admission return. A broken admitted
+directory does not disable attached-root session creation. Real-provider turns
+and installed browser/desktop acceptance remain unverified.
 
 ## Existing NND catalog migration
 
@@ -163,8 +169,9 @@ page; a cursor cannot select another principal's session.
 
 With durable persistence, NNA keeps a bounded session catalog beside its
 session journals. A new NND child reopens those sessions under their original
-subject and workspace grants before it emits readiness. An invalid catalog
-stops startup while preserving the file for inspection. Ephemeral NNA
+subject and workspace grants before it emits readiness. An invalid primary or
+legacy catalog record stops startup while preserving the file for inspection;
+missing admitted roots are quarantined as described above. Ephemeral NNA
 configurations keep sessions in memory only.
 
 `nna integration serve` remains the NNO-owned entry point. It still requires

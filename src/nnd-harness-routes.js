@@ -11,6 +11,7 @@ const ACTIVITY_TOMBSTONES_ROUTE = '/v1/nnd/activity-tombstones';
 const MESSAGE_LIMIT_MAX = 200;
 const LIVE_BOUNDARY_PREFIX = 'nnd-live-boundary:';
 export async function dispatchNndHarnessRequest(request, response, context) {
+  context = await admittedWorkspaceContext(context);
   if (await readActivityTombstones(request, response, context) || await readActivityHistory(request, response, context)) return true;
   if (openEventStream(request, response, context)) return true;
   if (await dispatchNndQuestionRequest(request, response, context)) return true;
@@ -29,7 +30,8 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (request.method === 'POST' && !id) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
     const body = await readJsonBody(request);
-    const options = { ...createOptions(body), directory: trustedWorkspace(context.nndWorkspaceRoot) };
+    const options = { ...createOptions(body),
+      directory: body?.workspace_id ? body.directory : trustedWorkspace(context.nndWorkspaceRoot) };
     const made = await host.create(newId('ses'), context.principal, options);
     return send(response, 201, host.get(made.sessionId, context.principal));
   }
@@ -46,17 +48,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     response.writeHead(204); response.end(); return true;
   }
   if (request.method === 'PATCH' && id && !match[2]) {
-    requireIntegrationPermission(context.principal, 'nnd.session.update');
-    const body = await readJsonBody(request);
-    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1) {
-      throw new ContractError('request_invalid', 'NND session update supports title or archived time');
-    }
-    if (Object.hasOwn(body, 'title')) return send(response, 200, await host.rename(id, context.principal, body.title));
-    if (Object.hasOwn(body, 'time') && body.time && typeof body.time === 'object'
-      && !Array.isArray(body.time) && Object.keys(body.time).length === 1 && Object.hasOwn(body.time, 'archived')) {
-      return send(response, 200, await host.setArchived(id, context.principal, body.time.archived));
-    }
-    throw new ContractError('request_invalid', 'NND session update supports title or archived time');
+    return updateSession(request, response, context, host, id);
   }
   if (request.method === 'POST' && id && match[2] === 'abort') {
     requireIntegrationPermission(context.principal, 'nnd.session.abort');
@@ -69,6 +61,44 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     return send(response, 200, true);
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+async function updateSession(request, response, context, host, id) {
+  requireIntegrationPermission(context.principal, 'nnd.session.update');
+  const body = await readJsonBody(request);
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1) {
+    throw new ContractError('request_invalid', 'NND session update supports title or archived time');
+  }
+  if (Object.hasOwn(body, 'title')) return send(response, 200, await host.rename(id, context.principal, body.title));
+  if (Object.hasOwn(body, 'time') && body.time && typeof body.time === 'object'
+    && !Array.isArray(body.time) && Object.keys(body.time).length === 1 && Object.hasOwn(body.time, 'archived')) {
+    return send(response, 200, await host.setArchived(id, context.principal, body.time.archived));
+  }
+  throw new ContractError('request_invalid', 'NND session update supports title or archived time');
+}
+
+async function admittedWorkspaceContext(context) {
+  const path = context.url.pathname;
+  const workspaceRoute = path === '/project' || path === '/project/current'
+    || path === '/session' || path.startsWith('/session/') || path === '/session/status'
+    || path === '/global/event' || path === '/event' || path === '/v1/nnd/pending'
+    || path === ACTIVITY_TOMBSTONES_ROUTE || ACTIVITY_HISTORY_ROUTE.test(path);
+  if (workspaceRoute && context.nndWorkspaceAdmissionService
+    && context.principal.subjectId === 'nnd-local-operator'
+    && context.principal.platformRole === 'operator'
+    && context.principal.permissions.includes('nnd.workspace.manage')) {
+    let inventory;
+    try { inventory = await context.nndWorkspaceAdmissionService.inventory(context.principal); }
+    catch (error) {
+      // Why: an unavailable admitted root must not disable the attached root.
+      if (error?.code === 'nnd_workspace_admission_identity_mismatch') return context;
+      throw error;
+    }
+    return { ...context, workspaceInventory: inventory,
+      principal: { ...context.principal, workspaceIds: [...new Set([
+        ...context.principal.workspaceIds, ...inventory.admitted.map(row => row.id)])] } };
+  }
+  return context;
 }
 
 /** Owner-scoped deletion receipts, never a complete history or a foreign-session lookup. */
@@ -221,8 +251,13 @@ async function dispatchBootstrapRequest(request, response, context) {
     });
   }
   if (path === '/project' || path === '/project/current') {
-    const project = { id: 'nna_workspace', worktree: workspace, name: 'NNA workspace', time: { created: 0, updated: 0 } };
-    return send(response, 200, path === '/project' ? [project] : project);
+    const rows = context.workspaceInventory
+      ? [context.workspaceInventory.attached, ...context.workspaceInventory.admitted]
+      : [{ id: 'nna_workspace', root: workspace }];
+    const projects = rows.map(row => ({ id: row.id, worktree: row.root,
+      name: row.root.split(/[\\/]/u).filter(Boolean).at(-1) ?? 'NNA workspace',
+      time: { created: 0, updated: 0 } }));
+    return send(response, 200, path === '/project' ? projects : projects[0]);
   }
   const host = context.nndEngineHost;
   if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
@@ -257,5 +292,10 @@ function createOptions(body) {
   // The authenticated host selects engine configuration and workspace roots.  In
   // particular, a desktop client must not be able to inject factory options such
   // as a data path or execution manifest through this compatibility endpoint.
-  return typeof body.title === 'string' ? { title: body.title } : {};
+  if (body.workspace_id !== undefined && (typeof body.workspace_id !== 'string'
+    || !/^ws_[a-f0-9]{24}$/u.test(body.workspace_id))) {
+    throw new ContractError('request_invalid', 'NND workspace selection is invalid');
+  }
+  return { ...(typeof body.title === 'string' ? { title: body.title } : {}),
+    ...(body.workspace_id ? { workspace_id: body.workspace_id } : {}) };
 }

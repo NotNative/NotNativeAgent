@@ -236,7 +236,7 @@ async function readLeanState(ctx) {
 async function inventory(ctx, principal) {
   authorize(principal, 'nnd.workspace.read');
   const current = await readChannelState(ctx);
-  return Object.freeze({ ...ctx.identity, revision: current.snapshot.revision, selection_enabled: false,
+  return Object.freeze({ ...ctx.identity, revision: current.snapshot.revision, selection_enabled: true,
     attached: current.attached, ...(current.secondary ? { secondary_grant: current.secondary } : {}),
     admitted: current.admitted.map(row => Object.freeze(persistedRow(row))),
     application: 'not_applied' });

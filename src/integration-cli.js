@@ -12,7 +12,7 @@ import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { resolveManifest } from './config.js';
 import { SessionEngine } from './engine.js';
 import { NndEngineHost } from './nnd-engine-host.js';
-import { primaryNndWorkspaceBinding } from './nnd-workspace-binding.js';
+import { createNndWorkspaceBindingResolver } from './nnd-workspace-selection.js';
 import { nndMcpInventory } from './nnd-mcp-inventory.js';
 import { nndSkillsInventory } from './nnd-skills-inventory.js';
 import { nndAgentInventory } from './nnd-agent-inventory.js';
@@ -174,22 +174,9 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     trusted, skillRoot: join(config.workspaceRoot, '.nna', 'skills'),
   });
   const host = new NndEngineHost({
-    primaryWorkspaceBinding: async () => primaryNndWorkspaceBinding(config.workspaceRoot),
+    primaryWorkspaceBinding: createNndWorkspaceBindingResolver(config.workspaceRoot, options.workspaceAdmissionService),
     catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
-    createEngine: async (input) => new SessionEngine({
-      config: activeConfig, sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
-      workspaceBinding: input.workspaceBinding, workspaceBindingResolver: input.workspaceBindingResolver,
-      storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
-      providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
-      secretBroker: options.secretBroker,
-      mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
-      nndAgentToolCallback: options.nndAgentToolCallback,
-      hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
-      skillRoots,
-      emitContextStatus: true,
-      output: input.output,
-      nndBrowserCallback: options.nndBrowserCallback,
-    }),
+    createEngine: (input) => createSelectedNndEngine(paths, options, config, () => activeConfig, trusted, input),
   });
   host.workspaceRoot = config.workspaceRoot;
   // Security: expose only the configured route identity to the NND browser, never provider credentials or endpoints.
@@ -220,6 +207,28 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     return nndSkillsInventory(skills.catalog());
   };
   return initializeIntegrationHost(host, options.setupSignal);
+}
+
+async function createSelectedNndEngine(paths, options, startupConfig, activeConfig, startupTrusted, input) {
+  const selectedRoot = input.workspaceBinding?.configured_root ?? activeConfig().workspaceRoot;
+  const selectedTrusted = selectedRoot === startupConfig.workspaceRoot ? startupTrusted
+    : await workspaceIsTrusted(paths.trustedWorkspaces, selectedRoot);
+  const selectedSkillRoots = options.skillRoots ?? runtimeSkillRoots(paths, {
+    trusted: selectedTrusted, skillRoot: join(selectedRoot, '.nna', 'skills'),
+  });
+  return new SessionEngine({
+    config: Object.freeze({ ...activeConfig(), workspaceRoot: selectedRoot }),
+    sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
+    workspaceBinding: input.workspaceBinding, workspaceBindingResolver: input.workspaceBindingResolver,
+    storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
+    providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+    secretBroker: options.secretBroker,
+    mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
+    nndAgentToolCallback: options.nndAgentToolCallback,
+    hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
+    skillRoots: selectedSkillRoots, emitContextStatus: true, output: input.output,
+    nndBrowserCallback: options.nndBrowserCallback,
+  });
 }
 
 async function initializeIntegrationHost(host, signal) {

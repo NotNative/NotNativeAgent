@@ -78,7 +78,7 @@ function sha24Verbatim(value) {
 test('the attached root is never proxied; inventory shape and permissions', async t => {
   const f = await fixture(t);
   const inventory = await f.service.inventory(principal);
-  assert.equal(inventory.selection_enabled, false);
+  assert.equal(inventory.selection_enabled, true);
   assert.equal(inventory.attached.root, await realpath(f.primary));
   assert.equal(inventory.attached.id, sha24Verbatim((await readNndSetupConfiguration({ config: f.config })).workspaceRoot));
   assert.deepEqual(inventory.admitted, []);

@@ -40,8 +40,9 @@ test('primary-only create persists one native binding and publishes its project 
   host.childSessions.register('child_a', 'session_a', f.principal,
     { config: { workspaceRoot: f.workspace }, transcript: [] });
   assert.equal(host.childSessions.get('child_a', f.principal).projectID, record.workspaceBinding.id);
-  await assert.rejects(host.create('session_b', { ...f.principal, workspaceIds: [...f.principal.workspaceIds, 'ws_second'] },
-    { directory: f.workspace }), { code: 'nnd_workspace_binding_invalid' });
+  await host.create('session_b', { ...f.principal, workspaceIds: [...f.principal.workspaceIds, 'ws_second'] },
+    { directory: f.workspace });
+  assert.deepEqual(JSON.parse(await readFile(f.catalog, 'utf8'))[1].workspaceIds, [record.workspaceBinding.id]);
   await assert.rejects(host.create('session_c', f.principal, { directory: f.other }),
     { code: 'nnd_workspace_binding_invalid' });
   await host.shutdown();

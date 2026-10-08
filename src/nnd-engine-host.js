@@ -27,8 +27,9 @@ import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
-import { requirePrincipal, samePrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
-import { preflightNndWorkspaceCatalog, resolveContextBinding, initializeBoundEngine,
+import { requirePrincipal, samePrincipal, scopedPrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
+import { partitionNndCatalog } from './nnd-catalog-admission.js';
+import { resolveContextBinding, initializeBoundEngine,
   assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
 const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
@@ -38,6 +39,7 @@ export class NndEngineHost {
   #deleting = new Set();
   #childStreams = new Map();
   #childActivity = new Map();
+  #quarantined = [];
   constructor(options = {}) {
     if (typeof options.createEngine !== 'function') {
       throw new ContractError('nnd_engine_factory_missing', 'NND engine host requires an engine factory');
@@ -73,8 +75,9 @@ export class NndEngineHost {
     try { records = JSON.parse(source); } catch { throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid'); }
     if (!Array.isArray(records) || records.length > this.limit) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
     try {
-      await preflightNndWorkspaceCatalog(records, this.primaryWorkspaceBinding, validCatalogRecord);
-      await restoreNndContexts(records, (sessionId, principal, options) => this.#createContext(sessionId, principal, options, true));
+      const { restorable, quarantined } = await partitionNndCatalog(records, this.primaryWorkspaceBinding, validCatalogRecord);
+      this.#quarantined = quarantined;
+      await restoreNndContexts(restorable, (sessionId, principal, options) => this.#createContext(sessionId, principal, options, true));
       for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
         this.childSessions.restoreCompleted?.(snapshot);
         this.#childActivity.set(snapshot.sessionId, snapshot.activity);
@@ -92,7 +95,7 @@ export class NndEngineHost {
     if (this.#contexts.has(sessionId) || this.#creating.has(sessionId) || this.#deleting.has(sessionId)) {
       throw new ContractError('nnd_session_exists', 'NND session context already exists');
     }
-    if (this.#contexts.size + this.#creating.size >= this.limit) {
+    if (this.#contexts.size + this.#quarantined.length + this.#creating.size >= this.limit) {
       throw new ContractError('nnd_context_capacity', 'NND engine context capacity is full');
     }
     this.#creating.add(sessionId);
@@ -111,7 +114,8 @@ export class NndEngineHost {
       if (restoring) engine.reviewPosture = options.reviewMode === 'unattended' ? 'unattended' : 'auto-review';
       const createdAt = restoring ? options.createdAt : Date.now();
       const activity = restoring ? await loadActivity(this.catalogPath, sessionId, createdAt) : [];
-      const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
+      const context = { sessionId, subjectId: principal.subjectId,
+        workspaceIds: new Set(binding ? [binding.id] : principal.workspaceIds), engine,
         ...(binding ? { workspaceBinding: binding } : {}),
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
         updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: restoring ? options.contextUsage : null,
@@ -139,7 +143,7 @@ export class NndEngineHost {
     await this.assertWorkspaceBound(sessionId, principal);
     const context = this.#owned(sessionId, principal);
     if (context.reviewArming > 0) throw new ContractError('nnd_session_unavailable', 'review mode change is pending');
-    return context.ingress.submit(command, principal);
+    return context.ingress.submit(command, scopedPrincipal(context, principal));
   }
   async assertWorkspaceBound(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
@@ -154,7 +158,7 @@ export class NndEngineHost {
   }
   async abort(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
-    return context.ingress.submit({ version: '1.0', type: 'cancel', request_id: newId('nnd_abort') }, principal);
+    return context.ingress.submit({ version: '1.0', type: 'cancel', request_id: newId('nnd_abort') }, scopedPrincipal(context, principal));
   }
   async rename(sessionId, principal, value) {
     const context = this.#owned(sessionId, principal);
@@ -222,7 +226,7 @@ export class NndEngineHost {
     // turn. A second prompt must not replace that turn's output recipient.
     if (previousTurn) {
       if (previousTurn.requestId !== command.request_id) return { accepted: false, reason: 'busy' };
-      const repeated = context.ingress.start(command, principal);
+      const repeated = context.ingress.start(command, scopedPrincipal(context, principal));
       return repeated.duplicate ? repeated.result : { accepted: false, reason: 'busy' };
     }
     // An ingress instance forgets its idempotency window on restart, whereas
@@ -246,7 +250,7 @@ export class NndEngineHost {
       opened: false, turnId: null, outcome: null, activeTools: new NndActiveTools() };
     context.liveTurn = turn;
     let started;
-    try { started = context.ingress.start(command, principal); }
+    try { started = context.ingress.start(command, scopedPrincipal(context, principal)); }
     catch (error) { context.liveTurn = previousTurn; throw error; }
     if (started.duplicate) { context.liveTurn = previousTurn; return started.result; }
     // Why: callers receive the acknowledgement promptly; the engine remains
@@ -424,7 +428,7 @@ export class NndEngineHost {
   async #commitCatalogChange(change, commit) {
     if (!this.catalogPath) { change(new Map(this.#contexts)); commit(); return; }
     this.catalogWrites = enqueueNndCatalogChange(this.catalogWrites, this.#contexts, change, commit,
-      this.catalogPath, this.persistCatalog, CATALOG_LIMIT_BYTES);
+      this.catalogPath, this.persistCatalog, CATALOG_LIMIT_BYTES, this.#quarantined);
     await this.catalogWrites;
   }
   #owned(sessionId, principal, allowClosing = false) {
@@ -468,13 +472,11 @@ export class NndEngineHost {
       : !this.#childActivity.has(child.id))) return;
     try {
       observeChildLifecycle({ type, child, payload, streams: this.#childStreams, activity: this.#childActivity,
-        publish: (eventType, properties, mirror) => this.#publishChild(parent, child, eventType, properties, mirror),
+        publish: (eventType, properties, mirror) => publishNndChildEvent(this.eventBus, this.#childActivity,
+          parent, child, eventType, properties, mirror),
         messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }) });
       const activity = parentChildActivity(type, child, parent.sessionId, payload, parent.liveTurn?.requestId); if (activity) this.#publish(parent, 'nnd.activity', activity);
     } finally { this.childSnapshotStore.observe(type, child, parent, this.childSessions, this.#childActivity.get(child.id) ?? []); }
-  }
-  #publishChild(parent, child, type, properties, mirror = false) {
-    publishNndChildEvent(this.eventBus, this.#childActivity, parent, child, type, properties, mirror);
   }
   #publish(context, type, properties, mirror = false) {
     if (type === 'nnd.activity') {
@@ -482,10 +484,7 @@ export class NndEngineHost {
       const record = appendActivity(context.activity, properties);
       if (!record) return;
       properties = record;
-      if (record && this.catalogPath) {
-        context.activityRevision += 1;
-        scheduleActivityWrite(context, this.catalogPath, this.persistActivity);
-      }
+      if (this.catalogPath) { context.activityRevision += 1; scheduleActivityWrite(context, this.catalogPath, this.persistActivity); }
     }
     // Why: a broken display subscriber cannot turn governed work into a false failure.
     try {

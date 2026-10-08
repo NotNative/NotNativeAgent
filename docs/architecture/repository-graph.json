@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:50690e089a00bc4c0e64612b74ab56a9b69eeb3764ddd771a27eaa86962306c8",
+  "source_digest": "sha256:e56f243df535cad4165bbefa361fa2aa6e0bb8b1823ab736e5beed6fbed1162c",
   "counts": {
-    "modules": 551,
+    "modules": 553,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 243
+      "module_count": 245
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 732,
-      "module_count": 218
+      "import_count": 737,
+      "module_count": 220
     },
     {
       "from": "experience-engine",
@@ -1923,7 +1923,7 @@
         "src/nnd-setup-config.js",
         "src/nnd-setup-runtime.js",
         "src/nnd-skills-inventory.js",
-        "src/nnd-workspace-binding.js",
+        "src/nnd-workspace-selection.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
         "src/secret-broker.js",
@@ -2558,6 +2558,15 @@
       ]
     },
     {
+      "path": "src/nnd-catalog-admission.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-workspace-binding.js"
+      ]
+    },
+    {
       "path": "src/nnd-catalog-transaction.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2721,6 +2730,7 @@
         "src/nnd-activity-boundary.js",
         "src/nnd-activity-snapshot.js",
         "src/nnd-activity-tombstones.js",
+        "src/nnd-catalog-admission.js",
         "src/nnd-catalog-transaction.js",
         "src/nnd-child-snapshot.js",
         "src/nnd-child-stream.js",
@@ -3829,6 +3839,15 @@
         "src/integration-principal.js",
         "src/nnd-configuration-sources.js",
         "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
+      "path": "src/nnd-workspace-selection.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-workspace-binding.js"
       ]
     },
     {
