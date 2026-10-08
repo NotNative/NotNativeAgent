@@ -167,7 +167,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       turn_id: engine.active?.turnId ?? null, attachment_id: item.id, state: item.state,
       reason: item.reason ?? null, guidance: item.guidance ?? null,
     }),
-    removeFile: options.attachmentRemoveFile,
+    removeFile: options.attachmentRemoveFile, resolveUpload: options.attachmentUploadRead,
     cleanupOnClose: engine.config.persistence === 'ephemeral',
   });
   engine.mcp = new McpManager({

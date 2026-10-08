@@ -221,6 +221,7 @@ async function createSelectedNndEngine(paths, options, startupConfig, activeConf
     config: Object.freeze({ ...activeConfig(), workspaceRoot: selectedRoot }),
     sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
     workspaceBinding: input.workspaceBinding, workspaceBindingResolver: input.workspaceBindingResolver,
+    attachmentUploadRead: input.attachmentUploadRead,
     storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
     secretBroker: options.secretBroker,

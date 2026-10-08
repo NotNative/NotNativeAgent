@@ -496,7 +496,9 @@ test('NND harness session routes bind creation to the complete principal workspa
   const engines = [];
   const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
     factoryOptions.push(options);
-    const engine = { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async cancel() { return { accepted: true }; }, async shutdown() {} };
+    const engine = { config: { executionManifest: null, attachments: { enabled: true, maxBytes: 1_000_000 } }, active: null, transcript: [],
+      async initialize() {}, async submit(command) { this.lastSubmission = command; },
+      async cancel() { return { accepted: true }; }, async shutdown() {} };
     engines.push(engine);
     return engine;
   } });
@@ -596,6 +598,23 @@ test('NND harness session routes bind creation to the complete principal workspa
       method: 'POST', body: { messageID: 'msg_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'hello NNA' }] },
     });
     assert.equal(prompt.status, 204);
+    const uploadPath = `/v1/nnd/sessions/${created.value.id}/attachments`;
+    const uploader = principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] });
+    const uploaded = await request(base, uploadPath, uploader, { method: 'POST', body: {
+      upload_id: 'upload_http', filename: 'notes.txt', mime_type: 'text/plain',
+      data_url: `data:text/plain;base64,${Buffer.from('Review this file').toString('base64')}`,
+    } });
+    assert.equal(uploaded.status, 201);
+    assert.equal(uploaded.value.upload_id, 'upload_http');
+    assert.equal((await request(base, uploadPath, principal([], { workspace_ids: ['w_one', 'w_two'] }),
+      { method: 'POST', body: { upload_id: 'denied' } })).status, 403);
+    const filePrompt = await request(base, `/session/${created.value.id}/prompt_async`, uploader, {
+      method: 'POST', body: { messageID: 'msg_file', parts: [{ type: 'file', upload_id: 'upload_http' }] },
+    });
+    assert.equal(filePrompt.status, 204);
+    assert.deepEqual(engines[0].lastSubmission.attachments,
+      [{ upload_id: 'upload_http', mime_type: 'text/plain' }]);
+    assert.equal(engines[0].lastSubmission.content, '');
     const unsupportedPart = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_attachment', parts: [
         { type: 'text', text: 'summarize this' }, { type: 'file', url: 'file:///private/marker.txt', mime: 'text/plain' }] },

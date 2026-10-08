@@ -54,7 +54,8 @@ export function validateCommand(value, options = {}) {
   if (version.major !== PROTOCOL_VERSION.major) {
     throw new ContractError('incompatible_version', 'protocol major version is incompatible');
   }
-  if (value.type === 'submit' || value.type === 'steer') validateContent(value.content, options.contextWindowTokens);
+  if (value.type === 'submit' || value.type === 'steer') validateContent(value.content, options.contextWindowTokens,
+    value.type === 'submit' && Array.isArray(value.attachments) && value.attachments.length > 0);
   if (value.type === 'attachment_retry') {
     validateContent(value.content, options.contextWindowTokens);
     validateAttachmentId(value.attachment_id);
@@ -147,9 +148,11 @@ function validateAttachments(value) {
     throw new ContractError('invalid_attachments', 'attachments must be an array of at most sixteen items');
   }
   for (const item of value) {
-    if (!isRecord(item) || typeof item.path !== 'string' || item.path.length > PROTOCOL_LIMITS.attachmentPathChars
+    if (!isRecord(item) || !(typeof item.path === 'string' && item.upload_id === undefined
+      && item.path.length <= PROTOCOL_LIMITS.attachmentPathChars
+      || typeof item.upload_id === 'string' && item.path === undefined && /^[A-Za-z0-9_-]{1,128}$/u.test(item.upload_id))
       || typeof item.mime_type !== 'string' || item.mime_type.length > PROTOCOL_LIMITS.mimeTypeChars) {
-      throw new ContractError('invalid_attachment', 'attachment descriptors require bounded path and mime_type');
+      throw new ContractError('invalid_attachment', 'attachment descriptors require a bounded path or native upload ID and MIME type');
     }
   }
 }
@@ -176,8 +179,8 @@ function parseVersion(value) {
   return { major, minor };
 }
 
-function validateContent(value, contextWindowTokens = null) {
-  if (typeof value !== 'string' || value.length === 0) {
+function validateContent(value, contextWindowTokens = null, allowEmpty = false) {
+  if (typeof value !== 'string' || value.length === 0 && !allowEmpty) {
     throw new ContractError('invalid_content', 'submit content must be non-empty text');
   }
   if (Buffer.byteLength(value, 'utf8') > (contextWindowTokens ? physicalContextAllowance(contextWindowTokens) : PROTOCOL_LIMITS.contentBytes)) {

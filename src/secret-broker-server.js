@@ -125,11 +125,13 @@ function requireScope(principal, scope) {
   if (!canAccessSecretScope(principal, scope)) throw new ContractError('secret_scope_forbidden', 'principal cannot manage the requested secret scope');
 }
 function failure(code, message) { return { error: { code, message } }; }
+const UPLOAD_STATUS = Object.freeze({ nnd_attachment_upload_scope_denied: 403,
+  nnd_attachment_upload_expired: 410, nnd_attachment_upload_conflict: 409, nnd_attachment_upload_capacity: 409 });
 function failureStatus(code) {
+  if (UPLOAD_STATUS[code]) return UPLOAD_STATUS[code];
   if (code === 'nnd_trial_mutation_denied') return 403;
   if (code === 'nnd_trial_admission_invalid' || code === 'nnd_configuration_unavailable') return 503;
-  // The installation observation fails closed when the descriptor no longer
-  // verifies: the service cannot host reads over an admission the disk lost.
+  // Failed installation verification closes its read surface.
   if (code === 'nnd_install_descriptor_unavailable' || code === 'nnd_install_descriptor_invalid'
     || code === 'nnd_install_runtime_unavailable' || code === 'nnd_skills_catalog_unavailable') return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;

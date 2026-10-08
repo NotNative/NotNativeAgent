@@ -8,6 +8,8 @@ import { CapabilityCache } from './capability-cache.js';
 import { reachedOutputCeiling } from './reliability/output-headroom.js';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const TEXT_TYPE = 'text/plain';
+const MAX_TEXT_BYTES = 64 * 1024;
 const MAX_OBSERVATION_BYTES = 131_072;
 const MAX_OBSERVATION_EVENTS = 65_536;
 const OBSERVATION_OUTPUT_TOKENS = 8192;
@@ -23,6 +25,7 @@ export class AttachmentManager {
     this.status = options.status ?? (async () => undefined);
     this.removeFile = options.removeFile ?? unlink;
     this.cleanupOnClose = options.cleanupOnClose === true;
+    this.resolveUpload = options.resolveUpload ?? null;
   }
 
   async prepare(inputs, prompt, signal) {
@@ -91,23 +94,32 @@ export class AttachmentManager {
 
   async #stage(input) {
     validateInput(input);
-    const source = await stat(input.path);
-    if (!source.isFile() || source.size > this.config.maxBytes) {
-      throw new ContractError('attachment_size_invalid', 'attachment is not a bounded regular file');
+    let bytes; let sourceName;
+    if (input.upload_id) {
+      if (!this.resolveUpload) throw new ContractError('attachment_invalid', 'native upload resolver is unavailable');
+      const uploaded = this.resolveUpload(input.upload_id, input.mime_type);
+      bytes = uploaded.bytes; sourceName = uploaded.filename;
+    } else {
+      const source = await stat(input.path);
+      if (!source.isFile() || source.size > this.config.maxBytes
+        || input.mime_type === TEXT_TYPE && source.size > MAX_TEXT_BYTES) {
+        throw new ContractError('attachment_size_invalid', 'attachment is not a bounded regular file');
+      }
+      bytes = await readFile(input.path); sourceName = basename(input.path);
+      if (bytes.length !== source.size) throw new ContractError('attachment_source_changed', 'attachment changed during staging');
     }
-    const bytes = await readFile(input.path);
-    if (bytes.length !== source.size || bytes.length > this.config.maxBytes) {
-      throw new ContractError('attachment_source_changed', 'attachment changed during staging');
+    if (bytes.length > this.config.maxBytes || input.mime_type === TEXT_TYPE && bytes.length > MAX_TEXT_BYTES) {
+      throw new ContractError('attachment_size_invalid', 'attachment exceeds its size bound');
     }
-    verifyMagic(bytes, input.mime_type);
+    validateAttachmentBytes(bytes, input.mime_type);
     const id = newId('attachment');
     const directory = join(this.root, id);
-    const managedPath = join(directory, basename(input.path));
+    const managedPath = join(directory, sourceName);
     await mkdir(directory, { recursive: true, mode: 0o700 });
     await writeFile(managedPath, bytes, { flag: 'wx', mode: 0o600 });
     const fact = freezeFact({
-      type: 'attachment_fact', id, state: 'staged', mimeType: input.mime_type, sourceName: basename(input.path),
-      size: source.size, sha256: createHash('sha256').update(bytes).digest('hex'),
+      type: 'attachment_fact', id, state: 'staged', mimeType: input.mime_type, sourceName,
+      size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'),
       managedPath, createdAt: new Date().toISOString(),
     });
     await this.persist('attachment_fact', fact);
@@ -118,7 +130,8 @@ export class AttachmentManager {
 
   async #admit(item, prompt, signal) {
     try {
-      const observation = await this.router.observe(item, prompt, signal);
+      const observation = item.mimeType === TEXT_TYPE
+        ? await observeText(item, signal) : await this.router.observe(item, prompt, signal);
       const fact = freezeFact({
         ...item, state: 'admitted', observation: observation.text,
         route: observation.route, logicalRequestId: observation.logicalRequestId,
@@ -336,18 +349,51 @@ function annotateRouteError(error, logicalRequestId, attempts) {
 }
 
 function validateInput(input) {
-  if (!input || typeof input !== 'object' || typeof input.path !== 'string'
-    || !IMAGE_TYPES.has(input.mime_type)) {
-    throw new ContractError('attachment_invalid', 'attachment requires a supported image path and MIME type');
+  if (!input || typeof input !== 'object'
+    || !(typeof input.path === 'string' && input.upload_id === undefined
+      || typeof input.upload_id === 'string' && input.path === undefined && /^[A-Za-z0-9_-]{1,128}$/u.test(input.upload_id))
+    || !(IMAGE_TYPES.has(input.mime_type) || input.mime_type === TEXT_TYPE)) {
+    throw new ContractError('attachment_invalid', 'attachment requires a supported file path and MIME type');
   }
 }
 
+export function validateAttachmentBytes(bytes, mime) {
+  if (!Buffer.isBuffer(bytes) || bytes.length === 0
+    || !(IMAGE_TYPES.has(mime) || mime === TEXT_TYPE)
+    || mime === TEXT_TYPE && bytes.length > MAX_TEXT_BYTES) {
+    throw new ContractError('attachment_invalid', 'attachment bytes or MIME type are unsupported');
+  }
+  verifyMagic(bytes, mime);
+}
+
 function verifyMagic(bytes, mime) {
+  if (mime === TEXT_TYPE) { decodeText(bytes); return; }
   const valid = mime === 'image/png' ? bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))
     : mime === 'image/jpeg' ? bytes[0] === 0xff && bytes[1] === 0xd8
       : mime === 'image/gif' ? bytes.subarray(0, 3).toString() === 'GIF'
         : bytes.subarray(8, 12).toString() === 'WEBP';
   if (!valid) throw new ContractError('attachment_integrity_invalid', 'attachment bytes do not match declared MIME type');
+}
+
+function decodeText(bytes) {
+  let value;
+  try { value = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch { throw new ContractError('attachment_integrity_invalid', 'text attachment must be valid UTF-8'); }
+  if (value.length === 0 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) {
+    throw new ContractError('attachment_integrity_invalid', 'text attachment contains unsupported control bytes');
+  }
+  return value;
+}
+
+async function observeText(item, signal) {
+  if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
+  const bytes = await readFile(item.managedPath);
+  if (bytes.length > MAX_TEXT_BYTES || createHash('sha256').update(bytes).digest('hex') !== item.sha256) {
+    throw new ContractError('attachment_source_changed', 'managed text attachment changed before admission');
+  }
+  const text = decodeText(bytes);
+  if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
+  return { text, route: 'local_text', logicalRequestId: null, attempts: [] };
 }
 
 function sameRoute(left, right) {

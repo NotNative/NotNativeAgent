@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:fe21cfd3dc6c800aa84463ce37d3deb38dba379a99f345c92e10064c72c99230",
+  "source_digest": "sha256:9589e06ea245cf1f90fec7db6abf3969efdd7b6274a42e0a0b8892c61cb57e0b",
   "counts": {
-    "modules": 555,
+    "modules": 558,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 247
+      "module_count": 250
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 744,
-      "module_count": 222
+      "import_count": 753,
+      "module_count": 225
     },
     {
       "from": "experience-engine",
@@ -132,8 +132,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 81,
-      "module_count": 46
+      "import_count": 83,
+      "module_count": 47
     },
     {
       "from": "foundation",
@@ -180,7 +180,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 39,
+      "import_count": 40,
       "module_count": 10
     },
     {
@@ -1947,6 +1947,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-attachment-upload-routes.js",
         "src/nnd-configuration-routes.js",
         "src/nnd-harness-routes.js",
         "src/nnd-operator-routes.js",
@@ -2539,6 +2540,25 @@
       ]
     },
     {
+      "path": "src/nnd-attachment-upload-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-attachment-uploads.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/attachments.js",
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/nnd-browser-routes.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2730,6 +2750,7 @@
         "src/nnd-activity-boundary.js",
         "src/nnd-activity-snapshot.js",
         "src/nnd-activity-tombstones.js",
+        "src/nnd-attachment-uploads.js",
         "src/nnd-catalog-admission.js",
         "src/nnd-catalog-transaction.js",
         "src/nnd-child-snapshot.js",
@@ -2738,6 +2759,7 @@
         "src/nnd-goal-audit.js",
         "src/nnd-goal-evidence.js",
         "src/nnd-goal.js",
+        "src/nnd-message-list.js",
         "src/nnd-notification.js",
         "src/nnd-parent-child-activity.js",
         "src/nnd-pending-requests.js",
@@ -3119,6 +3141,17 @@
       "imports": [
         "src/ids.js",
         "src/memory.js"
+      ]
+    },
+    {
+      "path": "src/nnd-message-list.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-child-stream.js",
+        "src/nnd-session-helpers.js",
+        "src/nnd-transcript-identity.js"
       ]
     },
     {

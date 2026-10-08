@@ -13,6 +13,7 @@ import { dispatchNndSetupRequest, guardNndSetupRequest } from './nnd-setup-route
 import { dispatchNndConfigurationRequest } from './nnd-configuration-routes.js';
 import { dispatchNndWorkspaceGrantRequest } from './nnd-workspace-grant-routes.js';
 import { dispatchNndWorkspaceAdmissionRequest } from './nnd-workspace-admission-routes.js';
+import { dispatchNndAttachmentUploadRequest } from './nnd-attachment-upload-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -97,6 +98,7 @@ async function dispatch(request, response, context) {
   if (context.nndWorkspaceGrantService
     && await dispatchNndWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;
   guardNndSetupRequest({ ...context, principal, url });
+  if (await dispatchNndAttachmentUploadRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,

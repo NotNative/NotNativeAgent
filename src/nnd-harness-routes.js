@@ -39,9 +39,12 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     requireIntegrationPermission(context.principal, 'nnd.session.submit');
     const body = await readJsonBody(request);
     assertConfiguredSelection(body, host.get(id, context.principal)?.metadata?.nnd?.configuredModel ?? host.nndModel);
-    const content = textContent(body?.parts);
+    const { content, refs } = promptParts(body?.parts);
+    const requestId = body?.messageID ?? newId('nnd_prompt');
     await host.assertWorkspaceBound(id, context.principal);
-    const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
+    const attachments = refs.length > 0 ? host.uploadedAttachments?.(id, context.principal, requestId, refs) : [];
+    if (refs.length > 0 && !attachments) throw new ContractError('nnd_attachment_upload_unavailable', 'Native attachment uploads are unavailable');
+    const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: requestId, content, attachments }, context.principal);
     if (accepted.reason === 'busy') {
       return send(response, 409, { error: { code: 'session_busy', message: 'NND session already has an active turn' } });
     }
@@ -269,16 +272,18 @@ function trustedWorkspace(value) {
   return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : '';
 }
 
-function textContent(parts) {
+function promptParts(parts) {
   if (!Array.isArray(parts)) throw new ContractError('request_invalid', 'NND prompt requires message parts');
-  // Security: an acknowledged prompt must not silently drop a file, image,
-  // or unknown part before the native provider sees it.
-  if (parts.some((part) => part?.type !== 'text' || typeof part.text !== 'string')) {
-    throw new ContractError('nnd_prompt_part_unsupported', 'NNA cannot submit this message part; remove it before sending');
+  const texts = [], refs = [];
+  for (const part of parts) {
+    if (part?.type === 'text' && typeof part.text === 'string') texts.push(part.text);
+    else if (part?.type === 'file' && typeof part.upload_id === 'string'
+      && Object.keys(part).length === 2) refs.push({ upload_id: part.upload_id });
+    else throw new ContractError('nnd_prompt_part_unsupported', 'NNA cannot submit this message part; remove it before sending');
   }
-  const text = parts.map((part) => part.text).join('\n');
-  if (!text) throw new ContractError('invalid_content', 'NND prompt requires text content');
-  return text;
+  const content = texts.join('\n');
+  if (!content && refs.length === 0) throw new ContractError('invalid_content', 'NND prompt requires text or an uploaded file');
+  return { content, refs };
 }
 
 function assertConfiguredSelection(body, model) {

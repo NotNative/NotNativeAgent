@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
+import { AttachmentManager } from '../src/attachments.js';
+import { NndAttachmentUploads } from '../src/nnd-attachment-uploads.js';
 import { ContractError } from '../src/ids.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { ExtensionRegistry } from '../src/extensions.js';
@@ -21,6 +23,71 @@ function base(root, extra = {}) {
     ...extra,
   });
 }
+
+test('bounded plain-text attachment reaches the primary provider as untrusted context without vision', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-text-attachment-'));
+  const source = join(root, 'notes.txt');
+  await writeFile(source, 'UNIQUE_TEXT_ATTACHMENT_MARKER\n');
+  const calls = [];
+  const engine = new SessionEngine({ config: base(root), attachmentRoot: join(root, '.managed'),
+    providerFactory: () => ({ async *stream(request) {
+      calls.push(request);
+      yield { type: 'text', text: 'received' }; yield { type: 'terminal' };
+    } }) });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'text-attachment', content: 'Read the file',
+    attachments: [{ path: source, mime_type: 'text/plain' }] }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.attachment_admission.admitted[0].route, 'local_text');
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].messages.some(item => typeof item.content === 'string'
+    && item.content.includes('UNIQUE_TEXT_ATTACHMENT_MARKER') && item.content.includes('Untrusted attachment observation')));
+  assert.equal(await readFile(source, 'utf8'), 'UNIQUE_TEXT_ATTACHMENT_MARKER\n');
+  await engine.shutdown({ request_id: 'text-attachment-shutdown' });
+});
+
+test('a file-only native upload reaches the provider through its managed copy', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-uploaded-text-'));
+  const uploads = new NndAttachmentUploads();
+  uploads.upload('browser_session', 'operator', { upload_id: 'upload_one', filename: 'notes.txt',
+    mime_type: 'text/plain', data_url: `data:text/plain;base64,${Buffer.from('UPLOADED_TEXT_MARKER').toString('base64')}` }, 1_000_000);
+  const calls = [];
+  const engine = new SessionEngine({ config: base(root), attachmentRoot: join(root, '.managed'),
+    attachmentUploadRead: (id, mime) => uploads.resolve('browser_session', id, mime),
+    providerFactory: () => ({ async *stream(request) {
+      calls.push(request); yield { type: 'text', text: 'received' }; yield { type: 'terminal' };
+    } }) });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'file-only', content: '',
+    attachments: [{ upload_id: 'upload_one', mime_type: 'text/plain' }] }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.ok(calls[0].messages.some(item => typeof item.content === 'string'
+    && item.content.includes('UPLOADED_TEXT_MARKER') && item.content.includes('Untrusted attachment observation')));
+  await engine.shutdown({ request_id: 'file-only-shutdown' });
+});
+
+test('plain-text admission refuses invalid UTF-8 and never changes the source', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-invalid-text-attachment-'));
+  const source = join(root, 'bad.txt'); const bytes = Buffer.from([0xc3, 0x28]);
+  await writeFile(source, bytes);
+  const manager = new AttachmentManager({ config: { enabled: true, maxBytes: 1024, retain: false },
+    root: join(root, '.managed'), router: { observe() { throw new Error('vision must not run'); } },
+    persist: async () => undefined });
+  await assert.rejects(() => manager.prepare([{ path: source, mime_type: 'text/plain' }], 'Read', new AbortController().signal),
+    { code: 'attachment_integrity_invalid' });
+  assert.deepEqual(await readFile(source), bytes);
+});
+
+test('plain-text admission refuses a file above its context ceiling before copying', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-large-text-attachment-'));
+  const source = join(root, 'large.txt'); await writeFile(source, 'x'.repeat(64 * 1024 + 1));
+  const manager = new AttachmentManager({ config: { enabled: true, maxBytes: 1024 * 1024, retain: false },
+    root: join(root, '.managed'), router: { observe() { throw new Error('vision must not run'); } },
+    persist: async () => undefined });
+  await assert.rejects(() => manager.prepare([{ path: source, mime_type: 'text/plain' }], 'Read', new AbortController().signal),
+    { code: 'attachment_size_invalid' });
+  assert.equal((await readFile(source)).length, 64 * 1024 + 1);
+});
 
 test('AC-ATT-01/AC-ROUTE-04 a dedicated vision route receives image work without probing primary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-attachment-'));

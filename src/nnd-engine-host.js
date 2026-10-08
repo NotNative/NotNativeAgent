@@ -2,8 +2,10 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
-import { activityStatus, childLiveMessage, observeChildLifecycle, publishNndChildEvent, turnActivity } from './nnd-child-stream.js';
-import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
+import { NndAttachmentUploads } from './nnd-attachment-uploads.js';
+import { activityStatus, observeChildLifecycle, publishNndChildEvent, turnActivity } from './nnd-child-stream.js';
+import { hasPersistedSubmission, reservedProjectedMessageId } from './nnd-transcript-identity.js';
+import { nndMessages } from './nnd-message-list.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
@@ -43,6 +45,7 @@ export class NndEngineHost {
   #childActivity = new Map();
   #quarantined = [];
   #workspaceRevocations = new NndWorkspaceRevocationGuard();
+  #uploads = new NndAttachmentUploads();
   constructor(options = {}) {
     if (typeof options.createEngine !== 'function') {
       throw new ContractError('nnd_engine_factory_missing', 'NND engine host requires an engine factory');
@@ -112,6 +115,7 @@ export class NndEngineHost {
       }
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
         workspaceBinding: binding, workspaceBindingResolver: this.primaryWorkspaceBinding,
+        attachmentUploadRead: (uploadId, mimeType) => this.#uploads.resolve(sessionId, uploadId, mimeType),
         output: (record) => this.observeOutput(sessionId, record) });
       if (!engine || typeof engine.initialize !== 'function') {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
@@ -264,16 +268,28 @@ export class NndEngineHost {
     try { started = context.ingress.start(command, scopedPrincipal(context, principal)); }
     catch (error) { context.liveTurn = previousTurn; throw error; }
     if (started.duplicate) { context.liveTurn = previousTurn; return started.result; }
+    this.#uploads.markUsed(sessionId, command.request_id, command.attachments);
     // Why: callers receive the acknowledgement promptly; the engine remains
     // the single owner of turn completion and transcript publication.
     this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
     this.#activity(context, `${sessionId}:start:${command.request_id}`, 'turn', 'started', 'Turn started', command.request_id);
     this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     void started.operation.then(
-      (result) => this.#publishCompletion(context, turn, result?.accepted === false),
-      () => this.#publishCompletion(context, turn, true),
+      (result) => { this.#uploads.release(sessionId, command.request_id); this.#publishCompletion(context, turn, result?.accepted === false); },
+      () => { this.#uploads.release(sessionId, command.request_id); this.#publishCompletion(context, turn, true); },
     );
     return { accepted: true, request_id: command.request_id };
+  }
+  async uploadAttachment(sessionId, principal, input) {
+    const context = this.#owned(sessionId, principal);
+    await this.assertWorkspaceBound(sessionId, principal);
+    if (context.engine.config?.attachments?.enabled !== true) {
+      throw new ContractError('attachments_disabled', 'Enable native attachments before uploading');
+    }
+    return this.#uploads.upload(sessionId, context.subjectId, input, context.engine.config.attachments.maxBytes);
+  }
+  uploadedAttachments(sessionId, principal, requestId, refs) {
+    return this.#uploads.assertRefs(sessionId, this.#owned(sessionId, principal).subjectId, requestId, refs);
   }
   /** Observational engine-output boundary; a display subscriber cannot fail a governed turn. */
   observeOutput(sessionId, record) {
@@ -336,10 +352,7 @@ export class NndEngineHost {
     requirePrincipal(principal);
     return this.childSessions.resolve(sessionId, principal);
   }
-  list(principal, options = {}) {
-    return listNndSessions(this.#contexts, this.childSessions, principal, options);
-  }
-
+  list(principal, options = {}) { return listNndSessions(this.#contexts, this.childSessions, principal, options); }
   async withWorkspaceRevocation(root, action) {
     return this.#workspaceRevocations.with(root, [...this.#contexts.values(), ...this.#quarantined], this.#creating.size, action);
   }
@@ -362,22 +375,8 @@ export class NndEngineHost {
   questions(principal) { return listNndQuestions(this.#contexts, principal); }
   settleQuestion(token, principal, body, action) { return settleNndQuestion(this.#contexts, token, principal, body, action); }
   messages(sessionId, principal, { all = false } = {}) {
-    requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
-    if (!this.#contexts.has(sessionId)) {
-      const child = this.childSessions.get?.(sessionId, principal);
-      const entries = this.childSessions.messages?.(sessionId, principal);
-      if (!child || !entries) throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
-      const messages = entries.map(({ item, index }) => messageProjection({ sessionId, createdAt: child.time.created }, item, index));
-      const live = this.#childStreams.get(sessionId);
-      if (live?.opened) messages.push(childLiveMessage(child, live));
-      return messages;
-    }
-    const context = this.#owned(sessionId, principal);
-    return context.engine.transcript
-      .map((item, index) => ({ item, index }))
-      .filter(({ item }) => item?.type === 'message' && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
-      .slice(all ? 0 : -200)
-      .map(({ item, index }) => messageProjection(context, item, index));
+    const context = this.#contexts.has(sessionId) ? this.#owned(sessionId, principal) : null;
+    return nndMessages(sessionId, principal, context, this.childSessions, this.#childStreams, all);
   }
   activity(sessionId, principal) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
@@ -407,6 +406,7 @@ export class NndEngineHost {
       await this.#commitCatalogChange((contexts) => contexts.delete(sessionId), () => this.#contexts.delete(sessionId));
       await this.tombstones.committed(context, tombstone);
       await this.childSnapshotStore.completeParentClose(context);
+      this.#uploads.clearSession(sessionId);
       await drainActivityWrites(context);
       await removeActivity(this.catalogPath, sessionId).catch((error) => reportActivityFailure(context, error));
       this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
@@ -421,6 +421,7 @@ export class NndEngineHost {
     await Promise.all(contexts.map((context) => drainActivityWrites(context)));
     await this.childSnapshotStore.drain();
     await this.catalogWrites.catch(() => undefined);
+    this.#uploads.clear();
     const failed = settled.find((result) => result.status === 'rejected');
     if (failed) throw failed.reason;
   }

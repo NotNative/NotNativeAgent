@@ -20,6 +20,15 @@ Attachment stream consumption is independently cancellation-aware even when an a
 ignores its signal. Cancellation detaches the pending read without waiting for a hostile
 iterator, records a visible retryable state, and prevents late observations from becoming
 admitted context.
+Bounded UTF-8 plain-text files use the same managed fact lifecycle and enter the primary
+context as untrusted attachment observations. They do not invoke a vision route. Text
+admission checks a 64 KiB ceiling, strict UTF-8, control bytes, and the managed copy's
+digest before publishing its observation.
+The optional NND browser surface accepts bounded data URLs through an authenticated,
+session-owned, short-lived in-memory upload store. A submitted prompt names upload IDs,
+not browser paths or raw bytes. Native admission rechecks ownership and MIME before
+acknowledgement, then copies the bytes into the ordinary managed fact lifecycle. A
+completed turn releases its upload bytes; an expired or foreign reference fails closed.
 
 Memory is an optional replaceable adapter. Queries are redacted, project-scoped,
 deadline-bound, and smaller than the transcript. Results require stable attribution,
