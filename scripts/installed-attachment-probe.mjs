@@ -105,3 +105,24 @@ function composerBrowserProbe() {
     throw Error('installed composer file-only turn did not settle');
   })()`;
 }
+
+export function restartedAttachmentBrowserProbe(directId, composerId) {
+  return `(async()=>{
+    const ids=[${JSON.stringify(directId)},${JSON.stringify(composerId)}];
+    const counts=[];
+    for(const id of ids){
+      const response=await fetch('/api/session/'+encodeURIComponent(id)+'/message');
+      if(response.status!==200)throw Error('restarted messages '+id+' '+response.status);
+      const rows=await response.json();
+      const users=rows.filter(row=>row.info?.role==='user');
+      const replies=rows.filter(row=>row.info?.role==='assistant'&&row.parts?.some(part=>part.text?.includes(${JSON.stringify(REPLY)})));
+      if(users.length!==1||replies.length!==1)throw Error('restarted transcript '+id+' '+users.length+' '+replies.length);
+      counts.push({id,users:users.length,replies:replies.length});
+    }
+    const repeated=await fetch('/api/session/'+encodeURIComponent(ids[0])+'/prompt_async',{
+      method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messageID:'installed_attachment_prompt',
+        parts:[{type:'text',text:''},{type:'file',upload_id:'installed_text'},{type:'file',upload_id:'installed_image'}]})});
+    if(repeated.status!==204)throw Error('restarted retry '+repeated.status+' '+await repeated.text());
+    return {recovered:counts,retry_status:repeated.status};
+  })()`;
+}

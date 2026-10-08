@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -249,7 +249,22 @@ function assertInstalledAttachmentDelivery(result, requests) {
       && message.content.includes('Untrusted attachment observation'))),
   'composer text bytes did not reach the primary provider');
 }
-async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false) {
+async function restartAttachmentService(fixture, prior, result, requests) {
+  await cli(fixture, 'stop'); await waitStopped(fixture);
+  const restarted = await cli(fixture, 'start');
+  assert.equal(restarted.installation_id, prior.installation_id);
+  assert.equal(restarted.data_id, prior.data_id);
+  assert.notEqual(restarted.instance_id, prior.instance_id);
+  const requestCount = requests.length;
+  const ticket = (await cli(fixture, 'ui-ticket')).ticket;
+  const recovered = await shell(fixture, 'browser', restarted.endpoint, ticket, [],
+    restartedAttachmentBrowserProbe(result.session_id, result.ui_session_id));
+  assert.equal(recovered.retry_status, 204);
+  assert.equal(recovered.recovered.length, 2);
+  assert.equal(requests.length, requestCount, 'restarted retry must not call the provider');
+  return restarted;
+}
+async function newFixture(nnaSource) {
   assert.equal(process.platform, 'win32', 'Windows acceptance only');
   assert.ok(isAbsolute(nnaSource), 'Provide an absolute NNA source root');
   await mkdir(base, { recursive: true });
@@ -257,7 +272,10 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
   assert.equal(await realpath(base), resolve(base), 'Fixture base must not redirect');
   const root = join(base, `installed-accept-${randomUUID().replaceAll('-', '').slice(0, 16)}`);
   await privateDirectory(root);
-  const fixture = await prepare(nnaSource, root);
+  return prepare(nnaSource, root);
+}
+async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false) {
+  const fixture = await newFixture(nnaSource); const root = fixture.root;
   let serviceStopped = false; let accepted = false;
   let attachmentProvider;
   try {
@@ -290,12 +308,14 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     const browserResult = await shell(fixture, 'browser', status.endpoint, ticket, [],
       nativeAttachments ? attachmentBrowserProbe() : '', scenarioModule);
     if (nativeAttachments) assertInstalledAttachmentDelivery(browserResult, attachmentProvider.requests);
-    await shell(fixture, 'desktop', status.endpoint);
+    const desktopStatus = nativeAttachments
+      ? await restartAttachmentService(fixture, status, browserResult, attachmentProvider.requests) : status;
+    await shell(fixture, 'desktop', desktopStatus.endpoint);
     const after = await cli(fixture, 'status');
-    assert.equal(after.instance_id, status.instance_id, 'Desktop exit must not stop or replace native service');
+    assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');
     await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true;
     accepted = true;
-    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeAttachments ? ', file-only composer delivery' : ''}, desktop attach and service lifetime passed.\n`);
+    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeAttachments ? ', file-only composer delivery and service restart recovery' : ''}, desktop attach and service lifetime passed.\n`);
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }

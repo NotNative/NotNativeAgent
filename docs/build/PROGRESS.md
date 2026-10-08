@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed attachment restart recovery · NND 20261008-17 / NNA 20261008-7
+
+The installed Windows attachment journey now stops and restarts the persistent
+native service after both direct-upload and composer file-only turns. A newly
+authenticated Chromium client reads one user prompt and its settled provider
+reply in each recovered session. Retrying the direct prompt with its old upload
+IDs returns 204 without another provider call; the new service has a distinct
+instance ID and the desktop attaches to that surviving instance. This proves
+transcript and duplicate-submission recovery across a service restart. The
+projected user message still lacks file names; attachment display recovery and
+the remaining F3 failure matrix remain open. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Installed file-only composer delivery · NND 20261008-16 / NNA 20261008-7
 
 A fresh disposable Windows installation now exercises the authenticated
