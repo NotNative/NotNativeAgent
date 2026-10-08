@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { registerHarnessAdapter } from '../harness/adapter.ts';
-import { admitNativeWorkspace, handleNativeSessionCreation, registerNativeWorkspaceAdmissionRoute } from '../routes/native-workspace-admission.ts';
+import { admitCreatedNativeWorkspace, admitNativeWorkspace, assertNativeWorkspaceRoot, assertNoNativeWorkspaceSessions, handleNativeSessionCreation, registerNativeWorkspaceAdmissionRoute, revokeNativeWorkspaceForRemoval } from '../routes/native-workspace-admission.ts';
 import { callHarness } from '../queue/queue-adapter-calls.ts';
 
 let scratch = '', rootA = '', rootB = '', alias = '';
@@ -132,4 +132,65 @@ it('uses the native admitted ID for a second root and checks the created session
   }));
   expect(wrongId.status).toBe(409);
   expect(seen).toHaveLength(1);
+});
+
+it('admits a created worktree with native readback and resolves a lost acknowledgment', async () => {
+  const selectedId = `ws_${'c'.repeat(24)}`;
+  let admitted = false;
+  let postCount = 0;
+  const operations: string[] = [];
+  registerHarnessAdapter({ handle: async request => {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/path') return Response.json({ directory: rootA, worktree: rootA });
+    if (path === '/api/v1/nnd/workspaces/admissions' && request.method === 'GET') {
+      return Response.json({ installation_id: 'installation_test', data_id: 'data_test',
+        revision: admitted ? 'a'.repeat(64) : 'absent', selection_enabled: true,
+        attached: { root: rootA }, admitted: admitted ? [{ root: rootB, id: selectedId, operation_id: operations[0] }] : [] });
+    }
+    if (path === '/api/v1/nnd/workspaces/admissions' && request.method === 'POST') {
+      const body = await request.json() as { expected_revision: string; operation_id: string; root: string };
+      expect(body.expected_revision).toBe('absent');
+      expect(body.root).toBe(rootB);
+      operations.push(body.operation_id);
+      postCount += 1;
+      admitted = true;
+      throw new Error('acknowledgment lost');
+    }
+    if (path === `/api/v1/nnd/workspaces/admissions/operations/${operations[0]}`) return new Response(null, { status: 404 });
+    return new Response(null, { status: 404 });
+  } });
+  await expect(assertNativeWorkspaceRoot(rootB)).rejects.toThrow('not admitted');
+  expect(await admitCreatedNativeWorkspace(rootB)).toBe(selectedId);
+  expect(postCount).toBe(1);
+  await expect(assertNativeWorkspaceRoot(rootB)).resolves.toBeUndefined();
+});
+
+it('refuses removal with an archived session and revokes an unused removed root', async () => {
+  let bound = true;
+  let admitted = true;
+  let revokeCount = 0;
+  registerHarnessAdapter({ handle: async request => {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/session') return Response.json(bound ? [{ id: 'session_old', directory: rootB }] : []);
+    if (path === '/api/v1/nnd/workspaces/admissions' && request.method === 'GET') {
+      return Response.json({ installation_id: 'installation_test', data_id: 'data_test',
+        revision: admitted ? 'a'.repeat(64) : 'b'.repeat(64), selection_enabled: true,
+        attached: { root: rootA }, admitted: [],
+        unavailable: admitted ? [{ root: rootB, id: `ws_${'c'.repeat(24)}`, reason: 'identity_mismatch' }] : [] });
+    }
+    if (path === '/api/v1/nnd/workspaces/admissions/revoke') {
+      const body = await request.json() as { root: string; expected_revision: string; operation_id: string };
+      expect(body.root).toBe(rootB);
+      expect(body.expected_revision).toBe('a'.repeat(64));
+      revokeCount += 1;
+      admitted = false;
+      return Response.json({ persistence: 'saved', operation_id: body.operation_id });
+    }
+    return new Response(null, { status: 404 });
+  } });
+  await expect(assertNoNativeWorkspaceSessions(rootB)).rejects.toThrow('still has NNA sessions');
+  bound = false;
+  await expect(assertNoNativeWorkspaceSessions(rootB)).resolves.toBeUndefined();
+  await revokeNativeWorkspaceForRemoval(rootB);
+  expect(revokeCount).toBe(1);
 });

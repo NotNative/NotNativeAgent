@@ -47,3 +47,9 @@ it('keeps a rejected admission rejected when no receipt exists', async () => {
   await expect(addNativeWorkspace(root)).rejects.toThrow('Workspace is not canonical.');
   expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
 });
+
+it('repairs a lost create response by selecting an already admitted canonical root', async () => {
+  vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify(inventory('prior_operation'))));
+  expect(await addNativeWorkspace('c:/repos/second')).toBe(root);
+  expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+});

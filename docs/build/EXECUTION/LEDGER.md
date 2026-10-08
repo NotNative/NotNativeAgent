@@ -416,6 +416,37 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-67 — F1 worktree admission and safe removal (in progress)
+
+The native `20261007-4` prerequisite keeps a vanished admitted root visible as
+`unavailable` while healthy roots remain selectable. Revoke can clear multiple
+unavailable rows sequentially. NNA's host now refuses revocation when live or
+quarantined sessions retain the root and serializes revocation against session
+creation. NND checks native authority before local worktree operations, admits
+a new Git worktree before reporting creation success, and verifies its native
+project ID on readback. Worktree removal checks archived sessions, revokes
+admission before physical deletion, and readmits if Git refuses a dirty tree.
+The sidebar exposes stale admissions for explicit cleanup. A creation whose
+Git step succeeded but native admission is unconfirmed preserves the worktree
+and names the existing Add workspace repair action.
+
+The adversarial review found the session/removal race, invisible quarantined
+sessions, a failed-admission retry trap, and a two-missing-root cleanup deadlock;
+those paths drove the native guard, recovery projection and UI. NNA
+`62474f1c` (`20261007-4`) passed focused admission, binding, selection, and
+route tests. The full parallel NNA suite completed 2,411 pass, five fail,
+eight skip; all five failures were unrelated Windows process-census,
+installation, or migration tests and passed isolated reruns. The preceding
+serial full run had two failures in the new route tests, both corrected and
+rerun successfully. NND passed UI 1,929/1,929, web 1,452/1,452, Electron
+218 pass/two skip, workspace typechecks, graph/language/quality and the sealed
+release gate. Cross-repository source smoke passed. This entry does not close
+F1. Disposable installed-source acceptance passed Native code Chromium UI,
+desktop attach, and service lifetime with paired NNA source; that harness does
+not exercise two admitted roots. A real multi-root provider turn,
+file/Git/terminal scope, external aliases, restart, and installed browser and
+desktop multi-root acceptance remain open.
+
 ## NND 20261007-64 — F1 native workspace admission and selected session roots (in progress)
 
 NNA `20261007-2` / `9a62154b` added durable, replayable native admission;

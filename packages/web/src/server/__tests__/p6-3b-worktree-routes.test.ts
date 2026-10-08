@@ -19,12 +19,14 @@ import { mockHarness } from '../harness/mock/index.ts';
  * `process.env.NOTNATIVE_DATA_DIR` is only assigned in the module body. */
 type WorktreeTestables = typeof import('../routes/git-worktrees.ts')['__gitWorktreeTestables'];
 let worktreeTestables: WorktreeTestables | null = null;
+let serverEnv: { harness: 'mock' | 'nna' } | null = null;
 
 const isolatedDataDir = mkdtempSync(`${tmpdir()}${sep}nnd-p63b-data-`);
 const gitSandbox = mkdtempSync(`${tmpdir()}${sep}nnd-p63b-repos-`);
 const repoRootPath = joinPath(gitSandbox, 'work');
 const unrelatedDir = joinPath(gitSandbox, 'not-a-repo');
 process.env.NOTNATIVE_DATA_DIR = isolatedDataDir;
+process.env.NOTNATIVE_HARNESS = 'mock';
 const origin = 'http://test.local';
 
 type App = { fetch: (request: Request) => Promise<Response> };
@@ -38,6 +40,7 @@ beforeAll(async () => {
   execFileSync('git', ['add', '-A'], { cwd: repoRootPath });
   execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'first commit'], { cwd: repoRootPath });
   worktreeTestables = (await import('../routes/git-worktrees.ts')).__gitWorktreeTestables;
+  serverEnv = (await import('../env.ts')).ENV as { harness: 'mock' | 'nna' };
   const { createApp } = await import('../app.ts');
   registerHarnessAdapter(mockHarness);
   appInstance = { fetch: (request: Request) => Promise.resolve(createApp().fetch(request)) };
@@ -224,5 +227,69 @@ describe('git worktree routes v1 (doc 03 §5.13 #61/63/66)', () => {
     expect(parsed[1]!.linked).toBe(true);
     expect(parsed[1]!.path).toBe('C:\\wt');
     expect(worktreeTestables!.slugOf('../..\\evil')).toBe('evil'); // the managed-root guard keeps traversal out
+  });
+
+  it('admits a native worktree before success and revokes it before Git removal', async () => {
+    const id = `ws_${'d'.repeat(24)}`;
+    let admitted: { root: string; id: string; operation_id: string } | null = null;
+    let revision = 'absent';
+    let sessionBound = false;
+    serverEnv!.harness = 'nna';
+    registerHarnessAdapter({ handle: async request => {
+      const path = new URL(request.url).pathname;
+      if (path === '/api/path') return Response.json({ directory: repoRootPath, worktree: repoRootPath });
+      if (path === '/api/session') return Response.json(sessionBound && admitted ? [{ directory: admitted.root }] : []);
+      if (path === '/api/v1/nnd/workspaces/admissions' && request.method === 'GET') {
+        return Response.json({ installation_id: 'installation_test', data_id: 'data_test', revision,
+          selection_enabled: true, attached: { root: repoRootPath }, admitted: admitted ? [admitted] : [], unavailable: [] });
+      }
+      if (path === '/api/v1/nnd/workspaces/admissions' && request.method === 'POST') {
+        const body = await request.json() as { root: string; operation_id: string };
+        admitted = { root: body.root, id, operation_id: body.operation_id };
+        revision = 'a'.repeat(64);
+        return Response.json({ persistence: 'saved', operation_id: body.operation_id });
+      }
+      if (path === '/api/v1/nnd/workspaces/admissions/revoke') {
+        const body = await request.json() as { root: string; operation_id: string };
+        expect(body.root).toBe(admitted?.root);
+        admitted = null;
+        revision = 'b'.repeat(64);
+        return Response.json({ persistence: 'saved', operation_id: body.operation_id });
+      }
+      return new Response(null, { status: 404 });
+    } });
+    try {
+      const created = await expectRoutedStatus(`/api/git/worktrees${DIRQ}`, { method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode: 'new', branchName: 'feat/native-admission' }),
+      }, 200);
+      const worktree = created.body.worktree as { path: string };
+      expect(created.body.workspace_id).toBe(id);
+      expect((admitted as { root: string } | null)?.root).toBe(worktree.path.replaceAll('\\', '/'));
+      sessionBound = true;
+      const bound = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktree.path }) });
+      expect(bound.status).toBe(409);
+      expect(existsSync(worktree.path)).toBe(true);
+      sessionBound = false;
+      writeFileSync(joinPath(worktree.path, 'hello.ts'), 'dirty native worktree\n');
+      const dirty = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktree.path }) });
+      expect(dirty.status).toBe(500);
+      expect((admitted as { root: string } | null)?.root).toBe(worktree.path.replaceAll('\\', '/'));
+      execFileSync('git', ['checkout', '--', 'hello.ts'], { cwd: worktree.path });
+      const removed = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktree.path }) });
+      expect(removed.status).toBe(200);
+      expect(admitted).toBeNull();
+      expect(existsSync(worktree.path)).toBe(false);
+      const orphan = joinPath(isolatedDataDir, 'orphan-worktree');
+      execFileSync('git', ['worktree', 'add', '-b', 'feat/unadmitted', orphan], { cwd: repoRootPath });
+      const unadmitted = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: orphan }) });
+      expect(unadmitted.status).toBe(409);
+      expect(existsSync(orphan)).toBe(true);
+      execFileSync('git', ['worktree', 'remove', orphan], { cwd: repoRootPath });
+    } finally { serverEnv!.harness = 'mock'; registerHarnessAdapter(mockHarness); }
   });
 });

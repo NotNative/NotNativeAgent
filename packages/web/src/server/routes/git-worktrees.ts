@@ -13,6 +13,7 @@ import { join as joinPath } from 'node:path';
 import type { Hono } from 'hono';
 import { ENV as dataEnv } from '../env.ts';
 import { isGitRepository } from './git.ts';
+import { admitCreatedNativeWorkspace, assertNativeWorkspaceRoot, assertNoNativeWorkspaceSessions, revokeNativeWorkspaceForRemoval, WorkspaceAdmissionError } from './native-workspace-admission.ts';
 
 const GIT_TIMEOUT_MS = 30_000;
 
@@ -25,9 +26,11 @@ export interface GitWorktreeEntry {
 }
 
 export function registerGitWorktreeRoutes(app: Hono): void {
-  app.get('/api/git/worktrees', (context) => {
+  app.get('/api/git/worktrees', async (context) => {
     const directory = context.req.query('directory');
     if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
+    const refusal = await nativeRootRefusal(directory);
+    if (refusal) return refusal;
     if (!isGitRepository(directory)) return Response.json({ worktrees: [] });
     const probe = git(['worktree', 'list', '--porcelain'], directory);
     if (probe.status !== 0) return Response.json({ error: probe.stderr.trim() || 'git worktree list failed' }, { status: 500 });
@@ -37,14 +40,18 @@ export function registerGitWorktreeRoutes(app: Hono): void {
   app.post('/api/git/worktrees', async (context) => {
     const directory = context.req.query('directory');
     if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
+    const refusal = await nativeRootRefusal(directory);
+    if (refusal) return refusal;
     if (!isGitRepository(directory)) return Response.json({ error: 'not a git repository' }, { status: 400 });
-    return createWorktreeEntry(directory, await readJsonBody(context.req));
+    return await createWorktreeEntry(directory, await readJsonBody(context.req));
   });
 
   app.delete('/api/git/worktrees', async (context) => {
     const directory = context.req.query('directory');
     if (!directory) return Response.json({ error: 'directory parameter is required' }, { status: 400 });
-    return removeWorktreeEntry(directory, await readJsonBody(context.req));
+    const refusal = await nativeRootRefusal(directory);
+    if (refusal) return refusal;
+    return await removeWorktreeEntry(directory, await readJsonBody(context.req));
   });
 }
 
@@ -52,7 +59,7 @@ export function registerGitWorktreeRoutes(app: Hono): void {
  * is required (git validates the ref itself) and the worktree name is always
  * slug-sanitized so the managed root path cannot escape via '..', separators
  * or a drive prefix in a caller-supplied name. */
-function createWorktreeEntry(projectRoot: string, body: Record<string, unknown>): Response {
+async function createWorktreeEntry(projectRoot: string, body: Record<string, unknown>): Promise<Response> {
   const branchName = textOf(body['branchName']).trim();
   if (textOf(body['mode']) !== 'new') return Response.json({ error: 'mode must be "new"' }, { status: 400 });
   if (branchName.length === 0) return Response.json({ error: 'branchName is required' }, { status: 400 });
@@ -66,25 +73,62 @@ function createWorktreeEntry(projectRoot: string, body: Record<string, unknown>)
   const created = git(args, projectRoot);
   if (created.status !== 0) return Response.json({ error: created.stderr.trim() || 'git worktree add failed' }, { status: 500 });
   const head = git(['rev-parse', 'HEAD'], path);
-  return Response.json({ worktree: { path, head: head.status === 0 ? head.stdout.trim() : null, branch: branchName, detached: false, linked: true } });
+  const worktree = { path, head: head.status === 0 ? head.stdout.trim() : null, branch: branchName, detached: false, linked: true };
+  if (dataEnv.harness === 'mock') return Response.json({ worktree });
+  try {
+    const workspace_id = await admitCreatedNativeWorkspace(path);
+    return Response.json({ worktree, workspace_id });
+  } catch (error) {
+    const message = error instanceof WorkspaceAdmissionError ? error.message : 'NNA admission is unavailable. The Git worktree remains on disk for recovery.';
+    return Response.json({ error: `${message} Use + Add workspace with ${path} to repair admission.`,
+      worktree, admission: 'unverified' }, { status: 502 });
+  }
+}
+
+async function nativeRootRefusal(directory: string): Promise<Response | null> {
+  if (dataEnv.harness === 'mock') return null;
+  try { await assertNativeWorkspaceRoot(directory); return null; }
+  catch (error) {
+    const failure = error instanceof WorkspaceAdmissionError ? error : new WorkspaceAdmissionError('NNA workspace identity is unavailable.', 503);
+    return Response.json({ error: failure.message }, { status: failure.status });
+  }
 }
 
 /** DELETE remove v1 (doc 03 section 5.13 #66): registered linked targets
  * only; the primary entry and unknown paths are 404. */
-function removeWorktreeEntry(projectRoot: string, body: Record<string, unknown>): Response {
+async function removeWorktreeEntry(projectRoot: string, body: Record<string, unknown>): Promise<Response> {
   if (!isGitRepository(projectRoot)) return Response.json({ error: 'unknown worktree' }, { status: 404 });
   const probe = git(['worktree', 'list', '--porcelain'], projectRoot);
   if (probe.status !== 0) return Response.json({ error: probe.stderr.trim() || 'git worktree list failed' }, { status: 500 });
   const parsed = parsePorcelainWorktrees(probe.stdout);
   const entry = parsed.find((worktree) => samePath(worktree.path, textOf(body['directory'])));
   if (entry === undefined || entry.linked === false) return Response.json({ error: 'unknown worktree' }, { status: 404 });
+  if (dataEnv.harness !== 'mock') {
+    try {
+      await assertNoNativeWorkspaceSessions(entry.path);
+      await revokeNativeWorkspaceForRemoval(entry.path);
+    }
+    catch (error) {
+      const failure = error instanceof WorkspaceAdmissionError ? error : new WorkspaceAdmissionError('NNA admission cleanup is unavailable; worktree removal is refused.', 503);
+      return Response.json({ error: failure.message }, { status: failure.status });
+    }
+  }
   // Removing runs from the PRIMARY worktree: a caller inside the doomed
   // worktree loses its cwd mid-removal ("not a git repository" afterwards).
   const primaryPath = parsed[0]!.path;
   const removed = removeWorktreeAt(entry.path, primaryPath); // no --force: a dirty worktree is protected server-side
   if (removed.status !== 0) {
     const finalized = finalizePartiallyRemoved(entry.path, primaryPath);
-    if (!finalized) return Response.json({ error: removed.stderr.trim() || 'git worktree remove failed' }, { status: 500 });
+    if (!finalized) {
+      if (dataEnv.harness !== 'mock' && existsSync(entry.path)) {
+        try { await admitCreatedNativeWorkspace(entry.path); }
+        catch {
+          return Response.json({ error: `Git could not remove ${entry.path}; native readmission also failed. Use + Add workspace to repair its admission.`,
+            worktree: entry, admission: 'unverified' }, { status: 502 });
+        }
+      }
+      return Response.json({ error: removed.stderr.trim() || 'git worktree remove failed' }, { status: 500 });
+    }
   }
   return Response.json({ success: true, branch: dropLocalBranch(primaryPath, entry.branch, body) });
 }

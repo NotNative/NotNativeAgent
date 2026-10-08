@@ -1496,6 +1496,18 @@
     {
       "version": "20261007-64",
       "content_sha256": "1e8f7fc9c8b7ec64c4c29ee81e766aee2b4329a381fb61885fe4935c296343c9"
+    },
+    {
+      "version": "20261007-65",
+      "content_sha256": "ef8d12c9ccfc250720d37ce48ad5205cfd853f9cebe2dd9db774005eaeeb0f68"
+    },
+    {
+      "version": "20261007-66",
+      "content_sha256": "281edb474ec846b239b5588d9e57050686a21df1918d9cc9ae611a20e687384e"
+    },
+    {
+      "version": "20261007-67",
+      "content_sha256": "9d256963c343a2121384409cd720af66fa5fae742b10c31b7b1509a99b85815e"
     }
   ]
 }

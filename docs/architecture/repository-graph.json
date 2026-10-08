@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:7f5ef2671d5deb47aa0cb0ace9347f7dfce43963999379113d3b0c86a5b5769c",
+  "source_digest": "sha256:115d3e18010193500f2bd7ac6d67e5a70645ecfaa706233fd003e2ca7a6320b0",
   "counts": {
-    "modules": 843,
+    "modules": 844,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 211
+      "module_count": 212
     },
     {
       "id": "web-server",
@@ -115,14 +115,14 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 121,
-      "module_count": 89
+      "import_count": 123,
+      "module_count": 91
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 113,
-      "module_count": 69
+      "import_count": 114,
+      "module_count": 70
     },
     {
       "from": "sync-engine",
@@ -886,6 +886,7 @@
         "packages/ui/src/chat/session-sidebar-hierarchy.ts",
         "packages/ui/src/chat/session-sidebar-utils.ts",
         "packages/ui/src/chat/time-format.ts",
+        "packages/ui/src/chat/workspace-recovery-controls.tsx",
         "packages/ui/src/lib/multirun/fusion.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
@@ -1054,6 +1055,14 @@
       "imports": [
         "packages/ui/src/lib/files/api.ts",
         "packages/ui/src/lib/project-context-api.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/workspace-recovery-controls.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/workspace-admission.ts"
       ]
     },
     {
@@ -2592,7 +2601,9 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
-        "packages/ui/src/lib/server-api.ts"
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/server-api.ts",
+        "packages/ui/src/sync/global-stores.ts"
       ]
     },
     {
@@ -7166,7 +7177,8 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts",
-        "packages/web/src/server/routes/git.ts"
+        "packages/web/src/server/routes/git.ts",
+        "packages/web/src/server/routes/native-workspace-admission.ts"
       ]
     },
     {

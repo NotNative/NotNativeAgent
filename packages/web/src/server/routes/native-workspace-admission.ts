@@ -2,6 +2,7 @@
 /** Admission for NNA's single attached workspace. The browser supplies only a
  * candidate; native /path and local filesystem identity are checked here. */
 import { lstat, realpath } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { posix, win32 } from 'node:path';
 import type { Hono } from 'hono';
 import { ENV } from '../env.ts';
@@ -59,8 +60,9 @@ export async function admitNativeWorkspace(candidate: unknown, readPath: () => P
   return native;
 }
 
-type WorkspaceInventory = { selection_enabled?: unknown; attached?: { root?: unknown };
-  admitted?: { root?: unknown; id?: unknown }[] };
+type WorkspaceInventory = { selection_enabled?: unknown; installation_id?: unknown; data_id?: unknown;
+  revision?: unknown; attached?: { root?: unknown };
+  admitted?: { root?: unknown; id?: unknown; operation_id?: unknown }[] };
 const WORKSPACE_ID = /^ws_[a-f0-9]{24}$/u;
 
 async function readNativeAdmissions(): Promise<unknown> {
@@ -70,6 +72,126 @@ async function readNativeAdmissions(): Promise<unknown> {
   if (!response.ok) throw new WorkspaceAdmissionError('NNA workspace admission inventory is unavailable.', 503);
   try { return await response.json(); }
   catch { throw new WorkspaceAdmissionError('NNA returned an invalid workspace admission inventory.', 503); }
+}
+
+/** Keep local Git mutations scoped to a root already verified by NNA. */
+export async function assertNativeWorkspaceRoot(candidate: unknown): Promise<void> {
+  try { await admitNativeWorkspace(candidate); }
+  catch (error) {
+    if (!(error instanceof WorkspaceAdmissionError) || error.status !== 409) throw error;
+    await admitSelectedWorkspace(candidate);
+  }
+}
+
+/** Register a freshly created worktree before the desktop exposes it as a
+ * selectable project. A lost POST acknowledgment is resolved by operation
+ * receipt; a failed readback never claims that admission succeeded. */
+export async function admitCreatedNativeWorkspace(candidate: unknown): Promise<string> {
+  const root = workspacePath(candidate);
+  if (!root) throw new WorkspaceAdmissionError('Created worktree path is invalid.', 400);
+  await requirePlainDirectory(root);
+  const initial = await readNativeAdmissions() as WorkspaceInventory;
+  if (initial.selection_enabled !== true || typeof initial.installation_id !== 'string'
+    || typeof initial.data_id !== 'string' || typeof initial.revision !== 'string') {
+    throw new WorkspaceAdmissionError('NNA workspace admission identity is unavailable.', 503);
+  }
+  const operationId = randomUUID();
+  const base = 'http://harness.internal/api/v1/nnd/workspaces/admissions';
+  const adapter = getHarnessAdapter();
+  let response: Response | null = null;
+  try {
+    response = await adapter.handle(new Request(base, { method: 'POST',
+      headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({ installation_id: initial.installation_id, data_id: initial.data_id,
+        expected_revision: initial.revision, operation_id: operationId, root }),
+    }));
+  } catch { /* An unknown acknowledgment must be resolved by receipt. */ }
+  let receipt = response?.ok ? await response.json().catch(() => null) : null;
+  if (receipt === null) {
+    const lookup = await adapter.handle(new Request(`${base}/operations/${operationId}`, {
+      method: 'GET', signal: AbortSignal.timeout(5000),
+    })).catch(() => null);
+    receipt = lookup?.ok ? await lookup.json().catch(() => null) : null;
+  }
+  const inventory = await readNativeAdmissions() as WorkspaceInventory;
+  if (inventory.installation_id !== initial.installation_id || inventory.data_id !== initial.data_id
+    || !Array.isArray(inventory.admitted)) {
+    throw new WorkspaceAdmissionError('NNA worktree admission readback is unavailable. The Git worktree remains on disk for recovery.', 503);
+  }
+  const row = inventory.admitted.find(value => sameWorkspacePath(value.root, root)
+    && value.operation_id === operationId && WORKSPACE_ID.test(String(value.id)));
+  if (!validAdmissionReceipt(receipt, operationId) && !row) throw new WorkspaceAdmissionError(
+    'NNA worktree admission was not confirmed. The Git worktree remains on disk for recovery.', 503);
+  if (!row || typeof row.id !== 'string') {
+    throw new WorkspaceAdmissionError('NNA did not verify the new worktree. The Git worktree remains on disk for recovery.', 503);
+  }
+  return row.id;
+}
+
+export async function assertNoNativeWorkspaceSessions(candidate: unknown): Promise<void> {
+  const response = await getHarnessAdapter().handle(new Request('http://harness.internal/api/session?roots=true&archived=true', {
+    method: 'GET', signal: AbortSignal.timeout(5000),
+  }));
+  if (!response.ok) throw new WorkspaceAdmissionError('NNA session inventory is unavailable; worktree removal is refused.', 503);
+  const sessions = await response.json().catch(() => null) as unknown;
+  if (!Array.isArray(sessions) || !sessions.every(value => value && typeof value === 'object')) {
+    throw new WorkspaceAdmissionError('NNA session inventory is unreadable; worktree removal is refused.', 503);
+  }
+  if (sessions.some(value => sameWorkspacePath((value as { directory?: unknown }).directory, candidate))) {
+    throw new WorkspaceAdmissionError('This worktree still has NNA sessions. Remove those sessions before deleting it.', 409);
+  }
+}
+
+export async function revokeNativeWorkspaceForRemoval(candidate: unknown): Promise<void> {
+  const root = workspacePath(candidate);
+  if (!root) throw new WorkspaceAdmissionError('Removed worktree path is invalid.', 400);
+  const initial = await readNativeAdmissions() as WorkspaceInventory;
+  if (initial.selection_enabled !== true || typeof initial.installation_id !== 'string'
+    || typeof initial.data_id !== 'string' || typeof initial.revision !== 'string'
+    || !Array.isArray(initial.admitted)) {
+    throw new WorkspaceAdmissionError('NNA workspace admission inventory is unavailable.', 503);
+  }
+  // An external deletion already moves the row to `unavailable`; ordinary
+  // removal revokes the healthy row before Git deletes the directory.
+  const unavailable = (initial as WorkspaceInventory & { unavailable?: { root?: unknown }[] }).unavailable;
+  const stored = [...initial.admitted, ...(unavailable ?? [])].find(row => sameWorkspacePath(row.root, root));
+  if (!stored) throw new WorkspaceAdmissionError(
+    'This linked worktree is not admitted by NNA. Use + Add workspace to verify it before removal.', 409);
+  if (typeof stored.root !== 'string' || !workspacePath(stored.root)) {
+    throw new WorkspaceAdmissionError('NNA returned an invalid worktree admission root.', 503);
+  }
+  const operationId = randomUUID();
+  const base = 'http://harness.internal/api/v1/nnd/workspaces/admissions';
+  const adapter = getHarnessAdapter();
+  let response: Response | null = null;
+  try {
+    response = await adapter.handle(new Request(`${base}/revoke`, { method: 'POST',
+      headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({ installation_id: initial.installation_id, data_id: initial.data_id,
+        expected_revision: initial.revision, operation_id: operationId, root: stored.root }),
+    }));
+  } catch { /* Discover an unknown acknowledgment below. */ }
+  let receipt = response?.ok ? await response.json().catch(() => null) : null;
+  if (receipt === null) {
+    const lookup = await adapter.handle(new Request(`${base}/operations/${operationId}`, {
+      method: 'GET', signal: AbortSignal.timeout(5000),
+    })).catch(() => null);
+    receipt = lookup?.ok ? await lookup.json().catch(() => null) : null;
+  }
+  if (!validAdmissionReceipt(receipt, operationId)) throw new WorkspaceAdmissionError(
+    'NNA worktree cleanup was not confirmed. Refresh the native inventory before retrying.', 503);
+  const current = await readNativeAdmissions() as WorkspaceInventory & { unavailable?: { root?: unknown }[] };
+  if (current.installation_id !== initial.installation_id || current.data_id !== initial.data_id
+    || current.admitted?.some(row => sameWorkspacePath(row.root, root))
+    || current.unavailable?.some(row => sameWorkspacePath(row.root, root))) {
+    throw new WorkspaceAdmissionError('NNA still lists the removed worktree. Refresh the native inventory before retrying.', 503);
+  }
+}
+
+function validAdmissionReceipt(value: unknown, operationId: string): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const receipt = value as Record<string, unknown>;
+  return receipt.operation_id === operationId && receipt.persistence === 'saved';
 }
 
 async function admitSelectedWorkspace(candidate: unknown, requestedId?: unknown,

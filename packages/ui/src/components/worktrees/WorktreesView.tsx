@@ -14,6 +14,8 @@ import { create } from 'zustand';
 import { toast } from 'sonner';
 import { useI18n, type I18nApi } from '../I18nProvider.tsx';
 import { createWorktree, listWorktrees, removeWorktree, type GitWorktreeEntry, type WorktreeCreatePayload } from '../../lib/server-api.ts';
+import { harnessClient } from '../../lib/nnd/client.ts';
+import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 
 export interface WorktreeCard {
   path: string;
@@ -101,10 +103,11 @@ export function WorktreesView({ projectRoot, onClose, embedded = false, visible 
   const createWorktreeOnServer = useCallback(async (payload: WorktreeCreatePayload): Promise<boolean> => {
     const created = await createWorktree(projectRoot, payload);
     if (!created.ok) {
-      toast.error(t('worktrees.createFailed'));
+      toast.error(t('worktrees.createFailed'), { description: created.error });
       return false;
     }
     await topology.refresh();
+    await refreshNativeProjects();
     return true;
   }, [projectRoot, t, topology.refresh]);
 
@@ -212,14 +215,22 @@ function useWorktreeRemove(projectRoot: string, t: I18nApi['t'], refresh: () => 
     try {
       const removed = await removeWorktree(projectRoot, path, false);
       if (!removed.ok) {
-        toast.error(t('worktrees.removeFailed'));
+        toast.error(t('worktrees.removeFailed'), { description: removed.error });
         return;
       }
       await refresh();
+      await refreshNativeProjects();
     } finally {
       removingPath.current = null;
     }
   }, [projectRoot, t, refresh]);
+}
+
+async function refreshNativeProjects(): Promise<void> {
+  const result = await harnessClient.listProjects();
+  if (!result.error && result.data) {
+    useGlobalSyncStore.getState().set({ projects: result.data as unknown as Record<string, unknown>[] });
+  }
 }
 
 interface WorktreeListProps {

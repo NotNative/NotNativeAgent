@@ -11,6 +11,7 @@ import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
 import { addNativeWorkspace, readNativeWorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
+import { WorkspaceRecoveryControls } from './workspace-recovery-controls.tsx';
 import { useSessionOrderingStore } from '../sync/session-ordering.ts';
 import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSessionFoldersStore.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
@@ -57,6 +58,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [collapsedZones, setCollapsedZones] = useState<Record<string, true>>({});
   const [canAddWorkspace, setCanAddWorkspace] = useState(false);
+  const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const projects = useGlobalSyncStore((state) => state.projects);
   const sessionsGlobal = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
@@ -161,6 +163,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
       const refreshed = await harnessClient.listProjects();
       if (refreshed.error || !refreshed.data) throw new Error('Workspace was admitted; refresh to see it in the list.');
       useGlobalSyncStore.getState().set({ projects: refreshed.data as unknown as Record<string, unknown>[] });
+      setWorkspaceRefreshKey(key => key + 1);
       props.actions.openDraft(normalizeDirectory(directory));
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not add workspace.'); }
   };
@@ -184,6 +187,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         </label> : null}
         {canAddWorkspace ? <button type="button" className="mb-2 w-full rounded px-2 py-1 text-left text-[11px] text-neutral-400 hover:bg-white/5 hover:text-neutral-100"
           onClick={() => void addWorkspace()}>+ Add workspace</button> : null}
+        <WorkspaceRecoveryControls runtimeKey={runtimeKey} refreshKey={workspaceRefreshKey} />
         <button type="button" className="w-full rounded-lg bg-white/5 px-3 py-2 text-left text-[13px] text-neutral-200 hover:bg-white/10" onClick={() => props.actions.openDraft(props.currentDirectory)}>
           + New session
         </button>
