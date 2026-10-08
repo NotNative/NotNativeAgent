@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -234,12 +234,20 @@ async function writeProbeManifest(fixture, durable, providerPort) {
 function assertInstalledAttachmentDelivery(result, requests) {
   assert.equal(result.turn_status, 'completed');
   assert.equal(result.duplicate_rows, 1);
+  assert.equal(result.ui_turn_status, 'completed');
+  assert.notEqual(result.ui_session_id, result.session_id);
   assert.ok(requests.some((request) => JSON.stringify(request.messages).includes(IMAGE.toString('base64'))),
     'installed image bytes did not reach the observation provider');
   assert.ok(requests.some((request) => request.messages?.some((message) =>
     typeof message.content === 'string' && message.content.includes(TEXT_MARKER)
       && message.content.includes('Untrusted attachment observation'))),
   'installed text bytes did not reach the primary provider');
+  assert.ok(requests.some((request) => JSON.stringify(request.messages).includes(UI_IMAGE.toString('base64'))),
+    'composer image bytes did not reach the observation provider');
+  assert.ok(requests.some((request) => request.messages?.some((message) =>
+    typeof message.content === 'string' && message.content.includes(UI_TEXT_MARKER)
+      && message.content.includes('Untrusted attachment observation'))),
+  'composer text bytes did not reach the primary provider');
 }
 async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false) {
   assert.equal(process.platform, 'win32', 'Windows acceptance only');
@@ -287,7 +295,7 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     assert.equal(after.instance_id, status.instance_id, 'Desktop exit must not stop or replace native service');
     await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true;
     accepted = true;
-    process.stdout.write('Real disposable source install, Native code Chromium UI, desktop attach and service lifetime passed.\n');
+    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeAttachments ? ', file-only composer delivery' : ''}, desktop attach and service lifetime passed.\n`);
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }

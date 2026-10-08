@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 installed composer file-only acceptance
+
+NND `20261008-16` extends the disposable installed attachment journey beyond
+direct browser API calls. In authenticated Chromium, the actual composer file
+input receives a PNG and text file, displays two chips, enables file-only Send,
+and creates a second native session. The native turn completes; separate UI
+markers reach the observation and primary providers, with text attributed as
+untrusted attachment context. Direct upload/lost-acknowledgement retry,
+separate browser partition denial, desktop attach, and service continuity also
+pass. One initial probe used the wrong activity field (`type` versus `kind`);
+the native journal already showed completed delivery, and the corrected probe
+passed on a fresh disposable install. Restart, failure-path, queue/steer/abort,
+question, and audio acceptance are still open for F3.
+
 ## 2026-10-08 installed attachment and lost-acknowledgement acceptance
 
 NNA `20261008-7` recognizes a persisted prompt ID before resolving short-lived
@@ -102,7 +116,7 @@ did not send an attachment or prove C7/F1/F2/V completion.
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium/desktop three-root journey passed across native restart: same session IDs/root bindings, governed reads/writes and sibling denials, exact reviewer approvals and disk effects, bound-worktree removal refusal then release/removal, stale-ID refusal, browser isolation and surviving desktop service. F1 remains open for installed aliases/junctions, removed roots/permission loss, hard shell/process scope, TUI tab preservation, and UI controls. Native inventory latency traced to two serial Windows ACL manifest probes; NNA `20261008-4` parallelizes the fresh reads, with installed diagnostic improvement but no new full installed acceptance yet. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
-| F3 | Composer/governed submission | F1-F2, C4 | in-progress | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | NNA `20261008-5` rejects unsupported file/image/unknown prompt parts before accepting a native turn. NNA `20261008-6` accepts bounded, authenticated, session-owned upload references, copies them into managed attachment facts, and accepts file-only prompts; NND `20261008-12` uploads browser files before submission and retains a file-only draft on failure. NND `20261008-13` passes mixed image/text through the paired source provider fixture. NND `20261008-15` verifies installed Chromium upload/prompt/provider delivery and lost-acknowledgement retry against NNA `20261008-7`. Installed UI composer, restart, queue/steer/abort, questions, and audio remain open. |
+| F3 | Composer/governed submission | F1-F2, C4 | in-progress | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | NNA `20261008-5` rejects unsupported file/image/unknown prompt parts before accepting a native turn. NNA `20261008-6` accepts bounded, authenticated, session-owned upload references, copies them into managed attachment facts, and accepts file-only prompts; NND `20261008-12` uploads browser files before submission and retains a file-only draft on failure. NND `20261008-13` passes mixed image/text through the paired source provider fixture. NND `20261008-15` verifies installed Chromium upload/prompt/provider delivery and lost-acknowledgement retry against NNA `20261008-7`. NND `20261008-16` verifies file-only send through the installed composer. Restart, attachment failure cases, queue/steer/abort, questions, and audio remain open. |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
 | F5 | Model helpers/route selection | C4, F1-F2 | open | NND small-model/lib walkthrough/goal-audit callers; NNA nnd-walkthrough, nnd-notification, nnd-goal-audit, provider scheduler | — |
 | F6 | Files/review/plans/Git visibility | F1-F3, F5 | open | NND files/diff/git/plan components + lib/files/git/plan; server routes/git*, filesystem, GitHub/Linear | — |

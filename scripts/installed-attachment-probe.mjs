@@ -5,6 +5,8 @@ import { createServer } from 'node:http';
 export const TEXT_MARKER = 'NND_INSTALLED_TEXT_MARKER';
 export const IMAGE = Buffer.concat([Buffer.from('89504e470d0a1a0a00000000', 'hex'), Buffer.from('NND_INSTALLED_IMAGE_MARKER')]);
 export const REPLY = 'NND_INSTALLED_ATTACHMENT_REPLY';
+export const UI_TEXT_MARKER = 'NND_INSTALLED_UI_TEXT_MARKER';
+export const UI_IMAGE = Buffer.concat([Buffer.from('89504e470d0a1a0a00000000', 'hex'), Buffer.from('NND_INSTALLED_UI_IMAGE_MARKER')]);
 
 export async function startAttachmentProvider() {
   const requests = [];
@@ -55,11 +57,51 @@ export function attachmentBrowserProbe() {
         const transcript=await messages.json();
         const submittedRows=transcript.filter(row=>row.info?.id===requestId);
         if(submittedRows.length!==1)throw Error('duplicate prompt rows '+submittedRows.length);
-        return {session_id:id,turn_status:turn.status,summary:turn.summary,duplicate_rows:submittedRows.length};
+        const ui=await ${composerBrowserProbe()};
+        return {session_id:id,turn_status:turn.status,summary:turn.summary,duplicate_rows:submittedRows.length,...ui};
       }
       if(turn&&turn.status!=='started')throw Error('turn '+turn.status+' '+turn.summary);
       await new Promise(resolve=>setTimeout(resolve,500));
     }
     throw Error('installed attachment turn did not settle');
+  })()`;
+}
+
+function composerBrowserProbe() {
+  return `(async()=>{
+    const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    console.log('NND_PROBE_STEP:composer_start');
+    let composer;for(let i=0;i<100;i++){composer=document.querySelector('[data-testid="composer"]');if(composer)break;await delay(100)}
+    if(!composer)throw Error('installed composer did not mount');
+    const newSession=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='+ New session');
+    if(!newSession)throw Error('new session control missing');newSession.click();
+    const before=await (await fetch('/api/session?roots=true')).json();
+    const prior=new Set(before.map(row=>row.id));
+    const input=document.querySelector('[data-testid="composer"] input[type="file"]');
+    if(!input)throw Error('composer file input missing');
+    const bytes=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
+    const files=new DataTransfer();
+    files.items.add(new File([${JSON.stringify(UI_TEXT_MARKER)}],'ui-notes.txt',{type:'text/plain'}));
+    files.items.add(new File([bytes(${JSON.stringify(UI_IMAGE.toString('base64'))})],'ui-marker.png',{type:'image/png'}));
+    input.files=files.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+    let send;for(let i=0;i<100;i++){
+      send=document.querySelector('[data-testid="composer"] button[aria-label="Send message"]');
+      if(document.querySelectorAll('[data-testid="composer-attachments"] button').length===2&&send&&!send.disabled)break;
+      await delay(100);
+    }
+    if(!send||send.disabled)throw Error('file-only composer send did not enable');send.click();
+    console.log('NND_PROBE_STEP:composer_sent');
+    const deadline=Date.now()+300000;let made;
+    while(Date.now()<deadline){
+      const rows=await (await fetch('/api/session?roots=true')).json();made=rows.find(row=>!prior.has(row.id));
+      if(made){const activity=await (await fetch('/api/session/'+encodeURIComponent(made.id)+'/activity')).json();
+        const turn=activity.find(row=>row.kind==='turn'&&row.status==='completed');
+        if(turn){console.log('NND_PROBE_STEP:composer_completed');return {ui_session_id:made.id,ui_turn_status:turn.status}}
+        const failed=activity.find(row=>row.kind==='turn'&&row.status!=='started');
+        if(failed)throw Error('composer turn '+failed.status+' '+failed.summary);
+      }
+      await delay(500);
+    }
+    throw Error('installed composer file-only turn did not settle');
   })()`;
 }

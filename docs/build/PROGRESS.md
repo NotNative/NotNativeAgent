@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed file-only composer delivery · NND 20261008-16 / NNA 20261008-7
+
+A fresh disposable Windows installation now exercises the authenticated
+Chromium composer itself. Its file input receives a PNG and UTF-8 text file,
+shows both attachment chips, enables the otherwise empty Send control, and
+creates a second native session. The turn completes, with distinct UI image
+bytes at the observation provider and the UI text marker in the primary
+provider's untrusted attachment context. The earlier direct upload/retry probe,
+desktop attach, and service-survival checks also pass in the same journey.
+This closes installed file-only composer delivery, while restart, attachment
+failure cases, queue/steer/abort, and audio remain open. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Installed mixed attachment delivery and retry · NND 20261008-15 / NNA 20261008-7
 
 A disposable installed Windows journey now uploads image and text bytes from
