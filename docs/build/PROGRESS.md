@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Mixed image/text native source acceptance · NND 20261008-13
+
+The paired NND↔NNA source smoke now uploads an image and a UTF-8 text file in
+one file-only prompt. It verifies that the observation provider receives image
+bytes and the primary provider receives the text as untrusted context. The
+smoke provider fixture now handles array-valued image content correctly; its
+prior bad response caused an honest native needs-input outcome. Installed
+browser/desktop attachment and restart acceptance remain open for F3.
+
 ## 2026-10-08 · Native attachment upload and file-only delivery · NNA 20261008-6 / NND 20261008-12
 
 An authenticated, session-owned upload route now admits bounded image and UTF-8

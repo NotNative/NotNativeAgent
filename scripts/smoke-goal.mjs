@@ -69,7 +69,8 @@ export async function probeGoalAutonomousLoop(call, json, directory, providerReq
   const path = `/api/v1/nnd/sessions/${id}/goal`;
   const goal = smokeGoal('Verify the live goal loop finishes after a continuation.');
   const auditRequests = () => providerRequests().filter((request) =>
-    request.messages?.[0]?.content?.startsWith('You audit progress of a coding agent'));
+    typeof request.messages?.[0]?.content === 'string'
+      && request.messages[0].content.startsWith('You audit progress of a coding agent'));
   const auditsBefore = auditRequests().length;
   let probeFailed = false;
   try {

@@ -16,14 +16,12 @@ import { notificationProviderReply, probeNotificationModel } from './smoke-notif
 import { json, withTimeout, eventReader } from './smoke-http.mjs';
 import { probeNnaProjection, probeRestoredProjection } from './smoke-nna-projection.mjs';
 import { probeWorkspaceIdentity } from './smoke-workspace-identity.mjs';
-const STEP_TIMEOUT_MS = 5_000;
-const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
+const STEP_TIMEOUT_MS = 5_000; const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.'; const CHILD_REPLY = 'NND_CHILD_REPLY';
 const CHILD_STEER = 'Include NND_STEER_ACK in your final answer.'; const CHILD_STEER_ACK = 'NND_STEER_ACK';
-const PARENT_REPLY = 'NND_PARENT_REPLY';
+const PARENT_REPLY = 'NND_PARENT_REPLY'; const EVENT_TIMEOUT_MS = 30_000;
 // The stream spans the origin-gate request and session creation, each with
 // its own step deadline. Give the live subscription their combined budget.
-const EVENT_TIMEOUT_MS = 30_000;
 const source = process.argv[2] ? resolve(process.argv[2]) : null;
 if (!source) {
   process.stderr.write('usage: node scripts/nna-source-smoke.mjs <NNA source directory>\n');
@@ -78,16 +76,17 @@ async function startProvider() {
 }
 function providerReply(body) {
   const messages = body.messages ?? [];
+  const firstText = typeof messages[0]?.content === 'string' ? messages[0].content : '';
   const userText = messages.filter((message) => message.role === 'user').map((message) => message.content).join('\n');
   let delta = { role: 'assistant', content: EXPECTED_REPLY };
   let finishReason = 'stop';
-  if (messages[0]?.content?.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: userText.includes('NND_LOOP_FINAL') ? 'complete' : 'continue', note: 'audit smoke note' }) };
+  if (firstText.startsWith('You audit progress of a coding agent')) delta = { role: 'assistant', content: JSON.stringify({ verdict: userText.includes('NND_LOOP_FINAL') ? 'complete' : 'continue', note: 'audit smoke note' }) };
   else if (walkthroughProviderReply(body)) delta = { role: 'assistant', content: walkthroughProviderReply(body) };
   else if (notificationProviderReply(body)) delta = { role: 'assistant', content: notificationProviderReply(body) };
   else if (nativeQuestionProviderReply(body)) {
     delta = nativeQuestionProviderReply(body); finishReason = delta.tool_calls ? 'tool_calls' : 'stop';
   }
-  else if (messages[0]?.content?.includes('isolated tool-permission decision')) {
+  else if (firstText.includes('isolated tool-permission decision')) {
     const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
     const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');
     const approved = review.request?.toolName === 'agent_run' && review.request.args?.task === CHILD_TASK && intent;
@@ -471,7 +470,8 @@ async function main(nnaSource) {
       && message.content.includes('Reply with the smoke marker.'))),
     'NNA did not submit the user prompt to the isolated provider');
     assert.ok(provider.requests().some((request) => {
-      if (!request.messages?.[0]?.content?.includes('isolated tool-permission decision')) return false;
+      if (typeof request.messages?.[0]?.content !== 'string'
+        || !request.messages[0].content.includes('isolated tool-permission decision')) return false;
       const message = request.messages.find((item) => item.role === 'user');
       if (!message) return false;
       const review = JSON.parse(message.content);
@@ -496,5 +496,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, model-only diff walkthrough, live events, governed prompt, file-only upload, delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, direct and SSE-driven autonomous continuation, completion, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, model-only diff walkthrough, live events, governed prompt, file-only text and image uploads, delegation, restart-recovered child transcript, read-only steering, session lifecycle, attributed goal audits, direct and SSE-driven autonomous continuation, completion, and origin gate.\n');
 }

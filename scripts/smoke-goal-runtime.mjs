@@ -11,8 +11,8 @@ function assertEventGoalEvidence(settled, exchanges, connections, events, id, re
   assert.ok(events.some((event) => event.payload?.type === 'session.status'
     && event.payload.properties?.sessionID === id && event.payload.properties.status?.type === 'idle'),
   'the live feed did not deliver the completed session idle event');
-  assert.equal(requests.filter((request) => request.messages?.[0]?.content
-    ?.startsWith('You audit progress of a coding agent')).length, 2,
+  assert.equal(requests.filter((request) => typeof request.messages?.[0]?.content === 'string'
+    && request.messages[0].content.startsWith('You audit progress of a coding agent')).length, 2,
   'event-driven runtime did not independently audit both turns');
   assert.ok(requests.some((request) => request.messages?.some((message) =>
     message.role === 'user' && typeof message.content === 'string'

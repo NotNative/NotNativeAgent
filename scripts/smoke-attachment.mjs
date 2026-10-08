@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 /** Verify browser bytes reach the real native provider without becoming prompt-body bytes. */
 export async function probeAttachment(call, json, sessionId, waitForTurn, providerRequests) {
   const marker = 'NND_SOURCE_UPLOAD_MARKER';
+  const image = Buffer.concat([Buffer.from('89504e470d0a1a0a00000000', 'hex'), Buffer.from('NND_IMAGE_MARKER')]);
   const uploaded = await json(call, `/api/v1/nnd/sessions/${sessionId}/attachments`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
       upload_id: 'smoke_upload', filename: 'smoke.txt', mime_type: 'text/plain',
@@ -11,10 +12,17 @@ export async function probeAttachment(call, json, sessionId, waitForTurn, provid
     }),
   }, 201);
   assert.equal(uploaded.upload_id, 'smoke_upload');
+  const uploadedImage = await json(call, `/api/v1/nnd/sessions/${sessionId}/attachments`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+      upload_id: 'smoke_image', filename: 'marker.png', mime_type: 'image/png',
+      data_url: `data:image/png;base64,${image.toString('base64')}`,
+    }),
+  }, 201);
+  assert.equal(uploadedImage.upload_id, 'smoke_image');
   const fileOnly = await call(`/api/session/${sessionId}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ messageID: 'smoke_file_only', parts: [{ type: 'text', text: '' },
-      { type: 'file', upload_id: 'smoke_upload' }] }),
+      { type: 'file', upload_id: 'smoke_upload' }, { type: 'file', upload_id: 'smoke_image' }] }),
   });
   assert.equal(fileOnly.status, 204);
   await waitForTurn('smoke_file_only');
@@ -22,4 +30,6 @@ export async function probeAttachment(call, json, sessionId, waitForTurn, provid
     typeof message.content === 'string' && message.content.includes(marker)
       && message.content.includes('Untrusted attachment observation'))),
   'native upload was not delivered to the primary provider as untrusted context');
+  assert.ok(providerRequests().some((request) => JSON.stringify(request.messages).includes(image.toString('base64'))),
+    'native image upload was not delivered to the observation provider');
 }

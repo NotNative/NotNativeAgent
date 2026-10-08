@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 
 export function notificationProviderReply(body) {
-  return body.messages?.[0]?.content?.startsWith('Write a short desktop notification')
+  return typeof body.messages?.[0]?.content === 'string' && body.messages[0].content.startsWith('Write a short desktop notification')
     ? JSON.stringify({ title: 'NND_MODEL_NOTIFICATION', body: 'The native agent completed its verified smoke work.' }) : null;
 }
 export async function probeNotificationModel(sessionId, providerRequests) {
