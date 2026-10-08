@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Native prompt parts fail closed · NNA 20261008-5
+
+NNA now rejects unsupported file, image, or unknown `prompt_async` parts
+instead of accepting a turn after silently dropping them. A mixed text/file
+integration case returns a specific 400; the focused suite, serial full NNA
+suite, quality, graph, and language checks pass. Native attachment ingestion
+and delivery remain necessary for F3 and MVP. The NNA v4 source multi-root
+smoke also passed. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Native inventory latency narrowed · NNA 20261008-4
 
 An isolated installed fixture traced slow session reads to two sequential

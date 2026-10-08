@@ -51,7 +51,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium/desktop three-root journey passed across native restart: same session IDs/root bindings, governed reads/writes and sibling denials, exact reviewer approvals and disk effects, bound-worktree removal refusal then release/removal, stale-ID refusal, browser isolation and surviving desktop service. F1 remains open for installed aliases/junctions, removed roots/permission loss, hard shell/process scope, TUI tab preservation, and UI controls. Native inventory latency traced to two serial Windows ACL manifest probes; NNA `20261008-4` parallelizes the fresh reads, with installed diagnostic improvement but no new full installed acceptance yet. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
-| F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
+| F3 | Composer/governed submission | F1-F2, C4 | in-progress | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | NNA `20261008-5` rejects unsupported file/image/unknown prompt parts before accepting a native turn, so attachments cannot be silently dropped. Native attachment ingestion and delivery, file-only input, queue/steer/abort, questions, and audio acceptance remain open. |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
 | F5 | Model helpers/route selection | C4, F1-F2 | open | NND small-model/lib walkthrough/goal-audit callers; NNA nnd-walkthrough, nnd-notification, nnd-goal-audit, provider scheduler | — |
 | F6 | Files/review/plans/Git visibility | F1-F3, F5 | open | NND files/diff/git/plan components + lib/files/git/plan; server routes/git*, filesystem, GitHub/Linear | — |
@@ -451,6 +451,25 @@ The full worktree removal and post-removal admission assertions therefore
 did not run to completion. F1 cannot close on this result. Several native API
 requests in the post-restart phase took 90–122 seconds; latency needs
 diagnosis before the expanded installed journey can serve as an MVP gate.
+
+## NNA 20261008-5 (`3a26fe68`) — refuse unsupported prompt parts
+
+The native `/session/:id/prompt_async` path previously concatenated text parts
+and silently discarded any file, image, or unknown part while returning 204.
+It now rejects a mixed text-plus-file request with
+`nnd_prompt_part_unsupported` before workspace validation or turn submission.
+The integration test asserts the 400 refusal. Focused integration tests
+passed 16/16; NNA serial full `npm test`, quality, graph, and language gates
+passed. NND's composer already restores text and attachment chips after a
+definite 400 rejection. This is a fail-closed interim contract, not F3
+attachment delivery. No v5 installed journey or platform-conformance seal
+is claimed; native ingestion, file-only input, and complete F3 acceptance
+remain open.
+
+The NNA v4 source multi-root smoke also passed against NND v10 with selected
+root provider turns, governed read/write and denial, aliases/junction refusal,
+removed-root behavior, and restart recovery; the installed three-root pass
+remains pinned to NNA v3.
 
 ## NNA 20261008-4 (`0657bfcf`) — native workspace inventory read latency
 
