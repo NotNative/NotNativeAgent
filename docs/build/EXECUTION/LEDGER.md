@@ -50,7 +50,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
 | F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed selected-root governed writes before and after restart have journal/reviewer/disk evidence, but the expanded full fixture timed out during post-removal inventory. Shell/process scope, permission loss, other-root governed effects, and broader feature coverage remain open. |
-| F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-4 interrupted-opener cursor repair and source Electron native gap journey below; installed, restart, retention, revocation, and full F2 matrix remain open |
+| F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
 | F5 | Model helpers/route selection | C4, F1-F2 | open | NND small-model/lib walkthrough/goal-audit callers; NNA nnd-walkthrough, nnd-notification, nnd-goal-audit, provider scheduler | — |
@@ -415,6 +415,34 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261008-5 / NNA 20261008-3 (`22259beb`) — installed native replay-gap acceptance
+
+The `--native-replay-gap` disposable installed-source journey passed with the
+paired native source. The actual installed Chromium UI received a native
+`complete` opener, recovered an offline-created session into the sidebar after
+an explicit `gap`, displayed Activity's incomplete-history notice, and reset the
+invalidated cursor. The run also proved independent-browser isolation, desktop
+attachment to the same service, and service lifetime after desktop exit; its
+successful fixture was removed. No operator installation or data was changed.
+
+An initial failed fixture exposed repeated `net::ERR_ABORTED` reconnects:
+the heartbeat used activity time from the prior stream and cut every new SSE
+attempt after five seconds. Each attempt now has its own finite heartbeat
+window, with a regression for long outages. An adversarial audit identified
+two more boundary cases: explicit native gaps could reopen controls after a
+successful but empty config refresh when the initial config was absent; and a
+late WebSocket token response could construct a socket after its attempt had
+been aborted. Native gap recovery now requires fresh `nnd.engine = nna`, and
+the WebSocket path checks cancellation before socket construction. Focused
+regressions pass. The first failed fixture was preserved under the disposable
+acceptance-fixture directory for diagnostics, with its service stopped.
+
+This is one installed F2 scenario, not full installed release acceptance.
+Native restart/epoch, retained-history boundaries, principal/workspace
+revocation, redaction/correction, stale snapshots, large transcripts, and the
+remaining guide-04/05 matrix remain open. The replay ring is not claimed as
+durable history; native paged Activity remains the authoritative source.
 
 ## NND 20261008-4 / NNA 20261008-3 (`22259beb`) — interrupted SSE recovery and native gap journey
 

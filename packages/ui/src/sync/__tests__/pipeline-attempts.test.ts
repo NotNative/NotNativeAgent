@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PipelineQueues } from '../pipeline-queues.ts';
 import { attemptSse, attemptWs, createDeliver, processSseFrame } from '../pipeline-attempts.ts';
-import { replayCursorAfterFlush, shouldSkipConnectedResync } from '../event-pipeline.ts';
+import { heartbeatExpired, replayCursorAfterFlush, shouldSkipConnectedResync } from '../event-pipeline.ts';
 import { runtimeFetch } from '../../lib/runtime-fetch.ts';
 
 vi.mock('../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
@@ -147,7 +147,7 @@ describe('SSE replay cursor', () => {
     try {
       const attempt = attemptSse(state.ctx, '/api/global/event', new AbortController().signal, vi.fn());
       const rejection = expect(attempt).rejects.toThrow('sse_opener_timeout');
-      await vi.advanceTimersByTimeAsync(5_001);
+      await vi.advanceTimersByTimeAsync(30_001);
       await rejection;
       expect(state.cursor()).toBeNull();
     } finally {
@@ -157,6 +157,14 @@ describe('SSE replay cursor', () => {
 });
 
 describe('reconnect recovery', () => {
+  it('allows a fresh stream its own heartbeat window after a long outage', () => {
+    const oldFrameAt = 1_000;
+    const newAttemptAt = 120_000;
+    expect(heartbeatExpired(oldFrameAt, newAttemptAt, newAttemptAt + 5_000)).toBe(false);
+    expect(heartbeatExpired(oldFrameAt, newAttemptAt, newAttemptAt + 30_001)).toBe(true);
+    expect(heartbeatExpired(newAttemptAt + 20_000, newAttemptAt, newAttemptAt + 30_001)).toBe(false);
+  });
+
   it('requires a snapshot on SSE reconnect even after a recent boot', () => {
     expect(shouldSkipConnectedResync(true, false, false, 'sse', false)).toBe(true);
     expect(shouldSkipConnectedResync(false, false, false, 'sse', true)).toBe(false);
@@ -169,6 +177,20 @@ describe('reconnect recovery', () => {
 });
 
 describe('WebSocket recovery ordering', () => {
+  it('does not open a socket for an already aborted attempt', async () => {
+    const socket = vi.fn();
+    vi.stubGlobal('WebSocket', socket);
+    try {
+      const abort = new AbortController();
+      abort.abort();
+      await expect(attemptWs(streamContext().ctx, 'ws://example.test', abort.signal, 5_000, vi.fn()))
+        .rejects.toThrow('ws_aborted_before_connect');
+      expect(socket).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('holds live frames until the ready callback finishes recovery', async () => {
     let socket!: EventTarget & { close: () => void };
     class FakeSocket extends EventTarget {

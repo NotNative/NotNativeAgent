@@ -95,14 +95,14 @@ export async function selectedPackage(fixture) {
     { cwd: fixture.root, env: fixture.env, timeout: 45000 });
   return JSON.parse(output.trim());
 }
-function chromiumScript(origin, mode, mainUrl, browserProbeExpression) {
+function chromiumScript(origin, mode, mainUrl, browserProbeExpression, browserScenarioModule) {
   return `import {app,BrowserWindow,dialog} from 'electron';
 import {appendFileSync} from 'node:fs';
 const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\n');
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
 app.setPath('userData',${JSON.stringify(mainUrl.userData)});
-let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? 900000 : 45000});
+let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? 900000 : browserScenarioModule ? 360000 : 45000});
 function finish(ok){if(done)return;done=true;clearTimeout(timer);if(ok)process.stdout.write('NND_INSTALLED_${mode === 'browser' ? 'BROWSER' : 'DESKTOP'}_OK\\n');app.exit(ok?0:1)}
 app.whenReady().then(async()=>{
 try{
@@ -112,6 +112,7 @@ const ticketPath=${JSON.stringify(mainUrl.ticketPath)};
 const ticket=(await readFile(ticketPath,'utf8')).trim();await unlink(ticketPath);
 if(ticket.length!==43)throw Error('Native ticket handoff length '+ticket.length);
 const win=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-browser',nodeIntegration:false,contextIsolation:true,sandbox:true}});
+${browserScenarioModule ? `win.webContents.session.webRequest.onBeforeRequest({urls:['<all_urls>']},(details,callback)=>{let blocked=false;try{blocked=['/api/global/event/ws','/api/event'].includes(new URL(details.url).pathname)}catch{}callback({cancel:blocked})});` : ''}
 win.webContents.on('console-message',(...args)=>{for(const value of args.slice(1)){const message=typeof value==='string'?value:value?.message;if(typeof message==='string'&&message.startsWith('NND_PROBE_STEP:'))phase(message)}});
 await win.loadURL(${JSON.stringify(origin)});
 win.show();win.focus();
@@ -124,7 +125,9 @@ if(await win.webContents.executeJavaScript('document.getElementById("native-boot
 const accepted=await win.webContents.executeJavaScript('(async()=>{let button;for(let j=0;j<100;j++){button=document.querySelector("[data-testid=gate-native-bootstrap] button");if(button&&!button.disabled)break;await new Promise(r=>setTimeout(r,100))}if(!button||button.disabled){const input=document.getElementById("native-bootstrap-code");return "button_disabled_length_"+(input?.value.length||0)+"_focused_"+(document.activeElement===input)}button.click();let code=0;for(let j=0;j<100;j++){const response=await fetch("/auth/session");code=response.status;const status=await response.json();if(code===200&&status.authenticated===true)return "ok";await new Promise(r=>setTimeout(r,100))}return "session_"+code+"_"+(document.querySelector("[role=alert]")?.textContent||"").slice(0,80)})()');
 if(accepted!=='ok')throw Error('Native code form did not authenticate: '+accepted);
 phase('auth_accepted');
+${browserScenarioModule ? `let appMounted=false;for(let i=0;i<100;i++){try{appMounted=await win.webContents.executeJavaScript('Boolean(document.querySelector("[data-testid=connection-pill]"))')}catch{}if(appMounted)break;await new Promise(r=>setTimeout(r,100))}if(!appMounted)throw Error('Authenticated app shell did not mount');phase('app_mounted');` : ''}
 ${browserProbeExpression ? `phase('probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
+${browserScenarioModule ? `phase('scenario_start');const {runNativeReplayGapBrowser}=await import(${JSON.stringify(pathToFileURL(browserScenarioModule).href)});const replay=await runNativeReplayGapBrowser(win,phase);if(!replay.priorCursorPresent||!replay.nativeGap||!replay.sidebarRecovered||!replay.activityGapVisible||!replay.cursorReset)throw Error('Installed native replay gap evidence missing');phase('scenario_complete');process.stdout.write('NND_INSTALLED_REPLAY_GAP_OK\\n');` : ''}
 const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
 phase('isolation_window_created');
 await other.loadURL(${JSON.stringify(origin)});
@@ -138,9 +141,9 @@ phase('window_loaded');
 try{const result=await win.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,authenticated:(await response.json()).authenticated,token:window.__NOTNATIVE_CLIENT_TOKEN__||"",headers:window.__NOTNATIVE_RUNTIME_HEADERS__||{}}})()');
 if(result.status!==200||result.authenticated!==true||result.token||Object.keys(result.headers).length)throw Error('Desktop attach missing or bearer exposed');finish(true)}catch(e){process.stderr.write(String(e));finish(false)}})});
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
-}catch(error){process.stderr.write(String(error));finish(false)} });`;
+}catch(error){process.stderr.write(error?.stack||error?.message||JSON.stringify(error)||String(error));finish(false)} });`;
 }
-export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '') {
+export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '', browserScenarioModule = null) {
   const probeId = randomUUID().replaceAll('-', '').slice(0, 16);
   const shellData = join(fixture.root, `${mode}-profile-${probeId}`);
   await mkdir(shellData);
@@ -162,15 +165,16 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
       try { await handle.writeFile(ticket); await handle.sync(); } finally { await handle.close(); }
     }
     await writeFile(wrapper, chromiumScript(origin, mode, { userData: shellData,
-      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }, browserProbeExpression));
+      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }, browserProbeExpression, browserScenarioModule));
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
-      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? 915000 : 60000, outputFiles });
+      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? 915000 : browserScenarioModule ? 375000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);
   assert.match(output, new RegExp(`NND_INSTALLED_${mode.toUpperCase()}_OK`, 'u'));
+  if (browserScenarioModule) assert.match(output, /NND_INSTALLED_REPLAY_GAP_OK/u);
   if (browserProbeExpression) {
     const match = /^NND_BROWSER_PROBE=(.+)$/mu.exec(output);
     assert.ok(match, 'Authenticated browser probe result is missing');
@@ -218,7 +222,7 @@ export async function waitStopped(fixture) {
   }
   throw new Error('Selected native service stop remains uncertain');
 }
-async function main(nnaSource) {
+async function main(nnaSource, nativeReplayGap = false) {
   assert.equal(process.platform, 'win32', 'Windows acceptance only');
   assert.ok(isAbsolute(nnaSource), 'Provide an absolute NNA source root');
   await mkdir(base, { recursive: true });
@@ -228,7 +232,16 @@ async function main(nnaSource) {
   await privateDirectory(root);
   const fixture = await prepare(nnaSource, root);
   let serviceStopped = false;
+  let accepted = false;
   try {
+    if (nativeReplayGap) {
+      await writeFile(join(fixture.data, 'config', 'manifest.json'), JSON.stringify({
+        format_version: 1, persistence: 'ephemeral', workspace_root: root,
+        providers: [{ id: 'smoke', display_name: 'Disposable smoke', endpoint: 'http://127.0.0.1:9/v1',
+          model: 'test', trust_zone: 'loopback' }],
+        routes: { primary: { provider_id: 'smoke', model: 'test' } },
+      }));
+    }
     await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
       join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
       '-ShortcutRoot', fixture.shortcuts], { cwd: root, env: fixture.env, timeout: 900000,
@@ -251,22 +264,26 @@ async function main(nnaSource) {
     assert.equal(status.package_state, 'ready');
     assert.equal(status.package_version, packageVersion);
     const ticket = (await cli(fixture, 'ui-ticket')).ticket;
-    await shell(fixture, 'browser', status.endpoint, ticket);
+    const scenarioModule = nativeReplayGap ? join(root, 'native-replay-gap-browser.mjs') : null;
+    if (scenarioModule) await cp(join(source, 'scripts/electron-native-replay-gap-browser.mjs'), scenarioModule);
+    await shell(fixture, 'browser', status.endpoint, ticket, [], '', scenarioModule);
     await shell(fixture, 'desktop', status.endpoint);
     const after = await cli(fixture, 'status');
     assert.equal(after.instance_id, status.instance_id, 'Desktop exit must not stop or replace native service');
     await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true;
+    accepted = true;
     process.stdout.write('Real disposable source install, Native code Chromium UI, desktop attach and service lifetime passed.\n');
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
       catch { process.stderr.write(`Native state uncertain; preserved fixture at ${root}\n`); }
     }
-    if (serviceStopped && !childUncertain) await rm(await checkedFixturePath(root), { recursive: true, force: true, maxRetries: 5 });
+    if (accepted && serviceStopped && !childUncertain) await rm(await checkedFixturePath(root), { recursive: true, force: true, maxRetries: 5 });
     else process.stderr.write(`Acceptance evidence preserved at ${root}\n`);
   }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.argv.length !== 3) throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE');
-  await main(resolve(process.argv[2]));
+  if (![3, 4].includes(process.argv.length) || process.argv.length === 4 && process.argv[3] !== '--native-replay-gap')
+    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap]');
+  await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap');
 }

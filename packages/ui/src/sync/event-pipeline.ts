@@ -43,6 +43,7 @@ interface PipelineState {
   firstConnect: boolean;
   disconnectedBeforeFirstConnect: boolean;
   lastActivityAt: number;
+  attemptStartedAt: number;
   wsFallbackUntil: number;
   pendingRetryResolve: (() => void) | null;
   everConnected: boolean;
@@ -70,6 +71,7 @@ export function createEventPipeline(options: PipelineOptions): EventPipeline {
     firstConnect: true,
     disconnectedBeforeFirstConnect: false,
     lastActivityAt: 0,
+    attemptStartedAt: 0,
     wsFallbackUntil: 0,
     pendingRetryResolve: null,
     everConnected: false,
@@ -142,6 +144,7 @@ async function pipeTryWsRound(state: PipelineState, abort: AbortController): Pro
   const cursor = encodeURIComponent(state.lastEventId ?? '');
   const query = state.lastEventId ? `?lastEventId=${cursor}` : '';
   const url = await appendAuthTokenToUrl(`${ws}/api/global/event/ws${query}`); // mint BEFORE connect
+  if (abort.signal.aborted) throw new Error('ws_interrupted_before_connect');
   try {
     await attemptWs(state.context, url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS, (info) => pipeOnEstablished(state, info, 'ws', abort.signal));
     return false;
@@ -182,6 +185,7 @@ async function pipeLoop(state: PipelineState): Promise<void> {
   while (!state.stopped) {
     const abort = new AbortController();
     state.currentAbort = abort;
+    state.attemptStartedAt = Date.now();
     const transport = pipeResolveTransport(state);
     let reason = `${transport}_ended`;
     let permanent = false;
@@ -233,10 +237,15 @@ function pipeHeartbeat(state: PipelineState): ReturnType<typeof setInterval> {
   // heartbeat supervision: ANY frame resets the window (§D.1)
   return setInterval(() => {
     if (state.stopped || !state.currentAbort) return;
-    if (state.lastActivityAt !== 0 && Date.now() - state.lastActivityAt > DEFAULT_HEARTBEAT_TIMEOUT_MS) {
+    if (heartbeatExpired(state.lastActivityAt, state.attemptStartedAt, Date.now())) {
       state.currentAbort.abort(new Error('heartbeat_timeout'));
     }
   }, 5_000);
+}
+
+export function heartbeatExpired(lastActivityAt: number, attemptStartedAt: number, now: number): boolean {
+  const activity = Math.max(lastActivityAt, attemptStartedAt);
+  return activity !== 0 && now - activity > DEFAULT_HEARTBEAT_TIMEOUT_MS;
 }
 
 function pipeInstallListeners(state: PipelineState): Array<[string, EventTarget, (event: Event) => void]> {

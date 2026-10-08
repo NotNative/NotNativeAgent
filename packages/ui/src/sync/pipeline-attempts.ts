@@ -210,6 +210,7 @@ export function attemptWs(
   readyTimeoutMs: number,
   onEstablished: (info: EstablishedInfo) => void | Promise<void>,
 ): Promise<AttemptResult> {
+  if (signal.aborted) return Promise.reject(new Error('ws_aborted_before_connect'));
   return new Promise((resolvePromise, rejectPromise) => {
     const socket = new WebSocket(url);
     const state: WsState = { readySeen: false, establishing: false, closed: false, pending: [], settled: false, openedAt: 0 };

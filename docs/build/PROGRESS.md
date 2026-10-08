@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed native replay-gap journey · NND 20261008-5
+
+A disposable installed-source run passed the native replay-gap Chromium
+journey, browser isolation, desktop attach, and service lifetime against NNA
+`20261008-3`. A reconnect heartbeat bug found in the failed run is fixed;
+adversarial review also closed an empty-identity authority recovery case and
+a late WebSocket token/cancellation race. Focused tests passed. F2 remains
+in progress for restart, retention, revocation, and the wider recovery matrix;
+F1 and later feature/verification packages remain open. Detailed evidence is
+in [the ledger](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Native replay-gap source journey and interrupted cursor repair · NND 20261008-4
 
 The source Electron/Chromium journey now verifies native `complete` and `gap`

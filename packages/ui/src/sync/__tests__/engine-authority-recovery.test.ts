@@ -10,6 +10,7 @@ vi.mock('../../lib/nnd/client.ts', () => ({ harnessClient: { getConfig: vi.fn() 
 import { harnessClient } from '../../lib/nnd/client.ts';
 import { recoverGapAuthority } from '../engine-authority-recovery.ts';
 import { authorityState } from '../authority-sync.ts';
+import { activityGapAt } from '../activity-gap.ts';
 import { useGlobalSyncStore } from '../global-stores.ts';
 
 beforeEach(() => {
@@ -34,6 +35,26 @@ it('keeps controls closed through recovery failure and reopens only with fresh n
   await second;
   expect(authorityState()).toBe('ready');
   expect(harnessClient.getConfig).toHaveBeenCalledExactlyOnceWith();
+});
+
+it('records an explicit gap even before native config has loaded or recovery succeeds', async () => {
+  runtime.key = 'authority-engine-missing-config-gap';
+  useGlobalSyncStore.getState().reset();
+  const recovery = { recoverAuthorityGap: vi.fn(async () => false) } as never;
+  expect(activityGapAt(runtime.key)).toBeNull();
+  await recoverGapAuthority(recovery, runtime.key, new AbortController().signal, true, () => true);
+  expect(activityGapAt(runtime.key)).toEqual(expect.any(Number));
+  expect(authorityState(runtime.key)).toBe('failed');
+});
+
+it('keeps authority closed when an explicit gap recovers catalogs but native identity is absent', async () => {
+  runtime.key = 'authority-engine-no-native-identity';
+  useGlobalSyncStore.getState().reset();
+  const recovery = { recoverAuthorityGap: vi.fn(async () => true) } as never;
+  vi.mocked(harnessClient.getConfig).mockResolvedValue({ data: {} as never });
+  await recoverGapAuthority(recovery, runtime.key, new AbortController().signal, true, () => true);
+  expect(activityGapAt(runtime.key)).toEqual(expect.any(Number));
+  expect(authorityState(runtime.key)).toBe('failed');
 });
 
 it('rejects malformed or changed native identity after a complete catalog recovery', async () => {
