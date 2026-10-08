@@ -19,13 +19,20 @@ export async function probeAttachment(call, json, sessionId, waitForTurn, provid
     }),
   }, 201);
   assert.equal(uploadedImage.upload_id, 'smoke_image');
+  const fileOnlyBody = JSON.stringify({ messageID: 'smoke_file_only', parts: [{ type: 'text', text: '' },
+    { type: 'file', upload_id: 'smoke_upload' }, { type: 'file', upload_id: 'smoke_image' }] });
   const fileOnly = await call(`/api/session/${sessionId}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messageID: 'smoke_file_only', parts: [{ type: 'text', text: '' },
-      { type: 'file', upload_id: 'smoke_upload' }, { type: 'file', upload_id: 'smoke_image' }] }),
+    body: fileOnlyBody,
   });
   assert.equal(fileOnly.status, 204);
   await waitForTurn('smoke_file_only');
+  const requestCount = providerRequests().length;
+  const retry = await call(`/api/session/${sessionId}/prompt_async`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: fileOnlyBody,
+  });
+  assert.equal(retry.status, 204, 'a lost acknowledgement may be retried after upload release');
+  assert.equal(providerRequests().length, requestCount, 'the retry must not invoke the provider again');
   assert.ok(providerRequests().some((request) => request.messages?.some((message) =>
     typeof message.content === 'string' && message.content.includes(marker)
       && message.content.includes('Untrusted attachment observation'))),

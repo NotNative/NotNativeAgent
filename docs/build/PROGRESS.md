@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed mixed attachment delivery and retry · NND 20261008-15 / NNA 20261008-7
+
+A disposable installed Windows journey now uploads image and text bytes from
+authenticated Chromium into the persistent native service and submits a
+file-only prompt. The image observation provider receives the PNG bytes; the
+primary provider receives the text as untrusted context. A retry of the same
+message after the turn completes returns the prior submission without a second
+prompt row. The paired source smoke also checks that the retry does not call
+the provider again. This proves installed transport and retry, while UI
+composer interaction, restart, and the remaining F3 failure matrix are open.
+[Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Current-pair installed framework regression · NND 20261008-14 / NNA 20261008-6
 
 The disposable Windows source installer journey passed on the current pair:

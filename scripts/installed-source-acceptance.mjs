@@ -8,6 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
+import { attachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -222,7 +223,25 @@ export async function waitStopped(fixture) {
   }
   throw new Error('Selected native service stop remains uncertain');
 }
-async function main(nnaSource, nativeReplayGap = false) {
+async function writeProbeManifest(fixture, durable, providerPort) {
+  await writeFile(join(fixture.data, 'config', 'manifest.json'), JSON.stringify({
+    format_version: 1, persistence: durable ? 'durable' : 'ephemeral', workspace_root: fixture.root,
+    providers: [{ id: 'smoke', display_name: 'Disposable smoke', endpoint: `http://127.0.0.1:${providerPort ?? 9}/v1`,
+      model: 'test', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'smoke', model: 'test' } },
+  }));
+}
+function assertInstalledAttachmentDelivery(result, requests) {
+  assert.equal(result.turn_status, 'completed');
+  assert.equal(result.duplicate_rows, 1);
+  assert.ok(requests.some((request) => JSON.stringify(request.messages).includes(IMAGE.toString('base64'))),
+    'installed image bytes did not reach the observation provider');
+  assert.ok(requests.some((request) => request.messages?.some((message) =>
+    typeof message.content === 'string' && message.content.includes(TEXT_MARKER)
+      && message.content.includes('Untrusted attachment observation'))),
+  'installed text bytes did not reach the primary provider');
+}
+async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false) {
   assert.equal(process.platform, 'win32', 'Windows acceptance only');
   assert.ok(isAbsolute(nnaSource), 'Provide an absolute NNA source root');
   await mkdir(base, { recursive: true });
@@ -231,17 +250,11 @@ async function main(nnaSource, nativeReplayGap = false) {
   const root = join(base, `installed-accept-${randomUUID().replaceAll('-', '').slice(0, 16)}`);
   await privateDirectory(root);
   const fixture = await prepare(nnaSource, root);
-  let serviceStopped = false;
-  let accepted = false;
+  let serviceStopped = false; let accepted = false;
+  let attachmentProvider;
   try {
-    if (nativeReplayGap) {
-      await writeFile(join(fixture.data, 'config', 'manifest.json'), JSON.stringify({
-        format_version: 1, persistence: 'ephemeral', workspace_root: root,
-        providers: [{ id: 'smoke', display_name: 'Disposable smoke', endpoint: 'http://127.0.0.1:9/v1',
-          model: 'test', trust_zone: 'loopback' }],
-        routes: { primary: { provider_id: 'smoke', model: 'test' } },
-      }));
-    }
+    if (nativeAttachments) attachmentProvider = await startAttachmentProvider();
+    if (nativeReplayGap || nativeAttachments) await writeProbeManifest(fixture, nativeAttachments, attachmentProvider?.port);
     await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
       join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
       '-ShortcutRoot', fixture.shortcuts], { cwd: root, env: fixture.env, timeout: 900000,
@@ -266,7 +279,9 @@ async function main(nnaSource, nativeReplayGap = false) {
     const ticket = (await cli(fixture, 'ui-ticket')).ticket;
     const scenarioModule = nativeReplayGap ? join(root, 'native-replay-gap-browser.mjs') : null;
     if (scenarioModule) await cp(join(source, 'scripts/electron-native-replay-gap-browser.mjs'), scenarioModule);
-    await shell(fixture, 'browser', status.endpoint, ticket, [], '', scenarioModule);
+    const browserResult = await shell(fixture, 'browser', status.endpoint, ticket, [],
+      nativeAttachments ? attachmentBrowserProbe() : '', scenarioModule);
+    if (nativeAttachments) assertInstalledAttachmentDelivery(browserResult, attachmentProvider.requests);
     await shell(fixture, 'desktop', status.endpoint);
     const after = await cli(fixture, 'status');
     assert.equal(after.instance_id, status.instance_id, 'Desktop exit must not stop or replace native service');
@@ -278,12 +293,17 @@ async function main(nnaSource, nativeReplayGap = false) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
       catch { process.stderr.write(`Native state uncertain; preserved fixture at ${root}\n`); }
     }
+    if (attachmentProvider) {
+      const closed = new Promise((resolve) => attachmentProvider.server.close(resolve));
+      attachmentProvider.server.closeAllConnections(); await closed;
+    }
     if (accepted && serviceStopped && !childUncertain) await rm(await checkedFixturePath(root), { recursive: true, force: true, maxRetries: 5 });
     else process.stderr.write(`Acceptance evidence preserved at ${root}\n`);
   }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (![3, 4].includes(process.argv.length) || process.argv.length === 4 && process.argv[3] !== '--native-replay-gap')
-    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap]');
-  await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap');
+  if (![3, 4].includes(process.argv.length) || process.argv.length === 4
+    && !['--native-replay-gap', '--native-attachments'].includes(process.argv[3]))
+    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments]');
+  await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap', process.argv[3] === '--native-attachments');
 }
