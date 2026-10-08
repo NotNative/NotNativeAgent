@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
-import { ENV } from './env.ts';
+import { ENV, nativeServiceTerminalUnavailable } from './env.ts';
 import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
 import { peekRelayServerId } from './lib/relay/identity.ts';
@@ -178,6 +178,15 @@ async function nativeAuthGate(c: Context, next: Next): Promise<Response | void> 
   return next();
 }
 
+async function nativeTerminalGate(c: Context, next: Next): Promise<Response | void> {
+  if (nativeServiceTerminalUnavailable()) {
+    return c.json({ code: 'native_terminal_unavailable',
+      error: 'Terminal is unavailable until native workspace authorization is supported.' },
+    409, { 'cache-control': 'no-store' });
+  }
+  return next();
+}
+
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
   push?: ReturnType<typeof createPushServices>;
   nativeHealthProof?: NativeHealthProofIdentity;
@@ -211,6 +220,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // their bespoke headers (login/reset) run un-wrapped; every later /api
   // surface + the harness proxy rides behind it.
   app.use('/api/*', apiAuthGate);
+  app.use('/api/terminal/*', nativeTerminalGate);
   registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater, options?.push);
 
   registerHarnessProxy(app);

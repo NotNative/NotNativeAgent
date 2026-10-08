@@ -8,6 +8,7 @@ import { ChatSidebar } from '../chat/session-sidebar.tsx';
 import { ArchiveView } from '../chat/archive-view.tsx';
 import { SessionTabs } from '../chat/session-tabs.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
+import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { defaultHarnessDirectory } from '../sync/engine-support.ts';
@@ -61,6 +62,7 @@ export function MainLayout(): ReactNode {
   useEffect(() => mountSessionRoute(() => toast.error('Could not open the linked session.')), [runtimeKey]);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
+  const terminalUnavailable = global.config === null || nnaOwnsPermissionReview(global.config);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
   const [filesOpen, setFilesOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -255,7 +257,7 @@ export function MainLayout(): ReactNode {
 
   return (
     <div className={`flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100${miniChat ? ' nnd-mini-chat' : ''}`} data-testid={miniChat ? 'mini-chat-layout' : undefined}>
-      {!miniChat ? <TerminalKeepaliveOwner /> : null}
+      {!miniChat && !terminalUnavailable ? <TerminalKeepaliveOwner /> : null}
       {!miniChat ? <ShellShortcuts /> : null}
       {miniChat ? (
         <header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 bg-neutral-950/80 px-3" data-testid="mini-chat-header" style={{ WebkitAppRegion: 'drag' } as CSSProperties & { WebkitAppRegion: string }}>
@@ -315,10 +317,11 @@ export function MainLayout(): ReactNode {
         </button>
         <button
           type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40"
           data-testid="terminal-toggle"
-          title={t('terminal.title')}
+          title={terminalUnavailable ? 'Terminal is unavailable for native sessions' : t('terminal.title')}
           aria-label={t('terminal.title')}
+          disabled={terminalUnavailable}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'terminal' ? '' : 'terminal');
@@ -406,7 +409,9 @@ export function MainLayout(): ReactNode {
         ) : reviewPane === 'plan' ? (
           <PlanView directory={activeDirectory} visible />
         ) : reviewPane === 'terminal' ? (
-          <TerminalView directory={activeDirectory} visible />
+          terminalUnavailable
+            ? <div role="status" className="p-4 text-sm text-neutral-400">Terminal is unavailable for native sessions.</div>
+            : <TerminalView directory={activeDirectory} visible />
         ) : reviewPane === 'agent-groups' ? (
           <AgentManagerView
             projectRoot={activeDirectory}

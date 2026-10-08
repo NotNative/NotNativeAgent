@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c907bbc03c10aa1e6a5854da9bc618920ba35006574499d172d35e7b96c6056d",
+  "source_digest": "sha256:b194b30adfc60241eed0c174e261409016dea3a8da01fba99c88e03cf35cd8ae",
   "counts": {
     "modules": 852,
     "component_edges": 17
@@ -116,7 +116,7 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 123,
+      "import_count": 124,
       "module_count": 91
     },
     {
@@ -1431,6 +1431,7 @@
         "packages/ui/src/lib/miniChatLaunch.ts",
         "packages/ui/src/lib/multirun/fusion.ts",
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/session-route.ts",

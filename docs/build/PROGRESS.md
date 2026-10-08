@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · First alpha surface fence · NND 20261008-21
+
+The installed NNA-owned service now rejects terminal HTTP and WebSocket access
+before a PTY can be created. The native GUI disables its terminal control and
+keepalive owner; development/mock terminal use remains available. A focused
+server test covers both modes, and the installed attachment journey checks the
+terminal refusal before its chat workflow. The alpha A5 gate remains open for
+other side-effecting Git, file, worktree, queue, and related routes.
+
 ## 2026-10-08 · Narrow Windows testable alpha milestone
 
 The [alpha gate](ALPHA.md) records a shorter path to isolated operator testing:

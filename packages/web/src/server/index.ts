@@ -10,7 +10,7 @@ import type { NativeHealthProofIdentity } from './lib/auth/native-health-proof.t
 import { serve } from '@hono/node-server';
 import { randomBytes } from 'node:crypto';
 import { createApp } from './app.ts';
-import { ENV } from './env.ts';
+import { ENV, nativeServiceTerminalUnavailable } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
 import { createNnaHarnessAdapter } from './harness/nna.ts';
@@ -123,7 +123,9 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   try {
     // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
     // upgrade gate (loopback stays enforced in the wire layer).
-    wiring = attachTerminalWebsocket(server as HttpServer, terminal, upgradeAllowedForRequest);
+    wiring = attachTerminalWebsocket(server as HttpServer, terminal,
+      (url, headers, method) => !nativeServiceTerminalUnavailable()
+        && upgradeAllowedForRequest(url, headers, method));
     devTunnelWiring = attachDevTunnelWebsocket(server as HttpServer, { availablePorts: freshDevServerPorts });
     terminal.startSweep();
     relayService = startRelayHostService();

@@ -40,6 +40,12 @@ export const ENV = {
   nnaCommand: process.env.NNA_COMMAND ?? '',
 } as const;
 
+/** Security: the installed native service has no authorized PTY root contract yet. */
+export function nativeServiceTerminalUnavailable(): boolean {
+  return process.env.NOTNATIVE_RUNTIME === 'service'
+    && (process.env.NOTNATIVE_HARNESS ?? ENV.harness) === 'nna';
+}
+
 /** Call-time env read for the doc 08 password source (module-level ENV is a
  * boot snapshot; the ui-auth resolver must see late test/ops changes). */
 export function readEnvUiPassword(): string {

@@ -30,6 +30,12 @@ export function attachmentBrowserProbe() {
   const imageData = `data:image/png;base64,${IMAGE.toString('base64')}`;
   return `(async()=>{
     const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const terminal=await fetch('/api/terminal/shells');
+    if(terminal.status!==409||(await terminal.json()).code!=='native_terminal_unavailable')
+      throw Error('installed native terminal was available');
+    const spawn=await post('/api/terminal/create',{cwd:'C:/unadmitted',mode:'command',command:'echo unsafe'});
+    if(spawn.status!==409||(await spawn.json()).code!=='native_terminal_unavailable')
+      throw Error('installed native PTY creation was available');
     const made=await post('/api/session',{});if(made.status!==201)throw Error('session '+made.status);
     const session=await made.json();const id=session.id;
     for(const item of [
