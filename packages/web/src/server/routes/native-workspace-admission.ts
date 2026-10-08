@@ -65,12 +65,16 @@ type WorkspaceInventory = { selection_enabled?: unknown; installation_id?: unkno
   revision?: unknown; attached?: { root?: unknown };
   admitted?: { root?: unknown; id?: unknown; operation_id?: unknown }[] };
 const WORKSPACE_ID = /^ws_[a-f0-9]{24}$/u;
+// The selected native service can spend most of 30 seconds on durable grant
+// readback. Keep this below the adapter's 60-second admission-specific bound.
+const NATIVE_ADMISSION_TIMEOUT_MS = 55_000;
+const NATIVE_OTHER_TIMEOUT_MS = 30_000;
 
 async function readNativeAdmissions(): Promise<unknown> {
   const response = await getHarnessAdapter().handle(new Request('http://harness.internal/api/v1/nnd/workspaces/admissions', {
-    method: 'GET', signal: AbortSignal.timeout(5000),
+    method: 'GET', signal: AbortSignal.timeout(NATIVE_ADMISSION_TIMEOUT_MS),
   }));
-  if (!response.ok) throw new WorkspaceAdmissionError('NNA workspace admission inventory is unavailable.', 503);
+  if (!response.ok) throw new WorkspaceAdmissionError(`NNA workspace admission inventory is unavailable (native status ${response.status}).`, 503);
   try { return await response.json(); }
   catch { throw new WorkspaceAdmissionError('NNA returned an invalid workspace admission inventory.', 503); }
 }
@@ -109,7 +113,7 @@ export async function admitCreatedNativeWorkspace(candidate: unknown): Promise<s
   let response: Response | null = null;
   try {
     response = await adapter.handle(new Request(base, { method: 'POST',
-      headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(5000),
+      headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(NATIVE_ADMISSION_TIMEOUT_MS),
       body: JSON.stringify({ installation_id: initial.installation_id, data_id: initial.data_id,
         expected_revision: initial.revision, operation_id: operationId, root }),
     }));
@@ -117,7 +121,7 @@ export async function admitCreatedNativeWorkspace(candidate: unknown): Promise<s
   let receipt = response?.ok ? await response.json().catch(() => null) : null;
   if (receipt === null) {
     const lookup = await adapter.handle(new Request(`${base}/operations/${operationId}`, {
-      method: 'GET', signal: AbortSignal.timeout(5000),
+      method: 'GET', signal: AbortSignal.timeout(NATIVE_ADMISSION_TIMEOUT_MS),
     })).catch(() => null);
     receipt = lookup?.ok ? await lookup.json().catch(() => null) : null;
   }
@@ -138,7 +142,7 @@ export async function admitCreatedNativeWorkspace(candidate: unknown): Promise<s
 
 export async function assertNoNativeWorkspaceSessions(candidate: unknown): Promise<void> {
   const response = await getHarnessAdapter().handle(new Request('http://harness.internal/api/session?roots=true&archived=true', {
-    method: 'GET', signal: AbortSignal.timeout(5000),
+    method: 'GET', signal: AbortSignal.timeout(NATIVE_OTHER_TIMEOUT_MS),
   }));
   if (!response.ok) throw new WorkspaceAdmissionError('NNA session inventory is unavailable; worktree removal is refused.', 503);
   const sessions = await response.json().catch(() => null) as unknown;
@@ -174,7 +178,7 @@ export async function revokeNativeWorkspaceForRemoval(candidate: unknown): Promi
   let response: Response | null = null;
   try {
     response = await adapter.handle(new Request(`${base}/revoke`, { method: 'POST',
-      headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(5000),
+      headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(NATIVE_ADMISSION_TIMEOUT_MS),
       body: JSON.stringify({ installation_id: initial.installation_id, data_id: initial.data_id,
         expected_revision: initial.revision, operation_id: operationId, root: stored.root }),
     }));
@@ -182,7 +186,7 @@ export async function revokeNativeWorkspaceForRemoval(candidate: unknown): Promi
   let receipt = response?.ok ? await response.json().catch(() => null) : null;
   if (receipt === null) {
     const lookup = await adapter.handle(new Request(`${base}/operations/${operationId}`, {
-      method: 'GET', signal: AbortSignal.timeout(5000),
+      method: 'GET', signal: AbortSignal.timeout(NATIVE_ADMISSION_TIMEOUT_MS),
     })).catch(() => null);
     receipt = lookup?.ok ? await lookup.json().catch(() => null) : null;
   }
@@ -227,7 +231,7 @@ async function admitSelectedWorkspace(candidate: unknown, requestedId?: unknown,
 
 async function readNativePath(): Promise<unknown> {
   const response = await getHarnessAdapter().handle(new Request('http://harness.internal/api/path', {
-    method: 'GET', signal: AbortSignal.timeout(5000),
+    method: 'GET', signal: AbortSignal.timeout(NATIVE_OTHER_TIMEOUT_MS),
   }));
   if (!response.ok) throw new WorkspaceAdmissionError('NNA workspace identity is unavailable. Refresh the native connection.', 503);
   try { return await response.json(); } catch { throw new WorkspaceAdmissionError('NNA returned an invalid workspace identity.', 503); }

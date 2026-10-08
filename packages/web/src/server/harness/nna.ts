@@ -6,6 +6,9 @@
 import { harnessError, type HarnessAdapter } from './adapter.ts';
 
 const REQUEST_TIMEOUT_MS = 30_000;
+// Admission persists and re-reads native workspace grants; allow its longer
+// bounded transaction while retaining the ordinary request budget.
+const WORKSPACE_ADMISSION_TIMEOUT_MS = 60_000;
 // NNA's explicit walkthrough generation has a 45-second model deadline.
 // Preserve the shorter bound for ordinary API calls while allowing that
 // governed read-only request to finish or report its own deadline.
@@ -59,8 +62,10 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   // Keep its signal attached to fetch for the stream lifetime so NNA can
   // release the subscriber instead of holding a ghost connection.
   const signal = AbortSignal.any([controller.signal, request.signal, ...(generationSignal ? [generationSignal] : [])]);
-  const timeoutMs = request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(path)
-    ? WALKTHROUGH_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const timeoutMs = /^\/v1\/nnd\/workspaces\/admissions(?:\/|$)/u.test(path)
+    ? WORKSPACE_ADMISSION_TIMEOUT_MS
+    : request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(path)
+      ? WALKTHROUGH_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await requestFetch(target, {

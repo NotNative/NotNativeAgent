@@ -87,7 +87,7 @@ export async function run(executable, args, { cwd, env, timeout = 30000, outputF
 }
 export async function cli(fixture, action) {
   const output = await run(process.execPath, [fixture.cli, 'nnd', 'service', action, fixture.nna],
-    { cwd: fixture.root, env: fixture.env, timeout: 45000 });
+    { cwd: fixture.root, env: fixture.env, timeout: action === 'start' || action === 'stop' ? 120000 : 45000 });
   return JSON.parse(output.trim());
 }
 export async function selectedPackage(fixture) {
@@ -95,14 +95,14 @@ export async function selectedPackage(fixture) {
     { cwd: fixture.root, env: fixture.env, timeout: 45000 });
   return JSON.parse(output.trim());
 }
-function chromiumScript(origin, mode, mainUrl) {
+function chromiumScript(origin, mode, mainUrl, browserProbeExpression) {
   return `import {app,BrowserWindow,dialog} from 'electron';
 import {appendFileSync} from 'node:fs';
 const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\n');
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
 app.setPath('userData',${JSON.stringify(mainUrl.userData)});
-let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : 45000});
+let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? 300000 : 45000});
 function finish(ok){if(done)return;done=true;clearTimeout(timer);if(ok)process.stdout.write('NND_INSTALLED_${mode === 'browser' ? 'BROWSER' : 'DESKTOP'}_OK\\n');app.exit(ok?0:1)}
 app.whenReady().then(async()=>{
 try{
@@ -112,6 +112,7 @@ const ticketPath=${JSON.stringify(mainUrl.ticketPath)};
 const ticket=(await readFile(ticketPath,'utf8')).trim();await unlink(ticketPath);
 if(ticket.length!==43)throw Error('Native ticket handoff length '+ticket.length);
 const win=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-browser',nodeIntegration:false,contextIsolation:true,sandbox:true}});
+win.webContents.on('console-message',(...args)=>{for(const value of args.slice(1)){const message=typeof value==='string'?value:value?.message;if(typeof message==='string'&&message.startsWith('NND_PROBE_STEP:'))phase(message)}});
 await win.loadURL(${JSON.stringify(origin)});
 win.show();win.focus();
 let inputReady=false;for(let i=0;i<100;i++){inputReady=await win.webContents.executeJavaScript('Boolean(document.getElementById("native-bootstrap-code"))');if(inputReady)break;await new Promise(r=>setTimeout(r,100))}
@@ -120,6 +121,8 @@ await win.webContents.executeJavaScript('document.getElementById("native-bootstr
 for(const key of ticket)win.webContents.sendInputEvent({type:'char',keyCode:key});
 const accepted=await win.webContents.executeJavaScript('(async()=>{let button;for(let j=0;j<100;j++){button=document.querySelector("[data-testid=gate-native-bootstrap] button");if(button&&!button.disabled)break;await new Promise(r=>setTimeout(r,100))}if(!button||button.disabled){const input=document.getElementById("native-bootstrap-code");return "button_disabled_length_"+(input?.value.length||0)+"_focused_"+(document.activeElement===input)}button.click();let code=0;for(let j=0;j<100;j++){const response=await fetch("/auth/session");code=response.status;const status=await response.json();if(code===200&&status.authenticated===true)return "ok";await new Promise(r=>setTimeout(r,100))}return "session_"+code+"_"+(document.querySelector("[role=alert]")?.textContent||"").slice(0,80)})()');
 if(accepted!=='ok')throw Error('Native code form did not authenticate: '+accepted);
+phase('auth_accepted');
+${browserProbeExpression ? `phase('probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
 const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
 await other.loadURL(${JSON.stringify(origin)});
 const isolated=await other.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,body:await response.json()}})()');
@@ -132,7 +135,7 @@ if(result.status!==200||result.authenticated!==true||result.token||Object.keys(r
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
 }catch(error){process.stderr.write(String(error));finish(false)} });`;
 }
-export async function shell(fixture, mode, origin, ticket, extraArgs = []) {
+export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '') {
   const probeId = randomUUID().replaceAll('-', '').slice(0, 16);
   const shellData = join(fixture.root, `${mode}-profile-${probeId}`);
   await mkdir(shellData);
@@ -154,21 +157,26 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = []) {
       try { await handle.writeFile(ticket); await handle.sync(); } finally { await handle.close(); }
     }
     await writeFile(wrapper, chromiumScript(origin, mode, { userData: shellData,
-      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }));
+      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }, browserProbeExpression));
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
-      timeout: mode === 'desktop' ? 165000 : 60000, outputFiles });
+      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? 315000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);
   assert.match(output, new RegExp(`NND_INSTALLED_${mode.toUpperCase()}_OK`, 'u'));
+  if (browserProbeExpression) {
+    const match = /^NND_BROWSER_PROBE=(.+)$/mu.exec(output);
+    assert.ok(match, 'Authenticated browser probe result is missing');
+    return JSON.parse(match[1]);
+  }
 }
 export async function prepare(nnaSource, root) {
   const nna = join(root, 'NNA'), data = join(root, 'data'), nnd = join(root, 'NND');
   const payload = join(nna, 'installed');
   await mkdir(payload, { recursive: true }); await mkdir(join(data, 'config'), { recursive: true });
-  for (const item of ['src', 'resources', 'package.json', 'VERSION'])
+  for (const item of ['src', 'resources', 'docs', 'package.json', 'VERSION'])
     await cp(join(nnaSource, item), join(payload, item), { recursive: true });
   const version = (await readFile(join(payload, 'VERSION'), 'utf8')).trim();
   await writeFile(join(nna, 'install.json'), JSON.stringify({ product: 'NotNativeAgent', version,

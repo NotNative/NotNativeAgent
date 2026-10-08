@@ -48,6 +48,8 @@ describe('fs read family (§5.14)', () => {
     expect(missing.exists).toBe(false);
     const hardMissing = await call(`/api/fs/stat?directory=${encodeURIComponent(workspace)}&path=${encodeURIComponent('nope.txt')}`);
     expect(hardMissing.status).toBe(404);
+    const escape = await call(`/api/fs/stat?directory=${encodeURIComponent(workspace)}&path=${encodeURIComponent('../outside.txt')}`);
+    expect(escape.status).toBe(403);
   });
 
   it('read returns text/plain content; containment escapes are 403', async () => {
@@ -69,6 +71,8 @@ describe('fs read family (§5.14)', () => {
     expect(download.headers.get('content-disposition')).toContain('attachment');
     const bytes = new Uint8Array(await (await download.arrayBuffer()));
     expect(bytes[1]).toBe(0x50);
+    const escape = await call(`/api/fs/raw?directory=${encodeURIComponent(workspace)}&path=${encodeURIComponent('../outside.png')}`);
+    expect(escape.status).toBe(403);
     rmSync(workspace, { recursive: true, force: true });
   });
 });

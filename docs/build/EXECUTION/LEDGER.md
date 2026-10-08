@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Native admission and selected session roots implemented in source; governed two-repository/worktree and installed acceptance remain open. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source two-root/worktree and disposable installed two-root selected-session turns pass; installed worktree, governed tool scope, and broader feature coverage remain open. |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -415,6 +415,43 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261007-71 / NNA 20261007-5 (`9f3e474f`) — installed selected-root restart acceptance
+
+A private Windows source install now exercises the real NNA-owned service and
+NND package through authenticated Chromium and Electron. Two Git repositories
+with the same visible name retain distinct native workspace IDs. Chromium
+admits the secondary root, sees the matching project, creates its session,
+receives a response from an isolated loopback provider, writes only inside
+that root, and gets 403 for a sibling-root read both before and after the
+turn. After a full native service stop/start, the same admission and session
+return, a second provider turn completes, the saved file reads back, and the
+desktop attaches without taking ownership of the service. The disposable
+fixture stops cleanly and is removed after the lease clears.
+
+The installed run exposed two failures absent from the source smoke. Native
+admission calls took 23–29 seconds, so the 5-second internal budget caused
+499 responses; admission now has a 55-second inner and 60-second adapter
+bound. Escaped `fs/read` and `fs/stat` returned 500 even though `fs/list`
+returned 403; the read family now uses an explicit tagged response result,
+and the installed browser confirms 403. NNA's 20-second setup activation
+expired when restoring the persisted selected session alongside GUI startup;
+the supervised owner now has a finite 60-second activation bound, and the
+acceptance harness waits for ready before reuse. The fixture includes NNA's
+bundled `docs`, which its guidance catalog needs during session creation.
+
+The adversarial review closed the harness's lost-start-acknowledgment cleanup
+race and found no further defect in the result tagging or timeout dispatch.
+The web suite passed 133 files/1,456 tests, UI passed 266 files/1,930 tests,
+and NNA's focused lifecycle/setup suites passed 41 tests. The bounded NNA
+full run had 2,414 passes, eight skips and three failures in concurrent
+slot-staging/Windows process-census cases; the complete staging file passed
+24/24 and census file 2/2 in isolation. NNA quality, graph and language gates
+passed. NNA's distribution seal still needs fresh cross-platform conformance
+evidence, so this commit is a development dependency, not a release candidate.
+This verifies an installed selected-root turn and restart; provider-governed tool read/write,
+installed worktree operations, permission-loss recovery, and the remaining
+F/C/V journeys are still open.
 
 ## NND 20261007-70 — same-name root collision and installed shell regression
 

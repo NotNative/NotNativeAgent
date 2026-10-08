@@ -49,6 +49,7 @@ export function registerFsReadRoutes(app: Hono): void {
 
 interface ReadQuery { path?: string; directory?: string; optional?: string; download?: string }
 interface RawQuery extends ReadQuery { allowOutsideWorkspace?: string; outsideFileGrant?: string; grantExpiresAt?: number }
+type ResolvedTarget = { response: Response } | { target: string; stat: import('node:fs').Stats; grantExpiresAt?: number };
 
 function denied(): Response {
   return Response.json({ error: 'Access denied' }, { status: 403 });
@@ -58,31 +59,31 @@ function notFound(): Response {
   return Response.json({ error: 'File not found', reason: 'not-found' }, { status: 404 });
 }
 
-function resolveTarget(query: ReadQuery): { target: string; stat: import('node:fs').Stats } | Response {
+function resolveTarget(query: ReadQuery): ResolvedTarget {
   const { path, directory } = query;
-  if (!path || !directory) return Response.json({ error: 'path and directory are required' }, { status: 400 });
+  if (!path || !directory) return { response: Response.json({ error: 'path and directory are required' }, { status: 400 }) };
   const within = resolveWithin(directory, path);
-  if (!within) return denied();
+  if (!within) return { response: denied() };
   const scopeReal = realpath(directory);
   const target = realpath(within);
-  if (resolveWithin(scopeReal, target) === null) return denied();
+  if (resolveWithin(scopeReal, target) === null) return { response: denied() };
   const stat = statSync(target, { throwIfNoEntry: false });
-  if (!stat) return notFound();
+  if (!stat) return { response: notFound() };
   return { target, stat };
 }
 
-function resolveRawTarget(query: RawQuery): { target: string; stat: import('node:fs').Stats; grantExpiresAt?: number } | Response {
+function resolveRawTarget(query: RawQuery): ResolvedTarget {
   if (query.path && query.allowOutsideWorkspace === 'true') {
     try {
       const target = resolve(query.path);
       const realTarget = realpathSync(target);
       const grant = resolveOutsideFileGrant(query.outsideFileGrant, realTarget);
-      if (grant === null) return denied();
+      if (grant === null) return { response: denied() };
       const stat = statSync(realTarget, { throwIfNoEntry: false });
-      if (!stat) return notFound();
+      if (!stat) return { response: notFound() };
       return { target: realTarget, stat, grantExpiresAt: grant.expiresAt };
     } catch {
-      return denied();
+      return { response: denied() };
     }
   }
   return resolveTarget(query);
@@ -90,11 +91,11 @@ function resolveRawTarget(query: RawQuery): { target: string; stat: import('node
 
 function statRoute(query: ReadQuery): Response {
   const resolved = resolveTarget(query);
-  if (resolved instanceof Response) {
-    if (query.optional === 'true' && isNotFound(resolved)) {
+  if ('response' in resolved) {
+    if (query.optional === 'true' && isNotFound(resolved.response)) {
       return Response.json({ path: query.path ?? '', exists: false });
     }
-    return resolved;
+    return resolved.response;
   }
   const { target, stat } = resolved;
   return Response.json({ path: target, isFile: stat.isFile(), exists: true, size: stat.size, mtimeMs: Math.round(stat.mtimeMs) });
@@ -103,9 +104,9 @@ function statRoute(query: ReadQuery): Response {
 async function readRoute(context: { req: { query: () => ReadQuery } }): Promise<Response> {
   const query = context.req.query();
   const resolved = resolveTarget(query);
-  if (resolved instanceof Response) {
-    if (query.optional === 'true' && isNotFound(resolved)) return new Response('', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } });
-    return resolved;
+  if ('response' in resolved) {
+    if (query.optional === 'true' && isNotFound(resolved.response)) return new Response('', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    return resolved.response;
   }
   const { stat, target } = resolved;
   if (!stat.isFile()) return Response.json({ error: 'Not a file', reason: 'not-file' }, { status: 400 });
@@ -129,7 +130,7 @@ async function readRoute(context: { req: { query: () => ReadQuery } }): Promise<
 
 function rawRoute(query: RawQuery): Response {
   const resolved = resolveRawTarget(query);
-  if (resolved instanceof Response) return resolved;
+  if ('response' in resolved) return resolved.response;
   const { stat, target } = resolved;
   if (!stat.isFile()) return Response.json({ error: 'Not a file', reason: 'not-file' }, { status: 400 });
   if (resolved.grantExpiresAt !== undefined && stat.size > GRANT_IMAGE_MAX_BYTES) {
