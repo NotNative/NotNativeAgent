@@ -67,7 +67,9 @@ function validStatus(status, runtime, version, generation = null) {
   return status;
 }
 async function awaitReadyStatus(runtime, version, initial) {
-  const deadline = Date.now() + 25000;
+  // Native startup may legitimately replay sessions for up to 120 seconds;
+  // keep installer verification outside that bound without admitting a hang.
+  const deadline = Date.now() + 135000;
   let status = initial, generation = null;
   for (;;) {
     if (status?.protocol !== '1.0' || status.installation_id !== runtime.installation_id
@@ -77,17 +79,17 @@ async function awaitReadyStatus(runtime, version, initial) {
     if (['ready', 'setup_required'].includes(status.service_state)) return validStatus(status, runtime, version, generation);
     if (status.service_state !== 'starting' || Date.now() >= deadline) fail('fresh_service_status_invalid');
     await delay(200);
-    status = await command(runtime, ['service', 'status', runtime.root], 5000);
+    status = await command(runtime, ['service', 'status', runtime.root], 20000);
   }
 }
 async function startFreshService(runtime) {
-  try { return await command(runtime, ['service', 'start', runtime.root], 90000); }
+  try { return await command(runtime, ['service', 'start', runtime.root], 150000); }
   catch (error) {
     // A cold Windows launch can fail before discovery is published. NNA owns
     // singleton admission; one retry may start only after that failed owner exits.
     if (error.message !== 'nnd_service_crashed') throw error;
     await delay(500);
-    return command(runtime, ['service', 'start', runtime.root], 90000);
+    return command(runtime, ['service', 'start', runtime.root], 150000);
   }
 }
 async function boundedBody(response, limit = 4096) {

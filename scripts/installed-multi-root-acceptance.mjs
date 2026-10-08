@@ -57,7 +57,7 @@ async function fixtureRepositories(fixture, providerPort) {
   return { primary: await realpath(primary), secondary: await realpath(secondary) };
 }
 
-async function browserBefore({ primary, secondary }) {
+async function browserSelectedBefore({ primary, secondary }) {
   const jsonBody = value => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
   const request = async (path, init, expected) => {
     const started = Date.now(); console.info(`NND_PROBE_STEP:${path}:start`);
@@ -108,7 +108,48 @@ async function browserBefore({ primary, secondary }) {
   return { workspaceId: row.id, sessionId: session.id };
 }
 
-async function browserAfter({ secondary, workspaceId, sessionId }) {
+async function browserWorktreeBefore({ primary }) {
+  const jsonBody = value => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
+  const request = async (path, init, expected) => {
+    const started = Date.now(); console.info(`NND_PROBE_STEP:${path}:start`);
+    const response = await fetch(path, init);
+    const body = response.status === 204 ? null : await response.json();
+    console.info(`NND_PROBE_STEP:${path}:${response.status}:${Date.now() - started}ms`);
+    if (response.status !== expected) throw Error(`${path}: ${response.status} ${JSON.stringify(body)}`);
+    return body;
+  };
+  const created = await request(`/api/git/worktrees?directory=${encodeURIComponent(primary)}`,
+    jsonBody({ mode: 'new', branchName: `f1-installed-${crypto.randomUUID().slice(0, 8)}` }), 200);
+  const worktreeRoot = created.worktree?.path;
+  const worktreeId = created.workspace_id;
+  if (typeof worktreeRoot !== 'string' || !/^ws_[a-f0-9]{24}$/.test(worktreeId ?? '')) throw Error('worktree was not admitted');
+  const worktreeSession = await request('/api/session', jsonBody({ workspace_id: worktreeId,
+    directory: worktreeRoot, title: 'Installed worktree root' }), 201);
+  if (worktreeSession.projectID !== worktreeId || worktreeSession.directory.toLowerCase() !== worktreeRoot.toLowerCase()) {
+    throw Error('worktree session identity mismatch');
+  }
+  const worktreeEscape = await fetch(`/api/fs/read?directory=${encodeURIComponent(worktreeRoot)}&path=${encodeURIComponent(`${primary}\\PRIMARY_SENTINEL.txt`)}`);
+  if (worktreeEscape.status !== 403) throw Error(`worktree read escaped into primary root: ${worktreeEscape.status}`);
+  await request(`/api/session/${worktreeSession.id}/prompt_async`, jsonBody({ messageID: `worktree_${crypto.randomUUID()}`,
+    parts: [{ type: 'text', text: 'Reply from the installed worktree.' }] }), 204);
+  for (let i = 0; i < 150; i++) {
+    const messages = await request(`/api/session/${worktreeSession.id}/message`, undefined, 200);
+    if (messages.some(message => message.info?.role === 'assistant'
+      && message.parts?.some(part => part.text?.includes('NND_INSTALLED_REPLY')))) break;
+    if (i === 149) throw Error('installed worktree turn did not complete');
+    await new Promise(done => setTimeout(done, 100));
+  }
+  const worktreeWrite = await request(`/api/fs/write?directory=${encodeURIComponent(worktreeRoot)}`,
+    jsonBody({ path: 'WORKTREE_WRITE.txt', content: 'installed-worktree' }), 200);
+  if (worktreeWrite.success !== true) throw Error('worktree file write failed');
+  const removal = await fetch(`/api/git/worktrees?directory=${encodeURIComponent(primary)}`, {
+    method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktreeRoot }),
+  });
+  if (removal.status !== 409) throw Error(`bound worktree removal was not refused: ${removal.status}`);
+  return { worktreeRoot, worktreeId, worktreeSessionId: worktreeSession.id };
+}
+
+async function browserAfter({ primary, secondary, workspaceId, sessionId, worktreeRoot, worktreeId, worktreeSessionId }) {
   const jsonBody = value => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
   const request = async (path, init, expected) => {
     const started = Date.now(); console.info(`NND_PROBE_STEP:${path}:start`);
@@ -134,6 +175,38 @@ async function browserAfter({ secondary, workspaceId, sessionId }) {
   }
   const file = await fetch(`/api/fs/read?directory=${encodeURIComponent(secondary)}&path=SELECTED_WRITE.txt`);
   if (file.status !== 200 || await file.text() !== 'installed-selected') throw Error('selected file lost');
+  const worktreeSession = await request(`/api/session/${worktreeSessionId}`, undefined, 200);
+  if (worktreeSession.projectID !== worktreeId || worktreeSession.directory.toLowerCase() !== worktreeRoot.toLowerCase()) {
+    throw Error('worktree session lost after restart');
+  }
+  const worktreeEscape = await fetch(`/api/fs/read?directory=${encodeURIComponent(worktreeRoot)}&path=${encodeURIComponent(`${primary}\\PRIMARY_SENTINEL.txt`)}`);
+  if (worktreeEscape.status !== 403) throw Error(`restarted worktree read escaped into primary root: ${worktreeEscape.status}`);
+  await request(`/api/session/${worktreeSessionId}/prompt_async`, jsonBody({ messageID: `worktree_restarted_${crypto.randomUUID()}`,
+    parts: [{ type: 'text', text: 'Reply again from the worktree.' }] }), 204);
+  for (let i = 0; i < 150; i++) {
+    const messages = await request(`/api/session/${worktreeSessionId}/message`, undefined, 200);
+    const replies = messages.filter(message => message.info?.role === 'assistant'
+      && message.parts?.some(part => part.text?.includes('NND_INSTALLED_REPLY')));
+    if (replies.length >= 2) break;
+    if (i === 149) throw Error('installed worktree turn did not resume');
+    await new Promise(done => setTimeout(done, 100));
+  }
+  const worktreeFile = await fetch(`/api/fs/read?directory=${encodeURIComponent(worktreeRoot)}&path=WORKTREE_WRITE.txt`);
+  if (worktreeFile.status !== 200 || await worktreeFile.text() !== 'installed-worktree') throw Error('worktree file lost');
+  const worktreeDelete = await request(`/api/fs/delete?directory=${encodeURIComponent(worktreeRoot)}`,
+    jsonBody({ path: 'WORKTREE_WRITE.txt' }), 200);
+  if (worktreeDelete.success !== true) throw Error('worktree fixture file could not be removed');
+  await request(`/api/session/${worktreeSessionId}`, { method: 'DELETE' }, 200);
+  await request(`/api/git/worktrees?directory=${encodeURIComponent(primary)}`, {
+    method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktreeRoot }),
+  }, 200);
+  const afterRemoval = await request('/api/v1/nnd/workspaces/admissions', undefined, 200);
+  if (afterRemoval.admitted.some(item => item.id === worktreeId || item.root.toLowerCase() === worktreeRoot.toLowerCase())
+    || afterRemoval.unavailable?.some(item => item.id === worktreeId || item.root.toLowerCase() === worktreeRoot.toLowerCase())) {
+    throw Error('removed worktree remains in the native admission inventory');
+  }
+  const stale = await fetch('/api/session', jsonBody({ workspace_id: worktreeId, directory: worktreeRoot }));
+  if (stale.status !== 409) throw Error(`stale worktree ID did not receive native selection refusal: ${stale.status}`);
   return { resumed: true };
 }
 
@@ -167,9 +240,11 @@ async function main(nnaSource) {
     const initial = await waitReady(fixture, await cli(fixture, 'status'));
     assert.equal(initial.service_state, 'ready', `installed native runtime did not activate: ${JSON.stringify(initial)}`);
     const before = await shell(fixture, 'browser', initial.endpoint, (await cli(fixture, 'ui-ticket')).ticket,
-      [], `(${browserBefore.toString()})(${JSON.stringify(roots)})`);
+      [], `(async roots => ({ ...await (${browserSelectedBefore.toString()})(roots), ...await (${browserWorktreeBefore.toString()})(roots) }))(${JSON.stringify(roots)})`);
     assert.equal(await readFile(join(roots.secondary, 'SELECTED_WRITE.txt'), 'utf8'), 'installed-selected');
     await assert.rejects(readFile(join(roots.primary, 'SELECTED_WRITE.txt')), { code: 'ENOENT' });
+    assert.equal(await readFile(join(before.worktreeRoot, 'WORKTREE_WRITE.txt'), 'utf8'), 'installed-worktree');
+    await assert.rejects(readFile(join(roots.secondary, 'WORKTREE_WRITE.txt')), { code: 'ENOENT' });
     await cli(fixture, 'stop'); await waitStopped(fixture); stopped = true;
     // The start acknowledgment can fail after spawning the native owner.
     stopped = false;
@@ -179,7 +254,8 @@ async function main(nnaSource) {
     const result = await shell(fixture, 'browser', restarted.endpoint, (await cli(fixture, 'ui-ticket')).ticket,
       [], `(${browserAfter.toString()})(${JSON.stringify({ ...roots, ...before })})`);
     assert.equal(result.resumed, true);
-    assert.ok(fake.requests.length >= 2, 'provider turns did not cross installed service restart');
+    assert.ok(fake.requests.length >= 4, 'selected and worktree provider turns did not cross installed restart');
+    await assert.rejects(readFile(before.worktreeRoot), { code: 'ENOENT' });
     await shell(fixture, 'desktop', restarted.endpoint);
     const last = await cli(fixture, 'status');
     assert.equal(last.instance_id, restarted.instance_id, 'desktop exit changed installed service owner');
@@ -195,7 +271,7 @@ async function main(nnaSource) {
       await rm(await checkedFixturePath(root), { recursive: true, force: true, maxRetries: 5 });
     } else process.stderr.write(`Installed multi-root evidence preserved at ${root}\n`);
   }
-  process.stdout.write('Installed multi-root browser/desktop and selected-root restart turns passed.\n');
+  process.stdout.write('Installed multi-root browser/desktop, selected and worktree restart turns passed.\n');
 }
 
 if (process.argv.length !== 3) throw Error('usage: node scripts/installed-multi-root-acceptance.mjs ABSOLUTE_NNA_SOURCE');

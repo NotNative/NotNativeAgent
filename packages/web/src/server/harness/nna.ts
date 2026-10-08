@@ -9,6 +9,9 @@ const REQUEST_TIMEOUT_MS = 30_000;
 // Admission persists and re-reads native workspace grants; allow its longer
 // bounded transaction while retaining the ordinary request budget.
 const WORKSPACE_ADMISSION_TIMEOUT_MS = 60_000;
+// Native session creation persists the workspace binding and initializes an
+// engine; installed Windows fixtures can exceed the ordinary read deadline.
+const SESSION_CREATE_TIMEOUT_MS = 60_000;
 // NNA's explicit walkthrough generation has a 45-second model deadline.
 // Preserve the shorter bound for ordinary API calls while allowing that
 // governed read-only request to finish or report its own deadline.
@@ -64,6 +67,8 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   const signal = AbortSignal.any([controller.signal, request.signal, ...(generationSignal ? [generationSignal] : [])]);
   const timeoutMs = /^\/v1\/nnd\/workspaces\/admissions(?:\/|$)/u.test(path)
     ? WORKSPACE_ADMISSION_TIMEOUT_MS
+    : request.method === 'POST' && (path === '/session' || /^\/session\/[^/]+\/fork$/u.test(path))
+      ? SESSION_CREATE_TIMEOUT_MS
     : request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(path)
       ? WALKTHROUGH_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

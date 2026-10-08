@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source two-root/worktree and disposable installed two-root selected-session turns pass; installed worktree, governed tool scope, and broader feature coverage remain open. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; governed tool scope, permission loss, and broader feature coverage remain open. |
 | F2 | Durable observations/recovery | L identity | open | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | — |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -415,6 +415,47 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261008-1 / NNA 20261008-1 (`5b81a449`) — installed worktree recovery acceptance
+
+A fresh private Windows install now creates two same-name repositories and a Git
+worktree as three distinct native execution roots. Authenticated Chromium
+creates selected-repository and worktree sessions, runs provider turns in each,
+writes only inside the selected root, and gets 403 for secondary-to-primary
+and worktree-to-primary reads. A bound session prevents worktree removal (409).
+After a full native service stop/start, both session identities and directories
+return, both provider turns run again, scoped files read back, and the
+worktree-to-primary read is still denied. The browser deletes the worktree
+fixture file and session, removes the worktree, confirms its native admission
+is absent, and receives the exact 409 when attempting to create a session from
+its stale ID. Electron attaches without replacing the service owner; the
+service stops and the successful fixture is removed after its lease clears.
+
+The installed run reproduced a 56-second native recovery of two sessions in
+the disposable profile, exceeding the previous 60-second supervised margin
+once process startup was included. NNA now uses a finite 120-second activation
+bound. Native session creation took about 38–41 seconds, so NND gives create
+and fork 60 seconds while keeping ordinary read calls at 30. The installer
+fresh verifier's former 90-second start command was shorter than NNA's new
+bound; its start and ready polling budgets are now finite and aligned above
+native activation. The expanded Chromium journey has a 600-second probe bound.
+
+NNA's focused lifecycle/setup suite passed 41/41, quality, language and graph
+gates passed. The bounded full run reported 2,413 passes, eight skips and four
+concurrent Windows census/slot-staging failures; the affected files passed
+26/26 together in isolation. NNA's distribution seal still needs current
+Windows/Linux/macOS conformance evidence and was not written. NND's web suite
+passed 133 files/1,456 tests, typecheck passed, and installer-fresh-service
+tests passed 8/8. Adversarial review identified two missing worktree assertions
+(cross-root denial and exact stale-ID revocation); both were added before the
+final successful installed run. NND's UI suite passed 266 files/1,930 tests,
+Electron passed 218 with two skips, the authenticated NNA source integration
+smoke passed, and the native two-root/worktree source smoke passed. The
+installed journey used `scripts/installed-multi-root-acceptance.mjs` with
+`D:/ProjectRepo/NotNativeAgent` in a private fixture removed after its clean
+stop. Provider-governed tool read/write, Windows
+case aliases, junction/permission-loss and removed-root recovery in the
+installed pair, TUI preservation, and the other F/C/V journeys remain open.
 
 ## NND 20261007-71 / NNA 20261007-5 (`9f3e474f`) — installed selected-root restart acceptance
 

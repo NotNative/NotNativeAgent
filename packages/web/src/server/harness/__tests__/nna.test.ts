@@ -54,7 +54,7 @@ describe('NNA harness adapter', () => {
     expect(await response.json()).toEqual({ error: { message: 'NNA harness request timed out' } });
   });
 
-  it('gives native admission and walkthrough their bounded deadlines while keeping ordinary calls at 30 seconds', async () => {
+  it('gives admission, session creation and walkthrough bounded deadlines while keeping reads at 30 seconds', async () => {
     vi.useFakeTimers();
     try {
       const signals: AbortSignal[] = [];
@@ -66,19 +66,29 @@ describe('NNA harness adapter', () => {
       const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
       const walkthrough = adapter.handle(new Request('http://nnd.local/api/v1/nnd/sessions/ses_test/walkthrough', { method: 'POST' }));
       const admission = adapter.handle(new Request('http://nnd.local/api/v1/nnd/workspaces/admissions', { method: 'POST' }));
+      const creation = adapter.handle(new Request('http://nnd.local/api/session', { method: 'POST' }));
+      const fork = adapter.handle(new Request('http://nnd.local/api/session/ses_test/fork', { method: 'POST' }));
       const ordinary = adapter.handle(new Request('http://nnd.local/api/session'));
       await vi.advanceTimersByTimeAsync(30_001);
       expect(signals[0]!.aborted).toBe(false);
       expect(signals[1]!.aborted).toBe(false);
-      expect(signals[2]!.aborted).toBe(true);
+      expect(signals[2]!.aborted).toBe(false);
+      expect(signals[3]!.aborted).toBe(false);
+      expect(signals[4]!.aborted).toBe(true);
       expect((await ordinary).status).toBe(504);
       await vi.advanceTimersByTimeAsync(25_000);
       expect(signals[0]!.aborted).toBe(true);
       expect(signals[1]!.aborted).toBe(false);
+      expect(signals[2]!.aborted).toBe(false);
+      expect(signals[3]!.aborted).toBe(false);
       expect((await walkthrough).status).toBe(504);
       await vi.advanceTimersByTimeAsync(5_000);
       expect(signals[1]!.aborted).toBe(true);
+      expect(signals[2]!.aborted).toBe(true);
+      expect(signals[3]!.aborted).toBe(true);
       expect((await admission).status).toBe(504);
+      expect((await creation).status).toBe(504);
+      expect((await fork).status).toBe(504);
     } finally { vi.useRealTimers(); }
   });
 
