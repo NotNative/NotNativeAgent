@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Durable attachment names in transcript · NNA 20261008-8 / NND 20261008-18
+
+NNA now journals the validated file name and MIME with an uploaded file-only
+user prompt. NND's native message projection returns file parts with empty
+URLs, so a recovered transcript can name its attachments without revealing
+upload bytes or source paths. The paired source smoke checks both names before
+and after native restart; the installed journey checks them for the direct
+upload and actual composer send after service restart. This repairs the blank
+file-only user row while leaving attachment failure handling, queue/steer,
+questions, and audio acceptance open. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Installed attachment restart recovery · NND 20261008-17 / NNA 20261008-7
 
 The installed Windows attachment journey now stops and restarts the persistent

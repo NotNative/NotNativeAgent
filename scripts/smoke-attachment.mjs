@@ -27,6 +27,11 @@ export async function probeAttachment(call, json, sessionId, waitForTurn, provid
   });
   assert.equal(fileOnly.status, 204);
   await waitForTurn('smoke_file_only');
+  const messages = await json(call, `/api/session/${sessionId}/message`, 200);
+  const user = messages.find(message => message.info?.id === 'smoke_file_only');
+  assert.deepEqual(user?.parts.filter(part => part.type === 'file').map(part => [part.filename, part.mime, part.url]),
+    [['smoke.txt', 'text/plain', ''], ['marker.png', 'image/png', '']],
+    'native transcript must retain file names without exposing upload bytes or paths');
   const requestCount = providerRequests().length;
   const retry = await call(`/api/session/${sessionId}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: fileOnlyBody,
@@ -39,4 +44,11 @@ export async function probeAttachment(call, json, sessionId, waitForTurn, provid
   'native upload was not delivered to the primary provider as untrusted context');
   assert.ok(providerRequests().some((request) => JSON.stringify(request.messages).includes(image.toString('base64'))),
     'native image upload was not delivered to the observation provider');
+}
+
+export async function probeRestoredAttachmentNames(call, json, sessionId) {
+  const messages = await json(call, `/api/session/${sessionId}/message`, 200);
+  const prompt = messages.find(message => message.info?.id === 'smoke_file_only');
+  assert.deepEqual(prompt?.parts.filter(part => part.type === 'file').map(part => part.filename),
+    ['smoke.txt', 'marker.png'], 'restarted NNA lost file-only transcript names');
 }

@@ -109,14 +109,17 @@ function composerBrowserProbe() {
 export function restartedAttachmentBrowserProbe(directId, composerId) {
   return `(async()=>{
     const ids=[${JSON.stringify(directId)},${JSON.stringify(composerId)}];
+    const expected=[['notes.txt','marker.png'],['ui-notes.txt','ui-marker.png']];
     const counts=[];
-    for(const id of ids){
+    for(const [index,id] of ids.entries()){
       const response=await fetch('/api/session/'+encodeURIComponent(id)+'/message');
       if(response.status!==200)throw Error('restarted messages '+id+' '+response.status);
       const rows=await response.json();
       const users=rows.filter(row=>row.info?.role==='user');
       const replies=rows.filter(row=>row.info?.role==='assistant'&&row.parts?.some(part=>part.text?.includes(${JSON.stringify(REPLY)})));
       if(users.length!==1||replies.length!==1)throw Error('restarted transcript '+id+' '+users.length+' '+replies.length);
+      const names=users[0].parts.filter(part=>part.type==='file').map(part=>part.filename);
+      if(JSON.stringify(names)!==JSON.stringify(expected[index]))throw Error('restarted file names '+id+' '+JSON.stringify(names));
       counts.push({id,users:users.length,replies:replies.length});
     }
     const repeated=await fetch('/api/session/'+encodeURIComponent(ids[0])+'/prompt_async',{

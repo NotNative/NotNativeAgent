@@ -7,7 +7,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs'; import { probeAttachment } from './smoke-attachment.mjs';
+import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs'; import { probeAttachment, probeRestoredAttachmentNames } from './smoke-attachment.mjs';
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
 import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
 import { probeNotificationRoutes } from './smoke-notification-routes.mjs';
@@ -302,7 +302,7 @@ async function probeRestoredSession(app, { parentId, childId }) {
   const call = (path, init = {}) => app.fetch(new Request(`http://nnd.local${path}`, {
     ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
   }));
-  await probeRestoredReviewMode(call, json, parentId);
+  await probeRestoredReviewMode(call, json, parentId); await probeRestoredAttachmentNames(call, json, parentId);
   const pending = await json(call, '/api/sessions/status', 200);
   assert.equal(pending.pendingCoverage, 'complete', 'restarted NNA must supply authoritative pending coverage');
   assert.deepEqual(pending.pending, {});
