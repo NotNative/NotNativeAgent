@@ -18,11 +18,12 @@ let credentialGeneration = 0;
 export function initializeRuntimeCredentials(): void {
   bearerToken = getInjectedClientToken() ?? null;
   extraHeaders = getInjectedRuntimeHeaders();
+  clearCachedUrlAuthToken();
 }
 
 export function setRuntimeBearerToken(token: string | null): void {
   bearerToken = token;
-  credentialGeneration += 1; // invalidates in-flight URL-token mints
+  clearCachedUrlAuthToken();
 }
 
 export function setRuntimeExtraHeaders(headers: Record<string, string>): void {
@@ -31,7 +32,7 @@ export function setRuntimeExtraHeaders(headers: Record<string, string>): void {
     if (key.toLowerCase() !== 'authorization') safe[key] = value;
   }
   extraHeaders = safe;
-  credentialGeneration += 1;
+  clearCachedUrlAuthToken();
 }
 
 export function applyRuntimeAuthHeaders(headers: Headers): Headers {
@@ -47,9 +48,11 @@ export function applyRuntimeAuthHeaders(headers: Headers): Headers {
 
 // ── URL tokens (HP-8) ───────────────────────────────────────────────────────
 type UrlTokenState = { token: string; expiresAt: number } | null;
+export interface UrlTokenContext { generation: number; token: string | null }
 let urlToken: UrlTokenState = null;
 let activeConsumers = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+const URL_TOKEN_MINT_TIMEOUT_MS = 30_000;
 
 export function acquireRuntimeUrlAuthToken(): () => void {
   activeConsumers += 1;
@@ -64,31 +67,50 @@ export function acquireRuntimeUrlAuthToken(): () => void {
   };
 }
 
-async function mintUrlToken(): Promise<void> {
+async function mintUrlToken(callerSignal?: AbortSignal): Promise<void> {
   const generation = credentialGeneration;
+  const priorToken = urlToken;
+  const clearIfCurrent = (): void => {
+    if (generation === credentialGeneration && urlToken === priorToken) urlToken = null;
+  };
+  const signal = callerSignal
+    ? AbortSignal.any([callerSignal, AbortSignal.timeout(URL_TOKEN_MINT_TIMEOUT_MS)])
+    : AbortSignal.timeout(URL_TOKEN_MINT_TIMEOUT_MS);
   try {
     // In relay mode the mint rides the tunnel (§3.10): there is no
     // reachable network base URL, and response classification is unchanged.
-    const response = isRelayModeActive()
-      ? await relayFetchOrThrow(`${getApiBaseUrl()}/auth/url-token`, {
+    const response = await awaitAbort(isRelayModeActive()
+      ? relayFetchOrThrow(`${getApiBaseUrl()}/auth/url-token`, {
         method: 'POST',
         credentials: 'include',
+        signal,
         headers: applyRuntimeAuthHeaders(new Headers({ 'content-type': 'application/json' })),
       })
-      : await fetch(`${getApiBaseUrl()}/auth/url-token`, {
+      : fetch(`${getApiBaseUrl()}/auth/url-token`, {
         method: 'POST',
         credentials: 'include',
+        signal,
         headers: applyRuntimeAuthHeaders(new Headers({ 'content-type': 'application/json' })),
-      });
-    if (!response.ok) { urlToken = null; return; } // §2.6: mint failure clears the shared token (atomic; never an empty-token window)
-    const body = (await response.json().catch(() => null)) as { token?: string; expiresAt?: string } | null;
-    if (!body?.token || !body.expiresAt) { urlToken = null; return; }
+      }), signal);
+    if (!response.ok) { clearIfCurrent(); return; } // §2.6: a failed mint cannot erase a newer token
+    const body = (await awaitAbort(response.json().catch(() => null), signal)) as { token?: string; expiresAt?: string } | null;
+    if (!body?.token || !body.expiresAt) { clearIfCurrent(); return; }
     if (generation !== credentialGeneration) return; // superseded by a credential change
     urlToken = { token: body.token, expiresAt: new Date(body.expiresAt).getTime() };
     scheduleRefresh();
   } catch {
-    urlToken = null; // §2.6: transport/parse failures never leave a dead token served
+    clearIfCurrent(); // An aborted/failed older mint cannot clear another consumer's fresh token.
   }
+}
+
+function awaitAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const abort = (): void => { signal.removeEventListener('abort', abort); reject(signal.reason); };
+    signal.addEventListener('abort', abort, { once: true });
+    pending.then((value) => { signal.removeEventListener('abort', abort); resolve(value); },
+      (error: unknown) => { signal.removeEventListener('abort', abort); reject(error); });
+  });
 }
 
 export async function refreshRuntimeUrlAuthToken(apiBaseUrl?: string): Promise<void> {
@@ -110,19 +132,44 @@ function scheduleRefresh(): void {
 }
 
 /** Appends ?nn_url_token= when a token is available (streams, assets, images). */
-export async function appendAuthTokenToUrl(url: string): Promise<string> {
-  if (!urlToken) await mintUrlToken();
-  if (!urlToken) return url;
+export async function appendAuthTokenToUrl(url: string, signal?: AbortSignal): Promise<string> {
+  return (await appendAuthTokenToUrlWithContext(url, signal)).url;
+}
+
+export async function appendAuthTokenToUrlWithContext(url: string, signal?: AbortSignal): Promise<{
+  url: string; context: UrlTokenContext;
+}> {
+  if (signal?.aborted) throw signal.reason;
+  const generation = credentialGeneration;
+  if (!urlToken) await mintUrlToken(signal);
+  if (signal?.aborted) throw signal.reason;
+  if (generation !== credentialGeneration) throw new Error('url_token_context_changed');
+  const token = urlToken?.token ?? null;
+  const context = { generation, token };
+  if (!token) return { url, context };
   const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}nn_url_token=${encodeURIComponent(urlToken.token)}`;
+  return { url: `${url}${separator}nn_url_token=${encodeURIComponent(token)}`, context };
 }
 
 export function getCurrentUrlToken(): string | null {
   return urlToken?.token ?? null;
 }
 
+export function getUrlTokenContext(): UrlTokenContext {
+  return { generation: credentialGeneration, token: getCurrentUrlToken() };
+}
+
+export function clearCachedUrlAuthTokenIfCurrent(context: UrlTokenContext): void {
+  if (context.token && context.generation === credentialGeneration && context.token === getCurrentUrlToken()) {
+    clearCachedUrlAuthToken();
+  }
+}
+
 /** WS closed before `ready`: the token is being replayed against a server that
  * will not accept it — drop it so reconnects do not storm (doc 04 §D.1). */
 export function clearCachedUrlAuthToken(): void {
+  credentialGeneration += 1;
   urlToken = null;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = null;
 }

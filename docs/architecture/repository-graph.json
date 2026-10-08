@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:952803c4ef18749e51ba8514a56c14cb56556658e0bc9bfa9b01ea6766b94e79",
+  "source_digest": "sha256:da4251007c8c787e6e58c8c471814531a99feb718dff0ee026216c38a8f1bd19",
   "counts": {
-    "modules": 848,
+    "modules": 849,
     "component_edges": 17
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 229
+      "module_count": 230
     },
     {
       "id": "ui-shell",
@@ -4127,6 +4127,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/relay/tunnel-client-queue.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/relay/tunnel-client-types.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -4157,6 +4163,7 @@
         "packages/ui/src/lib/relay/tunnel-client-fetch.ts",
         "packages/ui/src/lib/relay/tunnel-client-inbound.ts",
         "packages/ui/src/lib/relay/tunnel-client-outbound.ts",
+        "packages/ui/src/lib/relay/tunnel-client-queue.ts",
         "packages/ui/src/lib/relay/tunnel-client-types.ts",
         "packages/ui/src/lib/relay/tunnel-client-ws.ts",
         "packages/ui/src/lib/relay/tunnel-codec.ts",

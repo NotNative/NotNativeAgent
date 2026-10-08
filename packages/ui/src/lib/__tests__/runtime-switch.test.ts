@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../runtime-url.ts', () => ({ configureRuntimeUrlResolver: vi.fn() }));
 vi.mock('../runtime-auth.ts', () => ({
+  clearCachedUrlAuthToken: vi.fn(),
   setRuntimeBearerToken: vi.fn(),
   setRuntimeExtraHeaders: vi.fn(),
   refreshRuntimeUrlAuthToken: vi.fn(async () => undefined),
 }));
+import { clearCachedUrlAuthToken } from '../runtime-auth.ts';
 vi.mock('../runtime-tunnel.ts', () => ({
   activateRelayTunnel: vi.fn(),
   deactivateRelayTunnel: vi.fn(),
@@ -36,6 +38,7 @@ describe('runtime keys (doc 01 §11)', () => {
   });
 
   it('notifies every subscribed runtime consumer after the new endpoint is active', async () => {
+    const previousInvalidations = vi.mocked(clearCachedUrlAuthToken).mock.calls.length;
     const first = vi.fn(() => { throw new Error('subscriber failed'); });
     const second = vi.fn(() => getRuntimeKey());
     const offFirst = onRuntimeEndpointChanged(first);
@@ -53,6 +56,7 @@ describe('runtime keys (doc 01 §11)', () => {
       await switchRuntimeEndpoint({ apiBaseUrl: 'https://other.example/', runtimeKey: 'host:other' });
       expect(second).toHaveBeenCalledTimes(1);
       expect(first).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(clearCachedUrlAuthToken).mock.calls.length - previousInvalidations).toBe(2);
     } finally {
       offFirst();
       offSecond();

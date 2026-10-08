@@ -78,7 +78,7 @@ export function onRuntimeEndpointChanged(listener: Listener): () => void {
 
 export async function switchRuntimeEndpoint(options: SwitchRuntimeEndpointOptions): Promise<void> {
   const { configureRuntimeUrlResolver } = await import('./runtime-url.ts');
-  const { setRuntimeBearerToken, setRuntimeExtraHeaders, refreshRuntimeUrlAuthToken } = await import(
+  const { clearCachedUrlAuthToken, setRuntimeBearerToken, setRuntimeExtraHeaders, refreshRuntimeUrlAuthToken } = await import(
     './runtime-auth.ts',
   );
 
@@ -105,7 +105,9 @@ export async function switchRuntimeEndpoint(options: SwitchRuntimeEndpointOption
     writeWindowGlobal('__NOTNATIVE_RUNTIME_HEADERS__', options.requestHeaders);
   }
 
-  // 2. resolver + credentials (generation bump invalidates in-flight token mints)
+  // 2. Resolver + credentials. Every endpoint switch invalidates prior mints,
+  // even when the new endpoint uses the same bearer and header values.
+  clearCachedUrlAuthToken();
   configureRuntimeUrlResolver({ apiBaseUrl, realtimeBaseUrl: apiBaseUrl });
   if (options.requestHeaders) setRuntimeExtraHeaders(options.requestHeaders);
   if (options.clientToken !== undefined) setRuntimeBearerToken(options.clientToken);

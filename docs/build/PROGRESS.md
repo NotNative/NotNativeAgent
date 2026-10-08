@@ -3,6 +3,22 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Bounded token mint and runtime-switch ownership · NND 20261008-7
+
+F2 reconnect token minting now has a finite deadline and cancellation, and
+credential/endpoint changes invalidate old tokens and mints. SSE and relay
+queues release cancelled work. An adversarial audit found and verified the
+repairs for cross-runtime token races and lifecycle leaks. Source suites and
+the disposable installed native replay-gap Chromium/desktop journey pass.
+F1 and the remaining F2 recovery matrix stay open.
+[Ledger evidence](EXECUTION/LEDGER.md).
+
+The expanded installed F1 two-root/worktree run on the previous NND version
+resumed selected-root and worktree provider turns after native restart, then
+hit its 15-minute browser deadline during worktree file deletion. The full
+removal assertions remain unverified, and post-restart native API latency
+needs diagnosis before F1 can close.
+
 ## 2026-10-08 · Installed native replay-gap journey · NND 20261008-5
 
 A disposable installed-source run passed the native replay-gap Chromium

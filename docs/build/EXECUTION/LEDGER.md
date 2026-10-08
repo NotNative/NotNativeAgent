@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed selected-root governed writes before and after restart have journal/reviewer/disk evidence, but the expanded full fixture timed out during post-removal inventory. Shell/process scope, permission loss, other-root governed effects, and broader feature coverage remain open. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Source and disposable installed two-root/worktree sessions and provider turns across native restart pass; source selected-root governed read/write and installed governed read/sibling denial pass. Installed selected-root governed writes before and after restart have journal/reviewer/disk evidence, and the expanded fixture resumed a worktree provider turn after restart, but timed out during the subsequent worktree file deletion request. Shell/process scope, permission loss, other-root governed effects, and broader feature coverage remain open. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -415,6 +415,42 @@ whose status row honestly reports where the secret comes from. The preview and
 the saved receipt both carry "applies at the next service start"; honest refusals
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
+
+## NND 20261008-7 / NNA 20261008-3 (`22259beb`) — bounded URL-token reconnects
+
+F2's WebSocket reconnect could wait indefinitely for `/auth/url-token` even
+after its heartbeat cancelled the attempt. Both direct and relay mints now
+have a 30-second deadline and an abort race that releases the caller even if
+the transport ignores the signal. An already-aborted attempt starts no mint.
+Credential changes and every endpoint switch invalidate cached and in-flight
+tokens; an old mint cannot publish into the new runtime, and a late old socket
+failure cannot clear the new runtime's token. The socket URL and its ownership
+context are captured together. SSE subscription setup releases its token
+consumer if URL preparation fails. Relay fetches queued during connection
+leave the queue when aborted and cannot transmit after reconnection.
+
+The adversarial audit found the credential/endpoint races, SSE consumer leak,
+relay queue leak and socket ownership race; each was repaired and the final
+review found no further concrete defect. Focused auth/switch/SSE/relay/sync
+tests passed 44/44 before the queue module split and 29/29 after it; final UI
+1,943/1,943, web 1,456/1,456, Electron 218 passed/2 skipped, typecheck and
+quality gates passed. The disposable installed-source `--native-replay-gap`
+journey passed on the same source at `20261008-6`, before the documentation
+seal advanced the final release identity: Native code Chromium UI, replay-gap recovery,
+browser isolation, desktop attach, and service lifetime against NNA
+`20261008-3`. F2 still requires the broader guide-04/05 matrix.
+
+The expanded disposable installed F1 two-root/worktree run against NND
+`20261008-5` and NNA `20261008-3` reached selected-root and worktree provider
+turns after native restart. The worktree session was retained and its resumed
+reply completed. Chromium then hit the fixture's 15-minute deadline while
+`/api/fs/delete` for the worktree fixture file was in flight; the preserved
+evidence is under
+`C:\Users\Mongrel\nnd-installed-acceptance-fixtures\installed-accept-00e7c4081139488e`.
+The full worktree removal and post-removal admission assertions therefore
+did not run to completion. F1 cannot close on this result. Several native API
+requests in the post-restart phase took 90–122 seconds; latency needs
+diagnosis before the expanded installed journey can serve as an MVP gate.
 
 ## NND 20261008-5 / NNA 20261008-3 (`22259beb`) — installed native replay-gap acceptance
 

@@ -50,8 +50,14 @@ async function openStream(
   onReady?: () => void,
 ): Promise<() => void> {
   const releaseToken = acquireRuntimeUrlAuthToken();
-  const url = await appendAuthTokenToUrl(`${getRealtimeBaseUrl()}${path}`);
-  const source = new EventSource(url);
+  let source: EventSource;
+  try {
+    const url = await appendAuthTokenToUrl(`${getRealtimeBaseUrl()}${path}`);
+    source = new EventSource(url);
+  } catch (error) {
+    releaseToken();
+    throw error;
+  }
   source.onmessage = (message: MessageEvent) => {
     try {
       const event = unwrapEventFrame(JSON.parse(message.data));

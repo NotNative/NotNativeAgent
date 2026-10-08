@@ -256,6 +256,19 @@ describe('relay tunnel client over a fake broker', () => {
     expect(entry.broker.host.requests).toHaveLength(0);
     rig.client.close();
   });
+  it('removes a queued fetch when its signal aborts during connection', async () => {
+    const rig = makeRig(await makeHostKeys());
+    const controller = new AbortController();
+    const queued = rig.client.fetch('/api/config?late-abort=1', { signal: controller.signal });
+    await until(() => rig.client.getStatus().state === 'connecting');
+    controller.abort();
+    await expect(queued).rejects.toMatchObject({ name: 'AbortError' });
+    const entry = rig.brokers[0] as Entry;
+    await until(() => entry.broker.host.established);
+    await until(() => rig.client.getStatus().state === 'connected');
+    expect(entry.broker.host.requests).toHaveLength(0);
+    rig.client.close();
+  });
   it('reconnect backoff starts at the base delay and doubles per completed cycle (§3.11)', async () => {
     const rig = makeRig(await makeHostKeys(), { reconnectBaseDelayMs: 100, reconnectMaxDelayMs: 300 });
     await readyBroker(rig);

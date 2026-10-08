@@ -5,7 +5,7 @@
  * the per-directory coalescing queues. One pipeline per runtime.
  */
 import type { HarnessEvent } from '../lib/nnd/events.ts';
-import { appendAuthTokenToUrl, clearCachedUrlAuthToken } from '../lib/runtime-auth.ts';
+import { appendAuthTokenToUrlWithContext, clearCachedUrlAuthTokenIfCurrent } from '../lib/runtime-auth.ts';
 import { getRealtimeBaseUrl } from '../lib/runtime-url.ts';
 import { PipelineQueues, computeRetryDelay, isPermanent4xx } from './pipeline-queues.ts';
 import { attemptSse, attemptWs, type AttemptContext, type EstablishedInfo } from './pipeline-attempts.ts';
@@ -143,13 +143,14 @@ async function pipeTryWsRound(state: PipelineState, abort: AbortController): Pro
   const ws = http.replace(/^http/, 'ws');
   const cursor = encodeURIComponent(state.lastEventId ?? '');
   const query = state.lastEventId ? `?lastEventId=${cursor}` : '';
-  const url = await appendAuthTokenToUrl(`${ws}/api/global/event/ws${query}`); // mint BEFORE connect
+  const authorized = await appendAuthTokenToUrlWithContext(`${ws}/api/global/event/ws${query}`, abort.signal);
   if (abort.signal.aborted) throw new Error('ws_interrupted_before_connect');
   try {
-    await attemptWs(state.context, url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS, (info) => pipeOnEstablished(state, info, 'ws', abort.signal));
+    await attemptWs(state.context, authorized.url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS,
+      (info) => pipeOnEstablished(state, info, 'ws', abort.signal));
     return false;
   } catch (error) {
-    clearCachedUrlAuthToken(); // token may have been replayed against a rejecting server
+    if (!abort.signal.aborted) clearCachedUrlAuthTokenIfCurrent(authorized.context);
     if (state.options.transport === 'auto') {
       state.wsFallbackUntil = Date.now() + WS_FALLBACK_WINDOW_MS;
       state.options.onTransportSwitch(`ws_fallback:${String(error)}`);

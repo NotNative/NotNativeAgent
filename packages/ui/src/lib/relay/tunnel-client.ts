@@ -31,6 +31,7 @@ import {
   startRelayFetch, normalizeRelayRequest, laneChannelReset,
 } from './tunnel-client-fetch.ts';
 import { openTunnelWebSocket, channelDeathAllWs } from './tunnel-client-ws.ts';
+import { abortSignalOf, queueFetchDuringConnect, type QueuedFetch } from './tunnel-client-queue.ts';
 import { routeDecryptedPlaintext, type InboundSinks } from './tunnel-client-inbound.ts';
 import { createClientOutboundBatcher, DEFAULT_CLIENT_BATCH_WINDOW_MS, type ClientOutboundBatcher } from './tunnel-client-outbound.ts';
 import type {
@@ -40,23 +41,10 @@ import type {
 
 type StatusListener = (status: RelayTunnelStatus) => void;
 
-interface QueuedFetch {
-  readonly run: () => void;
-  readonly reject: (error: Error) => void;
-}
-
 export function createRelayTunnelClient(options: RelayTunnelClientOptions): RelayTunnelClient & TunnelClientCore {
   const client = new RelayTunnelClientImpl(options);
   client.connectNow();
   return client;
-}
-
-/** The abort source mirrors native fetch: init.signal first, else the
- * Request's own signal when the input is a Request object. */
-function abortSignalOf(input: string | URL | Request, init?: RequestInit): AbortSignal | undefined {
-  if (init?.signal !== undefined) return init.signal ?? undefined;
-  if (typeof input !== 'string' && !(input instanceof URL)) return (input as Request).signal ?? undefined;
-  return undefined;
 }
 
 class RelayTunnelClientImpl implements RelayTunnelClient, TunnelClientCore {
@@ -427,17 +415,10 @@ class RelayTunnelClientImpl implements RelayTunnelClient, TunnelClientCore {
   }
 
   private queueFetchDuringConnect(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-    return new Promise<Response>((resolve, reject) => {
-      const signal = abortSignalOf(input, init);
-      if (signal?.aborted) { reject(new DOMException('The operation was aborted.', 'AbortError')); return; }
-      this.queuedFetches.push({
-        run: () => {
-          if (this.state !== 'connected' || this.session === null) { reject(this.notConnectedError(this.state)); return; }
-          const attempt = startRelayFetch(this, normalizeRelayRequest(input, init), signal);
-          attempt.promise.then(resolve, reject);
-        },
-        reject: (error: Error) => { reject(error); },
-      });
+    const signal = abortSignalOf(input, init);
+    return queueFetchDuringConnect(this.queuedFetches, signal, () => {
+      if (this.state !== 'connected' || this.session === null) throw this.notConnectedError(this.state);
+      return startRelayFetch(this, normalizeRelayRequest(input, init), signal).promise;
     });
   }
 
