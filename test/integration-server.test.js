@@ -615,6 +615,15 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.deepEqual(engines[0].lastSubmission.attachments,
       [{ upload_id: 'upload_http', mime_type: 'text/plain' }]);
     assert.equal(engines[0].lastSubmission.content, '');
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, uploader, {
+      method: 'POST', body: { messageID: 'other_message', parts: [{ type: 'file', upload_id: 'upload_http' }] },
+    })).status, 410);
+    engines[0].transcript.push({ type: 'message', role: 'user', requestId: 'msg_file', content: '' });
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, uploader, {
+      method: 'POST', body: { messageID: 'msg_file', parts: [{ type: 'file', upload_id: 'upload_http' }] },
+    })).status, 204);
+    assert.equal(engines[0].transcript.filter(item => item.requestId === 'msg_file').length, 1);
+    engines[0].transcript.pop();
     const unsupportedPart = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_attachment', parts: [
         { type: 'text', text: 'summarize this' }, { type: 'file', url: 'file:///private/marker.txt', mime: 'text/plain' }] },

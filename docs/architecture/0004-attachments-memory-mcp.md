@@ -29,6 +29,9 @@ session-owned, short-lived in-memory upload store. A submitted prompt names uplo
 not browser paths or raw bytes. Native admission rechecks ownership and MIME before
 acknowledgement, then copies the bytes into the ordinary managed fact lifecycle. A
 completed turn releases its upload bytes; an expired or foreign reference fails closed.
+A retry of a persisted prompt ID is recognized before resolving released upload bytes,
+so a lost acknowledgement cannot cause a second turn. A new prompt cannot reuse
+the released bytes.
 
 Memory is an optional replaceable adapter. Queries are redacted, project-scoped,
 deadline-bound, and smaller than the transcript. Results require stable attribution,

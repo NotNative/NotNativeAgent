@@ -291,6 +291,7 @@ export class NndEngineHost {
   uploadedAttachments(sessionId, principal, requestId, refs) {
     return this.#uploads.assertRefs(sessionId, this.#owned(sessionId, principal).subjectId, requestId, refs);
   }
+  hasPersistedSubmission(sessionId, principal, requestId) { requireExternalId(requestId, 'request_id'); return hasPersistedSubmission(this.#owned(sessionId, principal).engine.transcript, requestId); }
   /** Observational engine-output boundary; a display subscriber cannot fail a governed turn. */
   observeOutput(sessionId, record) {
     try {
