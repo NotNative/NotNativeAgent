@@ -308,7 +308,9 @@ export class ToolRegistry {
 function writeDefinition(paths, changes, receipts) {
   return {
     name: 'fs_write_text', version: 2, purpose: 'Atomically write one bounded UTF-8 file payload, creating missing parent directories for a new target and recording the resulting authored state.',
-    sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
+    // Installed Windows workspace revalidation can consume the former 10-second
+    // budget before an otherwise bounded atomic write reaches the filesystem.
+    sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 30_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
       content: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, maxUtf8Bytes: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required complete UTF-8 content, at most 32 KiB. Split larger implementations across files or use subsequent anchored edits.' },
