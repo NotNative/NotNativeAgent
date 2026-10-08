@@ -49,7 +49,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 | C5 | MCP/skills/hooks/trust/project config | C3, C2 | open | NND `routes\mcp-config.ts`, `lib\mcp\*`, `stores\useMcpConfigStore.ts`, `pages\mcp.tsx` etc. | — |
 | C6 | Non-manifest + TUI preferences page | C3, L | verified | settings pages; NNA TUI prefs contract | native TUI color, motion and key bindings page verified below (distinct from NND shortcuts, its own page/slug and store); every external-store family shipped as a settings page behind its native family in the `20261005`–`20261007` slices (gateway, web-fetch trust, web-search, environment, update-state, trusted-workspaces, compatibility service, managed MCP credentials, secrets metadata, hooks roster, browser observation, package/update actions, invocation vocabulary, service lifecycle, SearXNG deployment); the C6 exit is audited standing as of `20261007-63`: the C1 external-store census finished with owed surfaces 0 and gate-checked owed:false bases, missing-installation guidance is honest (browser/SearXNG/gateway), privileged changes route through native lifecycle ops with retained failure evidence, and no misleading empty configured page exists; installed application evidence (gateway restart journey, real search, trust admission) stays owned by C7 and the L gates |
 | C7 | Settings coverage/installed acceptance | C4-C6 | open | coverage report + installed probes | — |
-| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium/desktop three-root journey passed across native restart: same session IDs/root bindings, governed reads/writes and sibling denials, exact reviewer approvals and disk effects, bound-worktree removal refusal then release/removal, stale-ID refusal, browser isolation and surviving desktop service. F1 remains open for installed aliases/junctions, removed roots/permission loss, hard shell/process scope, TUI tab preservation, and UI controls. Slow native API calls in the isolated profile need diagnosis. |
+| F1 | Projects/execution roots/session identity | L, C2 | in-progress | NND routes/projects, git-worktrees, harness/nna-local, sync/session-actions, ui WorktreesView; NNA nnd-harness-routes, nnd-engine-host, nnd-session-description | Attached primary workspace ID selection fixed and refusal-tested. Fresh installed Chromium/desktop three-root journey passed across native restart: same session IDs/root bindings, governed reads/writes and sibling denials, exact reviewer approvals and disk effects, bound-worktree removal refusal then release/removal, stale-ID refusal, browser isolation and surviving desktop service. F1 remains open for installed aliases/junctions, removed roots/permission loss, hard shell/process scope, TUI tab preservation, and UI controls. Native inventory latency traced to two serial Windows ACL manifest probes; NNA `20261008-4` parallelizes the fresh reads, with installed diagnostic improvement but no new full installed acceptance yet. |
 | F2 | Durable observations/recovery | L identity | in-progress | NND sync/projection/activity; NNA nnd-projection, nnd-activity-snapshot, nnd-child-snapshot, nnd-session-registry, event-bus persistence | NND 20261008-5 disposable installed-source native gap journey below; restart, retention, revocation, and full F2 matrix remain open |
 | F3 | Composer/governed submission | F1-F2, C4 | open | NND chat/*, sync/session-actions, upload/question routes; NNA nnd-harness-routes, question broker | — |
 | F4 | Session product/forks/BTW | F1-F3 | open | NND lib/nnd/client, sync/session-actions, chat/btw-*; NNA session host/catalog | — |
@@ -451,6 +451,32 @@ The full worktree removal and post-removal admission assertions therefore
 did not run to completion. F1 cannot close on this result. Several native API
 requests in the post-restart phase took 90–122 seconds; latency needs
 diagnosis before the expanded installed journey can serve as an MVP gate.
+
+## NNA 20261008-4 (`0657bfcf`) — native workspace inventory read latency
+
+After the NND v9 installed journey, a preserved stopped disposable fixture
+(`installed-accept-a964a63217014177`) was used only for diagnosis. Browser
+Resource Timing measured a session GET at 10.5 seconds before headers while
+`/health` returned in 15 ms; body transfer was negligible. Temporary timing
+in that fixture's installed NNA copy showed about 9.8 seconds inside the
+native session handler. The admission inventory read performed two sequential
+fresh manifest ACL probes, each launching Windows PowerShell and taking about
+five seconds in this profile. A fixture-only concurrent-read experiment kept
+both checks and reduced one authenticated browser session GET from about
+10.4 to 6.2 seconds; subsequent inventory samples were about 5.2–5.5 seconds.
+
+NNA source now reads the admission manifest, grant manifest, and attached
+root concurrently before returning inventory. No authority result is cached;
+grant and root validation still run on each read. Focused admission/grant
+tests passed 15/15, NNA full `npm test -- --test-concurrency=1
+--test-reporter=dot` passed, quality/graph/language gates passed. Default
+parallel `npm test` and concurrency-four runs had unrelated Windows legacy
+process-census and slot-transaction fixture failures; the staging file passed
+24/24 alone. NNA release sealing remains unavailable: platform conformance
+still names the prior version and native macOS evidence is absent. This is
+an unsealed development commit. The full three-root installed journey has
+**not** been rerun on NNA v4, and 6-second reads remain a responsiveness
+concern. F1 and V gates stay open.
 
 ## NND 20261008-9 / NNA 20261008-3 (`22259beb`) — installed F1 three-root restart journey
 

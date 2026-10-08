@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Native inventory latency narrowed · NNA 20261008-4
+
+An isolated installed fixture traced slow session reads to two sequential
+fresh Windows ACL manifest checks in NNA's workspace inventory. NNA now runs
+those read-only checks concurrently, retaining fresh validation on every
+request. One authenticated browser session read dropped from about 10.4 to
+6.2 seconds in the diagnostic fixture. Focused native tests, the serial full
+NNA suite, quality, graph, and language checks pass. NNA v4 is an unsealed
+development build because release conformance names the prior version and
+native macOS evidence is absent. The full installed F1 journey remains on
+NNA v3; F1 and MVP verification stay open. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Installed three-root restart journey passes · NND 20261008-9
 
 A fresh disposable installed Windows run passed the full Chromium/desktop F1
