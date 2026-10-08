@@ -17,6 +17,7 @@
  */
 import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { readCanonicalGrant } from './nnd-workspace-grants.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 
 const BASE = '/v1/nnd/workspaces';
@@ -56,7 +57,16 @@ export async function dispatchNndWorkspaceAdmissionRequest(request, response, co
     || ADMISSION_BODY_KEYS.some(key => !Object.hasOwn(input, key))
     || !ID.test(input.installation_id) || !ID.test(input.data_id) || !ID.test(input.operation_id)
     || !REVISION.test(input.expected_revision) || typeof input.root !== 'string') throw invalid();
-  return send(response, 200, await (revoking ? service.revoke : service.admit)(context.principal, input));
+  if (!revoking) return send(response, 200, await service.admit(context.principal, input));
+  const inventory = await service.inventory(context.principal);
+  const liveIdentity = await readCanonicalGrant(input.root).catch(() => null);
+  const canonical = [...inventory.admitted, ...inventory.unavailable].find(row => row.root === input.root
+    || liveIdentity && row.id === liveIdentity.id && row.root === liveIdentity.root);
+  if (!canonical) throw new ContractError('nnd_workspace_admission_target_missing', 'The workspace root is not admitted.');
+  const guarded = context.nndEngineHost?.withWorkspaceRevocation;
+  if (typeof guarded !== 'function') throw new ContractError('nnd_workspace_admission_unavailable', 'Native session guard is unavailable.');
+  return send(response, 200, await guarded.call(context.nndEngineHost, canonical.root,
+    () => service.revoke(context.principal, input)));
 }
 
 function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }

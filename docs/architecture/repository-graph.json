@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e56f243df535cad4165bbefa361fa2aa6e0bb8b1823ab736e5beed6fbed1162c",
+  "source_digest": "sha256:b6955be50b4c68b68286c150846d730dd12b6c14f6458a5f57d445d0946935c2",
   "counts": {
-    "modules": 553,
+    "modules": 555,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 245
+      "module_count": 247
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 737,
-      "module_count": 220
+      "import_count": 744,
+      "module_count": 222
     },
     {
       "from": "experience-engine",
@@ -2747,11 +2747,13 @@
         "src/nnd-review-mode.js",
         "src/nnd-session-description.js",
         "src/nnd-session-helpers.js",
+        "src/nnd-session-list.js",
         "src/nnd-session-registry.js",
         "src/nnd-transcript-identity.js",
         "src/nnd-turn-state.js",
         "src/nnd-walkthrough.js",
         "src/nnd-workspace-binding.js",
+        "src/nnd-workspace-revocation-guard.js",
         "src/opencode/wire-events.js",
         "src/persistence/atomic-json.js"
       ]
@@ -3614,6 +3616,16 @@
       ]
     },
     {
+      "path": "src/nnd-session-list.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-session-description.js",
+        "src/nnd-session-helpers.js"
+      ]
+    },
+    {
       "path": "src/nnd-session-registry.js",
       "component": "foundation",
       "entrypoint": false,
@@ -3797,6 +3809,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-workspace-grants.js",
         "src/secret-broker-server.js"
       ]
     },
@@ -3839,6 +3852,14 @@
         "src/integration-principal.js",
         "src/nnd-configuration-sources.js",
         "src/persistence/manifest-transaction.js"
+      ]
+    },
+    {
+      "path": "src/nnd-workspace-revocation-guard.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {

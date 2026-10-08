@@ -10,6 +10,7 @@ import { createNndWorkspaceAdmissionService } from '../src/nnd-workspace-admissi
 import { createNndWorkspaceGrantService } from '../src/nnd-workspace-grants.js';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
+import { ContractError } from '../src/ids.js';
 
 const token = 'admission-routes-http-token-36-chars-test';
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
@@ -20,7 +21,8 @@ async function dispatch(path, method, permissions, service, body, search) {
   const url = new URL(search ? `${path}?${search}` : path, 'http://localhost');
   const response = { setHeader() {}, end(text) { this.body = JSON.parse(text); } };
   const matched = await dispatchNndWorkspaceAdmissionRequest(request, response, { url,
-    principal: { subjectId: 'operator', permissions }, nndWorkspaceAdmissionService: service });
+    principal: { subjectId: 'operator', permissions }, nndWorkspaceAdmissionService: service,
+    nndEngineHost: { withWorkspaceRevocation: async (_, action) => action() } });
   return { matched, status: response.statusCode, body: response.body };
 }
 
@@ -29,7 +31,7 @@ const body = (root, operationId = 'adm_1') => ({ installation_id: 'i', data_id: 
 
 test('admission routes authorize first, keep the grammar exact, and separate receipts', async () => {
   let reads = 0, mutations = 0;
-  const service = { inventory: () => { reads++; return { selection_enabled: true, admitted: [] }; },
+  const service = { inventory: () => { reads++; return { selection_enabled: true, admitted: [{ root: 'C:/w' }], unavailable: [] }; },
     admit: () => { mutations++; return { persistence: 'saved' }; },
     revoke: () => { mutations++; return { persistence: 'saved', revoked_root: 'x' }; },
     operation: (_, id) => ({ operation_id: id }) };
@@ -72,11 +74,16 @@ test('the admission family serves end-to-end over the integration server', async
   await Promise.all([mkdir(config), mkdir(primary), mkdir(alpha)]);
   await writeFile(join(config, 'manifest.json'), JSON.stringify({ workspace_root: primary, provider,
     persistence: 'ephemeral' }));
+  let guardBusy = false;
   const server = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
     host: '127.0.0.1', port: 0,
     resolvePrincipal: () => ({ subjectId: 'operator', permissions: ['nnd.workspace.read', 'nnd.workspace.manage'] }),
     nndWorkspaceAdmissionService: createNndWorkspaceAdmissionService({ paths: { config },
       installationId: 'i', dataId: 'd' }),
+    nndEngineHost: { withWorkspaceRevocation: async (_, action) => {
+      if (guardBusy) throw new ContractError('nnd_workspace_in_use', 'Session still owns this workspace.');
+      return action();
+    } },
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths: { config },
       installationId: 'i', dataId: 'd' }) });
   try {
@@ -111,9 +118,15 @@ test('the admission family serves end-to-end over the integration server', async
     const missing = await call('/revoke', 'POST', payload(join(root, 'never'), 'revoke_missing', after.body.revision));
     assert.equal(missing.status, 404);
     assert.equal(missing.body.error.code, 'nnd_workspace_admission_target_missing');
-    const deleted = await call('/revoke', 'POST', payload(alpha, 'revoke_alpha', after.body.revision));
+    guardBusy = true;
+    const busy = await call('/revoke', 'POST', payload(alpha, 'revoke_busy', after.body.revision));
+    assert.equal(busy.status, 409);
+    assert.equal(busy.body.error.code, 'nnd_workspace_in_use');
+    guardBusy = false;
+    const alphaAlias = process.platform === 'win32' ? alpha.toUpperCase() : alpha;
+    const deleted = await call('/revoke', 'POST', payload(alphaAlias, 'revoke_alpha', after.body.revision));
     assert.equal(deleted.status, 200);
-    assert.equal(deleted.body.revoked_root, alpha);
+    assert.equal(deleted.body.revoked_root, alphaAlias);
     assert.equal((await call('/operations/adm_1', 'GET')).status, 200);
     assert.equal((await call('', 'GET', undefined, 'wrong-token')).status, 401);
     assert.equal((await call('', 'DELETE')).status, 405);

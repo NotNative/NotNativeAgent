@@ -22,10 +22,11 @@
  * live disk through the kernel's fail-closed walk (absolute, control-ascii
  * free, no UNC or \\?\ literal, no symlink ancestors, realpath-equal, 4096
  * transport bound). A stored row that fails its probe — including a vanished
- * directory — fails closed as nnd_workspace_admission_identity_mismatch, and
- * a drifted grant document or granted root fails closed with the GRANT
- * surface's own error vocabulary; an inventory is never empty-looking while
- * the configuration is unusable. Mutations publish protocol-1.0 documents of
+ * directory — is reported in inventory.unavailable and cannot be selected;
+ * the remaining rows stay available. Mutations other than revoking that row
+ * fail closed as nnd_workspace_admission_identity_mismatch. A drifted grant
+ * document or granted root fails closed with the GRANT surface's own error
+ * vocabulary. Mutations publish protocol-1.0 documents of
  * exactly { protocol, installation_id, data_id, admitted[] } with rows of
  * exactly { root, id, device, inode, admitted_at, operation_id } and answer
  * with settings-grammar receipts (operation_id, persistence, revisions,
@@ -218,6 +219,34 @@ async function readChannelState(ctx) {
   return { snapshot, attached, secondary: await readSecondaryGrant(ctx, attached), admitted: [] };
 }
 
+/** Inventory keeps a removed/replaced root visible for explicit recovery,
+ * while only freshly verified rows can be selected for execution. */
+async function readInventoryState(ctx) {
+  const snapshot = await readManifestSnapshot(ctx.path);
+  if (snapshot.state === 'missing') {
+    const attached = await attachedRoot(ctx.paths);
+    return { snapshot, attached, secondary: await readSecondaryGrant(ctx, attached), admitted: [], unavailable: [] };
+  }
+  const document = snapshot.rawManifest;
+  if (!record(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
+    || document.installation_id !== ctx.identity.installation_id || document.data_id !== ctx.identity.data_id
+    || !Array.isArray(document.admitted)) throw storeError();
+  const attached = await attachedRoot(ctx.paths);
+  const secondary = await readSecondaryGrant(ctx, attached);
+  const seen = [], admitted = [], unavailable = [];
+  for (const value of document.admitted) {
+    assertAdmittedRowShape(value);
+    if (seen.some(row => row.id === value.id || same(row.root, value.root))) throw storeError();
+    seen.push(value);
+    try { admitted.push(await verifyAdmissionRow(value, attached, admitted)); }
+    catch (error) {
+      if (error?.code !== 'nnd_workspace_admission_identity_mismatch') throw error;
+      unavailable.push(Object.freeze({ root: value.root, id: value.id, reason: 'identity_mismatch' }));
+    }
+  }
+  return { snapshot, attached, secondary, admitted, unavailable };
+}
+
 /** Lean, probe-free store read for revoke resolution. Deliberately weaker
  * than readChannelState so a vanished or drifted WORKSPACE never wedges the
  * operator's only recovery affordance: rows are shape-checked, not disk
@@ -233,12 +262,28 @@ async function readLeanState(ctx) {
   return { revision: snapshot.revision, admitted: document.admitted };
 }
 
+/** A revoke is a monotone deletion. Reverify the old inventory and insist the
+ * next document only removes one exact row, so two missing roots can be
+ * recovered one at a time without granting authority to either one. */
+async function verifyRevocationDocument(next, ctx) {
+  await readInventoryState(ctx);
+  const previous = await readLeanState(ctx);
+  if (!record(next) || !exact(next, DOCUMENT_KEYS) || next.protocol !== '1.0'
+    || next.installation_id !== ctx.identity.installation_id || next.data_id !== ctx.identity.data_id
+    || !Array.isArray(next.admitted) || next.admitted.length !== previous.admitted.length - 1) throw storeError();
+  for (const row of next.admitted) {
+    assertAdmittedRowShape(row);
+    if (!previous.admitted.some(old => JSON.stringify(old) === JSON.stringify(row))) throw storeError();
+  }
+}
+
 async function inventory(ctx, principal) {
   authorize(principal, 'nnd.workspace.read');
-  const current = await readChannelState(ctx);
+  const current = await readInventoryState(ctx);
   return Object.freeze({ ...ctx.identity, revision: current.snapshot.revision, selection_enabled: true,
     attached: current.attached, ...(current.secondary ? { secondary_grant: current.secondary } : {}),
     admitted: current.admitted.map(row => Object.freeze(persistedRow(row))),
+    unavailable: current.unavailable,
     application: 'not_applied' });
 }
 
@@ -299,7 +344,7 @@ async function revoke(ctx, principal, input) {
             admitted: fresh.admitted.filter(row => !same(row.root, live.root)).map(persistedRow) };
         } catch (error) { guard.capture(error); }
       },
-      validate: async next => { try { await verifyStoreDocument(next, ctx); } catch (error) { guard.capture(error); } } });
+      validate: async next => { try { await verifyRevocationDocument(next, ctx); } catch (error) { guard.capture(error); } } });
   } catch (error) { guard.rethrow(error); }
   // The request root is stable across a lost-acknowledgement replay. The row
   // has already been removed when the manifest layer returns its saved receipt.

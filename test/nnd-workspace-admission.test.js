@@ -129,7 +129,7 @@ test('admit refuses repeats, stale revisions, malformed and relative paths', asy
     { code: 'nnd_workspace_admission_invalid' });
 });
 
-test('a drifted stored root or a poisoned grant document fails closed on read', async t => {
+test('a drifted root is unavailable for selection while healthy roots and revocation remain readable', async t => {
   const f = await fixture(t);
   await f.service.admit(principal, input('absent', f.alpha));
   const admissionsPath = join(f.config, 'nnd-workspace-admissions.json');
@@ -137,10 +137,21 @@ test('a drifted stored root or a poisoned grant document fails closed on read', 
   const store = JSON.parse(original);
   store.admitted[0].root = store.admitted[0].root.replace(/alpha$/u, 'alpha-x');
   await writeFile(admissionsPath, JSON.stringify(store));
-  await assert.rejects(f.service.inventory(principal), { code: 'nnd_workspace_admission_identity_mismatch' });
+  const drifted = await f.service.inventory(principal);
+  assert.deepEqual(drifted.admitted, []);
+  assert.deepEqual(drifted.unavailable, [{ root: store.admitted[0].root,
+    id: store.admitted[0].id, reason: 'identity_mismatch' }]);
+  await assert.rejects(f.service.admit(principal, input(drifted.revision, f.beta, 'blocked_by_drift')),
+    { code: 'nnd_workspace_admission_identity_mismatch' });
   await writeFile(admissionsPath, original);
   const revision = (await f.service.inventory(principal)).revision;
   await f.service.admit(principal, input(revision, f.beta, 'admission_2'));
+  await rm(f.alpha, { recursive: true });
+  const missing = await f.service.inventory(principal);
+  assert.deepEqual(missing.admitted.map(row => row.root), [f.beta]);
+  assert.deepEqual(missing.unavailable.map(row => row.root), [f.alpha]);
+  await f.service.revoke(principal, input(missing.revision, f.alpha, 'revoke_missing'));
+  assert.deepEqual((await f.service.inventory(principal)).unavailable, []);
   const grantsPath = join(f.config, 'nnd-workspace-grants.json');
   const physicalPrimary = await lstat(f.primary, { bigint: true });
   const grant = {
@@ -160,5 +171,19 @@ test('a drifted stored root or a poisoned grant document fails closed on read', 
   await assert.rejects(f.service.inventory(principal), { code: 'nnd_workspace_grant_identity_mismatch' });
   await rm(grantsPath, { force: true });
   const inventory = await f.service.inventory(principal);
-  assert.equal(inventory.admitted.length, 2);
+  assert.equal(inventory.admitted.length, 1);
+});
+
+test('two removed roots can be revoked sequentially without admitting either one', async t => {
+  const f = await fixture(t);
+  await f.service.admit(principal, input('absent', f.alpha, 'admit_alpha'));
+  await f.service.admit(principal, input((await f.service.inventory(principal)).revision, f.beta, 'admit_beta'));
+  await Promise.all([rm(f.alpha, { recursive: true }), rm(f.beta, { recursive: true })]);
+  const first = await f.service.inventory(principal);
+  assert.equal(first.unavailable.length, 2);
+  await f.service.revoke(principal, input(first.revision, f.alpha, 'revoke_alpha'));
+  const second = await f.service.inventory(principal);
+  assert.deepEqual(second.unavailable.map(row => row.root), [f.beta]);
+  await f.service.revoke(principal, input(second.revision, f.beta, 'revoke_beta'));
+  assert.deepEqual((await f.service.inventory(principal)).unavailable, []);
 });

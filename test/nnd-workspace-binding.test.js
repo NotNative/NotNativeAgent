@@ -48,6 +48,16 @@ test('primary-only create persists one native binding and publishes its project 
   await host.shutdown();
 });
 
+test('workspace revocation guard refuses a new session until the native operation settles', async t => {
+  const f = await fixture(t), host = f.host();
+  await host.withWorkspaceRevocation(f.workspace, async () => {
+    await assert.rejects(host.create('session_during_revoke', f.principal, { directory: f.workspace }),
+      { code: 'nnd_workspace_in_use' });
+  });
+  await host.create('session_after_revoke', f.principal, { directory: f.workspace });
+  await host.shutdown();
+});
+
 test('legacy one-root catalog migrates only exact directory and ID before engine initialization', async t => {
   const f = await fixture(t); await writeFile(f.catalog, JSON.stringify([legacy(f)]));
   let created = 0;

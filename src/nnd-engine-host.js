@@ -31,6 +31,8 @@ import { requirePrincipal, samePrincipal, scopedPrincipal, validCatalogRecord, r
 import { partitionNndCatalog } from './nnd-catalog-admission.js';
 import { resolveContextBinding, initializeBoundEngine,
   assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
+import { NndWorkspaceRevocationGuard } from './nnd-workspace-revocation-guard.js';
+import { listNndSessions, nndSessionStatuses } from './nnd-session-list.js';
 const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
@@ -40,6 +42,7 @@ export class NndEngineHost {
   #childStreams = new Map();
   #childActivity = new Map();
   #quarantined = [];
+  #workspaceRevocations = new NndWorkspaceRevocationGuard();
   constructor(options = {}) {
     if (typeof options.createEngine !== 'function') {
       throw new ContractError('nnd_engine_factory_missing', 'NND engine host requires an engine factory');
@@ -104,6 +107,9 @@ export class NndEngineHost {
       if (!restoring) await this.tombstones.beforeCreate(sessionId, principal, this.#contexts);
       if (!restoring) await removeActivity(this.catalogPath, sessionId); // Remove a crash-left prior incarnation.
       const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
+      if (this.#workspaceRevocations.has(binding)) {
+        throw new ContractError('nnd_workspace_in_use', 'Workspace admission is being revoked.');
+      }
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
         workspaceBinding: binding, workspaceBindingResolver: this.primaryWorkspaceBinding,
         output: (record) => this.observeOutput(sessionId, record) });
@@ -125,10 +131,15 @@ export class NndEngineHost {
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true, questions: Boolean(engine.questionBroker) }), closing: false, goalArming: 0,
         reviewMode: options.reviewMode ?? 'default', reviewRevision: options.reviewRevision ?? 0, reviewArming: 0 };
       if (restoring) this.#contexts.set(sessionId, context);
-      else await this.#commitCatalogChange(
+      else {
+        if (this.#workspaceRevocations.has(binding)) {
+          throw new ContractError('nnd_workspace_in_use', 'Workspace admission is being revoked.');
+        }
+        await this.#commitCatalogChange(
         (contexts) => contexts.set(sessionId, context),
         () => this.#contexts.set(sessionId, context),
-      );
+        );
+      }
       if (!restoring) this.#publish(context, 'session.created', { info: describe(context) }, true);
       return context;
     } catch (error) {
@@ -326,16 +337,11 @@ export class NndEngineHost {
     return this.childSessions.resolve(sessionId, principal);
   }
   list(principal, options = {}) {
-    requirePrincipal(principal);
-    if (options.limit !== undefined && (!Number.isSafeInteger(options.limit) || options.limit < 1)) {
-      throw new ContractError('request_invalid', 'NND session list limit must be a positive integer');
-    }
-    const parents = [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)
-      && (options.includeArchived === true || !context.archivedAt)).map(describe).sort(sessionIdOrder);
-    const visible = new Set(parents.map((session) => session.id));
-    const children = (this.childSessions.list?.(principal) ?? []).filter((child) => visible.has(child.parentID)).sort(sessionIdOrder);
-    const listed = options.roots === true ? parents : options.roots === false ? children : [...parents, ...children];
-    return options.limit === undefined ? listed : listed.slice(0, options.limit);
+    return listNndSessions(this.#contexts, this.childSessions, principal, options);
+  }
+
+  async withWorkspaceRevocation(root, action) {
+    return this.#workspaceRevocations.with(root, [...this.#contexts.values(), ...this.#quarantined], this.#creating.size, action);
   }
   listChildren(sessionId, principal) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
@@ -350,14 +356,7 @@ export class NndEngineHost {
     throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
   }
   statuses(principal) {
-    requirePrincipal(principal);
-    const statuses = this.childSessions.statuses?.(principal) ?? {};
-    for (const context of this.#contexts.values()) {
-      if (!context.closing && samePrincipal(context, principal) && context.engine.active && !context.engine.active.finalized) {
-        statuses[context.sessionId] = { type: 'busy' };
-      }
-    }
-    return statuses;
+    return nndSessionStatuses(this.#contexts, this.childSessions, principal);
   }
   pendingRequests(principal) { requirePrincipal(principal); return ownedPendingRequests(this.#contexts, this.childSessions, principal, samePrincipal); }
   questions(principal) { return listNndQuestions(this.#contexts, principal); }

@@ -36,6 +36,8 @@ test('selected admitted root binds engine, catalog and replay; revocation blocks
   await first.submit('session_selected', { version: '1.0', type: 'submit', request_id: 'selected-turn', content: 'read' }, principal);
   assert.deepEqual(turnPrincipal.workspaceIds, [selected.id]);
   assert.equal(first.get('session_selected', principal).projectID, selected.id);
+  await assert.rejects(first.withWorkspaceRevocation(selectedRoot, async () => {}),
+    { code: 'nnd_workspace_in_use' });
   await first.create('session_primary', principal, { directory: primaryRoot });
   assert.deepEqual(JSON.parse(await readFile(catalogPath, 'utf8'))[0].workspaceIds, [selected.id]);
   await first.shutdown();
@@ -50,6 +52,8 @@ test('selected admitted root binds engine, catalog and replay; revocation blocks
   await recovered.initialize();
   assert.equal(recovered.get('session_primary', principal).projectID, primary.id);
   assert.throws(() => recovered.get('session_selected', principal), { code: 'nnd_session_unavailable' });
+  await assert.rejects(recovered.withWorkspaceRevocation(selectedRoot, async () => {}),
+    { code: 'nnd_workspace_in_use' });
   await recovered.rename('session_primary', principal, 'still usable');
   assert.equal(JSON.parse(await readFile(catalogPath, 'utf8')).length, 2);
   await recovered.shutdown();

@@ -21,7 +21,13 @@ The native listener serves `GET /v1/nnd/workspaces/admissions` and the matching
 admit, revoke, and operation-receipt endpoints. An authenticated local operator
 can record a canonical directory after filesystem identity checks. Reads recheck
 the stored identity and the existing primary and secondary grant document;
-retries use durable operation receipts. Session creation accepts an admitted
+missing or replaced admitted roots appear in `unavailable` and are excluded
+from selectable `admitted` rows, while healthy rows remain available. The
+current inventory revision permits explicit revocation of an unavailable row;
+multiple unavailable rows can be revoked one at a time. Native revocation
+refuses roots held by live or quarantined catalog sessions and serializes
+against in-flight session creation. Retries use durable operation receipts.
+Session creation accepts an admitted
 workspace ID, binds the engine and durable catalog to that root, and rechecks
 admission before work. The inventory reports `selection_enabled:true`. The
 local operator can list attached and admitted projects; a selected session's
