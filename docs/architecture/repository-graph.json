@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:115d3e18010193500f2bd7ac6d67e5a70645ecfaa706233fd003e2ca7a6320b0",
+  "source_digest": "sha256:382bcccd75941dee59a0722740c2a5fe4d0f5bacab46fd12a4b1d3e43f501a2e",
   "counts": {
-    "modules": 844,
+    "modules": 845,
     "component_edges": 17
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 230
+      "module_count": 231
     },
     {
       "id": "web-entry",
@@ -5687,6 +5687,7 @@
         "packages/web/src/server/routes/magic-prompts.ts",
         "packages/web/src/server/routes/markdown-image-grants.ts",
         "packages/web/src/server/routes/mcp-config.ts",
+        "packages/web/src/server/routes/native-local-scope.ts",
         "packages/web/src/server/routes/native-workspace-admission.ts",
         "packages/web/src/server/routes/notnative.ts",
         "packages/web/src/server/routes/projects.ts",
@@ -7213,6 +7214,17 @@
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/lib/mcp/mcp-config.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/native-local-scope.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/routes/native-workspace-admission.ts"
       ]
     },
     {

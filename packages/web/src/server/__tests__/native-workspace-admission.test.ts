@@ -34,6 +34,10 @@ it('admits only the native attached repository through the HTTP route', async ()
 });
 
 it('fails closed on a junction and conflicting native evidence', async () => {
+  await expect(assertNativeWorkspaceRoot(` ${rootA}`)).rejects.toMatchObject({ status: 400 });
+  if (process.platform !== 'win32') {
+    await expect(assertNativeWorkspaceRoot(rootA.replaceAll('/', '\\'))).rejects.toMatchObject({ status: 400 });
+  }
   await expect(admitNativeWorkspace(alias, async () => ({ directory: alias, worktree: alias })))
     .rejects.toThrow('filesystem identity is unavailable');
   await expect(admitNativeWorkspace(rootA, async () => ({ directory: rootA, worktree: rootB })))

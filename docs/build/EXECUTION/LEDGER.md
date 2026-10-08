@@ -416,6 +416,28 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-68 — F1 native local Git and file scope (in progress)
+
+The browser server now preflights NNA workspace admission before local
+`/api/git/*` and `/api/fs/*` routes inspect or mutate disk. The already
+guarded worktree family retains its own admission and removal protocol. Git
+walkthrough generation and cancellation take their root from the bounded JSON
+body; other Git and file routes use the query root. An explicit mock adapter
+mode preserves deterministic route fixtures without native authority. The
+gate rejects path spellings whose normalization would authorize a different
+directory than the local handler uses, including POSIX backslashes and
+surrounding whitespace. The adversarial review found both the Hono route
+ordering bypass and the spelling mismatch, including the separate worktree
+path; the shared preflight and real-app route-order test cover the repairs.
+The full web suite passed 133 files and 1,456 tests; the focused Git/file
+admission, worktree, Git sync, and native admission suites also passed.
+
+This is request-entry authorization. An in-flight Git or file operation is
+not cancelled if admission is revoked after the gate. Terminal, preview, and
+other context actions still need the same native workspace binding. Installed
+two-root acceptance and a governed provider turn remain open, so F1 is not
+closed.
+
 ## NND 20261007-67 — F1 worktree admission and safe removal (in progress)
 
 The native `20261007-4` prerequisite keeps a vanished admitted root visible as

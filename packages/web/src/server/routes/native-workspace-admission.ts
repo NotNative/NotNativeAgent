@@ -76,6 +76,11 @@ async function readNativeAdmissions(): Promise<unknown> {
 
 /** Keep local Git mutations scoped to a root already verified by NNA. */
 export async function assertNativeWorkspaceRoot(candidate: unknown): Promise<void> {
+  const normalized = workspacePath(candidate);
+  if (typeof candidate !== 'string' || !normalized || candidate !== candidate.trim()
+    || process.platform !== 'win32' && candidate !== normalized) {
+    throw new WorkspaceAdmissionError('Workspace path must use its canonical spelling.', 400);
+  }
   try { await admitNativeWorkspace(candidate); }
   catch (error) {
     if (!(error instanceof WorkspaceAdmissionError) || error.status !== 409) throw error;

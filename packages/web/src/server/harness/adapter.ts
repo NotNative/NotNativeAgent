@@ -13,6 +13,8 @@
  */
 
 export interface HarnessAdapter {
+  /** In-process fixture routes have no NNA admission authority. */
+  mode?: 'mock';
   /** Handles any request under the /api namespace (path already includes /api). */
   handle(request: Request): Promise<Response>;
 }

@@ -29,6 +29,7 @@ import { registerSmallModelRoutes } from './routes/small-model.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { registerNativeWorkspaceAdmissionRoute } from './routes/native-workspace-admission.ts';
+import { registerNativeLocalScope } from './routes/native-local-scope.ts';
 import { callHarness } from './queue/queue-adapter-calls.ts';
 import { createNnaSessionHarnessPorts } from './session-orchestration/session-harness-ports.ts';
 import { registerMarkdownImageGrantRoutes } from './routes/markdown-image-grants.ts';
@@ -372,6 +373,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
   registerTunnelRoutes(app);
+  registerNativeLocalScope(app);
   registerFsRoutes(app);
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);

@@ -385,5 +385,5 @@ async function route(request: Request): Promise<Response> {
   return harnessError(`mock harness: unhandled ${method} ${path}`, 404);
 }
 
-export const mockHarness: HarnessAdapter = { handle: route };
+export const mockHarness: HarnessAdapter = { mode: 'mock', handle: route };
 export { sleep };
