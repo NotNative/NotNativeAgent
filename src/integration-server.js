@@ -12,6 +12,7 @@ import { dispatchNndHarnessRequest } from './nnd-harness-routes.js';
 import { dispatchNndSetupRequest, guardNndSetupRequest } from './nnd-setup-routes.js';
 import { dispatchNndConfigurationRequest } from './nnd-configuration-routes.js';
 import { dispatchNndWorkspaceGrantRequest } from './nnd-workspace-grant-routes.js';
+import { dispatchNndWorkspaceAdmissionRequest } from './nnd-workspace-admission-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -91,6 +92,8 @@ async function dispatch(request, response, context) {
     || context.nndMcpAdvancedConfigurationService
     || context.nndUpdateStateStore || context.nndTrustService)
     && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
+  if (context.nndWorkspaceAdmissionService
+    && await dispatchNndWorkspaceAdmissionRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService
     && await dispatchNndWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;
   guardNndSetupRequest({ ...context, principal, url });

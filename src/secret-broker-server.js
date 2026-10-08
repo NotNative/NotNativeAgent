@@ -155,6 +155,10 @@ function failureStatus(code) {
   // Trust rows must never degrade to an empty list; repairs are retried after the
   // honest failure surfaces.
   if (code === 'workspace_trust_target_missing') return 404;
+  // F1 admission family: conflicts 409, missing target 404, unavailable 503, grammar 400.
+  if (['nnd_workspace_admission_root_conflict', 'nnd_workspace_admission_secondary_clear'].includes(code)) return 409;
+  if (['nnd_workspace_admission_target_missing'].includes(code)) return 404;
+  if (['nnd_workspace_admission_unavailable'].includes(code)) return 503;
   if (code === 'workspace_trust_busy') return 409;
   // Broken server builds (projection drift) are 500s, not client errors.
   if (['nnd_compatibility_projection_invalid', 'nnd_secrets_projection_invalid',

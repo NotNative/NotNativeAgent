@@ -14,13 +14,25 @@ const DOCUMENT_KEYS = ['protocol', 'installation_id', 'data_id', 'primary', 'sec
 const GRANT_KEYS = ['root', 'id', 'device', 'inode'];
 const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 const fail = (code = 'nnd_workspace_grant_invalid') => new ContractError(code, 'Native workspace grant could not be verified.');
-const workspaceId = root => `ws_${createHash('sha256').update(process.platform === 'win32' ? root.toLowerCase() : root).digest('hex').slice(0, 24)}`;
+/** Shared identity space: the ws_ workspace id of a configured root, hashed
+ * exactly like nativeNndPrincipal does for persisted session pedigrees.
+ * Exported so sibling surfaces (admission) never re-derive it. */
+export const workspaceId = root => `ws_${createHash('sha256').update(process.platform === 'win32' ? root.toLowerCase() : root).digest('hex').slice(0, 24)}`;
 // Primary identity must match nativeNndPrincipal(config.workspaceRoot), which
 // already owns persisted single-root sessions and hashes that string verbatim.
-const primaryWorkspaceId = configuredRoot => `ws_${createHash('sha256').update(configuredRoot).digest('hex').slice(0, 24)}`;
+// Exported for sibling surfaces (admission inventory) so the attached row
+// keeps the same session-resolvable id in every projection.
+export const primaryWorkspaceId = configuredRoot => `ws_${createHash('sha256').update(configuredRoot).digest('hex').slice(0, 24)}`;
 export function grantFileIdentity(info) {
   if (typeof info.dev !== 'bigint' || typeof info.ino !== 'bigint') throw fail();
   return { device: String(info.dev), inode: String(info.ino) };
+}
+
+/** Canonical-grant kernel exported for sibling surfaces: the admission store
+ * does not re-derive canonicalization — it reuses this exact fail-closed walk so
+ * "admitted" and "granted" mean the same canonical root everywhere. */
+export async function readCanonicalGrant(path) {
+  return canonicalGrant(path);
 }
 
 async function canonicalGrant(path) {
@@ -146,7 +158,7 @@ async function validateDocument(value, identity, primary) {
   }
 }
 
-async function validatePrimary(value, identity, primary) {
+export async function validatePrimary(value, identity, primary) {
   if (!record(value) || !exact(value, DOCUMENT_KEYS) || value.protocol !== '1.0'
     || value.installation_id !== identity.installation_id || value.data_id !== identity.data_id) throw fail();
   const stored = await verifyGrant(value.primary, primary.id);

@@ -43,7 +43,7 @@ test('the exported settings-service key set is the exact routing surface', () =>
     'nndProviderObservationService',
     'nndSearxngStatusService', 'nndSecretsSettingsService', 'nndSkillsService', 'nndTrustService',
     'nndUpdateActionsService', 'nndUpdateStateStore', 'nndWebFetchSettingsService',
-    'nndWebSearchSettingsService', 'nndWorkspaceGrantService']);
+    'nndWebSearchSettingsService', 'nndWorkspaceAdmissionService', 'nndWorkspaceGrantService']);
 });
 
 test('update check reuse projects the availability receipt grammar and refuses drift', async () => {

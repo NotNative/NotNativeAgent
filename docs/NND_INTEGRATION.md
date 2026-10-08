@@ -15,6 +15,17 @@ Manifest creation/repair through the GUI remains pending; use independent NNA se
 for that operation. Execution readiness does not establish provider connectivity.
 Native permissions and mandatory reviewer governance remain authoritative.
 
+## Workspace admission foundation
+
+The native listener serves `GET /v1/nnd/workspaces/admissions` and the matching
+admit, revoke, and operation-receipt endpoints. An authenticated local operator
+can record a canonical directory after filesystem identity checks. Reads recheck
+the stored identity and the existing primary and secondary grant document;
+retries use durable operation receipts. Admission currently records an inventory
+only. Session creation and engine execution still use the configured primary
+workspace. The inventory reports `selection_enabled:false` until those paths
+consume the admitted identity and pass a real multi-workspace turn.
+
 ## Existing NND catalog migration
 
 Stop legacy NND processes and disable unsupported old autostarts before invoking

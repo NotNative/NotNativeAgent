@@ -31,6 +31,7 @@ import { userDataPaths } from './product.js';
 import { createNndUpdateStateStore } from './nnd-update-state-route.js';
 import { createNativeNndTrustServices } from './nnd-trust-routes.js';
 import { createNndWorkspaceGrantService } from './nnd-workspace-grants.js';
+import { createNndWorkspaceAdmissionService } from './nnd-workspace-admission.js';
 import { assertNndTrialOwnership, assertNndTrialRequestAdmission } from './nnd-trial-admission.js';
 import { createNndNativePrincipalSelection } from './nnd-native-principal-selection.js';
 
@@ -88,6 +89,8 @@ export function createNativeNndSettingsServices(paths, identity, environment) {
     nndPackageActionsService: createNndPackageActionsService({ rootPath: paths.root,
       configPath: paths.config, installationId: identity.installation_id, dataId: identity.data_id }),
     nndWorkspaceGrantService: createNndWorkspaceGrantService({ paths,
+      installationId: identity.installation_id, dataId: identity.data_id }),
+    nndWorkspaceAdmissionService: createNndWorkspaceAdmissionService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndEnvironmentSnapshotService: createNndEnvironmentSnapshot({ environment,
       installationId: identity.installation_id, dataId: identity.data_id }),
