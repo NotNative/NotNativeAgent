@@ -28,7 +28,7 @@ function sameWorkspacePath(left: unknown, right: unknown): boolean {
   return /^[A-Z]:\//u.test(a) && /^[A-Z]:\//u.test(b) ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
-async function requirePlainDirectory(directory: string): Promise<void> {
+async function requirePlainDirectory(directory: string): Promise<string> {
   const windows = /^[A-Z]:\//u.test(directory);
   const path = windows ? win32 : posix;
   const native = windows ? directory.replaceAll('/', '\\') : directory;
@@ -45,6 +45,7 @@ async function requirePlainDirectory(directory: string): Promise<void> {
   if (!resolved || !sameWorkspacePath(resolved, directory)) {
     throw new WorkspaceAdmissionError('Workspace filesystem identity is unavailable; use its canonical path.', 503);
   }
+  return resolved;
 }
 
 export async function admitNativeWorkspace(candidate: unknown, readPath: () => Promise<unknown> = readNativePath): Promise<string> {
@@ -92,9 +93,11 @@ export async function assertNativeWorkspaceRoot(candidate: unknown): Promise<voi
  * selectable project. A lost POST acknowledgment is resolved by operation
  * receipt; a failed readback never claims that admission succeeded. */
 export async function admitCreatedNativeWorkspace(candidate: unknown): Promise<string> {
-  const root = workspacePath(candidate);
-  if (!root) throw new WorkspaceAdmissionError('Created worktree path is invalid.', 400);
-  await requirePlainDirectory(root);
+  const requested = workspacePath(candidate);
+  if (!requested) throw new WorkspaceAdmissionError('Created worktree path is invalid.', 400);
+  // NNA's canonical grant compares exact native spelling with realpath.
+  // Slash-normalized browser display paths are not valid mutation roots.
+  const root = await requirePlainDirectory(requested);
   const initial = await readNativeAdmissions() as WorkspaceInventory;
   if (initial.selection_enabled !== true || typeof initial.installation_id !== 'string'
     || typeof initial.data_id !== 'string' || typeof initial.revision !== 'string') {

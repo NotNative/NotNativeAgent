@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:382bcccd75941dee59a0722740c2a5fe4d0f5bacab46fd12a4b1d3e43f501a2e",
+  "source_digest": "sha256:60b7452857b6611f9af1f1d125362942417aa96eedea47e40fb3ffffd2dacb7f",
   "counts": {
-    "modules": 845,
+    "modules": 847,
     "component_edges": 17
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 74
+      "module_count": 76
     },
     {
       "id": "foundation",
@@ -139,8 +139,8 @@
     {
       "from": "gates",
       "to": "web-server",
-      "import_count": 23,
-      "module_count": 7
+      "import_count": 26,
+      "module_count": 8
     },
     {
       "from": "sync-engine",
@@ -8092,6 +8092,18 @@
       ]
     },
     {
+      "path": "scripts/nna-native-multi-root-smoke.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/app.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/nna.ts",
+        "scripts/smoke-http.mjs",
+        "scripts/smoke-multi-root.mjs"
+      ]
+    },
+    {
       "path": "scripts/nna-source-smoke.mjs",
       "component": "gates",
       "entrypoint": false,
@@ -8316,6 +8328,14 @@
       "component": "gates",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "scripts/smoke-multi-root.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/smoke-http.mjs"
+      ]
     },
     {
       "path": "scripts/smoke-native-questions.mjs",

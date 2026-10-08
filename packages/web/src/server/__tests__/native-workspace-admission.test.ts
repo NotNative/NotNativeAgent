@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { Hono } from 'hono';
-import { mkdtemp, mkdir, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { registerHarnessAdapter } from '../harness/adapter.ts';
@@ -154,7 +154,7 @@ it('admits a created worktree with native readback and resolves a lost acknowled
     if (path === '/api/v1/nnd/workspaces/admissions' && request.method === 'POST') {
       const body = await request.json() as { expected_revision: string; operation_id: string; root: string };
       expect(body.expected_revision).toBe('absent');
-      expect(body.root).toBe(rootB);
+      expect(body.root).toBe(await realpath(rootB));
       operations.push(body.operation_id);
       postCount += 1;
       admitted = true;

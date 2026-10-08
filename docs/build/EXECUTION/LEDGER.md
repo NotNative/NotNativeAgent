@@ -416,6 +416,26 @@ the saved receipt both carry "applies at the next service start"; honest refusal
 (exposed bind without credentials, out-of-grammar drafts, an unreadable
 configuration, or a moved revision) surface as sentences.
 
+## NND 20261007-69 — F1 native two-root source acceptance (in progress)
+
+The native Windows source-built NNA service and NND app now run a disposable
+two-repository/worktree smoke against an isolated loopback provider. It verifies
+admission receipts and stable workspace identity, selected-root and primary-root
+provider turns, scoped file write/read and sibling escape refusal, Windows case
+aliases and junction refusal, a vanished root that remains available for cleanup,
+and safe Git worktree removal with stale identity rejection. After closing and
+restarting the native service, the selected session, admission, file, and a fresh
+selected-root provider turn still work. The smoke exposed a real worktree creation
+failure: NND sent a slash-normalized display path to NNA while native admission
+requires the exact canonical Windows `realpath`. Worktree creation now submits
+the canonical directory; focused tests and the full web suite (133 files, 1,456
+tests) pass. Independent review found no production defect and strengthened the
+provider-turn assertions. The legacy source smoke also passes.
+
+This is source-native service acceptance, not an installed browser/desktop
+journey, a governed provider tool read/write, or service-supervisor/lease proof.
+Those F1 and L6 acceptance lines remain open.
+
 ## NND 20261007-68 — F1 native local Git and file scope (in progress)
 
 The browser server now preflights NNA workspace admission before local

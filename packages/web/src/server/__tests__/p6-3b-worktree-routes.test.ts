@@ -5,7 +5,7 @@
 // remove refuses dirty worktrees (+404 on unknown/primary), and the local
 // branch can be dropped with the worktree.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -265,7 +265,7 @@ describe('git worktree routes v1 (doc 03 §5.13 #61/63/66)', () => {
       }, 200);
       const worktree = created.body.worktree as { path: string };
       expect(created.body.workspace_id).toBe(id);
-      expect((admitted as { root: string } | null)?.root).toBe(worktree.path.replaceAll('\\', '/'));
+      expect((admitted as { root: string } | null)?.root).toBe(realpathSync(worktree.path));
       sessionBound = true;
       const bound = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktree.path }) });
@@ -276,7 +276,7 @@ describe('git worktree routes v1 (doc 03 §5.13 #61/63/66)', () => {
       const dirty = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktree.path }) });
       expect(dirty.status).toBe(500);
-      expect((admitted as { root: string } | null)?.root).toBe(worktree.path.replaceAll('\\', '/'));
+      expect((admitted as { root: string } | null)?.root).toBe(realpathSync(worktree.path));
       execFileSync('git', ['checkout', '--', 'hello.ts'], { cwd: worktree.path });
       const removed = await call(`/api/git/worktrees${DIRQ}`, { method: 'DELETE',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ directory: worktree.path }) });
