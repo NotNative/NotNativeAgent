@@ -45,6 +45,16 @@ content, returned a malformed response, and produced a native needs-input
 turn. The corrected fixture now exercises the successful image route. Full
 installed browser/desktop, restart, and failure-matrix acceptance remain open.
 
+## 2026-10-08 current-pair installed framework regression
+
+`node --experimental-transform-types scripts/installed-source-acceptance.mjs
+D:\ProjectRepo\NotNativeAgent` passed against NND `20261008-13` and NNA
+`20261008-6` before this evidence-only NND `20261008-14` ledger update. The
+disposable Windows fixture completed fresh source installation, Chromium native
+code redemption, desktop attach, and native service survival after desktop
+exit, then cleaned up. It used the test installer/provider configuration and
+did not send an attachment or prove C7/F1/F2/V completion.
+
 ## Grounded source facts (verified this session, 2026-10-01)
 
 | Fact | Evidence |

@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Current-pair installed framework regression · NND 20261008-14 / NNA 20261008-6
+
+The disposable Windows source installer journey passed on the current pair:
+fresh installation, native code redemption in Chromium, desktop attachment
+to the same surviving service, and service continuity after the desktop exits.
+The fixture cleaned up successfully. This regression does not submit an
+installed attachment or certify F3; the broader F1/F2, C7, and V journeys
+remain open. [Ledger evidence](EXECUTION/LEDGER.md).
+
 ## 2026-10-08 · Mixed image/text native source acceptance · NND 20261008-13
 
 The paired NND↔NNA source smoke now uploads an image and a UTF-8 text file in
