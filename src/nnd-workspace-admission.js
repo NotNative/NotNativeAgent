@@ -134,8 +134,8 @@ async function attachedRoot(paths) {
  * vanished or drifted grant never yields an empty-looking projection. The
  * grant document's PRIMARY row is not re-probed here: the grant surface owns
  * that judgment, and base GET already serves it. */
-async function readSecondaryGrant(ctx, attached) {
-  const snapshot = await readManifestSnapshot(ctx.grantPath);
+async function readSecondaryGrant(ctx, attached, prefetchedSnapshot) {
+  const snapshot = prefetchedSnapshot ?? await readManifestSnapshot(ctx.grantPath);
   if (snapshot.state === 'missing') return null;
   const document = snapshot.rawManifest;
   await validatePrimary(document, ctx.identity, attached);
@@ -222,17 +222,19 @@ async function readChannelState(ctx) {
 /** Inventory keeps a removed/replaced root visible for explicit recovery,
  * while only freshly verified rows can be selected for execution. */
 async function readInventoryState(ctx) {
-  const snapshot = await readManifestSnapshot(ctx.path);
+  // Why: each Windows manifest read performs an independent fresh ACL probe.
+  // Run the admission, grant, and attached-root probes together; all three
+  // results are still required before any inventory is returned.
+  const [snapshot, attached, grantSnapshot] = await Promise.all([
+    readManifestSnapshot(ctx.path), attachedRoot(ctx.paths), readManifestSnapshot(ctx.grantPath)]);
   if (snapshot.state === 'missing') {
-    const attached = await attachedRoot(ctx.paths);
-    return { snapshot, attached, secondary: await readSecondaryGrant(ctx, attached), admitted: [], unavailable: [] };
+    return { snapshot, attached, secondary: await readSecondaryGrant(ctx, attached, grantSnapshot), admitted: [], unavailable: [] };
   }
   const document = snapshot.rawManifest;
   if (!record(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
     || document.installation_id !== ctx.identity.installation_id || document.data_id !== ctx.identity.data_id
     || !Array.isArray(document.admitted)) throw storeError();
-  const attached = await attachedRoot(ctx.paths);
-  const secondary = await readSecondaryGrant(ctx, attached);
+  const secondary = await readSecondaryGrant(ctx, attached, grantSnapshot);
   const seen = [], admitted = [], unavailable = [];
   for (const value of document.admitted) {
     assertAdmittedRowShape(value);
