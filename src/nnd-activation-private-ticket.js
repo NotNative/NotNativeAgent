@@ -72,7 +72,7 @@ export async function redeemNndPrivateTicket(endpoint, ticket, signal) {
 export async function probeNndPrivateTicketUnderOwnership(identity, state, serviceLease, registryLease, options) {
   assertSelected(identity, state, serviceLease, registryLease, options);
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(15000),
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(300000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       const before = await verifyNndPublishedTrialHealthUnderOwnership(identity, state,

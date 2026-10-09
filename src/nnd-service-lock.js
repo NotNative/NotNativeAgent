@@ -8,6 +8,9 @@ const LEASES = new WeakMap();
 // Why: discovery can chain three separately bounded cold Windows helper calls
 // under one singleton operation; the margin covers process scheduling.
 export const NND_LEASE_OPERATION_TIMEOUT_MS = 120000;
+// Why: a full installed activation verifies the selected slot and Windows
+// process/discovery evidence across multiple serial proof steps.
+const NND_LEASE_MAX_OPERATION_TIMEOUT_MS = 1800000;
 
 export function assertHeldNndServiceLease(lease, dataId) {
   const state = LEASES.get(lease);
@@ -18,7 +21,7 @@ export function assertHeldNndServiceLease(lease, dataId) {
 
 export async function withNndServiceLease(lease, dataId, operation,
     { timeoutMs = NND_LEASE_OPERATION_TIMEOUT_MS } = {}) {
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300000) throw lockError('nnd_lock_operation_limit', 'NND operation deadline is outside its bound.');
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > NND_LEASE_MAX_OPERATION_TIMEOUT_MS) throw lockError('nnd_lock_operation_limit', 'NND operation deadline is outside its bound.');
   assertHeldNndServiceLease(lease, dataId);
   const state = LEASES.get(lease);
   if (state.pending.size >= 8) throw lockError('nnd_lock_operation_limit', 'NND singleton operation capacity is exhausted.');

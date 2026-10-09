@@ -108,7 +108,7 @@ test('bounded operation cancellation retains ownership until the actual writer s
   await assert.rejects(acquireNndServiceLock({ dataRoot }), { code: 'nnd_service_already_running' });
   finish(); await closing;
   const next = await acquireNndServiceLock({ dataRoot }); await next.close();
-  await assert.rejects(withNndServiceLease(lease, lease.dataId, () => {}, { timeoutMs: 300001 }), { code: 'nnd_lock_operation_limit' });
+  await assert.rejects(withNndServiceLease(lease, lease.dataId, () => {}, { timeoutMs: 1800001 }), { code: 'nnd_lock_operation_limit' });
 });
 
 test('default singleton operations allow bounded private helper chains', async () => {

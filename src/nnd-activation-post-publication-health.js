@@ -200,8 +200,10 @@ export async function verifyNndPublishedTrialHealthUnderOwnership(identity, stat
   liveState(state, options);
   if (options.fetchImpl !== undefined && typeof options.fetchImpl !== 'function'
     || options.afterVerified !== undefined && typeof options.afterVerified !== 'function') throw invalid();
-  const timeoutMs = options.timeoutMs ?? 15000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) throw invalid();
+  // Why: selected-slot and Windows process/discovery proofs launch multiple
+  // private helpers. An installed payload can exceed the old 15-second budget.
+  const timeoutMs = options.timeoutMs ?? 180000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 180000) throw invalid();
   return withNndServiceLease(serviceLease, identity.data_id,
     leaseSignal => runManifestLeaseWork(registryLease, async () => {
       const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(timeoutMs),

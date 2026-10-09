@@ -124,7 +124,7 @@ export async function recordNndPrivateTicketUnderOwnership(identity, state, serv
   assertOwner(identity, state, serviceLease, registryLease, options);
   const place = location(identity, options.operationId);
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       const initial = await readNndActivationJournal({ ...identity, operation_id: options.operationId }, place.directory);
@@ -148,5 +148,5 @@ export async function recordNndPrivateTicketUnderOwnership(identity, state, serv
         generation: options.generation, publication_sha256: proof.journal_sha256,
         receipt_sha256: receipt.receipt_sha256 });
     } catch { throw invalid(); }
-  }), { timeoutMs: 300000 });
+  }), { timeoutMs: 600000 });
 }

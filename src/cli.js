@@ -25,6 +25,7 @@ import { runUpdateCommand } from './update-cli.js';
 import { runIntegrationCommand, runNndIntegrationCommand } from './integration-cli.js';
 import { runOpencodeCommand } from './opencode/cli-operation.js';
 import { installProcessFatalBoundary } from './process-fatal-boundary.js';
+import { cliErrorCode } from './cli-error-code.js';
 
 const fatalBoundary = installProcessFatalBoundary({
   logPath: (() => { try { return join(userDataPaths().logs, 'fatal.ndjson'); } catch { return null; } })(), version: VERSION,
@@ -145,7 +146,7 @@ try {
     process.stderr.write('nna: invalid_invocation\n'); process.exitCode = 2;
   }
 } catch (error) {
-  process.stderr.write(`nna: ${error.code ?? 'internal_failure'}\n`);
+  process.stderr.write(`nna: ${cliErrorCode(error)}\n`);
   process.exitCode = 2;
 } finally {
   fatalBoundary.dispose();

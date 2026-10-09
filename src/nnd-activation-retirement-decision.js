@@ -178,7 +178,7 @@ export async function recordNndExternalRetirementDecisionUnderOwnership(identity
   assertOwner(identity, serviceLease, registryLease, options);
   assertLive(state, identity, serviceLease, options);
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(180000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       await openInstallStore(identity, signal, { readOnly: true });

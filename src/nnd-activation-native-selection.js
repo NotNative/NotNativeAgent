@@ -26,7 +26,7 @@ export async function selectNndNativePrincipalUnderOwnership(identity, state, se
   }
   return withNndServiceLease(serviceLease, identity.data_id,
     leaseSignal => runManifestLeaseWork(registryLease, async () => {
-      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(180000),
         ...(options.signal ? [options.signal] : [])]);
       let selected;
       try {

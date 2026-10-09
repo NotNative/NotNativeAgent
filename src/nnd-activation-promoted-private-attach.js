@@ -43,10 +43,9 @@ export async function probeNndPromotedPrivateAttachUnderOwnership(identity, stat
   if (!identity || !state || !options || Object.keys(options).some(key =>
     !['operationId', 'stageOperationId', 'generation', 'signal'].includes(key))) throw invalid();
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    // Why: this block verifies full health twice, and each verification pays the
-    // cold Windows helper census (observed ~6 s each on this host). A 15-second
-    // budget fit only one, aborting the second after the ticket was redeemed.
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(60000),
+    // Why: the installed Windows helper census can take far longer than the
+    // synthetic fixture; both full health passes must fit before completion.
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       const receipt = await readNndPrivateTicketReceiptUnderOwnership(identity, serviceLease, registryLease, options);
@@ -70,5 +69,5 @@ export async function probeNndPromotedPrivateAttachUnderOwnership(identity, stat
         generation: options.generation, registration_revision: receipt.registration_revision,
         ticket_receipt_sha256: receipt.receipt_sha256, native_state: after.native_state });
     } catch { throw invalid(); }
-  }), { timeoutMs: 300000 });
+  }), { timeoutMs: 600000 });
 }

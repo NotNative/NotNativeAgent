@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:27694e0b3863d2dfd64d80bb492f5fc112ffc7848d46ea3aee16651118be6b88",
+  "source_digest": "sha256:ad1fe43ea8a91a7dfd25f8d69e6b63f9cb72da188c7b73fe36f6d10542084a51",
   "counts": {
-    "modules": 558,
+    "modules": 559,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 250
+      "module_count": 251
     }
   ],
   "entrypoints": [
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 753,
+      "import_count": 754,
       "module_count": 225
     },
     {
@@ -632,6 +632,12 @@
       "imports": []
     },
     {
+      "path": "src/cli-error-code.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/cli-options.js",
       "component": "foundation",
       "entrypoint": false,
@@ -645,6 +651,7 @@
       "component": "foundation",
       "entrypoint": true,
       "imports": [
+        "src/cli-error-code.js",
         "src/cli-options.js",
         "src/config.js",
         "src/gateway-cli.js",

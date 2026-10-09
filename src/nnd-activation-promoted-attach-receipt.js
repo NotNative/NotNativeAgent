@@ -62,7 +62,7 @@ export async function recordNndPromotedAttachUnderOwnership(identity, state, ser
   if (state?.identity !== identity || state.lease !== serviceLease
     || state.record?.instance_id !== options.generation) throw invalid();
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       const before = await observed(identity, serviceLease, registryLease, options);
@@ -88,5 +88,5 @@ export async function recordNndPromotedAttachUnderOwnership(identity, state, ser
         generation: options.generation, receipt_sha256: row.receipt_sha256,
         ticket_receipt_sha256: before.ticket.receipt_sha256 });
     } catch { throw invalid(); }
-  }), { timeoutMs: 300000 });
+  }), { timeoutMs: 600000 });
 }

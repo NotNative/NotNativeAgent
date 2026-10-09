@@ -146,6 +146,11 @@ test('held post-publication health confirms native GUI and gated controller with
   assert.equal(f.attachTickets, 0);
   assert.equal(f.state.published, false);
 });
+test('installed health budget stays bounded while admitting the Windows proof window', async () => {
+  const f = await fixture();
+  assert.equal((await f.run({ timeoutMs: 180000 })).state, 'published_healthy_unresolved');
+  await assert.rejects(f.run({ timeoutMs: 180001 }), { code: 'nnd_activation_health_invalid' });
+});
 test('private ticket receipt remains unresolved through repeated health checks', async () => {
   const f = await fixture();
   const before = await f.run();

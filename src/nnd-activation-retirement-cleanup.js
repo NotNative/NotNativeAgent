@@ -84,12 +84,12 @@ export async function cleanupNndRetirementEvidenceUnderOwnership(identity, state
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
     started = true;
     try {
-      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(120000), ...(options.signal ? [options.signal] : [])]);
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000), ...(options.signal ? [options.signal] : [])]);
       return await clean({ identity, state, serviceLease, registryLease, options, signal,
         place: retirementCleanupPaths(identity, options.operationId) });
     } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
     finally { ACTIVE.delete(serviceLease); }
-  }), { timeoutMs: 300000 }).catch(error => {
+  }), { timeoutMs: 600000 }).catch(error => {
     // Invariant: a timed-out registered operation owns ACTIVE until its actual filesystem work settles.
     if (!started) ACTIVE.delete(serviceLease);
     throw error;
@@ -106,7 +106,7 @@ export async function recordNndTerminalRetirementCommitUnderOwnership(identity, 
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
     started = true;
     try {
-      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
         ...(options.signal ? [options.signal] : [])]);
       const context = { identity, state, serviceLease, registryLease, options, signal,
         place: retirementCleanupPaths(identity, options.operationId) };
@@ -139,7 +139,7 @@ export async function recordNndTerminalRetirementCommitUnderOwnership(identity, 
         pointer_state: 'selected' });
     } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
     finally { ACTIVE.delete(serviceLease); }
-  }), { timeoutMs: 300000 }).catch(error => {
+  }), { timeoutMs: 600000 }).catch(error => {
     if (!started) ACTIVE.delete(serviceLease);
     throw error;
   });
@@ -217,7 +217,7 @@ export async function clearNndRetirementBarriersUnderOwnership(identity, state, 
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
     started = true;
     try {
-      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(60000),
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
         ...(options.signal ? [options.signal] : [])]);
       const context = { identity, state, serviceLease, registryLease, options, signal,
         place: retirementCleanupPaths(identity, options.operationId) };
@@ -252,7 +252,7 @@ export async function clearNndRetirementBarriersUnderOwnership(identity, state, 
         witness_sha256: hash(current.witnessBytes), terminal_sha256: current.expected.terminal_sha256 });
     } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
     finally { ACTIVE.delete(serviceLease); }
-  }), { timeoutMs: 300000 }).catch(error => {
+  }), { timeoutMs: 600000 }).catch(error => {
     if (!started) ACTIVE.delete(serviceLease);
     throw error;
   });
@@ -270,7 +270,7 @@ export async function verifyNndClearedAdmissionUnderOwnership(identity, state, s
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
     started = true;
     try {
-      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+      const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
         ...(options.signal ? [options.signal] : [])]);
       const context = { identity, state, serviceLease, registryLease, options, signal,
         place: retirementCleanupPaths(identity, options.operationId) };
@@ -289,7 +289,7 @@ export async function verifyNndClearedAdmissionUnderOwnership(identity, state, s
       } finally { CLEARED_ADMISSION_PROOFS.delete(proof); }
     } catch (cause) { throw new ContractError('nnd_activation_retirement_cleanup_invalid', invalid().message, { cause }); }
     finally { ACTIVE.delete(serviceLease); }
-  }), { timeoutMs: 300000 }).catch(error => {
+  }), { timeoutMs: 600000 }).catch(error => {
     if (!started) ACTIVE.delete(serviceLease);
     throw error;
   });

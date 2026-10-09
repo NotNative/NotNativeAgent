@@ -73,7 +73,7 @@ export async function recordNndCompletionUnderOwnership(identity, state, service
   if (state?.identity !== identity || state.lease !== serviceLease) throw invalid();
   assertLiveRetainedOwner(state, options);
   return withNndServiceLease(serviceLease, identity.data_id, leaseSignal => runManifestLeaseWork(registryLease, async () => {
-    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(30000),
+    const signal = AbortSignal.any([leaseSignal, AbortSignal.timeout(600000),
       ...(options.signal ? [options.signal] : [])]);
     try {
       const before = await observed(identity, serviceLease, registryLease, options);
@@ -96,5 +96,5 @@ export async function recordNndCompletionUnderOwnership(identity, state, service
         generation: options.generation, receipt_sha256: row.receipt_sha256,
         promoted_receipt_sha256: before.promoted.receipt_sha256 });
     } catch { throw invalid(); }
-  }), { timeoutMs: 300000 });
+  }), { timeoutMs: 600000 });
 }
