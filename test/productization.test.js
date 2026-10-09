@@ -450,7 +450,7 @@ test('Windows installer rejects an unsafe existing startup manifest before repla
       cwd: root, encoding: 'utf8', timeout: 10_000, env: { ...process.env, NNA_HOME: data },
     }) : null;
     assert.notEqual(result.status, 0, `installer reported success; launch status=${launch?.status}, stderr=${launch?.stderr}`);
-    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe\)[\s\S]*manifest\.json/u);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe helper=nnd_private_namespace_unsafe stage=manifest_file\)[\s\S]*manifest\.json/u);
     assert.equal(existsSync(app), false, 'unsafe manifest must stop installation before payload mutation');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -485,7 +485,7 @@ test('Windows installer rejects unsafe existing startup manifest storage before 
       '-SkipPlaywrightSetup', '-SkipGatewaySetup',
     ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
     assert.notEqual(result.status, 0, result.stdout);
-    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe\)[\s\S]*manifest\.json/u);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe helper=nnd_private_acl_unsafe stage=storage_directory\)[\s\S]*manifest\.json/u);
     assert.equal(existsSync(app), false, 'unsafe manifest storage must stop installation before payload mutation');
   } finally { await rm(root, { recursive: true, force: true }); }
 });

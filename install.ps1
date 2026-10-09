@@ -471,22 +471,28 @@ Write-InstallerOk "Node.js v$NodeVersion ($NodeSource)"
 Write-InstallerLine "      $NodePath" DarkGray
 Initialize-Ripgrep
 $StartupManifestPath = Join-Path $DataRoot 'config\manifest.json'
-$ManifestCheck = "import { pathToFileURL } from 'node:url'; import { join } from 'node:path'; try { const { manifestTarget } = await import(pathToFileURL(join(process.argv[1], 'src', 'persistence', 'manifest-files.js'))); await manifestTarget(process.argv[2]); } catch (error) { console.log(error?.code ?? 'manifest_check_unavailable'); process.exitCode = 1; }"
+$ManifestCheck = "import { pathToFileURL } from 'node:url'; import { join } from 'node:path'; try { const { manifestTarget } = await import(pathToFileURL(join(process.argv[1], 'src', 'persistence', 'manifest-files.js'))); await manifestTarget(process.argv[2]); } catch (error) { console.log(JSON.stringify({code:error?.code ?? 'manifest_check_unavailable', helper:error?.manifestHelperCode ?? null, stage:error?.manifestCheckStage ?? null})); process.exitCode = 1; }"
 $ManifestCode = $null
+$ManifestDetail = ''
 for ($Attempt = 0; $Attempt -lt 2; $Attempt++) {
     $ManifestResult = & $NodePath --disable-warning=ExperimentalWarning --input-type=module -e $ManifestCheck $SourceRoot $StartupManifestPath
     $ManifestExitCode = $LASTEXITCODE
     if ($ManifestExitCode -eq 0) { $ManifestCode = $null; break }
-    $ManifestCode = if ($ManifestResult -is [string] -and $ManifestResult -match '^[a-z][a-z0-9_]{0,63}$') { $ManifestResult } else { 'manifest_check_unavailable' }
+    try { $ManifestFinding = [string]$ManifestResult | ConvertFrom-Json -ErrorAction Stop }
+    catch { $ManifestFinding = $null }
+    $ManifestCode = if ($ManifestFinding.code -match '^[a-z][a-z0-9_]{0,63}$') { [string]$ManifestFinding.code } else { 'manifest_check_unavailable' }
+    $ManifestDetail = ''
+    if ($ManifestFinding.helper -match '^nnd_private_[a-z_]{1,50}$') { $ManifestDetail += " helper=$($ManifestFinding.helper)" }
+    if ($ManifestFinding.stage -in @('request', 'ancestors', 'manifest_file', 'storage_directory', 'storage_entry')) { $ManifestDetail += " stage=$($ManifestFinding.stage)" }
     # Invariant: retry helper availability only; a rejected target never gets another admission attempt.
     if ($ManifestCode -ne 'manifest_target_unavailable') { break }
     if ($Attempt -eq 0) { Start-Sleep -Milliseconds 200 }
 }
 if ($ManifestCode) {
     if ($ManifestCode -in @('manifest_target_invalid', 'manifest_target_unsafe', 'manifest_filesystem_unsupported', 'manifest_storage_capacity')) {
-        throw "Unsafe NNA user data manifest target ($ManifestCode): $StartupManifestPath"
+        throw "Unsafe NNA user data manifest target ($ManifestCode$ManifestDetail): $StartupManifestPath"
     }
-    throw "NNA user data manifest check unavailable ($ManifestCode): $StartupManifestPath"
+    throw "NNA user data manifest check unavailable ($ManifestCode$ManifestDetail): $StartupManifestPath"
 }
 $GatewayStoppedForUpgrade = $false
 $OpencodeStoppedForUpgrade = $false

@@ -20,12 +20,15 @@ export function manifestFailure(code, persistence = 'unpublished') {
   return error;
 }
 const WINDOWS_DIRECTORY = PRIVATE_ACL_PROGRAM + String.raw`
+$checkStage = 'request'
 try {
   $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
   $parent = [IO.Path]::GetFullPath([string]$request.parent)
   $drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($parent))
   if ($drive.DriveType -ne [IO.DriveType]::Fixed) { throw 'nnd_private_path_invalid' }
+  $checkStage = 'ancestors'
   Assert-Ancestors $parent
+  $checkStage = 'manifest_file'
   if ([IO.File]::Exists([string]$request.target)) {
     $targetAcl = [IO.File]::GetAccessControl([string]$request.target)
     Assert-Acl $targetAcl $false
@@ -37,8 +40,10 @@ try {
     }
   }
   if (-not $request.prepareStorage) { [Console]::Out.WriteLine('{"ok":true}'); exit 0 }
+  $checkStage = 'storage_directory'
   Create-PrivateDirectory ([string]$request.storage)
   Assert-Directory ([string]$request.storage) $true
+  $checkStage = 'storage_entry'
   $count = 0
   foreach ($entry in [IO.Directory]::EnumerateFileSystemEntries([string]$request.storage)) {
     $count++
@@ -57,7 +62,14 @@ try {
     }
   }
   [Console]::Out.WriteLine('{"ok":true}')
-} catch { [Console]::Out.WriteLine('{"error_code":"nnd_private_path_invalid"}'); exit 1 }
+} catch {
+  $code = [string]$_.Exception.Message
+  if ($code -notin @('nnd_private_path_invalid', 'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe')) {
+    $code = 'nnd_private_storage_unavailable'
+  }
+  [Console]::Out.WriteLine((@{error_code=$code; check_stage=$checkStage} | ConvertTo-Json -Compress))
+  exit 1
+}
 `;
 
 export async function manifestTarget(path, { signal, prepareStorage = true } = {}) {
@@ -78,7 +90,10 @@ export async function manifestTarget(path, { signal, prepareStorage = true } = {
     catch (error) {
       // Invariant: helper unavailability cannot prove the path is unsafe or admit it.
       const unsafe = ['nnd_private_path_invalid', 'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe'];
-      throw manifestFailure(unsafe.includes(error?.code) ? 'manifest_target_unsafe' : 'manifest_target_unavailable');
+      const failure = manifestFailure(unsafe.includes(error?.code) ? 'manifest_target_unsafe' : 'manifest_target_unavailable');
+      failure.manifestHelperCode = error?.code;
+      failure.manifestCheckStage = error?.checkStage;
+      throw failure;
     }
   } else {
     const info = await statfs(parent);

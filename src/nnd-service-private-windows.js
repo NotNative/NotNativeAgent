@@ -114,7 +114,12 @@ export function runPrivateWindowsProgram(program, request, signal) {
       try { result = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return finish(failure('nnd_private_storage_unavailable')); }
       const allowed = ['nnd_private_path_invalid', 'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe',
         'nnd_discovery_conflict', 'nnd_discovery_invalid', 'nnd_discovery_busy', 'nnd_discovery_capacity'];
-      if (code !== 0) return finish(failure(allowed.includes(result?.error_code) ? result.error_code : 'nnd_private_storage_unavailable'));
+      if (code !== 0) {
+        const error = failure(allowed.includes(result?.error_code) ? result.error_code : 'nnd_private_storage_unavailable');
+        const stages = ['request', 'ancestors', 'manifest_file', 'storage_directory', 'storage_entry'];
+        if (stages.includes(result?.check_stage)) error.checkStage = result.check_stage;
+        return finish(error);
+      }
       finish(null, result);
     });
     child.stdin.end(input);

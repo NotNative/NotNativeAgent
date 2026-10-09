@@ -8,6 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, readLockedManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
+import { runPrivateWindowsProgram } from '../src/nnd-service-private-windows.js';
 
 async function fixture(t) {
   const parent = process.platform === 'win32' ? process.env.USERPROFILE : tmpdir();
@@ -76,6 +77,18 @@ test('Windows manifest admission reports an unavailable ACL helper separately fr
       {encoding:'utf8',timeout:5000});
     assert.equal(result.status,0,result.stderr);
     assert.equal(result.stdout,'manifest_target_unavailable');
+  });
+
+test('Windows private helper preserves a bounded check stage without treating an unknown error as unsafe',
+  {skip:process.platform!=='win32'}, async()=>{
+    await assert.rejects(runPrivateWindowsProgram(String.raw`
+      [Console]::Out.WriteLine('{"error_code":"unexpected_error","check_stage":"manifest_file"}')
+      exit 1
+    `, {}), error=>error.code==='nnd_private_storage_unavailable' && error.checkStage==='manifest_file');
+    await assert.rejects(runPrivateWindowsProgram(String.raw`
+      [Console]::Out.WriteLine('{"error_code":"nnd_private_acl_unsafe","check_stage":"untrusted_stage"}')
+      exit 1
+    `, {}), error=>error.code==='nnd_private_acl_unsafe' && error.checkStage===undefined);
   });
 
 for (const phase of ['before','after','foreign']) test(`prepared operation crash reconciles ${phase} publication`,async t=>{
