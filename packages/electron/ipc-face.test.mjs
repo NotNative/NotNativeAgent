@@ -200,6 +200,14 @@ test('native desktop alpha refuses local side effects before their IPC handlers 
     ['desktop_set_launch_at_login', { enabled: true }],
     ['desktop_updater_install', undefined],
     ['desktop_save_markdown_file', { defaultFileName: 'notes.md', content: 'unsafe' }],
+    ['desktop_read_file', { path: 'attachment.txt' }],
+    ['desktop_hosts_get', undefined],
+    ['desktop_ssh_instances_get', undefined],
+    ['desktopSshConfig', undefined],
+    ['desktopSshReadConfig', undefined],
+    ['desktopSshRefreshStatuses', undefined],
+    ['desktop_open_mini_chat', { mode: 'draft' }],
+    ['desktop_local_client_token_get', undefined],
     ['desktop_browser_register', undefined],
     ['desktop_future_mutation', undefined],
   ]) {
@@ -209,7 +217,6 @@ test('native desktop alpha refuses local side effects before their IPC handlers 
   }
   assert.deepEqual(effects, []);
   assert.equal((await local('desktop_get_boot_info')).ok, true);
-  assert.equal((await local('desktop_read_file', { path: 'attachment.txt' })).result, 'attachment');
 });
 
 test('updater IPC is restricted to the local main frame and delegates check/download', async () => {

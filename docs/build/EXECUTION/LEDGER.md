@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 native alpha desktop read boundary
+
+NND `20261009-12` closes legacy Electron IPC reads of arbitrary local files,
+saved hosts, SSH catalog/configuration/status, and the local client token in
+native alpha; it also fences Mini Chat creation. The boot configuration read
+remains available because the desktop renderer uses it to attach to the native
+service. The native IPC test exercised each refusal before its handler and the
+Electron suite passed (220 tests, 2 skips). A fresh source-installed
+`--native-attachments` journey observed the eight explicit read/mini-chat
+refusals from the installed desktop renderer, then passed file-only attachment
+delivery, service restart, desktop attachment, service lifetime, and stop.
+NND quality gates and artifact packaging passed. This narrows A5's shell
+surface; direct installed deep-link ingress and remaining shell effects still
+require their own checks.
+
 ## 2026-10-09 installed browser and desktop review visibility
 
 NND `20261009-11` / NNA `20261009-1` passed a fresh

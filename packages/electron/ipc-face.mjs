@@ -14,10 +14,7 @@ const NATIVE_ALPHA_ALLOWED_COMMANDS = new Set([
   'desktop_focus_window', 'desktop_is_window_fullscreen', 'desktop_set_window_title',
   'desktop_get_app_version', 'desktop_close_current_window', 'desktop_minimize_current_window',
   'desktop_toggle_current_window_maximized', 'desktop_get_current_window_state',
-  'desktop_set_window_pinned', 'desktop_read_file', 'desktop_hosts_get',
-  'desktop_ssh_instances_get', 'desktopSshConfig', 'desktopSshReadConfig',
-  'desktopSshRefreshStatuses', 'desktop_boot_config_get', 'desktop_open_mini_chat',
-  'desktop_local_client_token_get', 'desktop_notify', 'desktop_get_launch_at_login',
+  'desktop_set_window_pinned', 'desktop_boot_config_get', 'desktop_notify', 'desktop_get_launch_at_login',
   'desktop_retry_server', 'desktop_open_external', 'desktop_get_boot_info',
 ]);
 

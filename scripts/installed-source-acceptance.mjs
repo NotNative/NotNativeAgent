@@ -149,6 +149,9 @@ win.webContents.on('did-finish-load',async()=>{if(done||!win.webContents.getURL(
 phase('window_loaded');
 try{const result=await win.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,authenticated:(await response.json()).authenticated,token:window.__NOTNATIVE_CLIENT_TOKEN__||"",headers:window.__NOTNATIVE_RUNTIME_HEADERS__||{}}})()');
 if(result.status!==200||result.authenticated!==true||result.token||Object.keys(result.headers).length)throw Error('Desktop attach missing or bearer exposed');
+const ipc=await win.webContents.executeJavaScript('(async()=>{const invoke=window.__NOTNATIVE_DESKTOP_INVOKE__;const commands=["desktop_read_file","desktop_hosts_get","desktop_ssh_instances_get","desktopSshConfig","desktopSshReadConfig","desktopSshRefreshStatuses","desktop_open_mini_chat","desktop_local_client_token_get"];const results=[];for(const command of commands){const reply=await invoke(command,command==="desktop_read_file"?{path:"outside.txt"}:undefined);results.push({command,ok:reply.ok,error:reply.error})}return results})()');
+if(ipc.some(item=>item.ok!==false||item.error!=='native-alpha-desktop-action-unavailable'))throw Error('Native alpha desktop IPC exposed legacy local reads '+JSON.stringify(ipc));
+phase('native_ipc_reads_refused');
 ${browserProbeExpression ? `phase('desktop_probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('desktop_probe_complete');process.stdout.write('NND_DESKTOP_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
 finish(true)}catch(e){process.stderr.write(String(e));finish(false)}})});
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
