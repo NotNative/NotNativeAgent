@@ -3,6 +3,31 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-09 · Desktop setup probe timing · NND 20261009-3 / NNA 20261008-8
+
+The first desktop pre-configuration probe in `20261009-2` attached and read
+`setup_required`, but its 10-second repair-form wait expired just before the
+textarea rendered. A diagnostic rerun showed both native configuration and
+catalog endpoints returning 200 and the repair textarea present. The probe
+now uses the same 30-second bounded wait as browser setup. A focused rerun on
+the preserved disposable install passed all desktop assertions; the combined
+fresh installed journey remains pending.
+
+## 2026-10-09 · Installed desktop setup-required path · NND 20261009-2 / NNA 20261008-8
+
+The disposable no-manifest journey now opens the installed Electron door
+before Chromium configures NNA. It requires an authenticated desktop session,
+native `setup_required` and `unavailable` states, refusal of unconfigured
+session creation, a visible NNA configuration repair form, and service
+survival after desktop exit. The existing browser setup-to-turn journey then
+continues on the same fixture. This is candidate A2 evidence until the fresh
+installed run passes.
+
+NND `20261009-1` passed fresh installed setup-to-first-turn acceptance with
+the created session bound to the fixture root. The earlier timed-out fixture
+remains preserved for reliability investigation; a single pass does not prove
+the intermittent startup issue is eliminated.
+
 ## 2026-10-09 · Native first-turn workspace readiness · NND 20261009-1 / NNA 20261008-8
 
 An installed `20261008-32` setup run sent the first GUI text but created no

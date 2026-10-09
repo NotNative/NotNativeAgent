@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 desktop setup probe timing
+
+NND `20261009-3` extends the installed desktop repair-form wait from 10 to
+30 seconds, matching the existing browser probe. The `20261009-2` run reached
+authenticated setup-required desktop status and a 503 execution refusal, but
+the form appeared after the short probe deadline. A focused rerun using the
+preserved disposable install passed; the full fresh journey remains pending.
+
+## 2026-10-09 desktop pre-configuration acceptance
+
+NND `20261009-2` extends the same disposable installed journey with an
+Electron launch before any provider manifest exists. The desktop must attach
+to the setup-required native service, reject session creation, and expose the
+NNA configuration repair form without stopping the service. The browser then
+performs its existing configuration, first turn, reviewer, attachment, and
+restart journey. Fresh installed proof is pending for this candidate.
+
 ## 2026-10-09 native first-turn workspace readiness
 
 NND `20261009-1` prevents the internal `global` bootstrap directory from

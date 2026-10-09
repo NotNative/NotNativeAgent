@@ -189,6 +189,46 @@ export function setupBrowserProbe(workspaceRoot, providerPort) {
   })()`;
 }
 
+export function desktopSetupProbe() {
+  return `(async()=>{
+    const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    const response=await fetch('/api/v1/nnd/setup/status');
+    if(response.status!==200)throw Error('desktop setup status '+response.status);
+    const setup=await response.json();
+    if(setup.service_state!=='setup_required'||setup.execution_state!=='unavailable')
+      throw Error('desktop did not show setup-required authority '+JSON.stringify(setup));
+    const denied=await fetch('/api/session',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+    if(denied.status!==503)throw Error('desktop unconfigured execution was admitted '+denied.status);
+    let gear;for(let i=0;i<100;i++){
+      gear=document.querySelector('[data-testid="settings-gear"]');if(gear)break;await delay(100)}
+    if(!gear)throw Error('desktop settings control missing during setup');gear.click();
+    let page;for(let i=0;i<100;i++){
+      page=[...document.querySelectorAll('[data-testid="settings-window"] nav button')]
+        .find(button=>button.textContent?.trim()==='NNA configuration');
+      if(page)break;await delay(100)}
+    if(!page)throw Error('desktop NNA configuration page missing');page.click();
+    let repair;for(let i=0;i<300;i++){
+      repair=[...document.querySelectorAll('[data-testid="settings-window"] label')]
+        .find(label=>label.textContent?.includes('Repair document as JSON'))?.querySelector('textarea');
+      if(repair)break;await delay(100)}
+    if(!repair){const config=await fetch('/api/v1/nnd/configuration');
+      const catalog=await fetch('/api/v1/nnd/configuration/catalog');
+      const settingsText=document.querySelector('[data-testid="settings-window"]')?.textContent??'';
+      throw Error('desktop native repair form missing '+JSON.stringify({
+        config_status:config.status,catalog_status:catalog.status,
+        repair_text_present:settingsText.includes('Repair document as JSON'),
+        catalog_unavailable:settingsText.includes('Configuration catalog unavailable'),
+        textarea_labels:[...document.querySelectorAll('[data-testid="settings-window"] textarea')]
+          .map(item=>item.closest('label')?.textContent?.slice(0,100)),
+        repair_labels:[...document.querySelectorAll('[data-testid="settings-window"] label')]
+          .filter(item=>item.textContent?.toLowerCase().includes('repair')).map(item=>item.textContent?.slice(0,100)).slice(0,8),
+        alerts:[...document.querySelectorAll('[data-testid="settings-window"] [role="alert"]')]
+          .map(item=>item.textContent?.slice(0,120)).slice(0,5)}))}
+    return {service_state:setup.service_state,execution_state:setup.execution_state,
+      execution_status:denied.status,repair_visible:true};
+  })()`;
+}
+
 export function setupReloadComposerProbe() {
   const marker = `Installed setup text turn ${randomUUID()}`;
   return `(async()=>{

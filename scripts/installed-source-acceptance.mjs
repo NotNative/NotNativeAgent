@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, setupBrowserProbe, setupReloadComposerProbe, reviewBrowserProbe, desktopReviewProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, setupBrowserProbe, desktopSetupProbe, setupReloadComposerProbe, reviewBrowserProbe, desktopReviewProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -284,6 +284,13 @@ async function newFixture(nnaSource) {
   return prepare(nnaSource, root);
 }
 async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn, attachmentProvider }) {
+  if (nativeSetupTurn) {
+    const desktopSetup = await shell(fixture, 'desktop', status.endpoint, null, [], desktopSetupProbe());
+    assert.deepEqual(desktopSetup, { service_state: 'setup_required', execution_state: 'unavailable',
+      execution_status: 503, repair_visible: true });
+    assert.equal((await cli(fixture, 'status')).instance_id, status.instance_id,
+      'pre-configuration desktop exit must leave the native service alive');
+  }
   const ticket = (await cli(fixture, 'ui-ticket')).ticket;
   const scenarioModule = nativeReplayGap ? join(fixture.root, 'native-replay-gap-browser.mjs') : null;
   if (scenarioModule) await cp(join(source, 'scripts/electron-native-replay-gap-browser.mjs'), scenarioModule);
