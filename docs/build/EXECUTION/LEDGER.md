@@ -18,6 +18,16 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 secondary native alpha entry points
+
+NND `20261008-28` adds the desktop update installer to the installed
+mutation fence and enumerates literal NND-owned mutation registrations in a
+source test. The main GUI closes scheduled-task/file-open event paths,
+sidebar fusion, and feature panes on native alpha entry. The disposable
+installed run checks both secondary events and the update refusal; dynamic
+route registrations, private callbacks, and settings controls remain under
+A5 audit.
+
 ## 2026-10-08 installed native alpha mutation boundary
 
 NND `20261008-27` adds a server-side mutation fence for NND-owned file, Git,

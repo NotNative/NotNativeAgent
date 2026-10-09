@@ -37,6 +37,11 @@ export function attachmentBrowserProbe() {
       || !document.querySelector('[data-testid="git-toggle"]')?.disabled
       || !document.querySelector('[data-testid="files-toggle"]')?.disabled)
       throw Error('installed native alpha controls were not marked unavailable');
+    window.dispatchEvent(new Event('nnd:scheduled-tasks-open'));
+    window.dispatchEvent(new CustomEvent('nnd:files-open',{detail:{directory:'C:/untrusted',path:'outside.txt'}}));
+    await new Promise(resolve=>setTimeout(resolve,100));
+    if(document.querySelector('[data-testid="scheduled-tasks-dialog"],[data-testid="files-view"]'))
+      throw Error('installed native alpha secondary entry opened an unavailable surface');
     const terminal=await fetch('/api/terminal/shells');
     if(terminal.status!==409||(await terminal.json()).code!=='native_terminal_unavailable')
       throw Error('installed native terminal was available');
@@ -44,7 +49,8 @@ export function attachmentBrowserProbe() {
     if(spawn.status!==409||(await spawn.json()).code!=='native_terminal_unavailable')
       throw Error('installed native PTY creation was available');
     for(const path of ['/api/fs/write','/api/git/commit','/api/git/worktrees',
-      '/api/message-queue/sessions/untrusted/items','/api/openchamber/tunnel/start']){
+      '/api/message-queue/sessions/untrusted/items','/api/openchamber/tunnel/start',
+      '/api/notnative/update-install']){
       const refused=await post(path,{});
       if(refused.status!==409||(await refused.json()).code!=='native_alpha_surface_unavailable')
         throw Error('installed native alpha mutation was available '+path+' '+refused.status);

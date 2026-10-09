@@ -11,6 +11,7 @@ const CLOSED_FAMILIES = [
   '/api/small-model', '/api/push', '/api/client-auth',
   '/api/config/skills', '/api/config/mcp', '/api/config/snippets',
   '/api/notnative/settings', '/api/config/settings', '/api/config/reload',
+  '/api/notnative/update-install',
   '/api/system/probe-url', '/api/browser-control',
 ] as const;
 

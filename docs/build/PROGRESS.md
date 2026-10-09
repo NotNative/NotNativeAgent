@@ -3,6 +3,16 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Secondary alpha entry points · NND 20261008-28 / NNA 20261008-8
+
+The installed mutation boundary now includes the desktop update installer.
+A source route inventory test requires every literal NND-owned mutation route
+to be fenced or explicitly identified as an earlier auth/private-callback or
+terminal gate. Scheduled-task and file-open events, sidebar fusion, and
+already-open feature panes are closed when the GUI enters native alpha mode.
+Installed acceptance checks the secondary events and update-install refusal.
+Dynamic and private callback routes and settings controls remain under A5 audit.
+
 ## 2026-10-08 · Installed alpha mutation boundary · NND 20261008-27 / NNA 20261008-8
 
 The installed NNA-owned service now rejects NND-owned Git, file, queue,

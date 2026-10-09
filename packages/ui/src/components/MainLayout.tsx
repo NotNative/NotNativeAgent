@@ -87,21 +87,29 @@ export function MainLayout(): ReactNode {
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [multiRunOpen, setMultiRunOpen] = useState(false);
   const [fusionTarget, setFusionTarget] = useState<{ trigger: Session; identity: NonNullable<ReturnType<typeof fusionIdentityFromSession>> } | null>(null);
-  const openScheduled = useCallback(() => setScheduledOpen(true), []);
+  const openScheduled = useCallback(() => { if (!nativeAlpha) setScheduledOpen(true); }, [nativeAlpha]);
   const closeScheduled = useCallback(() => setScheduledOpen(false), []);
   const closeMultiRun = useCallback(() => setMultiRunOpen(false), []);
   const openFusion = useCallback((session: Session) => {
+    if (nativeAlpha) return;
     const identity = fusionIdentityFromSession(session);
     if (identity === null) return;
     setFusionTarget({ trigger: session, identity });
-  }, []);
+  }, [nativeAlpha]);
   const closeFusion = useCallback(() => setFusionTarget(null), []);
   const openEditorFile = useCallback((directory: string, path: string) => {
+    if (nativeAlpha) return;
     setReviewPane('');
     setFilesOpen(true);
     useFilesViewTabsStore.getState().setSelectedPath(directory, path, getRuntimeKey());
-  }, []);
+  }, [nativeAlpha]);
   useScheduledShellWiring(openScheduled, openEditorFile);
+
+  useEffect(() => {
+    if (!nativeAlpha) return;
+    setFilesOpen(false); setReviewPane(''); setWorktreesOpen(false);
+    setScheduledOpen(false); setMultiRunOpen(false); setFusionTarget(null);
+  }, [nativeAlpha]);
 
   useEffect(() => {
     bindSettingsBridge();
@@ -447,7 +455,7 @@ export function MainLayout(): ReactNode {
             onOpenSession={actions.openSession} onRestore={actions.restore} onDelete={actions.deleteSession} />
         ) : (
           <>
-            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} onRunFusion={openFusion} />
+            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} onRunFusion={nativeAlpha ? undefined : openFusion} />
             <ChatView services={services} currentDirectory={activeDirectory} />
           </>
         )) : null}
