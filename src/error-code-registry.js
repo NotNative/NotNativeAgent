@@ -322,7 +322,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
   ]),
   persistence: Object.freeze([
     'manifest_lock_invalid', 'manifest_lock_unavailable', 'manifest_lock_busy', 'manifest_lock_capacity',
-    'manifest_target_invalid', 'manifest_target_unsafe', 'manifest_filesystem_unsupported',
+    'manifest_target_invalid', 'manifest_target_unsafe', 'manifest_target_unavailable', 'manifest_filesystem_unsupported',
     'manifest_storage_capacity', 'manifest_size_invalid', 'manifest_receipt_invalid',
     'manifest_receipt_ambiguous', 'manifest_operation_conflict', 'manifest_receipt_capacity',
     'manifest_request_invalid', 'manifest_revision_conflict', 'manifest_publication_failed',

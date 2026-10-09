@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile, readFile, chmod, link } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, readLockedManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
@@ -65,6 +65,18 @@ test('hardlinked manifests are refused rather than splitting ownership',async t=
   const path=await fixture(t);await writeFile(path,'{}');await link(path,path+'.alias');
   await assert.rejects(readManifestSnapshot(path),{code:'manifest_target_unsafe'});
 });
+test('Windows manifest admission reports an unavailable ACL helper separately from an unsafe target',
+  {skip:process.platform!=='win32'}, async t=>{
+    const path=await fixture(t),module=new URL('../src/persistence/manifest-files.js',import.meta.url).href;
+    const source=`import {manifestTarget} from ${JSON.stringify(module)};
+      process.env.SystemRoot=${JSON.stringify(join(path,'missing-windows-root'))};
+      try { await manifestTarget(${JSON.stringify(path)}); process.stdout.write('admitted'); }
+      catch(error) { process.stdout.write(error.code ?? 'unknown'); }`;
+    const result=spawnSync(process.execPath,['--input-type=module','-e',source],
+      {encoding:'utf8',timeout:5000});
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(result.stdout,'manifest_target_unavailable');
+  });
 
 for (const phase of ['before','after','foreign']) test(`prepared operation crash reconciles ${phase} publication`,async t=>{
   const path=await fixture(t);await writeFile(path,'{"before":true}\n');

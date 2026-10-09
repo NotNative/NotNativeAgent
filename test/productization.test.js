@@ -450,7 +450,7 @@ test('Windows installer rejects an unsafe existing startup manifest before repla
       cwd: root, encoding: 'utf8', timeout: 10_000, env: { ...process.env, NNA_HOME: data },
     }) : null;
     assert.notEqual(result.status, 0, `installer reported success; launch status=${launch?.status}, stderr=${launch?.stderr}`);
-    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data[\s\S]*manifest\.json/u);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe\)[\s\S]*manifest\.json/u);
     assert.equal(existsSync(app), false, 'unsafe manifest must stop installation before payload mutation');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -485,8 +485,40 @@ test('Windows installer rejects unsafe existing startup manifest storage before 
       '-SkipPlaywrightSetup', '-SkipGatewaySetup',
     ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
     assert.notEqual(result.status, 0, result.stdout);
-    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data[\s\S]*manifest\.json/u);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe\)[\s\S]*manifest\.json/u);
     assert.equal(existsSync(app), false, 'unsafe manifest storage must stop installation before payload mutation');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Windows installer retries an unavailable manifest check once before payload staging', {
+  skip: process.platform !== 'win32', timeout: 30_000,
+}, async () => {
+  const root = await mkdtemp(join(homedir(), 'nna-manifest-check-retry-'));
+  const source = join(root, 'source');
+  const counter = join(root, 'manifest-check-count');
+  const app = join(root, 'app');
+  const data = join(root, 'home', '.nna');
+  try {
+    await mkdir(join(source, 'src', 'persistence'), { recursive: true });
+    await writeFile(join(source, 'package.json'), JSON.stringify({ name: 'not-native-agent', nna_version: VERSION, type: 'module' }));
+    await writeFile(join(source, 'src', 'persistence', 'manifest-files.js'), `
+      import { readFile, writeFile } from 'node:fs/promises';
+      export async function manifestTarget() {
+        const count = Number(await readFile(${JSON.stringify(counter)}, 'utf8').catch(() => '0')) + 1;
+        await writeFile(${JSON.stringify(counter)}, String(count));
+        if (count === 1) { const error = new Error('helper unavailable'); error.code = 'manifest_target_unavailable'; throw error; }
+      }
+    `);
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(projectRoot, 'install.ps1'),
+      '-SourceRoot', source, '-InstallRoot', app, '-DataRoot', data,
+      '-SkipPathUpdate', '-SkipDependencyInstall', '-SkipRipgrepSetup', '-SkipProviderSetup',
+      '-SkipPlaywrightSetup', '-SkipGatewaySetup',
+    ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
+    assert.equal(await readFile(counter, 'utf8'), '2', result.stderr);
+    assert.match(result.stdout, /Application payload/u);
+    assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest|manifest check unavailable/u);
+    assert.notEqual(result.status, 0, 'the minimal test source intentionally has no installable payload');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

@@ -75,7 +75,11 @@ export async function manifestTarget(path, { signal, prepareStorage = true } = {
   const storage = join(parent, `.nna-manifest-${digest(key)}`);
   if (process.platform === 'win32') {
     try { await runPrivateWindowsProgram(WINDOWS_DIRECTORY, { parent, storage, target: canonical, prepareStorage }, signal); }
-    catch { throw manifestFailure('manifest_target_unsafe'); }
+    catch (error) {
+      // Invariant: helper unavailability cannot prove the path is unsafe or admit it.
+      const unsafe = ['nnd_private_path_invalid', 'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe'];
+      throw manifestFailure(unsafe.includes(error?.code) ? 'manifest_target_unsafe' : 'manifest_target_unavailable');
+    }
   } else {
     const info = await statfs(parent);
     // Security: admit known local filesystem families; unknown/network mounts fail closed.
