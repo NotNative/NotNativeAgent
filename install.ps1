@@ -394,32 +394,36 @@ if ($Uninstall) {
     $uninstallNna = Get-InstalledNna
     if (!$uninstallNna) { throw 'Cannot verify native service ownership. Restore the selected NNA runtime before uninstalling NND.' }
     $runningExe = $ElectronExe
-    $uninstallCapabilities = $null
+    $uninstallCapabilities = Assert-NndNnaCapabilities $uninstallNna
+    Assert-NndSelectedPin $uninstallNna $uninstallCapabilities
     if (Test-Path -LiteralPath (Join-Path $targetPath 'nnd-anchor.json') -PathType Leaf) {
-        $uninstallCapabilities = Assert-NndNnaCapabilities $uninstallNna
-        Assert-NndSelectedPin $uninstallNna $uninstallCapabilities
         $uninstallAnchor = Resolve-NndPrebuiltAnchorForUninstall $targetPath $uninstallNna $uninstallCapabilities
         $uninstallPackageRoot = $uninstallAnchor.root
         $uninstallPackageVersion = $uninstallAnchor.version
         $runningExe = Join-Path $uninstallPackageRoot 'packages\electron\node_modules\electron\dist\electron.exe'
     } else {
         $uninstallPackageRoot = $targetPath
+        $versionFile = Join-Path $targetPath 'VERSION'
+        if (!(Test-Path -LiteralPath $versionFile -PathType Leaf)) { throw 'Selected NND version is unavailable; removal was not attempted.' }
+        $uninstallPackageVersion = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+        if ($uninstallPackageVersion -cnotmatch '^\d{8}-[1-9]\d{0,5}$') { throw 'Selected NND version is invalid; removal was not attempted.' }
     }
     if (Test-InstallRunning $runningExe) {
         Write-Host "  NOT deleted: the app is running from $runningExe (its electron.exe is locked while alive)." -ForegroundColor Yellow
         Write-Host "  quit it from the tray menu, then re-run -Uninstall." -ForegroundColor Yellow
         exit 2
     }
+    $preStopStatus = Get-NndRegistrationStatus $uninstallNna
+    Assert-NndUninstallRegistrationStatus $preStopStatus $uninstallPackageRoot $uninstallPackageVersion
+    Request-NndServiceStopForUninstall $uninstallNna (Join-Path $Source 'scripts\installer-wait-stopped.mjs')
     $uninstallGuard = Start-NndInstallationGuard $uninstallNna
     $uninstallComplete = $false
     try {
     # Do not delete an installed package while NNA still points at it. A
     # failed deactivation leaves the install intact for an explicit retry.
     $uninstallStatus = Get-NndRegistrationStatus $uninstallNna
-    if ($uninstallCapabilities) {
-        Assert-NndUninstallRegistrationStatus $uninstallStatus $uninstallPackageRoot $uninstallPackageVersion
-        Assert-NndUninstallGuardIdentity $uninstallGuard $uninstallCapabilities
-    }
+    Assert-NndUninstallRegistrationStatus $uninstallStatus $uninstallPackageRoot $uninstallPackageVersion
+    Assert-NndUninstallGuardIdentity $uninstallGuard $uninstallCapabilities
     if (Test-InstallRunning $runningExe) { throw 'NND started from the selected install during uninstall; removal was stopped.' }
     Invoke-NndRegistration 'deactivate' $uninstallPackageRoot $uninstallNna
     if (Test-InstallRunning $runningExe) { throw 'NND started during deactivation; the anchor and registration evidence were preserved.' }

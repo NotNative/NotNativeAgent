@@ -18,6 +18,19 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 installed removal candidate
+
+NND `20261009-5` made source uninstall request a stop from the selected NNA
+after checking the exact registered package. Its fresh installed removal run
+reached the native guard before the service released its lock; the guard refused
+and the fixture was preserved at
+`C:\Users\Mongrel\nnd-installed-acceptance-fixtures\installed-accept-9466624d012543ae`.
+NND `20261009-6` adds a bounded selected-identity lock-release wait before
+the guard. A focused start/stop/wait run passed against the preserved fixture;
+the full fresh installed removal journey remains pending. The fixture checks
+service, registration, shortcuts, and package removal while comparing NNA
+runtime/configuration bytes and retained NND user data.
+
 ## 2026-10-09 desktop setup probe timing
 
 NND `20261009-3` extends the installed desktop repair-form wait from 10 to

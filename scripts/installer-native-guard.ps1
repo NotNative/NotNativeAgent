@@ -3,6 +3,25 @@ function ConvertTo-NndNativeArgument([string]$Value) {
     if ($Value.Contains('"') -or $Value.Contains([char]0)) { throw 'Invalid native command argument.' }
     return '"' + [regex]::Replace($Value, '(\\+)$', '$1$1') + '"'
 }
+function Request-NndServiceStopForUninstall($SelectedNna, [string]$WaitHelper) {
+    $previousHome = $env:NNA_HOME
+    $previousPreference = $ErrorActionPreference
+    $env:NNA_HOME = $SelectedNna.DataRoot
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $SelectedNna.Node $SelectedNna.Cli nnd service stop $SelectedNna.InstallRoot | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            # A service that was already stopped also has no controller. The
+            # installation guard below is the authority for quiescence.
+            Write-Host '  NNA did not return a stop receipt; verifying exclusive native ownership before removal.' -ForegroundColor Yellow
+        }
+        & $SelectedNna.Node $WaitHelper $SelectedNna.InstallRoot $SelectedNna.DataRoot | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Selected NNA service did not quiesce; NND removal was not attempted.' }
+    } finally {
+        $ErrorActionPreference = $previousPreference
+        $env:NNA_HOME = $previousHome
+    }
+}
 function Start-NndInstallationGuard($SelectedNna) {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $SelectedNna.Node

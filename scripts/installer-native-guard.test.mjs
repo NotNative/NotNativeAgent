@@ -7,6 +7,17 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createSupervisedFixture, removeSupervisedFixture } from './supervised-smoke-fixture.mjs';
 import { withTimeout } from './smoke-http.mjs';
+import { waitForSelectedNndStop } from './installer-wait-stopped.mjs';
+
+test('uninstall stop wait verifies the selected NNA identity and free service lock',
+  { skip: process.platform !== 'win32' || !process.env.NND_TEST_NNA_SOURCE }, async t => {
+    const fixture = await createSupervisedFixture(resolve(process.env.NND_TEST_NNA_SOURCE), resolve('.'));
+    t.after(() => removeSupervisedFixture(fixture.root));
+    const stopped = await waitForSelectedNndStop(fixture.install, fixture.data);
+    assert.equal(stopped.stopped, true);
+    await assert.rejects(waitForSelectedNndStop(fixture.install, fixture.root),
+      /selected_service_identity_changed/u);
+  });
 
 test('PowerShell installer holds native ownership through mutation and explicitly releases it',
   { skip: process.platform !== 'win32' || !process.env.NND_TEST_NNA_SOURCE }, async (t) => {

@@ -273,6 +273,34 @@ async function restartAttachmentService(fixture, prior, result, requests) {
   assert.equal(requests.length, requestCount, 'restarted retry must not call the provider');
   return restarted;
 }
+async function runRemovalJourney(fixture) {
+  const sourceManifest = join(fixture.data, 'config', 'manifest.json');
+  const nativeDescriptor = join(fixture.nna, 'install.json');
+  const nativeCli = fixture.cli;
+  const desktopData = join(fixture.root, '.notnative-desktop');
+  await mkdir(desktopData, { recursive: true });
+  const retainedData = join(desktopData, 'uninstall-preservation.txt');
+  await writeFile(retainedData, 'NND data stays unless purge is explicit\n');
+  const before = await Promise.all([readFile(sourceManifest), readFile(nativeDescriptor), readFile(nativeCli)]);
+  for (const location of ['Desktop', 'StartMenu']) {
+    assert.equal((await lstat(join(fixture.shortcuts, location, 'NotNativeDesktop.lnk'))).isFile(), true);
+  }
+  await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+    join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
+    '-ShortcutRoot', fixture.shortcuts, '-Uninstall'], { cwd: fixture.root, env: fixture.env,
+      timeout: 180000, outputFiles: { stdout: join(fixture.root, 'uninstaller-stdout.log'),
+        stderr: join(fixture.root, 'uninstaller-stderr.log') } });
+  await waitStopped(fixture);
+  assert.deepEqual(await selectedPackage(fixture), { registered: false });
+  await assert.rejects(lstat(fixture.nnd), { code: 'ENOENT' });
+  for (const location of ['Desktop', 'StartMenu']) {
+    await assert.rejects(lstat(join(fixture.shortcuts, location, 'NotNativeDesktop.lnk')), { code: 'ENOENT' });
+  }
+  for (const [index, path] of [sourceManifest, nativeDescriptor, nativeCli].entries()) {
+    assert.deepEqual(await readFile(path), before[index], `${path} changed during NND removal`);
+  }
+  assert.equal(await readFile(retainedData, 'utf8'), 'NND data stays unless purge is explicit\n');
+}
 async function newFixture(nnaSource) {
   assert.equal(process.platform, 'win32', 'Windows acceptance only');
   assert.ok(isAbsolute(nnaSource), 'Provide an absolute NNA source root');
@@ -333,13 +361,14 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
   assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');
 }
 async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false, nativeSetupTurn = false,
-  malformedSource = false) {
+  malformedSource = false, nativeRemoval = false) {
   const fixture = await newFixture(nnaSource); const root = fixture.root;
   let serviceStopped = false; let accepted = false;
   let attachmentProvider;
   try {
     if (nativeAttachments || nativeSetupTurn) attachmentProvider = await startAttachmentProvider();
-    if (nativeReplayGap || nativeAttachments) await writeProbeManifest(fixture, nativeAttachments, attachmentProvider?.port);
+    if (nativeReplayGap || nativeAttachments || nativeRemoval) await writeProbeManifest(fixture,
+      nativeAttachments || nativeRemoval, attachmentProvider?.port);
     await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
       join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
       '-ShortcutRoot', fixture.shortcuts], { cwd: root, env: fixture.env, timeout: 900000,
@@ -369,9 +398,11 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     assert.equal(status.package_version, packageVersion);
     await runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn,
       malformedSource, attachmentProvider });
-    await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true;
+    if (nativeRemoval) await runRemovalJourney(fixture);
+    else { await cli(fixture, 'stop'); await waitStopped(fixture); }
+    serviceStopped = true;
     accepted = true;
-    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeSetupTurn ? `, ${malformedSource ? 'malformed-source repair' : 'fresh native setup'} and first turn` : ''}${nativeAttachments || nativeSetupTurn ? ', file-only composer delivery and service restart recovery' : ''}, desktop attach and service lifetime passed.\n`);
+    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeSetupTurn ? `, ${malformedSource ? 'malformed-source repair' : 'fresh native setup'} and first turn` : ''}${nativeAttachments || nativeSetupTurn ? ', file-only composer delivery and service restart recovery' : ''}${nativeRemoval ? ', native-owned removal and preserved state' : ''}, desktop attach and service lifetime passed.\n`);
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
@@ -387,9 +418,9 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (![3, 4].includes(process.argv.length) || process.argv.length === 4
-    && !['--native-replay-gap', '--native-attachments', '--native-setup-turn', '--native-malformed-setup-turn'].includes(process.argv[3]))
-    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments|--native-setup-turn|--native-malformed-setup-turn]');
+    && !['--native-replay-gap', '--native-attachments', '--native-setup-turn', '--native-malformed-setup-turn', '--native-removal'].includes(process.argv[3]))
+    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments|--native-setup-turn|--native-malformed-setup-turn|--native-removal]');
   await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap', process.argv[3] === '--native-attachments',
     ['--native-setup-turn', '--native-malformed-setup-turn'].includes(process.argv[3]),
-    process.argv[3] === '--native-malformed-setup-turn');
+    process.argv[3] === '--native-malformed-setup-turn', process.argv[3] === '--native-removal');
 }
