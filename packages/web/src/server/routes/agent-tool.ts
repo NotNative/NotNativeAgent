@@ -7,6 +7,7 @@ import { AGENT_TOOL_BODY_MAX_BYTES } from '../agent-tool/memory-render.ts';
 import { announceAgentMemoryChange } from '../agent-tool/memory-events.ts';
 import { resolveMemoryOwnership, type OwnershipInputs } from '../project-context/agent-memory-ownership.ts';
 import type { AgentMemoryScope } from '../project-context/agent-memory.ts';
+import { nativeAlphaMutationUnavailable, nativeAlphaUnavailableResponse } from './native-alpha-surface.ts';
 
 function secretMatches(actual: string | undefined, expected: string): boolean {
   if (!actual || !expected) return false;
@@ -91,6 +92,7 @@ export function registerAgentToolCallback(app: Hono, secret: string): void {
     if (!secretMatches(bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined, secret)) {
       return c.json({ error: 'managed tool callback credential is invalid' }, 401);
     }
+    if (nativeAlphaMutationUnavailable(c.req.method, c.req.path)) return nativeAlphaUnavailableResponse(c);
     const body = await readBoundedObjectBody(c.req.raw, AGENT_TOOL_BODY_MAX_BYTES);
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return c.json({ error: 'managed tool callback must be a JSON object' }, 400);

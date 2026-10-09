@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../app.ts';
 import { nativeAlphaMutationUnavailable } from '../routes/native-alpha-surface.ts';
+import { BrowserControlBroker } from '../preview/browser-control-broker.ts';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -14,7 +15,8 @@ it('closes NND-owned mutations but leaves native chat, setup, review, and reads 
   for (const path of ['/api/fs/write', '/api/git/commit', '/api/git/worktrees',
     '/api/message-queue/sessions/s1/items', '/api/projects/p1/scheduled-tasks/task/run',
     '/api/project-context/p1/notes', '/api/config/skills/install', '/api/openchamber/tunnel/start',
-    '/api/notnative/update-install']) {
+    '/api/notnative/update-install', '/api/openchamber/update-install',
+    '/api/browser-control/request', '/api/agent-tool/callback']) {
     expect(nativeAlphaMutationUnavailable('POST', path), path).toBe(true);
   }
   for (const path of ['/api/session', '/api/session/s1/prompt_async', '/api/file',
@@ -29,12 +31,37 @@ it('refuses installed Git, file, and queue mutations before their handlers run',
   vi.stubEnv('NOTNATIVE_RUNTIME', 'service');
   vi.stubEnv('NOTNATIVE_HARNESS', 'nna');
   const app = createApp();
-  for (const path of ['/api/fs/write', '/api/git/commit', '/api/message-queue/sessions/s1/items']) {
+  for (const path of ['/api/fs/write', '/api/git/commit', '/api/message-queue/sessions/s1/items',
+    '/api/openchamber/update-install']) {
     const response = await app.request(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     expect(response.status, path).toBe(409);
     expect(await response.json()).toMatchObject({ code: 'native_alpha_surface_unavailable' });
     expect(response.headers.get('cache-control')).toBe('no-store');
   }
+});
+
+it('refuses authenticated private callbacks before NND-owned effects in the native alpha', async () => {
+  vi.stubEnv('NOTNATIVE_RUNTIME', 'service');
+  vi.stubEnv('NOTNATIVE_HARNESS', 'nna');
+  const broker = new BrowserControlBroker();
+  const app = createApp({ browserControl: broker, browserCallbackSecret: 'browser-secret',
+    agentToolCallbackSecret: 'agent-secret' });
+  expect((await app.request('/api/browser-control/request', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: '{}' })).status).toBe(401);
+  expect((await app.request('/api/agent-tool/callback', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: '{}' })).status).toBe(401);
+  const browser = await app.request('/api/browser-control/request', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-nnd-browser-token': 'browser-secret' },
+    body: JSON.stringify({ action: 'browser.open', parameters: { url: 'https://example.org/' } }) });
+  expect(browser.status).toBe(409);
+  expect(await browser.json()).toMatchObject({ code: 'native_alpha_surface_unavailable' });
+  const memory = await app.request('/api/agent-tool/callback', { method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer agent-secret' },
+    body: JSON.stringify({ tool: 'openchamber_memory', input: { action: 'memory.save', parameters: {
+      title: 'Would mutate', body: 'denied', scope: 'global' } } }) });
+  expect(memory.status).toBe(409);
+  expect(await memory.json()).toMatchObject({ code: 'native_alpha_surface_unavailable' });
+  broker.dispose();
 });
 
 it('retains development and mock mutations', () => {

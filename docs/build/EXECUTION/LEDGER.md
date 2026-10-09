@@ -18,6 +18,16 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 dynamic and private native alpha routes
+
+NND `20261008-32` adds the dynamically registered OpenChamber desktop-update
+install alias to the native mutation fence. Private browser-control and
+agent-memory tool callbacks are registered before the shared API gate; after
+their independent secret check they now refuse native-alpha side effects.
+Focused tests cover both callback credentials and refusal. Disposable installed
+acceptance adds the second update alias; settings and non-route effects remain
+open for A5.
+
 ## 2026-10-08 desktop-originated reviewer acceptance
 
 NND `20261008-31` extends the disposable source-installed native journey from

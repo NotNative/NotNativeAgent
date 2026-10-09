@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:24c2dccbaf6a9903be30d4e5b1765213e0c4097439b90c90b40b555f622eb2e4",
+  "source_digest": "sha256:7e02a7cbda5c0e69752cdfdaeee0322bc8673e4d49565101bccc05e01bb2b949",
   "counts": {
     "modules": 855,
     "component_edges": 17
@@ -6768,7 +6768,8 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts",
-        "packages/web/src/server/preview/browser-control-broker.ts"
+        "packages/web/src/server/preview/browser-control-broker.ts",
+        "packages/web/src/server/routes/native-alpha-surface.ts"
       ]
     },
     {
@@ -7099,7 +7100,8 @@
         "packages/web/src/server/agent-tool/memory-events.ts",
         "packages/web/src/server/agent-tool/memory-render.ts",
         "packages/web/src/server/project-context/agent-memory-ownership.ts",
-        "packages/web/src/server/project-context/agent-memory.ts"
+        "packages/web/src/server/project-context/agent-memory.ts",
+        "packages/web/src/server/routes/native-alpha-surface.ts"
       ]
     },
     {

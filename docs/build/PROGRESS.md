@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Dynamic and private alpha routes · NND 20261008-32 / NNA 20261008-8
+
+The native-alpha mutation fence now covers the dynamically registered
+`/api/openchamber/update-install` alias as well as its NND-named route. The
+two private NNA-child callbacks register ahead of the main API gate, so an
+authenticated callback now refuses NND-owned browser control and agent-memory
+effects in the installed alpha. Their callback credentials still reject
+unauthenticated calls first. Focused route tests and the disposable installed
+alias check cover this boundary. Settings controls and other non-route effects
+remain under A5 audit.
+
 ## 2026-10-08 · Desktop-originated native review · NND 20261008-31 / NNA 20261008-8
 
 The installed source acceptance now keeps the fixture provider across native

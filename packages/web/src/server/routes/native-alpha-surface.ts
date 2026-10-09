@@ -12,6 +12,8 @@ const CLOSED_FAMILIES = [
   '/api/config/skills', '/api/config/mcp', '/api/config/snippets',
   '/api/notnative/settings', '/api/config/settings', '/api/config/reload',
   '/api/notnative/update-install',
+  '/api/openchamber/update-install',
+  '/api/agent-tool',
   '/api/system/probe-url', '/api/browser-control',
 ] as const;
 
@@ -27,9 +29,13 @@ export function nativeAlphaMutationUnavailable(method: string, path: string): bo
 
 export async function nativeAlphaSurfaceGate(c: Context, next: Next): Promise<Response | void> {
   if (nativeAlphaMutationUnavailable(c.req.method, c.req.path)) {
-    return c.json({ code: 'native_alpha_surface_unavailable',
-      error: 'This action is unavailable in the installed native alpha until native review is verified.' },
-    409, { 'cache-control': 'no-store' });
+    return nativeAlphaUnavailableResponse(c);
   }
   return next();
+}
+
+export function nativeAlphaUnavailableResponse(c: Context): Response {
+  return c.json({ code: 'native_alpha_surface_unavailable',
+    error: 'This action is unavailable in the installed native alpha until native review is verified.' },
+  409, { 'cache-control': 'no-store' });
 }

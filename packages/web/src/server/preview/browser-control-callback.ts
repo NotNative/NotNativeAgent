@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { BrowserControlBroker, BrowserControlError } from './browser-control-broker.ts';
+import { nativeAlphaMutationUnavailable, nativeAlphaUnavailableResponse } from '../routes/native-alpha-surface.ts';
 
 function secretMatches(actual: string | undefined, expected: string): boolean {
   if (!actual || !expected) return false;
@@ -15,6 +16,7 @@ function secretMatches(actual: string | undefined, expected: string): boolean {
 export function registerBrowserControlCallback(app: Hono, broker: BrowserControlBroker, secret: string): void {
   app.post('/api/browser-control/request', async (c) => {
     if (!secretMatches(c.req.header('x-nnd-browser-token'), secret)) return c.json({ error: 'unauthorized' }, 401);
+    if (nativeAlphaMutationUnavailable(c.req.method, c.req.path)) return nativeAlphaUnavailableResponse(c);
     // A 2,000-character type payload can exceed 4 KiB once JSON/UTF-8 encoded.
     // The per-field limits below still constrain the accepted action shape.
     const body = await readJsonBodyBounded(c.req.raw, 32_768);

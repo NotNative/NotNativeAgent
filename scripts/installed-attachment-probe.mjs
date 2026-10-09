@@ -95,7 +95,7 @@ export function attachmentBrowserProbe() {
       throw Error('installed native PTY creation was available');
     for(const path of ['/api/fs/write','/api/git/commit','/api/git/worktrees',
       '/api/message-queue/sessions/untrusted/items','/api/openchamber/tunnel/start',
-      '/api/notnative/update-install']){
+      '/api/notnative/update-install','/api/openchamber/update-install']){
       const refused=await post(path,{});
       if(refused.status!==409||(await refused.json()).code!=='native_alpha_surface_unavailable')
         throw Error('installed native alpha mutation was available '+path+' '+refused.status);
