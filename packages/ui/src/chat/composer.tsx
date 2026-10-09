@@ -26,6 +26,7 @@ import { useMessageQueueStore, normalizeFollowUpBehavior } from '../stores/useMe
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
 import { deliverToNewSession } from './composer-draft-pins.ts';
+import { GLOBAL_DIRECTORY } from '../sync/routing-index.ts';
 import { responseStyleRider } from './response-style.ts';
 import { btwRiderFor } from './btw-context.ts';
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw']; const MAX_LINES = 8;
@@ -446,15 +447,17 @@ export function Composer(props: ComposerProps): ReactNode {
 
   const authStatus = useAuthSessionStore((state) => state.status);
   // Invariant: a failed or pending config request cannot silently select the mock route for NNA.
-  const sendBlocked = authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel);
+  const nativeWorkspacePending = nnaConfigured && sessionID === null && (!directory || directory === GLOBAL_DIRECTORY);
+  const sendBlocked = authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel) || nativeWorkspacePending;
   // §6.7 step 3: the send guard blocks while the session expiry is confirmed.
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !sendBlocked;
   const starterList = props.starters ?? [];
 
   return (<>
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
-      data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : undefined)}
+      data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : nativeWorkspacePending ? 'nna-workspace-unavailable' : undefined)}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      {nativeWorkspacePending ? <p role="status" className="px-2 text-[11px] text-amber-300">Waiting for the native workspace before sending.</p> : null}
       {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments); }} /> : null}
       {sessionKey === 'draft' && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
       <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next); }} />

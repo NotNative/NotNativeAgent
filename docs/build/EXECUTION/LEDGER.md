@@ -18,6 +18,16 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 native first-turn workspace readiness
+
+NND `20261009-1` prevents the internal `global` bootstrap directory from
+sticking as the selected workspace after native setup. A draft composer with
+the configured NNA model waits for a real directory before enabling Send.
+The installed setup-to-turn probe now checks that the new native session binds
+to the disposable fixture root. A prior `20261008-32` installed attempt had no
+session after GUI send; its preserved fixture is recorded in PROGRESS, and an
+unchanged repeat passed. This candidate still needs fresh installed proof.
+
 ## 2026-10-08 dynamic and private native alpha routes
 
 NND `20261008-32` adds the dynamically registered OpenChamber desktop-update

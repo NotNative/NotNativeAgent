@@ -294,6 +294,8 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
     assert.equal(setupResult.setup_receipt, 'saved');
     assert.equal(setupResult.setup_after, 'ready');
     assert.equal(setupResult.same_tab_turn?.status, 'completed');
+    assert.equal(resolve(setupResult.same_tab_turn?.directory), fixture.root,
+      'first GUI text turn must bind to the installed fixture workspace');
   }
   if (nativeSetupTurn) {
     const reviewTicket = (await cli(fixture, 'ui-ticket')).ticket;

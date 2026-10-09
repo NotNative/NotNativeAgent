@@ -227,7 +227,7 @@ export function setupReloadComposerProbe() {
         if(!messages.some(message=>message.info?.role==='user'&&message.parts?.some(part=>part.text?.includes(${JSON.stringify(marker)}))))continue;
         const activity=await(await fetch('/api/session/'+encodeURIComponent(row.id)+'/activity')).json();
         const turn=activity.find(item=>item.kind==='turn'&&item.status==='completed');
-        if(turn)return {session_id:row.id,status:turn.status};
+        if(turn)return {session_id:row.id,directory:row.directory,status:turn.status};
         const failed=activity.find(item=>item.kind==='turn'&&item.status!=='started');
         if(failed)throw Error('setup text turn '+failed.status+' '+failed.summary)}
       await delay(500)}
@@ -237,6 +237,7 @@ export function setupReloadComposerProbe() {
       status:(await fetch('/api/session/'+encodeURIComponent(row.id)+'/activity')).status})));
     throw Error('setup text composer turn did not settle '+JSON.stringify({
       recent:recent.map(row=>({id:row.id,title:row.title})),activity,
+      workspace:document.querySelector('select[aria-label="Workspace"]')?.value??null,
       blocked:document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked'),
       draft:document.querySelector('[data-testid="composer-editor"]')?.value,
       alerts:[...document.querySelectorAll('[role="alert"],[data-sonner-toast]')].map(row=>row.textContent?.slice(0,100)).slice(0,8)}));

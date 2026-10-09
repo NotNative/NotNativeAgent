@@ -25,13 +25,13 @@ const createSession = vi.fn(async (): Promise<{ id: string; metadata?: unknown }
 } } }));
 const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
 
-async function render(sessionID: string | null = null): Promise<void> {
+async function render(sessionID: string | null = null, directory = '/proj'): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => {
     root!.render(<Composer services={{ engine: { actions: { send, createSession } } as never, store: () => store, dispatch: () => undefined }}
-      sessionID={sessionID} directory="/proj" sessionKey={sessionID ?? 'draft'} />);
+      sessionID={sessionID} directory={directory} sessionKey={sessionID ?? 'draft'} />);
     await Promise.resolve();
   });
 }
@@ -140,6 +140,26 @@ describe('NNA configured composer model', () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       model: { providerID: 'ready', modelID: 'test' }, agent: 'nna',
     }));
+  });
+
+  it('waits for the native workspace instead of sending from the bootstrap placeholder', async () => {
+    snapshot = { ...base, config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'primary', modelID: 'test' },
+    } } } as unknown as DirectoryStore;
+    await render(null, 'global');
+    expect(document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked')).toBe('nna-workspace-unavailable');
+    expect(document.body.textContent).toContain('Waiting for the native workspace');
+    await submit('wait for workspace');
+    expect(createSession).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    await act(async () => {
+      root!.render(<Composer services={{ engine: { actions: { send, createSession } } as never,
+        store: () => store, dispatch: () => undefined }} sessionID={null} directory="/proj" sessionKey="draft" />);
+      await Promise.resolve();
+    });
+    await submit('workspace ready');
+    expect(createSession).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledOnce();
   });
 
   it('blocks an existing-session send until its own NNA route metadata is loaded', async () => {

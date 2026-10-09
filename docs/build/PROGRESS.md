@@ -3,6 +3,20 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-09 · Native first-turn workspace readiness · NND 20261009-1 / NNA 20261008-8
+
+An installed `20261008-32` setup run sent the first GUI text but created no
+native session before its five-minute deadline. The fixture is preserved at
+`C:\Users\Mongrel\nnd-installed-acceptance-fixtures\installed-accept-a1b440a159354abd`;
+a repeat of the same sealed package passed. Source inspection found that a
+temporary path lookup failure can publish the internal `global` bootstrap
+directory as the selected workspace, while the native composer previously
+enabled Send. The layout now replaces that placeholder when the native path
+arrives, and the composer waits for a real workspace instead of sending a
+draft from it. A focused UI test covers the blocked-to-ready transition; the
+installed acceptance now requires the first turn's native directory to equal
+the disposable fixture root. Fresh installed verification remains required.
+
 ## 2026-10-08 · Dynamic and private alpha routes · NND 20261008-32 / NNA 20261008-8
 
 The native-alpha mutation fence now covers the dynamically registered

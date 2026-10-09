@@ -12,6 +12,7 @@ import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { defaultHarnessDirectory } from '../sync/engine-support.ts';
+import { GLOBAL_DIRECTORY } from '../sync/routing-index.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
@@ -194,23 +195,22 @@ export function MainLayout(): ReactNode {
   }));
 
   useEffect(() => {
-    if (view.activeDirectory) return;
+    if (view.activeDirectory && view.activeDirectory !== GLOBAL_DIRECTORY) return;
     const path = global.path as Record<string, unknown> | null;
     const directory = typeof path?.['directory'] === 'string' ? String(path['directory']) : '';
-    if (directory) useSessionViewStore.getState().setActiveDirectory(directory);
+    if (directory && directory !== GLOBAL_DIRECTORY) useSessionViewStore.getState().setActiveDirectory(directory);
   }, [global.path, view.activeDirectory]);
 
   // SLICE-B: review panes ride the ACTIVE HARNESS directory (doc engine-support
   // defaultHarnessDirectory) — never the literal '/'. Resolution stores the
   // directory once so boot-time panes see the real root.
   useEffect(() => {
-    if (view.activeDirectory || harnessDirectory !== '') return;
+    if (view.activeDirectory && view.activeDirectory !== GLOBAL_DIRECTORY || harnessDirectory !== '') return;
     void defaultHarnessDirectory().then((resolved) => {
-      if (!resolved) return;
+      if (!resolved || resolved === GLOBAL_DIRECTORY) return;
       setHarnessDirectory(resolved);
-      if (!useSessionViewStore.getState().activeDirectory) {
-        useSessionViewStore.getState().setActiveDirectory(resolved);
-      }
+      const current = useSessionViewStore.getState().activeDirectory;
+      if (!current || current === GLOBAL_DIRECTORY) useSessionViewStore.getState().setActiveDirectory(resolved);
     }).catch(() => undefined);
   }, [view.activeDirectory, harnessDirectory]);
 
@@ -253,8 +253,8 @@ export function MainLayout(): ReactNode {
     actions.openSession(sessionId, directory ?? useSessionViewStore.getState().activeDirectory);
   }), []);
 
-  const activeDirectory = normalizeDirectoryInput(view.activeDirectory || globalHome(global) || harnessDirectory);
-
+  const activeDirectory = normalizeDirectoryInput((view.activeDirectory === GLOBAL_DIRECTORY ? '' : view.activeDirectory)
+    || globalHome(global) || harnessDirectory);
   const openMiniChat = (): void => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
     if (!invoke) return;
