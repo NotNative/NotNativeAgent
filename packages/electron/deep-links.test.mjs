@@ -2,7 +2,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
+import { extractDesktopDeepLinks, extractNativeAlphaDeepLinks, nativeAlphaDeepLinkAllowed, parseDesktopDeepLink } from './deep-links.mjs';
+
+test('native alpha accepts navigation links without importing or switching legacy hosts', () => {
+  for (const type of ['focus', 'session']) assert.equal(nativeAlphaDeepLinkAllowed({ type }), true);
+  for (const type of ['connect', 'host', 'unknown']) assert.equal(nativeAlphaDeepLinkAllowed({ type }), false);
+  assert.equal(nativeAlphaDeepLinkAllowed(null), false);
+  assert.deepEqual(extractNativeAlphaDeepLinks(['openchamber://host/studio', 'openchamber://session/s1', 'openchamber://focus']), [
+    { type: 'session', sessionId: 's1' }, { type: 'focus' },
+  ]);
+});
 
 test('accepts only session and focus links with bounded session identifiers', () => {
   assert.deepEqual(parseDesktopDeepLink('openchamber://focus'), { type: 'focus' });

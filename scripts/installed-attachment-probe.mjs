@@ -100,6 +100,11 @@ export function attachmentBrowserProbe() {
       if(refused.status!==409||(await refused.json()).code!=='native_alpha_surface_unavailable')
         throw Error('installed native alpha mutation was available '+path+' '+refused.status);
     }
+    for(const path of ['/api/browser-control/request','/api/agent-tool/callback']){
+      const absent=await post(path,{});
+      if(absent.status!==409||(await absent.json()).code!=='native_alpha_surface_unavailable')
+        throw Error('installed native child callback was exposed '+path+' '+absent.status);
+    }
     const made=await post('/api/session',{});if(made.status!==201)throw Error('session '+made.status);
     const session=await made.json();const id=session.id;
     for(const item of [

@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 native alpha deep-link and callback boundary
+
+NND `20261009-9` prevents installed native Electron from importing a paired
+host or switching the saved host through launch, second-instance, and URL
+deep links. It retains focus and session navigation; native startup no longer
+registers the legacy `openchamber` URL handler as an OS side effect. Focused
+deep-link tests and the full Electron suite pass. The installed
+`--native-attachments` journey directly observed native-alpha 409 refusals for
+the browser-control and memory-tool callback paths, then passed attachment
+delivery, restart recovery, desktop attachment, and service lifetime. An
+initial `--native-setup-turn` fixture expected 404 for absent callback routes;
+the actual 409 came from the earlier native surface gate. That failed fixture
+is preserved at `C:\Users\Mongrel\nnd-installed-acceptance-fixtures\installed-accept-3eabe904d8b5460a`.
+The corrected probe passed. Direct installed deep-link ingress remains open.
+
 ## 2026-10-09 native alpha desktop IPC boundary
 
 NND `20261009-7` makes the Electron IPC face default closed for native alpha,

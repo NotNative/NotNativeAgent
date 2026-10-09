@@ -101,3 +101,12 @@ export function extractDesktopDeepLinks(argv) {
   }
   return links;
 }
+
+/** Native alpha keeps session navigation but cannot import or switch legacy hosts. */
+export function nativeAlphaDeepLinkAllowed(link) {
+  return link?.type === 'focus' || link?.type === 'session';
+}
+
+export function extractNativeAlphaDeepLinks(argv) {
+  return extractDesktopDeepLinks(argv).filter(nativeAlphaDeepLinkAllowed);
+}

@@ -35,7 +35,7 @@ import { createManagedSshRuntime } from './ssh-managed-runtime.mjs';
 import { createDesktopPasswordLogin } from './desktop-password-login.mjs';
 import { createDesktopUpdater } from './desktop-updater.mjs';
 import { readDesktopLocalClientToken, readOrCreateDesktopInstallId } from './desktop-identity.mjs';
-import { extractDesktopDeepLinks, parseDesktopDeepLink } from './deep-links.mjs';
+import { extractDesktopDeepLinks, extractNativeAlphaDeepLinks, nativeAlphaDeepLinkAllowed, parseDesktopDeepLink } from './deep-links.mjs';
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
 import { probeDesktopHost } from './host-probe.mjs';
 import { resolveDesktopBootTarget } from './desktop-boot.mjs';
@@ -84,12 +84,13 @@ let quitting = false;
 let bootFailure = null; // boot-abort message; trayed installs linger and must say why
 let windowStateTimer = null;
 let revealPending = false;
-const pendingDeepLinks = extractDesktopDeepLinks(process.argv);
+const pendingDeepLinks = LEGACY_MODE ? extractDesktopDeepLinks(process.argv) : extractNativeAlphaDeepLinks(process.argv);
 let desktopHostImportLocked = false;
 let desktopUpdater = null;
 
 function receiveDeepLink(link) {
   if (!link) return;
+  if (!LEGACY_MODE && !nativeAlphaDeepLinkAllowed(link)) return;
   if (link.type === 'focus') {
     if (!app.isReady() || !mainWindow || mainWindow.isDestroyed()) {
       revealPending = true;
@@ -170,7 +171,7 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0);
 }
 app.on('second-instance', (_event, argv) => {
-  const links = extractDesktopDeepLinks(argv);
+  const links = LEGACY_MODE ? extractDesktopDeepLinks(argv) : extractNativeAlphaDeepLinks(argv);
   for (const link of links) receiveDeepLink(link);
   if (links.length) return;
   // A second launch can arrive after app ready but before boot creates the
@@ -184,7 +185,7 @@ app.on('open-url', (event, rawUrl) => {
   if (link) receiveDeepLink(link);
   else console.warn('[shell] ignored unsupported deep link');
 });
-if (process.platform === 'win32' || process.platform === 'darwin') {
+if (LEGACY_MODE && (process.platform === 'win32' || process.platform === 'darwin')) {
   try { app.setAsDefaultProtocolClient('openchamber'); } catch { /* installation policy may own registration */ }
 }
 
