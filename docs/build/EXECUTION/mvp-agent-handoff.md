@@ -8,13 +8,13 @@ Read [PLAN](../PLAN.md), [the ledger](LEDGER.md), [native slot activation](nnd-s
 
 | Gate | Current evidence | Required next result |
 | --- | --- | --- |
-| Source module journey | The disposable source-installed pair has passed browser and desktop attach, native setup and reviewed turns, restart, and NND-only removal. See the exact gates in [ALPHA](../ALPHA.md). | Close the remaining alpha surface and operator-trial checks without treating source acceptance as prebuilt proof. |
+| Source module journey | The disposable source-installed pair has passed browser and desktop attach, native setup, new UI-created approved and denied reviewed turns with visible Activity rows in both doors, restart, and NND-only removal. See the exact gates in [ALPHA](../ALPHA.md). | Close the remaining A5 alpha surface checks and operator-trial gate without treating source acceptance as prebuilt proof. |
 | Immutable payload | NND exports a pinned prebuilt payload; NNA stages an inert verified slot. A fresh short-path Windows first-install smoke proved unchanged selection before activation, then selected the exported slot. | Exercise upgrade and interruption recovery against retained prior state. |
 | Native activation | A fresh installed run completed the retained trial, terminal retirement, cleared witness, public controller attachment, Chromium and Electron attach, and removal. Earlier incomplete runs retain their barriers. | Exercise failure recovery and compatible upgrade/rollback. |
 | Stable launcher | The prebuilt installer created a stable anchor and shortcuts; the smoke attached Electron from the selected slot. | Prove direct shortcut launch, selected-generation recheck, and upgrade behavior. |
 | Complete MVP | The C1 census, C4–C7 settings, F1–F10 and W-id installed journeys remain open. | V1–V6 evidence against exact installed NNA/NND builds. Existing settings controls and native feature adapters are partial progress, not blanket parity. |
 
-The **first operator-testable framework checkpoint** is the isolated source-installed [Windows alpha](../ALPHA.md): native setup, a governed turn, both UI doors, service survival, and NND-only removal, with the remaining A4/A5 checks closed. It is narrower than the requested MVP and does not certify a prebuilt installer. Prebuilt activation, upgrade, rollback, and the complete C/F feature scope remain follow-on gates.
+The **first operator-testable framework checkpoint** is the isolated source-installed [Windows alpha](../ALPHA.md): native setup, governed approval and denial in both UI doors, service survival, and NND-only removal, with the remaining A5 checks closed. It is narrower than the requested MVP and does not certify a prebuilt installer. Prebuilt activation, upgrade, rollback, and the complete C/F feature scope remain follow-on gates.
 
 ## Serial framework spine
 

@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, setupBrowserProbe, desktopSetupProbe, setupReloadComposerProbe, reviewBrowserProbe, desktopReviewProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, setupBrowserProbe, desktopSetupProbe, setupReloadComposerProbe, reviewBrowserProbe, reviewUiProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -103,7 +103,7 @@ const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
 app.setPath('userData',${JSON.stringify(mainUrl.userData)});
-let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? browserProbeExpression ? 360000 : 150000 : browserProbeExpression ? browserProbeTimeoutMs : browserScenarioModule ? 360000 : 45000});
+let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${browserProbeExpression ? browserProbeTimeoutMs : mode === 'desktop' ? 150000 : browserScenarioModule ? 360000 : 45000});
 function finish(ok){if(done)return;done=true;clearTimeout(timer);if(ok)process.stdout.write('NND_INSTALLED_${mode === 'browser' ? 'BROWSER' : 'DESKTOP'}_OK\\n');app.exit(ok?0:1)}
 app.whenReady().then(async()=>{
 try{
@@ -144,6 +144,7 @@ const isolated=await other.webContents.executeJavaScript('(async()=>{const respo
 if(isolated.status!==401||isolated.body.authenticated!==false||isolated.workspaceStatus!==401)throw Error('Independent browser partition did not retain the unauthenticated workspace contract');
 phase('isolation_verified');
 finish(true);` : `app.on('browser-window-created',(_event,win)=>{phase('window_created');
+win.webContents.on('console-message',(...args)=>{for(const value of args.slice(1)){const message=typeof value==='string'?value:value?.message;if(typeof message==='string'&&message.startsWith('NND_PROBE_STEP:'))phase(message)}});
 win.webContents.on('did-finish-load',async()=>{if(done||!win.webContents.getURL().startsWith(${JSON.stringify(origin)}))return;
 phase('window_loaded');
 try{const result=await win.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,authenticated:(await response.json()).authenticated,token:window.__NOTNATIVE_CLIENT_TOKEN__||"",headers:window.__NOTNATIVE_RUNTIME_HEADERS__||{}}})()');
@@ -153,7 +154,8 @@ finish(true)}catch(e){process.stderr.write(String(e));finish(false)}})});
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
 }catch(error){process.stderr.write(error?.stack||error?.message||JSON.stringify(error)||String(error));finish(false)} });`;
 }
-export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '', browserScenarioModule = null, browserProbeTimeoutMs = 900000) {
+export async function shell(fixture, mode, origin, ticket, extraArgs = [], browserProbeExpression = '', browserScenarioModule = null,
+  browserProbeTimeoutMs = mode === 'desktop' ? 360000 : 900000) {
   const probeId = randomUUID().replaceAll('-', '').slice(0, 16);
   const shellData = join(fixture.root, `${mode}-profile-${probeId}`);
   await mkdir(shellData);
@@ -179,7 +181,7 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
-      timeout: mode === 'desktop' ? browserProbeExpression ? 375000 : 165000 : browserProbeExpression ? browserProbeTimeoutMs + 15000 : browserScenarioModule ? 375000 : 60000, outputFiles });
+      timeout: mode === 'desktop' ? browserProbeExpression ? browserProbeTimeoutMs + 15000 : 165000 : browserProbeExpression ? browserProbeTimeoutMs + 15000 : browserScenarioModule ? 375000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);
@@ -340,6 +342,13 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
       'native reviewer did not approve the exact fixture write');
     assert.ok(attachmentProvider.reviews.some(item => item.mode === 'deny' && !item.approved),
       'native reviewer did not deny the mismatched fixture write');
+    const uiReviewTicket = (await cli(fixture, 'ui-ticket')).ticket;
+    const browserUiReview = await shell(fixture, 'browser', status.endpoint, uiReviewTicket, [], reviewUiProbe());
+    assert.deepEqual(browserUiReview.reviews.map(item => item.tool_status), ['completed', 'failed']);
+    assert.ok(browserUiReview.reviews.every(item => item.activity_visible),
+      'browser did not render both native review outcomes');
+    assert.ok(browserUiReview.reviews.every(item => !reviewResult.reviews.some(prior => prior.session_id === item.session_id)),
+      'browser UI review reused an API-created session');
     assert.equal(await readFile(join(fixture.root, REVIEW_ALLOWED_FILE), 'utf8'), REVIEW_ALLOWED_CONTENT);
     await assert.rejects(readFile(join(fixture.root, REVIEW_DENIED_FILE)), { code: 'ENOENT' });
   }
@@ -350,12 +359,15 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
   const desktopStatus = nativeAttachments || nativeSetupTurn
     ? await restartAttachmentService(fixture, status, browserResult, attachmentProvider.requests) : status;
   const desktopResult = await shell(fixture, 'desktop', desktopStatus.endpoint, null, [],
-    nativeSetupTurn ? desktopReviewProbe() : '');
+    nativeSetupTurn ? reviewUiProbe() : '', null, 900000);
   if (nativeSetupTurn) {
-    assert.equal(desktopResult.tool_status, 'completed');
-    assert.equal(desktopResult.activity_visible, true);
-    assert.ok(attachmentProvider.reviews.filter(item => item.mode === 'allow' && item.approved).length >= 2,
-      'desktop-originated write did not receive native reviewer approval');
+    assert.deepEqual(desktopResult.reviews.map(item => item.tool_status), ['completed', 'failed']);
+    assert.ok(desktopResult.reviews.every(item => item.activity_visible),
+      'desktop did not render both native review outcomes');
+    for (const mode of ['allow', 'deny']) assert.ok(attachmentProvider.reviews.filter(item =>
+      item.mode === mode && item.approved === (mode === 'allow')).length >= 3,
+    `desktop-originated ${mode} write did not receive a native reviewer decision`);
+    await assert.rejects(readFile(join(fixture.root, REVIEW_DENIED_FILE)), { code: 'ENOENT' });
   }
   const after = await cli(fixture, 'status');
   assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');

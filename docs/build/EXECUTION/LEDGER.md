@@ -18,6 +18,31 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 installed browser and desktop review visibility
+
+NND `20261009-11` / NNA `20261009-1` passed a fresh
+`installed-source-acceptance.mjs --native-setup-turn` journey. After native
+setup, both Chromium and Electron composers created new sessions and sent one
+approved and one denied reviewed write. The harness required each new user
+message and tool Activity record to appear after its pre-send baseline, then
+observed the matching completed or failed row in each UI's Activity panel.
+The allowed file held the exact fixture content and the denied file was absent.
+The same install passed attachment delivery, restart recovery, desktop
+reattachment, service lifetime, and stop. This verifies A4's mandatory alpha
+journey; broader F/verification review cases remain open. NND quality gates,
+typecheck, 1,952 UI tests, 1,464 web tests, and artifact packaging passed.
+
+The first stricter probe reused a session because it typed before “New session”
+had switched the UI to its draft. A second clean run reached desktop reviews
+but hit the old six-minute one-turn watchdog. The probe now waits for the draft
+view before sending, records desktop renderer steps, and gives the two-turn
+desktop proof a bounded 15-minute window. Failed disposable fixtures at
+`C:\Users\Mongrel\nnd-installed-acceptance-fixtures\installed-accept-a1521ef1fda14d91`,
+`...\installed-accept-a5d8b361bbad434d`, and
+`...\installed-accept-8968202dff0041f9` remain preserved; the last two
+were also used for targeted diagnostic replays. The successful fresh fixture
+was removed after service shutdown.
+
 ## 2026-10-09 disposable prebuilt first-install smoke
 
 NND `20261009-10` / NNA `20261009-1` passed
