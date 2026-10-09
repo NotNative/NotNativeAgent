@@ -34,6 +34,7 @@ import type { Session } from '../lib/nnd/types.ts';
 import { useScheduledShellWiring } from './scheduled/scheduled-shell-wiring.tsx';
 import { useFilesViewTabsStore } from '../lib/files/tabs-store.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
+import { runtimeFetch } from '../lib/runtime-fetch.ts';
 import { type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
@@ -59,6 +60,17 @@ export function MainLayout(): ReactNode {
   const miniChat = readMiniChatLaunch(typeof window === 'undefined' ? '' : window.location.search).enabled;
   const { t } = useI18n();
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
+  const [nativeAlpha, setNativeAlpha] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setNativeAlpha(false);
+    void runtimeFetch('/health', { signal: controller.signal }).then(async response => {
+      if (!response.ok) return;
+      const health = await response.json() as { runtime?: unknown };
+      if (!controller.signal.aborted) setNativeAlpha(health.runtime === 'service');
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [runtimeKey]);
   useEffect(() => mountSessionRoute(() => toast.error('Could not open the linked session.')), [runtimeKey]);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
@@ -293,8 +305,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="git-toggle"
-          title={t('shell.nav.git')}
+          title={nativeAlpha ? 'Git actions are unavailable in the native alpha' : t('shell.nav.git')}
           aria-label={t('shell.nav.git')}
+          disabled={nativeAlpha}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'git' ? '' : 'git');
@@ -306,8 +319,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="plan-toggle"
-          title={t('shell.nav.plan')}
+          title={nativeAlpha ? 'Plans are unavailable in the native alpha' : t('shell.nav.plan')}
           aria-label={t('shell.nav.plan')}
+          disabled={nativeAlpha}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'plan' ? '' : 'plan');
@@ -333,8 +347,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="scheduled-tasks-toggle"
-          title={t('shell.nav.scheduledTasks')}
+          title={nativeAlpha ? 'Scheduled tasks are unavailable in the native alpha' : t('shell.nav.scheduledTasks')}
           aria-label={t('shell.nav.scheduledTasks')}
+          disabled={nativeAlpha}
           onClick={openScheduled}
         >
           ◷
@@ -343,8 +358,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="agent-groups-toggle"
-          title={t('shell.nav.agentGroups')}
+          title={nativeAlpha ? 'Agent groups are unavailable in the native alpha' : t('shell.nav.agentGroups')}
           aria-label={t('shell.nav.agentGroups')}
+          disabled={nativeAlpha}
           onClick={() => {
             setFilesOpen(false);
             setReviewPane(reviewPane === 'agent-groups' ? '' : 'agent-groups');
@@ -356,8 +372,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="worktrees-toggle"
-          title={t('shell.nav.worktrees')}
+          title={nativeAlpha ? 'Worktrees are unavailable in the native alpha' : t('shell.nav.worktrees')}
           aria-label={t('shell.nav.worktrees')}
+          disabled={nativeAlpha}
           onClick={() => setWorktreesOpen(!worktreesOpen)}
         >
           ⌥
@@ -366,8 +383,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="multirun-toggle"
-          title={t('shell.nav.multiRun')}
+          title={nativeAlpha ? 'Multi-run is unavailable in the native alpha' : t('shell.nav.multiRun')}
           aria-label={t('shell.nav.multiRun')}
+          disabled={nativeAlpha}
           onClick={() => setMultiRunOpen(true)}
         >
           ⧉
@@ -376,8 +394,9 @@ export function MainLayout(): ReactNode {
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="files-toggle"
-          title={t('shell.nav.files')}
+          title={nativeAlpha ? 'File editing is unavailable in the native alpha' : t('shell.nav.files')}
           aria-label={t('shell.nav.files')}
+          disabled={nativeAlpha}
           onClick={() => {
             setReviewPane('');
             setFilesOpen(!filesOpen);
@@ -398,6 +417,9 @@ export function MainLayout(): ReactNode {
       </header>
       )}
       <AuthExpiredBanner />
+      {nativeAlpha ? <div role="status" data-testid="native-alpha-notice" className="border-b border-amber-800/50 bg-amber-950/30 px-3 py-1 text-xs text-amber-200">
+        Native alpha: chat and NNA review are available. File, Git, queue, and other workspace actions are waiting for native review support.
+      </div> : null}
       <div className={`flex min-h-0 flex-1${miniChat ? ' overflow-hidden' : ''}`}>
         {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} /> : null}
         {!miniChat ? (filesOpen ? (

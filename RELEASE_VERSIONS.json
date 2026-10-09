@@ -1628,6 +1628,10 @@
     {
       "version": "20261008-26",
       "content_sha256": "d4c0829e0f30c7afb37cee901d902cb54f0c8e01a4a4c5c317a4a85d85fc914a"
+    },
+    {
+      "version": "20261008-27",
+      "content_sha256": "330df90385e8b19f744a66638e273feb61b587f781df0951502409b7e0eae508"
     }
   ]
 }

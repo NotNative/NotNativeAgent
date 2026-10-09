@@ -3,6 +3,16 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Installed alpha mutation boundary · NND 20261008-27 / NNA 20261008-8
+
+The installed NNA-owned service now rejects NND-owned Git, file, queue,
+scheduled-task, plan, skill, and other out-of-scope mutations before their
+handlers. NNA's native chat, configuration, and reviewer proxy routes remain
+available. The main GUI shows the native alpha boundary and disables its
+primary out-of-scope controls; the installed source journey checks visible
+notice and real server refusals. A5 remains in progress for a complete route
+and secondary UI entry-point audit.
+
 ## 2026-10-08 · GUI-led native setup and same-tab chat · NND 20261008-26 / NNA 20261008-8
 
 Successful activation from the Providers settings page now waits for the

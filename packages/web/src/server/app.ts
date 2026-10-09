@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { ENV, nativeServiceTerminalUnavailable } from './env.ts';
+import { nativeAlphaSurfaceGate } from './routes/native-alpha-surface.ts';
 import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
 import { peekRelayServerId } from './lib/relay/identity.ts';
@@ -221,6 +222,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // surface + the harness proxy rides behind it.
   app.use('/api/*', apiAuthGate);
   app.use('/api/terminal/*', nativeTerminalGate);
+  app.use('/api/*', nativeAlphaSurfaceGate);
   registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater, options?.push);
 
   registerHarnessProxy(app);

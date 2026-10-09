@@ -18,6 +18,17 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 installed native alpha mutation boundary
+
+NND `20261008-27` adds a server-side mutation fence for NND-owned file, Git,
+queue, scheduled-task, project-context, configuration, and other feature
+families in the installed NNA service. It leaves NNA-owned chat, setup, and
+review proxy routes available and does not alter development/mock behavior.
+The main GUI shows the alpha boundary and disables primary unavailable
+controls. Focused route tests and the installed source acceptance check denial
+before handlers; the remaining route inventory and secondary UI entry points
+still need review before A5 is marked verified.
+
 ## 2026-10-08 installed setup and first text turn
 
 NND `20261008-26` extends the disposable source-install journey from an absent

@@ -37,7 +37,7 @@ repository as the disposable test profile.
    credentials, or unrelated workspaces. Record versions, commits, failures,
    and the exact profile used.
 
-## Acceptance ledger at NND 20261008-26 / NNA 20261008-8
+## Acceptance ledger at NND 20261008-27 / NNA 20261008-8
 
 | Gate | Current evidence | State / next proof |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ repository as the disposable test profile.
 | A2: setup without provider | `installed-source-acceptance.mjs --native-setup-turn` starts without a manifest, observes denied execution, repairs through the visible NNA configuration form, activates through Providers, waits for the native model route, and checks authenticated same-window reload plus a governed text composer turn. The supervised one-use ticket/stop smoke passed. | In progress: Chromium GUI setup-to-turn is covered on the source-installed pair; desktop setup-required access and malformed-source repair still need installed proof. |
 | A3: core chat and files | Installed text-only, direct file, and composer file-only sends reached fixture providers; names survived restart; duplicate retry did not resend. Unsupported PDF was rejected before a native turn and remained a correctable draft. | Verified for fixture provider and Chromium; add a desktop-originated turn and remaining attachment failure cases. |
 | A4: native review | Earlier installed multi-root F1 journey proved exact reviewer approvals, governed disk effects, and sibling-root refusals. | In progress: prove an actual reviewer denial and one permitted effect on this pinned alpha pair in both doors. |
-| A5: safe alpha surface | The installed native service now refuses terminal HTTP and WebSocket access before PTY creation, and the native GUI disables its terminal control. Git, file, worktree, queue, and other feature routes still extend beyond core chat. | In progress: fence or explicitly authorize the remaining out-of-scope side-effecting surfaces at the server and make their unavailable state clear in the GUI. UI hiding alone is insufficient. |
+| A5: safe alpha surface | The installed native service refuses terminal access and NND-owned Git, file, queue, scheduled-task, plan, skill, and other out-of-scope mutations before route handlers. The main GUI labels the native alpha boundary and disables its primary controls. The installed source journey checks the server refusal and visible notice. | In progress: audit remaining routes and secondary UI entry points against the same boundary, then prove native reviewer outcomes on this pinned pair. |
 | A6: installation and recovery | Source installer and prior transactional fixture journeys pass; current attachment fixture cleans up after success. | In progress: one pinned-pair fresh install, failed setup, rollback/removal journey and preserved-state check. |
 | A7: operator trial | No operator installation or data migration has been performed for this milestone. | Open: use a named isolated profile only after A2–A6 pass; record feedback separately from MVP closure. |
 
