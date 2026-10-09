@@ -1676,6 +1676,14 @@
     {
       "version": "20261009-6",
       "content_sha256": "eec032e734e06698606bdedb8e17590f58c11e2483ac75ee80251b65f9919bb5"
+    },
+    {
+      "version": "20261009-7",
+      "content_sha256": "4cdb56bdc04a761694aaabb678928af3b3faed43f6568e308a73771bc774ec8f"
+    },
+    {
+      "version": "20261009-8",
+      "content_sha256": "d913c9e73d76fa4454d2c2ad48d0f089c15976996378fdc0b69a00f89b6c346b"
     }
   ]
 }

@@ -1058,6 +1058,7 @@ const desktopPasswordLogin = createDesktopPasswordLogin({
   fetchImpl: (url, options) => electronNet.fetch(url, options),
 });
 const invokeFace = createInvokeFace({
+  nativeAlpha: () => !LEGACY_MODE,
   origin: () => localOrigin(),
   uiOrigin: () => USE_UI_PROTOCOL ? UI_ORIGIN : '',
   appPathPrefix: () => appFileUrlPrefix(),

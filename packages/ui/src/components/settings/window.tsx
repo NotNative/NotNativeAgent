@@ -85,17 +85,24 @@ interface SearchResult {
   title: string;
 }
 
+const NATIVE_ALPHA_PAGES = new Set<SettingsPageSlug>(['providers', 'native-configuration', 'skills.installed']);
+const availablePage = (page: SettingsPageSlug | undefined, nativeAlpha: boolean): SettingsPageSlug =>
+  nativeAlpha && (!page || !NATIVE_ALPHA_PAGES.has(page)) ? 'native-configuration' : page ?? 'general';
+
 let highlightTimer: number | null = null;
 
-export function SettingsWindow({ initialPage, onClose, onPageChange }: { initialPage?: SettingsPageSlug; onClose: () => void; onPageChange?: (page: SettingsPageSlug) => void }): ReactNode {
+export function SettingsWindow({ initialPage, onClose, onPageChange, nativeAlpha = false }: { initialPage?: SettingsPageSlug; onClose: () => void; onPageChange?: (page: SettingsPageSlug) => void; nativeAlpha?: boolean }): ReactNode {
   const { t } = useI18n();
-  const [page, setPage] = useState<SettingsPageSlug>(initialPage ?? 'general');
-  useEffect(() => { if (initialPage) setPage(initialPage); }, [initialPage]);
-  const navigate = useCallback((next: SettingsPageSlug): void => { setPage(next); onPageChange?.(next); }, [onPageChange]);
+  const [page, setPage] = useState<SettingsPageSlug>(availablePage(initialPage, nativeAlpha));
+  useEffect(() => { setPage(availablePage(initialPage, nativeAlpha)); }, [initialPage, nativeAlpha]);
+  const navigate = useCallback((next: SettingsPageSlug): void => {
+    const selected = availablePage(next, nativeAlpha);
+    setPage(selected); onPageChange?.(selected);
+  }, [nativeAlpha, onPageChange]);
   const [query, setQuery] = useState('');
   const [pendingJump, setPendingJump] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
-  const results = useMemo(() => matchesFor(query, t), [query, t]);
+  const results = useMemo(() => matchesFor(query, t, nativeAlpha), [query, t, nativeAlpha]);
 
   // §I.2: the window SUSPENDS the app registry while open (search input is
   // an editable; global chords must not fire behind the dialog).
@@ -104,6 +111,33 @@ export function SettingsWindow({ initialPage, onClose, onPageChange }: { initial
     return () => suspendShortcutRegistry(false);
   }, []);
 
+  useSettingsHighlight(pendingJump, page, setHighlight, setPendingJump);
+
+  const jumpTo = useCallback((result: SearchResult): void => {
+    setPendingJump(result.id);
+    setQuery('');
+    navigate(result.page);
+  }, [navigate]);
+
+  // §G.1: refuse to close while a nested machine (recorder) owns input.
+  const requestClose = useCallback((): void => {
+    if (document.querySelector('[data-nnd-recording-overlay]') !== null) return;
+    onClose();
+  }, [onClose]);
+
+  return (
+    <SettingsDialog
+      page={page}
+      query={{ query, setQuery, searchResults: results, jumpTo, setPage: navigate }}
+      requestClose={requestClose}
+      highlight={highlight}
+      nativeAlpha={nativeAlpha}
+    />
+  );
+}
+
+function useSettingsHighlight(pendingJump: string | null, page: SettingsPageSlug,
+  setHighlight: (value: string | null) => void, setPendingJump: (value: string | null) => void): void {
   // §G.6: rAF-wait for the page DOM, scroll to the anchor, highlight 1600 ms.
   useEffect(() => {
     if (pendingJump === null) return;
@@ -125,36 +159,16 @@ export function SettingsWindow({ initialPage, onClose, onPageChange }: { initial
     });
     return () => cancelAnimationFrame(frame);
   }, [pendingJump, page]);
-
-  const jumpTo = useCallback((result: SearchResult): void => {
-    setPendingJump(result.id);
-    setQuery('');
-    navigate(result.page);
-  }, [navigate]);
-
-  // §G.1: refuse to close while a nested machine (recorder) owns input.
-  const requestClose = useCallback((): void => {
-    if (document.querySelector('[data-nnd-recording-overlay]') !== null) return;
-    onClose();
-  }, [onClose]);
-
-  return (
-    <SettingsDialog
-      page={page}
-      query={{ query, setQuery, searchResults: results, jumpTo, setPage: navigate }}
-      requestClose={requestClose}
-      highlight={highlight}
-    />
-  );
 }
 
 function SettingsDialog({
-  page, query, requestClose, highlight,
+  page, query, requestClose, highlight, nativeAlpha,
 }: {
   page: SettingsPageSlug;
   query: HeaderSearch;
   requestClose: () => void;
   highlight: string | null;
+  nativeAlpha: boolean;
 }): ReactNode {
   const { t } = useI18n();
   const searching = query.query.trim().length > 0;
@@ -173,7 +187,7 @@ function SettingsDialog({
           <SearchResultsPanel results={query.searchResults} onJump={query.jumpTo} />
         ) : (
           <div className="flex min-h-0 flex-1">
-            <SettingsNav page={page} onNavigate={query.setPage} />
+            <SettingsNav page={page} onNavigate={query.setPage} nativeAlpha={nativeAlpha} />
             <div className="min-w-0 flex-1 overflow-y-auto px-4 py-3" data-highlight={highlight ?? undefined}>
               <ErrorBoundary>
                 {renderPage(page, t, query.setPage)}
@@ -186,10 +200,11 @@ function SettingsDialog({
   );
 }
 
-function matchesFor(query: string, t: (key: I18nKey) => string): SearchResult[] {
+function matchesFor(query: string, t: (key: I18nKey) => string, nativeAlpha: boolean): SearchResult[] {
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return [];
   return searchIndex()
+    .filter((item) => !nativeAlpha || NATIVE_ALPHA_PAGES.has(item.page))
     .filter((item) => {
       const title = t(item.titleKey);
       return title.toLowerCase().includes(needle) || item.keywords.includes(needle) || item.id.toLowerCase().includes(needle);
@@ -268,15 +283,17 @@ function renderPage(slug: SettingsPageSlug, t: (key: I18nKey) => string,
   );
 }
 
-function SettingsNav({ page, onNavigate }: { page: SettingsPageSlug; onNavigate: (slug: SettingsPageSlug) => void }): ReactNode {
+function SettingsNav({ page, onNavigate, nativeAlpha }: { page: SettingsPageSlug; onNavigate: (slug: SettingsPageSlug) => void; nativeAlpha: boolean }): ReactNode {
   const { t } = useI18n();
   const groups = ['general', 'projects', 'opencode', 'content'] as const;
   return (
     <nav className="w-56 shrink-0 overflow-y-auto border-r border-border/50 px-2 py-3">
-      {groups.map((group) => (
+      {groups.filter((group) => SETTINGS_PAGE_ORDER.some((entry) => entry.group === group
+        && (!nativeAlpha || NATIVE_ALPHA_PAGES.has(entry.slug)))).map((group) => (
         <div key={group} className="mb-3">
           <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group}</div>
-          {SETTINGS_PAGE_ORDER.filter((entry) => entry.group === group).map((entry) => (
+          {SETTINGS_PAGE_ORDER.filter((entry) => entry.group === group
+            && (!nativeAlpha || NATIVE_ALPHA_PAGES.has(entry.slug))).map((entry) => (
             <button
               key={entry.slug}
               type="button"

@@ -226,8 +226,16 @@ export function desktopSetupProbe() {
           .filter(item=>item.textContent?.toLowerCase().includes('repair')).map(item=>item.textContent?.slice(0,100)).slice(0,8),
         alerts:[...document.querySelectorAll('[data-testid="settings-window"] [role="alert"]')]
           .map(item=>item.textContent?.slice(0,120)).slice(0,5)}))}
+    const invoke=window.__NOTNATIVE_DESKTOP_INVOKE__;
+    if(typeof invoke!=='function')throw Error('desktop invoke face missing');
+    for(const [command,payload] of [['desktop_hosts_set',{input:{hosts:[]}}],
+      ['desktop_ssh_instances_set',{config:{instances:[]}}]]){
+      const reply=await invoke(command,payload);
+      if(reply.ok!==false||reply.error!=='native-alpha-desktop-action-unavailable')
+        throw Error('native alpha IPC admitted '+command+' '+JSON.stringify(reply));
+    }
     return {service_state:setup.service_state,execution_state:setup.execution_state,
-      execution_status:denied.status,repair_visible:true};
+      execution_status:denied.status,repair_visible:true,ipc_fenced:true};
   })()`;
 }
 

@@ -18,6 +18,18 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 native alpha desktop IPC boundary
+
+NND `20261009-7` makes the Electron IPC face default closed for native alpha,
+allowing only window chrome, attachment reads, and status observation commands.
+NND-owned host, SSH, login-startup, updater, file-save, browser-control, and
+other mutation commands return a stable refusal before their handlers run.
+Native alpha settings navigation now exposes provider repair and read-only
+native skill inventory instead of legacy NND settings controls. Focused IPC
+and settings-window tests pass. A fresh `--native-setup-turn` source-installed
+journey observed desktop IPC refusal and passed first turn, reviewed writes,
+attachments, restart recovery, desktop attachment, and service lifetime.
+
 ## 2026-10-09 installed removal candidate
 
 NND `20261009-5` made source uninstall request a stop from the selected NNA

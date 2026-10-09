@@ -91,6 +91,24 @@ afterEach(() => {
 });
 
 describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
+  it('keeps native alpha settings on native configuration and read-only inventory pages', async () => {
+    await renderWindow('general');
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider>
+      <SettingsWindow initialPage="remote-instances" nativeAlpha onClose={() => undefined} />
+    </ThemeProvider></I18nProvider>));
+    const nav = document.querySelector('[data-testid="settings-window"] nav')!;
+    expect(nav.textContent).toContain('NNA configuration');
+    expect(nav.textContent).toContain('Providers');
+    expect(nav.textContent).not.toContain('Remote instances');
+    expect(nav.textContent).not.toContain('General');
+    expect(document.querySelector('[data-settings-item="general.startup.launch-at-login"]')).toBeNull();
+    const search = document.querySelector('input[placeholder^="Search settings"]') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'remote instances');
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(document.querySelector('[data-testid="settings-window"]')?.textContent).not.toContain('Remote instances');
+  });
   it('reflects route page changes in a retained dialog and reports sidebar navigation', async () => {
     await renderWindow('appearance');
     const changed = vi.fn();

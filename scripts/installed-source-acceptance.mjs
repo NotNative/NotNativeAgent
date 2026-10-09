@@ -315,7 +315,7 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
   if (nativeSetupTurn) {
     const desktopSetup = await shell(fixture, 'desktop', status.endpoint, null, [], desktopSetupProbe());
     assert.deepEqual(desktopSetup, { service_state: 'setup_required', execution_state: 'unavailable',
-      execution_status: 503, repair_visible: true });
+      execution_status: 503, repair_visible: true, ipc_fenced: true });
     assert.equal((await cli(fixture, 'status')).instance_id, status.instance_id,
       'pre-configuration desktop exit must leave the native service alive');
   }

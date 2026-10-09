@@ -183,6 +183,35 @@ function ipcEvent(contents, url, frames = [{ url }]) {
   };
 }
 
+test('native desktop alpha refuses local side effects before their IPC handlers run', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const effects = [];
+  const invoke = registeredInvoke({ contents, nativeAlpha: () => true,
+    hostConfig: { set: () => effects.push('hosts') },
+    sshInstances: { set: () => effects.push('ssh') },
+    loginItem: { set: () => effects.push('login') },
+    updater: { install: () => effects.push('update') },
+    fileUtilities: () => ({ saveMarkdown: () => effects.push('file'), readFile: () => 'attachment' }),
+  });
+  const local = (command, payload) => invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), command, payload);
+  for (const [command, payload] of [
+    ['desktop_hosts_set', { input: { hosts: [] } }],
+    ['desktop_ssh_instances_set', { config: { instances: [] } }],
+    ['desktop_set_launch_at_login', { enabled: true }],
+    ['desktop_updater_install', undefined],
+    ['desktop_save_markdown_file', { defaultFileName: 'notes.md', content: 'unsafe' }],
+    ['desktop_browser_register', undefined],
+    ['desktop_future_mutation', undefined],
+  ]) {
+    const reply = await local(command, payload);
+    assert.deepEqual({ ok: reply.ok, error: reply.error },
+      { ok: false, error: 'native-alpha-desktop-action-unavailable' }, command);
+  }
+  assert.deepEqual(effects, []);
+  assert.equal((await local('desktop_get_boot_info')).ok, true);
+  assert.equal((await local('desktop_read_file', { path: 'attachment.txt' })).result, 'attachment');
+});
+
 test('updater IPC is restricted to the local main frame and delegates check/download', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const calls = [];

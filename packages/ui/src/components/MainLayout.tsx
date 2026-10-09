@@ -461,7 +461,7 @@ export function MainLayout(): ReactNode {
         )) : null}
       </div>
       {settingsPage !== null ? (
-        <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} />
+        <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} nativeAlpha={nativeAlpha} />
       ) : null}
       {worktreesOpen ? (
         <WorktreesView projectRoot={activeDirectory} onClose={() => setWorktreesOpen(false)} />
