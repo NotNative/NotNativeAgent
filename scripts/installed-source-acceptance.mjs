@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, setupBrowserProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, setupBrowserProbe, setupReloadComposerProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -127,7 +127,14 @@ const accepted=await win.webContents.executeJavaScript('(async()=>{let button;fo
 if(accepted!=='ok')throw Error('Native code form did not authenticate: '+accepted);
 phase('auth_accepted');
 ${browserScenarioModule ? `let appMounted=false;for(let i=0;i<100;i++){try{appMounted=await win.webContents.executeJavaScript('Boolean(document.querySelector("[data-testid=connection-pill]"))')}catch{}if(appMounted)break;await new Promise(r=>setTimeout(r,100))}if(!appMounted)throw Error('Authenticated app shell did not mount');phase('app_mounted');` : ''}
-${browserProbeExpression ? `phase('probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
+${browserProbeExpression ? `phase('probe_start');const nextLoad=new Promise(resolve=>win.webContents.once('did-finish-load',resolve));
+const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});
+if(probe.ui_activation_started){await Promise.race([nextLoad,new Promise((_resolve,reject)=>setTimeout(()=>reject(Error('native activation did not reload the browser')),60000))]);
+const activation=await win.webContents.executeJavaScript('(async()=>{const auth=await(await fetch("/auth/session")).json();const response=await fetch("/api/v1/nnd/setup/status");return{authenticated:auth.authenticated,status:response.status,setup:await response.json()}})()');
+if(activation.authenticated!==true||activation.status!==200||activation.setup.service_state!=='ready'||activation.setup.execution_state!=='ready')
+throw Error('native activation reload was not ready '+JSON.stringify(activation));probe.setup_after=activation.setup.service_state;
+probe.same_tab_turn=await win.webContents.executeJavaScript(${JSON.stringify(setupReloadComposerProbe())});}
+phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
 ${browserScenarioModule ? `phase('scenario_start');const {runNativeReplayGapBrowser}=await import(${JSON.stringify(pathToFileURL(browserScenarioModule).href)});const replay=await runNativeReplayGapBrowser(win,phase);if(!replay.priorCursorPresent||!replay.nativeGap||!replay.sidebarRecovered||!replay.activityGapVisible||!replay.cursorReset)throw Error('Installed native replay gap evidence missing');phase('scenario_complete');process.stdout.write('NND_INSTALLED_REPLAY_GAP_OK\\n');` : ''}
 const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
 phase('isolation_window_created');
@@ -284,6 +291,7 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
     assert.equal(setupResult.setup_before, 'setup_required');
     assert.equal(setupResult.setup_receipt, 'saved');
     assert.equal(setupResult.setup_after, 'ready');
+    assert.equal(setupResult.same_tab_turn?.status, 'completed');
   }
   const chatTicket = nativeSetupTurn ? (await cli(fixture, 'ui-ticket')).ticket : ticket;
   const browserResult = await shell(fixture, 'browser', status.endpoint, chatTicket, [],

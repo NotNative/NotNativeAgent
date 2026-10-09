@@ -7,7 +7,9 @@ import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle } from '../primitives.tsx';
 
-export function NativeSetupPanel({ onOpenConfiguration }: { onOpenConfiguration?: () => void } = {}) {
+export function NativeSetupPanel({ onOpenConfiguration, onActivated }: {
+  onOpenConfiguration?: () => void; onActivated?: (signal: AbortSignal) => Promise<void> | void;
+} = {}) {
   const { t } = useI18n();
   const [status, setStatus] = useState<NativeSetupStatus | null>(null);
   const [busy, setBusy] = useState<'read' | 'activate' | null>(null);
@@ -23,10 +25,16 @@ export function NativeSetupPanel({ onOpenConfiguration }: { onOpenConfiguration?
       && runtime === getRuntimeKey() && origin === getApiBaseUrl();
     try {
       const result = await requestNativeSetup(activate, controller.signal);
-      if (current()) { setStatus(result.status); setError(result.error); }
+      if (current()) {
+        setStatus(result.status); setError(result.error);
+        if (activate && !result.error && result.status?.execution_state === 'ready') {
+          try { await onActivated?.(controller.signal); }
+          catch { if (current()) setError(true); }
+        }
+      }
     } catch { if (current()) { setStatus(null); setError(true); } }
     finally { if (current()) { pending.current = null; setBusy(null); } }
-  }, [auth]);
+  }, [auth, onActivated]);
   useEffect(() => {
     const reset = () => { pending.current?.abort(); pending.current = null; setStatus(null); setBusy(null); setError(false); };
     reset(); void load(false);

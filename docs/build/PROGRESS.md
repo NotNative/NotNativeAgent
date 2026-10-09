@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · GUI-led native setup and same-tab chat · NND 20261008-26 / NNA 20261008-8
+
+Successful activation from the Providers settings page now waits for the
+native model route, then reloads the authenticated browser so the sync engine
+and configured model are read from the newly ready NNA host. A composer whose
+directory config has not populated can recover the authenticated global native
+route without selecting a mock model. The disposable installed acceptance walks the visible
+NNA configuration repair form and Activate control, then requires a unique
+text-only composer prompt and completed native turn in that reloaded tab before
+the existing image/text attachment, unsupported-file correction, service
+restart, and desktop-attach checks. Native journal and HTTP transcript evidence
+confirmed the text turn while the acceptance probe was being corrected. Desktop
+setup-required access, malformed-source repair, desktop-originated turns, and
+the broader MVP parity matrix remain open.
+
 ## 2026-10-08 · Installed setup-to-first-turn acceptance · NND 20261008-22 / NNA 20261008-8
 
 The source-installed Windows acceptance now starts with no provider manifest.

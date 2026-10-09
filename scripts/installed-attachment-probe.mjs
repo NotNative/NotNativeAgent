@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Disposable provider and browser probe for the installed F3 attachment path. */
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 
 export const TEXT_MARKER = 'NND_INSTALLED_TEXT_MARKER';
 export const IMAGE = Buffer.concat([Buffer.from('89504e470d0a1a0a00000000', 'hex'), Buffer.from('NND_INSTALLED_IMAGE_MARKER')]);
@@ -90,17 +91,92 @@ export function setupBrowserProbe(workspaceRoot, providerPort) {
       throw Error('fresh configuration source was not missing '+JSON.stringify({state:view.source_state,revision:view.source_revision}));
     const configurationDocument={workspace_root:${JSON.stringify(workspaceRoot)},provider:{id:'smoke',
       endpoint:${JSON.stringify(`http://127.0.0.1:${providerPort}/v1`)},model:'test',trust_zone:'loopback'}};
-    const repaired=await post('/api/v1/nnd/configuration/repair',{installation_id:view.installation_id,
-      data_id:view.data_id,scope:'user',expected_revision:view.source_revision,
-      operation_id:'installed_first_setup',document:configurationDocument});
-    if(repaired.status!==200)throw Error('native setup repair '+repaired.status+' '+await repaired.text());
-    const receipt=await repaired.json();
-    if(receipt.persistence!=='saved'||receipt.application!=='not_applied')throw Error('setup receipt '+JSON.stringify(receipt));
-    const activated=await post('/api/v1/nnd/setup/activate',{});
-    if(activated.status!==200)throw Error('native setup activation '+activated.status+' '+await activated.text());
-    const active=await activated.json();
-    if(active.service_state!=='ready'||active.execution_state!=='ready')throw Error('native setup not ready '+JSON.stringify(active));
-    return {setup_before:initial.service_state,setup_receipt:receipt.persistence,setup_after:active.service_state};
+    const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    const gear=document.querySelector('[data-testid="settings-gear"]');
+    if(!gear)throw Error('installed settings control missing');gear.click();
+    const navigate=async label=>{for(let i=0;i<100;i++){
+      const item=[...document.querySelectorAll('[data-testid="settings-window"] nav button')]
+        .find(button=>button.textContent?.trim()===label);
+      if(item){item.click();return}await delay(100)}throw Error('settings page missing '+label)};
+    await navigate('NNA configuration');
+    let editor,confirm,repair;
+    for(let i=0;i<300;i++){
+      editor=[...document.querySelectorAll('label')].find(label=>label.textContent?.includes('Repair document as JSON'))?.querySelector('textarea');
+      confirm=[...document.querySelectorAll('label')].find(label=>label.textContent?.includes('I understand this replaces'))?.querySelector('input[type="checkbox"]');
+      repair=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Repair selected source');
+      if(editor&&confirm&&repair)break;await delay(100)}
+    if(!editor||!confirm||!repair)throw Error('native repair form missing '+JSON.stringify({
+      labels:[...document.querySelectorAll('[data-testid="settings-window"] label')].map(label=>label.textContent?.slice(0,60)).slice(0,20),
+      alerts:[...document.querySelectorAll('[data-testid="settings-window"] [role="alert"]')].map(item=>item.textContent?.slice(0,100)).slice(0,8)}));
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(editor,JSON.stringify(configurationDocument));
+    editor.dispatchEvent(new Event('input',{bubbles:true}));confirm.click();
+    for(let i=0;i<50&&repair.disabled;i++)await delay(100);
+    if(repair.disabled)throw Error('native repair form stayed disabled');repair.click();
+    let saved=false;for(let i=0;i<200;i++){
+      saved=document.querySelector('[data-testid="settings-window"]')?.textContent?.includes('receipt: saved');
+      if(saved)break;await delay(100)}
+    if(!saved)throw Error('native GUI repair did not publish a saved receipt');
+    await navigate('Providers');
+    let activate;for(let i=0;i<100;i++){
+      activate=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Activate NNA execution');
+      if(activate&&!activate.disabled)break;await delay(100)}
+    if(!activate||activate.disabled)throw Error('native GUI activation unavailable');
+    activate.click();
+    return {setup_before:initial.service_state,setup_receipt:'saved',ui_activation_started:true};
+  })()`;
+}
+
+export function setupReloadComposerProbe() {
+  const marker = `Installed setup text turn ${randomUUID()}`;
+  return `(async()=>{
+    const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    console.log('NND_PROBE_STEP:setup_reloaded');
+    const settings=document.querySelector('[data-testid="settings-window"]');
+    if(settings){const close=[...settings.querySelectorAll('header button')].find(button=>button.textContent?.trim()==='✕');
+      if(!close)throw Error('settings close control missing after activation');close.click()}
+    let composer;for(let i=0;i<100;i++){composer=document.querySelector('[data-testid="composer"]');if(composer)break;await delay(100)}
+    if(!composer)throw Error('composer missing after native activation reload');
+    const newSession=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='+ New session');
+    if(!newSession)throw Error('new session control missing after native activation');newSession.click();
+    let send;for(let i=0;i<150;i++){
+      const form=document.querySelector('[data-testid="composer"]');
+      const input=document.querySelector('[data-testid="composer-editor"]');
+      if(form&&input&&!form.getAttribute('data-send-blocked')){
+        if(input.value!==${JSON.stringify(marker)}){
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,${JSON.stringify(marker)});
+          input.dispatchEvent(new Event('input',{bubbles:true}))}}
+      send=document.querySelector('[data-testid="composer"] button[aria-label="Send message"]');
+      if(send&&!send.disabled)break;await delay(100)}
+    if(!send||send.disabled){const configResponse=await fetch('/api/config');
+      const configBody=await configResponse.text();
+      throw Error('text send disabled after native activation reload '+JSON.stringify({
+      blocked:document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked'),
+      draft:document.querySelector('[data-testid="composer-editor"]')?.value,
+      configStatus:configResponse.status,configBody:configBody.slice(0,800),
+      alerts:[...document.querySelectorAll('[role="alert"]')].map(row=>row.textContent?.slice(0,100)).slice(0,5)}))}
+    send.click();
+    console.log('NND_PROBE_STEP:setup_text_sent');
+    const deadline=Date.now()+300000;
+    while(Date.now()<deadline){
+      const rows=await(await fetch('/api/session?roots=true')).json();
+      for(const row of rows){
+        const messages=await(await fetch('/api/session/'+encodeURIComponent(row.id)+'/message')).json();
+        if(!messages.some(message=>message.info?.role==='user'&&message.parts?.some(part=>part.text?.includes(${JSON.stringify(marker)}))))continue;
+        const activity=await(await fetch('/api/session/'+encodeURIComponent(row.id)+'/activity')).json();
+        const turn=activity.find(item=>item.kind==='turn'&&item.status==='completed');
+        if(turn)return {session_id:row.id,status:turn.status};
+        const failed=activity.find(item=>item.kind==='turn'&&item.status!=='started');
+        if(failed)throw Error('setup text turn '+failed.status+' '+failed.summary)}
+      await delay(500)}
+    const rows=await(await fetch('/api/session?roots=true')).json();
+    const recent=rows.slice(0,5);
+    const activity=await Promise.all(recent.map(async row=>({id:row.id,
+      status:(await fetch('/api/session/'+encodeURIComponent(row.id)+'/activity')).status})));
+    throw Error('setup text composer turn did not settle '+JSON.stringify({
+      recent:recent.map(row=>({id:row.id,title:row.title})),activity,
+      blocked:document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked'),
+      draft:document.querySelector('[data-testid="composer-editor"]')?.value,
+      alerts:[...document.querySelectorAll('[role="alert"],[data-sonner-toast]')].map(row=>row.textContent?.slice(0,100)).slice(0,8)}));
   })()`;
 }
 

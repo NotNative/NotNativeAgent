@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 installed setup and first text turn
+
+NND `20261008-26` extends the disposable source-install journey from an absent
+provider manifest. Authenticated Chromium sees setup-required status and
+execution denial, publishes through the GUI's confirmed native repair form,
+activates from Providers, waits for the native model route, and reloads into ready native execution. The composer recovers the global native route if directory configuration has not loaded. The same
+window sends a unique text prompt through the composer and checks its native
+transcript and completed turn activity. The fixture provider also receives
+direct and composer image/text turns; restart recovers their transcripts once
+and the desktop attaches to the surviving service. Native journal inspection
+confirmed the text prompt and reply while correcting a probe that had selected
+the earlier `started` activity row. Desktop setup, review outcomes on this pair,
+remaining attachment failures, and full F/V parity remain open.
+
 ## 2026-10-08 installed unsupported attachment recovery
 
 NND `20261008-19` defers selection of a newly registered native session while

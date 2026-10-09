@@ -126,6 +126,22 @@ describe('NNA configured composer model', () => {
     expect(document.querySelector('[data-testid="model-trigger"]')?.textContent).toBe('new · new-model');
   });
 
+  it('uses an authenticated global native route while directory config is absent', async () => {
+    snapshot = { ...base, config: null } as unknown as DirectoryStore;
+    createSession.mockImplementation(async () => ({ id: 'session_1', metadata: { nnd: {
+      configuredModel: { providerID: 'ready', modelID: 'test' },
+    } } }));
+    useGlobalSyncStore.getState().set({ config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'ready', modelID: 'test' },
+    } } });
+    await render();
+    expect(document.querySelector('[data-testid="model-trigger"]')?.textContent).toBe('ready · test');
+    await submit('native route');
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      model: { providerID: 'ready', modelID: 'test' }, agent: 'nna',
+    }));
+  });
+
   it('blocks an existing-session send until its own NNA route metadata is loaded', async () => {
     snapshot = { ...base, config: { nnd: {
       engine: 'nna', primaryModel: { providerID: 'new', modelID: 'new-model' },

@@ -14,15 +14,17 @@ vi.mock('../../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => change.r
 const required: NativeSetupStatus = { service_state:'setup_required',configuration_state:'invalid',
   execution_state:'unavailable',provider_state:'unknown',failure_code:'nnd_setup_configuration_invalid' };
 let root: Root; let container: HTMLDivElement;
-function mount(onOpenConfiguration?: () => void) {
+function mount(onOpenConfiguration?: () => void, onActivated?: () => void) {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');document.body.append(container);root=createRoot(container);
-  act(() => root.render(<I18nProvider><NativeSetupPanel onOpenConfiguration={onOpenConfiguration} /></I18nProvider>));
+  act(() => root.render(<I18nProvider><NativeSetupPanel onOpenConfiguration={onOpenConfiguration}
+    onActivated={onActivated} /></I18nProvider>));
 }
 function button(text: string) { return [...container.querySelectorAll('button')].find(item=>item.textContent===text)!; }
 afterEach(()=>{act(()=>root?.unmount());container?.remove();vi.resetAllMocks();change.runtime='a';useAuthSessionStore.getState().markOk();});
 it('reads only on mount and requires explicit single activation; 503 status remains visible',async()=>{
-  vi.mocked(requestNativeSetup).mockResolvedValue({status:required,error:false});mount();await act(async()=>{});
+  const activated=vi.fn();
+  vi.mocked(requestNativeSetup).mockResolvedValue({status:required,error:false});mount(undefined,activated);await act(async()=>{});
   expect(requestNativeSetup).toHaveBeenCalledTimes(1);expect(vi.mocked(requestNativeSetup).mock.calls[0]![0]).toBe(false);
   expect(container.textContent).toContain('Provider connectivity: not checked');
   let finish!: (value: {status:NativeSetupStatus;error:boolean})=>void;
@@ -32,15 +34,18 @@ it('reads only on mount and requires explicit single activation; 503 status rema
   await act(async()=>finish({status:required,error:true}));
   expect(container.querySelector('[role="alert"]')).not.toBeNull();
   expect(container.textContent).toContain('Invalid or missing');
+  expect(activated).not.toHaveBeenCalled();
 });
 it('aborts previous host request and ignores its late completion',async()=>{
+  const activated=vi.fn();
   let finish!: (value: {status:NativeSetupStatus;error:boolean})=>void;
   vi.mocked(requestNativeSetup).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}))
-    .mockResolvedValue({status:required,error:false});mount();
+    .mockResolvedValue({status:required,error:false});mount(undefined,activated);
   const signal=vi.mocked(requestNativeSetup).mock.calls[0]![1];
   await act(async()=>{change.runtime='b';change.callback();});expect(signal.aborted).toBe(true);
   await act(async()=>finish({status:{...required,service_state:'ready',configuration_state:'ready',execution_state:'ready'},error:false}));
   expect(container.textContent).toContain('Invalid or missing');expect(container.textContent).not.toContain('Ready');
+  expect(activated).not.toHaveBeenCalled();
 });
 it('cancels on unmount and keeps unavailable activation disabled',async()=>{
   vi.mocked(requestNativeSetup).mockResolvedValue({status:null,error:true});mount();await act(async()=>{});
@@ -50,6 +55,18 @@ it('cancels on unmount and keeps unavailable activation disabled',async()=>{
   vi.mocked(requestNativeSetup).mockImplementation(()=>new Promise(()=>{}));
   act(()=>button('Refresh setup status').click());const pending=vi.mocked(requestNativeSetup).mock.calls[1]![1];
   act(()=>root.unmount());expect(pending.aborted).toBe(true);expect(signal.aborted).toBe(false);
+});
+it('refreshes its caller only after a current successful activation',async()=>{
+  const activated=vi.fn();
+  vi.mocked(requestNativeSetup).mockResolvedValue({status:required,error:false});
+  mount(undefined,activated);await act(async()=>{});
+  expect(activated).not.toHaveBeenCalled();
+  vi.mocked(requestNativeSetup).mockResolvedValueOnce({status:{...required,service_state:'ready',
+    configuration_state:'ready',execution_state:'ready'},error:false});
+  await act(async()=>button('Activate NNA execution').click());
+  expect(activated).toHaveBeenCalledTimes(1);
+  await act(async()=>button('Refresh setup status').click());
+  expect(activated).toHaveBeenCalledTimes(1);
 });
 it('auth expiry cancels activation and reauthentication only reads fresh status',async()=>{
   vi.mocked(requestNativeSetup).mockResolvedValue({status:required,error:false});mount();await act(async()=>{});

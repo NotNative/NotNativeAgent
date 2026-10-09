@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NativeSetupPanel } from './native-setup.tsx';
 import { harnessClient } from '../../../lib/nnd/client.ts';
+import { waitForNativeModelReady } from '../../../lib/nnd/setup-readiness.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { ProviderDiagnostics } from './provider-diagnostics.tsx';
@@ -24,6 +25,10 @@ interface RuntimeRoute { providerID: string; modelID: string }
 type Feedback = { kind: 'key'; key: I18nKey } | { kind: 'raw'; message: string } | null;
 
 const MAX_TEXT_LENGTH = 4096;
+async function refreshAfterNativeActivation(signal: AbortSignal): Promise<void> {
+  await waitForNativeModelReady(signal);
+  if (!signal.aborted) window.location.reload();
+}
 
 function boundedText(value: unknown, maxLength: number): value is string {
   if (typeof value !== 'string' || value.length > maxLength) return false;
@@ -124,7 +129,7 @@ export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: (
 
   return (
     <SettingsSection item="providers.inventory">
-      <NativeSetupPanel onOpenConfiguration={onOpenConfiguration} />
+      <NativeSetupPanel onOpenConfiguration={onOpenConfiguration} onActivated={refreshAfterNativeActivation} />
       <div className="flex items-center justify-between gap-3">
         <SettingsGroupTitle>{t('settings.providers.inventory.title')}</SettingsGroupTitle>
         <button type="button" data-testid="providers-refresh" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>{t('settings.providers.inventory.refresh')}</button>

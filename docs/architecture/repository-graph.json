@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:1b0ca3f9dd5e48849cd631cff2953b6d3ea221b4a5e291f698f98acb9319cb76",
+  "source_digest": "sha256:7c5292e6841dcda5f79af4c339c81807209d97ccccd0120e6e8186f7cb239c0a",
   "counts": {
-    "modules": 852,
+    "modules": 853,
     "component_edges": 17
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "harness-facade",
       "label": "Harness SDK facade",
       "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
-      "module_count": 40
+      "module_count": 41
     },
     {
       "id": "runtime-io",
@@ -116,7 +116,7 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 124,
+      "import_count": 126,
       "module_count": 91
     },
     {
@@ -409,6 +409,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/types.ts"
@@ -2244,7 +2245,8 @@
         "packages/ui/src/components/settings/pages/provider-route-activation.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/i18n/messages/en.ts",
-        "packages/ui/src/lib/nnd/client.ts"
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/setup-readiness.ts"
       ]
     },
     {
@@ -3852,6 +3854,15 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/setup-readiness.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts"
       ]
     },
     {
