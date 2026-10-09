@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, setupBrowserProbe, setupReloadComposerProbe, reviewBrowserProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, setupBrowserProbe, setupReloadComposerProbe, reviewBrowserProbe, desktopReviewProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -103,7 +103,7 @@ const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
 app.setPath('userData',${JSON.stringify(mainUrl.userData)});
-let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? 150000 : browserProbeExpression ? browserProbeTimeoutMs : browserScenarioModule ? 360000 : 45000});
+let done=false;const timer=setTimeout(()=>{process.stderr.write('acceptance Chromium timeout\\n');app.exit(1)},${mode === 'desktop' ? browserProbeExpression ? 360000 : 150000 : browserProbeExpression ? browserProbeTimeoutMs : browserScenarioModule ? 360000 : 45000});
 function finish(ok){if(done)return;done=true;clearTimeout(timer);if(ok)process.stdout.write('NND_INSTALLED_${mode === 'browser' ? 'BROWSER' : 'DESKTOP'}_OK\\n');app.exit(ok?0:1)}
 app.whenReady().then(async()=>{
 try{
@@ -147,7 +147,9 @@ finish(true);` : `app.on('browser-window-created',(_event,win)=>{phase('window_c
 win.webContents.on('did-finish-load',async()=>{if(done||!win.webContents.getURL().startsWith(${JSON.stringify(origin)}))return;
 phase('window_loaded');
 try{const result=await win.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");return {status:response.status,authenticated:(await response.json()).authenticated,token:window.__NOTNATIVE_CLIENT_TOKEN__||"",headers:window.__NOTNATIVE_RUNTIME_HEADERS__||{}}})()');
-if(result.status!==200||result.authenticated!==true||result.token||Object.keys(result.headers).length)throw Error('Desktop attach missing or bearer exposed');finish(true)}catch(e){process.stderr.write(String(e));finish(false)}})});
+if(result.status!==200||result.authenticated!==true||result.token||Object.keys(result.headers).length)throw Error('Desktop attach missing or bearer exposed');
+${browserProbeExpression ? `phase('desktop_probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('desktop_probe_complete');process.stdout.write('NND_DESKTOP_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
+finish(true)}catch(e){process.stderr.write(String(e));finish(false)}})});
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
 }catch(error){process.stderr.write(error?.stack||error?.message||JSON.stringify(error)||String(error));finish(false)} });`;
 }
@@ -177,15 +179,15 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
-      timeout: mode === 'desktop' ? 165000 : browserProbeExpression ? browserProbeTimeoutMs + 15000 : browserScenarioModule ? 375000 : 60000, outputFiles });
+      timeout: mode === 'desktop' ? browserProbeExpression ? 375000 : 165000 : browserProbeExpression ? browserProbeTimeoutMs + 15000 : browserScenarioModule ? 375000 : 60000, outputFiles });
   }
   finally { if (ticketPath) await unlink(ticketPath).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   if (outputFiles) output = await readOutputTail(outputFiles.stdout);
   assert.match(output, new RegExp(`NND_INSTALLED_${mode.toUpperCase()}_OK`, 'u'));
   if (browserScenarioModule) assert.match(output, /NND_INSTALLED_REPLAY_GAP_OK/u);
   if (browserProbeExpression) {
-    const match = /^NND_BROWSER_PROBE=(.+)$/mu.exec(output);
-    assert.ok(match, 'Authenticated browser probe result is missing');
+    const match = new RegExp(`^NND_${mode.toUpperCase()}_PROBE=(.+)$`, 'mu').exec(output);
+    assert.ok(match, `Authenticated ${mode} probe result is missing`);
     return JSON.parse(match[1]);
   }
 }
@@ -310,7 +312,14 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
   if (nativeAttachments || nativeSetupTurn) assertInstalledAttachmentDelivery(browserResult, attachmentProvider.requests);
   const desktopStatus = nativeAttachments || nativeSetupTurn
     ? await restartAttachmentService(fixture, status, browserResult, attachmentProvider.requests) : status;
-  await shell(fixture, 'desktop', desktopStatus.endpoint);
+  const desktopResult = await shell(fixture, 'desktop', desktopStatus.endpoint, null, [],
+    nativeSetupTurn ? desktopReviewProbe() : '');
+  if (nativeSetupTurn) {
+    assert.equal(desktopResult.tool_status, 'completed');
+    assert.equal(desktopResult.activity_visible, true);
+    assert.ok(attachmentProvider.reviews.filter(item => item.mode === 'allow' && item.approved).length >= 2,
+      'desktop-originated write did not receive native reviewer approval');
+  }
   const after = await cli(fixture, 'status');
   assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');
 }

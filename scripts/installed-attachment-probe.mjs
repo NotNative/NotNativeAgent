@@ -273,6 +273,46 @@ export function reviewBrowserProbe() {
   })()`;
 }
 
+export function desktopReviewProbe() {
+  return `(async()=>{
+    const marker='NND_ALPHA_REVIEW_ALLOW';
+    const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    let newSession;for(let i=0;i<100;i++){
+      newSession=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='+ New session');
+      if(newSession)break;await delay(100)}
+    if(!newSession)throw Error('desktop new session control missing');newSession.click();
+    let send;for(let i=0;i<150;i++){
+      const input=document.querySelector('[data-testid="composer-editor"]');
+      if(input&&input.value!==marker){Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,marker);
+        input.dispatchEvent(new Event('input',{bubbles:true}))}
+      send=document.querySelector('[data-testid="composer"] button[aria-label="Send message"]');
+      if(send&&!send.disabled)break;await delay(100)}
+    if(!send||send.disabled)throw Error('desktop review composer send disabled');send.click();
+    const deadline=Date.now()+120000;let sessionID=null;let tool=null;
+    while(Date.now()<deadline){
+      const sessions=await(await fetch('/api/session?roots=true')).json();
+      for(const session of sessions){
+        const messages=await(await fetch('/api/session/'+encodeURIComponent(session.id)+'/message')).json();
+        if(!messages.some(message=>message.info?.role==='user'&&message.parts?.some(part=>part.text?.includes(marker))))continue;
+        sessionID=session.id;
+        const activity=await(await fetch('/api/session/'+encodeURIComponent(session.id)+'/activity')).json();
+        tool=activity.find(item=>item.kind==='tool'&&item.summary?.startsWith('fs_write_text:')&&item.status==='completed');
+        if(tool)break;
+      }
+      if(tool)break;await delay(500);
+    }
+    if(!tool)throw Error('desktop reviewed write did not complete '+sessionID);
+    const activityButton=document.querySelector('[data-testid="operator-rail"] button[aria-label="Activity"]');
+    if(!activityButton)throw Error('desktop Activity control missing');activityButton.click();
+    let visible=false;for(let i=0;i<100;i++){
+      visible=[...document.querySelectorAll('[data-testid="activity-rows"] li')].some(row=>
+        row.textContent?.includes('fs_write_text:')&&row.textContent?.includes('completed'));
+      if(visible)break;await delay(100)}
+    if(!visible)throw Error('desktop reviewed write absent from visible Activity rows');
+    return {session_id:sessionID,tool_status:tool.status,activity_visible:visible};
+  })()`;
+}
+
 function composerBrowserProbe() {
   return `(async()=>{
     const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));

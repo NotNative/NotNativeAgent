@@ -1640,6 +1640,14 @@
     {
       "version": "20261008-29",
       "content_sha256": "c39e8ca1d6b32ed6c369d3867545dd82d4ebacbea33a0423c2f63d471ada8c5e"
+    },
+    {
+      "version": "20261008-30",
+      "content_sha256": "c41b230fcdf50073732d4547dbf4e02e040856b616fafd53d0ee687f7ebc7043"
+    },
+    {
+      "version": "20261008-31",
+      "content_sha256": "cb70ebdcfc738bc6328e789e1b229f528b12b309416470b132795820a3552426"
     }
   ]
 }

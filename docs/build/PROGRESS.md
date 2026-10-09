@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Desktop-originated native review · NND 20261008-31 / NNA 20261008-8
+
+The installed source acceptance now keeps the fixture provider across native
+restart, sends a reviewed write from the actual Electron composer, and requires
+native approval plus a completed tool row in the visible desktop Activity pane.
+The browser approval/denial and disk assertions remain in the same journey.
+The fresh installed run passed on this pinned pair. Denial rendering in the
+desktop and browser remains open.
+
 ## 2026-10-08 · Pinned-pair native reviewer probe · NND 20261008-29 / NNA 20261008-8
 
 The disposable setup-to-first-turn acceptance now submits two additional

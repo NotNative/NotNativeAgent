@@ -18,6 +18,14 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 desktop-originated reviewer acceptance
+
+NND `20261008-31` extends the disposable source-installed native journey from
+the browser reviewer probe into the actual Electron composer after a service
+restart. The fixture requires a second exact reviewer approval and a completed
+`fs_write_text` row in the visible desktop Activity pane. Fresh installed
+acceptance passed; denial rendering remains open.
+
 ## 2026-10-08 pinned-pair reviewer acceptance
 
 NND `20261008-29` extends the fresh no-manifest installed journey with
