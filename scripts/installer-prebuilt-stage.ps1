@@ -171,18 +171,25 @@ function Invoke-NndPrebuiltActivation($SelectedNna, $CheckedPayload, $Capabiliti
         $started = $true
         $buffer = New-Object char[] 1024
         $output = New-Object System.Text.StringBuilder
-        $deadline = [DateTime]::UtcNow.AddMinutes(4)
+        # Native slot activation performs several serialized durable proof steps.
+        $deadline = [DateTime]::UtcNow.AddMinutes(45)
         while ($true) {
-            $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
-            if ($remaining -le 0) { throw 'Native activation orchestration exceeded its deadline; the retained owner remains uncertain.' }
             $read = $process.StandardOutput.ReadAsync($buffer, 0, $buffer.Length)
-            if (!$read.Wait($remaining)) { throw 'Native activation orchestration exceeded its deadline; the retained owner remains uncertain.' }
+            while (!$read.IsCompleted) {
+                $remaining = [int][Math]::Min(30000, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
+                if ($remaining -le 0) { throw 'Native activation orchestration exceeded its deadline; the retained owner remains uncertain.' }
+                [void]$read.Wait($remaining)
+            }
             if ($read.Result -eq 0) { break }
             [void]$output.Append($buffer, 0, $read.Result)
             if ($output.Length -gt 8192) { throw 'Native activation orchestration response exceeded its bound; the retained owner remains uncertain.' }
         }
-        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
-        if ($remaining -le 0 -or !$process.WaitForExit($remaining) -or $process.ExitCode -ne 0) {
+        while (!$process.HasExited) {
+            $remaining = [int][Math]::Min(30000, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
+            if ($remaining -le 0) { throw 'Native activation orchestration exceeded its deadline; the retained owner remains uncertain.' }
+            [void]$process.WaitForExit($remaining)
+        }
+        if ($process.ExitCode -ne 0) {
             throw "Native activation orchestration did not confirm public attachment; the retained owner remains uncertain (stage operation $StageOperation)."
         }
         $result = $output.ToString() | ConvertFrom-Json

@@ -18,6 +18,32 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-09 disposable prebuilt first-install smoke
+
+NND `20261009-10` / NNA `20261009-1` passed
+`node scripts/installed-prebuilt-smoke.mjs D:\ProjectRepo\NotNativeAgent`
+against a fresh private short-path fixture. The immutable payload staged without
+changing selection; native activation completed its retained trial, terminal
+retirement and cleared witness, then attached a public controller. The selected
+package reported the payload version and bound the stable anchor to the staged
+operation and payload digest. Authenticated Chromium and Electron attached to
+the same setup-required service. The harness stopped it, uninstalled NND, and
+observed no selected package; the successful disposable fixture was removed.
+Earlier failed fixtures with unresolved activation barriers remain preserved.
+This is first-install evidence, not upgrade, rollback, interrupted-activation
+recovery, direct shortcut launch, or operator-profile certification.
+
+The Windows run exposed that per-phase native proof budgets were shorter than
+actual durable installed operations. NNA now bounds the trial and lock at 30
+minutes, permits the slower private transition receipts and ordered retirement
+cleanup, and preserves one nested CLI failure code for diagnosis. NND gives
+installer activation 45 minutes and polls its Windows child without millisecond
+integer overflow. Focused activation and installer tests, both repository
+quality gates, NND UI/web tests, typecheck, and packaging passed. The parallel
+NNA full suite encountered three legacy-process census refusals; all three
+passed in a serial focused rerun. The serial full suite passed 2,428 tests,
+with eight platform skips and no failures.
+
 ## 2026-10-09 native alpha deep-link and callback boundary
 
 NND `20261009-9` prevents installed native Electron from importing a paired

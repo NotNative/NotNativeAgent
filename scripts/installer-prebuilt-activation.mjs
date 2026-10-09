@@ -120,7 +120,8 @@ function startRetainedNna(runtime, stageOperationId, operationId) {
 
 function awaitRetainedReadiness(child, outLog, stageOperationId, operationId, candidateSha256) {
   return new Promise((accept, reject) => {
-    const deadline = Date.now() + 300000;
+    // The native trial, publication, and retirement sequence has multiple bounded phases.
+    const deadline = Date.now() + 45 * 60 * 1000;
     let text = '';
     const finish = code => reject(Object.assign(new Error(code), { code }));
     child.once('exit', (exitCode, signal) => finish(
