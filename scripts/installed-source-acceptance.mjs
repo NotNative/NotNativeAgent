@@ -283,7 +283,7 @@ async function newFixture(nnaSource) {
   await privateDirectory(root);
   return prepare(nnaSource, root);
 }
-async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn, attachmentProvider }) {
+async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn, malformedSource, attachmentProvider }) {
   if (nativeSetupTurn) {
     const desktopSetup = await shell(fixture, 'desktop', status.endpoint, null, [], desktopSetupProbe());
     assert.deepEqual(desktopSetup, { service_state: 'setup_required', execution_state: 'unavailable',
@@ -295,7 +295,7 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
   const scenarioModule = nativeReplayGap ? join(fixture.root, 'native-replay-gap-browser.mjs') : null;
   if (scenarioModule) await cp(join(source, 'scripts/electron-native-replay-gap-browser.mjs'), scenarioModule);
   const setupResult = nativeSetupTurn ? await shell(fixture, 'browser', status.endpoint, ticket, [],
-    setupBrowserProbe(fixture.root, attachmentProvider.port)) : null;
+    setupBrowserProbe(fixture.root, attachmentProvider.port, malformedSource ? 'invalid' : 'missing')) : null;
   if (setupResult) {
     assert.equal(setupResult.setup_before, 'setup_required');
     assert.equal(setupResult.setup_receipt, 'saved');
@@ -332,7 +332,8 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
   const after = await cli(fixture, 'status');
   assert.equal(after.instance_id, desktopStatus.instance_id, 'Desktop exit must not stop or replace native service');
 }
-async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false, nativeSetupTurn = false) {
+async function main(nnaSource, nativeReplayGap = false, nativeAttachments = false, nativeSetupTurn = false,
+  malformedSource = false) {
   const fixture = await newFixture(nnaSource); const root = fixture.root;
   let serviceStopped = false; let accepted = false;
   let attachmentProvider;
@@ -354,6 +355,11 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     assert.equal((await realpath(registered.root)).toLowerCase(), packageRoot.toLowerCase(),
       'NNA selected a different NND package root');
     assert.equal(registered.version, packageVersion, 'NNA selected a different NND package version');
+    if (malformedSource) {
+      await cli(fixture, 'stop'); await waitStopped(fixture);
+      await writeFile(join(fixture.data, 'config', 'manifest.json'), '{malformed native source');
+      await cli(fixture, 'start');
+    }
     const status = await cli(fixture, 'status');
     assert.equal(status.installation_id, selected.installation_id);
     assert.equal(status.data_id, selected.data_id);
@@ -361,10 +367,11 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     if (nativeSetupTurn) assert.equal(status.service_state, 'setup_required');
     assert.equal(status.package_state, 'ready');
     assert.equal(status.package_version, packageVersion);
-    await runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn, attachmentProvider });
+    await runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttachments, nativeSetupTurn,
+      malformedSource, attachmentProvider });
     await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true;
     accepted = true;
-    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeSetupTurn ? ', fresh native setup and first turn' : ''}${nativeAttachments || nativeSetupTurn ? ', file-only composer delivery and service restart recovery' : ''}, desktop attach and service lifetime passed.\n`);
+    process.stdout.write(`Real disposable source install, Native code Chromium UI${nativeSetupTurn ? `, ${malformedSource ? 'malformed-source repair' : 'fresh native setup'} and first turn` : ''}${nativeAttachments || nativeSetupTurn ? ', file-only composer delivery and service restart recovery' : ''}, desktop attach and service lifetime passed.\n`);
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }
@@ -380,8 +387,9 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (![3, 4].includes(process.argv.length) || process.argv.length === 4
-    && !['--native-replay-gap', '--native-attachments', '--native-setup-turn'].includes(process.argv[3]))
-    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments|--native-setup-turn]');
+    && !['--native-replay-gap', '--native-attachments', '--native-setup-turn', '--native-malformed-setup-turn'].includes(process.argv[3]))
+    throw new Error('usage: node scripts/installed-source-acceptance.mjs ABSOLUTE_NNA_SOURCE [--native-replay-gap|--native-attachments|--native-setup-turn|--native-malformed-setup-turn]');
   await main(resolve(process.argv[2]), process.argv[3] === '--native-replay-gap', process.argv[3] === '--native-attachments',
-    process.argv[3] === '--native-setup-turn');
+    ['--native-setup-turn', '--native-malformed-setup-turn'].includes(process.argv[3]),
+    process.argv[3] === '--native-malformed-setup-turn');
 }

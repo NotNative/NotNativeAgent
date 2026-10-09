@@ -137,7 +137,7 @@ export function attachmentBrowserProbe() {
   })()`;
 }
 
-export function setupBrowserProbe(workspaceRoot, providerPort) {
+export function setupBrowserProbe(workspaceRoot, providerPort, expectedSource = 'missing') {
   return `(async()=>{
     const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
     const before=await fetch('/api/v1/nnd/setup/status');
@@ -150,8 +150,10 @@ export function setupBrowserProbe(workspaceRoot, providerPort) {
     const read=await fetch('/api/v1/nnd/configuration');
     if(read.status!==200)throw Error('configuration read '+read.status+' '+await read.text());
     const view=await read.json();
-    if(view.source_state!=='missing'||view.source_revision!=='absent')
-      throw Error('fresh configuration source was not missing '+JSON.stringify({state:view.source_state,revision:view.source_revision}));
+    if(view.source_state!==${JSON.stringify(expectedSource)}
+      || ${JSON.stringify(expectedSource)}==='missing'&&view.source_revision!=='absent'
+      || ${JSON.stringify(expectedSource)}==='invalid'&&(!view.source_revision||view.source_revision==='absent'))
+      throw Error('configuration source did not match expected state '+JSON.stringify({state:view.source_state,revision:view.source_revision}));
     const configurationDocument={workspace_root:${JSON.stringify(workspaceRoot)},provider:{id:'smoke',
       endpoint:${JSON.stringify(`http://127.0.0.1:${providerPort}/v1`)},model:'test',trust_zone:'loopback'}};
     const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
