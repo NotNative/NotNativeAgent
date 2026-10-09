@@ -37,14 +37,14 @@ repository as the disposable test profile.
    credentials, or unrelated workspaces. Record versions, commits, failures,
    and the exact profile used.
 
-## Acceptance ledger at NND 20261008-28 / NNA 20261008-8
+## Acceptance ledger at NND 20261008-29 / NNA 20261008-8
 
 | Gate | Current evidence | State / next proof |
 | --- | --- | --- |
 | A1: independent installed service and two doors | Disposable source install, authenticated Chromium and Electron, surviving service, restart and desktop reattach passed on the pinned pair. | Verified for the disposable source fixture; operator profile and prebuilt distribution are separate gates. |
 | A2: setup without provider | `installed-source-acceptance.mjs --native-setup-turn` starts without a manifest, observes denied execution, repairs through the visible NNA configuration form, activates through Providers, waits for the native model route, and checks authenticated same-window reload plus a governed text composer turn. The supervised one-use ticket/stop smoke passed. | In progress: Chromium GUI setup-to-turn is covered on the source-installed pair; desktop setup-required access and malformed-source repair still need installed proof. |
 | A3: core chat and files | Installed text-only, direct file, and composer file-only sends reached fixture providers; names survived restart; duplicate retry did not resend. Unsupported PDF was rejected before a native turn and remained a correctable draft. | Verified for fixture provider and Chromium; add a desktop-originated turn and remaining attachment failure cases. |
-| A4: native review | Earlier installed multi-root F1 journey proved exact reviewer approvals, governed disk effects, and sibling-root refusals. | In progress: prove an actual reviewer denial and one permitted effect on this pinned alpha pair in both doors. |
+| A4: native review | Earlier installed multi-root F1 journey proved exact reviewer approvals, governed disk effects, and sibling-root refusals. The current source-installed pair now probes one exact native `fs_write_text` approval and one mismatched denial, checking provider review records and disk effects. | In progress: complete installed proof on this pinned pair and add a desktop-originated reviewed turn plus UI outcome checks. |
 | A5: safe alpha surface | The installed native service refuses terminal access and NND-owned Git, file, queue, scheduled-task, plan, skill, update-install, and other out-of-scope mutations before route handlers. A route inventory test tracks literal mutation registrations. The GUI labels the boundary and closes primary controls plus scheduled/file event entry points; installed acceptance checks these refusals. | In progress: audit dynamic and private callback routes and settings controls, then prove native reviewer outcomes on this pinned pair. |
 | A6: installation and recovery | Source installer and prior transactional fixture journeys pass; current attachment fixture cleans up after success. | In progress: one pinned-pair fresh install, failed setup, rollback/removal journey and preserved-state check. |
 | A7: operator trial | No operator installation or data migration has been performed for this milestone. | Open: use a named isolated profile only after A2–A6 pass; record feedback separately from MVP closure. |

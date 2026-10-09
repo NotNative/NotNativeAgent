@@ -1,29 +1,74 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Disposable provider and browser probe for the installed F3 attachment path. */
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 export const TEXT_MARKER = 'NND_INSTALLED_TEXT_MARKER';
 export const IMAGE = Buffer.concat([Buffer.from('89504e470d0a1a0a00000000', 'hex'), Buffer.from('NND_INSTALLED_IMAGE_MARKER')]);
 export const REPLY = 'NND_INSTALLED_ATTACHMENT_REPLY';
 export const UI_TEXT_MARKER = 'NND_INSTALLED_UI_TEXT_MARKER';
 export const UI_IMAGE = Buffer.concat([Buffer.from('89504e470d0a1a0a00000000', 'hex'), Buffer.from('NND_INSTALLED_UI_IMAGE_MARKER')]);
+export const REVIEW_ALLOWED_FILE = 'ALPHA_REVIEW_ALLOWED.txt';
+export const REVIEW_DENIED_FILE = 'ALPHA_REVIEW_DENIED.txt';
+export const REVIEW_ALLOWED_CONTENT = 'installed-native-review-allowed';
+
+export function reviewProviderDelta(body, reviews) {
+  if (body.messages?.[0]?.content?.includes('isolated tool-permission decision')) {
+    const review = JSON.parse(body.messages.find(message => message.role === 'user')?.content ?? '{}');
+    const intent = review.authenticatedIntent?.findLast(item => typeof item.content === 'string'
+      && /NND_ALPHA_REVIEW_(?:ALLOW|DENY)/u.test(item.content));
+    const mode = intent?.content?.includes('NND_ALPHA_REVIEW_ALLOW') ? 'allow' : 'deny';
+    const approved = mode === 'allow' && review.request?.toolName === 'fs_write_text'
+      && review.request.args?.path === REVIEW_ALLOWED_FILE
+      && review.request.args?.content_sha256 === createHash('sha256').update(REVIEW_ALLOWED_CONTENT).digest('hex')
+      && review.request.args?.content_bytes === Buffer.byteLength(REVIEW_ALLOWED_CONTENT);
+    reviews.push({ mode, approved: Boolean(approved), tool: review.request?.toolName });
+    return { delta: { role: 'assistant', content: JSON.stringify({
+      outcome: approved ? 'approve' : 'deny_with_guidance', confidence: 1,
+      reason_code: approved ? 'exact_alpha_fixture_write' : 'alpha_fixture_write_mismatch',
+      authority_anchors: approved ? [intent.sequence] : [],
+      ...(!approved ? { guidance: 'This fixture permits only its exact approved write.' } : {}),
+    }) }, toolCall: false };
+  }
+  const userText = String(body.messages?.filter(message => message.role === 'user').at(-1)?.content ?? '');
+  const mode = userText.includes('NND_ALPHA_REVIEW_ALLOW') ? 'allow'
+    : userText.includes('NND_ALPHA_REVIEW_DENY') ? 'deny' : null;
+  if (!mode) return { delta: { role: 'assistant', content: REPLY }, toolCall: false };
+  const searchId = `nnd_alpha_review_search_${mode}`;
+  const writeId = `nnd_alpha_review_write_${mode}`;
+  const searched = body.messages?.some(message => message.role === 'tool' && message.tool_call_id === searchId);
+  const result = body.messages?.find(message => message.role === 'tool' && message.tool_call_id === writeId);
+  if (!searched) return { delta: { role: 'assistant', tool_calls: [{ index: 0, id: searchId, type: 'function',
+    function: { name: 'tool_search', arguments: JSON.stringify({ query: 'fs_write_text' }) } }] }, toolCall: true };
+  if (!result) return { delta: { role: 'assistant', tool_calls: [{ index: 0, id: writeId, type: 'function',
+    function: { name: 'fs_write_text', arguments: JSON.stringify({
+      path: mode === 'allow' ? REVIEW_ALLOWED_FILE : REVIEW_DENIED_FILE,
+      content: REVIEW_ALLOWED_CONTENT,
+    }) } }] }, toolCall: true };
+  const tool = JSON.parse(result.content);
+  return { delta: { role: 'assistant', content: mode === 'allow'
+    ? tool.tool_lifecycle_status === 'succeeded' ? 'NND_ALPHA_REVIEW_ALLOW_PASS' : 'NND_ALPHA_REVIEW_ALLOW_FAIL'
+    : tool.tool_lifecycle_status !== 'succeeded' ? 'NND_ALPHA_REVIEW_DENY_PASS' : 'NND_ALPHA_REVIEW_DENY_FAIL' }, toolCall: false };
+}
 
 export async function startAttachmentProvider() {
   const requests = [];
+  const reviews = [];
   const server = createServer((request, response) => {
     void (async () => {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
-      requests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      requests.push(body);
+      const { delta, toolCall } = reviewProviderDelta(body, reviews);
       response.writeHead(200, { 'content-type': 'text/event-stream' });
-      response.end(`data: ${JSON.stringify({ choices: [{ delta: { role: 'assistant', content: REPLY }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
+      response.end(`data: ${JSON.stringify({ choices: [{ delta, finish_reason: toolCall ? 'tool_calls' : 'stop' }] })}\n\ndata: [DONE]\n\n`);
     })().catch(() => { if (!response.headersSent) response.writeHead(400); response.end(); });
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('attachment provider did not bind');
-  return { server, port: address.port, requests };
+  return { server, port: address.port, requests, reviews };
 }
 
 export function attachmentBrowserProbe() {
@@ -195,6 +240,36 @@ export function setupReloadComposerProbe() {
       blocked:document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked'),
       draft:document.querySelector('[data-testid="composer-editor"]')?.value,
       alerts:[...document.querySelectorAll('[role="alert"],[data-sonner-toast]')].map(row=>row.textContent?.slice(0,100)).slice(0,8)}));
+  })()`;
+}
+
+export function reviewBrowserProbe() {
+  return `(async()=>{
+    const post=(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const outcomes=[];
+    for(const mode of ['allow','deny']){
+      const created=await post('/api/session',{title:'Installed native review '+mode});
+      if(created.status!==201)throw Error('review session '+mode+' '+created.status+' '+await created.text());
+      const session=await created.json();
+      const marker=mode==='allow'?'NND_ALPHA_REVIEW_ALLOW':'NND_ALPHA_REVIEW_DENY';
+      const prompt=await post('/api/session/'+encodeURIComponent(session.id)+'/prompt_async',{
+        messageID:'alpha_review_'+mode+'_'+crypto.randomUUID(),parts:[{type:'text',text:marker}]});
+      if(prompt.status!==204)throw Error('review prompt '+mode+' '+prompt.status+' '+await prompt.text());
+      const deadline=Date.now()+300000;let activity=[];let tool;
+      while(Date.now()<deadline){
+        const response=await fetch('/api/session/'+encodeURIComponent(session.id)+'/activity');
+        if(response.status!==200)throw Error('review activity '+mode+' '+response.status);
+        activity=await response.json();
+        tool=activity.find(item=>item.kind==='tool'&&item.summary?.startsWith('fs_write_text:')
+          &&item.status===(mode==='allow'?'completed':'failed'));
+        if(tool)break;
+        await new Promise(resolve=>setTimeout(resolve,500));
+      }
+      if(!tool)throw Error('native reviewer tool did not settle '+mode+' '+JSON.stringify(activity.slice(-8)));
+      outcomes.push({mode,session_id:session.id,tool_status:tool.status,
+        reason_code:tool.toolEvidence?.reasonCode??null});
+    }
+    return {reviews:outcomes};
   })()`;
 }
 

@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-08 · Pinned-pair native reviewer probe · NND 20261008-29 / NNA 20261008-8
+
+The disposable setup-to-first-turn acceptance now submits two additional
+native tool turns against its isolated workspace. The fixture provider serves
+the same structured tool-search and `fs_write_text` protocol used by the
+earlier multi-root acceptance. Its reviewer approves only the exact
+authenticated file/content pair and denies a mismatched write. Acceptance
+requires completed and failed tool activity respectively, an exact approval
+and denial record, the permitted file bytes, and absence of the denied file.
+Desktop-originated reviewed turns and UI outcome rendering remain A4 work.
+
 ## 2026-10-08 · Secondary alpha entry points · NND 20261008-28 / NNA 20261008-8
 
 The installed mutation boundary now includes the desktop update installer.

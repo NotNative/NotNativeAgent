@@ -8,7 +8,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, setupBrowserProbe, setupReloadComposerProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE } from './installed-attachment-probe.mjs';
+import { attachmentBrowserProbe, setupBrowserProbe, setupReloadComposerProbe, reviewBrowserProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -292,6 +292,17 @@ async function runBrowserJourney(fixture, status, { nativeReplayGap, nativeAttac
     assert.equal(setupResult.setup_receipt, 'saved');
     assert.equal(setupResult.setup_after, 'ready');
     assert.equal(setupResult.same_tab_turn?.status, 'completed');
+  }
+  if (nativeSetupTurn) {
+    const reviewTicket = (await cli(fixture, 'ui-ticket')).ticket;
+    const reviewResult = await shell(fixture, 'browser', status.endpoint, reviewTicket, [], reviewBrowserProbe());
+    assert.deepEqual(reviewResult.reviews.map(item => item.tool_status), ['completed', 'failed']);
+    assert.ok(attachmentProvider.reviews.some(item => item.mode === 'allow' && item.approved),
+      'native reviewer did not approve the exact fixture write');
+    assert.ok(attachmentProvider.reviews.some(item => item.mode === 'deny' && !item.approved),
+      'native reviewer did not deny the mismatched fixture write');
+    assert.equal(await readFile(join(fixture.root, REVIEW_ALLOWED_FILE), 'utf8'), REVIEW_ALLOWED_CONTENT);
+    await assert.rejects(readFile(join(fixture.root, REVIEW_DENIED_FILE)), { code: 'ENOENT' });
   }
   const chatTicket = nativeSetupTurn ? (await cli(fixture, 'ui-ticket')).ticket : ticket;
   const browserResult = await shell(fixture, 'browser', status.endpoint, chatTicket, [],

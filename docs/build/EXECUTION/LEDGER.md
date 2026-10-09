@@ -18,6 +18,16 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-08 pinned-pair reviewer acceptance
+
+NND `20261008-29` extends the fresh no-manifest installed journey with
+browser-originated native tool turns. An isolated provider first exposes
+`fs_write_text` through tool search, then submits an exact approved write and
+a mismatched denied write. The browser reads native tool activity; the fixture
+checks provider reviewer decisions and both disk effects. This is pinned-pair
+A4 evidence only after the installed run passes. Desktop-originated review
+and visible review outcomes remain open.
+
 ## 2026-10-08 secondary native alpha entry points
 
 NND `20261008-28` adds the desktop update installer to the installed
