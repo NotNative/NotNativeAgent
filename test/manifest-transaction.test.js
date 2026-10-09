@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, readLockedManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
-import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
+import { manifestTarget, serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { runPrivateWindowsProgram } from '../src/nnd-service-private-windows.js';
 
 async function fixture(t) {
@@ -89,6 +89,45 @@ test('Windows private helper preserves a bounded check stage without treating an
       [Console]::Out.WriteLine('{"error_code":"nnd_private_acl_unsafe","check_stage":"untrusted_stage"}')
       exit 1
     `, {}), error=>error.code==='nnd_private_acl_unsafe' && error.checkStage===undefined);
+  });
+
+test('Windows manifest entries require trusted ACLs and operator full control',
+  {skip:process.platform!=='win32'}, async t=>{
+    const path=await fixture(t);
+    const target=await manifestTarget(path);
+    const entry=join(target.storage,'lock.sqlite');
+    await writeFile(entry,'');
+    await manifestTarget(path);
+    const restrict=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',String.raw`
+      $ErrorActionPreference='Stop'
+      $path=[Console]::In.ReadToEnd()
+      $info=[IO.FileInfo]::new($path)
+      $acl=$info.GetAccessControl()
+      $acl.SetAccessRuleProtection($true,$false)
+      foreach($rule in @($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))) {
+        [void]$acl.RemoveAccessRuleSpecific($rule)
+      }
+      $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new(
+        [Security.Principal.SecurityIdentifier]::new('S-1-5-18'),
+        [Security.AccessControl.FileSystemRights]::FullControl,
+        [Security.AccessControl.AccessControlType]::Allow))
+      $info.SetAccessControl($acl)
+    `],{input:entry,encoding:'utf8',timeout:5000});
+    assert.equal(restrict.status,0,restrict.stderr);
+    try {
+      await assert.rejects(manifestTarget(path),error=>error.code==='manifest_target_unsafe'
+        && error.manifestHelperCode==='nnd_private_acl_unsafe' && error.manifestCheckStage==='storage_entry');
+    } finally {
+      const restore=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',String.raw`
+        $ErrorActionPreference='Stop'
+        $path=[Console]::In.ReadToEnd()
+        $info=[IO.FileInfo]::new($path)
+        $acl=$info.GetAccessControl()
+        $acl.SetAccessRuleProtection($false,$true)
+        $info.SetAccessControl($acl)
+      `],{input:entry,encoding:'utf8',timeout:5000});
+      assert.equal(restore.status,0,restore.stderr);
+    }
   });
 
 for (const phase of ['before','after','foreign']) test(`prepared operation crash reconciles ${phase} publication`,async t=>{

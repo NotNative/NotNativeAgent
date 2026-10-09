@@ -55,11 +55,17 @@ try {
     catch [IO.FileNotFoundException] { continue }
     catch [IO.DirectoryNotFoundException] { continue }
     Assert-Acl $acl $false
-    if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $operatorSid) { throw 'nnd_private_acl_unsafe' }
+    # Security: an elevated process may create an entry owned by Administrators; trusted ownership and an explicit operator grant preserve control.
+    if ($trusted -notcontains $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value) { throw 'nnd_private_acl_unsafe' }
     $rules = $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])
+    $operatorFull = $false
     foreach ($rule in $rules) {
       if ($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $trusted -notcontains $rule.IdentityReference.Value) { throw 'nnd_private_acl_unsafe' }
+      if ($rule.IdentityReference.Value -eq $operatorSid -and
+        -not ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -and
+        (([int]$rule.FileSystemRights -band 0x1F01FF) -eq 0x1F01FF)) { $operatorFull = $true }
     }
+    if (-not $operatorFull) { throw 'nnd_private_acl_unsafe' }
   }
   [Console]::Out.WriteLine('{"ok":true}')
 } catch {
