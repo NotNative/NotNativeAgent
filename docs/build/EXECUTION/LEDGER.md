@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 BTW state moves to the session-organization store (F4.7 UI, installed-unobserved)
+
+NND `20261010-12` migrates the BTW surface to the NND-owned
+`/api/session-org` records: creation writes the child marker and the parent
+link through the store ops (only the title still rides the session PATCH),
+the panel promotes and unlinks through the store, and the chat view,
+composer, and transcript read the org record first with the legacy metadata
+marker as the fallback for sessions created before the store existed. The
+reviewer's fix-first findings are applied: `btw.setMarker` accepts an
+explicit `promoted` override so a failed promote rolls the flag back (the
+preserve rule alone would have made a failed promote permanent), and the
+chat view plus transcript subscribe to the store instead of reading it
+unchecked during render. A zustand store (`useSessionOrgStore`) hydrates per
+directory and writes through. Evidence: focused creation/panel/store tests
+(20), full UI suite 1971/1971, full web suite 1471/1471, tsc clean, gates
+green for 867 files.
+
 ## 2026-10-10 session-organization record store (F4.7 foundation, installed-unobserved)
 
 NND `20261010-10` adds the NND-owned session-organization store

@@ -24,7 +24,10 @@ import {
   applySessionMessagePinMetadata, sessionMessagePinIDs, setSessionMessagePinned,
   type SessionPinClient,
 } from './context-message-pins.ts';
-import { btwRiderFor, parseBtwMetadata } from './btw-context.ts';
+import { btwRiderFor } from './btw-context.ts';
+import { btwStateMerged } from './btw-org.ts';
+import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
+import { normalizeDirectory } from '../lib/nnd/client.ts';
 
 export interface TranscriptProps {
   store: StoreApi<DirectoryStore>;
@@ -36,6 +39,8 @@ export interface TranscriptProps {
 
 export function Transcript(props: TranscriptProps): ReactNode {
   const { store, engine, sessionID, directory, pinClient } = props;
+  const orgRecord = useSessionOrgStore((state) =>
+    state.recordsByDirectory[normalizeDirectory(directory)]?.[sessionID ?? '']);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const [retry, setRetry] = useState<{ key: string; count: number }>({ key: '', count: 0 });
   const [failedKey, setFailedKey] = useState<string | null>(null);
@@ -95,10 +100,11 @@ export function Transcript(props: TranscriptProps): ReactNode {
   if ((snapshot.message[sessionID]?.length ?? 0) === 0) {
     return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-600" data-testid="chat-empty">Session is open, nothing has been sent yet.</div>;
   }
-  const btwMetadata = parseBtwMetadata(snapshot.session.find((session) => session.id === sessionID)?.metadata);
+  const sessionRow = snapshot.session.find((session) => session.id === sessionID);
+  const btwState = btwStateMerged(sessionRow?.metadata, orgRecord);
   const sourceMessages: Parameters<typeof projectTurns>[0] = filterBtwTailMessages(
     snapshot.message[sessionID] ?? [],
-    btwMetadata.active || btwMetadata.promoted ? btwMetadata.boundaryMessageID : null,
+    btwState.active || btwState.promoted ? btwState.boundaryMessageID : null,
   ) as Parameters<typeof projectTurns>[0];
   const turns = projectTurns(sourceMessages);
   const tail = streamingTail(turns);

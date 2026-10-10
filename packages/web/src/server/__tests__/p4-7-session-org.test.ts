@@ -102,11 +102,15 @@ describe('session-organization records (F4.7)', () => {
       marker: { originalSessionID: 'ses_parent', boundaryMessageID: '' } });
     expect(await recordOf('ses_child2')).toMatchObject({
       btwMarker: { originalSessionID: 'ses_parent', boundaryMessageID: '', promoted: false } });
-    // A re-marked boundary keeps an earlier promotion.
+    // A re-marked boundary keeps an earlier promotion...
     await post({ directory: DIRECTORY, sessionID: 'ses_child2', op: 'btw.markPromoted' });
     await post({ directory: DIRECTORY, sessionID: 'ses_child2', op: 'btw.setMarker',
       marker: { originalSessionID: 'ses_parent', boundaryMessageID: 'msg_2' } });
     expect((await recordOf('ses_child2')).btwMarker).toMatchObject({ boundaryMessageID: 'msg_2', promoted: true });
+    // ...unless the caller overrides the flag explicitly (panel rollback).
+    await post({ directory: DIRECTORY, sessionID: 'ses_child2', op: 'btw.setMarker',
+      marker: { originalSessionID: 'ses_parent', boundaryMessageID: 'msg_2' }, promoted: false });
+    expect((await recordOf('ses_child2')).btwMarker).toMatchObject({ promoted: false });
     const leftovers = readdirSync(isolatedDataDir).filter((name) => name.startsWith('session-org.json.tmp-'));
     expect(leftovers).toEqual([]);
     // A successful write after recovery proves the store is writable again.

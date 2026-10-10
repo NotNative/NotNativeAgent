@@ -4,7 +4,9 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { Session } from '../lib/nnd/types.ts';
 import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
 import type { DirectoryStore } from '../sync/types.ts';
-import { btwRiderFor, lastCompletedAssistantID, metadataWithBtwFork } from './btw-context.ts';
+import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
+import { btwRiderFromRecord } from './btw-org.ts';
+import { lastCompletedAssistantID } from './btw-context.ts';
 
 export type ModelIdentity = { providerID: string; modelID: string };
 type OutgoingPart = { type: 'text'; text: string; synthetic?: boolean } |
@@ -57,17 +59,19 @@ export async function createBtwSession(input: CreateBtwInput): Promise<Session> 
     try {
       let child = await readFreshSession(childID, parentDirectory);
       childDirectory = normalizeDirectory(child.directory ?? parentDirectory);
-      child = await tryPatch(child, childDirectory, (metadata) =>
-        metadataWithBtwFork(metadata, { originalSessionID: input.parent.sessionID, boundaryMessageID: forkBoundary }));
-      child = await patchTitle(child, childDirectory, `btw: ${question.slice(0, 80)}`)
+      // The marker and the parent link live in the NND-owned session-org
+      // store; NNA's session PATCH carries only title/archived-time.
+      const record = await useSessionOrgStore.getState().applyOp(childDirectory, childID, 'btw.setMarker',
+        { marker: { originalSessionID: input.parent.sessionID, boundaryMessageID: forkBoundary ?? '' } });
+      await patchTitle(child, childDirectory, `btw: ${question.slice(0, 80)}`).then((titled) => { child = titled; })
         .catch(() => child);
-      const parent = await linkParent(input.parent.sessionID, parentDirectory, childID);
+      await linkParent(input.parent.sessionID, parentDirectory, childID);
       if (!input.isCurrent(runtimeKey)) {
         await unlinkParentBestEffort(input.parent.sessionID, parentDirectory, childID);
         throw new Error('The btw runtime changed');
       }
       insertBtwSession(input.store, child);
-      const rider = btwRiderFor(child.metadata);
+      const rider = btwRiderFromRecord(record);
       const parts: OutgoingPart[] = rider ? [{ ...rider, type: 'text' as const }] : [];
       parts.push({ type: 'text', text: question });
       await input.engine.actions.send({ directory: childDirectory, sessionID: childID, parts,
@@ -94,17 +98,6 @@ async function readFreshSession(sessionID: string, directory: string): Promise<S
   return result.data;
 }
 
-async function tryPatch(session: Session, directory: string,
-  mutate: (metadata: Record<string, unknown>) => Record<string, unknown>): Promise<Session> {
-  const metadata = mutate(session.metadata ?? {});
-  const committed = await harnessClient.updateSession(session.id, { metadata }, { directory });
-  if (committed.error || !committed.data || committed.data.id !== session.id
-    || normalizeDirectory(committed.data.directory ?? directory) !== directory) {
-    throw new Error('Could not update the btw metadata');
-  }
-  return { ...committed.data, directory: normalizeDirectory(committed.data.directory ?? directory) };
-}
-
 async function patchTitle(session: Session, directory: string, title: string): Promise<Session> {
   const committed = await harnessClient.updateSession(session.id, { title }, { directory });
   if (committed.error || !committed.data || committed.data.id !== session.id
@@ -114,21 +107,13 @@ async function patchTitle(session: Session, directory: string, title: string): P
   return { ...committed.data, directory: normalizeDirectory(committed.data.directory ?? directory) };
 }
 
-async function linkParent(parentID: string, directory: string, childID: string): Promise<Session> {
-  const parent = await readFreshSession(parentID, directory);
-  const namespace = { ...namespaceOf(parent.metadata), btwSessionID: childID };
-  return tryPatch(parent, directory, (metadata) => ({ ...metadata, openchamber: namespace }));
+async function linkParent(parentID: string, directory: string, childID: string): Promise<void> {
+  await useSessionOrgStore.getState().applyOp(directory, parentID, 'btw.setChild', { childSessionID: childID });
 }
 
 async function unlinkParentBestEffort(parentID: string, directory: string, childID: string): Promise<void> {
   try {
-    const parent = await readFreshSession(parentID, directory);
-    if (namespaceOf(parent.metadata).btwSessionID !== childID) return;
-    const namespace = namespaceOf(parent.metadata);
-    delete namespace.btwSessionID;
-    await harnessClient.updateSession(parent.id, {
-      metadata: { ...(parent.metadata ?? {}), openchamber: namespace },
-    }, { directory });
+    await useSessionOrgStore.getState().applyOp(directory, parentID, 'btw.clearChild', { childSessionID: childID });
   } catch { /* child deletion remains the authoritative cleanup */ }
 }
 
@@ -139,12 +124,4 @@ function insertBtwSession(store: StoreApi<DirectoryStore>, child: Session): void
       left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
     return { session: next };
   });
-}
-
-function namespaceOf(metadata: unknown): Record<string, unknown> {
-  const root = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
-    ? metadata as Record<string, unknown> : {};
-  const value = root.openchamber;
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? { ...value as Record<string, unknown> } : {};
 }

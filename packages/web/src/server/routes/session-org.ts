@@ -145,9 +145,13 @@ export function applySessionOrgOp(record: SessionOrgRecord, op: string, body: Re
     case 'btw.setMarker': {
       const marker = markerOf(body.marker);
       if (marker === undefined) return false;
-      // Promotion survives a re-marked boundary: a promoted btw session that
-      // re-writes its marker must not silently lose the promoted flag.
-      record.btwMarker = { ...marker, promoted: marker.promoted || record.btwMarker?.promoted === true };
+      // An explicit `promoted` body flag overrides the preserve rule: the
+      // panel rollback must be able to revert a promotion after a failed
+      // unlink, and without it a re-marked boundary would silently keep the
+      // promoted flag forever.
+      const promoted = typeof body.promoted === 'boolean'
+        ? body.promoted : (marker.promoted || record.btwMarker?.promoted === true);
+      record.btwMarker = { ...marker, promoted };
       return true;
     }
     case 'btw.markPromoted': {

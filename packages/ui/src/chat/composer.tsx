@@ -28,7 +28,7 @@ import { modelForCreatedSession, useComposerModel } from './composer-model-confi
 import { deliverToNewSession } from './composer-draft-pins.ts';
 import { GLOBAL_DIRECTORY } from '../sync/routing-index.ts';
 import { responseStyleRider } from './response-style.ts';
-import { btwRiderFor } from './btw-context.ts';
+import { btwSendStateFor } from './btw-org.ts';
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw']; const MAX_LINES = 8;
 export interface ComposerServices { engine: SyncEngine; store: (directory?: string) => StoreApi<DirectoryStore>; dispatch: (command: 'undo' | 'redo' | 'timeline' | 'compact') => void; }
 
@@ -363,17 +363,11 @@ export function Composer(props: ComposerProps): ReactNode {
       delivery, model, sendAgent, nnaConfigured, services });
   }
 
-  function btwSendState(): { rider: ReturnType<typeof btwRiderFor>; panelActive: boolean } {
+  function btwSendState(): ReturnType<typeof btwSendStateFor> {
     const sessionMetadata = sessionID
       ? store.getState().session.find((entry) => entry.id === sessionID)?.metadata
       : undefined;
-    return {
-      rider: btwRiderFor(sessionMetadata),
-      panelActive: Boolean(sessionMetadata && typeof sessionMetadata === 'object'
-        && !Array.isArray(sessionMetadata)
-        && typeof (sessionMetadata as Record<string, unknown>).openchamber === 'object'
-        && (sessionMetadata as { openchamber?: Record<string, unknown> }).openchamber?.btwSessionID),
-    };
+    return btwSendStateFor(directory, sessionID, sessionMetadata);
   }
 
   function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {

@@ -10,6 +10,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore, SessionListSource } from '../sync/types.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { createBtwSession } from './btw-actions.ts';
+import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
 import { parseBtwMetadata } from './btw-context.ts';
 import { BtwPanel } from './btw-panel.tsx';
 import type { SyncEngine } from '../sync/sync-engine.ts';
@@ -130,6 +131,10 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const starters: Starter[] = useMemo(() => startersFor(view.activeDirectory || '/'), [view.activeDirectory]);
 
   useEffect(() => {
+    if (view.activeDirectory !== '') void useSessionOrgStore.getState().load(view.activeDirectory);
+  }, [view.activeDirectory]);
+
+  useEffect(() => {
     const keyNow = `${view.activeDirectory}\n${view.currentSessionId ?? 'draft'}`;
     if (shown && shown.key === keyNow) return;
     const store = props.services.engine.childStoreOf(view.activeDirectory) ?? props.services.engine.manager.ensureChild(view.activeDirectory);
@@ -174,6 +179,9 @@ export function ChatView(props: ChatViewProps): ReactNode {
   };
 
   const shownRef = shown;
+  const orgBtwChildOf = useSessionOrgStore((state) => shownRef && shownRef.directory
+    ? state.recordsByDirectory[normalizeDirectory(shownRef.directory)]?.[shownRef.sessionID ?? '']?.btwChildOf
+    : undefined);
   if (!shownRef || !shownRef.store) {
     return <div className="flex h-full min-w-0 flex-1 items-center justify-center text-sm text-neutral-600" data-testid="chat-view">Preparing…</div>;
   }
@@ -207,6 +215,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
     now, { recap: recapEnabled, suggestion: suggestionEnabled }) : null;
   const workspaceName = shownRef.directory.replace(/[\\/]+$/u, '').split(/[\\/]/u).filter(Boolean).at(-1) ?? 'this workspace';
   const btwChildSessionID = (() => {
+    if (typeof orgBtwChildOf === 'string' && orgBtwChildOf !== '') return orgBtwChildOf;
     const openchamber = selected?.metadata?.openchamber;
     if (!openchamber || typeof openchamber !== 'object' || Array.isArray(openchamber)) return undefined;
     const value = (openchamber as Record<string, unknown>).btwSessionID;

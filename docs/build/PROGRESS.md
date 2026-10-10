@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · BTW on the session-org store · NND 20261010-12 / NNA 20261009-5
+
+BTW markers, parent links, promotion, and riders now read and write the
+NND-owned session-organization store instead of session metadata; legacy
+metadata sessions keep a fallback path, and a failed promote rolls the
+promoted flag back through the explicit marker override. Full UI suite
+1971/1971 and web suite 1471/1471 in-session.
+
 ## 2026-10-10 · Session-organization record store · NND 20261010-10 / NNA 20261009-5
 
 New NND-owned `/api/session-org` store gives BTW linkage/markers, message

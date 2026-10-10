@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:41fe1d65d56796c7ed637414bd3e78848ffc1132307926415140f61f02b63d4f",
+  "source_digest": "sha256:3774a9a518e45a510a039bb649613c31ba4b53bb91306850c55718a994d6438d",
   "counts": {
-    "modules": 864,
+    "modules": 867,
     "component_edges": 17
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 231
+      "module_count": 232
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 217
+      "module_count": 219
     },
     {
       "id": "web-server",
@@ -111,14 +111,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 373,
-      "module_count": 148
+      "import_count": 375,
+      "module_count": 150
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 134,
-      "module_count": 95
+      "import_count": 137,
+      "module_count": 97
     },
     {
       "from": "ui-shell",
@@ -304,8 +304,10 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/chat/btw-org.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts",
         "packages/ui/src/sync/types.ts"
       ]
     },
@@ -318,13 +320,26 @@
       ]
     },
     {
-      "path": "packages/ui/src/chat/btw-panel.tsx",
+      "path": "packages/ui/src/chat/btw-org.ts",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/btw-context.ts",
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/session-org.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/btw-panel.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/chat/btw-org.ts",
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts",
         "packages/ui/src/sync/sync-engine.ts"
       ]
     },
@@ -349,6 +364,7 @@
         "packages/ui/src/components/use-context-route.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/settings/store.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/sync-engine.ts",
@@ -430,7 +446,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/chat/btw-org.ts",
         "packages/ui/src/chat/composer-annotation.ts",
         "packages/ui/src/chat/composer-attachments.ts",
         "packages/ui/src/chat/composer-bits.tsx",
@@ -971,13 +987,16 @@
       "imports": [
         "packages/ui/src/chat/blocking-cards.tsx",
         "packages/ui/src/chat/btw-context.ts",
+        "packages/ui/src/chat/btw-org.ts",
         "packages/ui/src/chat/context-message-pins.ts",
         "packages/ui/src/chat/markdown-image-assets.ts",
         "packages/ui/src/chat/markdown-lite.tsx",
         "packages/ui/src/chat/time-format.ts",
         "packages/ui/src/chat/tool-cards.tsx",
         "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts",
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/session-message-loader.ts",
@@ -4417,6 +4436,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/session-org.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/session-route.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -5021,6 +5048,15 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/session-folders.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/stores/useSessionOrgStore.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/session-org.ts"
       ]
     },
     {
