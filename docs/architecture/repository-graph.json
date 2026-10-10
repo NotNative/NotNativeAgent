@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:39e07863685dc3e52c28af8323296358778cb6107bacff02a3cc610aefab323f",
+  "source_digest": "sha256:721c1a884645ea6c52562ce4341f104a14fabfc2ab745a993045bc02eaa40815",
   "counts": {
-    "modules": 876,
+    "modules": 877,
     "component_edges": 17
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 89
+      "module_count": 90
     },
     {
       "id": "foundation",
@@ -111,7 +111,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 376,
+      "import_count": 377,
       "module_count": 150
     },
     {
@@ -1362,6 +1362,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/diff/DiffViewer.tsx",
+        "packages/ui/src/lib/files/edit-support.ts",
         "packages/ui/src/lib/git/api.ts",
         "packages/ui/src/lib/git/diff-model.ts",
         "packages/ui/src/lib/i18n/context.tsx"
@@ -8091,6 +8092,12 @@
     },
     {
       "path": "scripts/add-final-census-rows.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/add-image-diff-locale-keys.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": []
