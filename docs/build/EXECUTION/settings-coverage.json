@@ -6816,7 +6816,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-telemetry.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -6833,7 +6833,7 @@
      "NNA test/nnd-configuration-view.test.js proves the three telemetry paths resolve to false and two nulls by default, carry user values with source user including the destination URL, refuse to enable without a string destination with telemetry_destination_required, and resolve destination and retention to null while the explicit value stays visible when telemetry is disabled; the NND page test renders all three rows with those values"
     ]
    },
-   "notes": "Pinned 20261007-9: opt-in with default false, and only an exact true enables it. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata."
+   "notes": "Pinned 20261007-9: opt-in with default false, and only an exact true enables it. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata. 20261010-4: the field edits through a typed telemetry block (checkbox, credential-free URL mirror from config-bounds.js telemetryDestination, nonempty retention) instead of the generic JSON textarea; the mirror blocks wrong drafts before the wire and the engine keeps revalidating on save. The family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest_telemetry:telemetry.destination",
@@ -6862,7 +6862,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-telemetry.tsx",
     "status": "verified"
    },
    "sensitivity": "private",
@@ -6879,7 +6879,7 @@
      "NNA test/nnd-configuration-view.test.js proves the three telemetry paths resolve to false and two nulls by default, carry user values with source user including the destination URL, refuse to enable without a string destination with telemetry_destination_required, and resolve destination and retention to null while the explicit value stays visible when telemetry is disabled; the NND page test renders all three rows with those values"
     ]
    },
-   "notes": "Pinned 20261007-9: null by default; enabling telemetry without a string destination fails the resolve with telemetry_destination_required, and a declared destination resolves to null while telemetry is disabled. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata."
+   "notes": "Pinned 20261007-9: null by default; enabling telemetry without a string destination fails the resolve with telemetry_destination_required, and a declared destination resolves to null while telemetry is disabled. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata. 20261010-4: the field edits through a typed telemetry block (checkbox, credential-free URL mirror from config-bounds.js telemetryDestination, nonempty retention) instead of the generic JSON textarea; the mirror blocks wrong drafts before the wire and the engine keeps revalidating on save. The family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest_telemetry:telemetry.retention",
@@ -6908,7 +6908,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-telemetry.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -6925,7 +6925,7 @@
      "NNA test/nnd-configuration-view.test.js proves the three telemetry paths resolve to false and two nulls by default, carry user values with source user including the destination URL, refuse to enable without a string destination with telemetry_destination_required, and resolve destination and retention to null while the explicit value stays visible when telemetry is disabled; the NND page test renders all three rows with those values"
     ]
    },
-   "notes": "Pinned 20261007-9: null by default; an optional nonempty string while enabled, otherwise ignored and resolved to null. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata."
+   "notes": "Pinned 20261007-9: null by default; an optional nonempty string while enabled, otherwise ignored and resolved to null. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata. 20261010-4: the field edits through a typed telemetry block (checkbox, credential-free URL mirror from config-bounds.js telemetryDestination, nonempty retention) instead of the generic JSON textarea; the mirror blocks wrong drafts before the wire and the engine keeps revalidating on save. The family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest_reviewer_ledger:reviewer_ledger.retention_entries",

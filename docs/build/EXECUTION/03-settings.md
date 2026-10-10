@@ -423,6 +423,16 @@ deadline still means disabled, exactly as the engine reads it. The mirror is
 declared a convenience, not authority: the engine revalidates on save, and the
 catalog, not the form, decides what is offered.
 
+Telemetry joined the typed blocks at `20261010-4`: an opt-in checkbox, a
+destination box mirrored from `config-bounds.js` (credential-free HTTP(S), at
+most 2048 characters), and a nonempty retention name the engine ignores while
+telemetry stays disabled. The mirror refuses a destination carrying credentials
+or a scheme the engine would reject, before the preview wire; enabling
+telemetry without any destination stays the engine's own refusal, because the
+desktop does not guess whether the operator plans to add one. The block makes
+no application claim: NNA declares the family's application class unverified,
+and the rows keep saying so.
+
 ### A family page is not a surface for every field in the family
 
 `20261007-34` took eight rows apart and the headline went up by eight, because the rows

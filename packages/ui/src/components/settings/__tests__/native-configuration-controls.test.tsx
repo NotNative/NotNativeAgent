@@ -1056,3 +1056,49 @@ it('offers the remaining advertised route rows in the catalog-gated field choose
   expect(container.textContent).toContain('routes.primary.budget');
   expect(container.textContent).toContain('Preview change');
 });
+
+it('offers a typed telemetry block that mirrors the credential-free destination rule', async () => {
+  const served = (path: string, type: 'boolean' | 'string') => ({ path, type, editability: field.editability });
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    served('telemetry.enabled', 'boolean'), served('telemetry.destination', 'string'),
+    served('telemetry.retention', 'string')] });
+  const telemetryView: NativeConfigurationView = { ...view, fields: (['telemetry.enabled', 'telemetry.destination',
+    'telemetry.retention'] as const).map(path => ({ path, catalog_path: path, explicit: { present: false as const },
+    effective: { present: true as const, value: path === 'telemetry.enabled' ? false : null, source: 'compiled_default' as const },
+    application: 'not_applied' as const })) };
+  mount(telemetryView); await act(async () => {});
+  const block = container.querySelector('[data-settings-item="native-configuration.telemetry"]') as HTMLElement;
+  const pick = async (path: string) => { await act(async () => { const select = container.querySelector('select')!;
+    select.value = path; select.dispatchEvent(new Event('change', { bubbles: true })); }); };
+  const preview = () => [...container.querySelectorAll('button')]
+    .find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  const type = async (value: string) => { await act(async () => {
+    // The draft input lives in the shared editor below the block, so the text
+    // input is page-global; pin the uniqueness this helper assumes.
+    const inputs = [...container.querySelectorAll('input[type="text"]')];
+    expect(inputs).toHaveLength(1);
+    const input = inputs[0] as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true })); }); };
+  await pick('telemetry.destination');
+  await type('https://collector.example/v1');
+  expect(preview().disabled).toBe(false);
+  await type('https://user:secret@collector.example/v1');
+  expect(preview().disabled).toBe(true);
+  await type('ftp://collector.example/v1');
+  expect(preview().disabled).toBe(true);
+  await type('https://collector.example/v1');
+  expect(preview().disabled).toBe(false);
+  await pick('telemetry.retention');
+  await type('');
+  expect(preview().disabled).toBe(false);
+  await pick('telemetry.enabled');
+  const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+  expect(checkbox.checked).toBe(false);
+  await act(async () => { checkbox.click(); });
+  expect(checkbox.checked).toBe(true);
+  expect(preview().disabled).toBe(false);
+  await act(async () => { checkbox.click(); });
+  expect(checkbox.checked).toBe(false);
+  expect(preview().disabled).toBe(false);
+});

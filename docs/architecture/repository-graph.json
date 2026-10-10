@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:100797025e1851e6c88b5751a4ffb1dcb2b4c6dcd4573ab8332778210e698fad",
+  "source_digest": "sha256:7425e69017e0aa4194b902f6f6fee1cada10de1805cb96431a3cd35d60648299",
   "counts": {
-    "modules": 858,
+    "modules": 860,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 212
+      "module_count": 214
     },
     {
       "id": "web-server",
@@ -117,8 +117,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 128,
-      "module_count": 91
+      "import_count": 130,
+      "module_count": 92
     },
     {
       "from": "ui-shell",
@@ -1944,6 +1944,12 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/native-configuration-controls-map.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -1962,12 +1968,26 @@
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-map.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/components/settings/pages/native-configuration-telemetry.tsx",
         "packages/ui/src/components/settings/pages/native-route-binding-form.tsx",
         "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
         "packages/ui/src/components/settings/pages/native-tui-edit-form.tsx",
         "packages/ui/src/lib/nnd/configuration.ts",
         "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-configuration-telemetry.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
+        "packages/ui/src/lib/nnd/configuration.ts"
       ]
     },
     {

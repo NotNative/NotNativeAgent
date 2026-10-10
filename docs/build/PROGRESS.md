@@ -3,6 +3,17 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Telemetry typed block · NND 20261010-4 / NNA 20261009-5
+
+The native configuration page gained a typed telemetry block — opt-in
+checkbox, credential-free destination mirror, optional retention name —
+replacing the generic JSON textarea for the family. The mirror matches
+NNA's `telemetryDestination` exactly and deliberately leaves
+enabled-without-destination to the engine. Family maps were extracted
+verbatim into `native-configuration-controls-map.ts` for the line gate.
+Controls suite 37/37, full UI suite green in-session, gates green against
+live NNA.
+
 ## 2026-10-10 · Typed route-scalar tuning · NND 20261010-3 / NNA 20261009-5
 
 The routes page's seven reviewer and vision scalars now edit through typed

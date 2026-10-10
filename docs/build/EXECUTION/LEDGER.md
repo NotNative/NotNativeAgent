@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 telemetry typed block (C4/C7, installed-unobserved)
+
+NND `20261010-4` gives the native configuration page a typed telemetry block:
+an opt-in checkbox (exact true, default off), a destination box mirrored from
+NNA's `config-bounds.js` `telemetryDestination` (credential-free HTTP(S), at
+most 2048 characters — the mirror refuses userinfo and bad schemes before the
+preview wire), and a retention name the engine ignores while telemetry is
+disabled. Enabling without a destination stays the engine's refusal at
+preview; the desktop does not guess. The block claims no application: the
+family's application class is NNA's own `unverified` declaration and the
+census keeps it. To fit the 500-line gate the per-family field maps and pure
+draft gates moved verbatim into `native-configuration-controls-map.ts`.
+Evidence in-session: tsc exit 0, controls suite green (37 tests), full UI
+suite green, quality gates green for 860 files.
+
 ## 2026-10-10 typed route-scalar tuning (C4 S3, installed-unobserved)
 
 NND `20261010-3` replaces the raw JSON textarea on the routes-page tuning

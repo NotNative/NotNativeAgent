@@ -7,80 +7,12 @@ import { invalidateNativePreview, useNativeConfigurationControlsModel, type Cont
 import { NativeTuiEditForm } from './native-tui-edit-form.tsx';
 import { NativeRouteEditForm } from './native-route-edit-form.tsx';
 import { NativeRouteBindingForm } from './native-route-binding-form.tsx';
+import { CONTEXT_BUDGETS, CONTEXT_THRESHOLD_PATHS, DREAM_LIMITS, MEMORY_BOOLEAN, MEMORY_LIMITS, PROVIDER_DEADLINE,
+  PROVIDER_SCHEDULING, RECOVERY_BUDGETS, REVIEWER_RETENTION, RUNTIME_TIMEOUTS, SESSION_DEADLINES, STREAM_TIMEOUTS,
+  boundedPositiveInteger, contextDraftValid, providerDeadlineValid, streamTimeoutValid } from './native-configuration-controls-map.ts';
+import { NativeTelemetryBlock, TelemetryDraftInput, telemetryDraftValid, telemetryPath } from './native-configuration-telemetry.tsx';
 import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
 
-const MEMORY_LIMITS: Record<string, { label: 'settings.nativeMemory.timeout' | 'settings.nativeMemory.maxItems'
-  | 'settings.nativeMemory.maxBytes'; min: number; max: number }> = {
-  'memory.timeout_ms': { label: 'settings.nativeMemory.timeout', min: 50, max: 30000 },
-  'memory.max_items': { label: 'settings.nativeMemory.maxItems', min: 1, max: 64 },
-  'memory.max_bytes': { label: 'settings.nativeMemory.maxBytes', min: 1024, max: 262144 },
-};
-const MEMORY_BOOLEAN: Record<string, 'settings.nativeMemory.enabled' | 'settings.nativeMemory.required'> = {
-  'memory.enabled': 'settings.nativeMemory.enabled', 'memory.required': 'settings.nativeMemory.required',
-};
-const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeScheduling.concurrency' | 'settings.nativeScheduling.queueLimit'
-  | 'settings.nativeScheduling.toolConcurrency'; min: number; max: number }> = {
-  provider_concurrency: { label: 'settings.nativeScheduling.concurrency', min: 1, max: 16 },
-  provider_queue_limit: { label: 'settings.nativeScheduling.queueLimit', min: 1, max: 4096 },
-  // NNA bounds this at src/configuration-rules.js integer('tool_concurrency', 1, 1, 16):
-  // a preview rejects out-of-range drafts with invalid_limit and /save revalidates;
-  // src/tools/loop.js additionally throws tool_concurrency_invalid at runtime.
-  tool_concurrency: { label: 'settings.nativeScheduling.toolConcurrency', min: 1, max: 16 },
-};
-const RECOVERY_BUDGETS: Record<string, { label: 'settings.nativeRecovery.maxSteps' | 'settings.nativeRecovery.retryLimit';
-  min: number; max: number }> = {
-  'recovery.max_model_steps': { label: 'settings.nativeRecovery.maxSteps', min: 16, max: 100000 },
-  'recovery.local_retry_limit': { label: 'settings.nativeRecovery.retryLimit', min: 2, max: 5 },
-};
-const SESSION_DEADLINES: Record<string, { label: 'settings.nativeSessionDeadlines.approval'
-  | 'settings.nativeSessionDeadlines.persistence' | 'settings.nativeSessionDeadlines.shutdown'; min: number; max: number }> = {
-  approval_timeout_ms: { label: 'settings.nativeSessionDeadlines.approval', min: 1000, max: 3600000 },
-  persistence_flush_timeout_ms: { label: 'settings.nativeSessionDeadlines.persistence', min: 100, max: 120000 },
-  shutdown_timeout_ms: { label: 'settings.nativeSessionDeadlines.shutdown', min: 100, max: 120000 },
-};
-const REVIEWER_RETENTION = { path: 'reviewer_ledger.retention_entries', min: 1, max: 100000 } as const;
-const boundedPositiveInteger = (draft: string, field: { min: number; max: number }) => /^[1-9]\d*$/u.test(draft)
-  && Number(draft) >= field.min && Number(draft) <= field.max;
-const CONTEXT_BUDGETS: Record<string, { label: 'settings.nativeContext.bytes' | 'settings.nativeContext.compression'
-  | 'settings.nativeContext.level2' | 'settings.nativeContext.level3' | 'settings.nativeContext.compaction';
-  type: 'integer' | 'number'; min: number; max: number }> = {
-  context_limit_bytes: { label: 'settings.nativeContext.bytes', type: 'integer', min: 65536, max: 16777216 },
-  context_compression_threshold: { label: 'settings.nativeContext.compression', type: 'number', min: 0.20, max: 0.90 },
-  context_compression_level_2_threshold: { label: 'settings.nativeContext.level2', type: 'number', min: 0.20, max: 0.99 },
-  context_compression_level_3_threshold: { label: 'settings.nativeContext.level3', type: 'number', min: 0.20, max: 0.99 },
-  context_compaction_threshold: { label: 'settings.nativeContext.compaction', type: 'number', min: 0.30, max: 0.99 },
-};
-const CONTEXT_THRESHOLD_PATHS = ['context_compression_threshold', 'context_compression_level_2_threshold',
-  'context_compression_level_3_threshold', 'context_compaction_threshold'] as const;
-const contextDraftValid = (draft: string, field: { type: 'integer' | 'number'; min: number; max: number }) =>
-  field.type === 'integer' ? boundedPositiveInteger(draft, field)
-    : /^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(draft) && Number(draft) >= field.min && Number(draft) <= field.max;
-const DREAM_LIMITS: Record<string, { label: 'settings.nativeDream.idle' | 'settings.nativeDream.interStage'
-  | 'settings.nativeDream.inferenceIdle' | 'settings.nativeDream.hygieneIdle' | 'settings.nativeDream.retention'; min: number; max: number }> = {
-  'dream.idle_ms': { label: 'settings.nativeDream.idle', min: 5000, max: 3600000 },
-  'dream.inter_stage_ms': { label: 'settings.nativeDream.interStage', min: 1000, max: 300000 },
-  'dream.inference_idle_ms': { label: 'settings.nativeDream.inferenceIdle', min: 10000, max: 3600000 },
-  'dream.hygiene_idle_ms': { label: 'settings.nativeDream.hygieneIdle', min: 30000, max: 7200000 },
-  'dream.retention_days': { label: 'settings.nativeDream.retention', min: 1, max: 365 },
-};
-const RUNTIME_TIMEOUTS: Record<string, { label: 'settings.nativeTimeouts.connect' | 'settings.nativeTimeouts.semanticReview'; min: number; max: number }> = {
-  provider_connect_timeout_ms: { label: 'settings.nativeTimeouts.connect', min: 100, max: 600000 },
-  semantic_review_timeout_ms: { label: 'settings.nativeTimeouts.semanticReview', min: 100, max: 86400000 },
-};
-const PROVIDER_DEADLINE: Record<string, { label: 'settings.nativeDeadline.global' | 'settings.nativeDeadline.primary'; min: number; max: number }> = {
-  provider_timeout_ms: { label: 'settings.nativeDeadline.global', min: 100, max: 86400000 },
-  'routes.primary.deadline_ms': { label: 'settings.nativeDeadline.primary', min: 100, max: 86400000 },
-};
-const providerDeadlineValid = (draft: string) => /^(?:0|[1-9]\d*)$/u.test(draft) && (draft === '0'
-  || Number(draft) >= 100 && Number(draft) <= 86400000);
-const STREAM_TIMEOUTS: Record<string, { label: 'settings.nativeStreamTimeouts.firstToken' | 'settings.nativeStreamTimeouts.idle';
-  legacy: number; pairedDefault: number }> = {
-  first_token_timeout_ms: { label: 'settings.nativeStreamTimeouts.firstToken', legacy: 30000, pairedDefault: 600000 },
-  idle_timeout_ms: { label: 'settings.nativeStreamTimeouts.idle', legacy: 45000, pairedDefault: 300000 },
-};
-const streamTimeoutValid = (draft: string, field: { legacy: number; pairedDefault: number }) => /^(?:0|[1-9]\d*)$/u.test(draft)
-  && (draft === '0' || Number(draft) >= 100 && Number(draft) <= 86400000
-    && Number(draft) !== field.legacy && Number(draft) !== field.pairedDefault);
 
 export function NativeConfigurationControls({ view, onReload, family }: { view: NativeConfigurationView; onReload: () => void; family?: 'tui' | 'routes' }): ReactNode {
   const { t } = useI18n(), model = useNativeConfigurationControlsModel(view);
@@ -141,6 +73,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const deadlineSelected = selected?.type === 'integer' ? PROVIDER_DEADLINE[selected.path] : undefined;
   const streamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(STREAM_TIMEOUTS, field.path));
   const streamSelected = selected?.type === 'integer' ? STREAM_TIMEOUTS[selected.path] : undefined;
+  const telemetrySelected = Boolean(selected && telemetryPath(selected.path));
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -164,6 +97,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         {t(field.type === 'boolean' ? MEMORY_BOOLEAN[field.path]! : MEMORY_LIMITS[field.path]!.label)}
       </button>)}</div>
     </div> : null}
+    <NativeTelemetryBlock model={model} view={view} />
     {schedulingFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
       data-settings-item="native-configuration.provider-scheduling">
       <h4 className="font-semibold">{t('settings.nativeScheduling.title')}</h4>
@@ -401,9 +335,11 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         ? <p>{t('settings.nativeMemory.disableAlsoClearsRequired')}</p> : null}
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
+      {model.mode === 'set' && telemetrySelected ? <TelemetryDraftInput field={selected} model={model} /> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
         && !recoverySelected && !sessionDeadlineSelected && !contextSelected && !reviewerRetentionSelected
         && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
+        && !telemetrySelected
         && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
@@ -416,7 +352,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         || Boolean(contextSelected && model.mode === 'set' && !contextDraftValid(model.draft, contextSelected))
         || Boolean(reviewerRetentionSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, REVIEWER_RETENTION))
         || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))
-        || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))}>
+        || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))
+        || Boolean(telemetrySelected && model.mode === 'set' && !telemetryDraftValid(selected, model.draft))}>
         {t('settings.nativeConfiguration.preview')}</button>
       {model.preview && <div role="status" className="rounded border border-border p-2">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>
