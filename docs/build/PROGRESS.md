@@ -3,6 +3,13 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Generated stores classified in the gate (C7) · NND 20261010-18 / NNA 20261009-5
+
+The coverage gate now pins every NNA user-data store key to a census row
+with its relative store path; five machine-internal stores gained evidenced
+no-surface dispositions (412 rows), census remaining items 6 and 8 retired.
+Gate tests 17/17; real gate run passes; gates green for 871 files.
+
 ## 2026-10-10 · Steering reconciles at reconnect (F10) · NND 20261010-17 / NNA 20261009-5
 
 Child steering visibility now refreshes once per reconnect candidate through

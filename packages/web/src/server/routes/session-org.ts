@@ -8,7 +8,7 @@
  * Bounded per record; ops are validated and merged under a serialized write
  * queue; a malformed stored document answers 500 and never boots empty.
  */
-import { existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, statSync } from 'node:fs';
 import { writeFile, rename, mkdir, unlink } from 'node:fs/promises';
 import { join as joinPath, dirname } from 'node:path';
 import type { Hono } from 'hono';
@@ -51,8 +51,26 @@ const emptyStore = (): Store => ({ version: 1, records: {}, updatedAt: 0 });
 
 function storeFile(): string { return joinPath(ENV.dataDir, 'session-org.json'); }
 
+// Knowledge resolution reads the store on every request; an mtime-keyed
+// cache keeps that a stat instead of a full re-read and re-parse. Writes go
+// through queueWrite which re-reads disk, so the cache never masks an
+// external writer beyond one stat. The file path is part of the key so a
+// data-directory swap cannot serve another directory's store.
+let storedCache: { key: string; store: Store | null } | undefined;
+
+function storeStat(): { mtimeMs: number; size: number } | null {
+  try { return statSync(storeFile()); } catch { return null; }
+}
+
 function stored(): Store | null {
-  try { return JSON.parse(readFileSync(storeFile(), 'utf8')) as Store; } catch { return null; }
+  const stat = storeStat();
+  if (stat === null) { storedCache = undefined; return null; }
+  const key = `${storeFile()}\u0000${stat.mtimeMs}\u0000${stat.size}`;
+  if (storedCache && storedCache.key === key) return storedCache.store;
+  let store: Store | null = null;
+  try { store = JSON.parse(readFileSync(storeFile(), 'utf8')) as Store; } catch { store = null; }
+  storedCache = { key, store };
+  return store;
 }
 
 function shapeValid(store: unknown): store is Store {

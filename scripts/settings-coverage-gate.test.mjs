@@ -29,7 +29,7 @@ function catalogModule(fields) {
 `;
 }
 
-async function fixture(t, { fields, cliOptions, census, modes = [], actions = [], observedNames = [], extraSource = '' }) {
+async function fixture(t, { fields, cliOptions, census, modes = [], actions = [], observedNames = [], extraSource = '', stores = [] }) {
   const nna = await mkdtemp(join(tmpdir(), 'nnd-catalog-dump-'));
   const work = await mkdtemp(join(tmpdir(), 'nnd-census-'));
   t.after(async () => {
@@ -47,6 +47,11 @@ async function fixture(t, { fields, cliOptions, census, modes = [], actions = []
   if (extraSource !== '') {
     await writeFile(join(nna, 'src', 'extra-source.js'), extraSource);
   }
+  const storeEntries = stores.filter((store) => store.path !== undefined)
+    .map((store) => `  ${store.key}: join(root, '${store.path.split('/').join("', '")}'),`).join('\n');
+  await writeFile(join(nna, 'src', 'product.js'),
+    `const USER_DATA_FILE_KEYS = new Set([${stores.map((store) => `'${store.key}'`).join(', ')}]);\n`
+    + `export function userDataPaths() {\n  return Object.freeze({\n${storeEntries}\n  });\n}\n`);
   const censusPath = join(work, 'census.json');
   await writeFile(censusPath, JSON.stringify(census));
   return { nna, censusPath };
@@ -84,6 +89,44 @@ const happyFields = [
 const happyCliOptions = `const OPTIONS = ['--manifest', '--prompt'];
 export function parseCli(argv) { return argv; }
 `;
+
+test('coverage gate requires a census row for every generated user-data store', windows, async t => {
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census: healthyCensus,
+    stores: [{ key: 'dreamState', path: 'runtime/dream-state.db' }] });
+  const result = await run(f);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unclassified or drifted coverage detected/u);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.missing_store_rows, ['user-data:runtime/dream-state.db (key dreamState)']);
+});
+
+test('coverage gate accepts a generated store classified with its path', windows, async t => {
+  const census = structuredClone(healthyCensus);
+  census.rows.push({
+    id: 'generated-store:runtime/dream-state.db', family: 'generated-store', key: 'dreamState',
+    kind: 'internal_invariant', work_package: 'C1', state: 'open',
+    store: { owner: 'NNA', path_class: 'runtime/dream-state.db' },
+    current_gui: { path: null, status: 'unverified', owed: false,
+      basis: 'src/product.js:USER_DATA_FILE_KEYS',
+      justification: 'The dream runtime database is engine-internal generated state with no route '
+        + 'projection, so no desktop surface is owed and the classification closes the store rule.' },
+  });
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census,
+    stores: [{ key: 'dreamState', path: 'runtime/dream-state.db' }] });
+  const result = await run(f);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout.slice(0, result.stdout.indexOf('settings coverage gate passed')));
+  assert.equal(report.missing_store_rows.length, 0);
+});
+
+test('coverage gate rejects a generated store key with no userDataPaths entry', windows, async t => {
+  const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census: healthyCensus,
+    stores: [{ key: 'orphanKey' }] });
+  const result = await run(f);
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.missing_store_rows, ['user-data:orphanKey (no userDataPaths entry)']);
+});
 
 test('coverage gate passes a classified synthetic pair', windows, async t => {
   const f = await fixture(t, { fields: happyFields, cliOptions: happyCliOptions, census: healthyCensus });

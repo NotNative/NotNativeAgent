@@ -18,6 +18,28 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Coverage gate classifies the generated stores (C7 M, installed-unobserved)
+
+NND `20261010-18` closes the last census-wide C7 items: the gate now
+extracts `USER_DATA_FILE_KEYS` and `userDataPaths()` from NNA
+`src/product.js` (read-only, same literal extraction as the mode
+vocabulary) and requires every generated store key to carry a census row
+classified with its relative store path. Five unclassified keys gained
+evidenced internal-invariant rows (model-dialects, dream-state.db,
+nnm-turn-receipts, the fail-closed master key, and the secret audit
+journal; 412 rows total); the covered stores already satisfied the rule
+with zero new rows. Census remaining items 6 and 8 are retired. Also in
+this slice: the session-org store read path gained an mtime-keyed cache so
+knowledge resolution does a stat instead of a full re-read, and the
+deferred-verification checklist was refreshed to the current suite
+baselines (UI 1982/1982, web 1471/1471, gates 871 files, electron
+native-service-client re-verified 13/13). Evidence: gate tests 17/17
+(three new store-rule cases), real gate run passes against live NNA, web
+session-org/knowledge suites 14/14, tsc clean, gates green. Open: the NNA
+anchor is stable but unpromised — a product.js refactor fails the gate
+loudly by design. Remaining census: 6 items (secret schema, skills,
+telemetry, NNO activation, docs cross-check, CLI/TUI commands).
+
 ## 2026-10-10 Steering capability reconciles at reconnect time (F10 S, installed-unobserved)
 
 NND `20261010-17` reconciles the child steering display at reconnect: a

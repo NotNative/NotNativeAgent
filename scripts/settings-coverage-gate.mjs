@@ -48,7 +48,8 @@ async function main(nnaSource, censusPath) {
   const catalog = await dumpCatalog(nnaSource);
   const census = JSON.parse(await readFile(censusPath, 'utf8'));
   const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [],
-    missingSubcommands: [], staleSubcommands: [], missingEnv: [], staleEnv: [], surfaceClaims: [], missingFiles: [] };
+    missingSubcommands: [], staleSubcommands: [], missingEnv: [], staleEnv: [], missingStores: [],
+    surfaceClaims: [], missingFiles: [] };
   await trace(violations, census, catalog, nnaSource);
   checkDispositions(violations, census);
   checkSurfaceFiles(violations, census, nnaSource);
@@ -114,6 +115,7 @@ function emit(violations, census, catalog) {
     stale_subcommand_rows: violations.staleSubcommands,
     missing_environment_rows: violations.missingEnv,
     stale_environment_rows: violations.staleEnv,
+    missing_store_rows: violations.missingStores,
     surface_not_owed: census.rows.filter((row) => row.current_gui?.owed === false).length,
     unsupported_surface_claims: violations.surfaceClaims.slice(0, 20),
     surface_files_missing: violations.missingFiles.slice(0, 20),
@@ -123,7 +125,8 @@ function emit(violations, census, catalog) {
     || violations.kindDrift.length > 0 || violations.missingOptions.length > 0
     || violations.staleOptions.length > 0 || violations.missingSubcommands.length > 0
     || violations.staleSubcommands.length > 0 || violations.missingEnv.length > 0
-    || violations.staleEnv.length > 0 || violations.surfaceClaims.length > 0
+    || violations.staleEnv.length > 0 || violations.missingStores.length > 0
+    || violations.surfaceClaims.length > 0
     || violations.missingFiles.length > 0) {
     process.stderr.write('settings coverage gate: unclassified or drifted coverage detected\n');
     process.exitCode = 1;
@@ -223,6 +226,7 @@ async function trace(violations, census, catalog, nnaSource) {
   checkOptions(violations, census, literals);
   await checkSubcommands(violations, census, nnaSource);
   await checkEnvironment(violations, census, nnaSource);
+  await checkStores(violations, census, nnaSource);
 }
 
 function checkOptions(violations, census, literals) {
@@ -267,6 +271,50 @@ async function checkEnvironment(violations, census, nnaSource) {
   for (const name of [...envRows].sort()) {
     if (!envNames.includes(name)) violations.staleEnv.push(name);
   }
+}
+
+async function checkStores(violations, census, nnaSource) {
+  // Generated non-manifest stores: every key in NNA's user-data registry must
+  // have at least one census row classified with the store's relative path,
+  // so an engine-side store cannot appear (or move) without a census row.
+  const keys = await setLiteral(nnaSource, 'src/product.js', 'USER_DATA_FILE_KEYS');
+  const { paths, block } = await userDataPathMap(nnaSource);
+  const classified = new Set(census.rows.map((row) => row.store?.path_class).filter(Boolean));
+  for (const key of keys.sort()) {
+    const relative = paths[key];
+    if (relative === undefined) {
+      // Distinguish a missing entry from one the join-literal shape does not
+      // match, so a future shape drift names its cause instead of hiding.
+      const shapeDrift = block.includes(`${key}: join(`);
+      violations.missingStores.push(shapeDrift
+        ? `user-data:${key} (userDataPaths entry does not match the join(root, ...) literal shape)`
+        : `user-data:${key} (no userDataPaths entry)`);
+      continue;
+    }
+    if (!classified.has(relative)) violations.missingStores.push(`user-data:${relative} (key ${key})`);
+  }
+}
+
+/** Parse NNA src/product.js userDataPaths() join lines into key → relative
+ * path (forward slashes) and return the function block for shape-drift
+ * diagnostics. Fail loud when the block is missing or truncated. */
+async function userDataPathMap(nnaSource) {
+  const text = await readFile(join(nnaSource, 'src', 'product.js'), 'utf8');
+  const start = text.indexOf('export function userDataPaths');
+  if (start === -1) throw new Error('missing userDataPaths block in src/product.js');
+  // The closing marker is built from a char code so the brace never appears
+  // literally in this file (the quality gate counts file braces naively).
+  const closing = text.indexOf('\n' + String.fromCharCode(125), start);
+  if (closing === -1) throw new Error('userDataPaths block in src/product.js never closes');
+  const block = text.slice(start, closing);
+  const paths = {};
+  for (const line of block.split('\n')) {
+    const entry = /^\s*(\w+): join\(root((?:, '[^']+')+)\),?$/u.exec(line);
+    if (entry === null) continue;
+    const segments = [...entry[2].matchAll(/'([^']+)'/gu)].map((part) => part[1]);
+    paths[entry[1]] = segments.join('/');
+  }
+  return { paths, block };
 }
 
 async function setLiteral(source, file, name) {
