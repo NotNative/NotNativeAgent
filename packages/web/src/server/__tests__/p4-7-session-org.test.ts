@@ -87,7 +87,9 @@ describe('session-organization records (F4.7)', () => {
     expect(stored.find((pin) => pin.id === 'msg_0')?.createdAt).toBe(999); // newest survives
     expect(stored.some((pin) => pin.id === 'msg_1')).toBe(false); // oldest dropped
     await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'pins.setMessages', pins: [] });
-    expect((await recordOf('ses_parent')).messagePins).toBeUndefined();
+    // Empty pins are a tombstone: the key stays so legacy metadata fallbacks
+    // stay dormant (an unpin-to-empty must not resurrect stale legacy pins).
+    expect((await recordOf('ses_parent')).messagePins).toEqual([]);
     expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'pins.setMessages', pins: 'nope' })).status).toBe(400);
   });
 
@@ -129,8 +131,8 @@ describe('session-organization records (F4.7)', () => {
     expect(await recordOf('ses_parent')).toMatchObject({
       contextPins: { notes: ['note-1', 'note-2'], plans: ['plan-9'] }, knowledgeSignature: signature });
     await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'pins.setContext', notes: [], plans: [], knowledgeSignature: '' });
-    expect((await recordOf('ses_parent')).contextPins).toBeUndefined();
-    expect((await recordOf('ses_parent')).knowledgeSignature).toBeUndefined();
+    expect((await recordOf('ses_parent')).contextPins).toEqual({ notes: [], plans: [] });
+    expect((await recordOf('ses_parent')).knowledgeSignature).toBe('');
   });
 
   it('scopes records per directory and rejects bad scopes', async () => {

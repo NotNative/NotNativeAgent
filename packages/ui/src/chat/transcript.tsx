@@ -21,24 +21,22 @@ import { BlockingCardsColumn } from './blocking-cards.tsx';
 import { formatDuration, formatRelative, formatRetryCountdown } from './time-format.ts';
 import { filterBtwTailMessages } from './btw-context.ts';
 import {
-  applySessionMessagePinMetadata, sessionMessagePinIDs, setSessionMessagePinned,
-  type SessionPinClient,
+  messagePinnedState, setSessionMessagePinned,
 } from './context-message-pins.ts';
-import { btwRiderFor } from './btw-context.ts';
-import { btwStateMerged } from './btw-org.ts';
 import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
+import { btwRiderFor } from './btw-context.ts';
+import { btwStateMerged } from './btw-org.ts';
 
 export interface TranscriptProps {
   store: StoreApi<DirectoryStore>;
   engine: SyncEngine;
   sessionID: string | null;
   directory: string;
-  pinClient?: SessionPinClient;
 }
 
 export function Transcript(props: TranscriptProps): ReactNode {
-  const { store, engine, sessionID, directory, pinClient } = props;
+  const { store, engine, sessionID, directory } = props;
   const orgRecord = useSessionOrgStore((state) =>
     state.recordsByDirectory[normalizeDirectory(directory)]?.[sessionID ?? '']);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
@@ -149,7 +147,7 @@ export function Transcript(props: TranscriptProps): ReactNode {
         {olderFailedKey === loadKey ? <span role="alert" className="text-rose-400">Could not load older messages. Retry above.</span> : null}
       </div> : null}
       {turns.map((turn, index) => {
-        const pin = { store, sessionID, directory, ...(pinClient ? { pinClient } : {}) };
+        const pin = { store, sessionID, directory };
         return <TurnRow key={turn.userMessage.id} turn={turn} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} pin={pin} />;
       })}
       {tail ? <StreamingTailRow key={tail.id} parts={(snapshot.part[tail.id] ?? []) as PartLite[]} messageID={tail.id} sessionID={sessionID} directory={directory} /> : null}
@@ -167,8 +165,7 @@ function questionsOf(snapshot: import('../sync/types.ts').DirectoryStore, sessio
   return snapshot.question[sessionID] ?? [];
 }
 
-function ContextPinButton({ pin, message, variant }: {
-  pin: ContextPinTarget;
+function ContextPinButton({ pin, message, variant }: {  pin: ContextPinTarget;
   message: ContextPinMessage;
   variant: 'user' | 'assistant';
 }): ReactNode {
@@ -179,16 +176,18 @@ function ContextPinButton({ pin, message, variant }: {
     return () => { active.current = false; };
   }, []);
   const snapshot = useSyncExternalStore(pin.store.subscribe, pin.store.getState);
-  const pinned = sessionMessagePinIDs(snapshot.session.find((session) => session.id === pin.sessionID)).has(message.id);
+  const orgRecord = useSessionOrgStore((state) =>
+    state.recordsByDirectory[normalizeDirectory(pin.directory)]?.[pin.sessionID]);
+  const session = snapshot.session.find((entry) => entry.id === pin.sessionID);
+  const pinned = messagePinnedState(session, orgRecord).has(message.id);
   const toggle = async (): Promise<void> => {
     if (busy) return;
     setBusy(true);
     try {
-      const committed = await setSessionMessagePinned({
+      await setSessionMessagePinned({
         sessionID: pin.sessionID, directory: pin.directory, message, pinned: !pinned,
-        ...(pin.pinClient ? { client: pin.pinClient } : {}),
+        ...(session?.metadata ? { metadata: session.metadata } : {}),
       });
-      if (committed) applySessionMessagePinMetadata(pin.store, pin.sessionID, committed.metadata);
     } catch {
       if (active.current) toast.error('Could not update the context pin');
     } finally {
@@ -227,7 +226,6 @@ type ContextPinTarget = {
   store: StoreApi<DirectoryStore>;
   sessionID: string;
   directory: string;
-  pinClient?: SessionPinClient;
 };
 
 function TurnRow({ turn, engine, tailID, pin }: { turn: ChatTurn; engine: SyncEngine; tailID: string | undefined; pin: ContextPinTarget }): ReactNode {

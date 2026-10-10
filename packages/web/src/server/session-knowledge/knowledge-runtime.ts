@@ -6,9 +6,10 @@ import { readProjectContext, type ProjectNote } from '../project-context/context
 import { readProjectPlan } from '../project-context/plan-store.ts';
 import { createNnaSessionHarnessPorts } from '../session-orchestration/session-harness-ports.ts';
 import {
-  clearKnowledgeSignature, mergeProjectContextPins, parseKnowledgeSignature,
+  parseKnowledgeSignature,
   normalizeRequestDirectory, parseProjectContextPins, signatureOf, type ProjectContextPins,
 } from './metadata.ts';
+import { readSessionOrgRecord, writeSessionOrgOp } from '../routes/session-org.ts';
 
 export const KNOWLEDGE_BUDGET = 8000;
 export type MetadataBag = Record<string, unknown>;
@@ -62,14 +63,30 @@ async function serializedSessionWrite<T>(sessionId: string, directory: string,
   }
 }
 
+/** Organization records win; sessions that never wrote the store fall back
+ * to the legacy metadata parse (mock-runtime door). */
+function orgPins(directory: string, sessionId: string,
+  metadata: MetadataBag | undefined): { pins: ProjectContextPins; signature: string } {
+  const record = readSessionOrgRecord(directory, sessionId);
+  const pins = record?.contextPins
+    ? { notes: [...record.contextPins.notes], plans: [...record.contextPins.plans] }
+    : metadata === undefined ? EMPTY_PINS : parseProjectContextPins(metadata);
+  const signature = typeof record?.knowledgeSignature === 'string'
+    ? record.knowledgeSignature
+    : metadata === undefined ? '' : parseKnowledgeSignature(metadata);
+  return { pins, signature };
+}
+
 export async function resolveKnowledge(deps: KnowledgeDependencies, directory: string,
   sessionId: string | undefined, requestedMetadata?: SessionMetadata): Promise<KnowledgeResult> {
   try {
     const metadata = sessionId === undefined
-      ? requestedMetadata
+      ? requestedMetadata as MetadataBag | undefined
       : await freshRead(deps.readSession, sessionId, directory);
-    const pins = metadata === undefined ? EMPTY_PINS : parseProjectContextPins(metadata);
-    const delivered = metadata === undefined ? '' : parseKnowledgeSignature(metadata);
+    const { pins, signature: delivered } = sessionId === undefined
+      ? { pins: metadata === undefined ? EMPTY_PINS : parseProjectContextPins(metadata),
+          signature: metadata === undefined ? '' : parseKnowledgeSignature(metadata) }
+      : orgPins(directory, sessionId, metadata);
     const projectId = await safeProjectId(deps.resolveProjectId, directory);
     const [pinned, memory] = await Promise.all([
       readPinned(deps, projectId, pins, sessionId !== undefined ? directory : undefined),
@@ -89,7 +106,9 @@ export async function resolveKnowledgeSummary(deps: KnowledgeDependencies, direc
   try {
     const metadata = sessionId === undefined ? undefined
       : await freshRead(deps.readSession, sessionId, directory);
-    const pins = metadata === undefined ? EMPTY_PINS : parseProjectContextPins(metadata);
+    const { pins } = sessionId === undefined
+      ? { pins: metadata === undefined ? EMPTY_PINS : parseProjectContextPins(metadata) }
+      : orgPins(directory, sessionId, metadata);
     const projectId = await safeProjectId(deps.resolveProjectId, directory);
     let notes: KnowledgeSummary['notes'] = [];
     let plans: KnowledgeSummary['plans'] = [];
@@ -115,7 +134,7 @@ export async function pinKnowledge(deps: KnowledgeDependencies, input: {
 }): Promise<{ pins: ProjectContextPins }> {
   return serializedSessionWrite(input.sessionId, input.directory, async () => {
     const session = await freshRead(deps.readSession, input.sessionId, input.directory);
-    const current = parseProjectContextPins(session);
+    const { pins: current } = orgPins(input.directory, input.sessionId, session);
     const key = input.kind === 'note' ? 'notes' as const : 'plans' as const;
     const other = input.kind === 'note' ? 'plans' as const : 'notes' as const;
     const next = {
@@ -123,7 +142,10 @@ export async function pinKnowledge(deps: KnowledgeDependencies, input: {
       [key]: replacePin(current[key], input.id, input.pinned),
       [other]: [...current[other]],
     } satisfies ProjectContextPins;
-    await commitPins(deps, input, session, next);
+    // A pin change clears the delivered signature so knowledge re-delivers;
+    // the org write replaces the old metadata PATCH (which NNA never carried).
+    await writeSessionOrgOp(input.directory, input.sessionId, 'pins.setContext',
+      { notes: next.notes, plans: next.plans, knowledgeSignature: '' });
     return { pins: next };
   });
 }
@@ -134,9 +156,9 @@ export async function recordKnowledgeDelivered(deps: KnowledgeDependencies, inpu
   try {
     return await serializedSessionWrite(input.sessionId, input.directory, async () => {
       const session = await freshRead(deps.readSession, input.sessionId, input.directory);
-      const pins = parseProjectContextPins(session);
-      await commitMetadata(deps, input.sessionId, input.directory,
-        mergeProjectContextPins(session, pins, input.signature));
+      const { pins } = orgPins(input.directory, input.sessionId, session);
+      await writeSessionOrgOp(input.directory, input.sessionId, 'pins.setContext',
+        { notes: pins.notes, plans: pins.plans, knowledgeSignature: input.signature });
       return { recorded: true };
     });
   } catch (error) {
@@ -306,21 +328,6 @@ function TruncationLength(): number {
 function replacePin(values: string[], id: string, pinned: boolean): string[] {
   const kept = values.filter((existing) => existing !== id);
   return pinned ? [...kept, id] : kept;
-}
-
-async function commitPins(deps: KnowledgeDependencies, input: {
-  sessionId: string; directory: string; id: string;
-}, session: MetadataBag, next: ProjectContextPins): Promise<void> {
-  await commitMetadata(deps, input.sessionId, input.directory,
-    clearKnowledgeSignature(session, next));
-}
-
-async function commitMetadata(deps: KnowledgeDependencies, sessionId: string, directory: string,
-  metadata: MetadataBag): Promise<void> {
-  const committed = await deps.patchSession(sessionId, directory, metadata);
-  const id = typeof committed?.id === 'string' ? committed.id : sessionId;
-  if (id !== sessionId) throw new Error('session changed during knowledge write');
-  assertSessionTarget(committed, sessionId, directory);
 }
 
 function assertSessionTarget(session: unknown, sessionId: string, directory: string): void {

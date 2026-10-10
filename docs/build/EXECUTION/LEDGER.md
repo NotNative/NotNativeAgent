@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Pins and knowledge ride the session-organization store (F4.7, installed-unobserved)
+
+NND `20261010-13` moves the remaining F4.7 metadata writers onto the
+NND-owned session-org store. Message pins commit through the `pins.setMessages`
+op (zustand store read path, legacy metadata only as the fallback source), and
+the server-side knowledge runtime reads context pins and the delivered
+signature from the store via the new in-process `readSessionOrgRecord`/
+`writeSessionOrgOp` helpers, with `pinKnowledge` clearing the signature and
+`recordKnowledgeDelivered` preserving the pins exactly as the old metadata
+merge did. The reviewer's fix-first finding is applied: empty pin writes are
+tombstones (`messagePins: []`, `contextPins: {notes:[],plans:[]}` +
+`knowledgeSignature: ''`) instead of key deletes, because a deleted key would
+have resurrected the stale legacy pins the moment the last pin was removed.
+Evidence: rewritten knowledge suite (6 tests, isolated data dir), UI pin
+suites (6+3), org suite (7), full UI suite 1972/1972, web suite 1470/1470
+(one fewer knowledge test after the rewrite), tsc clean, gates green for 867
+files. Open: an mtime cache for the per-resolve store read is a known
+perf follow-up, not a correctness one.
+
 ## 2026-10-10 BTW state moves to the session-organization store (F4.7 UI, installed-unobserved)
 
 NND `20261010-12` migrates the BTW surface to the NND-owned

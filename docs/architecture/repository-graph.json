@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3774a9a518e45a510a039bb649613c31ba4b53bb91306850c55718a994d6438d",
+  "source_digest": "sha256:7ebb08a8ce22aa87b2e93520ba06a7284a47f5fa78a9792639826dd21776aec8",
   "counts": {
     "modules": 867,
     "component_edges": 17
@@ -117,7 +117,7 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 137,
+      "import_count": 138,
       "module_count": 97
     },
     {
@@ -499,6 +499,7 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts",
         "packages/ui/src/sync/types.ts"
       ]
     },
@@ -1053,7 +1054,9 @@
         "packages/ui/src/chat/session-knowledge-summary.ts",
         "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/i18n/intl.ts",
+        "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/stores/useSessionOrgStore.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
@@ -7747,6 +7750,7 @@
         "packages/web/src/server/project-context/agent-memory.ts",
         "packages/web/src/server/project-context/context-store.ts",
         "packages/web/src/server/project-context/plan-store.ts",
+        "packages/web/src/server/routes/session-org.ts",
         "packages/web/src/server/session-knowledge/metadata.ts",
         "packages/web/src/server/session-orchestration/session-harness-ports.ts"
       ]

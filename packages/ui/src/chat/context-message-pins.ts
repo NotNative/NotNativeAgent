@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Durable context pins ride the generic session-metadata PATCH channel. */
-import { harnessClient, normalizeDirectory, type HarnessSession } from '../lib/nnd/client.ts';
+/** Durable context pins live in the NND-owned session-org store; the
+ * generic session-metadata namespace remains the legacy read fallback. */
+import { normalizeDirectory } from '../lib/nnd/client.ts';
+import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
 import type { Message } from '../lib/nnd/types.ts';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { StoreApi } from 'zustand/vanilla';
@@ -60,19 +62,12 @@ export function sessionMessagePinIDs(session: { metadata?: Record<string, unknow
   return new Set(parseSessionMessagePins(session?.metadata).map((pin) => pin.id));
 }
 
-export type SessionPinClient = typeof harnessClient;
-
-/** Commit the authoritative metadata only; preserve other session fields. */
-export function applySessionMessagePinMetadata(
-  store: StoreApi<DirectoryStore>, sessionID: string, metadata: Record<string, unknown> | undefined,
-): boolean {
-  const sessions = store.getState().session;
-  if (!sessions.some((session) => session.id === sessionID)) return false;
-  store.setState({
-    session: sessions.map((session) => session.id === sessionID
-      ? { ...session, metadata } : session),
-  });
-  return true;
+/** Org-record pins win; legacy metadata pins fill in until the session has
+ * written the store. */
+export function messagePinnedState(session: { metadata?: Record<string, unknown> } | undefined,
+  orgRecord: { messagePins?: { id: string; createdAt: number; role: string }[] } | undefined): Set<string> {
+  const source = orgRecord?.messagePins ?? parseSessionMessagePins(session?.metadata);
+  return new Set(source.map((pin) => pin.id));
 }
 
 const pinWriteQueues = new Map<string, Promise<unknown>>();
@@ -87,34 +82,35 @@ function queuePinWrite<T>(key: string, operation: () => Promise<T>): Promise<T> 
   return next;
 }
 
-/** Session PATCH is authoritative: GET fresh, merge the pin, then commit. */
+/** The pins commit to the NND-owned session-org store (`pins.setMessages`);
+ * `metadata` is only the legacy fallback source for sessions created before
+ * the store existed. The store write-through updates subscribers. */
 export async function setSessionMessagePinned(input: {
   sessionID: string;
   directory: string;
   message: PinTargetMessage;
   pinned: boolean;
-  client?: typeof harnessClient;
-}): Promise<HarnessSession | undefined> {
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
   return queuePinWrite(`${input.sessionID}\0${normalizeDirectory(input.directory)}`, async () => {
-    const client = input.client ?? harnessClient;
     if (typeof input.sessionID !== 'string' || input.sessionID === '') throw new Error('Invalid session for the context pin');
     if (typeof input.directory !== 'string' || input.directory === '') throw new Error('Invalid directory for the context pin');
     if (typeof input.message.id !== 'string' || input.message.id === '' || !(input.message.role === 'user' || input.message.role === 'assistant')
       || !Number.isFinite(messagePinTime(input.message))) {
       throw new Error('Invalid message for the context pin');
     }
-    const current = await client.getSession(input.sessionID, { directory: input.directory });
-    if (!current.data) throw new Error(current.error ?? 'Could not read the session');
-    if (current.data.id !== input.sessionID || normalizeDirectory(current.data.directory) !== normalizeDirectory(input.directory)) {
-      throw new Error('Could not read the target session');
+    const store = useSessionOrgStore.getState();
+    const key = normalizeDirectory(input.directory);
+    if (store.loadedDirectories[key] !== true) await store.load(key);
+    const record = store.recordsByDirectory[key]?.[input.sessionID];
+    const currentPins = record?.messagePins
+      ?? parseSessionMessagePins(input.metadata).map((pin) => ({ ...pin, role: pin.role as string }));
+    const next = currentPins.filter((pin) => pin.id !== input.message.id);
+    if (input.pinned) {
+      next.push({ id: input.message.id, createdAt: messagePinTime(input.message), role: input.message.role });
     }
-    const metadata = mergeSessionMessagePin(current.data.metadata ?? {}, input.message, input.pinned);
-    const committed = await client.updateSession(input.sessionID, { metadata }, { directory: input.directory });
-    if (!committed.data) throw new Error(committed.error ?? 'Could not update the context pin');
-    if (committed.data.id !== input.sessionID || normalizeDirectory(committed.data.directory) !== normalizeDirectory(input.directory)) {
-      throw new Error('Could not update the context pin');
-    }
-    return committed.data;
+    await store.applyOp(input.directory, input.sessionID, 'pins.setMessages',
+      { pins: next.slice(-SESSION_PIN_LIMIT) });
   });
 }
 

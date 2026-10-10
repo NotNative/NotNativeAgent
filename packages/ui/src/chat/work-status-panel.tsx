@@ -18,14 +18,16 @@ import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
 import { contextMessageLedger, MAX_LEDGER_ROWS } from './context-message-ledger.ts';
-import { sessionMessagePinIDs, setSessionMessagePinned, type SessionPinClient } from './context-message-pins.ts';
+import { setSessionMessagePinned, messagePinnedState } from './context-message-pins.ts';
+import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
+import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionKnowledgeSummary } from './session-knowledge-summary.ts';
 
 const PANEL_WIDTH = 300;
 
 type PinAction = { sessionID: string; messageID: string; token: number };
 
-export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent, sessionID: scopedSessionID, pinClient }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void; sessionID?: string | null; pinClient?: SessionPinClient }): ReactNode {
+export function WorkStatusPanel({ store, engine, embedded = false, expanded = false, onOpenSubagent, sessionID: scopedSessionID }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean; expanded?: boolean; onOpenSubagent?: (sessionID: string) => void; sessionID?: string | null }): ReactNode {
   const intlLocale = useCurrentIntlLocale();
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const statusById = useGlobalSessionStatusStore((state) => state.statusById);
@@ -50,6 +52,9 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     setPinError(null);
   }, [sessionID]);
   const selectedSession = snapshot.session.find((session) => session.id === sessionID);
+  // Subscribed before the early return below: hooks must run unconditionally.
+  const orgRecord = useSessionOrgStore((state) =>
+    state.recordsByDirectory[normalizeDirectory(selectedSession?.directory ?? '')]?.[sessionID ?? '']);
   const knowledge = useSessionKnowledgeSummary({
     directory: selectedSession?.directory ?? '',
     sessionID: sessionID ?? '',
@@ -80,7 +85,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   const work = nnaWorkSummary(snapshot, sessionID);
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
   const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
-  const messagePinIDs = sessionMessagePinIDs(selectedSession);
+  const messagePinIDs = messagePinnedState(selectedSession, orgRecord);
   const reportedTokens = (lastAssistant as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } | undefined)?.tokens;
   const tokenFacts = [
     reportedToken('Input', reportedTokens?.input, intlLocale),
@@ -231,20 +236,10 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     setPinAction(action);
     setPinError(null);
     try {
-      const committed = await setSessionMessagePinned({
-        sessionID, directory: selectedSession.directory, message, pinned, ...(pinClient ? { client: pinClient } : {}),
+      await setSessionMessagePinned({
+        sessionID, directory: selectedSession.directory, message, pinned,
+        ...(selectedSession.metadata ? { metadata: selectedSession.metadata } : {}),
       });
-      const nextSession = committed ?? null;
-      if (nextSession) {
-        const sessions = store.getState().session;
-        if (sessions.some((candidate) => candidate.id === sessionID)) {
-          store.setState({
-            session: sessions.map((candidate) => candidate.id === sessionID
-              ? { ...candidate, metadata: nextSession.metadata }
-              : candidate),
-          });
-        }
-      }
     } catch {
       if (currentSessionIDRef.current === sessionID) setPinError('Could not update the context pin');
     } finally {

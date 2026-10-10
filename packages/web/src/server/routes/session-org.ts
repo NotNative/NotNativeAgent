@@ -175,7 +175,10 @@ export function applySessionOrgOp(record: SessionOrgRecord, op: string, body: Re
     case 'pins.setMessages': {
       const pins = messagePinsOf(body.pins);
       if (pins === undefined) return false;
-      if (pins.length === 0) delete record.messagePins; else record.messagePins = pins;
+      // An empty list is a tombstone, not a delete: readers fall back to the
+      // legacy metadata pins, so removing the key would resurrect stale
+      // legacy pins on the next unpin-to-empty.
+      record.messagePins = pins;
       return true;
     }
     case 'pins.setContext': {
@@ -185,17 +188,41 @@ export function applySessionOrgOp(record: SessionOrgRecord, op: string, body: Re
         && (body.knowledgeSignature === '' || SIGNATURE_PATTERN.test(body.knowledgeSignature))
         ? body.knowledgeSignature : null;
       if (signature === null) return false;
-      if (notes.length === 0 && plans.length === 0 && signature === '') {
-        delete record.contextPins;
-        delete record.knowledgeSignature;
-        return true;
-      }
+      // Same tombstone rule for the all-empty context write: the record must
+      // keep speaking for the session so the legacy metadata stays dormant.
       record.contextPins = { notes, plans };
       record.knowledgeSignature = signature;
       return true;
     }
     default: return false;
   }
+}
+
+/** Server-side reader for in-process consumers (session knowledge): returns
+ * the stored record or undefined when the store/file is absent or malformed
+ * (fail-closed readers fall back to their legacy source). */
+export function readSessionOrgRecord(directory: string, sessionID: string): SessionOrgRecord | undefined {
+  const parsed = stored();
+  if (parsed === null || !shapeValid(parsed)) return undefined;
+  const key = normalizeRequestDirectory(directory);
+  if (key === undefined) return undefined;
+  return parsed.records[key]?.[sessionID];
+}
+
+/** Server-side queued write for in-process consumers. Throws on an invalid
+ * op or a malformed store (the same documented messages the routes return). */
+export async function writeSessionOrgOp(directory: string, sessionID: string, op: string,
+  extra: Record<string, unknown> = {}): Promise<SessionOrgRecord> {
+  const key = normalizeRequestDirectory(directory);
+  if (key === undefined || !ID_PATTERN.test(sessionID)) throw new Error('invalid session-organization op');
+  let committed: SessionOrgRecord | null = null;
+  await queueWrite(async (store) => {
+    const directoryRecords = store.records[key] ?? (store.records[key] = {});
+    const record = directoryRecords[sessionID] ?? (directoryRecords[sessionID] = {});
+    if (!applySessionOrgOp(record, op, { ...extra, op })) throw new Error('invalid session-organization op');
+    committed = record;
+  });
+  return committed!;
 }
 
 export function registerSessionOrgRoutes(app: Hono): void {

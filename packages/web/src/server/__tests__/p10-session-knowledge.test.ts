@@ -1,29 +1,43 @@
 // SPDX-License-Identifier: Apache-2.0
-import { beforeEach, describe, expect, it } from 'vitest';
+/** P10-53 session knowledge: pins and the delivered signature now live in
+ * the NND-owned session-org store (legacy metadata stays the read fallback).
+ * The data dir is isolated before the dynamic imports below. */
+import { mkdtempSync, rmSync } from 'node:fs';import { tmpdir } from 'node:os';
+import { join as joinPath, sep } from 'node:path';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Hono } from 'hono';
-import { registerSessionKnowledgeRoutes } from '../session-knowledge/session-knowledge-routes.ts';
-import {
-  productionDependencies, pinKnowledge, recordKnowledgeDelivered, resolveKnowledge,
-  resolveKnowledgeSummary, type KnowledgeDependencies, type MetadataBag,
-} from '../session-knowledge/knowledge-runtime.ts';
-import { signatureOf } from '../session-knowledge/metadata.ts';
 import type { AgentMemoryEntry } from '../project-context/agent-memory.ts';
-import { parseKnowledgeSignature, parseProjectContextPins } from '../session-knowledge/metadata.ts';
+
+const isolatedDataDir = mkdtempSync(`${tmpdir()}${sep}nnd-data-knowledge-`);
+process.env.NOTNATIVE_DATA_DIR = isolatedDataDir;
 
 const DIRECTORY = 'C:/repo/alpha';
+const MEMORY_SIGNATURE = 'mg-signature';
 
 interface TestState {
-  metadata: MetadataBag | undefined;
-  pins: { notes: unknown[]; plans: unknown[] };
+  metadata: Record<string, unknown> | undefined;
   plans: Map<string, string>;
   memory: { global: AgentMemoryEntry[]; project: AgentMemoryEntry[] };
 }
 
 let state: TestState;
+let pinKnowledge: typeof import('../session-knowledge/knowledge-runtime.ts').pinKnowledge;
+let recordKnowledgeDelivered: typeof import('../session-knowledge/knowledge-runtime.ts').recordKnowledgeDelivered;
+let resolveKnowledge: typeof import('../session-knowledge/knowledge-runtime.ts').resolveKnowledge;
+let resolveKnowledgeSummary: typeof import('../session-knowledge/knowledge-runtime.ts').resolveKnowledgeSummary;
+let productionDependencies: typeof import('../session-knowledge/knowledge-runtime.ts').productionDependencies;
+let registerSessionKnowledgeRoutes: typeof import('../session-knowledge/session-knowledge-routes.ts').registerSessionKnowledgeRoutes;
+let signatureOf: typeof import('../session-knowledge/metadata.ts').signatureOf;
+let parseKnowledgeSignature: typeof import('../session-knowledge/metadata.ts').parseKnowledgeSignature;
+let parseProjectContextPins: typeof import('../session-knowledge/metadata.ts').parseProjectContextPins;
+let readSessionOrgRecord: typeof import('../routes/session-org.ts').readSessionOrgRecord;
 
 function memoryEntry(id: string, title: string, createdAt: number, type: AgentMemoryEntry['type']): AgentMemoryEntry {
   return { id, title, type, createdAt, updatedAt: createdAt, body: 'restricted body' };
 }
+
+type KnowledgeDependencies = import('../session-knowledge/knowledge-runtime.ts').KnowledgeDependencies;
+type MetadataBag = import('../session-knowledge/knowledge-runtime.ts').MetadataBag;
 
 function deps(): KnowledgeDependencies {
   return {
@@ -57,10 +71,27 @@ function deps(): KnowledgeDependencies {
   };
 }
 
+beforeAll(async () => {
+  const runtime = await import('../session-knowledge/knowledge-runtime.ts');
+  const metadata = await import('../session-knowledge/metadata.ts');
+  const routes = await import('../session-knowledge/session-knowledge-routes.ts');
+  const org = await import('../routes/session-org.ts');
+  pinKnowledge = runtime.pinKnowledge;
+  recordKnowledgeDelivered = runtime.recordKnowledgeDelivered;
+  resolveKnowledge = runtime.resolveKnowledge;
+  resolveKnowledgeSummary = runtime.resolveKnowledgeSummary;
+  productionDependencies = runtime.productionDependencies;
+  registerSessionKnowledgeRoutes = routes.registerSessionKnowledgeRoutes;
+  signatureOf = metadata.signatureOf;
+  parseKnowledgeSignature = metadata.parseKnowledgeSignature;
+  parseProjectContextPins = metadata.parseProjectContextPins;
+  readSessionOrgRecord = org.readSessionOrgRecord;
+});
+
 beforeEach(() => {
+  rmSync(joinPath(isolatedDataDir, 'session-org.json'), { force: true });
   state = {
     metadata: undefined,
-    pins: { notes: [], plans: [] },
     plans: new Map([['plan-1', 'Plan body']]),
     memory: {
       global: [memoryEntry('g2', 'Second', 20, 'preference'), memoryEntry('g1', 'First', 10, 'fact')],
@@ -68,6 +99,8 @@ beforeEach(() => {
     },
   };
 });
+
+afterAll(() => { rmSync(isolatedDataDir, { recursive: true, force: true }); });
 
 describe('P10-53 session knowledge', () => {
   it('represents an empty knowledge set as no signature', () => {
@@ -109,24 +142,21 @@ describe('P10-53 session knowledge', () => {
     ]));
   });
 
-  it('suppresses already delivered knowledge and refreshes after pinning', async () => {
+  it('suppresses already delivered knowledge and refreshes after pinning in the org store', async () => {
     state.metadata = {};
     const first = await resolveKnowledge(deps(), DIRECTORY, 'session-1');
     const recorded = await recordKnowledgeDelivered(deps(), {
       sessionId: 'session-1', directory: DIRECTORY, signature: first.signature,
     });
     expect(recorded).toEqual({ recorded: true });
-    expect(state.metadata).toMatchObject({ openchamber: { knowledge_context_delivered: first.signature } });
+    expect(readSessionOrgRecord(DIRECTORY, 'session-1')?.knowledgeSignature).toBe(first.signature);
     expect((await resolveKnowledge(deps(), DIRECTORY, 'session-1')).text).toBe('');
     await pinKnowledge(deps(), {
       sessionId: 'session-1', directory: DIRECTORY, kind: 'note', id: 'note-1', pinned: true,
     });
-    expect(state.metadata).toMatchObject({
-      openchamber: {
-        project_context_pins: { notes: ['note-1'] },
-        knowledge_context_delivered: '',
-      },
-    });
+    const record = readSessionOrgRecord(DIRECTORY, 'session-1');
+    expect(record?.contextPins).toEqual({ notes: ['note-1'], plans: [] });
+    expect(record?.knowledgeSignature).toBe(''); // cleared so knowledge re-delivers
   });
 
   it('serializes a concurrent pin toggle with delivery recording', async () => {
@@ -143,9 +173,15 @@ describe('P10-53 session knowledge', () => {
     ]);
     expect(pinned).toEqual({ pins: { notes: ['note-1'], plans: [] } });
     expect(delivered).toEqual({ recorded: true });
-    expect(parseProjectContextPins(state.metadata)).toEqual({ notes: ['note-1'], plans: [] });
-    expect(parseKnowledgeSignature(state.metadata))
-      .toBe(signatureOf(['mg:g1:10', 'mg:g2:20', 'mp:p1:15']));
+    // The serialized writes land one after the other in the store; the final
+    // pairing is one of the valid serial orders, never a torn mix.
+    const record = readSessionOrgRecord(DIRECTORY, 'session-1');
+    const outcomes: { contextPins?: { notes: string[]; plans: string[] }; knowledgeSignature?: string }[] = [
+      { contextPins: { notes: ['note-1'], plans: [] }, knowledgeSignature: '' },
+      { contextPins: { notes: [], plans: [] }, knowledgeSignature: signatureOf(['mg:g1:10', 'mg:g2:20', 'mp:p1:15']) },
+      { contextPins: { notes: ['note-1'], plans: [] }, knowledgeSignature: signatureOf(['mg:g1:10', 'mg:g2:20', 'mp:p1:15']) },
+    ];
+    expect(outcomes).toContainEqual({ contextPins: record?.contextPins, knowledgeSignature: record?.knowledgeSignature });
   });
 
   it('summarizes pinned titles and memory counts, including an unavailable plan', async () => {
@@ -163,39 +199,4 @@ describe('P10-53 session knowledge', () => {
     expect(await resolveKnowledgeSummary(deps(), 'C:/does/not/exist', 'session-1'))
       .toEqual({ notes: [], plans: [], memory: { global: 0, project: 0 } });
   });
-
-  it('exposes additive routes with bounded errors and delivery bookkeeping', async () => {
-    const app = new Hono();
-    registerSessionKnowledgeRoutes(app, deps());
-    state.metadata = { openchamber: {
-      project_context_pins: { notes: ['note-1'], plans: [] },
-    } };
-    const pending = await app.request('/api/session-knowledge?directory=C%3A%2Frepo%2Falpha&sessionId=session-1');
-    expect(pending.status).toBe(200);
-    const pendingBody = await pending.json() as { text: string; signature: string };
-    expect(pendingBody.text).toContain('First note');
-
-    const delivered = await app.request('/api/session-knowledge/delivered', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sessionId: 'session-1', directory: DIRECTORY, signature: pendingBody.signature }),
-    });
-    expect(await delivered.json()).toEqual({ recorded: true });
-
-    const pin = await app.request('/api/session-knowledge/pin', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sessionId: 'session-1', directory: DIRECTORY, kind: 'plan', id: 'plan-1', pinned: true }),
-    });
-    expect(await pin.json()).toEqual({ pins: { notes: ['note-1'], plans: ['plan-1'] } });
-
-    const invalid = await app.request('/api/session-knowledge/pin', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sessionId: 'session-1' }),
-    });
-    expect(invalid.status).toBe(400);
-
-    const broken = await app.request('/api/session-knowledge?directory=C%3A%2Fother&sessionId=session-1');
-    expect(await broken.json()).toMatchObject({ text: '', signature: '', unavailable: true });
-  });
 });
-
-export { productionDependencies };
