@@ -2,21 +2,29 @@
 /** Child transcripts stay read-only until NNA grants a live steering action. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { ascendingId, harnessClient } from '../lib/nnd/client.ts';
+import { steeringAllowed, steeringKey, subscribeSteering } from '../lib/nnd/steering-capability.ts';
 
 const CAPABILITY_POLL_MS = 3_000;
 const MAX_STEER_CHARS = 4_000;
 
 export function ChildSessionControls({ sessionID, directory }: { sessionID: string; directory: string }): ReactNode {
-  const [granted, setGranted] = useState(false);
+  // The reconnect resync refreshes the shared snapshot; a remount after a
+  // stream gap starts from it instead of a blind reset, and the subscription
+  // flips the button the moment a reconnect-time refresh lands.
+  const [granted, setGranted] = useState(() => steeringAllowed(sessionID, directory));
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState('');
 
+  useEffect(() => subscribeSteering((key) => {
+    if (key === steeringKey(sessionID, directory)) setGranted(steeringAllowed(sessionID, directory));
+  }), [sessionID, directory]);
+
   useEffect(() => {
     let current = true;
     let fetching = false;
-    setGranted(false);
+    setGranted(steeringAllowed(sessionID, directory));
     setOpen(false);
     setContent('');
     setPending(false);

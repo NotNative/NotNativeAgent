@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Test support: controllable harness client. vi.mock of ../lib/nnd/client.ts
  * replaces the SDK facade singleton; tests register per-operation handlers and
@@ -81,6 +81,7 @@ export const harnessClient: Record<string, unknown> & {
   listToolIds: () => handle('listToolIds', '/experimental/tool/ids', 'GET', undefined),
   harnessEventUrl: () => 'http://harness.test/api/event',
   eventStreamUrl: async () => 'http://harness.test/api/event',
+  childSteeringCapability: (id: string, opts?: { directory?: string }) => handle('childSteeringCapability', `/v1/nnd/sessions/${id}/capabilities`, 'GET', undefined, opts?.directory),
 } as never;
 
 /** HP-4 normalization (mirrors the production implementation). */

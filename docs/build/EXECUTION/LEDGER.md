@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Steering capability reconciles at reconnect time (F10 S, installed-unobserved)
+
+NND `20261010-17` reconciles the child steering display at reconnect: a
+shared per-directory+session snapshot (`lib/nnd/steering-capability.ts`)
+refreshes once per reconnect candidate in the recovery resync (stability
+guarded, failure keeps the previous snapshot), and the child controls seed
+and subscribe from it instead of a blind reset, so a re-granted or revoked
+child flips within the resync pass instead of one 3s poll tick. NNA remains
+the final arbiter: the pre-submit recheck is byte-identical, the revision
+field stays opaque (NNA bumps it only on child completion), and the
+availability grammar stays the exact `'granted'|'unavailable'`. Evidence:
+capability module tests (3), reconnect catalog test (exactly one bounded GET
+per candidate, failed read keeps the resync green), remount-seed control
+test, full UI suite 1982/1982, tsc clean, gates green for 870 files. The
+reviewer returned SHIP with no must-fix; its directory-keying and
+stability-guard nice-to-haves are applied.
+
 ## 2026-10-10 Coverage gate reaches positional subcommands and environment reads (C7 M, installed-unobserved)
 
 NND `20261010-16` extends `scripts/settings-coverage-gate.mjs` beyond dashed

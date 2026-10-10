@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { harnessClient } from '../../lib/nnd/client.ts';
+import { __resetSteeringSnapshotsForTests, refreshSteeringCapability } from '../../lib/nnd/steering-capability.ts';
 import { ChildSessionControls } from '../child-session-controls.tsx';
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
@@ -18,6 +19,7 @@ afterEach(() => {
   container = null;
   root = null;
   vi.restoreAllMocks();
+  __resetSteeringSnapshotsForTests();
 });
 
 async function mount(): Promise<void> {
@@ -97,5 +99,24 @@ describe('child session steering', () => {
     expect(container!.textContent).toContain('could not be confirmed');
     expect(container!.textContent).not.toContain('Steering sent');
     expect((container!.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Please continue');
+  });
+
+  it('starts from the reconnect-time snapshot instead of a blind reset', async () => {
+    // Simulate the reconnect resync refreshing the shared snapshot while no
+    // component is mounted.
+    vi.spyOn(harnessClient, 'childSteeringCapability').mockResolvedValue(granted);
+    await act(async () => { await refreshSteeringCapability('agent_1', 'D:/work'); });
+    await mount();
+    expect(container!.querySelector('button')?.textContent).toBe('Steer subagent');
+    act(() => root!.unmount());
+    // A reconnect flips the grant away; the remount must show it immediately,
+    // before the first poll tick.
+    vi.spyOn(harnessClient, 'childSteeringCapability').mockResolvedValue(denied);
+    await act(async () => { await refreshSteeringCapability('agent_1', 'D:/work'); });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root!.render(<ChildSessionControls sessionID="agent_1" directory="D:/work" />); });
+    expect(container!.querySelector('button')).toBeNull();
   });
 });

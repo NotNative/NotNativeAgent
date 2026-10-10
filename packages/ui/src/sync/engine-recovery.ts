@@ -21,6 +21,7 @@ import { useSessionOrderingStore } from './session-ordering.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { resyncBlockingKind } from './bootstrap-enrichment.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from './activity-snapshot.ts';
+import { refreshSteeringCapability } from '../lib/nnd/steering-capability.ts';
 import { shouldSkipStaleSessionEvent } from './event-equality.ts';
 import { adoptSessionProjection } from './nna-projection.ts';
 import { loadAuthoritativeSessions } from './bootstrap-directory.ts';
@@ -162,6 +163,10 @@ async function recoveryCandidates(ctx: RecoveryCtx, directory: string, store: St
     if (isNnaActivitySource(store)) {
       await refreshActivitySnapshot(store, directory, sessionID, isStable(ctx, directory, store));
     }
+    // Reconcile the steering display hint at reconnect time so a re-granted
+    // or revoked child does not wait a full poll tick. Best-effort: a failed
+    // read leaves the snapshot stale for the next poll, never blocks resync.
+    if (isStable(ctx, directory, store)()) void refreshSteeringCapability(sessionID, directory);
     ctx.deps.afterMessageLoad(store, sessionID);
   }));
 }

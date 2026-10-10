@@ -3,12 +3,12 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
-## 2026-10-10 · C7 gate: subcommands + env provenance · NND 20261010-16 / NNA 20261009-5
+## 2026-10-10 · Steering reconciles at reconnect (F10) · NND 20261010-17 / NNA 20261009-5
 
-The settings-coverage gate now enforces positional subcommands (NNA mode
-vocabulary) and environment-read provenance (snapshot vocabulary + direct
-process.env literals); 36 evidenced census rows added, real gate run passes.
-Gates green for 869 files; gate tests 14/14.
+Child steering visibility now refreshes once per reconnect candidate through
+a shared directory+session snapshot; the pre-submit recheck and NNA's live
+409 remain the only steering authority. Full UI 1982/1982 in-session; gates
+green for 870 files.
 
 ## 2026-10-10 · Session-organization record store · NND 20261010-10 / NNA 20261009-5
 

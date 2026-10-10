@@ -27,6 +27,23 @@ beforeEach(() => {
 });
 afterEach(() => { engine.dispose(); useGlobalSessionsStore.getState().reset(); });
 
+it('refreshes steering capability per candidate without letting a failed read break the resync', async () => {
+  useSessionViewStore.getState().setCurrentSession('new'); // makes 'new' a reconnect candidate
+  configureHarness({
+    listSessions: call => call.opts?.archived ? [record('new')] : call.opts?.roots ? [record('new')] : [],
+    getSession: () => record('new'),
+    // A failed capability read is a display-hint miss: the resync must stay
+    // green and the next poll retries.
+    childSteeringCapability: () => ({ error: 'offline' }),
+  });
+  await engine.resyncAfterStreamGap('stream-reconnect');
+  const child = engine.childStoreOf(directory)!.getState();
+  expect(child.session.map(session => session.id)).toEqual(['new']);
+  const capabilityCalls = callsFor('childSteeringCapability');
+  expect(capabilityCalls).toHaveLength(1); // exactly one bounded GET per candidate
+  expect(capabilityCalls[0]?.directory).toBe(directory);
+});
+
 it('reconciles idle offline creation and deletion after an SSE gap without changing the view', async () => {
   configureHarness({
     listSessions: call => call.opts?.archived ? [record('new')] : call.opts?.roots ? [record('new')] : [],
