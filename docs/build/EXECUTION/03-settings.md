@@ -316,8 +316,8 @@ editor because NNA does not yet ship a telemetry exporter. Other execution
 and context scalars remain generic JSON controls without complete
 family-specific UX or installed application evidence. `tool_concurrency` joined
 the provider scheduling block as a focused control at `20261010-1` (bounded 1–16
-mirroring `configuration-rules.js`); its suite coverage awaits the consolidated
-verification rerun.
+mirroring `configuration-rules.js`); the full UI suite ran green in-session at
+`20261010-2` and covers it.
 Where NNA derives a value rather than reading it from the manifest, the view
 shows the value with an `Unavailable` origin instead of guessing a layer —
 the global provider timeout follows the primary route deadline, the idle
@@ -403,6 +403,16 @@ And a claim needs the assertion on the path that makes it. The create flow typed
 name; only the edit flow asserted the name reached the request. That gap is closed — the
 create request is now asserted to carry the typed name — and it passed, which means the
 field always travelled and was never verified, the cheapest kind of hole there is.
+
+The same redaction discipline extends the editor at `20261010-2` rather than
+superseding it. The editor now writes the whole binding family — an environment
+reference, a Secret Broker reference chosen from the roster, and an explicit
+clear — plus the bounded context and output limits and the tool call mode. What it
+shows of any binding is its kind: never a name, secret id, or broker label, and
+the roster itself renders anonymous numbered options, because a label is
+operator-chosen text the page must not echo. A blank limit box keeps the stored
+limit only while the model stays the same, and the editor says so on the form,
+because NNA drops the limit for a model change that does not resend it.
 
 ### A family page is not a surface for every field in the family
 

@@ -3,6 +3,26 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Provider profile binding + limit writes · NND 20261010-2 / NNA 20261009-5
+
+The profile editor now writes the whole credential-binding family (keep /
+environment name / Secret Broker reference via an anonymous numbered roster /
+explicit `credential: null` clear) plus typed bounded context and output
+limits and the `single`/`batch` tool call mode, all mirrored from the NNA
+profile store, route-configuration merge, and configuration rules. Display
+stays reference-kind-only — no name, secret id, or broker label ever renders —
+so the sealed window-test redaction pin survives, extended by a following
+guide entry rather than superseded. Adversarial review drove five fixes into
+the slice (limit-hint truth, silent env-text discard, inventory credential
+cap, sticky broker-error retry, dual-channel clear echo). All 19 new strings
+are translated in all 11 catalogs; `locale-providers.ts` split for the line
+gate. The full UI suite ran green in-session (1957 tests, 268 files), quality
+gates passed for 858 files, and the settings-coverage gate passed against
+live NNA — the deferred-verification checklist now defers only installed and
+browser-driving runs. `manifest:tool_concurrency` flipped to `verified`; four
+provider write rows refocused to the editor with installed evidence still
+open in the C7/C4 pass.
+
 ## 2026-10-10 · C4 focused scheduling control · NND 20261010-1 / NNA 20261009-5
 
 `tool_concurrency` gained a focused control in the provider scheduling block

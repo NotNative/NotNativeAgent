@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { harnessClient } from '../../../lib/nnd/client.ts';
+import { readBrokerSecrets } from '../../../lib/nnd/secret-actions.ts';
 import { I18nProvider } from '../../../lib/i18n/context.tsx';
 import { useI18nStore } from '../../../lib/i18n/store.ts';
 import { ProvidersPage } from '../pages/providers.tsx';
@@ -16,6 +17,7 @@ vi.mock('../../../lib/nnd/setup.ts', () => ({ requestNativeSetup: async () => ({
   status: { service_state: 'ready', configuration_state: 'ready', execution_state: 'ready',
     provider_state: 'unknown', failure_code: null }, error: false,
 }) }));
+vi.mock('../../../lib/nnd/secret-actions.ts', () => ({ readBrokerSecrets: vi.fn() }));
 
 declare global {
   // eslint-disable-next-line no-var
@@ -58,6 +60,14 @@ function setValue(testid: string, value: string): Promise<void> {
   return act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(node, value);
     node.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+}
+
+function setSelectValue(testid: string, value: string): Promise<void> {
+  const node = document.querySelector(`[data-testid="${testid}"]`) as HTMLSelectElement;
+  return act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!.call(node, value);
+    node.dispatchEvent(new window.Event('change', { bubbles: true }));
   });
 }
 
@@ -199,5 +209,101 @@ describe('NNA provider profiles and diagnostics', () => {
     await act(async () => { await settle(); });
     expect(document.querySelector('[role="alert"]')?.textContent).toBe('NNA hat ein ungültiges Anbieterverzeichnis zurückgegeben.');
     await act(async () => { useI18nStore.getState().setLocale('en'); });
+  });
+
+  it('carries bounded profile limits and the tool call mode only when sent', async () => {
+    const profile = { ...PROFILE, credential_env: 'PROFILE_API_KEY', context_limit_bytes: 8_388_608, output_limit_tokens: 4_096, tool_call_mode: 'batch' };
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [profile] } } as never);
+    const update = vi.spyOn(harnessClient, 'updateProviderProfile')
+      .mockResolvedValue({ data: { profile: { ...profile, model: 'next-model', context_limit_bytes: 8_388_608, output_limit_tokens: 4_096, tool_call_mode: 'single' } } } as never);
+    mount(<ProvidersPage />);
+    await act(async () => { await settle(); });
+    clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect((document.querySelector('[data-testid="provider-profile-context-limit"]') as HTMLInputElement).value).toBe('8388608');
+    expect(document.querySelector('[data-testid="provider-profile-current-binding"]')?.textContent)
+      .toBe('Current binding (reference only): Environment variable');
+    await setValue('provider-profile-model', 'next-model');
+    await setValue('provider-profile-context-limit', '99999999');
+    clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('A numeric limit was outside the native bounds.');
+    expect(update.mock.calls.length).toBe(0);
+    await setValue('provider-profile-context-limit', '8388608');
+    await setSelectValue('provider-profile-tool-call-mode', 'single');
+    clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(update.mock.calls.length).toBe(1);
+    expect(update.mock.calls[0]?.[1]).toEqual({
+      endpoint: 'https://provider.example.com/v1/path', model: 'next-model',
+      context_limit_bytes: 8_388_608, output_limit_tokens: 4_096, tool_call_mode: 'single',
+    });
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('clears a credential binding with an explicit null and never renders a value', async () => {
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [PROFILE] } } as never);
+    const update = vi.spyOn(harnessClient, 'updateProviderProfile')
+      .mockResolvedValue({ data: { profile: { ...PROFILE, credential: null, credential_env: null } } } as never);
+    mount(<ProvidersPage />);
+    await act(async () => { await settle(); });
+    clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(document.querySelector('[data-testid="provider-profile-current-binding"]')).toBeNull();
+    await setSelectValue('provider-profile-credential-source', 'clear');
+    clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(update.mock.calls[0]?.[1]).toEqual({
+      endpoint: 'https://provider.example.com/v1/path', model: 'configured', credential: null,
+    });
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('binds a profile to a redacted Secret Broker reference', async () => {
+    vi.mocked(readBrokerSecrets).mockResolvedValue([{ id: 'sec_abc-123', label: 'Zeta-vault-label', fields: ['api_key', 'token'], enabled: true }] as never);
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [PROFILE] } } as never);
+    const update = vi.spyOn(harnessClient, 'updateProviderProfile')
+      .mockResolvedValue({ data: { profile: PROFILE } } as never);
+    mount(<ProvidersPage />);
+    await act(async () => { await settle(); });
+    clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    await setSelectValue('provider-profile-credential-source', 'secret');
+    await act(async () => { await settle(); });
+    await setSelectValue('provider-profile-secret-select', '1');
+    await setSelectValue('provider-profile-secret-field', 'api_key');
+    clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(update.mock.calls[0]?.[1]).toEqual({
+      endpoint: 'https://provider.example.com/v1/path', model: 'configured',
+      credential: { source: 'secret', secret_id: 'sec_abc-123', field: 'api_key' },
+    });
+    // The DOM stays anonymous: neither the broker label nor the secret id renders.
+    expect(document.body.textContent).not.toContain('Zeta-vault-label');
+    expect(document.body.textContent).not.toContain('sec_abc-123');
+  });
+
+  it('keeps environment binding available when the secret broker is unavailable', async () => {
+    vi.mocked(readBrokerSecrets).mockRejectedValue(new Error('broker down') as never);
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [PROFILE] } } as never);
+    mount(<ProvidersPage />);
+    await act(async () => { await settle(); });
+    clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    await setSelectValue('provider-profile-credential-source', 'secret');
+    await act(async () => { await settle(); });
+    expect(document.body.textContent).toContain('The native secret broker is unavailable.');
+    await setSelectValue('provider-profile-credential-source', 'environment');
+    expect(document.querySelector('[data-testid="provider-profile-credential-env"]')).not.toBeNull();
+  });
+
+  it('refuses an inventory whose credential reference smuggles a value', async () => {
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [
+      { ...PROFILE, credential: { source: 'secret', secret_id: 'sec_abc-123', field: 'api_key', value: 'sk-live' } },
+    ] } } as never);
+    mount(<ProvidersPage />);
+    await act(async () => { await settle(); });
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('NNA returned an invalid provider inventory.');
+    expect(document.body.textContent).not.toContain('sk-live');
   });
 });

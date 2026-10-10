@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:060c05287637092f60d5c1036b47171b85775b14896de8cc0e678a1887cc4866",
+  "source_digest": "sha256:bb20afd3afa91443d56d225da48aa54ee87c04a52dbf268f9a6028467e741a08",
   "counts": {
-    "modules": 857,
+    "modules": 858,
     "component_edges": 17
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 230
+      "module_count": 231
     },
     {
       "id": "ui-shell",
@@ -117,7 +117,7 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 126,
+      "import_count": 127,
       "module_count": 91
     },
     {
@@ -2214,7 +2214,8 @@
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/lib/i18n/messages/en.ts",
-        "packages/ui/src/lib/nnd/client.ts"
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/secret-actions.ts"
       ]
     },
     {
@@ -3387,6 +3388,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-providers-extra.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-providers.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -3522,6 +3531,7 @@
         "packages/ui/src/lib/i18n/messages/locale-mcp-inventory.ts",
         "packages/ui/src/lib/i18n/messages/locale-nna-routes.ts",
         "packages/ui/src/lib/i18n/messages/locale-pairing.ts",
+        "packages/ui/src/lib/i18n/messages/locale-providers-extra.ts",
         "packages/ui/src/lib/i18n/messages/locale-providers.ts",
         "packages/ui/src/lib/i18n/messages/locale-remote-instances.ts",
         "packages/ui/src/lib/i18n/messages/locale-runtime-fallbacks.ts",

@@ -18,7 +18,40 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 provider profile binding and limit writes (C4, installed-unobserved)
+
+NND `20261010-2` completes the provider-profile write surface in
+`provider-profile-editor.tsx`: a credential-binding select (keep / environment
+name / Secret Broker reference / explicit clear), an anonymous numbered roster
+picker fed by `GET /api/v1/secrets` (labels and ids never render — the sealed
+window-test redaction pin stays, extended per guide 03 rather than superseded),
+typed bounded context/output limits mirroring `configuration-rules.js`
+(65,536–16,777,216 and 1–1,048,576, refused client-side before the wire), and
+the `single`/`batch` tool call mode which is never sent as null because the
+engine merge cannot clear it. Clearing sends `credential: null` and the echo
+must show BOTH reference channels null. Editing environment text while
+"keep current" is selected switches the select instead of discarding input.
+Adversarial review (subagent 861b0c9d) additionally forced: an inventory
+`credential_env` length/grammar cap before render, the corrected
+model-change limit semantics on the form, non-sticky broker-error retry,
+and create-draft reset. All 19 new strings carry translations in all 11
+non-English catalogs; `locale-providers.ts` was split for the 500-line gate.
+Evidence in-session: UI `tsc` exit 0; FULL UI suite green (1957 tests, 268
+files); quality gates green for 858 files; settings-coverage gate passed
+against live NNA `2709a6c4` — the deferred-verification checklist records what
+this unblocks. Census: four write rows refocused to the editor and
+`manifest:tool_concurrency` flipped to `verified` on the suite run; installed
+application evidence for the whole family still sits with the C7/C4 pass.
+Remaining C4 code gaps: typed primary/subagent route scalars (S2/S3), typed
+telemetry block (S4), persistence enum + `application_system_prompt` (S5),
+recovery ladder (M1), capability/fallback list editors (M4); [NNA-side] trust
+zones, capability probes, telemetry exporter.
+
 ## 2026-10-10 C4 focused scheduling control (implemented-unverified)
+
+(20261010-2 follow-up: the pending suite rerun happened in-session — full UI
+suite green — and the census row is flipped to `verified`; installed
+application evidence is still outstanding.)
 
 NND `20261010-1` adds the `tool_concurrency` focused control to the provider
 scheduling block of `native-configuration-controls.tsx` (bounds 1–16 mirror

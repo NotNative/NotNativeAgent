@@ -18,6 +18,11 @@ interface ProviderProfile {
   endpoint: string;
   model: string;
   active: boolean;
+  credential?: { source: 'secret'; secret_id: string; field: string } | null;
+  credential_env?: string | null;
+  context_limit_bytes?: number | null;
+  output_limit_tokens?: number | null;
+  tool_call_mode?: 'single' | 'batch';
 }
 
 interface RuntimeRoute { providerID: string; modelID: string }
@@ -57,12 +62,37 @@ function RuntimeRouteStatus({ configured, route, pending, onApplied }: {
   </div>;
 }
 
+// A redacted publicProfile credential is a reference, never a value: exactly
+// the three reference keys. Anything else (a smuggled 'value', an unexpected
+// shape) fails the row, matching this page's secret discipline.
+// Mirrors NNA credential-bindings.js ENVIRONMENT_NAME: an inventory name that
+// is not a valid environment reference is treated as a malformed row.
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/u;
+
+function credentialIsSafe(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  const keys = Object.keys(item);
+  return keys.length === 3 && keys.every((key) => key === 'source' || key === 'secret_id' || key === 'field')
+    && item.source === 'secret'
+    && boundedText(item.secret_id, MAX_TEXT_LENGTH) && boundedText(item.field, MAX_TEXT_LENGTH);
+}
+
 function providerProfile(value: unknown): value is ProviderProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
   if (!boundedText(item.profile_id, MAX_TEXT_LENGTH) || item.active !== true) return false;
   if (item.display_name !== undefined && (typeof item.display_name !== 'string'
     || item.display_name.length > MAX_TEXT_LENGTH)) return false;
+  if (!credentialIsSafe(item.credential)) return false;
+  if (item.credential_env !== undefined && item.credential_env !== null
+    && !(typeof item.credential_env === 'string' && ENV_NAME.test(item.credential_env))) return false;
+  for (const key of ['context_limit_bytes', 'output_limit_tokens']) {
+    const limit = item[key];
+    if (limit !== undefined && limit !== null && !(typeof limit === 'number' && Number.isSafeInteger(limit) && limit >= 1)) return false;
+  }
+  if (item.tool_call_mode !== undefined && item.tool_call_mode !== 'single' && item.tool_call_mode !== 'batch') return false;
   return boundedText(item.endpoint, MAX_TEXT_LENGTH) && boundedText(item.model, MAX_TEXT_LENGTH)
     && endpointIsValid(item.endpoint);
 }

@@ -25,7 +25,8 @@ import { deMcpConfig, frMcpConfig, zhCNMcpConfig, zhTWMcpConfig, ukMcpConfig, es
 import { deMcpDraft, frMcpDraft, zhCNMcpDraft, zhTWMcpDraft, ukMcpDraft, esMcpDraft, ptBRMcpDraft, koMcpDraft, plMcpDraft, jaMcpDraft, trMcpDraft } from './locale-mcp-draft.ts';
 import { deSnippets, frSnippets, zhCNSnippets, zhTWSnippets, ukSnippets, esSnippets, ptBRSnippets, koSnippets, plSnippets, jaSnippets, trSnippets } from './locale-snippets.ts';
 import { deNnaRoutes, frNnaRoutes, zhCNNnaRoutes, zhTWNnaRoutes, ukNnaRoutes, esNnaRoutes, ptBRNnaRoutes, koNnaRoutes, plNnaRoutes, jaNnaRoutes, trNnaRoutes } from './locale-nna-routes.ts';
-import { deProviders, frProviders, zhCNProviders, zhTWProviders, ukProviders, esProviders, ptBRProviders, koProviders, plProviders, jaProviders, trProviders } from './locale-providers.ts';
+import { deProviders, frProviders, zhCNProviders, zhTWProviders, ukProviders, esProviders } from './locale-providers.ts';
+import { ptBRProviders, koProviders, plProviders, jaProviders, trProviders } from './locale-providers-extra.ts';
 import { deDesktopSsh, frDesktopSsh, zhCNDesktopSsh, zhTWDesktopSsh, ukDesktopSsh, esDesktopSsh, ptBRDesktopSsh, koDesktopSsh, plDesktopSsh, jaDesktopSsh, trDesktopSsh } from './locale-desktop-ssh.ts';
 import { deDesktopGenerals, frDesktopGenerals, zhCNDesktopGenerals, zhTWDesktopGenerals, ukDesktopGenerals, esDesktopGenerals, ptBRDesktopGenerals, koDesktopGenerals, plDesktopGenerals, jaDesktopGenerals, trDesktopGenerals } from './locale-desktop-generals.ts';
 import { deRemoteInstances, frRemoteInstances, zhCNRemoteInstances, zhTWRemoteInstances, ukRemoteInstances, esRemoteInstances, ptBRRemoteInstances, koRemoteInstances, plRemoteInstances, jaRemoteInstances, trRemoteInstances } from './locale-remote-instances.ts';

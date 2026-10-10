@@ -172,14 +172,22 @@ const DEL = (): RequestInit => ({ method: 'DELETE' });
 const sid = (id: string) => encodeURIComponent(id);
 
 // ── operations (catalog: doc 02 §3.4) ────────────────────────────────────────
+// NNA validates required fields per method (profile_id/endpoint/model on
+// create); the shared shape keeps both call sites honest about the optional
+// reference-only credential binding and the bounded scalar limits.
+export type ProviderProfileMutation = {
+  profile_id?: string; display_name?: string; endpoint?: string; model?: string; credential_env?: string;
+  credential?: { source: 'secret'; secret_id: string; field: string } | null;
+  context_limit_bytes?: number; output_limit_tokens?: number; tool_call_mode?: 'single' | 'batch';
+};
 export const harnessClient = {
   async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[]; configured_primary_route?: unknown; runtime_route?: unknown; provider_routing_pending?: boolean | null }>> {
     return request('listProviderProfiles', '/v1/provider-profiles');
   },
-  async createProviderProfile(input: { profile_id: string; display_name?: string; endpoint: string; model: string; credential_env?: string }): Promise<HarnessResult<{ profile: unknown }>> {
+  async createProviderProfile(input: ProviderProfileMutation): Promise<HarnessResult<{ profile: unknown }>> {
     return request('createProviderProfile', '/v1/provider-profiles', post(input));
   },
-  async updateProviderProfile(id: string, input: { display_name?: string; endpoint?: string; model?: string; credential_env?: string }): Promise<HarnessResult<{ profile: unknown }>> {
+  async updateProviderProfile(id: string, input: ProviderProfileMutation): Promise<HarnessResult<{ profile: unknown }>> {
     return request('updateProviderProfile', `/v1/provider-profiles/${sid(id)}`, PATCH(input));
   },
   async setPrimaryProviderRoute(providerId: string, model: string): Promise<HarnessResult<{ configured_primary_route: unknown; runtime_route: unknown }>> {
