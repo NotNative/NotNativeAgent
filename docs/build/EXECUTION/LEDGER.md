@@ -18,6 +18,19 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 recovery wall clock and ordered ladder (C4 M1, installed-unobserved)
+
+NND `20261010-6` completes the typed recovery set: `turn_wall_clock_ms` joins
+the bounded budgets (1000–86400000 mirrored from `configuration-rules.js`,
+with 0 meaning unset exactly as the engine's `zero: 'unset'` rule reads), and
+`recovery.ladder` leaves the blind JSON textarea for an ordered editor — chips
+that move, remove, and append `nudge`/`compact` steps, capped at four, with a
+mirror of the engine's length rule (at least local retry limit minus one
+steps, which NNA then slices to exactly that). The rule reads the local limit
+from the view's effective row because a ladder preview is a single-field
+operation. Evidence in-session: tsc exit 0, controls suite green (39 tests),
+full UI suite green, gates green for 862 files.
+
 ## 2026-10-10 session behavior typed block (C4/C7, installed-unobserved)
 
 NND `20261010-5` adds the typed session-behavior block: `persistence` edits

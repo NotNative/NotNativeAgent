@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:eae34b374e5f6dc1a17ac493c03e7034b9ed036b8b4bba77ce96bdcbe00b781e",
+  "source_digest": "sha256:f80fb7b0ce1ffd9f35dc8ac086401e51e2bdad9d40f2dd8842466ea2246e0927",
   "counts": {
-    "modules": 861,
+    "modules": 862,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 215
+      "module_count": 216
     },
     {
       "id": "web-server",
@@ -117,8 +117,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 132,
-      "module_count": 93
+      "import_count": 133,
+      "module_count": 94
     },
     {
       "from": "ui-shell",
@@ -1970,6 +1970,7 @@
         "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-map.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/components/settings/pages/native-configuration-ladder.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-prompt.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-telemetry.tsx",
         "packages/ui/src/components/settings/pages/native-route-binding-form.tsx",
@@ -1977,6 +1978,16 @@
         "packages/ui/src/components/settings/pages/native-tui-edit-form.tsx",
         "packages/ui/src/lib/nnd/configuration.ts",
         "packages/ui/src/sync/authority-sync.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/native-configuration-ladder.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/lib/nnd/configuration.ts"
       ]
     },
     {

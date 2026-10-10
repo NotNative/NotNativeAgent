@@ -12,6 +12,7 @@ import { CONTEXT_BUDGETS, CONTEXT_THRESHOLD_PATHS, DREAM_LIMITS, MEMORY_BOOLEAN,
   boundedPositiveInteger, contextDraftValid, providerDeadlineValid, streamTimeoutValid } from './native-configuration-controls-map.ts';
 import { NativeTelemetryBlock, TelemetryDraftInput, telemetryDraftValid, telemetryPath } from './native-configuration-telemetry.tsx';
 import { NativePromptBlock, PromptDraftInput, promptDraftValid, promptPath } from './native-configuration-prompt.tsx';
+import { LADDER_PATH, LadderDraftInput, TURN_WALL_CLOCK_PATH, ladderDraftValid, ladderLength, localRetryLimit } from './native-configuration-ladder.tsx';
 import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
 
 
@@ -76,6 +77,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const streamSelected = selected?.type === 'integer' ? STREAM_TIMEOUTS[selected.path] : undefined;
   const telemetrySelected = Boolean(selected && telemetryPath(selected.path));
   const promptSelected = Boolean(selected && promptPath(selected.path));
+  const ladderSelected = selected?.path === LADDER_PATH;
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -111,7 +113,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         {t(PROVIDER_SCHEDULING[field.path]!.label)}
       </button>)}</div>
     </div> : null}
-    {recoveryFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
+    {(recoveryFields.length || model.fields.some(field => field.path === LADDER_PATH)) ? <div
+      className="space-y-1 rounded border border-border/60 p-2"
       data-settings-item="native-configuration.recovery-budgets">
       <h4 className="font-semibold">{t('settings.nativeRecovery.title')}</h4>
       <p>{t('settings.nativeRecovery.description')}</p>
@@ -119,7 +122,12 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         aria-pressed={model.fieldPath === field.path} disabled={model.busy || Boolean(model.pendingOperation)}
         onClick={() => chooseNativeField(model, view, field.path)} className="rounded border border-border px-2 py-1">
         {t(RECOVERY_BUDGETS[field.path]!.label)}
-      </button>)}</div>
+      </button>)}
+      {model.fields.some(field => field.path === LADDER_PATH) ? <button type="button"
+        aria-pressed={ladderSelected} disabled={model.busy || Boolean(model.pendingOperation)}
+        onClick={() => chooseNativeField(model, view, LADDER_PATH)} className="rounded border border-border px-2 py-1">
+        {t('settings.nativeRecovery.ladder')}
+      </button> : null}</div>
     </div> : null}
     {sessionDeadlineFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
       data-settings-item="native-configuration.session-deadlines">
@@ -249,6 +257,10 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
           onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           className="ml-2 rounded border border-border bg-background p-1" />
       </label> : null}
+      {model.mode === 'set' && selected?.path === 'recovery.local_retry_limit' && /^\d+$/u.test(model.draft)
+        && Number(model.draft) - 1 > ladderLength(view)
+        ? <p role="status">{t('settings.nativeRecovery.ladderCoverage')}</p> : null}
+      {model.mode === 'set' && ladderSelected ? <LadderDraftInput model={model} view={view} /> : null}
       {model.mode === 'set' && sessionDeadlineSelected ? <label className="block">
         {t(sessionDeadlineSelected.label)}
         <input type="number" min={sessionDeadlineSelected.min} max={sessionDeadlineSelected.max} step="1"
@@ -343,15 +355,19 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
         && !recoverySelected && !sessionDeadlineSelected && !contextSelected && !reviewerRetentionSelected
         && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
-        && !telemetrySelected && !promptSelected
+        && !telemetrySelected && !promptSelected && !ladderSelected
         && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
           className="block w-full rounded border border-border bg-background p-2 font-mono" />
       </label>}
       <button type="button" onClick={() => previewNativeField(model, view)} disabled={model.busy || Boolean(model.pendingOperation)
-        || Boolean(recoverySelected && model.mode === 'set' && (!/^[1-9]\d*$/u.test(model.draft)
-          || Number(model.draft) < recoverySelected.min || Number(model.draft) > recoverySelected.max))
+        || Boolean(recoverySelected && model.mode === 'set' && (selected?.path === TURN_WALL_CLOCK_PATH
+          ? !(/^(?:0|[1-9]\d*)$/u.test(model.draft) && (model.draft === '0'
+            || Number(model.draft) >= recoverySelected.min && Number(model.draft) <= recoverySelected.max))
+          : (!/^[1-9]\d*$/u.test(model.draft)
+            || Number(model.draft) < recoverySelected.min || Number(model.draft) > recoverySelected.max)))
+        || Boolean(ladderSelected && model.mode === 'set' && !ladderDraftValid(model.draft, localRetryLimit(view)))
         || Boolean(sessionDeadlineSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, sessionDeadlineSelected))
         || Boolean(contextSelected && model.mode === 'set' && !contextDraftValid(model.draft, contextSelected))
         || Boolean(reviewerRetentionSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, REVIEWER_RETENTION))

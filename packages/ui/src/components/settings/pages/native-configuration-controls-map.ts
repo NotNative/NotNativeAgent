@@ -20,10 +20,11 @@ export const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeSchedu
   // src/tools/loop.js additionally throws tool_concurrency_invalid at runtime.
   tool_concurrency: { label: 'settings.nativeScheduling.toolConcurrency', min: 1, max: 16 },
 };
-export const RECOVERY_BUDGETS: Record<string, { label: 'settings.nativeRecovery.maxSteps' | 'settings.nativeRecovery.retryLimit';
-  min: number; max: number }> = {
+export const RECOVERY_BUDGETS: Record<string, { label: 'settings.nativeRecovery.maxSteps' | 'settings.nativeRecovery.retryLimit'
+  | 'settings.nativeRecovery.wallClock'; min: number; max: number }> = {
   'recovery.max_model_steps': { label: 'settings.nativeRecovery.maxSteps', min: 16, max: 100000 },
   'recovery.local_retry_limit': { label: 'settings.nativeRecovery.retryLimit', min: 2, max: 5 },
+  'recovery.turn_wall_clock_ms': { label: 'settings.nativeRecovery.wallClock', min: 1000, max: 86400000 },
 };
 export const SESSION_DEADLINES: Record<string, { label: 'settings.nativeSessionDeadlines.approval'
   | 'settings.nativeSessionDeadlines.persistence' | 'settings.nativeSessionDeadlines.shutdown'; min: number; max: number }> = {

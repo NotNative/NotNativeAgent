@@ -1136,3 +1136,65 @@ it('edits persistence and the application prompt through the typed session block
     area.dispatchEvent(new Event('input', { bubbles: true })); });
   expect(preview().disabled).toBe(false);
 });
+
+it('edits the recovery wall clock with zero-unset and the ordered ladder with its length rule', async () => {
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'recovery.local_retry_limit', type: 'integer' as const, editability: field.editability },
+    { path: 'recovery.turn_wall_clock_ms', type: 'integer' as const, editability: field.editability },
+    { path: 'recovery.ladder', type: 'array' as const, editability: field.editability }] });
+  const recoveryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'recovery.local_retry_limit', catalog_path: 'recovery.local_retry_limit', explicit: { present: false as const },
+      effective: { present: true as const, value: 3, source: 'compiled_default' as const }, application: 'not_applied' as const },
+    { path: 'recovery.ladder', catalog_path: 'recovery.ladder', explicit: { present: false as const },
+      effective: { present: true as const, value: ['nudge', 'compact', 'compact'], source: 'compiled_default' as const },
+      application: 'not_applied' as const },
+    { path: 'recovery.turn_wall_clock_ms', catalog_path: 'recovery.turn_wall_clock_ms', explicit: { present: false as const },
+      effective: { present: false as const }, application: 'not_applied' as const }] };
+  mount(recoveryView); await act(async () => {});
+  const pick = async (path: string) => { await act(async () => { const select = container.querySelector('select')!;
+    select.value = path; select.dispatchEvent(new Event('change', { bubbles: true })); }); };
+  const preview = () => [...container.querySelectorAll('button')]
+    .find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  await pick('recovery.turn_wall_clock_ms');
+  const type = async (value: string) => { await act(async () => {
+    const input = container.querySelector('input[type="number"]') as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true })); }); };
+  await type('0');
+  expect(preview().disabled).toBe(false);
+  await type('500');
+  expect(preview().disabled).toBe(true);
+  await type('90000');
+  expect(preview().disabled).toBe(false);
+  await pick('recovery.ladder');
+  expect(container.textContent).toContain('nudge');
+  expect(container.textContent).toContain('compact');
+  const removeStep = () => [...container.querySelectorAll('button')].find(item => item.getAttribute('aria-label') === 'Remove step') as HTMLButtonElement;
+  expect([...container.querySelectorAll('button')].filter(item => item.getAttribute('aria-label') === 'Remove step')).toHaveLength(3);
+  await act(async () => { removeStep().click(); });
+  expect(preview().disabled).toBe(false);
+  await act(async () => { removeStep().click(); });
+  expect(preview().disabled).toBe(true);
+  const addCompact = [...container.querySelectorAll('button')].find(item => item.textContent === 'Add compact') as HTMLButtonElement;
+  await act(async () => { addCompact.click(); });
+  expect(preview().disabled).toBe(false);
+  // The generic JSON textarea stays suppressed while the ladder editor is up.
+  expect(container.querySelector('textarea')).toBeNull();
+  const chipButton = (label: string, at: number) => [...container.querySelectorAll('button')]
+    .filter(item => item.getAttribute('aria-label') === label)[at] as HTMLButtonElement;
+  expect(chipButton('Move up', 0).disabled).toBe(true);
+  expect(chipButton('Move up', 1).disabled).toBe(false);
+  expect(chipButton('Move down', 0).disabled).toBe(false);
+  await act(async () => { chipButton('Move down', 0).click(); });
+  // After the move the former second chip sits last, so its move-down locks.
+  expect(chipButton('Move down', 1).disabled).toBe(true);
+  const addNudge = [...container.querySelectorAll('button')].find(item => item.textContent === 'Add nudge') as HTMLButtonElement;
+  await act(async () => { addNudge.click(); });
+  const addCompactNow = [...container.querySelectorAll('button')].find(item => item.textContent === 'Add compact') as HTMLButtonElement;
+  await act(async () => { addCompactNow.click(); });
+  expect(chipButton('Move up', 0).disabled).toBe(true);
+  expect(([...container.querySelectorAll('button')].find(item => item.textContent === 'Add nudge') as HTMLButtonElement).disabled)
+    .toBe(true);
+  expect(([...container.querySelectorAll('button')].find(item => item.textContent === 'Add compact') as HTMLButtonElement).disabled)
+    .toBe(true);
+});

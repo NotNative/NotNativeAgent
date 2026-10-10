@@ -7092,7 +7092,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-ladder.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -7109,7 +7109,7 @@
      "NNA test/nnd-configuration-view.test.js proves the four recovery paths serve 1024 model steps, retry limit 3, unset wall clock and the truncated default ladder, show user values with source user, truncate an explicit ladder to the retry limit minus one, and refuse a short or unknown-item ladder with recovery_config_invalid and out-of-range budgets with invalid_limit; the NND page test renders all four rows and the controls test saves an advertised retry limit through preview, CAS save, and receipt lookup"
     ]
    },
-   "notes": "Pinned 20261007-7: nudge and compact only, at most four entries, and NNA stores only the first local_retry_limit minus 1 steps, so the effective ladder is shorter than a declared one. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata."
+   "notes": "Pinned 20261007-7: nudge and compact only, at most four entries, and NNA stores only the first local_retry_limit minus 1 steps, so the effective ladder is shorter than a declared one. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata. 20261010-6: the field edits through the typed recovery controls (bounded wall-clock input whose zero means unset, or the ordered ladder editor with move, remove, and append steps) instead of the generic JSON textarea; the ladder mirror keeps item, length, and local-retry-limit coverage rules from config.js before the wire, and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest_recovery:recovery.turn_wall_clock_ms",
@@ -7138,7 +7138,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-controls.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -7155,7 +7155,7 @@
      "NNA test/nnd-configuration-view.test.js proves the four recovery paths serve 1024 model steps, retry limit 3, unset wall clock and the truncated default ladder, show user values with source user, truncate an explicit ladder to the retry limit minus one, and refuse a short or unknown-item ladder with recovery_config_invalid and out-of-range budgets with invalid_limit; the NND page test renders all four rows and the controls test saves an advertised retry limit through preview, CAS save, and receipt lookup"
     ]
    },
-   "notes": "Pinned 20261007-7: unset by default (null and 0 both mean unset) bounded 1000 to 86400000; engine/step-loop.js compares it against the turn start at each step. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata."
+   "notes": "Pinned 20261007-7: unset by default (null and 0 both mean unset) bounded 1000 to 86400000; engine/step-loop.js compares it against the turn start at each step. The page renders the row with its explicit and effective values and the focused block edits the two advertised budgets; NNA owns the bounds and keeps the application class unverified per its own catalog metadata. 20261010-6: the field edits through the typed recovery controls (bounded wall-clock input whose zero means unset, or the ordered ladder editor with move, remove, and append steps) instead of the generic JSON textarea; the ladder mirror keeps item, length, and local-retry-limit coverage rules from config.js before the wire, and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest_tui:tui.key_bindings.submit",

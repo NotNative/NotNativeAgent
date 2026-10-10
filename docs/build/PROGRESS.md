@@ -3,6 +3,15 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Recovery wall clock + ordered ladder · NND 20261010-6 / NNA 20261009-5
+
+`turn_wall_clock_ms` joined the typed recovery budgets with zero-as-unset
+mirrored from the engine rule, and `recovery.ladder` became an ordered chip
+editor (move, remove, append; four-step cap) whose mirror enforces the
+engine's coverage rule against the local retry limit before the preview wire.
+Controls suite 39/39, full UI suite green in-session, gates green against
+live NNA.
+
 ## 2026-10-10 · Session behavior typed block · NND 20261010-5 / NNA 20261009-5
 
 `persistence` and `application_system_prompt` now edit through a typed

@@ -440,6 +440,15 @@ session application class — the block says a new session is needed rather
 than implying a live effect — and the prompt is the operator's own text, so
 displaying it is the same policy as showing an endpoint, not a secret echo.
 
+Recovery finished its typed set at `20261010-6`: the wall-clock limit joins
+the bounded budgets with zero meaning unset exactly as the engine reads it,
+and the ladder stopped being a JSON array typed blind — the editor shows the
+ordered steps as chips that move, remove, and append, refusing drafts whose
+length would not cover the local retry limit minus one, which is the rule the
+engine applies before slicing the list. The length rule reads the local limit
+from the view because a ladder preview is a single-field operation; when the
+operator changes the limit itself, the next ladder preview re-reads it.
+
 ### A family page is not a surface for every field in the family
 
 `20261007-34` took eight rows apart and the headline went up by eight, because the rows
