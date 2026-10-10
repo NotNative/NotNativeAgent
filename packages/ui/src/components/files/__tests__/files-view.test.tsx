@@ -388,4 +388,49 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
     expect(document.querySelectorAll('[data-comment-card]')).toHaveLength(1);
     window.removeEventListener(FOCUS_EVENT_NAME, onFocus);
   });
+
+  it('renders a markdown file through the hardened preview in view mode', async () => {
+    useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/notes.md`, 'local');
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/read')
+      ? new Response('# Title\n\nplain body\n', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } })
+      : route(String(input)));
+    await render();
+    const toggle = document.querySelector('[title="Switch to preview"]') as HTMLButtonElement;
+    await act(async () => { toggle.click(); await Promise.resolve(); });
+    expect(document.querySelector('h3')?.textContent).toBe('Title');
+    expect(document.body.textContent).toContain('plain body');
+  });
+
+  it('falls back to the raw text stage for malformed JSON previews', async () => {
+    useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/data.json`, 'local');
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/read')
+      ? new Response('{bad json', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } })
+      : route(String(input)));
+    await render();
+    const toggle = document.querySelector('[title="Switch to preview"]') as HTMLButtonElement;
+    await act(async () => { toggle.click(); await Promise.resolve(); });
+    expect(document.querySelector('pre')?.textContent).toBe('{bad json');
+  });
+
+  it('opens a PDF in the embedded viewer pane instead of the binary card', async () => {
+    useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/doc.pdf`, 'local');
+    await render();
+    const frame = document.querySelector('iframe[title="PDF preview"]') as HTMLIFrameElement;
+    expect(frame).not.toBeNull();
+    expect(frame.getAttribute('src')).toContain('doc.pdf');
+    expect(frame.getAttribute('sandbox')).toBe(''); // pins the fully-sandboxed viewer
+    expect(document.body.textContent).toContain('Save file');
+  });
+
+  it('pretty-prints valid JSON in view mode without touching the draft', async () => {
+    useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/data.json`, 'local');
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/fs/read')
+      ? new Response('{"b":1,"a":[2,3]}', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } })
+      : route(String(input)));
+    await render();
+    const toggle = document.querySelector('[title="Switch to preview"]') as HTMLButtonElement;
+    await act(async () => { toggle.click(); await Promise.resolve(); });
+    const pre = document.querySelector('pre') as HTMLPreElement;
+    expect(pre.textContent).toBe('{\n  "b": 1,\n  "a": [\n    2,\n    3\n  ]\n}');
+  });
 });

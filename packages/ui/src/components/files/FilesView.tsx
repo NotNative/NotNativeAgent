@@ -97,8 +97,10 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
         setLoading(false);
         return;
       }
-      if (isBinaryFile(path) || isPdfFile(path)) {
-        setPaneKind('binary');
+      // PDF check precedes isBinaryFile: the classifier includes .pdf.
+      const nonTextKind = isPdfFile(path) ? 'pdf' : isBinaryFile(path) ? 'binary' : null;
+      if (nonTextKind !== null) {
+        setPaneKind(nonTextKind);
         loadedRef.current = path;
         if (discardLease) { forgetDraftLease(runtimeKey, directory, path); setRecovery(null); }
         setLoading(false);

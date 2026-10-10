@@ -7,9 +7,29 @@
  */
 import { type ReactNode } from 'react';
 import { useI18n } from '../I18nProvider.tsx';
+import { renderMarkdown } from '../../chat/markdown-lite.tsx';
+import { richPreviewKind } from '../../lib/files/edit-support.ts';
 import { rawAssetUrl } from '../../lib/files/api.ts';
 
-export type PaneKind = 'text' | 'image' | 'binary';
+export type PaneKind = 'text' | 'image' | 'pdf' | 'binary';
+
+/** F6.2 rich view-mode preview for markdown/json text files; edit mode and
+ * every other extension keep the plain text stage. */
+function richTextPreview(selectedPath: string, draft: string): ReactNode | null {
+  const kind = richPreviewKind(selectedPath);
+  if (kind === 'markdown') {
+    return <div className="h-full w-full overflow-auto p-4 text-sm text-foreground">{renderMarkdown(draft)}</div>;
+  }
+  if (kind === 'json') {
+    try {
+      const pretty = JSON.stringify(JSON.parse(draft), null, 2);
+      return <pre className="h-full w-full overflow-auto p-3 font-mono text-xs text-foreground">{pretty}</pre>;
+    } catch {
+      return null; // malformed JSON falls back to the raw text stage
+    }
+  }
+  return null;
+}
 
 export function EditorStage({
   directory, selectedPath, paneKind, binaryDetected, loading, error, draft, setDraft, wrapLines, textareaRef, onGoToLine,
@@ -46,6 +66,17 @@ export function EditorStage({
       </div>
     );
   }
+  if (paneKind === 'pdf') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
+        <iframe src={rawAssetUrl(directory, selectedPath)} title={t('filesView.editor.pdfTitle')}
+          className="h-full max-h-[75vh] w-full max-w-4xl rounded border border-border/50 bg-white" sandbox="" />
+        <a className="rounded bg-primary/20 px-3 py-1 text-xs text-primary" href={rawAssetUrl(directory, selectedPath, true)} download>
+          {t('filesView.editor.saveFile')}
+        </a>
+      </div>
+    );
+  }
   if (paneKind === 'binary' || binaryDetected) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
@@ -59,11 +90,11 @@ export function EditorStage({
   }
   return (
     <div className="relative min-h-0 flex-1">
-      {viewMode === 'view' ? (
+      {viewMode === 'view' ? (richTextPreview(selectedPath, draft) ?? (
         <pre className="h-full w-full overflow-auto p-3 font-mono text-xs text-foreground" style={{ whiteSpace: wrapLines ? 'pre-wrap' : 'pre' }}>
           {draft}
         </pre>
-      ) : (
+      )) : (
         <textarea
           ref={textareaRef}
           className="h-full w-full resize-none bg-transparent p-3 font-mono text-xs text-foreground outline-none"

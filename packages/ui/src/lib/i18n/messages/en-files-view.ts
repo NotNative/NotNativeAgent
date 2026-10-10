@@ -42,6 +42,7 @@ const enFilesView = {
   'filesView.editor.binaryTitle': 'Cannot preview binary file',
   'filesView.editor.binaryDescription': 'This file is binary and cannot be edited in the app. Download it to open with another app.',
   'filesView.editor.saveFile': 'Save file',
+  'filesView.editor.pdfTitle': 'PDF preview',
   'filesView.editor.image': 'Image',
   'filesView.editor.openFiles': 'Open files',
   'filesView.editor.closeTab': 'Close {name}',

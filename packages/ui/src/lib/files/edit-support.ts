@@ -67,6 +67,15 @@ export function isPdfFile(path: string): boolean {
   return extensionOf(path) === '.pdf';
 }
 
+/** F6.2 rich previews: markdown renders through the hardened chat pipeline in
+ * view mode; JSON gets a pretty-printed view. Everything else stays text. */
+export function richPreviewKind(path: string): 'markdown' | 'json' | null {
+  const ext = extensionOf(path);
+  if (ext === '.md' || ext === '.markdown') return 'markdown';
+  if (ext === '.json') return 'json';
+  return null;
+}
+
 /** §3.3: extension-based KNOWN binaries — unknown extensions default to
  * text and are content-sniffed instead (§3.3.8). */
 export function isBinaryFile(path: string): boolean {

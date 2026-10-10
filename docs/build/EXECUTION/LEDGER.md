@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 F6.2 rich file previews (F6, implemented-unverified)
+
+NND `20261010-25` closes the F6.2 preview-format gap that remained after the
+F6 file/git audit: markdown and JSON text files now render a rich preview in
+view mode — markdown through the hardened dependency-free markdown-lite
+pipeline (no raw HTML, scheme-restricted links, shared with the transcript),
+JSON pretty-printed with a raw-text fallback for malformed content — while
+edit mode, autosave, and conflict paths stay untouched (the panes remain
+`text` kind). PDFs move from the binary download card to an embedded,
+fully-sandboxed viewer iframe (`sandbox=""` over the same-origin
+`/api/fs/raw` asset endpoint with its workspace-containment and MIME
+guards), keeping the download link. FilesView routes PDFs before the binary
+classifier (which includes `.pdf`). Three new focused tests plus a pinned
+empty-sandbox assertion and a pretty-print round-trip; reviewer verdict
+SHIP (security and correctness cleared end-to-end, including the raw-asset
+route); its one actionable nit (dead `richPreviewKind` helper) was fixed by
+wiring the helper into the pane. Gates green for 876 files; the slice was
+not installed-and-observed, so it stays implemented-unverified.
+
 ## 2026-10-10 Remaining census emptied (C4/C7, installed-unobserved)
 
 NND `20261010-24` closes the final two census items. Dynamic credentials:

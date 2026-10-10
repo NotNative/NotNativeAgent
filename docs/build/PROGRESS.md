@@ -3,6 +3,12 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · F6.2 rich previews: markdown/JSON/PDF · NND 20261010-25 / NNA 20261009-5
+
+Markdown renders via the hardened markdown-lite pipeline in view mode, JSON
+pretty-prints with raw fallback, PDFs move to a fully-sandboxed viewer pane.
+Reviewer SHIP; dead-helper nit fixed. Implemented-unverified. Gates green.
+
 ## 2026-10-10 · Remaining census emptied · NND 20261010-24 / NNA 20261009-5
 
 Dynamic credential resolution and the TUI command palette classified as

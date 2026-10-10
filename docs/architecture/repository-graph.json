@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3942215df6c713e21c96ef064795c4841ac7bea1497da655363bf68e3605b8d9",
+  "source_digest": "sha256:39e07863685dc3e52c28af8323296358778cb6107bacff02a3cc610aefab323f",
   "counts": {
     "modules": 876,
     "component_edges": 17
@@ -111,7 +111,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 375,
+      "import_count": 376,
       "module_count": 150
     },
     {
@@ -1261,8 +1261,10 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/markdown-lite.tsx",
         "packages/ui/src/components/I18nProvider.tsx",
-        "packages/ui/src/lib/files/api.ts"
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/files/edit-support.ts"
       ]
     },
     {
