@@ -7,7 +7,7 @@ import { nativeServiceTerminalUnavailable } from '../env.ts';
 const CLOSED_FAMILIES = [
   '/api/fs', '/api/git', '/api/message-queue', '/api/goals',
   '/api/session-knowledge', '/api/agent-memory', '/api/session-folders',
-  '/api/project-context', '/api/openchamber', '/api/magic-prompts',
+  '/api/session-org', '/api/project-context', '/api/openchamber', '/api/magic-prompts',
   '/api/small-model', '/api/push', '/api/client-auth',
   '/api/config/skills', '/api/config/mcp', '/api/config/snippets',
   '/api/notnative/settings', '/api/config/settings', '/api/config/reload',

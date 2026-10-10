@@ -29,6 +29,7 @@ import { registerMcpConfigRoutes } from './routes/mcp-config.ts';
 import { registerSmallModelRoutes } from './routes/small-model.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { registerSessionOrgRoutes } from './routes/session-org.ts';
 import { registerNativeWorkspaceAdmissionRoute } from './routes/native-workspace-admission.ts';
 import { registerNativeLocalScope } from './routes/native-local-scope.ts';
 import { callHarness } from './queue/queue-adapter-calls.ts';
@@ -405,4 +406,5 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerGitReadRoutes(app);
   registerFsWriteRoutes(app);
   registerSessionFoldersRoutes(app);
+  registerSessionOrgRoutes(app);
 }

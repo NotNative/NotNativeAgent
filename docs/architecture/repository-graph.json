@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:b552438dbca7a7a1572bddbcc2e075f3cff8325f3be8afc0a5c816818253ba79",
+  "source_digest": "sha256:41fe1d65d56796c7ed637414bd3e78848ffc1132307926415140f61f02b63d4f",
   "counts": {
-    "modules": 863,
+    "modules": 864,
     "component_edges": 17
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 232
+      "module_count": 233
     },
     {
       "id": "web-entry",
@@ -5795,6 +5795,7 @@
         "packages/web/src/server/routes/relay.ts",
         "packages/web/src/server/routes/scheduled-tasks.ts",
         "packages/web/src/server/routes/session-folders.ts",
+        "packages/web/src/server/routes/session-org.ts",
         "packages/web/src/server/routes/skills.ts",
         "packages/web/src/server/routes/small-model.ts",
         "packages/web/src/server/routes/snippets.ts",
@@ -7411,6 +7412,15 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/session-org.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/session-knowledge/metadata.ts"
       ]
     },
     {

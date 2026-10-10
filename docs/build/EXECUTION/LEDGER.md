@@ -18,6 +18,18 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 session-organization record store (F4.7 foundation, installed-unobserved)
+
+NND `20261010-10` adds the NND-owned session-organization store
+(`/api/session-org` over `<data-dir>/session-org.json`): BTW markers and
+parent links, obligatory message pins (64 bound), project-context pins (50
+bound) and the knowledge signature now have a durable NND home that does not
+depend on session metadata, which NNA's PATCH does not carry. The store fails
+closed on malformed documents, caps bodies at 4 MiB, and joins the closed
+mutation families of the installed alpha gate. UI migration to these records
+is the next slice; nothing reads the store yet, so no behavior changed.
+Evidence: 6 focused tests, full web suite 1470/1470, tsc clean.
+
 ## 2026-10-10 F5 helper-caller inventory (F5, inventory only)
 
 NND `20261010-9` adds `docs/build/EXECUTION/f5-helper-callers.md`: every

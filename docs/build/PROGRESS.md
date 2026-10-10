@@ -3,6 +3,13 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Session-organization record store · NND 20261010-10 / NNA 20261009-5
+
+New NND-owned `/api/session-org` store gives BTW linkage/markers, message
+pins, context pins and the knowledge signature a durable home that no longer
+depends on session metadata (which NNA's PATCH does not carry). Server-side
+foundation only; UI migration next. Full web suite 1470/1470 in-session.
+
 ## 2026-10-10 · F5 helper-caller inventory · NND 20261010-9 / NNA 20261009-5
 
 Every model-helper caller mapped: notifications and goal audit native;
