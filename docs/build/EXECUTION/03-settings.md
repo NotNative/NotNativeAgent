@@ -433,6 +433,13 @@ desktop does not guess whether the operator plans to add one. The block makes
 no application claim: NNA declares the family's application class unverified,
 and the rows keep saying so.
 
+Session behavior joined the typed blocks at `20261010-5`: a
+catalog-fed `durable`/`ephemeral` persistence select and a free-text
+application system prompt. The persistence change itself is the engine's
+session application class — the block says a new session is needed rather
+than implying a live effect — and the prompt is the operator's own text, so
+displaying it is the same policy as showing an endpoint, not a secret echo.
+
 ### A family page is not a surface for every field in the family
 
 `20261007-34` took eight rows apart and the headline went up by eight, because the rows

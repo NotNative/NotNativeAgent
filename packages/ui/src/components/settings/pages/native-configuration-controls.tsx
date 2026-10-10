@@ -11,6 +11,7 @@ import { CONTEXT_BUDGETS, CONTEXT_THRESHOLD_PATHS, DREAM_LIMITS, MEMORY_BOOLEAN,
   PROVIDER_SCHEDULING, RECOVERY_BUDGETS, REVIEWER_RETENTION, RUNTIME_TIMEOUTS, SESSION_DEADLINES, STREAM_TIMEOUTS,
   boundedPositiveInteger, contextDraftValid, providerDeadlineValid, streamTimeoutValid } from './native-configuration-controls-map.ts';
 import { NativeTelemetryBlock, TelemetryDraftInput, telemetryDraftValid, telemetryPath } from './native-configuration-telemetry.tsx';
+import { NativePromptBlock, PromptDraftInput, promptDraftValid, promptPath } from './native-configuration-prompt.tsx';
 import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
 
 
@@ -74,6 +75,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
   const streamFields = model.fields.filter(field => field.type === 'integer' && Object.hasOwn(STREAM_TIMEOUTS, field.path));
   const streamSelected = selected?.type === 'integer' ? STREAM_TIMEOUTS[selected.path] : undefined;
   const telemetrySelected = Boolean(selected && telemetryPath(selected.path));
+  const promptSelected = Boolean(selected && promptPath(selected.path));
   return <>
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
     {attachmentFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
@@ -98,6 +100,7 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       </button>)}</div>
     </div> : null}
     <NativeTelemetryBlock model={model} view={view} />
+    <NativePromptBlock model={model} view={view} />
     {schedulingFields.length ? <div className="space-y-1 rounded border border-border/60 p-2"
       data-settings-item="native-configuration.provider-scheduling">
       <h4 className="font-semibold">{t('settings.nativeScheduling.title')}</h4>
@@ -336,10 +339,11 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
       {model.mode === 'set' && selected.path === 'memory.required' && model.draft === 'true'
         ? <p>{t('settings.nativeMemory.requireAlsoEnables')}</p> : null}
       {model.mode === 'set' && telemetrySelected ? <TelemetryDraftInput field={selected} model={model} /> : null}
+      {model.mode === 'set' && promptSelected ? <PromptDraftInput field={selected} model={model} /> : null}
       {model.mode === 'set' && !attachmentSelected && !memorySelected && !memoryBooleanSelected && !schedulingSelected
         && !recoverySelected && !sessionDeadlineSelected && !contextSelected && !reviewerRetentionSelected
         && !dreamSelected && !dreamEnabledSelected && !timeoutSelected && !deadlineSelected && !streamSelected
-        && !telemetrySelected
+        && !telemetrySelected && !promptSelected
         && <label className="block">{t('settings.nativeConfiguration.jsonValue')}
         <textarea value={model.draft} onChange={event => { invalidateNativePreview(model); model.setDraft(event.target.value); }}
           disabled={model.busy || Boolean(model.pendingOperation)} rows={3} maxLength={8192}
@@ -353,7 +357,8 @@ function NativeEditForm({ model, view }: { model: ControlsModel; view: NativeCon
         || Boolean(reviewerRetentionSelected && model.mode === 'set' && !boundedPositiveInteger(model.draft, REVIEWER_RETENTION))
         || Boolean(deadlineSelected && model.mode === 'set' && !providerDeadlineValid(model.draft))
         || Boolean(streamSelected && model.mode === 'set' && !streamTimeoutValid(model.draft, streamSelected))
-        || Boolean(telemetrySelected && model.mode === 'set' && !telemetryDraftValid(selected, model.draft))}>
+        || Boolean(telemetrySelected && model.mode === 'set' && !telemetryDraftValid(selected, model.draft))
+        || Boolean(promptSelected && model.mode === 'set' && !promptDraftValid(selected, model.draft))}>
         {t('settings.nativeConfiguration.preview')}</button>
       {model.preview && <div role="status" className="rounded border border-border p-2">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>

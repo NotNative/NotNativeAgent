@@ -1102,3 +1102,37 @@ it('offers a typed telemetry block that mirrors the credential-free destination 
   expect(checkbox.checked).toBe(false);
   expect(preview().disabled).toBe(false);
 });
+
+it('edits persistence and the application prompt through the typed session block', async () => {
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'persistence', type: 'enum' as const, enum: ['durable', 'ephemeral'], editability: field.editability },
+    { path: 'application_system_prompt', type: 'string' as const, editability: field.editability }] });
+  const promptView: NativeConfigurationView = { ...view, fields: ['persistence', 'application_system_prompt'].map(path => ({
+    path, catalog_path: path, explicit: { present: false as const },
+    effective: { present: true as const, value: path === 'persistence' ? 'durable' : '', source: 'compiled_default' as const },
+    application: 'not_applied' as const })) };
+  mount(promptView); await act(async () => {});
+  const block = container.querySelector('[data-settings-item="native-configuration.prompt"]') as HTMLElement;
+  expect([...block.querySelectorAll('button')].map(item => item.textContent)).toHaveLength(2);
+  const pick = async (path: string) => { await act(async () => { const select = container.querySelector('select')!;
+    select.value = path; select.dispatchEvent(new Event('change', { bubbles: true })); }); };
+  const preview = () => [...container.querySelectorAll('button')]
+    .find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  await pick('persistence');
+  const persistenceSelect = [...container.querySelectorAll('select')]
+    .find(item => [...item.querySelectorAll('option')].some(option => option.value === 'ephemeral')) as HTMLSelectElement;
+  expect(persistenceSelect.value).toBe('durable');
+  expect(preview().disabled).toBe(false);
+  // The placeholder writes an invalid empty draft, so the gate blocks it.
+  await act(async () => { persistenceSelect.value = '';
+    persistenceSelect.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(preview().disabled).toBe(true);
+  await act(async () => { persistenceSelect.value = 'ephemeral';
+    persistenceSelect.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(preview().disabled).toBe(false);
+  await pick('application_system_prompt');
+  const area = container.querySelector('textarea') as HTMLTextAreaElement;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, 'Be brief.');
+    area.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(preview().disabled).toBe(false);
+});

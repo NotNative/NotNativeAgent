@@ -18,6 +18,18 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 session behavior typed block (C4/C7, installed-unobserved)
+
+NND `20261010-5` adds the typed session-behavior block: `persistence` edits
+through a catalog-fed `durable`/`ephemeral` select (the engine applies a
+change to a new session — the block states that rather than implying a live
+effect) and `application_system_prompt` through a free-text area. The mirror
+refuses non-enum and non-string drafts before the preview wire; the engine
+revalidates. The prompt is the operator's own text, so display follows the
+endpoint policy, not the secret redaction policy. Evidence in-session: tsc
+exit 0, controls suite green (38 tests), full UI suite green, gates green for
+861 files.
+
 ## 2026-10-10 telemetry typed block (C4/C7, installed-unobserved)
 
 NND `20261010-4` gives the native configuration page a typed telemetry block:

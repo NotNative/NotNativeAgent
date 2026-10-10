@@ -218,7 +218,7 @@
    "native_permission": "nnd.configuration.write (preview and compare-and-save through the generic editor)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-prompt.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -235,7 +235,7 @@
      "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
     ]
    },
-   "notes": "Pinned 20261007-14: durable unless the operator chooses ephemeral, and it is one of the two root rows the contract offers for editing; a live session refuses the change with configuration_scope_change because persistence is fixed for the session. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (new_session)."
+   "notes": "Pinned 20261007-14: durable unless the operator chooses ephemeral, and it is one of the two root rows the contract offers for editing; a live session refuses the change with configuration_scope_change because persistence is fixed for the session. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (new_session). 20261010-5: the field edits through the typed session-behavior block (catalog-fed durable/ephemeral select, or a free prompt textarea) instead of the generic JSON textarea; the mirror keeps malformed drafts from the preview wire and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest:provider",
@@ -403,7 +403,7 @@
    "native_permission": "nnd.configuration.write (preview and compare-and-save through the generic editor)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-configuration-prompt.tsx",
     "status": "verified"
    },
    "sensitivity": "private",
@@ -420,7 +420,7 @@
      "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
     ]
    },
-   "notes": "Pinned 20261007-14: empty until the operator writes one, and the other root row offered for editing; the served text is the operator own prompt. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-14: empty until the operator writes one, and the other root row offered for editing; the served text is the operator own prompt. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (engine_boundary). 20261010-5: the field edits through the typed session-behavior block (catalog-fed durable/ephemeral select, or a free prompt textarea) instead of the generic JSON textarea; the mirror keeps malformed drafts from the preview wire and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration."
   },
   {
    "id": "manifest:mission",

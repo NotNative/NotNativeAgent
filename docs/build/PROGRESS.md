@@ -3,6 +3,16 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Session behavior typed block · NND 20261010-5 / NNA 20261009-5
+
+`persistence` and `application_system_prompt` now edit through a typed
+session-behavior block — catalog-fed enum select and free-text prompt —
+instead of the generic JSON textarea. The block states the engine's session
+application class for persistence rather than implying a live effect, and the
+prompt display follows the endpoint policy (operator's own text), not the
+secret redaction policy. Controls suite 38/38, full UI suite green
+in-session, gates green against live NNA.
+
 ## 2026-10-10 · Telemetry typed block · NND 20261010-4 / NNA 20261009-5
 
 The native configuration page gained a typed telemetry block — opt-in
