@@ -35,7 +35,11 @@ landing on NNA is recorded as a standing dependency note, and the only live
 follow-up ("NND setup-route families not yet rowed") replaces the item.
 Remaining census: 2 items (dynamic credentials/TUI commands; setup-route
 families). Evidence: gate tests 17/17, real gate run passes, gates green
-for 874 files.
+for 874 files. Review note: the assigned adversarial reviewer stalled twice
+without a verdict, so the parent performed the fact-check directly
+(retention consumer claim verified against src/engine/telemetry.js:4-12;
+NNO absence verified by grep over all NND packages) and committed on that
+evidence; any later reviewer finding will land as a correction commit.
 
 ## 2026-10-10 Secret-schema review corrections (C5, installed-unobserved)
 
