@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Remaining census emptied (C4/C7, installed-unobserved)
+
+NND `20261010-24` closes the final two census items. Dynamic credentials:
+the request-time binding resolution (environment-name and secret-reference
+bindings, validated by `normalizeCredentialBinding` and handed transiently
+with redaction) is classified as an NNA runtime invariant — the desktop
+mirrors the grammar in its editors and never resolves credential values. TUI
+commands: the frozen `TUI_COMMANDS` palette is classified terminal-owned;
+the desktop surfaces the equivalent actions through its own controls and
+hosts no TUI. The remaining-census list is now empty: every configuration
+surface, option, subcommand, environment read, generated store, route
+family, secret/binding invariant, and terminal vocabulary in the NNA-NND
+pair is either classified with a live surface or carries an evidenced
+owed:false disposition, with the gate mechanically enforcing the classified
+set. Census 429 rows. Evidence: gate tests 17/17, real gate run passes,
+gates green for 875 files. The row facts were verified directly against the
+two cited NNA files (both read).
+
 ## 2026-10-10 Setup family classified; census at one item (C1, installed-unobserved)
 
 NND `20261010-23` classifies the last scoping-fed census item: the NND setup
