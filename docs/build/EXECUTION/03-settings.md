@@ -561,6 +561,15 @@ server; project revocation removes subsequent project admission; no NNA
 configuration write lands in `.opencode`; existing TUI sessions remain owned
 by the TUI. Unsupported OAuth remains a recorded native capability gap.
 
+Progress: the OpenCode-writer mismatch is retired at `20261010-8`. The scoped
+native MCP preview/save/receipt API exists (`/v1/nnd/configuration/mcp`) and
+NND's native editor and client already ride it; the legacy writer is reachable
+only on the mock runtime (its routes register unavailable handlers whenever
+the harness is not the mock), so "the MCP editor writes OpenCode
+configuration" no longer names a live mismatch on an NNA runtime. Hooks
+mutation and skill install/remove still have no NNA routes, and MCP OAuth and
+import remain recorded gaps.
+
 ### C6 — Non-manifest settings and independent TUI preferences
 
 Dependency: C3 and lifecycle contracts where required. Complete web search,

@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Stale MCP mismatch retired · NND 20261010-8 / NNA 20261009-5
+
+The `known_mismatches` census row "MCP editor writes OpenCode configuration"
+is retired: the native MCP preview/save/receipt API exists and NND's editor
+uses it, and the legacy writer registers unavailable handlers on every
+non-mock runtime. Census and guide prose only; hooks/skills mutation and MCP
+OAuth/import stay recorded NNA-side gaps.
+
 ## 2026-10-10 · Ordered route list editors · NND 20261010-7 / NNA 20261009-5
 
 Route `required_capabilities` and `fallbacks` for the two editable roles now

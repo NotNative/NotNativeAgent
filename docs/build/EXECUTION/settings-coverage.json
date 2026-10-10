@@ -34,12 +34,6 @@
  ],
  "known_mismatches": [
   {
-   "product": "NND",
-   "path": "packages/web/src/server/lib/mcp/mcp-config.ts",
-   "issue": "MCP editor writes OpenCode configuration, not NNA configuration.",
-   "work_package": "C5"
-  },
-  {
    "product": "NNA",
    "path": "src/integration-cli.js",
    "issue": "Integration user-manifest resolution differs from layered startup resolver.",

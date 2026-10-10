@@ -18,6 +18,16 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 stale MCP mismatch retired (C5, census-only)
+
+NND `20261010-8` removes the `known_mismatches` row "MCP editor writes
+OpenCode configuration": the scoped native MCP API
+(`/v1/nnd/configuration/mcp`) exists and NND's native editor rides it, and
+the legacy OpenCode writer registers unavailable handlers on every non-mock
+runtime (`routes/mcp-config.ts`), so the row no longer names a live mismatch.
+Hooks mutation and skill install/remove remain NNA-side gaps, recorded in the
+guide's C5 progress note. No production code changed; census and prose only.
+
 ## 2026-10-10 ordered route list editors (C4 M4, installed-unobserved)
 
 NND `20261010-7` replaces the blind JSON textarea for the route arrays with
