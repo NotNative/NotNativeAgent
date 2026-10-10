@@ -8,6 +8,7 @@ import { normalizeDirectory } from '../nnd/client.ts';
 import type { DirectoryStore } from '../../sync/types.ts';
 import type { AssistantMessage, MessageEntry, Part, Session } from '../nnd/types.ts';
 import { buildFusionSessionTitle, parseMultiRunSessionTitle } from './title.ts';
+import { multiRunIdentityOf } from './identity.ts';
 import type { StoreApi } from 'zustand/vanilla';
 
 export type FusionIdentity = ReturnType<typeof parseMultiRunSessionTitle> & { fusion: false };
@@ -80,22 +81,19 @@ const DEFAULT_FUSION_INSTRUCTIONS = 'The results below are competing outputs for
 const FUSION_INPUT_END = '\n\n--- FUSION INPUTS END ---\nNow write the final fused answer.';
 
 export function isFusionEntry(session: Session): boolean {
-  return parseMultiRunSessionTitle(session.title ?? '').fusion === false;
+  return multiRunIdentityOf(session)?.fusion === false;
 }
 
 export function fusionIdentityFromSession(session: Session): FusionIdentity | null {
-  try {
-    const parsed = parseMultiRunSessionTitle(session.title ?? '');
-    return parsed.fusion ? null : {
-      groupSlug: parsed.groupSlug,
-      ...(parsed.runGroup === undefined ? {} : { runGroup: parsed.runGroup }),
-      providerID: parsed.providerID,
-      modelID: parsed.modelID,
-      fusion: false,
-    };
-  } catch {
-    return null;
-  }
+  const identity = multiRunIdentityOf(session);
+  if (identity === undefined || identity.fusion) return null;
+  return {
+    groupSlug: identity.groupSlug,
+    ...(identity.runGroup === undefined ? {} : { runGroup: identity.runGroup }),
+    providerID: identity.providerID,
+    modelID: identity.modelID,
+    fusion: false,
+  };
 }
 
 function metadataProjectDirectory(session: Session): string | undefined {
@@ -112,7 +110,8 @@ function sessionDirectory(session: Session): string {
 }
 
 export function collectFusionSources(trigger: Session, services: FusionCandidateServices): FusionSource[] {
-  const identity = parseMultiRunSessionTitle(trigger.title ?? '');
+  const identity = multiRunIdentityOf(trigger);
+  if (identity === undefined || identity.fusion) return [];
   const triggerProject = projectDirectory(trigger);
   const byId = new Map<string, FusionSource>();
   const sourceProject = (session: Session): string => projectDirectory(session);
@@ -120,8 +119,8 @@ export function collectFusionSources(trigger: Session, services: FusionCandidate
     .map((session) => [session.id, session]));
   for (const session of [trigger, ...live.values(), ...services.currentStore().getState().session]) {
     if (byId.has(session.id)) continue;
-    const parsed = parseMultiRunSessionTitle(session.title ?? '');
-    if (parsed.fusion) continue;
+    const parsed = multiRunIdentityOf(session);
+    if (parsed === undefined || parsed.fusion) continue;
     if (parsed.groupSlug !== identity.groupSlug) continue;
     if ((parsed.runGroup ?? undefined) !== (identity.runGroup ?? undefined)) continue;
     const candidateProject = sourceProject(session);

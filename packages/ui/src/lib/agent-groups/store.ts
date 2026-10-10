@@ -5,6 +5,8 @@ import { create } from 'zustand';
 import { harnessClient, normalizeDirectory, type HarnessResult } from '../nnd/client.ts';
 import type { Session } from '../nnd/types.ts';
 import { listWorktrees, removeWorktree } from '../server-api.ts';
+import { loadSessionOrg, type SessionOrgRecord } from '../session-org.ts';
+import { multiRunIdentityOf } from '../multirun/identity.ts';
 
 export interface AgentGroupWorktree { path: string; branch: string | null; }
 export interface AgentGroupSession {
@@ -61,6 +63,7 @@ export const useAgentGroupsStore = create<AgentGroupsStore>((set, get) => ({
     const queue = worktrees.map((entry, index) => ({ entry, index }));
     const loaded: AgentGroupSession[] = [];
     const errors: string[] = [];
+    const identityRecords = new Map<string, Record<string, SessionOrgRecord>>();
     await Promise.all(Array.from({ length: Math.min(LIST_CONCURRENCY, Math.max(worktrees.length, 1)) }, async () => {
       while (queue.length > 0) {
         const request = queue.shift();
@@ -71,6 +74,10 @@ export const useAgentGroupsStore = create<AgentGroupsStore>((set, get) => ({
           errors.push(`${request.entry.path}: ${result.error}`);
           continue;
         }
+        // Durable multi-run identities per worktree directory; failures leave
+        // the legacy title parse in charge for that directory.
+        const records = await loadSessionOrg(directory).catch(() => null);
+        if (records !== null && records.ok) identityRecords.set(directory, records.records);
         loaded.push(...result.sessions.map((session) => ({
           session,
           worktreePath: directory,
@@ -78,7 +85,7 @@ export const useAgentGroupsStore = create<AgentGroupsStore>((set, get) => ({
         })));
       }
     }));
-    setAgentResult(set, key, generation, collectGroups(loaded), errors, errors.length > 0 ? 'error' : 'ready');
+    setAgentResult(set, key, generation, collectGroups(loaded, (session) => agentIdentity(session, identityRecords)), errors, errors.length > 0 ? 'error' : 'ready');
   },
 }));
 
@@ -146,6 +153,25 @@ export function parseAgentSessionTitle(title: string | undefined): {
   return { groupSlug, providerID, modelID, index };
 }
 
+export interface AgentIdentityParts { groupSlug: string; providerID: string; modelID: string; index: number; }
+
+/** Org-record identity wins: the per-directory records fetched during the
+ * scan are authoritative, then the global store, then the legacy title parse. */
+function agentIdentity(session: Session,
+  records: Map<string, Record<string, SessionOrgRecord>>): AgentIdentityParts | null {
+  const stored = records.get(normalizeDirectory(session.directory ?? ''))?.[session.id]?.multiRun;
+  if (stored && stored.fusion !== true) {
+    return { groupSlug: stored.groupSlug, providerID: stored.providerID,
+      modelID: stored.modelID, index: stored.index ?? 1 };
+  }
+  const identity = multiRunIdentityOf(session);
+  if (identity !== undefined && !identity.fusion) {
+    return { groupSlug: identity.groupSlug, providerID: identity.providerID,
+      modelID: identity.modelID, index: identity.index ?? 1 };
+  }
+  return parseAgentSessionTitle(session.title);
+}
+
 function normalizedWorktrees(sessions: readonly AgentGroupSession[]): Array<{ path: string; branch: string | null }> {
   const worktrees = new Map<string, string | null>();
   for (const entry of sessions) {
@@ -156,10 +182,12 @@ function normalizedWorktrees(sessions: readonly AgentGroupSession[]): Array<{ pa
   return [...worktrees.entries()].map(([path, branch]) => ({ path, branch }));
 }
 
-export function collectGroups(input: readonly AgentGroupSession[]): AgentGroup[] {
+export function collectGroups(input: readonly AgentGroupSession[],
+  identityOf: (session: Session) => AgentIdentityParts | null = (session) => parseAgentSessionTitle(session.title),
+): AgentGroup[] {
   const byGroup = new Map<string, AgentGroupSession[]>();
   for (const entry of input) {
-    const parsed = parseAgentSessionTitle(entry.session.title);
+    const parsed = identityOf(entry.session);
     if (parsed === null) continue;
     const group = byGroup.get(parsed.groupSlug) ?? [];
     group.push(entry);
@@ -167,8 +195,8 @@ export function collectGroups(input: readonly AgentGroupSession[]): AgentGroup[]
   }
   return [...byGroup.entries()].map(([name, sessions]) => {
     const ordered = [...sessions].sort((left, right) => {
-      const leftParts = parseAgentSessionTitle(left.session.title)!;
-      const rightParts = parseAgentSessionTitle(right.session.title)!;
+      const leftParts = identityOf(left.session)!;
+      const rightParts = identityOf(right.session)!;
       return leftParts.providerID.localeCompare(rightParts.providerID)
         || leftParts.modelID.localeCompare(rightParts.modelID)
         || leftParts.index - rightParts.index

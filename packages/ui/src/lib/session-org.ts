@@ -7,12 +7,22 @@
  */
 import { runtimeFetch } from './runtime-fetch.ts';
 
+export interface MultiRunIdentityRecord {
+  groupSlug: string;
+  runGroup?: string;
+  providerID: string;
+  modelID: string;
+  index?: number;
+  fusion?: true;
+}
+
 export interface SessionOrgRecord {
   btwMarker?: { originalSessionID: string; boundaryMessageID: string; promoted: boolean };
   btwChildOf?: string;
   messagePins?: { id: string; createdAt: number; role: string }[];
   contextPins?: { notes: string[]; plans: string[] };
   knowledgeSignature?: string;
+  multiRun?: MultiRunIdentityRecord;
 }
 
 export type SessionOrgWrite =
@@ -24,7 +34,7 @@ export type SessionOrgLoad =
   | { ok: false; error: string; status?: number };
 
 export type SessionOrgOp = 'btw.setMarker' | 'btw.markPromoted' | 'btw.setChild'
-  | 'btw.clearChild' | 'pins.setMessages' | 'pins.setContext';
+  | 'btw.clearChild' | 'pins.setMessages' | 'pins.setContext' | 'multiRun.set';
 
 export async function loadSessionOrg(directory: string): Promise<SessionOrgLoad> {
   let response: Response;

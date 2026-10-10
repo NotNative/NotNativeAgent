@@ -21,13 +21,25 @@ const PIN_ROLES = new Set(['user', 'assistant']);
 const MESSAGE_PIN_LIMIT = 64;
 const CONTEXT_PIN_LIMIT = 50;
 
+export interface MultiRunIdentityRecord {
+  groupSlug: string;
+  runGroup?: string;
+  providerID: string;
+  modelID: string;
+  index?: number;
+  fusion?: true;
+}
+
 export interface SessionOrgRecord {
   btwMarker?: { originalSessionID: string; boundaryMessageID: string; promoted: boolean };
   btwChildOf?: string;
   messagePins?: { id: string; createdAt: number; role: 'user' | 'assistant' }[];
   contextPins?: { notes: string[]; plans: string[] };
   knowledgeSignature?: string;
+  multiRun?: MultiRunIdentityRecord;
 }
+
+type RecordBag = { [key: string]: unknown };
 
 interface Store {
   version: 1;
@@ -54,11 +66,34 @@ function shapeValid(store: unknown): store is Store {
   });
 }
 
-const RECORD_KEYS = new Set(['btwMarker', 'btwChildOf', 'messagePins', 'contextPins', 'knowledgeSignature']);
+const RECORD_KEYS = new Set(['btwMarker', 'btwChildOf', 'messagePins', 'contextPins', 'knowledgeSignature', 'multiRun']);
+const GROUP_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/u;
+const RUN_GROUP_PATTERN = /^g([1-9]\d*)$/u;
+const MULTI_RUN_SEGMENT_PATTERN = /^[^/\u0000-\u001f]{1,120}$/u;
 
 function recordShapeValid(record: unknown): boolean {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
-  return Object.keys(record).every(key => RECORD_KEYS.has(key));
+  const bag = record as RecordBag;
+  if (!Object.keys(bag).every(key => RECORD_KEYS.has(key))) return false;
+  return bag.multiRun === undefined || multiRunValid(bag.multiRun);
+}
+
+/** Durable multi-run identity: replaces the title-slug identity as the
+ * authoritative record while the legacy title parsing stays the fallback. */
+function multiRunValid(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (typeof record.groupSlug !== 'string' || !GROUP_SLUG_PATTERN.test(record.groupSlug)
+    || /^g[1-9]\d*$/u.test(record.groupSlug)) return false;
+  if (record.runGroup !== undefined
+    && (typeof record.runGroup !== 'string' || !RUN_GROUP_PATTERN.test(record.runGroup))) return false;
+  if (typeof record.providerID !== 'string' || !MULTI_RUN_SEGMENT_PATTERN.test(record.providerID)) return false;
+  if (typeof record.modelID !== 'string' || !MULTI_RUN_SEGMENT_PATTERN.test(record.modelID)) return false;
+  if (record.index !== undefined && (typeof record.index !== 'number'
+    || !Number.isSafeInteger(record.index) || record.index < 2 || record.index > 99)) return false;
+  if (record.fusion === true && record.index !== undefined) return false;
+  if (record.fusion !== undefined && record.fusion !== true) return false;
+  return true;
 }
 
 async function persist(store: Store): Promise<void> {
@@ -194,8 +229,24 @@ export function applySessionOrgOp(record: SessionOrgRecord, op: string, body: Re
       record.knowledgeSignature = signature;
       return true;
     }
+    case 'multiRun.set': return applyMultiRunSet(record, body);
     default: return false;
   }
+}
+
+/** Builds and validates the durable identity, then stores it verbatim. */
+function applyMultiRunSet(record: SessionOrgRecord, body: RecordBag): boolean {
+  const identity: MultiRunIdentityRecord = {
+    groupSlug: typeof body.groupSlug === 'string' ? body.groupSlug : '',
+    providerID: typeof body.providerID === 'string' ? body.providerID : '',
+    modelID: typeof body.modelID === 'string' ? body.modelID : '',
+  };
+  if (typeof body.runGroup === 'string') identity.runGroup = body.runGroup;
+  if (typeof body.index === 'number') identity.index = body.index;
+  if (body.fusion === true) identity.fusion = true;
+  if (!multiRunValid(identity)) return false;
+  record.multiRun = identity;
+  return true;
 }
 
 /** Server-side reader for in-process consumers (session knowledge): returns

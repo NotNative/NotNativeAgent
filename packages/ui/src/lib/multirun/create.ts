@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** UI-owned multi-run creation orchestration (doc 12 §E.1/§E.3). */
 import { buildMultiRunSessionTitle, buildWorktreeName, normalizeGroupSlug } from './title.ts';
+import { useSessionOrgStore } from '../../stores/useSessionOrgStore.ts';
 import type { Session } from '../nnd/types.ts';
 
 export interface MultiRunModelSelection { providerID: string; modelID: string; displayName?: string; variant?: string; }
@@ -107,6 +108,15 @@ async function createRun(run: { groupSlug: string; runGroup?: string; model: Mul
     const created: MultiRunCreatedRun = {
       sessionID: session.id, session, title, directory: targetDirectory, model: run.model, prompt: run.prompt, worktree,
     };
+    // The durable identity rides the session-org store; the title stays as
+    // the legacy fallback so a failed write degrades to the old behavior.
+    void useSessionOrgStore.getState().applyOp(targetDirectory, session.id, 'multiRun.set', {
+      groupSlug: run.groupSlug, providerID: run.model.providerID, modelID: run.model.modelID,
+      ...(run.runGroup === undefined ? {} : { runGroup: run.runGroup }),
+      ...(run.index === undefined ? {} : { index: run.index }),
+    }).catch((error: unknown) => {
+      console.warn?.(`multi-run identity write failed for ${session.id}: ${stringOfReason(error)}`);
+    });
     services.registerRun(created);
     return created;
   } catch (error) {

@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createMultiRun,
   type CreateMultiRunResult,
   type MultiRunDispatchRequest,
   type MultiRunServices,
 } from '../multirun/create.ts';
+import { __resetSessionOrgStoreForTests } from '../../stores/useSessionOrgStore.ts';
 import type { Session } from '../nnd/types.ts';
+
+const orgPosts: { sessionID: string; op: string; body: Record<string, unknown> }[] = [];
+
+vi.mock('../../lib/runtime-fetch.ts', () => ({
+  runtimeFetch: vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (!url.includes('/api/session-org')) throw new Error(`unexpected fetch ${url}`);
+    if ((init?.method ?? 'GET') !== 'POST') return Response.json({ version: 1, exists: true, records: {} });
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown> & { sessionID: string; op: string };
+    orgPosts.push({ sessionID: body.sessionID, op: body.op, body });
+    const { directory: _d, sessionID: _s, op: _o, ...extra } = body;
+    return Response.json({ success: true, record: extra });
+  }),
+}));
 
 function createTestSession(id: string, title: string, directory: string): Session {
   return {
@@ -49,7 +64,12 @@ const MODEL = { providerID: 'anthropic', modelID: 'sonnet' };
 const group = { prompt: 'solve it', models: [MODEL] };
 
 describe('multi-run creation', () => {
-  afterEach(() => {
+  beforeEach(() => {
+  __resetSessionOrgStoreForTests();
+  orgPosts.length = 0;
+});
+
+afterEach(() => {
     vi.restoreAllMocks();
   });
 
@@ -82,6 +102,17 @@ describe('multi-run creation', () => {
     });
     expect(getRequest(createdServices.dispatchRun.mock.calls[0])?.run.model.variant).toBeUndefined();
     expect(getRequest(createdServices.dispatchRun.mock.calls[1])?.run.model.variant).toBe('high');
+  });
+
+  it('writes the durable identity to the session-org store', async () => {
+    await createMultiRun({
+      name: 'Rework UI!!',
+      groups: [{ prompt: 'p', models: [MODEL, MODEL] }],
+    }, services());
+    await new Promise((resolve) => setTimeout(resolve, 0)); // the identity write is fire-and-forget
+    expect(orgPosts.map((post) => post.op)).toEqual(['multiRun.set', 'multiRun.set']);
+    expect(orgPosts[1]?.body).toMatchObject({
+      groupSlug: 'rework-ui', providerID: 'anthropic', modelID: 'sonnet', index: 2 });
   });
 
   it('returns immediately while dispatch remains pending', async () => {

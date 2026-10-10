@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Durable multi-run identities replace title-slug identity (F9 M, installed-unobserved)
+
+NND `20261010-14` adds the `multiRun` record to the session-org store: the
+server validates the identity (reserved marker slugs, segment characters,
+duplicate index 2..99, `fusion` never combined with an index) and stores it
+under the `multiRun.set` op; `createMultiRun` writes the record for every run
+right after the session is created (title parse stays the fallback, so a
+dropped write degrades to the old behavior); fusion sourcing and the
+agent-groups projection now read the durable record first (agent-groups
+fetches the per-worktree directory records during its scan). Intended
+behavior change: run-grouped sessions group under the real slug instead of
+the old title-quirk run-group group name. Evidence: server identity tests
+(8), multirun create/identity/agent-groups suites (18+7+3), full UI suite
+1976/1976, web suite 1471/1471 after the status-code fix, tsc clean, gates
+green for 868 files. Open: orphaned multiRun records for removed worktrees
+have no clear op yet (harmless accumulation).
+
 ## 2026-10-10 Pins and knowledge ride the session-organization store (F4.7, installed-unobserved)
 
 NND `20261010-13` moves the remaining F4.7 metadata writers onto the

@@ -3,12 +3,12 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
-## 2026-10-10 · Message pins + knowledge on the session-org store · NND 20261010-13 / NNA 20261009-5
+## 2026-10-10 · Durable multi-run identities (F9) · NND 20261010-14 / NNA 20261009-5
 
-All remaining openchamber metadata writers for pins now use the NND-owned
-store: message pins (UI), context pins and the delivered signature (server
-knowledge runtime). Empty writes are tombstones so legacy metadata fallbacks
-never resurrect stale pins. Full UI suite 1972/1972, web 1470/1470 in-session.
+Multi-run sessions now carry a validated `multiRun` identity record in the
+session-org store; creation writes it, fusion and the agent-groups projection
+read it first with the title parse as fallback. Full UI 1976/1976, web
+1471/1471 in-session; gates green for 868 files.
 
 ## 2026-10-10 · Session-organization record store · NND 20261010-10 / NNA 20261009-5
 

@@ -51,6 +51,20 @@ describe('agent-group projection', () => {
     ]).map((group) => group.sessions.map((item) => item.session.id))).toEqual([['first', 'second', 'third']]);
   });
 
+  it('groups and orders through the records-backed identity override', () => {
+    const identityOf = (session: { id: string; title: string }): { groupSlug: string; providerID: string; modelID: string; index: number } | null =>
+      session.id === 'renamed' ? { groupSlug: 'stored', providerID: 'record', modelID: 'model', index: 1 }
+        : session.id === 'fusion' ? null
+        : parseAgentSessionTitle(session.title);
+    const groups = collectGroups([
+      entry(session({ id: 'renamed', title: 'Ordinary chat', directory: 'wt1', updated: 2 })),
+      entry(session({ id: 'plain', title: 'stored/other/model', directory: 'wt2', updated: 1 })),
+      entry(session({ id: 'fusion', title: 'stored/openai/model/fusion', directory: 'wt3', updated: 3 })),
+    ], identityOf);
+    expect(groups.map((group) => group.name)).toEqual(['stored']);
+    expect(groups[0]?.sessions.map((item) => item.session.id)).toEqual(['plain', 'renamed']);
+  });
+
   it('loads worktrees with concurrency, retries failures, and preserves successful groups', async () => {
     vi.mocked(serverApi.listWorktrees).mockResolvedValue([
       { path: 'C:/first', branch: 'first' },

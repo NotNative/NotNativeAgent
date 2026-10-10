@@ -34,6 +34,8 @@ interface OrgRecord {
   messagePins?: { id: string; createdAt: number; role: string }[];
   contextPins?: { notes: string[]; plans: string[] };
   knowledgeSignature?: string;
+  multiRun?: { groupSlug: string; runGroup?: string; providerID: string; modelID: string;
+    index?: number; fusion?: true };
 }
 
 async function recordOf(session: string): Promise<OrgRecord> {
@@ -91,6 +93,28 @@ describe('session-organization records (F4.7)', () => {
     // stay dormant (an unpin-to-empty must not resurrect stale legacy pins).
     expect((await recordOf('ses_parent')).messagePins).toEqual([]);
     expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'pins.setMessages', pins: 'nope' })).status).toBe(400);
+  });
+
+  it('stores a durable multi-run identity and rejects malformed ones', async () => {
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'rework', runGroup: 'g1', providerID: 'openai', modelID: 'gpt-5.2', index: 2 })).status).toBe(200);
+    expect((await recordOf('ses_parent')).multiRun).toEqual({
+      groupSlug: 'rework', runGroup: 'g1', providerID: 'openai', modelID: 'gpt-5.2', index: 2 });
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'g1', providerID: 'openai', modelID: 'gpt' })).status).toBe(400); // reserved marker slug
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'rework', providerID: 'o/pen', modelID: 'gpt' })).status).toBe(400);
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'rework', providerID: 'openai', modelID: 'gpt', index: 1 })).status).toBe(400);
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'rework', providerID: 'openai', modelID: 'gpt', index: 100 })).status).toBe(400);
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: '', providerID: 'openai', modelID: 'gpt' })).status).toBe(400);
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'rework', providerID: 'openai', modelID: 'gpt', fusion: true })).status).toBe(200);
+    expect((await recordOf('ses_parent')).multiRun).toMatchObject({ fusion: true });
+    expect((await post({ directory: DIRECTORY, sessionID: 'ses_parent', op: 'multiRun.set',
+      groupSlug: 'rework', providerID: 'openai', modelID: 'gpt', fusion: true, index: 2 })).status).toBe(400);
   });
 
   it('keeps empty and failed writes out of the store and accepts an empty boundary', async () => {
