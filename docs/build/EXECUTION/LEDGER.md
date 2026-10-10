@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Skill formats classified; write actions dispositioned (C5, installed-unobserved)
+
+NND `20261010-19` classifies the last skills census item: the on-disk
+discovery format (SKILL.md / *.skill.md with frontmatter, parsed by NNA
+`src/skill-registry.js:parseSkillFile` from up to eight roots, surfaced
+metadata-only through `GET /v1/nnd/configuration/skills` under
+`nnd.configuration.read` — the endpoint and permission verified against the
+live route file) gains a census row tied to the inventory page the desktop
+already renders, and the absent install/remove/edit actions gain an honest
+owed:false disposition: NNA's skills CLI accepts only `list` (anything else
+raises `invalid_skills_command`) and the skills routes are GET-only, so no
+native lifecycle contract exists to build against. The census item is
+retired and the NNA-side gap is recorded in `known_mismatches` (C5) — F8.3
+write actions stay NNA-blocked. Census 414 rows, remaining 5 items.
+Evidence: real gate run passes, gate tests 17/17.
+
 ## 2026-10-10 Coverage gate classifies the generated stores (C7 M, installed-unobserved)
 
 NND `20261010-18` closes the last census-wide C7 items: the gate now

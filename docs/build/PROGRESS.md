@@ -3,6 +3,13 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Skills formats classified (C5) · NND 20261010-19 / NNA 20261009-5
+
+On-disk skill format gets a census row bound to the rendered inventory; the
+missing install/remove/edit actions get an honest owed:false disposition
+(NNA skills CLI is list-only, routes GET-only) and the NNA-side gap is
+recorded in known_mismatches. Census 414 rows, remaining 5 items; gate green.
+
 ## 2026-10-10 · Generated stores classified in the gate (C7) · NND 20261010-18 / NNA 20261009-5
 
 The coverage gate now pins every NNA user-data store key to a census row
