@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Coverage gate reaches positional subcommands and environment reads (C7 M, installed-unobserved)
+
+NND `20261010-16` extends `scripts/settings-coverage-gate.mjs` beyond dashed
+CLI options: the NNA mode vocabulary (`MODES`/`OPENCODE_ACTIONS` in
+`src/cli-options.js`) must have an invocation census row per positional
+subcommand, and every environment read NNA performs — the snapshot vocabulary
+in `src/nnd-environment-snapshot.js` plus every direct `process.env` literal
+under `src/` — must have an environment provenance row; unclassified
+additions fail the gate, and rows without a live read go stale. 36 census
+rows were added by `scripts/add-c7-subcommand-env-rows.mjs` (26 subcommands,
+10 environment names incl. the PATH/Path pair), all evidenced owed:false
+claims because the CLI stays terminal-owned and the environment reads are
+process plumbing. Evidence: gate tests 14/14 (two new hermetic pairs), the
+real gate run PASSES against the NNA checkout, quality gates green for 869
+files. Open: non-manifest store classification stays in the remaining-census
+list. The reviewer's fix-first finding is applied: the subcommand
+justifications now acknowledge that the desktop launches the harness child
+(`nnd serve`) as process plumbing while exposing no subcommand control, and
+the gate's vocabulary extraction fails loud on a missing Set literal instead
+of silently checking nothing.
+
 ## 2026-10-10 Durable multi-run identities replace title-slug identity (F9 M, installed-unobserved)
 
 NND `20261010-14` adds the `multiRun` record to the session-org store: the

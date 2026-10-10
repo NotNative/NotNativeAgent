@@ -17343,6 +17343,1678 @@
     ]
    },
    "notes": "Short form of --version. Pinned 20261006-21: the flag -v is projected by the invocation vocabulary read (exact-match '*' for universal rows, named modes for subcommand rows; one entry per census row) and rendered by the invocation vocabulary panel; the flag itself stays a terminal command."
+  },
+  {
+   "id": "environment:NNA_NND_AGENT_TOOL_TOKEN",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "NNA_NND_AGENT_TOOL_TOKEN",
+   "source": {
+    "product": "NNA",
+    "path": "src/nnd-memory-tool.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/nnd-memory-tool.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:NNA_NND_AGENT_TOOL_URL",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "NNA_NND_AGENT_TOOL_URL",
+   "source": {
+    "product": "NNA",
+    "path": "src/nnd-memory-tool.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/nnd-memory-tool.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:NNA_NND_BROWSER_TOKEN",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "NNA_NND_BROWSER_TOKEN",
+   "source": {
+    "product": "NNA",
+    "path": "src/nnd-browser-tool.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/nnd-browser-tool.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:NNA_NND_BROWSER_URL",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "NNA_NND_BROWSER_URL",
+   "source": {
+    "product": "NNA",
+    "path": "src/nnd-browser-tool.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/nnd-browser-tool.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:NODE_TEST_CONTEXT",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "NODE_TEST_CONTEXT",
+   "source": {
+    "product": "NNA",
+    "path": "src/forensic-telemetry.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/forensic-telemetry.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:Path",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "Path",
+   "source": {
+    "product": "NNA",
+    "path": "src/tools/project-verification.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/tools/project-verification.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:PATH",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "PATH",
+   "source": {
+    "product": "NNA",
+    "path": "src/tools/project-verification.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/tools/project-verification.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:PLAYWRIGHT_BROWSERS_PATH",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "PLAYWRIGHT_BROWSERS_PATH",
+   "source": {
+    "product": "NNA",
+    "path": "src/playwright-runtime.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/playwright-runtime.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:SystemRoot",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "SystemRoot",
+   "source": {
+    "product": "NNA",
+    "path": "src/elevation-broker.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/elevation-broker.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "environment:WINDIR",
+   "kind": "operator_setting",
+   "family": "environment",
+   "key": "WINDIR",
+   "source": {
+    "product": "NNA",
+    "path": "src/elevation-broker.js",
+    "validator": "direct process.env read"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "process_environment"
+   },
+   "scope": [
+    "process_invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-environment-snapshot 20261006-3: environment values are observed read-only and never applied or stored"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/environment (read-only observation)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/elevation-broker.js:process.env",
+    "justification": "The read is process plumbing inside NNA tooling (spawn environments, harness detection, browser automation paths), not configuration: no value is stored, applied, or rendered as a setting anywhere in the desktop."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "process.env"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the environment provenance pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every environment read requires a provenance row."
+  },
+  {
+   "id": "invocation:tui",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "tui",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:text",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "text",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:headless",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "headless",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:host",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "host",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:session",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "session",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:sessions",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "sessions",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:websearch",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "websearch",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:skills",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "skills",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:gateway",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "gateway",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:webfetch",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "webfetch",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:webbrowse",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "webbrowse",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:provider",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "provider",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:secrets",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "secrets",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:uninstall",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "uninstall",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:help",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "help",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:version",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "version",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:update",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "update",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:integration",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "integration",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:nnd",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "nnd",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:opencode",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "opencode",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:status",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "status",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:start",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "start",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:stop",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "stop",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:enable",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "enable",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:disable",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "disable",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
+  },
+  {
+   "id": "invocation:run",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "run",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only",
+    "evidence": "nnd-invocation-routes 20261006-21: the CLI stays the terminal-owned authority; the native surface describes the grammar read-only and applies nothing"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The CLI remains the only way to invoke a positional subcommand: the desktop launches the harness child itself (nnd serve, process plumbing in nna-local) but exposes no desktop control for any subcommand, so a subcommand control would duplicate the terminal without owning it."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-14 gate extension)",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "OPENCODE_ACTIONS",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.test.mjs 14/14 including the subcommand classification pair"
+    ]
+   },
+   "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
   }
  ]
 }

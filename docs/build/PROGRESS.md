@@ -3,12 +3,12 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
-## 2026-10-10 · Durable multi-run identities (F9) · NND 20261010-14 / NNA 20261009-5
+## 2026-10-10 · C7 gate: subcommands + env provenance · NND 20261010-16 / NNA 20261009-5
 
-Multi-run sessions now carry a validated `multiRun` identity record in the
-session-org store; creation writes it, fusion and the agent-groups projection
-read it first with the title parse as fallback. Full UI 1976/1976, web
-1471/1471 in-session; gates green for 868 files.
+The settings-coverage gate now enforces positional subcommands (NNA mode
+vocabulary) and environment-read provenance (snapshot vocabulary + direct
+process.env literals); 36 evidenced census rows added, real gate run passes.
+Gates green for 869 files; gate tests 14/14.
 
 ## 2026-10-10 · Session-organization record store · NND 20261010-10 / NNA 20261009-5
 

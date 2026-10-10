@@ -29,7 +29,7 @@ function catalogModule(fields) {
 `;
 }
 
-async function fixture(t, { fields, cliOptions, census }) {
+async function fixture(t, { fields, cliOptions, census, modes = [], actions = [], observedNames = [], extraSource = '' }) {
   const nna = await mkdtemp(join(tmpdir(), 'nnd-catalog-dump-'));
   const work = await mkdtemp(join(tmpdir(), 'nnd-census-'));
   t.after(async () => {
@@ -40,7 +40,13 @@ async function fixture(t, { fields, cliOptions, census }) {
   await writeFile(join(nna, 'VERSION'), '20990101-1\n');
   await writeFile(join(nna, 'src', 'configuration-catalog.js'), catalogModule(fields));
   await writeFile(join(nna, 'src', 'cli.js'), `// synthetic: no option literals here\nexport function greet(what) { return what; }\ngreet('hello');\n`);
-  await writeFile(join(nna, 'src', 'cli-options.js'), cliOptions);
+  const modeSet = `const MODES = new Set([${modes.map((mode) => `'${mode}'`).join(', ')}]);\nconst OPENCODE_ACTIONS = new Set([${actions.map((action) => `'${action}'`).join(', ')}]);\n`;
+  await writeFile(join(nna, 'src', 'cli-options.js'), `${modeSet}${cliOptions}`);
+  await writeFile(join(nna, 'src', 'nnd-environment-snapshot.js'),
+    `export const OBSERVED_NAMES = [${observedNames.map((name) => `'${name}'`).join(', ')}];\n`);
+  if (extraSource !== '') {
+    await writeFile(join(nna, 'src', 'extra-source.js'), extraSource);
+  }
   const censusPath = join(work, 'census.json');
   await writeFile(censusPath, JSON.stringify(census));
   return { nna, censusPath };
@@ -179,6 +185,48 @@ test('coverage gate rejects an unusable NNA source with a named failure', window
   const result = await run(f);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /settings coverage gate failed.*catalog dump failed/u);
+});
+
+test('coverage gate classifies positional subcommands and environment reads', windows, async t => {
+  const census = structuredClone(healthyCensus);
+  census.rows.push(
+    censusRow('invocation:tui', 'invocation', 'operator_action'),
+    censusRow('invocation:opencode', 'invocation', 'operator_action'),
+    censusRow('invocation:status', 'invocation', 'operator_action'),
+    censusRow('environment:NNA_HOME', 'environment', 'operator_setting'),
+    censusRow('environment:NNA_NND_AGENT_TOOL_URL', 'environment', 'operator_setting'),
+  );
+  const f = await fixture(t, {
+    fields: happyFields, cliOptions: happyCliOptions, census,
+    modes: ['tui', 'opencode'], actions: ['status'],
+    observedNames: ['NNA_HOME'],
+    extraSource: 'export const service = process.env.NNA_NND_AGENT_TOOL_URL;\n',
+  });
+  const result = await run(f);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout.slice(0, result.stdout.indexOf('settings coverage gate passed')));
+  assert.deepEqual(report.missing_subcommand_rows, []);
+  assert.deepEqual(report.missing_environment_rows, []);
+});
+
+test('coverage gate rejects an unclassified subcommand and a stale environment row', windows, async t => {
+  const census = structuredClone(healthyCensus);
+  census.rows.push(
+    censusRow('invocation:tui', 'invocation', 'operator_action'),
+    censusRow('environment:NNA_HOME', 'environment', 'operator_setting'),
+  );
+  const f = await fixture(t, {
+    fields: happyFields, cliOptions: happyCliOptions, census,
+    modes: ['tui', 'gateway'], actions: [],
+    observedNames: [],
+    extraSource: 'export const other = process.env.UNLISTED_VALUE;\n',
+  });
+  const result = await run(f);
+  assert.equal(result.status, 1, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.missing_subcommand_rows, ['gateway']);
+  assert.deepEqual(report.stale_environment_rows, ['NNA_HOME']);
+  assert.deepEqual(report.missing_environment_rows, ['UNLISTED_VALUE']);
 });
 
 test('coverage gate keeps only catalog-declared alias rows alive', windows, async t => {

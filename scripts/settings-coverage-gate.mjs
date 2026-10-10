@@ -12,7 +12,12 @@
  *  4. every dashed CLI option literal in NNA `src/cli.js` and
  *     `src/cli-options.js` has an invocation census row;
  *  5. every census invocation option is still declared on the NNA side;
- *  6. every surface path a row claims is a file that exists in its own product.
+ *  6. every surface path a row claims is a file that exists in its own product;
+ *  7. every positional subcommand in the NNA mode vocabulary (`MODES` and
+ *     `OPENCODE_ACTIONS` in `src/cli-options.js`) has an invocation census row;
+ *  8. every environment read NNA performs (the observed snapshot vocabulary in
+ *     `src/nnd-environment-snapshot.js` plus every direct `process.env`
+ *     literal under `src/`) has an environment census row.
  *
  * The option scan is mechanical literal extraction: humans own the census
  * classifications; the gate only rejects unclassified additions. It scans the
@@ -42,7 +47,8 @@ async function main(nnaSource, censusPath) {
   }
   const catalog = await dumpCatalog(nnaSource);
   const census = JSON.parse(await readFile(censusPath, 'utf8'));
-  const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [], surfaceClaims: [], missingFiles: [] };
+  const violations = { missingRows: [], staleRows: [], kindDrift: [], missingOptions: [], staleOptions: [],
+    missingSubcommands: [], staleSubcommands: [], missingEnv: [], staleEnv: [], surfaceClaims: [], missingFiles: [] };
   await trace(violations, census, catalog, nnaSource);
   checkDispositions(violations, census);
   checkSurfaceFiles(violations, census, nnaSource);
@@ -104,6 +110,10 @@ function emit(violations, census, catalog) {
     kind_drift: violations.kindDrift.slice(0, 200),
     missing_option_rows: violations.missingOptions,
     stale_option_rows: violations.staleOptions,
+    missing_subcommand_rows: violations.missingSubcommands,
+    stale_subcommand_rows: violations.staleSubcommands,
+    missing_environment_rows: violations.missingEnv,
+    stale_environment_rows: violations.staleEnv,
     surface_not_owed: census.rows.filter((row) => row.current_gui?.owed === false).length,
     unsupported_surface_claims: violations.surfaceClaims.slice(0, 20),
     surface_files_missing: violations.missingFiles.slice(0, 20),
@@ -111,7 +121,9 @@ function emit(violations, census, catalog) {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (violations.missingRows.length > 0 || violations.staleRows.length > 0
     || violations.kindDrift.length > 0 || violations.missingOptions.length > 0
-    || violations.staleOptions.length > 0 || violations.surfaceClaims.length > 0
+    || violations.staleOptions.length > 0 || violations.missingSubcommands.length > 0
+    || violations.staleSubcommands.length > 0 || violations.missingEnv.length > 0
+    || violations.staleEnv.length > 0 || violations.surfaceClaims.length > 0
     || violations.missingFiles.length > 0) {
     process.stderr.write('settings coverage gate: unclassified or drifted coverage detected\n');
     process.exitCode = 1;
@@ -208,12 +220,95 @@ async function trace(violations, census, catalog, nnaSource) {
       literals.add(match[2].trim());
     }
   }
+  checkOptions(violations, census, literals);
+  await checkSubcommands(violations, census, nnaSource);
+  await checkEnvironment(violations, census, nnaSource);
+}
+
+function checkOptions(violations, census, literals) {
+  // Only dashed tokens participate in the option checks; positional
+  // subcommands are covered by the subcommand vocabulary check below.
   const invocationTokens = new Set(census.rows.filter((row) => row.family === 'invocation')
-    .map((row) => row.id.slice(row.id.indexOf(':') + 1)));
+    .map((row) => row.id.slice(row.id.indexOf(':') + 1))
+    .filter((token) => token.startsWith('-')));
   for (const token of [...literals].sort()) {
     if (!invocationTokens.has(token)) violations.missingOptions.push(token);
   }
   for (const token of [...invocationTokens].sort()) {
     if (!literals.has(token)) violations.staleOptions.push(token);
   }
+}
+
+async function checkSubcommands(violations, census, nnaSource) {
+  // Positional subcommands: the mode vocabulary is NNA's own Set literals, so
+  // a new mode or action fails coverage until the census classifies it.
+  const { modes, actions } = await subcommandVocabulary(nnaSource);
+  const subcommandRows = new Set(census.rows.filter((row) => row.family === 'invocation')
+    .map((row) => row.id.slice(row.id.indexOf(':') + 1))
+    .filter((token) => !token.startsWith('-')));
+  for (const token of [...modes, ...actions].sort()) {
+    if (!subcommandRows.has(token)) violations.missingSubcommands.push(token);
+  }
+  for (const token of [...subcommandRows].sort()) {
+    if (!modes.includes(token) && !actions.includes(token)) violations.staleSubcommands.push(token);
+  }
+}
+
+async function checkEnvironment(violations, census, nnaSource) {
+  // Environment provenance: the snapshot vocabulary plus every direct
+  // process.env literal under src/ must be classified; an environment row
+  // without a live read is stale.
+  const envNames = await environmentNames(nnaSource);
+  const envRows = new Set(census.rows.filter((row) => row.family === 'environment')
+    .map((row) => row.id.slice(row.id.indexOf(':') + 1)));
+  for (const name of envNames.sort()) {
+    if (!envRows.has(name)) violations.missingEnv.push(name);
+  }
+  for (const name of [...envRows].sort()) {
+    if (!envNames.includes(name)) violations.staleEnv.push(name);
+  }
+}
+
+async function setLiteral(source, file, name) {
+  const text = await readFile(join(source, ...file.split('/')), 'utf8');
+  const match = new RegExp(`const ${name} = new Set\\(\\[([^\\]]*)\\]`, 'u').exec(text);
+  // Fail loud: a silent empty vocabulary would read as 26 stale rows instead
+  // of the parse failure it is.
+  if (match === null) throw new Error(`missing ${name} set literal in ${file}`);
+  return [...match[1].matchAll(/'([^']+)'/gu)].map((entry) => entry[1]);
+}
+
+async function subcommandVocabulary(nnaSource) {
+  const modes = (await setLiteral(nnaSource, 'src/cli-options.js', 'MODES'))
+    .filter((token) => !token.startsWith('-'));
+  const actions = await setLiteral(nnaSource, 'src/cli-options.js', 'OPENCODE_ACTIONS');
+  return { modes, actions };
+}
+
+async function environmentNames(nnaSource) {
+  const names = new Set();
+  const snapshot = join(nnaSource, 'src', 'nnd-environment-snapshot.js');
+  if (existsSync(snapshot)) {
+    const text = await readFile(snapshot, 'utf8');
+    const match = /OBSERVED_NAMES = \[([^\]]*)\]/u.exec(text);
+    if (match !== null) {
+      for (const entry of match[1].matchAll(/'([^']+)'/gu)) names.add(entry[1]);
+    }
+  }
+  const { readdir } = await import('node:fs/promises');
+  const stack = [join(nnaSource, 'src')];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const item of await readdir(current, { withFileTypes: true })) {
+      const path = join(current, item.name);
+      if (item.isDirectory()) stack.push(path);
+      else if (item.name.endsWith('.js')) {
+        const text = await readFile(path, 'utf8');
+        for (const read of text.matchAll(/process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\])/gu)) {
+          names.add(read[1] ?? read[2]);
+        }
+      }
+    }
+  }
+  return [...names];
 }
