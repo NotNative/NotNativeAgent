@@ -6,6 +6,8 @@ import { ToolGovernor, toolSettlementTerminal } from '../src/tools/governor.js';
 import { evaluateCompletion } from '../src/reliability/completion-supervisor.js';
 import { finalizeEngineTurn } from '../src/engine/finalization.js';
 import { persistSupervisedResponse } from '../src/engine/terminal-declaration.js';
+import { updateToolFailures } from '../src/engine/tool-failures.js';
+import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 
 async function execute(raw) {
   const governor = new ToolGovernor({ events: new EventHub(), reviewer: {}, registry: {
@@ -25,6 +27,46 @@ test('returned lifecycle states never silently become success', async () => {
   }
   assert.equal((await execute({ content: 'ok' })).status, 'succeeded');
   assert.equal((await execute({ content: 'uncertain', effectCertainty: 'unknown' })).status, 'unknown_effect');
+});
+
+test('reviewed read-only diagnostic exits settle without another model answer', async () => {
+  const request = { id: 'docker-query', toolName: 'shell_run',
+    args: { script: 'docker ps; docker logs --tail 250 qwen38flashnext 2>&1' },
+    resolved: { readOnly: false } };
+  const governor = new ToolGovernor({ events: new EventHub(), reviewer: {}, registry: {
+    definition: () => ({ timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+      executor: async () => ({ status: 'completed_nonzero', reasonCode: 'process_exit_nonzero',
+        content: 'observed logs with diagnostic stderr', metadata: { exitCode: 1 } }) }),
+  } });
+  const result = await governor.executePrepared(request,
+    { outcome: 'approve', effectAssessment: 'read_only' }, new AbortController().signal);
+  assert.equal(result.status, 'completed_nonzero');
+  assert.equal(result.effect_certainty, 'none');
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'docker-query' });
+  await ledger.propose(request, { risk: 'review_required', scope: 'workspace' }, { turnId: 'turn-1' });
+  await ledger.commitDecision(request.id, { id: 'decision-1', outcome: 'approve' });
+  await ledger.executionStarted(request.id, 'decision-1');
+  await ledger.settle(request.id, toolSettlementTerminal(result));
+  const active = { toolFailureLedger: new Map(), unresolvedToolFailures: [], correctableToolFailures: [],
+    reviewerCompletion: ledger.completionState({ turnIds: ['turn-1'] }) };
+  updateToolFailures(active, [{ request, result }]);
+  assert.equal(active.reviewerCompletion.unresolved_count, 0);
+  assert.deepEqual(active.correctableToolFailures, []);
+  assert.equal(evaluateCompletion(active, 'Qualified answer from observed logs.').disposition, 'completed');
+});
+
+test('known state-changing process remains unresolved after a diagnostic exit', async () => {
+  const governor = new ToolGovernor({ events: new EventHub(), reviewer: {}, registry: {
+    definition: () => ({ timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+      executor: async () => ({ status: 'completed_nonzero', reasonCode: 'process_exit_nonzero', content: 'partial' }) }),
+  } });
+  const result = await governor.executePrepared({ id: 'write', toolName: 'shell_run', args: { script: 'write' } },
+    { outcome: 'approve', effectAssessment: 'state_changing' }, new AbortController().signal);
+  assert.equal(result.effect_certainty, 'unknown');
+  const administrator = await governor.executePrepared({ id: 'admin', toolName: 'shell_run',
+    args: { script: 'Get-Process', privilege: 'administrator' }, resolved: { readOnly: true } },
+  { outcome: 'approve', effectAssessment: 'read_only' }, new AbortController().signal);
+  assert.equal(administrator.effect_certainty, 'unknown');
 });
 
 test('settlement fingerprints distinguish equal-length content and ignore elapsed time', async () => {

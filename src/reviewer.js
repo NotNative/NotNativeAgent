@@ -329,6 +329,16 @@ function normalizeCandidate(value, request, context) {
   if (value.confidence < 0.7) {
     return deny('semantic_confidence_low', 'Reviewer confidence was insufficient.', request);
   }
+  if (value.outcome === 'approve' && ['shell_run', 'process_run'].includes(request.toolName)) {
+    if (value.effect_assessment === 'unknown') {
+      return deny('process_effect_unknown',
+        'The reviewer could not establish the effects of this command. Split it into simpler explicit operations and retry only the reviewable steps.', request);
+    }
+    if (!['read_only', 'state_changing'].includes(value.effect_assessment)) {
+      return deny('process_effect_unclassified',
+        'The reviewer did not classify this command’s effects. Use a simpler explicit operation whose effects can be reviewed.', request);
+    }
+  }
   if (value.outcome === 'approve') return semanticApproval(value, request, context);
   if (value.outcome === 'hard_deny') return hardDeny(value.reason_code ?? 'semantic_hard_deny', request);
   if (value.outcome === 'escalate_to_operator' && context.surface !== 'interactive_tui') {
@@ -349,7 +359,9 @@ function semanticApproval(candidate, request, context) {
   const cited = candidate.authority_anchors;
   if (cited === undefined || cited.length === 0) {
     if (context.authority?.mission) {
-      return approve('semantic_intent_match', request, { authorityAnchors: Object.freeze([]) });
+      return approve('semantic_intent_match', request, {
+        authorityAnchors: Object.freeze([]), effectAssessment: candidate.effect_assessment,
+      });
     }
     return deny(
       'authority_anchor_missing',
@@ -369,7 +381,9 @@ function semanticApproval(candidate, request, context) {
       request,
     );
   }
-  return approve('semantic_intent_match', request, { authorityAnchors: Object.freeze(unique) });
+  return approve('semantic_intent_match', request, {
+    authorityAnchors: Object.freeze(unique), effectAssessment: candidate.effect_assessment,
+  });
 }
 
 function semanticFailureCandidate(error) {
@@ -379,13 +393,15 @@ function semanticFailureCandidate(error) {
 
 function validSemanticDecision(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).some((key) => !['outcome', 'confidence', 'reason_code', 'guidance', 'authority_anchors'].includes(key))) return false;
+    || Object.keys(value).some((key) => !['outcome', 'confidence', 'reason_code', 'guidance', 'authority_anchors', 'effect_assessment'].includes(key))) return false;
   if (!OUTCOMES.has(value.outcome) || !Number.isFinite(value.confidence)
     || value.confidence < 0 || value.confidence > 1) return false;
   if (typeof value.reason_code !== 'string' || !/^[a-z0-9_.-]{1,128}$/u.test(value.reason_code)) return false;
   if (value.authority_anchors !== undefined && (!Array.isArray(value.authority_anchors)
     || value.authority_anchors.length > 4
     || !value.authority_anchors.every((anchor) => Number.isSafeInteger(anchor) && anchor >= 1))) return false;
+  if (value.effect_assessment !== undefined
+    && !['read_only', 'state_changing', 'unknown'].includes(value.effect_assessment)) return false;
   return value.guidance === undefined
     || (typeof value.guidance === 'string' && Buffer.byteLength(value.guidance, 'utf8') <= 4096);
 }
@@ -415,6 +431,8 @@ function decision(outcome, reasonCode, request, guidance, facts = null) {
     authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0, policyVersion: request.policyVersion,
     committedAt: Date.now(), expiresAt: Math.min(request.expiresAt, Date.now() + 60_000),
     ...(Array.isArray(anchors) ? { authorityAnchors: anchors } : {}),
+    ...(outcome === 'approve' && ['read_only', 'state_changing'].includes(facts?.effectAssessment)
+      ? { effectAssessment: facts.effectAssessment } : {}),
   });
 }
 

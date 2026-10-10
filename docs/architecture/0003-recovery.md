@@ -75,7 +75,9 @@ or model content. Effect certainty is derived from both live and durable correla
 tool-result shapes, including partial and unknown effects, instead of a generic
 placeholder.
 
-Reviewer-ledger outcome evidence is not a recovery counter. A blocked, failed, incomplete, or
+Reviewer-ledger outcome evidence is not a recovery counter. A nonzero exit from a reviewed
+read-only process is diagnostic evidence, not an unknown-effect obligation or a mandatory
+retry; the answer may qualify its observations. A blocked, failed, incomplete, or
 needs-input turn carries its bounded unresolved reviewed request identities into the next turn.
 The completion supervisor reads a content-free reviewer-ledger projection and rejects completion
 until an exact later execution settles the operation or `turn_finish` declares a truthful

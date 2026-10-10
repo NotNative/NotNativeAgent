@@ -50,7 +50,8 @@ async function reviewed(outcome, mission = null, reviewPosture = 'prompt') {
     semanticReviewer: { async review(input) {
       calls += 1;
       assert.equal(input.classification.scope, 'host');
-      return { outcome, confidence: 1, reason_code: 'intent_match', authority_anchors: input.mission ? [] : [1] };
+      return { outcome, confidence: 1, reason_code: 'intent_match', authority_anchors: input.mission ? [] : [1],
+        effect_assessment: 'read_only' };
     } } });
   const request = { id: 'admin-1', providerCallId: 'admin-call', toolName: 'shell_run', args: operation,
     resolved: { path: tmpdir(), readOnly: true }, authorityId: 'authority', authorityVersion: 1,

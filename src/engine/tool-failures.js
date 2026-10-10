@@ -7,7 +7,10 @@ export function updateToolFailures(active, items) {
   for (const item of items) updateFailure(active.toolFailureLedger, item);
   active.unresolvedToolFailures = [...active.toolFailureLedger.values()]
     .map((entry) => entry.reasonCode).slice(-64);
-  active.correctableToolFailures = items.filter((item) => CORRECTABLE.has(item.result.status))
+  // Why: a failed read can still supply usable diagnostic evidence. Its nonzero exit
+  // does not create an effect or a mandatory retry; the answer may qualify the evidence.
+  active.correctableToolFailures = items.filter((item) => CORRECTABLE.has(item.result.status)
+    && !(item.result.status === 'completed_nonzero' && item.result.effect_certainty === 'none'))
     .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
 }
 

@@ -111,9 +111,10 @@ export class ToolGovernor {
       const status = returnedStatus(raw);
       return normalizeResult(request, definition, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
         raw.effectCertainty,
+        reviewedReadOnly(request, decision),
         status !== 'succeeded' ? normalizeToolReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
     } catch (error) {
-      return normalizeFailure(request, definition, error, started);
+      return normalizeFailure(request, definition, error, started, reviewedReadOnly(request, decision));
     }
   }
 
@@ -308,7 +309,7 @@ function returnedStatus(raw) {
 }
 
 function normalizeResult(request, definition, status, content, metadata, started, maxOutputBytes,
-  reportedEffectCertainty = null, reasonCode = null) {
+  reportedEffectCertainty = null, semanticReadOnly = false, reasonCode = null) {
   const rawBytes = Buffer.byteLength(String(content), 'utf8');
   // Why: this is the single model-facing result boundary shared by bundled and external tools.
   // Redact before bounding so a credential cannot be split into an unrecognizable partial value.
@@ -322,7 +323,7 @@ function normalizeResult(request, definition, status, content, metadata, started
     tool_name: request.toolName, status, content: bounded,
     truncated: contentBounded,
     elapsed_ms: Math.max(0, performance.now() - started),
-    effect_certainty: returnedEffectCertainty(definition, request, status, reportedEffectCertainty),
+    effect_certainty: returnedEffectCertainty(definition, request, status, reportedEffectCertainty, semanticReadOnly),
     untrusted: true,
     metadata: contentRedacted || contentBounded ? {
       ...(safeMetadata && typeof safeMetadata === 'object' && !Array.isArray(safeMetadata) ? safeMetadata : {}),
@@ -334,10 +335,10 @@ function normalizeResult(request, definition, status, content, metadata, started
   });
 }
 
-function returnedEffectCertainty(definition, request, status, reported) {
+function returnedEffectCertainty(definition, request, status, reported, semanticReadOnly = false) {
   if (['none', 'completed', 'unknown'].includes(reported)) return reported;
   if (status === 'succeeded') return 'completed';
-  return toolRequestReadOnly(definition, request) ? 'none' : 'unknown';
+  return toolRequestReadOnly(definition, request) || semanticReadOnly ? 'none' : 'unknown';
 }
 
 function truncateUtf8(value, maximum) {
@@ -346,7 +347,7 @@ function truncateUtf8(value, maximum) {
   return bytes.subarray(0, maximum).toString('utf8').replace(/\uFFFD$/u, '');
 }
 
-function normalizeFailure(request, definition, error, started) {
+function normalizeFailure(request, definition, error, started, semanticReadOnly = false) {
   const cancelled = error.code === 'tool_cancelled';
   const timeout = error.code === 'tool_timeout';
   const invalidRequest = definition.scope === 'conversation_work'
@@ -357,7 +358,7 @@ function normalizeFailure(request, definition, error, started) {
     status: timeout ? 'timed_out' : cancelled ? 'cancelled' : invalidRequest ? 'invalid_request' : 'failed',
     content: redactText(error instanceof ContractError ? error.message : 'tool execution failed'),
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
-    effect_certainty: invalidRequest ? 'none' : effectCertainty(definition, request, error),
+    effect_certainty: invalidRequest ? 'none' : effectCertainty(definition, request, error, semanticReadOnly),
     untrusted: true, metadata: failureMetadata(error),
     reason_code: normalizeToolReasonCode(error?.code, 'executor_failure'), ledger_started: true,
   });
@@ -375,13 +376,22 @@ function failureMetadata(error) {
   return Object.freeze(redactExtensionData(Object.fromEntries(entries)));
 }
 
-function effectCertainty(definition, request, error) {
-  if (toolRequestReadOnly(definition, request)) return 'none';
+function effectCertainty(definition, request, error, semanticReadOnly = false) {
+  if (toolRequestReadOnly(definition, request) || semanticReadOnly) return 'none';
   if (error.code === 'tool_revalidation_drift') return 'none';
   return 'unknown';
 }
 
+function reviewedReadOnly(request, decision) {
+  // Security: semantic effect assessment is bound to the exact approved request by
+  // beginExecution. Administrator shell execution retains host-level uncertainty.
+  return decision?.outcome === 'approve' && decision.effectAssessment === 'read_only'
+    && ['shell_run', 'process_run'].includes(request.toolName)
+    && request.args?.privilege !== 'administrator';
+}
+
 function toolRequestReadOnly(definition, request) {
+  if (request?.toolName === 'shell_run' && request.args?.privilege === 'administrator') return false;
   return definition?.sideEffect === 'read_only' || request?.resolved?.readOnly === true;
 }
 

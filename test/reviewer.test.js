@@ -556,7 +556,7 @@ test('uncertain process effects reach semantic review even when the request soun
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'health_check_matches_intent', authority_anchors: [1] };
+    return { outcome: 'approve', confidence: 1, reason_code: 'health_check_matches_intent', authority_anchors: [1], effect_assessment: 'read_only' };
   } } });
   const result = await reviewer.review({
     ...readRequest('uncertain-health-process'), toolName: 'shell_run',
@@ -572,7 +572,30 @@ test('uncertain process effects reach semantic review even when the request soun
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'semantic_intent_match');
+  assert.equal(result.effectAssessment, 'read_only');
   assert.equal(captured.intentRelation, 'uncertain');
+});
+
+test('semantic process review denies an unclassified or unknown effect before execution', async () => {
+  for (const [assessment, reason] of [
+    [undefined, 'process_effect_unclassified'], ['unknown', 'process_effect_unknown'],
+  ]) {
+    const reviewer = new MandatoryReviewer({
+      ledger: new ReviewerLedger({ durable: false, sessionId: `effect-${reason}` }),
+      semanticReviewer: { async review() {
+        return { outcome: 'approve', confidence: 1, reason_code: 'intent_match',
+          authority_anchors: [1], ...(assessment ? { effect_assessment: assessment } : {}) };
+      } },
+    });
+    const result = await reviewer.review({
+      ...readRequest(`effect-${reason}`), toolName: 'shell_run',
+      args: { script: 'Invoke-Expression $uninspected' },
+      resolved: { path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell', readOnly: false },
+    }, { ...context, definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' } });
+    assert.equal(result.outcome, 'deny_with_guidance');
+    assert.equal(result.reasonCode, reason);
+    assert.match(result.guidance, /simpler explicit/u);
+  }
 });
 
 test('consequential process requests leave exact action authorization to semantic review', async () => {
@@ -585,7 +608,7 @@ test('consequential process requests leave exact action authorization to semanti
     const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
       captured = input;
       return semanticOutcome === 'approve'
-        ? { outcome: 'approve', confidence: 1, reason_code: 'disk_format_authorized', authority_anchors: [1] }
+        ? { outcome: 'approve', confidence: 1, reason_code: 'disk_format_authorized', authority_anchors: [1], effect_assessment: 'state_changing' }
         : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'disk_format_not_authorized', guidance: 'Do not format the disk.' };
     } } });
     const result = await reviewer.review({
@@ -790,6 +813,7 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
     outcome: { type: 'string', enum: ['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator'] },
     confidence: { type: 'number' },
     reason_code: { type: 'string' }, guidance: { type: 'string' },
+    effect_assessment: { type: 'string', enum: ['read_only', 'state_changing', 'unknown'] },
     authority_anchors: { type: 'array', minItems: 0, maxItems: 4, items: { type: 'integer', minimum: 1 } },
   });
   assert.deepEqual(scheduled, [
@@ -924,7 +948,7 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     semanticCalls += 1;
     return /npm build/iu.test(input.authenticatedIntent.at(-1)?.content ?? '')
-      ? { outcome: 'approve', confidence: 1, reason_code: 'model_allowed', authority_anchors: [2] }
+      ? { outcome: 'approve', confidence: 1, reason_code: 'model_allowed', authority_anchors: [2], effect_assessment: 'state_changing' }
       : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'intent_mismatch' };
   } } });
   const request = {
@@ -959,7 +983,7 @@ test('detached-process lifecycle intent is interpreted only by semantic review',
     captured = input;
     return semanticCalls === 1
       ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'persistent_server_not_requested', guidance: 'Use a bounded foreground command.' }
-      : { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized', authority_anchors: [2] };
+      : { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized', authority_anchors: [2], effect_assessment: 'state_changing' };
   } } });
   const request = {
     ...readRequest('detached-process'), toolName: 'shell_run',
@@ -1068,7 +1092,7 @@ test('foreground Python static servers receive ordinary semantic review instead 
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'bounded_server_workflow', authority_anchors: [1] };
+    return { outcome: 'approve', confidence: 1, reason_code: 'bounded_server_workflow', authority_anchors: [1], effect_assessment: 'state_changing' };
   } } });
   const request = {
     ...readRequest('foreground-server'), toolName: 'process_run',
@@ -1095,7 +1119,7 @@ test('a successful state mutation reopens semantic review of an otherwise equiva
     semanticCalls += 1;
     return semanticCalls === 1
       ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'prerequisite_missing', guidance: 'Install the verified prerequisite.' }
-      : { outcome: 'approve', confidence: 1, reason_code: 'prerequisite_now_present', authority_anchors: [1] };
+      : { outcome: 'approve', confidence: 1, reason_code: 'prerequisite_now_present', authority_anchors: [1], effect_assessment: 'state_changing' };
   } } });
   const definition = { name: 'process_run', sideEffect: 'unknown', scope: 'workspace' };
   const reviewContext = {
@@ -1122,7 +1146,7 @@ test('explicit SSH intent and target reach semantic review with the tool definit
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_remote_access', authority_anchors: [1] };
+    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_remote_access', authority_anchors: [1], effect_assessment: 'state_changing' };
   } } });
   const request = {
     ...readRequest('ssh-fixture-host'), toolName: 'process_run',
@@ -1152,7 +1176,7 @@ test('network discovery intent covers a diagnostic continuation from hostname to
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'network_diagnostic_matches_intent', authority_anchors: [1] };
+    return { outcome: 'approve', confidence: 1, reason_code: 'network_diagnostic_matches_intent', authority_anchors: [1], effect_assessment: 'read_only' };
   } } });
   const request = {
     ...readRequest('ping-fixture-host'), toolName: 'process_run',

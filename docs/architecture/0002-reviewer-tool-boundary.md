@@ -81,6 +81,15 @@ attempt and makes one schema-repair attempt with a separate receipt. A second ma
 fails closed. The semantic default is permissive toward a reasonable, proportionate
 means of carrying out authenticated intent; ordinary intermediate commands and targets
 derived from prior results need not be named verbatim.
+For `shell_run` and `process_run` requests that reach semantic review, authorization also
+requires an effect assessment of the exact command. The reviewer considers every command,
+pipeline stage, redirect, helper, and invoked program. A compound observation may be
+`read_only`; classification uses the most consequential operation. `unknown` or missing
+effect assessment denies the request with guidance to make the operation more explicit.
+The decision carries a `read_only` or `state_changing` assessment only after exact-request
+authorization. An ordinary reviewed read-only process that completes nonzero has no possible
+external effect but retains its diagnostic failure and output evidence. Administrator shell
+execution retains host-level effect uncertainty even when its apparent purpose is observation.
 A reviewer deadline fails the request closed with `semantic_review_timeout`, a `timed_out`
 terminal event, its configured deadline, and elapsed duration. It does not become an authority
 denial against a later equivalent request. Operator cancellation remains `turn_cancelled`.
