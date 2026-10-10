@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Setup family classified; census at one item (C1, installed-unobserved)
+
+NND `20261010-23` classifies the last scoping-fed census item: the NND setup
+route family gains three rows — the status read (`GET
+/v1/nnd/setup/status`, `nnd.setup.read`) and activation action (`POST
+/v1/nnd/setup/activate`, `nnd.setup.activate`), both bound to the
+native-setup page the desktop already renders and verified against the live
+route file, plus the not-ready request guard as an owed:false invariant: the
+guard is an NNA-side firewall whose deliberate allowlist permits only
+credential/provider configuration writes while execution is not ready, never
+secret reads or probes. Census 427 rows, remaining 1 item (dynamic
+credentials and TUI command vocabulary). Evidence: gate tests 17/17, real
+gate run passes, gates green for 874 files.
+
 ## 2026-10-10 Telemetry and NNO census closed; remaining list at 2 (C7, installed-unobserved)
 
 NND `20261010-22` closes the two scoping-fed census items. Telemetry: the

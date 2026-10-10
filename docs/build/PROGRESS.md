@@ -3,6 +3,12 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Setup family classified (C1) · NND 20261010-23 / NNA 20261009-5
+
+Setup status/activate rows bound to the rendered page plus the not-ready
+guard as an owed:false invariant. Census 427 rows, remaining 1 (dynamic
+credentials/TUI commands). Gates green for 874 files.
+
 ## 2026-10-10 · Telemetry + NNO census closed (C7) · NND 20261010-22 / NNA 20261009-5
 
 Telemetry retention's apply evidence updated to the honest no-runtime-
