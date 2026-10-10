@@ -7,7 +7,7 @@ import { readFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
-import { assertFreshSourceInstall, verifyFreshSourceService, installerNativeEnvironment } from './installer-fresh-service.mjs';
+import { assertFreshSourceInstall, verifyFreshSourceService, verifyUpgradedStoppedService, installerNativeEnvironment } from './installer-fresh-service.mjs';
 
 const sha = value => createHash('sha256').update(value.toLowerCase()).digest('hex');
 test('installer native environment drops ambient authority and keeps selected data root', () => {
@@ -71,7 +71,12 @@ else if(namespace==='nnd'&&kind==='service'&&action==='start'&&existsSync(join(p
   unlinkSync(join(process.env.NNA_HOME,'fail-start-once'));
   process.stderr.write('(node) startup warning\\n'+'nna: nnd_service_crashed\\n');process.exit(2);
 }
-else if(namespace==='nnd'&&kind==='service'&&['start','status'].includes(action))value=row.status;
+else if(namespace==='nnd'&&kind==='service'&&['start','status'].includes(action)){
+  if(action==='status'&&existsSync(join(process.env.NNA_HOME,'service-stopped'))){
+    process.stderr.write('nna: nnd_service_not_running\\n');process.exit(2);
+  }
+  value=row.status;
+}
 else if(namespace==='nnd'&&kind==='service'&&action==='attach')value={protocol:'1.0',installation_id:row.status.installation_id,
   data_id:row.status.data_id,generation:row.status.instance_id,endpoint:row.status.endpoint,ticket:row.ticket,
   expires_at:new Date(Date.now()+30000).toISOString()};
@@ -139,13 +144,35 @@ test('fresh service verifier refuses a same-version package change after guard r
 
 test('installer source gates copying and success on fresh checks, guard release and native verification', async () => {
   const source = await readFile(resolve('install.ps1'), 'utf8');
-  const initial = source.indexOf('Invoke-NndFreshPreflight $nna $targetPath');
+  const initial = source.indexOf('function Resolve-NndInstallPlan');
   const guard = source.indexOf('$installationGuard = Start-NndInstallationGuard $nna');
-  const guarded = source.indexOf('try { Invoke-NndFreshPreflight $nna $targetPath }');
+  const guarded = source.indexOf('try { $installPlan = Resolve-NndInstallPlan $nna $targetPath }');
   const copy = source.indexOf('Write-Heading "Copying source"');
   const release = source.lastIndexOf('Stop-NndInstallationGuard $installationGuard');
-  const verify = source.indexOf('$verified = Invoke-NndFreshVerification $nna $targetPath');
+  const verify = source.indexOf('$verified = Invoke-NndInstallVerification $nna $targetPath');
   const success = source.indexOf('Write-Heading "Fresh NND service verified"');
   assert.ok(initial > 0 && initial < guard && guard < guarded && guarded < copy
     && copy < release && release < verify && verify < success);
+  // Upgrade shapes live in the same flow: the plan resolver may stop the old
+  // service and deactivate it, and a stopped prior service must verify with
+  // the stopped-service helper, never the service-starting one.
+  assert.ok(source.indexOf("Resolve-NndInstallPlan") < source.indexOf('Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source'));
+  assert.ok(source.indexOf("Invoke-NndRegistration 'deactivate' $status.root $SelectedNna") > 0);
+  const stoppedVerify = source.indexOf("if ($StartService) { 'verify' } else { 'verify-stopped' }");
+  assert.ok(stoppedVerify > 0 && stoppedVerify < verify);
 });
+
+test('upgraded registration without a running service verifies stopped and rejects a running one',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t);
+    await mkdir(f.target, { recursive: true });
+    await f.register();
+    await writeFile(join(f.data, 'service-stopped'), 'yes');
+    const result = await verifyUpgradedStoppedService(f.root, f.target, f.installationId, f.dataId);
+    assert.equal(result.state, 'upgrade_registered_stopped');
+    assert.equal(result.service_state, 'stopped');
+    assert.equal(result.installation_id, f.installationId);
+    await rm(join(f.data, 'service-stopped'));
+    await assert.rejects(verifyUpgradedStoppedService(f.root, f.target, f.installationId, f.dataId),
+      /upgrade_service_started_unexpectedly/u);
+  });

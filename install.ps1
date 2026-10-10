@@ -21,8 +21,11 @@
 # PowerShell error stream - $ErrorActionPreference Stop would otherwise abort
 # on harmless build-tool output (proven failure mode).
 #
-# This source-build path admits only a fresh NND target and absent native
-# registration. Existing or interrupted installations require diagnosis; this
+# This source-build path performs a fresh install on a clean machine and an
+# NNA-shaped in-place upgrade when a registration already exists: the running
+# service is stopped, the old package is deactivated, and the copy/build/
+# activate flow replaces it; a service that was not running stays stopped.
+# A non-empty fresh target with no registration still requires diagnosis; this
 # script never treats a merge-copy as a safe upgrade. Immutable prebuilt staging
 # remains a separate operation and does not activate the staged slot.
 # =============================================================================
@@ -352,20 +355,69 @@ function Invoke-NndFreshPreflight($SelectedNna, [string]$Root) {
     }
 }
 
-function Invoke-NndFreshVerification($SelectedNna, [string]$Root) {
+# One command, two shapes, matching the NNA installer: a clean machine gets a
+# fresh install; an existing registration gets replaced in place - stop the
+# running service first (a stopped one is not restarted later), deactivate the
+# old package, then fall through to the normal copy/build/activate flow.
+function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
+    $helper = Join-Path $Source 'scripts\installer-fresh-service.mjs'
+    $exit = Invoke-Native $SelectedNna.Node @($helper, 'preflight', $SelectedNna.InstallRoot,
+        $Root, $nnaCapabilities.installation_id, $nnaCapabilities.data_id) 'fresh-preflight-errors.log' 'fresh-preflight-out.log'
+    if ($exit -eq 0) {
+        Write-Good 'Fresh target confirmed'
+        return @{ Mode = 'fresh'; WasRunning = $false; PreviousVersion = $null }
+    }
+    $failures = Get-Content -LiteralPath 'fresh-preflight-errors.log' -Raw -ErrorAction SilentlyContinue
+    if ($failures -notmatch 'fresh_registration_exists') {
+        Show-NativeFailures 'fresh-preflight-errors.log' 4
+        throw 'Fresh NND installation refused: the selected package, target, or NNA identity is already in use or unresolved. Existing installs require explicit recovery or upgrade; no files were copied.'
+    }
+    $status = Get-NndRegistrationStatus $SelectedNna
+    if ($status.registered -ne $true -or !$status.root) {
+        throw 'Native registration exists but is unreadable; resolve it explicitly before installing NND.'
+    }
+    $wasRunning = $false
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $SelectedNna.Node $SelectedNna.Cli nnd service status $status.root *> $null
+        $wasRunning = ($LASTEXITCODE -eq 0)
+    } finally { $ErrorActionPreference = $oldPreference }
+    if ($wasRunning) {
+        Write-Host "  Existing NND $status.version service is running; stopping it for the in-place replacement."
+        Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source 'scripts\installer-wait-stopped.mjs')
+    } else {
+        Write-Host "  Existing NND $status.version registration found; the service is not running and will not be started."
+    }
+    Invoke-NndRegistration 'deactivate' $status.root $SelectedNna
+    Write-Good "Previous NND package $($status.version) deactivated"
+    return @{ Mode = 'upgrade'; WasRunning = $wasRunning; PreviousVersion = $status.version }
+}
+
+function Invoke-NndInstallVerification($SelectedNna, [string]$Root, [bool]$StartService) {
     $helper = Join-Path $Root 'scripts\installer-fresh-service.mjs'
-    $exit = Invoke-Native $SelectedNna.Node @($helper, 'verify', $SelectedNna.InstallRoot,
+    $mode = if ($StartService) { 'verify' } else { 'verify-stopped' }
+    $exit = Invoke-Native $SelectedNna.Node @($helper, $mode, $SelectedNna.InstallRoot,
         $Root, $nnaCapabilities.installation_id, $nnaCapabilities.data_id) 'fresh-verify-errors.log' 'fresh-verify-out.log'
     if ($exit -ne 0) {
         Show-NativeFailures 'fresh-verify-errors.log' 4
-        throw 'NND registration exists but fresh service verification did not complete. Installation is incomplete; preserve the selected NNA and NND paths and inspect native service status before any retry. No upgrade or activation success was claimed.'
+        throw 'NND registration exists but service verification did not complete. Installation is incomplete; preserve the selected NNA and NND paths and inspect native service status before any retry. No upgrade or activation success was claimed.'
     }
     $result = Get-Content -LiteralPath 'fresh-verify-out.log' -Raw | ConvertFrom-Json
-    if ($result.state -cne 'fresh_service_verified' -or
-        $result.installation_id -cne $nnaCapabilities.installation_id -or
-        $result.data_id -cne $nnaCapabilities.data_id -or
-        $result.service_state -cnotin @('ready', 'setup_required')) {
-        throw 'Fresh NND service result changed; installation remains incomplete.'
+    if ($StartService) {
+        if ($result.state -cne 'fresh_service_verified' -or
+            $result.installation_id -cne $nnaCapabilities.installation_id -or
+            $result.data_id -cne $nnaCapabilities.data_id -or
+            $result.service_state -cnotin @('ready', 'setup_required')) {
+            throw 'Fresh NND service result changed; installation remains incomplete.'
+        }
+    } else {
+        if ($result.state -cne 'upgrade_registered_stopped' -or
+            $result.installation_id -cne $nnaCapabilities.installation_id -or
+            $result.data_id -cne $nnaCapabilities.data_id -or
+            $result.service_state -cne 'stopped') {
+            throw 'Upgraded NND registration result changed; installation remains incomplete.'
+        }
     }
     return $result
 }
@@ -599,7 +651,7 @@ if (!$guardMatchesPreflight) {
     Stop-NndInstallationGuard $installationGuard
     throw 'Selected NNA identity changed between compatibility preflight and installation guard; NND was not installed.'
 }
-try { Invoke-NndFreshPreflight $nna $targetPath }
+try { $installPlan = Resolve-NndInstallPlan $nna $targetPath }
 catch { Stop-NndInstallationGuard $installationGuard; throw }
 $installationComplete = $false
 try {
@@ -719,7 +771,7 @@ foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
         if (!(Test-Path -LiteralPath $anchor)) { New-Item -ItemType Directory -Path $anchor | Out-Null }
         if (!(Test-Path -LiteralPath $anchor -PathType Container) -or
             (Get-Item -LiteralPath $anchor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or
-            (Test-Path -LiteralPath (Join-Path $anchor 'NotNativeDesktop.lnk'))) {
+            ($installPlan.Mode -eq 'fresh' -and (Test-Path -LiteralPath (Join-Path $anchor 'NotNativeDesktop.lnk')))) {
             throw 'Disposable shortcut target is not fresh and safe.'
         }
     }
@@ -742,13 +794,21 @@ $installationComplete = $true
 
 # The guard's marker denies native startup. Only after its exact release can
 # the selected NNA start, attach and verify the GUI with a one-use ticket.
-$verified = Invoke-NndFreshVerification $nna $targetPath
-Write-Heading "Fresh NND service verified"
-Write-Host "  service   : $($verified.service_state)"
-Write-Host "  browser   : $($verified.endpoint)"
-Write-Host "  browser sign-in: in PowerShell run:"
-Write-Host "    & `"$($nna.Node)`" `"$($nna.Cli)`" nnd service ui-ticket `"$($nna.InstallRoot)`""
-Write-Host "  Paste only the returned ticket value into the browser's Native code form. Keep it out of URLs and logs."
+# An upgrade whose service was already stopped stays stopped (NNA contract);
+# a fresh install or an upgrade of a running service is started and verified.
+$verified = Invoke-NndInstallVerification $nna $targetPath ($installPlan.Mode -eq 'fresh' -or $installPlan.WasRunning)
+if ($verified.service_state -eq 'stopped') {
+    Write-Heading "Upgraded NND registered (service stays stopped)"
+    Write-Host "  version   : $($verified.version)"
+    Write-Host "  start     : & `"$($nna.Node)`" `"$($nna.Cli)`" nnd service start `"$($nna.InstallRoot)`""
+} else {
+    Write-Heading "Fresh NND service verified"
+    Write-Host "  service   : $($verified.service_state)"
+    Write-Host "  browser   : $($verified.endpoint)"
+    Write-Host "  browser sign-in: in PowerShell run:"
+    Write-Host "    & `"$($nna.Node)`" `"$($nna.Cli)`" nnd service ui-ticket `"$($nna.InstallRoot)`""
+    Write-Host "  Paste only the returned ticket value into the browser's Native code form. Keep it out of URLs and logs."
+}
 Write-Host "  NNA node  : $($nna.Node)"
 Write-Host "  NNA CLI   : $($nna.Cli)"
 Write-Host "  NNA root  : $($nna.InstallRoot)"

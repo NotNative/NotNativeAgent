@@ -148,13 +148,34 @@ export async function verifyFreshSourceService(root, target, installationId, dat
     service_state: final.service_state, version: current.version });
 }
 
+/** Upgrade completion without a service start: the previous install was not
+ * running, so the NNA-shaped contract keeps it stopped. Registration and
+ * package validity are verified; an unexpectedly running service fails. */
+export async function verifyUpgradedStoppedService(root, target, installationId, dataId) {
+  const runtime = selectedRuntime(root, installationId, dataId);
+  const canonicalTarget = await realpath(target);
+  const current = await registered(runtime);
+  if (!current.registered || current.valid !== true || !same(current.root, canonicalTarget)
+    || typeof current.version !== 'string' || !/^\d{8}-[1-9]\d{0,5}$/u.test(current.version)) fail('fresh_registration_invalid');
+  try {
+    await command(runtime, ['service', 'status', runtime.root]);
+    fail('upgrade_service_started_unexpectedly');
+  } catch (error) {
+    if (error.message !== 'nnd_service_not_running') throw error;
+  }
+  return Object.freeze({ state: 'upgrade_registered_stopped', installation_id: runtime.installation_id,
+    data_id: runtime.data_id, version: current.version, service_state: 'stopped' });
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [mode, root, target, installationId, dataId] = process.argv.slice(2);
   try {
-    if (process.argv.length !== 7 || !['preflight', 'verify'].includes(mode)) fail('fresh_usage_invalid');
+    if (process.argv.length !== 7 || !['preflight', 'verify', 'verify-stopped'].includes(mode)) fail('fresh_usage_invalid');
     const result = mode === 'preflight'
       ? await assertFreshSourceInstall(root, target, installationId, dataId)
-      : await verifyFreshSourceService(root, target, installationId, dataId);
+      : mode === 'verify'
+        ? await verifyFreshSourceService(root, target, installationId, dataId)
+        : await verifyUpgradedStoppedService(root, target, installationId, dataId);
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
     process.stderr.write(`nnd: ${error?.message?.match(/^[a-z][a-z0-9_]{1,100}$/u)?.[0] ?? 'fresh_install_unverified'}\n`);

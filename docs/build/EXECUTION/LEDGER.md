@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Installer upgrade-in-place (operator request, implemented-unverified)
+
+The source installer no longer refuses when an NND registration already
+exists. `Resolve-NndInstallPlan` keeps the fresh path for clean machines and,
+on `fresh_registration_exists`, follows the NNA installer shape: detect the
+running service via `nnd service status` on the registered root, stop it
+(NNA stop receipt + quiesce wait) only if it was running, deactivate the old
+package, then fall through to the unchanged copy/build/activate flow.
+Completion verification is NNA-contract-shaped: a previously running service
+is restarted and verified end-to-end (`fresh_service_verified`); a previously
+stopped one is never started — new `verify-stopped` mode validates the new
+registration is active and the service stays down
+(`upgrade_registered_stopped`, failing on an unexpected running service).
+Shortcut creation now overwrites existing links on upgrade (fresh path still
+refuses an existing link). A non-empty fresh target with no registration is
+still refused as explicit-recovery. `installer-fresh-service.test.mjs` is 9/9
+(stopped-verify pinned); the other installer suites match their pre-existing
+baseline exactly (31/20/9; the 9 are PowerShell execution-policy failures in
+this harness, identical before and after the change). Implemented-unverified:
+the real upgrade journey needs an installed observation before verified.
+
 ## 2026-10-10 Source-side MVP wrap-up (session close-out)
 
 Final coherence sweep: the settings census is fully closed (429 rows,
