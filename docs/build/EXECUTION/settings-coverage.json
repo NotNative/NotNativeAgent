@@ -24,9 +24,7 @@
  },
  "remaining_census": [
   "Dynamic credentials and TUI command vocabulary (repository environment reads and CLI positional subcommands are enforced by the gate).",
-  "Nested telemetry retention, route budgets/fallbacks, MCP effects; per-field bounds/default/null/reset/apply consumers.",
-  "NNO activation, full installation/startup/discovery schemas and evolving L2 contracts.",
-  "Cross-check operator docs, endpoint permissions, UI controls and tests."
+  "NND setup-route families not yet rowed."
  ],
  "known_mismatches": [
   {
@@ -46,6 +44,36 @@
    "path": "src/skills-cli.js",
    "issue": "Skills surface is read-only: the CLI accepts only the list action and the skills routes are GET-only, so F8.3 install/update/remove/edit and effective-revision reporting have no native lifecycle contract to build against.",
    "work_package": "C5"
+  },
+  {
+   "product": "NND",
+   "path": "docs/build/EXECUTION/03-settings.md",
+   "issue": "Cross-check audit 20261010-20 (deep sample of ALPHA.md, NOTES/03, NOTES/18, EXECUTION/03, EXECUTION/05, 11 permission families, 20+ route families) found and fixed two stale permission tokens and two dead /api client paths; residual: NOTES 04-17/19-23 endpoint references and remote-access surface unsampled.",
+   "work_package": "C7"
+  },
+  {
+   "product": "NNA",
+   "path": "src/nno-integration-activation.js",
+   "issue": "NNO activation is an NNA-internal, NNO-owned contract (protocol 1.0, fully specified); NND owes no settings surface for it. Census tracks only landed contracts; NNA NND-integration ADRs 0023-0054 are still landing and remain a standing dependency note, not a work item.",
+   "work_package": "C7"
+  },
+  {
+   "product": "NNA",
+   "path": "src/nno-integration-activation.js",
+   "issue": "NNO activation is an NNA-internal, NNO-owned contract (protocol 1.0, fully specified); NND owes no settings surface for it. Census tracks only landed contracts; NNA NND-integration ADRs 0023-0054 are still landing and remain a standing dependency note, not a work item.",
+   "work_package": "C7"
+  },
+  {
+   "product": "NNA",
+   "path": "src/nno-integration-activation.js",
+   "issue": "NNO activation is an NNA-internal, NNO-owned contract (protocol 1.0, fully specified); NND owes no settings surface for it. Census tracks only landed contracts; NNA NND-integration ADRs 0023-0054 are still landing and remain a standing dependency note, not a work item.",
+   "work_package": "C7"
+  },
+  {
+   "product": "NNA",
+   "path": "src/nno-integration-activation.js",
+   "issue": "NNO activation is an NNA-internal, NNO-owned contract (protocol 1.0, fully specified); NND owes no settings surface for it. Census tracks only landed contracts; NNA NND-integration ADRs 0023-0054 are still landing and remain a standing dependency note, not a work item.",
+   "work_package": "C7"
   }
  ],
  "rows": [
@@ -6898,7 +6926,7 @@
    ],
    "apply": {
     "class": "unverified",
-    "evidence": "The resolved block is carried into the canonical configuration by provider/route-configuration.js, but no NNA runtime path reads telemetry.enabled or telemetry.destination, and src/runtime-config.js republishes nothing for it; NNA catalog metadata therefore declares the application class unverified and the desktop records the values without claiming a moment."
+    "evidence": "Validated when enabled (optional non-empty string) but no runtime consumer found in NNA: the forensic telemetry store derives retention from install-option maxAgeMs (src/engine/telemetry.js:6-12, src/forensic-telemetry.js:39,166-168); the catalog acceptance itself says else_ignored."
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves explicit and effective values with provenance for every catalog field; edits ride POST /v1/nnd/configuration/preview then /save with the change receipt)",
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
@@ -6921,7 +6949,7 @@
      "NNA test/nnd-configuration-view.test.js proves the three telemetry paths resolve to false and two nulls by default, carry user values with source user including the destination URL, refuse to enable without a string destination with telemetry_destination_required, and resolve destination and retention to null while the explicit value stays visible when telemetry is disabled; the NND page test renders all three rows with those values"
     ]
    },
-   "notes": "Pinned 20261007-9: null by default; an optional nonempty string while enabled, otherwise ignored and resolved to null. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata. 20261010-4: the field edits through a typed telemetry block (checkbox, credential-free URL mirror from config-bounds.js telemetryDestination, nonempty retention) instead of the generic JSON textarea; the mirror blocks wrong drafts before the wire and the engine keeps revalidating on save. The family application class stays NNA's own unverified declaration."
+   "notes": "Pinned 20261007-9: null by default; an optional nonempty string while enabled, otherwise ignored and resolved to null. The inventory page renders the row with its explicit and effective values; the destination is served in the clear by the native projector, so the row keeps the private sensitivity label. NNA owns the rules and keeps the application class unverified per its own catalog metadata. 20261010-4: the field edits through a typed telemetry block (checkbox, credential-free URL mirror from config-bounds.js telemetryDestination, nonempty retention) instead of the generic JSON textarea; the mirror blocks wrong drafts before the wire and the engine keeps revalidating on save. The family application class stays NNA's own unverified declaration. [20261010-22: apply evidence updated to the honest no-consumer finding.] [20261010-22: apply evidence updated to the honest no-consumer finding.] [20261010-22: apply evidence updated to the honest no-consumer finding.]"
   },
   {
    "id": "manifest_reviewer_ledger:reviewer_ledger.retention_entries",
@@ -19446,6 +19474,99 @@
     "validator": "deleteUnreferencedSecret"
    },
    "notes": "Added 20261010-20; corrected 20261010-21: the guard fires on experience-engine deleteSecret only — the broker DELETE route is unguarded and no desktop surface forwards secret_in_use."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "telemetry_invariant",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Destination grammar: credential-free http(s) URL, length bound; enforced at manifest resolution."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "manifest.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/config-bounds.js:telemetryDestination",
+    "justification": "The destination grammar (credential-free http(s) URL with a length bound, enforced inside NNA manifest resolution) is engine-internal validation; the telemetry editor renders the applied value and forwards NNA rejections, so duplicating the grammar as a desktop control would add no coverage."
+   },
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-22 telemetry/NNO census)",
+   "state": "open",
+   "id": "manifest_telemetry:telemetry.destination.bounds",
+   "key": "telemetry.destination.bounds",
+   "source": {
+    "product": "NNA",
+    "path": "src/config-bounds.js",
+    "validator": "telemetryDestination"
+   },
+   "notes": "Added 20261010-22: bounds companion to the manifest_telemetry:telemetry.destination projection row."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "telemetry_invariant",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Apply consumer: enabled telemetry requires an explicit destination; disabling nulls destination and retention."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "manifest.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/config.js:validateTelemetry",
+    "justification": "The enable/disable coupling lives in NNA validateTelemetry: an enabled telemetry block requires an explicit destination (telemetry_destination_required) and a disabled block nulls destination and retention; the desktop telemetry page renders the resolved shape, so the coupling is classified as an invariant rather than re-implemented client-side."
+   },
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-22 telemetry/NNO census)",
+   "state": "open",
+   "id": "manifest_telemetry:telemetry.enabled.apply",
+   "key": "telemetry.enabled.apply",
+   "source": {
+    "product": "NNA",
+    "path": "src/config.js",
+    "validator": "validateTelemetry"
+   },
+   "notes": "Added 20261010-22: apply-consumer companion to manifest_telemetry:telemetry.enabled."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "telemetry_invariant",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Disposition: MCP tool calls emit telemetry events through engine.telemetry.record (tools/loop.js) but no mechanism makes MCP servers consume or alter telemetry configuration (no telemetry reference in src/mcp*.js or nnd-mcp*.js)."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "manifest.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/tools/loop.js:engine.telemetry.record",
+    "justification": "The census item asked whether telemetry settings have MCP effects; verification found MCP is a telemetry observer (tool calls emit engine.telemetry.record events) with no config-level coupling in either direction, so the honest disposition is that no surface or projection is owed for an effect that does not exist."
+   },
+   "work_package": "C1",
+   "implementation_package": "C1 stage 2 (20261010-22 telemetry/NNO census)",
+   "state": "open",
+   "id": "manifest_telemetry:mcp_effects",
+   "key": "mcp_effects",
+   "source": {
+    "product": "NNA",
+    "path": "src/tools/loop.js",
+    "validator": "engine.telemetry.record"
+   },
+   "notes": "Added 20261010-22: closes the MCP-effects question as an observational adjacency, not a config effect."
   }
  ]
 }

@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Telemetry + NNO census closed (C7) · NND 20261010-22 / NNA 20261009-5
+
+Telemetry retention's apply evidence updated to the honest no-runtime-
+consumer finding; destination bounds, enable coupling, and the
+observational-only MCP adjacency classified; NNO item retired as NNA-internal
+with the L2 ADR series as a standing dependency note. Census 424 rows,
+remaining 2. Gates green for 874 files.
+
 ## 2026-10-10 · Secret schema classified; /api fetch fix (C5 + audit) · NND 20261010-20 / NNA 20261009-5
 
 Seven evidenced secret-schema rows close the remaining census item (421

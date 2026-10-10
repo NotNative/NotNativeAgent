@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Telemetry and NNO census closed; remaining list at 2 (C7, installed-unobserved)
+
+NND `20261010-22` closes the two scoping-fed census items. Telemetry: the
+nested retention row's apply evidence is updated to the honest finding that
+`telemetry.retention` is validated but has no found runtime consumer (the
+forensic store derives retention from install-option `maxAgeMs`), a
+bounds-invariant row records the credential-free destination grammar, an
+apply-consumer row records the enabled-requires-destination coupling, and an
+MCP-effects row records the verified adjacency — MCP tool calls emit
+telemetry events (`engine.telemetry.record`) but no config-level coupling
+exists in either direction (census 424 rows). NNO: the item is retired —
+NNO activation is an NNA-internal, NNO-owned contract (protocol 1.0, fully
+specified) for which NND owes no settings surface; the L2 ADR series
+landing on NNA is recorded as a standing dependency note, and the only live
+follow-up ("NND setup-route families not yet rowed") replaces the item.
+Remaining census: 2 items (dynamic credentials/TUI commands; setup-route
+families). Evidence: gate tests 17/17, real gate run passes, gates green
+for 874 files.
+
 ## 2026-10-10 Secret-schema review corrections (C5, installed-unobserved)
 
 NND `20261010-21` applies a second reviewer's findings on the secret rows:
