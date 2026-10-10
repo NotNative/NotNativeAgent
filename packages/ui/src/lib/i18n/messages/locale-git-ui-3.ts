@@ -2,6 +2,13 @@
 import type { PartialDictionary } from './en-git-ui.ts';
 
 export const plGitUi: PartialDictionary = {
+  'gitUi.stashes': "Schowki",
+  'gitUi.stashes.title': "Schowki",
+  'gitUi.stashes.create': "Schowaj zmiany",
+  'gitUi.stashes.apply': "Zastosuj",
+  'gitUi.stashes.drop': "Usuń",
+  'gitUi.stashes.empty': "Brak schowków.",
+  'gitUi.stashes.failed': "Operacja schowka nie powiodła się.",
   'gitUi.history.title': "Commit-Verlauf",
   'gitUi.history.logSize': "Protokollgröße",
   'gitUi.history.loadMore': "Mehr laden",
@@ -122,6 +129,13 @@ export const plGitUi: PartialDictionary = {
 };
 
 export const jaGitUi: PartialDictionary = {
+  'gitUi.stashes': "スタッシュ",
+  'gitUi.stashes.title': "スタッシュ",
+  'gitUi.stashes.create': "変更をスタッシュ",
+  'gitUi.stashes.apply': "適用",
+  'gitUi.stashes.drop': "削除",
+  'gitUi.stashes.empty': "スタッシュはありません。",
+  'gitUi.stashes.failed': "スタッシュ操作に失敗しました。",
   'gitUi.history.title': "Commit-Verlauf",
   'gitUi.history.logSize': "Protokollgröße",
   'gitUi.history.loadMore': "Mehr laden",
@@ -242,6 +256,13 @@ export const jaGitUi: PartialDictionary = {
 };
 
 export const trGitUi: PartialDictionary = {
+  'gitUi.stashes': "Stash’lar",
+  'gitUi.stashes.title': "Stash’lar",
+  'gitUi.stashes.create': "Değişiklikleri stash’la",
+  'gitUi.stashes.apply': "Uygula",
+  'gitUi.stashes.drop': "Sil",
+  'gitUi.stashes.empty': "Stash yok.",
+  'gitUi.stashes.failed': "Stash işlemi başarısız oldu.",
   'gitUi.history.title': "Commit-Verlauf",
   'gitUi.history.logSize': "Protokollgröße",
   'gitUi.history.loadMore': "Mehr laden",

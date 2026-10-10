@@ -292,6 +292,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
             data-testid="git-sync" onClick={syncBranch}>{busy === 'sync' ? t('gitUi.syncing') : t('gitUi.syncBranch')}</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>{t('gitUi.history')}</button>
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>{t('gitUi.branches')}</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-stashes" onClick={() => setDialog('stashes')}>{t('gitUi.stashes')}</button>
           {onOpenWalkthrough ? <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-walkthrough" onClick={onOpenWalkthrough}>{t('gitUi.walkthrough')}</button> : null}
         </span>
       </header>
@@ -389,7 +390,7 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         </aside>
       </div>
       <GitDialogHost directory={directory} onClose={() => setDialog(null)} dialog={dialog}
-        onSwitchBranch={changeBranch} switchingDisabled={statusStale || busy !== ''} />
+        onSwitchBranch={changeBranch} switchingDisabled={statusStale || busy !== ''} onApplied={() => void refresh()} />
       {confirmRevert !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="git-revert-dialog">
           <div className="w-80 rounded-lg border border-border/60 bg-card p-4">

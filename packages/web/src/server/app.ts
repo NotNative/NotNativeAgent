@@ -21,6 +21,7 @@ import { registerGitWalkthroughSnapshotRoute } from './routes/git-walkthrough-sn
 import { registerGitWalkthroughGenerateRoute } from './routes/git-walkthrough-generate.ts';
 import { registerGitRoutes } from './routes/git.ts';
 import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
+import { registerGitStashRoutes } from './routes/git-stash.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerAgentMemoryRoutes } from './routes/agent-memory.ts';
 import { registerAgentToolCallback } from './routes/agent-tool.ts';
@@ -395,6 +396,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerGitWalkthroughGenerateRoute(app);
   registerGitRoutes(app);
   registerGitWorktreeRoutes(app);
+  registerGitStashRoutes(app);
   registerTerminalRoutes(app, terminal);
   registerDevServerRoutes(app, harnessPort === undefined ? undefined
     : createDevServerScanner({ ownPorts: () => [ENV.port, harnessPort] }));

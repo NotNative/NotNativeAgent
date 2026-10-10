@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:721c1a884645ea6c52562ce4341f104a14fabfc2ab745a993045bc02eaa40815",
+  "source_digest": "sha256:2094a27c7ee3fd6ec723df354b44692bee9577a7a9bcf8f02ec4ade5e2c07c7c",
   "counts": {
-    "modules": 877,
+    "modules": 881,
     "component_edges": 17
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 233
+      "module_count": 234
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 233
+      "module_count": 234
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 90
+      "module_count": 92
     },
     {
       "id": "foundation",
@@ -3405,13 +3405,22 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/i18n/messages/locale-git-ui-4.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en-git-ui.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/i18n/messages/locale-git-ui.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/i18n/messages/locale-git-ui-1.ts",
         "packages/ui/src/lib/i18n/messages/locale-git-ui-2.ts",
-        "packages/ui/src/lib/i18n/messages/locale-git-ui-3.ts"
+        "packages/ui/src/lib/i18n/messages/locale-git-ui-3.ts",
+        "packages/ui/src/lib/i18n/messages/locale-git-ui-4.ts"
       ]
     },
     {
@@ -5846,6 +5855,7 @@
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git-diff.ts",
+        "packages/web/src/server/routes/git-stash.ts",
         "packages/web/src/server/routes/git-sync.ts",
         "packages/web/src/server/routes/git-walkthrough-generate.ts",
         "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
@@ -7301,6 +7311,14 @@
       ]
     },
     {
+      "path": "packages/web/src/server/routes/git-stash.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/routes/git.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/routes/git-sync.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -8103,6 +8121,12 @@
       "imports": []
     },
     {
+      "path": "scripts/add-stash-locale-keys.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "scripts/bump-version.js",
       "component": "gates",
       "entrypoint": false,
@@ -8690,6 +8714,12 @@
     },
     {
       "path": "scripts/smoke-workspace-identity.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/split-git-ui-locales.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": []

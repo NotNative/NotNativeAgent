@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 F6.3 stash lifecycle (F6, implemented-unverified)
+
+NND `20261010-29` closes the F6.3 stash gap: new server routes list stashes
+(`stash list` with subjects), create one (`stash push -m`, tracked changes,
+200 empty-state when git reports nothing to save), and apply or drop a
+validated `stash@{n}` ref (regex-checked, `execFileSync` array args, 200-
+char message cap; drop removes the entry without applying — applying twice
+over an already-applied patch would refuse, so apply and drop are separate
+actions). The Git workbench gains a Stashes dialog (list, apply, drop,
+create) wired through the facade and web API adapter, refreshing workbench
+status after apply; seven new i18n keys propagate to English plus all 11
+locale catalogs, and the two oversized locale files split under the 500-
+line gate cap (tracked one-off scripts). Three isolated-repo route tests
+(no network) plus the 43-test git UI suite green; both tsc clean; gates
+green for 881 modules. Reviewer verdict SHIP (injection safety, containment
+precedent, and locale parity cleared); its locale-sensitivity advisory on
+git's "No local changes to save" message is recorded here as a known
+limitation for the daytime verification pass. Implemented-unverified.
+
 ## 2026-10-10 F6.3 image diffs in the file preview (F6, implemented-unverified)
 
 NND `20261010-27` closes the F6.3 image-diff gap: when a binary patch

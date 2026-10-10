@@ -3,6 +3,13 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · F6.3 stash lifecycle · NND 20261010-29 / NNA 20261009-5
+
+Stash list/create/apply/drop behind /api/git/stashes* with a workbench
+dialog; 7 i18n keys across 12 catalogs; oversized locale files split under
+the line gate. Reviewer SHIP; git locale-message advisory recorded.
+Implemented-unverified. Gates green for 881 modules.
+
 ## 2026-10-10 · F6.3 image diffs in file preview · NND 20261010-27 / NNA 20261009-5
 
 Binary-patch image files show before/after from /api/git/file-diff on the

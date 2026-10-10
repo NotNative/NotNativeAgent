@@ -48,3 +48,12 @@ export function commitChanges(directory: string, message: string) {
 export function syncGitBranch(directory: string) {
   return git().syncGitBranch(directory);
 }
+export function fetchGitStashes(directory: string) {
+  return git().fetchGitStashes(directory);
+}
+export function createGitStash(directory: string, message: string | null) {
+  return git().createGitStash(directory, message);
+}
+export function applyGitStash(directory: string, ref: string, drop: boolean) {
+  return git().applyGitStash(directory, ref, drop);
+}

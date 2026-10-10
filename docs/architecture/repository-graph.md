@@ -37,11 +37,11 @@ graph LR
 |---|---:|---|---|
 | Client sync and state engine | 47 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
 | Harness SDK facade | 42 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 233 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| Runtime adaptation | 234 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
 | UI shell | 219 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
-| Web server | 233 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
+| Web server | 234 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
-| Quality gates | 90 | Client sync and state engine, Runtime adaptation, Web server | — |
+| Quality gates | 92 | Client sync and state engine, Runtime adaptation, Web server | — |
 | Product foundation | 0 | — | — |
 
 ## Strongest observed component dependencies
@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:721c1a884645ea6c52562ce4341f104a14fabfc2ab745a993045bc02eaa40815`.
+Source fingerprint: `sha256:2094a27c7ee3fd6ec723df354b44692bee9577a7a9bcf8f02ec4ade5e2c07c7c`.

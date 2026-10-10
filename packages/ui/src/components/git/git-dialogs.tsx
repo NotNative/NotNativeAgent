@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  fetchGitBranches, fetchGitLog, type GitBranch,
+  applyGitStash, createGitStash, fetchGitBranches, fetchGitLog, fetchGitStashes, type GitBranch,
 } from '../../lib/git/api';
 import { useI18n } from '../../lib/i18n/context.tsx';
 
@@ -16,17 +16,19 @@ type GitLogEntry = NonNullable<Awaited<ReturnType<typeof fetchGitLog>>>['commits
 
 const MAX_COUNT_STEPS = [25, 50, 100] as const;
 
-export type GitDialogKind = 'history' | 'branches' | null;
+export type GitDialogKind = 'history' | 'branches' | 'stashes' | null;
 
-export function GitDialogHost({ directory, onClose, dialog, onSwitchBranch, switchingDisabled = false }: {
+export function GitDialogHost({ directory, onClose, dialog, onSwitchBranch, switchingDisabled = false, onApplied }: {
   directory: string;
   onClose: () => void;
   dialog: GitDialogKind;
   onSwitchBranch?: (branch: string, expectedBranch: string, create?: boolean) => Promise<void>;
   switchingDisabled?: boolean;
+  onApplied?: () => void;
 }): ReactNode {
   if (directory.length === 0 || dialog === null) return null;
   if (dialog === 'history') return <GitHistoryDialog directory={directory} onClose={onClose} />;
+  if (dialog === 'stashes') return <GitStashesDialog directory={directory} onClose={onClose} onApplied={onApplied} />;
   return <GitBranchesDialog key={directory} directory={directory} onClose={onClose} onSwitchBranch={onSwitchBranch} switchingDisabled={switchingDisabled} />;
 }
 
@@ -243,6 +245,90 @@ function BranchGroup({ groupId, label, names, current, onSwitch, switchingDisabl
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** F6.3 stash lifecycle: list/create/apply/drop against /api/git/stashes.
+ * Apply keeps the stash entry; drop removes it without applying. */
+function GitStashesDialog({ directory, onClose, onApplied }: {
+  directory: string; onClose: () => void; onApplied?: () => void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [stashes, setStashes] = useState<{ ref: string; subject: string }[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [actionFailed, setActionFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async (): Promise<void> => {
+    setFailed(false);
+    try {
+      const result = await fetchGitStashes(directory);
+      if (result === null) { setFailed(true); return; }
+      setStashes(Array.isArray(result.stashes) ? result.stashes : []);
+    } catch {
+      setFailed(true);
+    }
+  }, [directory]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const act = useCallback(async (action: () => Promise<unknown>): Promise<void> => {
+    setBusy(true);
+    setActionFailed(false);
+    try {
+      await action();
+      await load();
+      onApplied?.();
+    } catch {
+      setActionFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }, [load, onApplied]);
+
+  return (
+    <DialogShell title={t('gitUi.stashes.title')} onClose={onClose} testid="git-stashes-dialog">
+      <div className="mb-2 flex justify-end">
+        <button type="button" disabled={busy} data-testid="git-stash-create"
+          className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={() => void act(() => createGitStash(directory, null))}>
+          {t('gitUi.stashes.create')}
+        </button>
+      </div>
+      {failed ? <div role="alert" className="text-xs text-status-error" data-testid="git-stashes-failed">{t('gitUi.stashes.failed')}</div> : null}
+      {actionFailed ? <div role="alert" className="text-xs text-status-error" data-testid="git-stash-action-failed">{t('gitUi.stashes.failed')}</div> : null}
+      {stashes === null && !failed ? <div className="text-xs text-muted-foreground">{t('gitUi.history.loading')}</div> : null}
+      <div className="flex flex-col gap-1">
+        {(stashes ?? []).map((stash) => (
+          <StashRow key={stash.ref} stash={stash} busy={busy} onApply={(drop) => void act(() => applyGitStash(directory, stash.ref, drop))} />
+        ))}
+        {stashes !== null && stashes.length === 0 ? <div className="text-xs text-muted-foreground">{t('gitUi.stashes.empty')}</div> : null}
+      </div>
+    </DialogShell>
+  );
+}
+
+function StashRow({ stash, busy, onApply }: {
+  stash: { ref: string; subject: string }; busy: boolean; onApply: (drop: boolean) => void;
+}): ReactNode {
+  const { t } = useI18n();
+  return (
+    <div className="flex items-center gap-2 rounded px-2 py-1 text-xs text-foreground hover:bg-interactive-hover/30" data-testid="git-stash-row">
+      <span className="font-mono text-[10px] text-muted-foreground">{stash.ref}</span>
+      <span className="min-w-0 flex-1 truncate" title={stash.subject}>{stash.subject}</span>
+      <button type="button" disabled={busy} data-testid="git-stash-apply"
+        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        onClick={() => onApply(false)}>
+        {t('gitUi.stashes.apply')}
+      </button>
+      <button type="button" disabled={busy} data-testid="git-stash-drop"
+        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        onClick={() => onApply(true)}>
+        {t('gitUi.stashes.drop')}
+      </button>
     </div>
   );
 }

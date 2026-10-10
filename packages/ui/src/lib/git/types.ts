@@ -33,4 +33,7 @@ export interface GitApi {
   applyGitHunk(directory: string, path: string, patch: string, action: 'stage' | 'unstage' | 'discard'): Promise<void>;
   commitChanges(directory: string, message: string): Promise<{ committed: true; hash: string | null }>;
   syncGitBranch(directory: string): Promise<{ synced: true; branch: string; pulled: boolean; pushed: boolean }>;
+  fetchGitStashes(directory: string): Promise<{ stashes: { ref: string; subject: string }[] } | null>;
+  createGitStash(directory: string, message: string | null): Promise<{ stashed: boolean; empty: boolean }>;
+  applyGitStash(directory: string, ref: string, drop: boolean): Promise<{ applied: boolean; dropped: boolean }>;
 }

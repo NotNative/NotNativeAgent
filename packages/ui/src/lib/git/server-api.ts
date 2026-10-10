@@ -82,3 +82,15 @@ export async function commitChanges(directory: string, message: string): Promise
 export async function syncGitBranch(directory: string): Promise<{ synced: true; branch: string; pulled: boolean; pushed: boolean }> {
   return postJson(`/api/git/sync?directory=${encodeURIComponent(directory)}`, {});
 }
+
+export async function fetchGitStashes(directory: string): Promise<{ stashes: { ref: string; subject: string }[] } | null> {
+  return getJson(`/api/git/stashes?directory=${encodeURIComponent(directory)}`);
+}
+
+export async function createGitStash(directory: string, message: string | null): Promise<{ stashed: boolean; empty: boolean }> {
+  return postJson(`/api/git/stash?directory=${encodeURIComponent(directory)}`, { message });
+}
+
+export async function applyGitStash(directory: string, ref: string, drop: boolean): Promise<{ applied: boolean; dropped: boolean }> {
+  return postJson(`/api/git/stash-apply?directory=${encodeURIComponent(directory)}`, { ref, drop });
+}

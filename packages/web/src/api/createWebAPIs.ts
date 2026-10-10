@@ -105,5 +105,8 @@ function createWebGitApi(): RuntimeAPIs['git'] {
     applyGitHunk: gitApi.applyGitHunk,
     commitChanges: gitApi.commitChanges,
     syncGitBranch: gitApi.syncGitBranch,
+    fetchGitStashes: gitApi.fetchGitStashes,
+    createGitStash: gitApi.createGitStash,
+    applyGitStash: gitApi.applyGitStash,
   };
 }
