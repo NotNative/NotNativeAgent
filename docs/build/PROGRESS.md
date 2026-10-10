@@ -3,7 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
-## 2026-10-10 · F6.2 rich previews: markdown/JSON/PDF · NND 20261010-25 / NNA 20261009-5
+## 2026-10-10 · F6.3 image diffs in file preview · NND 20261010-27 / NNA 20261009-5
+
+Binary-patch image files show before/after from /api/git/file-diff on the
+working rail; staged rail keeps the binary card (endpoint semantics). 3
+i18n keys across all 12 catalogs. Reviewer SHIP; stale-state note fixed.
+Implemented-unverified. Gates green for 877 files.
+
+## 2026-10-10 · F6.2 rich previews: markdown/JSON/PDF · NND 20261010-26 / NNA 20261009-5
 
 Markdown renders via the hardened markdown-lite pipeline in view mode, JSON
 pretty-prints with raw fallback, PDFs move to a fully-sandboxed viewer pane.
