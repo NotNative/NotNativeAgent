@@ -3,6 +3,13 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · F5 helper-caller inventory · NND 20261010-9 / NNA 20261009-5
+
+Every model-helper caller mapped: notifications and goal audit native;
+walkthrough native except its explicit-model branch; session assist has no
+native operation to move to (NNA-side gap recorded), so the legacy provider
+seam stays open. Scope source for the F5 rewiring slice.
+
 ## 2026-10-10 · Stale MCP mismatch retired · NND 20261010-8 / NNA 20261009-5
 
 The `known_mismatches` census row "MCP editor writes OpenCode configuration"

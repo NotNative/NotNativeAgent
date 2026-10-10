@@ -18,6 +18,17 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 F5 helper-caller inventory (F5, inventory only)
+
+NND `20261010-9` adds `docs/build/EXECUTION/f5-helper-callers.md`: every
+model-helper caller mapped to its wire. Notifications and goal audit already
+ride native operations; the walkthrough default path is native but its
+explicit-model branch still resolves providers through the legacy seam (the
+native walkthrough route binds to the primary route and rejects a model
+override, so that branch cannot move for free); session assist has no NNA
+operation to ride (NNA-side gap recorded), so the
+`provider-ports` legacy reads and the census F5 mismatch row stay open. No production code changed.
+
 ## 2026-10-10 stale MCP mismatch retired (C5, census-only)
 
 NND `20261010-8` removes the `known_mismatches` row "MCP editor writes
