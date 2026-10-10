@@ -18,6 +18,28 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 C4 focused scheduling control (implemented-unverified)
+
+NND `20261010-1` adds the `tool_concurrency` focused control to the provider
+scheduling block of `native-configuration-controls.tsx` (bounds 1–16 mirror
+NNA `configuration-rules.js` integer rule; preview rejects out-of-range
+drafts with `invalid_limit`, `/save` revalidates, `loop.js` enforces
+`tool_concurrency_invalid` at runtime). The bounded-scalar test gained the
+`Parallel tool limit` row with its min/max assertions; the scheduling-block
+assertion now requires the control. Census row `manifest:tool_concurrency`
+updated to the new surface with status `unverified` — the UI suite was last
+green at `20261009-12` and the new assertion has not been executed in this
+environment (vitest spawns unavailable). Adversarial review caught two
+earlier claims that had not actually landed (test body, census row); both are
+now real and reviewed again sound. C4 code gaps remaining per the gap map:
+typed primary/subagent route scalars (S2/S3), typed telemetry block (S4, no
+application claim — NNA ships no exporter), persistence enum +
+`application_system_prompt` (S5), recovery ladder + wall clock (M1), profile
+`context_limit_bytes`/`output_limit_tokens`/`tool_call_mode` (M2),
+secret-reference credential binding with explicit clear (M3), ordered
+capability/fallback list editors (M4). [NNA-side] trust_zone writes,
+capability probes, telemetry application moment.
+
 ## 2026-10-10 installed deep-link ingress probe (A5, implemented-unverified)
 
 NND `20261009-13` wires the direct installed deep-link ingress proof into

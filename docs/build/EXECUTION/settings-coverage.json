@@ -915,11 +915,11 @@
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-configuration.tsx",
-    "status": "verified"
+    "status": "unverified"
    },
    "sensitivity": "unverified",
    "work_package": "C1",
-   "implementation_package": "C1 stage 2 citation repair (20261007-28)",
+   "implementation_package": "C1 stage 2 citation repair (20261007-28); C4 focused scheduling control (20261010-1, suite rerun pending)",
    "state": "open",
    "evidence": {
     "source_symbols": [
@@ -929,10 +929,10 @@
     ],
     "tests_run": [
      "NNA test/nnd-configuration-routes.test.js (preview and mutation responses explicitly project safe fields; the real native service read, preview, save and operation use the same safe HTTP contract) and test/nnd-configuration-view.test.js (explicit and effective values with provenance)",
-     "packages/ui packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx (the bounded-scalar test names tool_concurrency, holds it out of the focused blocks, and asserts it is offered in the catalog-gated field chooser where the raw value is edited)"
+     "packages/ui packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx (the bounded-scalar test names tool_concurrency inside the provider scheduling block and asserts its bounded input renders min 1 max 16; the chooser still lists the path, and selecting it shows the bounded number input (the raw JSON textarea is suppressed for scheduling rows))"
     ]
    },
-   "notes": "Pinned 20261007-11: default 1 bounded 1 to 16, read per subagent fan-out; no focused block: the row is offered in the catalog-gated field chooser for raw editing. The class follows NNA catalog metadata (unverified). Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the field chooser entry, not a block of its own: the test asserts it appears in the chooser and is absent from the focused blocks. Named instead: packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx."
+   "notes": "Pinned 20261007-11: default 1 bounded 1 to 16, read per subagent fan-out; 20261010-1: a focused control joined the provider scheduling block (bounds mirror src/configuration-rules.js integer 1 to 16; a preview rejects out-of-range drafts with invalid_limit and /save revalidates; src/tools/loop.js enforces tool_concurrency_invalid at runtime). The chooser still lists the path. The class follows NNA catalog metadata (unverified). Citation repaired 20261007-28: the row carried a whole-suite description where a test file belongs, which proves nothing about this row. Shown: the field chooser entry, not a block of its own: the test asserts it appears in the chooser and is absent from the focused blocks. Named instead: packages/ui/src/components/settings/__tests__/native-configuration-controls.test.tsx. Status unverified: the focused-control test entry was added but the suite was last green at NND 20261009-12 and was not re-run in this environment (vitest spawns are unavailable); the consolidated verification pass reruns it."
   },
   {
    "id": "manifest:persistence_flush_timeout_ms",

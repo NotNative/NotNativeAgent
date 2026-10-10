@@ -18,9 +18,14 @@ const MEMORY_LIMITS: Record<string, { label: 'settings.nativeMemory.timeout' | '
 const MEMORY_BOOLEAN: Record<string, 'settings.nativeMemory.enabled' | 'settings.nativeMemory.required'> = {
   'memory.enabled': 'settings.nativeMemory.enabled', 'memory.required': 'settings.nativeMemory.required',
 };
-const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeScheduling.concurrency' | 'settings.nativeScheduling.queueLimit'; min: number; max: number }> = {
+const PROVIDER_SCHEDULING: Record<string, { label: 'settings.nativeScheduling.concurrency' | 'settings.nativeScheduling.queueLimit'
+  | 'settings.nativeScheduling.toolConcurrency'; min: number; max: number }> = {
   provider_concurrency: { label: 'settings.nativeScheduling.concurrency', min: 1, max: 16 },
   provider_queue_limit: { label: 'settings.nativeScheduling.queueLimit', min: 1, max: 4096 },
+  // NNA bounds this at src/configuration-rules.js integer('tool_concurrency', 1, 1, 16):
+  // a preview rejects out-of-range drafts with invalid_limit and /save revalidates;
+  // src/tools/loop.js additionally throws tool_concurrency_invalid at runtime.
+  tool_concurrency: { label: 'settings.nativeScheduling.toolConcurrency', min: 1, max: 16 },
 };
 const RECOVERY_BUDGETS: Record<string, { label: 'settings.nativeRecovery.maxSteps' | 'settings.nativeRecovery.retryLimit';
   min: number; max: number }> = {

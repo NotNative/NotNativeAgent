@@ -314,8 +314,10 @@ control carries a compatibility warning instead of claiming that every
 connected NNA preserves them. Telemetry stays in the generic
 editor because NNA does not yet ship a telemetry exporter. Other execution
 and context scalars remain generic JSON controls without complete
-family-specific UX or installed application evidence. `tool_concurrency` is
-one of them: it has no focused block, only the catalog-gated field chooser.
+family-specific UX or installed application evidence. `tool_concurrency` joined
+the provider scheduling block as a focused control at `20261010-1` (bounded 1–16
+mirroring `configuration-rules.js`); its suite coverage awaits the consolidated
+verification rerun.
 Where NNA derives a value rather than reading it from the manifest, the view
 shows the value with an `Unavailable` origin instead of guessing a layer —
 the global provider timeout follows the primary route deadline, the idle

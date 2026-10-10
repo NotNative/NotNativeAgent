@@ -952,9 +952,9 @@ it('renders all three attachment census rows in the attachment block with the na
 
 it('renders every bounded manifest scalar row in its block with the native bounds', async () => {
   // Integer bounds mirror src/configuration-rules.js exactly; NNA owns them
-  // and the input carries them. tool_concurrency has no focused block: it is
-  // offered only in the catalog-gated field chooser, where the raw JSON
-  // value is edited.
+  // and the input carries them. tool_concurrency also appears in the
+  // catalog-gated chooser, but once selected the bounded number input edits
+  // it (the raw JSON textarea is suppressed for scheduling rows).
   const bounded: Array<[string, string, number, number, number]> = [
     ['Global provider timeout (ms)', 'provider_timeout_ms', 1800000, 100, 86400000],
     ['Provider connection timeout (ms)', 'provider_connect_timeout_ms', 10000, 100, 600000],
@@ -962,12 +962,12 @@ it('renders every bounded manifest scalar row in its block with the native bound
     ['Approval wait (ms)', 'approval_timeout_ms', 120000, 1000, 3600000],
     ['Concurrent provider requests', 'provider_concurrency', 1, 1, 16],
     ['Provider queue limit', 'provider_queue_limit', 256, 1, 4096],
+    ['Parallel tool limit', 'tool_concurrency', 1, 1, 16],
     ['Persistence flush timeout (ms)', 'persistence_flush_timeout_ms', 10000, 100, 120000],
     ['Shutdown timeout (ms)', 'shutdown_timeout_ms', 15000, 100, 120000],
     ['Context byte ceiling', 'context_limit_bytes', 2097152, 65536, 16777216],
   ];
   const valueOf = new Map(bounded.map(([, path, value]) => [path, value] as const));
-  valueOf.set('tool_concurrency', 1);
   const scalarView: NativeConfigurationView = {
     ...view,
     fields: [...valueOf].map(([path, value]) => ({
@@ -981,7 +981,7 @@ it('renders every bounded manifest scalar row in its block with the native bound
   mount(scalarView); await act(async () => {});
   expect(container.querySelector('select')?.textContent).toContain('tool_concurrency');
   expect(container.querySelector('[data-settings-item="native-configuration.provider-scheduling"]')?.textContent)
-    .not.toContain('tool_concurrency');
+    .toContain('Parallel tool limit');
   for (const [label, , value, min, max] of bounded) {
     expect(container.textContent, label).toContain(label);
     await act(async () => button(label).click());

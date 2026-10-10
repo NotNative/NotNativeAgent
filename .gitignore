@@ -16,3 +16,4 @@ packages/electron/install-mode.txt
 .tmp/
 .tmp-nnd-*.txt
 .tmp-nnd-*.patch
+/.tmp-acl-recovery/

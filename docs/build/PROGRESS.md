@@ -3,6 +3,18 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · C4 focused scheduling control · NND 20261010-1 / NNA 20261009-5
+
+`tool_concurrency` gained a focused control in the provider scheduling block
+(bounded 1–16 mirroring `configuration-rules.js`; the preview rejects
+out-of-range drafts with `invalid_limit` and `/save` revalidates; the engine
+loop separately enforces `tool_concurrency_invalid`). The bounded-scalar test
+grew a `Parallel tool limit` row asserting the input's 1–16 bounds and the
+scheduling block now asserts the control is present. The census row reports
+the surface with status `unverified`: the suite was last green at
+`20261009-12` and was not re-run here. Earlier notes describing the
+catalog-gated chooser as the only surface for this field are superseded.
+
 ## 2026-10-10 · Deep-link ingress probe wired · NND 20261009-13 / NNA 20261009-5 (installed run deferred)
 
 The native-alpha deep-link surface now has a direct ingress proof in the
