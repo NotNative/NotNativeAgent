@@ -3,6 +3,13 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Commit graph in history · NND 20261010-33 / NNA 20261009-5
+
+/api/git/log carries parents; pure lane allocator with free-lane reuse and
+curve-back edges; SVG glyph per history row. Reviewer FIX-FIRST (lane leak,
+out-of-order parents) → fixed and pinned by tests. Implemented-unverified.
+81 git/lib tests green; gates green for 882 modules.
+
 ## 2026-10-10 · F6.3 stash lifecycle · NND 20261010-30 / NNA 20261009-5
 
 Stash list/create/apply/drop behind /api/git/stashes* with a workbench
